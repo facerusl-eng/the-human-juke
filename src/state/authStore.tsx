@@ -257,10 +257,6 @@ function AuthProvider({ children }: PropsWithChildren) {
       signInHost: async (email: string, password: string) => {
         const normalizedEmail = email.trim().toLowerCase()
 
-        if (ALLOWED_HOST_EMAIL && normalizedEmail !== ALLOWED_HOST_EMAIL) {
-          throw new Error('Use the configured host email for this project.')
-        }
-
         const {
           data: { session: existingSession },
           error: sessionError,
