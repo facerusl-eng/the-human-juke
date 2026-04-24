@@ -29,6 +29,24 @@
   gap: 0.45rem;
 }
 
+.mobile-nav-toggle {
+  display: none;
+  border: 1px solid rgba(93, 215, 255, 0.4);
+  background: rgba(12, 20, 44, 0.82);
+  color: #f7fbff;
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.mobile-nav-toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .auth-strip {
   display: flex;
   gap: 0.55rem;
@@ -3133,6 +3151,26 @@
 }
 
 @media (max-width: 720px) {
+  .app-shell {
+    padding: 0.8rem;
+  }
+
+  .topbar {
+    align-items: stretch;
+    padding-inline: 0;
+  }
+
+  .topbar-admin {
+    gap: 0.8rem;
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+  }
+
   .audience-shell {
     grid-template-columns: 1fr;
   }
@@ -3216,23 +3254,58 @@
 
   .site-nav {
     width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+  }
+
+  .site-nav-admin {
+    display: none;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .site-nav-admin.site-nav-open {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 
   .auth-strip {
     width: 100%;
+    align-items: stretch;
   }
 
   .inline-auth-form {
     width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .inline-auth-form input {
     flex: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .inline-auth-form .primary-button,
+  .auth-strip .ghost-button,
+  .gig-control-actions .primary-button,
+  .gig-control-actions .secondary-button,
+  .gig-control-actions .ghost-button,
+  .queue-actions .secondary-button,
+  .queue-actions .primary-button {
+    width: 100%;
   }
 
   .site-nav a {
-    flex: 1;
+    flex: 0 0 auto;
     text-align: center;
+    white-space: nowrap;
+  }
+
+  .site-nav-admin a {
+    width: 100%;
   }
 
   .stats {
@@ -3260,7 +3333,17 @@
   }
 
   .admin-hub-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  .gig-control-actions,
+  .queue-actions {
+    width: 100%;
+  }
+
+  .gig-switcher-select,
+  .queue-actions > * {
+    width: 100%;
   }
 
   .gig-control-queue .gig-control-row {

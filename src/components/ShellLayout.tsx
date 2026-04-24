@@ -10,10 +10,19 @@ function ShellLayout() {
   const [password, setPassword] = useState('')
   const [errorText, setErrorText] = useState<string | null>(null)
   const [hasAudienceAccess, setHasAudienceAccess] = useState(() => Boolean(readCommittedAudienceName()))
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
+  const isAdminMode = location.pathname.startsWith('/admin')
+  const showAdminMobileMenu = isAdminMode && !isAudienceMode
   const shellClassName = location.pathname.startsWith('/admin/setlist-library')
     ? 'app-shell app-shell-wide'
     : 'app-shell'
+  const topbarClassName = isAdminMode ? 'topbar topbar-admin' : 'topbar'
+  const siteNavClassName = [
+    'site-nav',
+    isAdminMode ? 'site-nav-admin' : '',
+    isMobileNavOpen ? 'site-nav-open' : '',
+  ].filter(Boolean).join(' ')
 
   useEffect(() => {
     const syncAudienceAccess = () => {
@@ -30,13 +39,28 @@ function ShellLayout() {
     }
   }, [])
 
+  useEffect(() => {
+    setIsMobileNavOpen(false)
+  }, [location.pathname])
+
   return (
     <main className={shellClassName}>
-      <header className="topbar">
+      <header className={topbarClassName}>
         <p className="brand" aria-label="The Human Jukebox">
           <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
         </p>
-        <nav className="site-nav" aria-label="Primary navigation">
+        {showAdminMobileMenu ? (
+          <button
+            type="button"
+            className="mobile-nav-toggle"
+            aria-expanded={isMobileNavOpen}
+            aria-controls="primary-site-nav"
+            onClick={() => setIsMobileNavOpen((open) => !open)}
+          >
+            {isMobileNavOpen ? 'Close menu' : 'Menu'}
+          </button>
+        ) : null}
+        <nav id="primary-site-nav" className={siteNavClassName} aria-label="Primary navigation">
           {isAudienceMode ? (
             <>
               <NavLink to="/audience">Audience</NavLink>
