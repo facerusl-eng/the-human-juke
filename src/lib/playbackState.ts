@@ -54,12 +54,40 @@ export const BETWEEN_SONG_QUOTES = [
 import { supabase } from './supabase'
 
 export const PLAYBACK_STATE_EVENT = 'human-jukebox:playback-state'
+export const PLAYBACK_STATE_STORAGE_KEY = 'human-jukebox:playback-state-sync'
+export const PLAYBACK_STATE_BROADCAST_CHANNEL = 'human-jukebox:playback-state'
 
 export type SharedPlaybackState = {
   currentSongId: string | null
   currentSongCoverUrl: string | null
   isStarted: boolean
   quoteIndex: number
+}
+
+type SharedPlaybackStateMessage = {
+  eventId: string
+  state: SharedPlaybackState
+  timestamp: number
+}
+
+function broadcastPlaybackState(message: SharedPlaybackStateMessage) {
+  window.dispatchEvent(new CustomEvent(PLAYBACK_STATE_EVENT, { detail: message }))
+
+  try {
+    window.localStorage.setItem(PLAYBACK_STATE_STORAGE_KEY, JSON.stringify(message))
+  } catch {
+    // Ignore storage quota/private mode failures.
+  }
+
+  try {
+    if ('BroadcastChannel' in window) {
+      const channel = new BroadcastChannel(PLAYBACK_STATE_BROADCAST_CHANNEL)
+      channel.postMessage(message)
+      channel.close()
+    }
+  } catch {
+    // Ignore BroadcastChannel support/runtime failures.
+  }
 }
 
 export async function readSharedPlaybackState(eventId: string): Promise<SharedPlaybackState | null> {
@@ -90,14 +118,27 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
 export async function writeSharedPlaybackState(eventId: string, state: SharedPlaybackState): Promise<void> {
   try {
     const normalizedQuoteIndex = Number.isFinite(state.quoteIndex) ? state.quoteIndex : 0
+    const normalizedState: SharedPlaybackState = {
+      currentSongId: state.currentSongId,
+      currentSongCoverUrl: state.currentSongCoverUrl,
+      isStarted: state.isStarted,
+      quoteIndex: normalizedQuoteIndex,
+    }
+
+    // Push update immediately to other local tabs/screens before network roundtrip.
+    broadcastPlaybackState({
+      eventId,
+      state: normalizedState,
+      timestamp: Date.now(),
+    })
 
     const { error } = await supabase
       .from('playback_state')
       .upsert({
         event_id: eventId,
-        current_song_id: state.currentSongId,
-        current_song_cover_url: state.currentSongCoverUrl,
-        is_started: state.isStarted,
+        current_song_id: normalizedState.currentSongId,
+        current_song_cover_url: normalizedState.currentSongCoverUrl,
+        is_started: normalizedState.isStarted,
         quote_index: normalizedQuoteIndex,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'event_id' })
@@ -106,8 +147,6 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
       console.error('Failed to write playback state:', error)
       return
     }
-
-    window.dispatchEvent(new CustomEvent(PLAYBACK_STATE_EVENT, { detail: { eventId, state } }))
   } catch (err) {
     console.error('Error writing playback state:', err)
   }

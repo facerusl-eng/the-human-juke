@@ -2462,7 +2462,7 @@
 
 .mirror-now-playing-track {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: clamp(0.65rem, 1.5vw, 1.2rem);
   align-items: start;
 }
@@ -2486,17 +2486,24 @@
 .mirror-now-playing-meta {
   display: grid;
   gap: 0.08rem;
+  min-width: 0;
 }
 
 .mirror-title {
   margin: 0;
   font-size: clamp(1.55rem, 3.6vw, 2.8rem);
-  line-height: 1.02;
+  line-height: 1.04;
   color: #ffffff;
   text-shadow:
     0 0 30px rgba(93, 215, 255, 0.4),
     0 0 60px rgba(93, 215, 255, 0.2);
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .mirror-artist {
@@ -2504,17 +2511,25 @@
   font-size: clamp(0.82rem, 1.45vw, 1.1rem);
   color: #8ec5ff;
   font-weight: 400;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .mirror-between-songs-quote {
   margin: 0;
-  max-width: 16ch;
-  font-size: clamp(2.5rem, 7vw, 5.6rem);
-  line-height: 1.02;
+  max-width: min(20ch, 100%);
+  font-size: clamp(2rem, 5.6vw, 4.8rem);
+  line-height: 1.06;
   color: #f8fbff;
   text-shadow:
     0 0 28px rgba(93, 215, 255, 0.28),
     0 0 54px rgba(93, 215, 255, 0.12);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mirror-pre-show {
@@ -2653,17 +2668,22 @@
   align-items: baseline;
   gap: 0.75rem;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .mirror-queue-title {
   font-size: clamp(1rem, 2.2vw, 1.6rem);
   font-weight: 700;
   color: #f7fbff;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mirror-queue-artist {
   font-size: clamp(0.85rem, 1.6vw, 1.2rem);
   color: #8ea6d1;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mirror-queue-votes {

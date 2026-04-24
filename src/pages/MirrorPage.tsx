@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import {
+  PLAYBACK_STATE_BROADCAST_CHANNEL,
   BETWEEN_SONG_QUOTES,
   PLAYBACK_STATE_EVENT,
+  PLAYBACK_STATE_STORAGE_KEY,
   readSharedPlaybackState,
   type SharedPlaybackState,
 } from '../lib/playbackState'
@@ -128,6 +130,7 @@ function MirrorPage() {
 
     let isCurrent = true
     let subscription: ReturnType<typeof supabase.channel> | null = null
+    let playbackBroadcastChannel: BroadcastChannel | null = null
 
     const syncPlaybackState = async () => {
       if (!isCurrent) return
@@ -163,9 +166,35 @@ function MirrorPage() {
       }
     }
 
+    const onStoragePlaybackState = (nextEvent: StorageEvent) => {
+      if (nextEvent.key !== PLAYBACK_STATE_STORAGE_KEY || !nextEvent.newValue) {
+        return
+      }
+
+      try {
+        const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
+        if (detail.eventId === eventId && detail.state) {
+          setPlaybackState(detail.state)
+        }
+      } catch {
+        // Ignore malformed storage payloads.
+      }
+    }
+
     void syncPlaybackState()
     setupSubscription()
     window.addEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
+    window.addEventListener('storage', onStoragePlaybackState)
+
+    if ('BroadcastChannel' in window) {
+      playbackBroadcastChannel = new BroadcastChannel(PLAYBACK_STATE_BROADCAST_CHANNEL)
+      playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
+        const detail = messageEvent.data
+        if (detail?.eventId === eventId && detail.state) {
+          setPlaybackState(detail.state)
+        }
+      }
+    }
 
     return () => {
       isCurrent = false
@@ -173,6 +202,8 @@ function MirrorPage() {
         void subscription.unsubscribe()
       }
       window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
+      window.removeEventListener('storage', onStoragePlaybackState)
+      playbackBroadcastChannel?.close()
     }
   }, [eventId])
 
