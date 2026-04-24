@@ -277,18 +277,7 @@ function AuthProvider({ children }: PropsWithChildren) {
           throw signInResult.error
         }
 
-        const signUpResult = await supabase.auth.signUp({
-          email: normalizedEmail,
-          password,
-        })
-
-        if (signUpResult.error) {
-          throw signUpResult.error
-        }
-
-        if (!signUpResult.data.session) {
-          throw new Error('Account created. Check your email inbox and confirm before signing in.')
-        }
+        throw new Error('Invalid email or password.')
       },
       refreshProfile,
       signOut: async () => {
