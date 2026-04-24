@@ -75,6 +75,7 @@ function ShellLayout() {
               {isHost ? (
                 <>
                   <NavLink to="/admin" end>Dashboard</NavLink>
+                  <NavLink to="/admin/gigs">Gigs</NavLink>
                   <NavLink to="/admin/create-gig">New Gig</NavLink>
                   <NavLink to="/admin/gig-control">Gig Control</NavLink>
                   <NavLink to="/admin/gig-settings">Gig Settings</NavLink>

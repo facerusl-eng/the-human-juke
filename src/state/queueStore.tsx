@@ -73,6 +73,7 @@ type QueueContextValue = {
   loading: boolean
   addSong: (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => Promise<void>
   setActiveEvent: (nextEventId: string) => Promise<void>
+  deleteEvent: (targetEventId: string) => Promise<void>
   updateEventSettings: (updates: EventSettingsUpdates) => Promise<void>
   upvoteSong: (songId: string) => Promise<void>
   toggleRoomOpen: () => Promise<void>
@@ -537,6 +538,127 @@ function QueueProvider({ children }: PropsWithChildren) {
         ])
 
         setHostEvents(nextHostEvents)
+        setPerformedSongs([])
+      },
+      deleteEvent: async (targetEventId: string) => {
+        if (!user || !isHostSession) {
+          throw new Error('Host account required to delete a gig.')
+        }
+
+        const targetEvent = hostEvents.find((hostEvent) => hostEvent.id === targetEventId)
+
+        if (!targetEvent) {
+          return
+        }
+
+        const remainingHostEvents = hostEvents.filter((hostEvent) => hostEvent.id !== targetEventId)
+        const isCurrentGig = event?.id === targetEventId
+        const isAudienceActiveGig = targetEvent.isActive
+        const needsFallbackGig = isCurrentGig || isAudienceActiveGig
+        const fallbackGigId = remainingHostEvents.find((hostEvent) => hostEvent.isActive)?.id ?? remainingHostEvents[0]?.id ?? null
+
+        if (needsFallbackGig && fallbackGigId) {
+          await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('events')
+                .update({ is_active: false })
+                .eq('host_id', user.id)
+                .neq('id', fallbackGigId)
+                .eq('is_active', true),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while updating active gig. Please try again.',
+          )
+
+          const { error: activateFallbackError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('events')
+                .update({ is_active: true })
+                .eq('id', fallbackGigId)
+                .eq('host_id', user.id),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while updating active gig. Please try again.',
+          )
+
+          if (activateFallbackError) {
+            throw new Error(activateFallbackError.message)
+          }
+
+          const { error: fallbackProfileError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('profiles')
+                .update({ active_event_id: fallbackGigId })
+                .eq('user_id', user.id),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while switching control to this gig. Please try again.',
+          )
+
+          if (fallbackProfileError) {
+            throw new Error(fallbackProfileError.message)
+          }
+
+          try {
+            await withAuthLockRetry(() => refreshProfile(), 2)
+          } catch {
+            // The profile can recover on the next load if refresh contention occurs.
+          }
+        } else if (needsFallbackGig) {
+          const { error: clearProfileError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('profiles')
+                .update({ active_event_id: null })
+                .eq('user_id', user.id),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while clearing your active gig. Please try again.',
+          )
+
+          if (clearProfileError) {
+            throw new Error(clearProfileError.message)
+          }
+
+          try {
+            await withAuthLockRetry(() => refreshProfile(), 2)
+          } catch {
+            // The profile can recover on the next load if refresh contention occurs.
+          }
+        }
+
+        const { error: deleteError } = await withTimeout(
+          withAuthLockRetry(() =>
+            supabase
+              .from('events')
+              .delete()
+              .eq('id', targetEventId)
+              .eq('host_id', user.id),
+          ),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Timed out while deleting gig. Please try again.',
+        )
+
+        if (deleteError) {
+          throw new Error(deleteError.message)
+        }
+
+        const nextHostEvents = await fetchHostEvents(user.id)
+        setHostEvents(nextHostEvents)
+
+        const resolvedActiveGigId = nextHostEvents.find((hostEvent) => hostEvent.isActive)?.id ?? fallbackGigId
+
+        if (resolvedActiveGigId) {
+          await fetchQueueSnapshot(resolvedActiveGigId)
+          setPerformedSongs([])
+          return
+        }
+
+        setEvent(null)
+        setSongs([])
         setPerformedSongs([])
       },
       updateEventSettings: async (updates: EventSettingsUpdates) => {

@@ -1534,6 +1534,88 @@
 
 /* ─── ADMIN HUB ──────────────────────────────────── */
 
+.gigs-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.gigs-hero-card,
+.gigs-list-panel {
+  border: 1px solid rgba(93, 215, 255, 0.34);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(93, 215, 255, 0.14) 0%, transparent 34%),
+    linear-gradient(145deg, rgba(15, 20, 42, 0.94) 0%, rgba(23, 28, 58, 0.96) 100%);
+  box-shadow:
+    0 16px 36px rgba(8, 10, 36, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.gigs-shell h1,
+.gigs-shell h2,
+.gigs-shell .eyebrow,
+.gigs-shell .gig-management-title,
+.gigs-shell .panel-head h2 {
+  color: #f7fbff;
+}
+
+.gigs-shell .subcopy,
+.gigs-shell .gig-management-meta {
+  color: #b8d2ff;
+}
+
+.gig-management-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.gig-management-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(93, 215, 255, 0.24);
+  border-radius: 16px;
+  background: rgba(10, 15, 35, 0.56);
+}
+
+.gig-management-main {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.gig-management-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.gig-management-title,
+.gig-management-meta {
+  margin: 0;
+}
+
+.gig-management-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.gig-management-meta {
+  font-size: 0.9rem;
+}
+
+.gig-management-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
 .admin-hub-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -3155,6 +3237,11 @@
     padding: 0.8rem;
   }
 
+  .home-shell .hero-actions > *,
+  .gigs-shell .hero-actions > * {
+    width: 100%;
+  }
+
   .topbar {
     align-items: stretch;
     padding-inline: 0;
@@ -3312,6 +3399,24 @@
     grid-template-columns: 1fr;
   }
 
+  .home-shell .queue-list li,
+  .gig-management-entry,
+  .gig-mirror-preview-top,
+  .gig-mirror-preview-list li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .home-shell .votes,
+  .gig-mirror-preview-list li > span:last-child {
+    align-self: flex-start;
+  }
+
+  .gig-management-actions,
+  .gig-management-actions > * {
+    width: 100%;
+  }
+
   .panel-head {
     align-items: flex-start;
     flex-direction: column;
@@ -3330,6 +3435,28 @@
 
   .gig-control-top-grid {
     grid-template-columns: 1fr;
+  }
+
+  .gig-control-qr-card {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .gig-control-qr-card .subcopy {
+    text-align: center;
+  }
+
+  .gig-mirror-preview-now-playing-row {
+    grid-template-columns: 1fr;
+  }
+
+  .gig-mirror-preview-now-playing-cover {
+    width: 72px;
+    height: 72px;
+  }
+
+  .gig-mirror-preview-frame {
+    min-height: 0;
   }
 
   .admin-hub-grid {

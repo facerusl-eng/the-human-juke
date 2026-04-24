@@ -52,6 +52,16 @@ function AdminPage() {
         <button
           type="button"
           className="admin-hub-card"
+          onClick={() => navigate('/admin/gigs')}
+        >
+          <span className="hub-icon">🗂</span>
+          <strong>Gigs</strong>
+          <p>See every gig you have created, choose one to run, or delete old gigs.</p>
+        </button>
+
+        <button
+          type="button"
+          className="admin-hub-card"
           onClick={() => navigate('/admin/create-gig')}
         >
           <span className="hub-icon">＋</span>

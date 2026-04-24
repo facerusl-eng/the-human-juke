@@ -8,6 +8,7 @@ import EventPage from './pages/EventPage'
 import FeedPage from './pages/FeedPage'
 import GigControlPage from './pages/GigControlPage'
 import GigSettingsPage from './pages/GigSettingsPage'
+import GigsPage from './pages/GigsPage'
 import HomePage from './pages/HomePage'
 import MirrorPage from './pages/MirrorPage'
 import SetlistLibraryPage from './pages/SetlistLibraryPage'
@@ -55,6 +56,14 @@ const router = createBrowserRouter([
         element: (
           <RequireHost>
             <CreateGigPage />
+          </RequireHost>
+        ),
+      },
+      {
+        path: 'admin/gigs',
+        element: (
+          <RequireHost>
+            <GigsPage />
           </RequireHost>
         ),
       },

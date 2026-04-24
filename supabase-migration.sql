@@ -360,3 +360,18 @@ BEGIN
       USING (is_host_for_event(event_id));
   END IF;
 END $$;
+
+-- Allow hosts to delete gigs safely and clear host profile pointers when a gig is removed
+DROP POLICY IF EXISTS events_delete_host ON public.events;
+CREATE POLICY events_delete_host ON public.events
+  FOR DELETE TO authenticated
+  USING (host_id = auth.uid());
+
+ALTER TABLE public.profiles
+  DROP CONSTRAINT IF EXISTS profiles_active_event_id_fkey;
+
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_active_event_id_fkey
+  FOREIGN KEY (active_event_id)
+  REFERENCES public.events(id)
+  ON DELETE SET NULL;
