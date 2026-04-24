@@ -751,6 +751,44 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error(insertError.message)
         }
 
+        // Seed a brand-new gig with one host playlist so audience setlist mode is immediately usable.
+        const { data: defaultPlaylist, error: defaultPlaylistError } = await withTimeout(
+          withAuthLockRetry(() =>
+            supabase
+              .from('playlists')
+              .select('id')
+              .eq('user_id', authenticatedUserId)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle(),
+          ),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Timed out while loading your playlists for the new gig. Please try again.',
+        )
+
+        if (defaultPlaylistError) {
+          throw new Error(defaultPlaylistError.message)
+        }
+
+        if (defaultPlaylist?.id) {
+          const { error: linkPlaylistError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('event_playlists')
+                .insert({
+                  event_id: newEvent.id,
+                  playlist_id: defaultPlaylist.id,
+                }),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while linking a default playlist to the new gig. Please try again.',
+          )
+
+          if (linkPlaylistError) {
+            throw new Error(linkPlaylistError.message)
+          }
+        }
+
         const { error: profileError } = await withTimeout(
           withAuthLockRetry(() =>
             supabase

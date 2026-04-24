@@ -9,7 +9,22 @@ import {
   readSharedPlaybackState,
   type SharedPlaybackState,
 } from '../lib/playbackState'
+import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
+
+function normalizeCoverUrl(coverUrl: string | null | undefined) {
+  if (!coverUrl) {
+    return null
+  }
+
+  const trimmedCoverUrl = coverUrl.trim()
+
+  if (!trimmedCoverUrl) {
+    return null
+  }
+
+  return trimmedCoverUrl.replace(/^http:\/\//i, 'https://')
+}
 
 type HostProfile = {
   display_name: string | null
@@ -342,6 +357,51 @@ function EventPage() {
   }, [event?.id, playlistOnlyRequests])
 
   useEffect(() => {
+    const songsMissingArtwork = curatedSongs
+      .filter((song) => !song.cover_url?.trim())
+      .slice(0, 8)
+
+    if (!songsMissingArtwork.length) {
+      return
+    }
+
+    let isCancelled = false
+
+    const hydrateArtwork = async () => {
+      for (const song of songsMissingArtwork) {
+        const coverUrl = await fetchSongArtwork(song.title, song.artist)
+
+        if (!coverUrl || isCancelled) {
+          continue
+        }
+
+        const normalizedCoverUrl = normalizeCoverUrl(coverUrl)
+
+        if (!normalizedCoverUrl) {
+          continue
+        }
+
+        const { error } = await supabase
+          .from('library_songs')
+          .update({ cover_url: normalizedCoverUrl })
+          .eq('id', song.id)
+
+        if (!error && !isCancelled) {
+          setCuratedSongs((currentSongs) => currentSongs.map((currentSong) => (
+            currentSong.id === song.id ? { ...currentSong, cover_url: normalizedCoverUrl } : currentSong
+          )))
+        }
+      }
+    }
+
+    void hydrateArtwork()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [curatedSongs])
+
+  useEffect(() => {
     const previousVotes = previousVotesRef.current
     const increasedSongIds: string[] = []
 
@@ -587,7 +647,7 @@ function EventPage() {
           ) : (
             <div className="now-playing-media">
               {displaySongCoverUrl ? (
-                <img src={displaySongCoverUrl} alt={`Cover art for ${displaySong?.title ?? 'current song'}`} className="song-cover song-cover-large" />
+                <img src={normalizeCoverUrl(displaySongCoverUrl) ?? displaySongCoverUrl} alt={`Cover art for ${displaySong?.title ?? 'current song'}`} className="song-cover song-cover-large" />
               ) : null}
               <div>
                 <h2>{displaySong?.title ?? 'Queue is warming up'}</h2>
@@ -615,7 +675,7 @@ function EventPage() {
                 </div>
                 <div className="queue-song-main">
                   {song.cover_url ? (
-                    <img src={song.cover_url} alt={`Cover art for ${song.title}`} className="song-cover" />
+                    <img src={normalizeCoverUrl(song.cover_url) ?? song.cover_url} alt={`Cover art for ${song.title}`} className="song-cover" />
                   ) : null}
                   <div>
                   <p className="song">{song.title}</p>
@@ -763,7 +823,7 @@ function EventPage() {
                                     }}
                                   >
                                     {song.cover_url ? (
-                                      <img src={song.cover_url} alt={`Cover art for ${song.title}`} className="curated-pick-cover" />
+                                      <img src={normalizeCoverUrl(song.cover_url) ?? song.cover_url} alt={`Cover art for ${song.title}`} className="curated-pick-cover" />
                                     ) : (
                                       <span className="curated-pick-fallback" aria-hidden="true">{fallbackInitial}</span>
                                     )}
