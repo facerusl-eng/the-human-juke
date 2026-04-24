@@ -70,7 +70,7 @@ function ShellLayout() {
             <span className="meta-badge">Checking session...</span>
           ) : null}
 
-          {!loading && !user ? (
+          {!loading && !isHost ? (
             <form
               className="inline-auth-form"
               onSubmit={async (event) => {

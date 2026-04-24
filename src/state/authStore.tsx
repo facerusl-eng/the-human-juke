@@ -257,6 +257,26 @@ function AuthProvider({ children }: PropsWithChildren) {
       signInHost: async (email: string, password: string) => {
         const normalizedEmail = email.trim().toLowerCase()
 
+        if (ALLOWED_HOST_EMAIL && normalizedEmail !== ALLOWED_HOST_EMAIL) {
+          throw new Error('Use the configured host email for this project.')
+        }
+
+        const {
+          data: { session: existingSession },
+          error: sessionError,
+        } = await supabase.auth.getSession()
+
+        if (sessionError) {
+          throw sessionError
+        }
+
+        if (existingSession?.user?.is_anonymous) {
+          const { error: signOutError } = await supabase.auth.signOut()
+          if (signOutError) {
+            throw signOutError
+          }
+        }
+
         const signInResult = await supabase.auth.signInWithPassword({
           email: normalizedEmail,
           password,
