@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
 import { DEFAULT_SETLIST_SONGS } from '../lib/defaultSetlist'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
@@ -32,6 +32,181 @@ type CountRow = {
   playlist_id: string
 }
 
+type ImportedSongDraft = {
+  title: string
+  artist: string
+  isExplicit: boolean
+}
+
+function sanitizeCell(value: string) {
+  return value.trim().replace(/^"|"$/g, '').trim()
+}
+
+function parseDelimitedLine(line: string, delimiter: string) {
+  return line.split(delimiter).map((part) => sanitizeCell(part))
+}
+
+function detectDelimiter(line: string) {
+  const delimiters = [',', ';', '\t', '|']
+  const scored = delimiters
+    .map((delimiter) => ({ delimiter, count: line.split(delimiter).length - 1 }))
+    .sort((left, right) => right.count - left.count)
+
+  return scored[0]?.count > 0 ? scored[0].delimiter : null
+}
+
+function normalizeLine(line: string) {
+  return line
+    .trim()
+    .replace(/^\d+[\.)\-]\s*/, '')
+    .replace(/^[\u2022*\-]\s*/, '')
+    .trim()
+}
+
+function parseSongLine(line: string): ImportedSongDraft | null {
+  const normalized = normalizeLine(line)
+
+  if (!normalized) {
+    return null
+  }
+
+  const bySeparatorMatch = normalized.match(/^(.+?)\s+by\s+(.+)$/i)
+  if (bySeparatorMatch) {
+    return {
+      title: bySeparatorMatch[1].trim(),
+      artist: bySeparatorMatch[2].trim(),
+      isExplicit: /\bexplicit\b/i.test(normalized),
+    }
+  }
+
+  const dashParts = normalized.split(/\s[-\u2013\u2014]\s/)
+  if (dashParts.length >= 2) {
+    const title = dashParts[0].trim()
+    const artist = dashParts.slice(1).join(' - ').trim()
+
+    if (title && artist) {
+      return {
+        title,
+        artist,
+        isExplicit: /\bexplicit\b/i.test(normalized),
+      }
+    }
+  }
+
+  return null
+}
+
+function parseSongsFromJson(text: string) {
+  const parsed = JSON.parse(text)
+  const rows = Array.isArray(parsed) ? parsed : [parsed]
+
+  return rows.flatMap((row) => {
+    if (!row || typeof row !== 'object') {
+      return []
+    }
+
+    const source = row as Record<string, unknown>
+    const title = String(source.title ?? source.song ?? source.track ?? '').trim()
+    const artist = String(source.artist ?? source.performer ?? source.band ?? '').trim()
+    const explicitValue = source.explicit ?? source.is_explicit
+
+    if (!title || !artist) {
+      return []
+    }
+
+    return [{
+      title,
+      artist,
+      isExplicit: Boolean(explicitValue),
+    }]
+  })
+}
+
+function parseSongsFromText(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!lines.length) {
+    return [] as ImportedSongDraft[]
+  }
+
+  const delimiter = detectDelimiter(lines[0])
+
+  if (delimiter) {
+    const firstRow = parseDelimitedLine(lines[0], delimiter).map((part) => part.toLowerCase())
+    const titleColumnIndex = firstRow.findIndex((column) => /^(title|song|track)$/.test(column))
+    const artistColumnIndex = firstRow.findIndex((column) => /^(artist|performer|band)$/.test(column))
+    const explicitColumnIndex = firstRow.findIndex((column) => /^(explicit|is_explicit)$/.test(column))
+    const hasHeader = titleColumnIndex !== -1 && artistColumnIndex !== -1
+    const rowStartIndex = hasHeader ? 1 : 0
+
+    const parsedRows = lines.slice(rowStartIndex).flatMap((line) => {
+      const parts = parseDelimitedLine(line, delimiter)
+
+      if (!parts.length) {
+        return []
+      }
+
+      const title = hasHeader
+        ? (parts[titleColumnIndex] ?? '').trim()
+        : (parts[0] ?? '').trim()
+      const artist = hasHeader
+        ? (parts[artistColumnIndex] ?? '').trim()
+        : (parts[1] ?? '').trim()
+
+      if (!title || !artist) {
+        return []
+      }
+
+      const explicitSource = hasHeader && explicitColumnIndex !== -1
+        ? (parts[explicitColumnIndex] ?? '')
+        : ''
+
+      return [{
+        title,
+        artist,
+        isExplicit: /^(true|1|yes|explicit)$/i.test(String(explicitSource).trim()),
+      }]
+    })
+
+    if (parsedRows.length > 0) {
+      return parsedRows
+    }
+  }
+
+  return lines.flatMap((line) => {
+    const parsedSong = parseSongLine(line)
+    return parsedSong ? [parsedSong] : []
+  })
+}
+
+function parseSongsFromFile(fileName: string, text: string) {
+  const normalizedFileName = fileName.trim().toLowerCase()
+
+  if (normalizedFileName.endsWith('.json')) {
+    return parseSongsFromJson(text)
+  }
+
+  return parseSongsFromText(text)
+}
+
+function dedupeSongs(songs: ImportedSongDraft[]) {
+  const seen = new Set<string>()
+
+  return songs.filter((song) => {
+    const key = `${song.title.toLowerCase()}::${song.artist.toLowerCase()}`
+
+    if (seen.has(key)) {
+      return false
+    }
+
+    seen.add(key)
+    return true
+  })
+}
+
 function SetlistLibraryPage() {
   const { user } = useAuthStore()
   const { addSong, event } = useQueueStore()
@@ -50,6 +225,7 @@ function SetlistLibraryPage() {
   const [artistName, setArtistName] = useState('')
   const [isExplicit, setIsExplicit] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [successText, setSuccessText] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
 
   const deferredSearchText = useDeferredValue(searchText)
@@ -184,12 +360,14 @@ function SetlistLibraryPage() {
         setPlaylists(nextPlaylists)
         setPlaylistCounts(nextPlaylistCounts)
         setTotalSongCount(totalSongsResult.count ?? 0)
-        const nextSelectedPlaylistId = selectedPlaylistId && nextPlaylists.some((playlist) => playlist.id === selectedPlaylistId)
-          ? selectedPlaylistId
-          : nextPlaylists[0]?.id ?? null
+        setSelectedPlaylistId((currentPlaylistId) => {
+          const nextSelectedPlaylistId = currentPlaylistId && nextPlaylists.some((playlist) => playlist.id === currentPlaylistId)
+            ? currentPlaylistId
+            : nextPlaylists[0]?.id ?? null
 
-        setSelectedPlaylistId(nextSelectedPlaylistId)
-        setDraftPlaylistName(nextPlaylists.find((playlist) => playlist.id === nextSelectedPlaylistId)?.name ?? '')
+          setDraftPlaylistName(nextPlaylists.find((playlist) => playlist.id === nextSelectedPlaylistId)?.name ?? '')
+          return nextSelectedPlaylistId
+        })
       } catch (error) {
         if (!isCancelled) {
           setErrorText(error instanceof Error ? error.message : 'Unable to load the setlist library.')
@@ -206,7 +384,7 @@ function SetlistLibraryPage() {
     return () => {
       isCancelled = true
     }
-  }, [selectedPlaylistId, userId])
+  }, [userId])
 
   useEffect(() => {
     if (!selectedPlaylistId) {
@@ -299,6 +477,7 @@ function SetlistLibraryPage() {
 
     setBusyAction('create-playlist')
     setErrorText(null)
+    setSuccessText(null)
 
     const { data, error } = await supabase
       .from('playlists')
@@ -332,6 +511,7 @@ function SetlistLibraryPage() {
 
     setBusyAction('rename-playlist')
     setErrorText(null)
+    setSuccessText(null)
 
     const { error } = await supabase
       .from('playlists')
@@ -365,6 +545,7 @@ function SetlistLibraryPage() {
 
     setBusyAction('delete-playlist')
     setErrorText(null)
+    setSuccessText(null)
 
     const { error } = await supabase
       .from('playlists')
@@ -399,6 +580,7 @@ function SetlistLibraryPage() {
 
     setBusyAction('add-song')
     setErrorText(null)
+    setSuccessText(null)
 
     const coverUrl = await fetchSongArtwork(songTitle.trim(), artistName.trim())
 
@@ -453,6 +635,7 @@ function SetlistLibraryPage() {
 
     setBusyAction(`remove-song-${songId}`)
     setErrorText(null)
+    setSuccessText(null)
 
     const { error } = await supabase
       .from('playlist_songs')
@@ -477,6 +660,7 @@ function SetlistLibraryPage() {
   const onAddSongToLiveQueue = async (song: PlaylistSongRecord) => {
     setBusyAction(`queue-song-${song.id}`)
     setErrorText(null)
+    setSuccessText(null)
 
     try {
       await addSong(song.title, song.artist, song.is_explicit, {
@@ -486,6 +670,84 @@ function SetlistLibraryPage() {
       })
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Failed to queue this song.')
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const onImportPlaylistFile = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = changeEvent.target.files?.[0]
+    changeEvent.target.value = ''
+
+    if (!selectedFile) {
+      return
+    }
+
+    if (!userId || !selectedPlaylistId) {
+      setErrorText('Select a playlist first, then import your file.')
+      return
+    }
+
+    setBusyAction('import-file')
+    setErrorText(null)
+    setSuccessText(null)
+
+    try {
+      const fileText = await selectedFile.text()
+      const parsedSongs = dedupeSongs(parseSongsFromFile(selectedFile.name, fileText))
+
+      if (!parsedSongs.length) {
+        throw new Error('No songs found in this file. Use lines like "Song - Artist" or a CSV with title/artist columns.')
+      }
+
+      const { data: insertedSongs, error: insertedSongsError } = await supabase
+        .from('library_songs')
+        .insert(
+          parsedSongs.map((song) => ({
+            user_id: userId,
+            title: song.title,
+            artist: song.artist,
+            is_explicit: song.isExplicit,
+          })),
+        )
+        .select('id, title, artist, cover_url, is_explicit, created_at')
+
+      if (insertedSongsError) {
+        throw insertedSongsError
+      }
+
+      const nextSongsToAdd = (insertedSongs ?? []) as PlaylistSongRecord[]
+      const positionStart = songs.length
+
+      const { error: addToPlaylistError } = await supabase
+        .from('playlist_songs')
+        .insert(
+          nextSongsToAdd.map((song, index) => ({
+            playlist_id: selectedPlaylistId,
+            song_id: song.id,
+            position: positionStart + index,
+          })),
+        )
+
+      if (addToPlaylistError) {
+        throw addToPlaylistError
+      }
+
+      setSongs((currentSongs) => [
+        ...currentSongs,
+        ...nextSongsToAdd.map((song, index) => ({
+          ...song,
+          position: positionStart + index,
+        })),
+      ])
+      setPlaylistCounts((currentCounts) => ({
+        ...currentCounts,
+        [selectedPlaylistId]: (currentCounts[selectedPlaylistId] ?? 0) + nextSongsToAdd.length,
+      }))
+      setTotalSongCount((currentCount) => currentCount + nextSongsToAdd.length)
+      setSuccessText(`Imported ${nextSongsToAdd.length} song${nextSongsToAdd.length === 1 ? '' : 's'} from ${selectedFile.name}.`)
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Unable to import songs from this file.')
     } finally {
       setBusyAction(null)
     }
@@ -638,6 +900,22 @@ function SetlistLibraryPage() {
             </button>
           </form>
 
+          <div className="setlist-import-block">
+            <label className="setlist-search" htmlFor="setlist-import-file">
+              <span>Import song list file</span>
+              <input
+                id="setlist-import-file"
+                type="file"
+                accept=".txt,.csv,.tsv,.json,.md,.m3u,.m3u8,.rtf"
+                onChange={onImportPlaylistFile}
+                disabled={!selectedPlaylistId || busyAction === 'import-file'}
+              />
+            </label>
+            <p className="subcopy no-margin-bottom">
+              Best support: CSV/TSV with title+artist columns, JSON arrays, or text lines like "Song - Artist".
+            </p>
+          </div>
+
           <div className="setlist-table-wrap">
             <table className="setlist-table">
               <thead>
@@ -693,6 +971,7 @@ function SetlistLibraryPage() {
           </div>
 
           {errorText ? <p className="error-text no-margin">{errorText}</p> : null}
+          {successText ? <p className="subcopy no-margin-bottom">{successText}</p> : null}
 
           {filteredSongs.length === 0 ? (
             <p className="subcopy setlist-empty">No songs match this search.</p>

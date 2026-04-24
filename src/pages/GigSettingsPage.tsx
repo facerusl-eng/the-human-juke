@@ -53,7 +53,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
   const audienceUrl = getAudienceUrl()
 
   useEffect(() => {
-    if (!user || !event) {
+    if (!user?.id || !event?.id) {
       return
     }
 
@@ -87,7 +87,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
       setSelectedPlaylistIds((selectedResult.data ?? []).map((row) => row.playlist_id as string))
       setLoadingPlaylists(false)
     })()
-  }, [event, user])
+  }, [event.id, user?.id])
 
   const ensurePlaylistArtwork = async (playlistIds: string[]) => {
     if (!playlistIds.length) {
