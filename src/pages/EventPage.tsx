@@ -33,8 +33,7 @@ type HostProfile = {
   youtube_url: string | null
   facebook_url: string | null
   paypal_url: string | null
-  buymeacoffee_url: string | null
-  kofi_url: string | null
+  mobilpay_url: string | null
 }
 
 type CuratedSong = {
@@ -51,18 +50,6 @@ type PerformerMode = 'performer' | 'audience'
 function EventPage() {
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
   const { authError } = useAuthStore()
-
-  useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('display_name, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, buymeacoffee_url, kofi_url')
-      .eq('role', 'host')
-      .limit(1)
-      .single()
-      .then(({ data }) => {
-        if (data) setHostProfile(data as HostProfile)
-      })
-  }, [])
   const {
     event,
     songs,
@@ -70,6 +57,34 @@ function EventPage() {
     addSong,
     upvoteSong,
   } = useQueueStore()
+
+  useEffect(() => {
+    let isCurrent = true
+
+    const loadHostProfile = async () => {
+      const hostId = event?.hostId
+
+      const baseQuery = supabase
+        .from('profiles')
+        .select('display_name, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url')
+
+      const query = hostId
+        ? baseQuery.eq('user_id', hostId).maybeSingle()
+        : baseQuery.eq('role', 'host').limit(1).maybeSingle()
+
+      const { data } = await query
+
+      if (isCurrent) {
+        setHostProfile((data as HostProfile | null) ?? null)
+      }
+    }
+
+    void loadHostProfile()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [event?.hostId])
   const [songTitle, setSongTitle] = useState('')
   const [artistName, setArtistName] = useState('')
   const [isExplicit, setIsExplicit] = useState(false)
@@ -125,6 +140,16 @@ function EventPage() {
   const showCuratedPicker = curatedSongs.length > 0
   const shouldShowSetlistScrollButton = canScrollSetlist || availableCuratedSongs.length > 6
   const performerDisplayName = hostProfile?.display_name?.trim() || 'Performer'
+  const socialLinks = [
+    { label: 'Instagram', url: hostProfile?.instagram_url },
+    { label: 'TikTok', url: hostProfile?.tiktok_url },
+    { label: 'YouTube', url: hostProfile?.youtube_url },
+    { label: 'Facebook', url: hostProfile?.facebook_url },
+  ].filter((link): link is { label: string; url: string } => Boolean(link.url?.trim()))
+  const tipLinks = [
+    { label: 'MobilePay', url: hostProfile?.mobilpay_url },
+    { label: 'PayPal', url: hostProfile?.paypal_url },
+  ].filter((link): link is { label: string; url: string } => Boolean(link.url?.trim()))
   const hasSongSelection = showCuratedPicker
     ? Boolean(selectedCuratedSongId)
     : Boolean(songTitle.trim() && artistName.trim())
@@ -952,6 +977,45 @@ function EventPage() {
             {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
           </form>
         </section>
+
+        {socialLinks.length > 0 || tipLinks.length > 0 ? (
+          <section className="queue-panel link-panel" aria-label="Performer links">
+            {socialLinks.length > 0 ? (
+              <>
+                <div className="panel-head">
+                  <h2>Follow</h2>
+                </div>
+                <ul className="link-list" aria-label="Social media links">
+                  {socialLinks.map((link) => (
+                    <li key={link.label}>
+                      <a className="link-chip" href={link.url} target="_blank" rel="noreferrer">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+
+            {tipLinks.length > 0 ? (
+              <>
+                <div className="panel-head">
+                  <h2>Tip Jar</h2>
+                </div>
+                <p className="subcopy">To tip... or not to tip... that is the question. But the answer is yes</p>
+                <ul className="link-list" aria-label="Tip links">
+                  {tipLinks.map((link) => (
+                    <li key={link.label}>
+                      <a className="link-chip tip-chip" href={link.url} target="_blank" rel="noreferrer">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </section>
+        ) : null}
       </section>
     </section>
   )

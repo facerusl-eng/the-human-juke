@@ -1,20 +1,39 @@
 import './App.css'
+import { Suspense, lazy } from 'react'
+import type { ReactNode } from 'react'
 import { Navigate, createBrowserRouter } from 'react-router-dom'
 import RequireHost from './components/RequireHost'
 import ShellLayout from './components/ShellLayout'
-import AdminPage from './pages/AdminPage'
-import CreateGigPage from './pages/CreateGigPage'
-import EventPage from './pages/EventPage'
-import FeedPage from './pages/FeedPage'
-import GigControlPage from './pages/GigControlPage'
-import GigSettingsPage from './pages/GigSettingsPage'
-import GigsPage from './pages/GigsPage'
-import HomePage from './pages/HomePage'
-import MirrorPage from './pages/MirrorPage'
-import SetlistLibraryPage from './pages/SetlistLibraryPage'
-import SettingsPage from './pages/SettingsPage'
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
+
+const HomePage = lazy(() => import('./pages/HomePage'))
+const EventPage = lazy(() => import('./pages/EventPage'))
+const FeedPage = lazy(() => import('./pages/FeedPage'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
+const CreateGigPage = lazy(() => import('./pages/CreateGigPage'))
+const GigsPage = lazy(() => import('./pages/GigsPage'))
+const GigControlPage = lazy(() => import('./pages/GigControlPage'))
+const GigSettingsPage = lazy(() => import('./pages/GigSettingsPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const SetlistLibraryPage = lazy(() => import('./pages/SetlistLibraryPage'))
+const MirrorPage = lazy(() => import('./pages/MirrorPage'))
+
+function RouteFallback() {
+  return (
+    <section className="admin-shell" aria-label="Loading page">
+      <section className="queue-panel">Loading...</section>
+    </section>
+  )
+}
+
+function LazyRoute({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<RouteFallback />}>
+      {children}
+    </Suspense>
+  )
+}
 
 const router = createBrowserRouter([
   {
@@ -29,15 +48,27 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <HomePage />,
+        element: (
+          <LazyRoute>
+            <HomePage />
+          </LazyRoute>
+        ),
       },
       {
         path: 'audience',
-        element: <EventPage />,
+        element: (
+          <LazyRoute>
+            <EventPage />
+          </LazyRoute>
+        ),
       },
       {
         path: 'feed',
-        element: <FeedPage />,
+        element: (
+          <LazyRoute>
+            <FeedPage />
+          </LazyRoute>
+        ),
       },
       {
         path: 'event',
@@ -47,7 +78,9 @@ const router = createBrowserRouter([
         path: 'admin',
         element: (
           <RequireHost>
-            <AdminPage />
+            <LazyRoute>
+              <AdminPage />
+            </LazyRoute>
           </RequireHost>
         ),
       },
@@ -55,7 +88,9 @@ const router = createBrowserRouter([
         path: 'admin/create-gig',
         element: (
           <RequireHost>
-            <CreateGigPage />
+            <LazyRoute>
+              <CreateGigPage />
+            </LazyRoute>
           </RequireHost>
         ),
       },
@@ -63,7 +98,9 @@ const router = createBrowserRouter([
         path: 'admin/gigs',
         element: (
           <RequireHost>
-            <GigsPage />
+            <LazyRoute>
+              <GigsPage />
+            </LazyRoute>
           </RequireHost>
         ),
       },
@@ -71,7 +108,9 @@ const router = createBrowserRouter([
         path: 'admin/gig-control',
         element: (
           <RequireHost>
-            <GigControlPage />
+            <LazyRoute>
+              <GigControlPage />
+            </LazyRoute>
           </RequireHost>
         ),
       },
@@ -79,7 +118,9 @@ const router = createBrowserRouter([
         path: 'admin/gig-settings',
         element: (
           <RequireHost>
-            <GigSettingsPage />
+            <LazyRoute>
+              <GigSettingsPage />
+            </LazyRoute>
           </RequireHost>
         ),
       },
@@ -87,7 +128,9 @@ const router = createBrowserRouter([
         path: 'admin/settings',
         element: (
           <RequireHost>
-            <SettingsPage />
+            <LazyRoute>
+              <SettingsPage />
+            </LazyRoute>
           </RequireHost>
         ),
       },
@@ -95,7 +138,9 @@ const router = createBrowserRouter([
         path: 'admin/setlist-library',
         element: (
           <RequireHost>
-            <SetlistLibraryPage />
+            <LazyRoute>
+              <SetlistLibraryPage />
+            </LazyRoute>
           </RequireHost>
         ),
       },
@@ -110,7 +155,9 @@ const router = createBrowserRouter([
     element: (
       <AuthProvider>
         <QueueProvider>
-          <MirrorPage />
+          <LazyRoute>
+            <MirrorPage />
+          </LazyRoute>
         </QueueProvider>
       </AuthProvider>
     ),

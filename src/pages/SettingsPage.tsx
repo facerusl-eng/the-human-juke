@@ -11,8 +11,7 @@ type HostSettings = {
   youtube_url: string
   facebook_url: string
   paypal_url: string
-  buymeacoffee_url: string
-  kofi_url: string
+  mobilpay_url: string
   default_gig_name: string
   default_venue: string
 }
@@ -25,10 +24,31 @@ const DEFAULTS: HostSettings = {
   youtube_url: '',
   facebook_url: '',
   paypal_url: '',
-  buymeacoffee_url: '',
-  kofi_url: '',
+  mobilpay_url: '',
   default_gig_name: '',
   default_venue: '',
+}
+
+function normalizeOptionalUrl(value: string) {
+  const trimmedValue = value.trim()
+
+  if (!trimmedValue) {
+    return null
+  }
+
+  const withProtocol = /^https?:\/\//i.test(trimmedValue)
+    ? trimmedValue
+    : `https://${trimmedValue}`
+
+  try {
+    const normalizedUrl = new URL(withProtocol)
+    if (!['http:', 'https:'].includes(normalizedUrl.protocol)) {
+      return null
+    }
+    return normalizedUrl.toString()
+  } catch {
+    return null
+  }
 }
 
 function SettingsPage() {
@@ -45,7 +65,7 @@ function SettingsPage() {
     supabase
       .from('profiles')
       .select(
-        'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, buymeacoffee_url, kofi_url, default_gig_name, default_venue',
+        'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, default_gig_name, default_venue',
       )
       .eq('user_id', user.id)
       .single()
@@ -63,8 +83,7 @@ function SettingsPage() {
             youtube_url: data.youtube_url ?? '',
             facebook_url: data.facebook_url ?? '',
             paypal_url: data.paypal_url ?? '',
-            buymeacoffee_url: data.buymeacoffee_url ?? '',
-            kofi_url: data.kofi_url ?? '',
+            mobilpay_url: data.mobilpay_url ?? '',
             default_gig_name: data.default_gig_name ?? '',
             default_venue: data.default_venue ?? '',
           })
@@ -83,18 +102,38 @@ function SettingsPage() {
     setSaveError(null)
     setSaved(false)
 
+    const normalizedSocialFields = {
+      instagram_url: normalizeOptionalUrl(settings.instagram_url),
+      tiktok_url: normalizeOptionalUrl(settings.tiktok_url),
+      youtube_url: normalizeOptionalUrl(settings.youtube_url),
+      facebook_url: normalizeOptionalUrl(settings.facebook_url),
+      paypal_url: normalizeOptionalUrl(settings.paypal_url),
+      mobilpay_url: normalizeOptionalUrl(settings.mobilpay_url),
+    }
+
+    const invalidField = Object.entries(normalizedSocialFields)
+      .find(([fieldName, normalizedUrl]) => {
+        const originalValue = settings[fieldName as keyof HostSettings]
+        return originalValue.trim().length > 0 && !normalizedUrl
+      })
+
+    if (invalidField) {
+      setSaving(false)
+      setSaveError('Please enter valid social/tip links. Example: instagram.com/yourname')
+      return
+    }
+
     const { error } = await supabase
       .from('profiles')
       .update({
         display_name: settings.display_name.trim() || null,
         bio: settings.bio.trim() || null,
-        instagram_url: settings.instagram_url.trim() || null,
-        tiktok_url: settings.tiktok_url.trim() || null,
-        youtube_url: settings.youtube_url.trim() || null,
-        facebook_url: settings.facebook_url.trim() || null,
-        paypal_url: settings.paypal_url.trim() || null,
-        buymeacoffee_url: settings.buymeacoffee_url.trim() || null,
-        kofi_url: settings.kofi_url.trim() || null,
+        instagram_url: normalizedSocialFields.instagram_url,
+        tiktok_url: normalizedSocialFields.tiktok_url,
+        youtube_url: normalizedSocialFields.youtube_url,
+        facebook_url: normalizedSocialFields.facebook_url,
+        paypal_url: normalizedSocialFields.paypal_url,
+        mobilpay_url: normalizedSocialFields.mobilpay_url,
         default_gig_name: settings.default_gig_name.trim() || null,
         default_venue: settings.default_venue.trim() || null,
       })
@@ -172,7 +211,7 @@ function SettingsPage() {
             <label key={key} className="settings-field">
               <span>{label}</span>
               <input
-                type="url"
+                type="text"
                 placeholder={placeholder}
                 value={settings[key]}
                 onChange={set(key)}
@@ -188,14 +227,13 @@ function SettingsPage() {
           {(
             [
               { key: 'paypal_url', label: 'PayPal URL', placeholder: 'https://paypal.me/yourhandle' },
-              { key: 'buymeacoffee_url', label: 'Buy Me a Coffee URL', placeholder: 'https://buymeacoffee.com/yourhandle' },
-              { key: 'kofi_url', label: 'Ko-fi URL', placeholder: 'https://ko-fi.com/yourhandle' },
+              { key: 'mobilpay_url', label: 'MobilePay URL', placeholder: 'https://mobilepay.dk/erhverv/betalingslink/your-link' },
             ] as { key: keyof HostSettings; label: string; placeholder: string }[]
           ).map(({ key, label, placeholder }) => (
             <label key={key} className="settings-field">
               <span>{label}</span>
               <input
-                type="url"
+                type="text"
                 placeholder={placeholder}
                 value={settings[key]}
                 onChange={set(key)}

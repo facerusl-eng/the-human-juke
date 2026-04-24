@@ -43,6 +43,7 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS youtube_url TEXT,
   ADD COLUMN IF NOT EXISTS facebook_url TEXT,
   ADD COLUMN IF NOT EXISTS paypal_url TEXT,
+  ADD COLUMN IF NOT EXISTS mobilpay_url TEXT,
   ADD COLUMN IF NOT EXISTS buymeacoffee_url TEXT,
   ADD COLUMN IF NOT EXISTS kofi_url TEXT,
   ADD COLUMN IF NOT EXISTS default_gig_name TEXT,

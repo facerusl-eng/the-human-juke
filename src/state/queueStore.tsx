@@ -45,6 +45,7 @@ type EventSettingsUpdates = {
 
 type EventState = {
   id: string
+  hostId: string | null
   name: string
   venue: string | null
   subtitle: string | null
@@ -181,6 +182,81 @@ async function fetchHostEvents(hostId: string) {
   }))
 }
 
+async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
+  const { data: hostPlaylists, error: hostPlaylistsError } = await withTimeout(
+    withAuthLockRetry(() =>
+      supabase
+        .from('playlists')
+        .select('id, name, created_at')
+        .eq('user_id', hostId)
+        .order('created_at', { ascending: true }),
+    ),
+    DEFAULT_DB_TIMEOUT_MS,
+    'Timed out while loading your playlists. Please try again.',
+  )
+
+  if (hostPlaylistsError) {
+    throw new Error(hostPlaylistsError.message)
+  }
+
+  const allPlaylists = (hostPlaylists ?? []) as Array<{ id: string; name: string; created_at: string }>
+  let defaultPlaylistId = allPlaylists[0]?.id ?? null
+  let karaokePlaylistId = allPlaylists.find((playlist) => /karaoke/i.test(playlist.name))?.id ?? null
+
+  if (!defaultPlaylistId) {
+    const { data: createdDefaultPlaylist, error: createdDefaultPlaylistError } = await withTimeout(
+      withAuthLockRetry(() =>
+        supabase
+          .from('playlists')
+          .insert({
+            user_id: hostId,
+            name: eventName ? `${eventName} Setlist` : 'Main Setlist',
+            description: 'Main setlist for live requests.',
+          })
+          .select('id')
+          .single(),
+      ),
+      DEFAULT_DB_TIMEOUT_MS,
+      'Timed out while creating your default playlist. Please try again.',
+    )
+
+    if (createdDefaultPlaylistError || !createdDefaultPlaylist?.id) {
+      throw new Error(createdDefaultPlaylistError?.message ?? 'Unable to create your default playlist.')
+    }
+
+    defaultPlaylistId = createdDefaultPlaylist.id
+  }
+
+  if (!karaokePlaylistId) {
+    const { data: createdKaraokePlaylist, error: createdKaraokePlaylistError } = await withTimeout(
+      withAuthLockRetry(() =>
+        supabase
+          .from('playlists')
+          .insert({
+            user_id: hostId,
+            name: 'Karaoke Only',
+            description: 'Songs reserved for audience karaoke requests.',
+          })
+          .select('id')
+          .single(),
+      ),
+      DEFAULT_DB_TIMEOUT_MS,
+      'Timed out while creating the karaoke playlist. Please try again.',
+    )
+
+    if (createdKaraokePlaylistError || !createdKaraokePlaylist?.id) {
+      throw new Error(createdKaraokePlaylistError?.message ?? 'Unable to create the karaoke playlist.')
+    }
+
+    karaokePlaylistId = createdKaraokePlaylist.id
+  }
+
+  return {
+    defaultPlaylistId,
+    karaokePlaylistId,
+  }
+}
+
 function QueueProvider({ children }: PropsWithChildren) {
   const { user, profile, isHost, refreshProfile } = useAuthStore()
   const [event, setEvent] = useState<EventState | null>(null)
@@ -198,7 +274,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         Promise.all([
           supabase
             .from('events')
-            .select('id, name, venue, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled')
+            .select('id, host_id, name, venue, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled')
             .eq('id', activeEventId)
             .single(),
           supabase
@@ -223,6 +299,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     setEvent({
       id: eventData.id,
+      hostId: (eventData as Record<string, unknown>).host_id as string | null ?? null,
       name: (eventData as Record<string, unknown>).name as string ?? 'Untitled Gig',
       venue: (eventData as Record<string, unknown>).venue as string | null ?? null,
       subtitle: (eventData as Record<string, unknown>).subtitle as string | null ?? null,
@@ -666,21 +743,27 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
-        const { error } = await supabase
-          .from('events')
-          .update({
-            name: updates.name,
-            venue: updates.venue || null,
-            subtitle: updates.subtitle || null,
-            request_instructions: updates.requestInstructions || null,
-            playlist_only_requests: updates.playlistOnlyRequests,
-            mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
-            allow_duplicate_requests: updates.allowDuplicateRequests,
-            max_active_requests_per_user: updates.maxActiveRequestsPerUser,
-            room_open: updates.roomOpen,
-            explicit_filter_enabled: updates.explicitFilterEnabled,
-          })
-          .eq('id', event.id)
+        const { error } = await withTimeout(
+          withAuthLockRetry(() =>
+            supabase
+              .from('events')
+              .update({
+                name: updates.name,
+                venue: updates.venue || null,
+                subtitle: updates.subtitle || null,
+                request_instructions: updates.requestInstructions || null,
+                playlist_only_requests: updates.playlistOnlyRequests,
+                mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
+                allow_duplicate_requests: updates.allowDuplicateRequests,
+                max_active_requests_per_user: updates.maxActiveRequestsPerUser,
+                room_open: updates.roomOpen,
+                explicit_filter_enabled: updates.explicitFilterEnabled,
+              })
+              .eq('id', event.id),
+          ),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Timed out while saving event settings. Please try again.',
+        )
 
         if (error) {
           throw error
@@ -688,24 +771,36 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         const normalizedPlaylistIds = [...new Set(updates.selectedPlaylistIds)]
 
-        const { error: clearPlaylistsError } = await supabase
-          .from('event_playlists')
-          .delete()
-          .eq('event_id', event.id)
+        const { error: clearPlaylistsError } = await withTimeout(
+          withAuthLockRetry(() =>
+            supabase
+              .from('event_playlists')
+              .delete()
+              .eq('event_id', event.id),
+          ),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Timed out while updating gig playlists. Please try again.',
+        )
 
         if (clearPlaylistsError) {
           throw clearPlaylistsError
         }
 
         if (normalizedPlaylistIds.length > 0) {
-          const { error: addPlaylistsError } = await supabase
-            .from('event_playlists')
-            .insert(
-              normalizedPlaylistIds.map((playlistId) => ({
-                event_id: event.id,
-                playlist_id: playlistId,
-              })),
-            )
+          const { error: addPlaylistsError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('event_playlists')
+                .insert(
+                  normalizedPlaylistIds.map((playlistId) => ({
+                    event_id: event.id,
+                    playlist_id: playlistId,
+                  })),
+                ),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while saving selected playlists. Please try again.',
+          )
 
           if (addPlaylistsError) {
             throw addPlaylistsError
@@ -873,37 +968,24 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error(insertError.message)
         }
 
-        // Seed a brand-new gig with one host playlist so audience setlist mode is immediately usable.
-        const { data: defaultPlaylist, error: defaultPlaylistError } = await withTimeout(
-          withAuthLockRetry(() =>
-            supabase
-              .from('playlists')
-              .select('id')
-              .eq('user_id', authenticatedUserId)
-              .order('created_at', { ascending: true })
-              .limit(1)
-              .maybeSingle(),
-          ),
-          DEFAULT_DB_TIMEOUT_MS,
-          'Timed out while loading your playlists for the new gig. Please try again.',
-        )
+        const { defaultPlaylistId, karaokePlaylistId } = await ensureDefaultHostPlaylists(authenticatedUserId, name)
 
-        if (defaultPlaylistError) {
-          throw new Error(defaultPlaylistError.message)
-        }
+        const playlistIdsForGig = [...new Set([defaultPlaylistId, karaokePlaylistId].filter((playlistId): playlistId is string => Boolean(playlistId)))]
 
-        if (defaultPlaylist?.id) {
+        if (playlistIdsForGig.length > 0) {
           const { error: linkPlaylistError } = await withTimeout(
             withAuthLockRetry(() =>
               supabase
                 .from('event_playlists')
-                .insert({
-                  event_id: newEvent.id,
-                  playlist_id: defaultPlaylist.id,
-                }),
+                .insert(
+                  playlistIdsForGig.map((playlistId) => ({
+                    event_id: newEvent.id,
+                    playlist_id: playlistId,
+                  })),
+                ),
             ),
             DEFAULT_DB_TIMEOUT_MS,
-            'Timed out while linking a default playlist to the new gig. Please try again.',
+            'Timed out while linking playlists to the new gig. Please try again.',
           )
 
           if (linkPlaylistError) {
