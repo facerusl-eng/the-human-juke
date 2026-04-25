@@ -246,7 +246,6 @@ function SettingsPage() {
       youtube_url: normalizeOptionalUrl(stateToSave.youtube_url),
       facebook_url: normalizeOptionalUrl(stateToSave.facebook_url),
       paypal_url: normalizeOptionalUrl(stateToSave.paypal_url),
-      mobilpay_url: normalizeOptionalUrl(stateToSave.mobilpay_url),
       website_url: normalizeOptionalUrl(stateToSave.website_url),
     }
 
@@ -262,7 +261,6 @@ function SettingsPage() {
         youtube_url: 'YouTube URL',
         facebook_url: 'Facebook URL',
         paypal_url: 'PayPal URL',
-        mobilpay_url: 'MobilePay URL',
         website_url: 'Website URL',
       }
       const invalidFieldName = fieldLabels[invalidField[0]] ?? 'URL field'
@@ -280,7 +278,7 @@ function SettingsPage() {
       youtube_url: normalizedSocialFields.youtube_url,
       facebook_url: normalizedSocialFields.facebook_url,
       paypal_url: normalizedSocialFields.paypal_url,
-      mobilpay_url: normalizedSocialFields.mobilpay_url,
+      mobilpay_url: stateToSave.mobilpay_url.trim() || null,
       default_gig_name: stateToSave.default_gig_name.trim() || null,
       default_venue: stateToSave.default_venue.trim() || null,
     }
@@ -666,7 +664,7 @@ function SettingsPage() {
               <span>MobilePay Link</span>
               <input
                 type="text"
-                placeholder="https://mobilepay.dk/erhverv/betalingslink/your-link"
+                placeholder="mobilepay.dk/your-link or +4512345678"
                 value={state.mobilpay_url}
                 onChange={(e) => updateState({ ...state, mobilpay_url: e.target.value })}
               />
