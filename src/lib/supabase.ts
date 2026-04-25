@@ -9,9 +9,50 @@ if (!supabaseUrl || !supabasePublishableKey) {
   )
 }
 
+const memoryStorage = new Map<string, string>()
+
+const safeStorage = {
+  getItem(key: string) {
+    if (typeof window === 'undefined') {
+      return memoryStorage.get(key) ?? null
+    }
+
+    try {
+      return window.localStorage.getItem(key)
+    } catch {
+      return memoryStorage.get(key) ?? null
+    }
+  },
+  setItem(key: string, value: string) {
+    if (typeof window === 'undefined') {
+      memoryStorage.set(key, value)
+      return
+    }
+
+    try {
+      window.localStorage.setItem(key, value)
+    } catch {
+      memoryStorage.set(key, value)
+    }
+  },
+  removeItem(key: string) {
+    if (typeof window === 'undefined') {
+      memoryStorage.delete(key)
+      return
+    }
+
+    try {
+      window.localStorage.removeItem(key)
+    } catch {
+      memoryStorage.delete(key)
+    }
+  },
+}
+
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {
     storageKey: 'human-jukebox-org-auth-token',
+    storage: safeStorage,
     // In this desktop/webview environment, browser LockManager can deadlock or steal locks.
     lock: async (_name, _timeout, acquire) => await acquire(),
   },

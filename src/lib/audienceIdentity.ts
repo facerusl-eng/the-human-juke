@@ -7,11 +7,15 @@ export function readCommittedAudienceName() {
     return ''
   }
 
-  return (
-    window.localStorage.getItem(AUDIENCE_NAME_STORAGE_KEY)?.trim() ||
-    window.localStorage.getItem(FEED_AUTHOR_NAME_STORAGE_KEY)?.trim() ||
-    ''
-  )
+  try {
+    return (
+      window.localStorage.getItem(AUDIENCE_NAME_STORAGE_KEY)?.trim() ||
+      window.localStorage.getItem(FEED_AUTHOR_NAME_STORAGE_KEY)?.trim() ||
+      ''
+    )
+  } catch {
+    return ''
+  }
 }
 
 export function commitAudienceName(nextName: string) {
@@ -25,7 +29,12 @@ export function commitAudienceName(nextName: string) {
     return
   }
 
-  window.localStorage.setItem(AUDIENCE_NAME_STORAGE_KEY, normalizedName)
-  window.localStorage.setItem(FEED_AUTHOR_NAME_STORAGE_KEY, normalizedName)
+  try {
+    window.localStorage.setItem(AUDIENCE_NAME_STORAGE_KEY, normalizedName)
+    window.localStorage.setItem(FEED_AUTHOR_NAME_STORAGE_KEY, normalizedName)
+  } catch {
+    // Ignore storage failures in restricted webviews.
+  }
+
   window.dispatchEvent(new Event(AUDIENCE_NAME_COMMITTED_EVENT))
 }
