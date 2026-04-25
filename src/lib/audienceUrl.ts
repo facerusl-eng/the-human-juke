@@ -18,7 +18,7 @@ export function getAudienceUrl(eventId?: string | null, options: AudienceUrlOpti
 
   const buildAudienceUrl = (origin: string) => {
     const audiencePath = useCompactPath && normalizedEventId
-      ? `/a/${encodeURIComponent(normalizedEventId)}`
+      ? `/j/${encodeURIComponent(normalizedEventId)}`
       : '/audience'
     const audienceUrl = new URL(audiencePath, origin)
 

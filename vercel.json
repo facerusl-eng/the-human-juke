@@ -25,6 +25,11 @@
   ],
   "redirects": [
     {
+      "source": "/j/:eventId",
+      "destination": "/join/index.html?event=:eventId",
+      "permanent": false
+    },
+    {
       "source": "/a/:eventId",
       "destination": "/audience?event=:eventId",
       "permanent": false
