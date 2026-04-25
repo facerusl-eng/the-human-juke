@@ -142,6 +142,8 @@ function CreateGigPage() {
               onChange={(e) => setGigName(e.target.value)}
               placeholder="Friday Night at The Anchor"
               autoFocus
+              required
+              aria-required="true"
             />
           </div>
           <div className="field-row">

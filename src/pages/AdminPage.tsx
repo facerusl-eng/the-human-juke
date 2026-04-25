@@ -7,6 +7,8 @@ function AdminPage() {
   const { event, hostEvents, songs, setActiveEvent, toggleRoomOpen, toggleExplicitFilter } = useQueueStore()
   const [activatingEventId, setActivatingEventId] = useState<string | null>(null)
   const [activeSwitchError, setActiveSwitchError] = useState<string | null>(null)
+  const [quickActionBusy, setQuickActionBusy] = useState<null | 'room' | 'explicit'>(null)
+  const [quickActionError, setQuickActionError] = useState<string | null>(null)
   const totalVotes = songs.reduce((sum, song) => sum + song.votes_count, 0)
 
   return (
@@ -200,18 +202,53 @@ function AdminPage() {
             <button
               type="button"
               className={event.roomOpen ? 'secondary-button' : 'primary-button'}
-              onClick={async () => { await toggleRoomOpen() }}
+              disabled={quickActionBusy !== null}
+              onClick={async () => {
+                setQuickActionError(null)
+                setQuickActionBusy('room')
+
+                try {
+                  await toggleRoomOpen()
+                } catch (error) {
+                  console.warn('AdminPage: failed to toggle room status', error)
+                  setQuickActionError(
+                    error instanceof Error
+                      ? error.message
+                      : 'Could not update queue status. Please try again.',
+                  )
+                } finally {
+                  setQuickActionBusy(null)
+                }
+              }}
             >
               {event.roomOpen ? 'Pause Queue' : 'Open Queue'}
             </button>
             <button
               type="button"
               className="secondary-button"
-              onClick={async () => { await toggleExplicitFilter() }}
+              disabled={quickActionBusy !== null}
+              onClick={async () => {
+                setQuickActionError(null)
+                setQuickActionBusy('explicit')
+
+                try {
+                  await toggleExplicitFilter()
+                } catch (error) {
+                  console.warn('AdminPage: failed to toggle explicit filter', error)
+                  setQuickActionError(
+                    error instanceof Error
+                      ? error.message
+                      : 'Could not update explicit filter. Please try again.',
+                  )
+                } finally {
+                  setQuickActionBusy(null)
+                }
+              }}
             >
               {event.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit'}
             </button>
           </div>
+          {quickActionError ? <p className="error-text">{quickActionError}</p> : null}
         </section>
       ) : null}
     </section>

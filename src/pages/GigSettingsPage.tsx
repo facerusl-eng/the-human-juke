@@ -52,41 +52,92 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
 
   const audienceUrl = getAudienceUrl(event.id)
 
+  const copyAudienceUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(audienceUrl)
+      setSaved(true)
+      return
+    } catch {
+      // Fall through to legacy copy method when clipboard permissions are unavailable.
+    }
+
+    try {
+      const fallbackInput = document.createElement('textarea')
+      fallbackInput.value = audienceUrl
+      fallbackInput.setAttribute('readonly', '')
+      fallbackInput.style.position = 'fixed'
+      fallbackInput.style.left = '-9999px'
+      document.body.appendChild(fallbackInput)
+      fallbackInput.select()
+      const copied = document.execCommand('copy')
+      document.body.removeChild(fallbackInput)
+
+      if (!copied) {
+        throw new Error('copy-failed')
+      }
+
+      setSaved(true)
+    } catch (error) {
+      console.warn('GigSettingsPage: failed to copy audience URL', error)
+      setErrorText('Copy failed. You can still copy the audience link manually.')
+    }
+  }
+
   useEffect(() => {
     if (!user?.id || !event?.id) {
       return
     }
 
-    void (async () => {
+    let isCurrent = true
+
+    const loadPlaylists = async () => {
       setLoadingPlaylists(true)
-      const [playlistsResult, selectedResult] = await Promise.all([
-        supabase
-          .from('playlists')
-          .select('id, name')
-          .eq('user_id', user.id)
-          .order('name', { ascending: true }),
-        supabase
-          .from('event_playlists')
-          .select('playlist_id')
-          .eq('event_id', event.id),
-      ])
+      setErrorText(null)
 
-      if (playlistsResult.error) {
-        setErrorText(playlistsResult.error.message)
-        setLoadingPlaylists(false)
-        return
+      try {
+        const [playlistsResult, selectedResult] = await Promise.all([
+          supabase
+            .from('playlists')
+            .select('id, name')
+            .eq('user_id', user.id)
+            .order('name', { ascending: true }),
+          supabase
+            .from('event_playlists')
+            .select('playlist_id')
+            .eq('event_id', event.id),
+        ])
+
+        if (playlistsResult.error) {
+          throw playlistsResult.error
+        }
+
+        if (selectedResult.error) {
+          throw selectedResult.error
+        }
+
+        if (!isCurrent) {
+          return
+        }
+
+        setPlaylists((playlistsResult.data ?? []) as HostPlaylist[])
+        setSelectedPlaylistIds((selectedResult.data ?? []).map((row) => row.playlist_id as string))
+      } catch (error) {
+        console.warn('GigSettingsPage: failed to load playlists', error)
+        if (isCurrent) {
+          setErrorText(error instanceof Error ? error.message : 'Unable to load playlists.')
+        }
+      } finally {
+        if (isCurrent) {
+          setLoadingPlaylists(false)
+        }
       }
+    }
 
-      if (selectedResult.error) {
-        setErrorText(selectedResult.error.message)
-        setLoadingPlaylists(false)
-        return
-      }
+    void loadPlaylists()
 
-      setPlaylists((playlistsResult.data ?? []) as HostPlaylist[])
-      setSelectedPlaylistIds((selectedResult.data ?? []).map((row) => row.playlist_id as string))
-      setLoadingPlaylists(false)
-    })()
+    return () => {
+      isCurrent = false
+    }
   }, [event.id, user?.id])
 
   const ensurePlaylistArtwork = async (playlistIds: string[]) => {
@@ -114,16 +165,27 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     ).values()]
 
     for (const song of songsMissingArtwork) {
-      const coverUrl = await fetchSongArtwork(song.title, song.artist)
+      let coverUrl: string | null = null
+
+      try {
+        coverUrl = await fetchSongArtwork(song.title, song.artist)
+      } catch (error) {
+        console.warn('GigSettingsPage: artwork fetch failed', { songId: song.id, error })
+        continue
+      }
 
       if (!coverUrl) {
         continue
       }
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('library_songs')
         .update({ cover_url: coverUrl })
         .eq('id', song.id)
+
+      if (updateError) {
+        console.warn('GigSettingsPage: artwork update failed', { songId: song.id, error: updateError })
+      }
     }
   }
 
@@ -166,6 +228,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
       await ensurePlaylistArtwork(selectedPlaylistIds)
       setSaved(true)
     } catch (error) {
+      console.warn('GigSettingsPage: failed to save settings', error)
       setErrorText(error instanceof Error ? error.message : 'Unable to save gig settings.')
     } finally {
       setBusy(false)
@@ -206,6 +269,8 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
               value={gigName}
               onChange={(event) => setGigName(event.target.value)}
               placeholder="Friday Night at The Anchor"
+              required
+              aria-required="true"
             />
           </div>
 
@@ -432,8 +497,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
               type="button"
               className="secondary-button"
               onClick={async () => {
-                await navigator.clipboard.writeText(audienceUrl)
-                setSaved(true)
+                await copyAudienceUrl()
               }}
             >
               Copy Audience Link

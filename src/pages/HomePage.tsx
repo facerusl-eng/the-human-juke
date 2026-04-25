@@ -16,20 +16,25 @@ function HomePage() {
           and keep the room in sync with the vibe.
         </p>
 
-        <div className="hero-actions">
+        <div className="home-action-tiles" aria-label="Start actions">
           <button
             type="button"
-            className="primary-button"
+            className="home-action-tile home-action-tile-admin"
             onClick={() => navigate('/admin')}
+            aria-label="Go to Admin"
           >
-            Create Event
+            <span className="home-action-label">Host Dashboard</span>
+            <span className="home-action-hover">Click to create and manage your event</span>
           </button>
+
           <button
             type="button"
-            className="secondary-button"
+            className="home-action-tile home-action-tile-audience"
             onClick={() => navigate('/audience')}
+            aria-label="Go to Audience"
           >
-            Join Queue
+            <span className="home-action-label">Join Audience</span>
+            <span className="home-action-hover">Click to request songs and vote live</span>
           </button>
         </div>
 

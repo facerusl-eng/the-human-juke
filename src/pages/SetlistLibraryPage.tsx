@@ -38,6 +38,29 @@ type ImportedSongDraft = {
   isExplicit: boolean
 }
 
+const MAX_COVER_IMAGE_BYTES = 3 * 1024 * 1024
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error('Could not process that image. Try another file.'))
+    }
+
+    reader.onerror = () => {
+      reject(new Error('Could not read that image file.'))
+    }
+
+    reader.readAsDataURL(file)
+  })
+}
+
 function sanitizeCell(value: string) {
   return value.trim().replace(/^"|"$/g, '').trim()
 }
@@ -224,6 +247,8 @@ function SetlistLibraryPage() {
   const [songTitle, setSongTitle] = useState('')
   const [artistName, setArtistName] = useState('')
   const [isExplicit, setIsExplicit] = useState(false)
+  const [customCoverDataUrl, setCustomCoverDataUrl] = useState<string | null>(null)
+  const [customCoverName, setCustomCoverName] = useState('')
   const [errorText, setErrorText] = useState<string | null>(null)
   const [successText, setSuccessText] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
@@ -396,32 +421,36 @@ function SetlistLibraryPage() {
     const loadSongs = async () => {
       setErrorText(null)
 
-      const { data, error } = await supabase
-        .from('playlist_songs')
-        .select('position, library_songs!inner(id, title, artist, cover_url, is_explicit, created_at)')
-        .eq('playlist_id', selectedPlaylistId)
-        .order('position', { ascending: true })
+      try {
+        const { data, error } = await supabase
+          .from('playlist_songs')
+          .select('position, library_songs!inner(id, title, artist, cover_url, is_explicit, created_at)')
+          .eq('playlist_id', selectedPlaylistId)
+          .order('position', { ascending: true })
 
-      if (error) {
-        if (!isCancelled) {
-          setErrorText(error.message)
+        if (error) {
+          throw error
         }
-        return
+
+        if (isCancelled) {
+          return
+        }
+
+        const nextSongs = ((data ?? []) as PlaylistSongRow[]).flatMap((row) => {
+          const librarySong = Array.isArray(row.library_songs) ? row.library_songs[0] : row.library_songs
+
+          return librarySong
+            ? [{ ...librarySong, position: row.position }]
+            : []
+        })
+
+        setSongs(nextSongs)
+      } catch (error) {
+        console.warn('SetlistLibraryPage: failed to load playlist songs', error)
+        if (!isCancelled) {
+          setErrorText(error instanceof Error ? error.message : 'Unable to load playlist songs.')
+        }
       }
-
-      if (isCancelled) {
-        return
-      }
-
-      const nextSongs = ((data ?? []) as PlaylistSongRow[]).flatMap((row) => {
-        const librarySong = Array.isArray(row.library_songs) ? row.library_songs[0] : row.library_songs
-
-        return librarySong
-          ? [{ ...librarySong, position: row.position }]
-          : []
-      })
-
-      setSongs(nextSongs)
     }
 
     void loadSongs()
@@ -442,7 +471,14 @@ function SetlistLibraryPage() {
 
     const hydrateArtwork = async () => {
       for (const song of songsMissingArtwork) {
-        const coverUrl = await fetchSongArtwork(song.title, song.artist)
+        let coverUrl: string | null = null
+
+        try {
+          coverUrl = await fetchSongArtwork(song.title, song.artist)
+        } catch (error) {
+          console.warn('SetlistLibraryPage: artwork fetch failed', { songId: song.id, error })
+          continue
+        }
 
         if (!coverUrl || isCancelled) {
           continue
@@ -457,6 +493,8 @@ function SetlistLibraryPage() {
           setSongs((currentSongs) => currentSongs.map((currentSong) => (
             currentSong.id === song.id ? { ...currentSong, cover_url: coverUrl } : currentSong
           )))
+        } else if (error) {
+          console.warn('SetlistLibraryPage: artwork update failed', { songId: song.id, error })
         }
       }
     }
@@ -472,6 +510,7 @@ function SetlistLibraryPage() {
     event.preventDefault()
 
     if (!userId || !playlistName.trim()) {
+      setErrorText('Playlist name is required.')
       return
     }
 
@@ -479,33 +518,39 @@ function SetlistLibraryPage() {
     setErrorText(null)
     setSuccessText(null)
 
-    const { data, error } = await supabase
-      .from('playlists')
-      .insert({
-        user_id: userId,
-        name: playlistName.trim(),
-        description: playlistDescription.trim() || null,
-      })
-      .select('id, name, description, created_at')
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('playlists')
+        .insert({
+          user_id: userId,
+          name: playlistName.trim(),
+          description: playlistDescription.trim() || null,
+        })
+        .select('id, name, description, created_at')
+        .single()
 
-    setBusyAction(null)
+      if (error) {
+        throw error
+      }
 
-    if (error) {
-      setErrorText(error.message)
-      return
+      setPlaylists((currentPlaylists) => [...currentPlaylists, data as Playlist])
+      setPlaylistCounts((currentCounts) => ({ ...currentCounts, [data.id]: 0 }))
+      setSelectedPlaylistId(data.id)
+      setDraftPlaylistName(data.name)
+      setPlaylistName('')
+      setPlaylistDescription('')
+      setSuccessText('Playlist created.')
+    } catch (error) {
+      console.warn('SetlistLibraryPage: failed to create playlist', error)
+      setErrorText(error instanceof Error ? error.message : 'Unable to create playlist.')
+    } finally {
+      setBusyAction(null)
     }
-
-    setPlaylists((currentPlaylists) => [...currentPlaylists, data as Playlist])
-    setPlaylistCounts((currentCounts) => ({ ...currentCounts, [data.id]: 0 }))
-    setSelectedPlaylistId(data.id)
-    setDraftPlaylistName(data.name)
-    setPlaylistName('')
-    setPlaylistDescription('')
   }
 
   const onRenamePlaylist = async () => {
     if (!selectedPlaylist || !draftPlaylistName.trim()) {
+      setErrorText('Playlist name is required.')
       return
     }
 
@@ -513,23 +558,28 @@ function SetlistLibraryPage() {
     setErrorText(null)
     setSuccessText(null)
 
-    const { error } = await supabase
-      .from('playlists')
-      .update({ name: draftPlaylistName.trim() })
-      .eq('id', selectedPlaylist.id)
+    try {
+      const { error } = await supabase
+        .from('playlists')
+        .update({ name: draftPlaylistName.trim() })
+        .eq('id', selectedPlaylist.id)
 
-    setBusyAction(null)
+      if (error) {
+        throw error
+      }
 
-    if (error) {
-      setErrorText(error.message)
-      return
+      setPlaylists((currentPlaylists) => currentPlaylists.map((playlist) => (
+        playlist.id === selectedPlaylist.id
+          ? { ...playlist, name: draftPlaylistName.trim() }
+          : playlist
+      )))
+      setSuccessText('Playlist renamed.')
+    } catch (error) {
+      console.warn('SetlistLibraryPage: failed to rename playlist', error)
+      setErrorText(error instanceof Error ? error.message : 'Unable to rename playlist.')
+    } finally {
+      setBusyAction(null)
     }
-
-    setPlaylists((currentPlaylists) => currentPlaylists.map((playlist) => (
-      playlist.id === selectedPlaylist.id
-        ? { ...playlist, name: draftPlaylistName.trim() }
-        : playlist
-    )))
   }
 
   const onDeletePlaylist = async () => {
@@ -547,28 +597,33 @@ function SetlistLibraryPage() {
     setErrorText(null)
     setSuccessText(null)
 
-    const { error } = await supabase
-      .from('playlists')
-      .delete()
-      .eq('id', selectedPlaylist.id)
+    try {
+      const { error } = await supabase
+        .from('playlists')
+        .delete()
+        .eq('id', selectedPlaylist.id)
 
-    setBusyAction(null)
+      if (error) {
+        throw error
+      }
 
-    if (error) {
-      setErrorText(error.message)
-      return
+      const remainingPlaylists = playlists.filter((playlist) => playlist.id !== selectedPlaylist.id)
+      setPlaylists(remainingPlaylists)
+      setSelectedPlaylistId(remainingPlaylists[0]?.id ?? null)
+      setDraftPlaylistName(remainingPlaylists[0]?.name ?? '')
+      setSongs([])
+      setPlaylistCounts((currentCounts) => {
+        const nextCounts = { ...currentCounts }
+        delete nextCounts[selectedPlaylist.id]
+        return nextCounts
+      })
+      setSuccessText('Playlist deleted.')
+    } catch (error) {
+      console.warn('SetlistLibraryPage: failed to delete playlist', error)
+      setErrorText(error instanceof Error ? error.message : 'Unable to delete playlist.')
+    } finally {
+      setBusyAction(null)
     }
-
-    const remainingPlaylists = playlists.filter((playlist) => playlist.id !== selectedPlaylist.id)
-    setPlaylists(remainingPlaylists)
-    setSelectedPlaylistId(remainingPlaylists[0]?.id ?? null)
-    setDraftPlaylistName(remainingPlaylists[0]?.name ?? '')
-    setSongs([])
-    setPlaylistCounts((currentCounts) => {
-      const nextCounts = { ...currentCounts }
-      delete nextCounts[selectedPlaylist.id]
-      return nextCounts
-    })
   }
 
   const onAddSongToPlaylist = async (event: FormEvent<HTMLFormElement>) => {
@@ -582,50 +637,85 @@ function SetlistLibraryPage() {
     setErrorText(null)
     setSuccessText(null)
 
-    const coverUrl = await fetchSongArtwork(songTitle.trim(), artistName.trim())
+    try {
+      const coverUrl = customCoverDataUrl ?? await fetchSongArtwork(songTitle.trim(), artistName.trim())
 
-    const { data: insertedSong, error: insertedSongError } = await supabase
-      .from('library_songs')
-      .insert({
-        user_id: user.id,
-        title: songTitle.trim(),
-        artist: artistName.trim(),
-        cover_url: coverUrl,
-        is_explicit: isExplicit,
-      })
-      .select('id, title, artist, cover_url, is_explicit, created_at')
-      .single()
+      const { data: insertedSong, error: insertedSongError } = await supabase
+        .from('library_songs')
+        .insert({
+          user_id: user.id,
+          title: songTitle.trim(),
+          artist: artistName.trim(),
+          cover_url: coverUrl,
+          is_explicit: isExplicit,
+        })
+        .select('id, title, artist, cover_url, is_explicit, created_at')
+        .single()
 
-    if (insertedSongError) {
+      if (insertedSongError) {
+        throw insertedSongError
+      }
+
+      const { error: linkError } = await supabase
+        .from('playlist_songs')
+        .insert({
+          playlist_id: selectedPlaylistId,
+          song_id: insertedSong.id,
+          position: songs.length,
+        })
+
+      if (linkError) {
+        throw linkError
+      }
+
+      setSongs((currentSongs) => [...currentSongs, { ...(insertedSong as PlaylistSongRecord), position: currentSongs.length }])
+      setPlaylistCounts((currentCounts) => ({
+        ...currentCounts,
+        [selectedPlaylistId]: (currentCounts[selectedPlaylistId] ?? 0) + 1,
+      }))
+      setTotalSongCount((currentCount) => currentCount + 1)
+      setSongTitle('')
+      setArtistName('')
+      setIsExplicit(false)
+      setCustomCoverDataUrl(null)
+      setCustomCoverName('')
+      setSuccessText('Song added to playlist.')
+    } catch (error) {
+      console.warn('SetlistLibraryPage: failed to add song to playlist', error)
+      setErrorText(error instanceof Error ? error.message : 'Unable to add song to playlist.')
+    } finally {
       setBusyAction(null)
-      setErrorText(insertedSongError.message)
+    }
+  }
+
+  const onSelectCoverImage = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = changeEvent.target.files?.[0]
+    changeEvent.target.value = ''
+
+    if (!selectedFile) {
+      setCustomCoverDataUrl(null)
+      setCustomCoverName('')
       return
     }
 
-    const { error: linkError } = await supabase
-      .from('playlist_songs')
-      .insert({
-        playlist_id: selectedPlaylistId,
-        song_id: insertedSong.id,
-        position: songs.length,
-      })
-
-    setBusyAction(null)
-
-    if (linkError) {
-      setErrorText(linkError.message)
+    if (!selectedFile.type.startsWith('image/')) {
+      setErrorText('Please choose an image file for the cover art.')
       return
     }
 
-    setSongs((currentSongs) => [...currentSongs, { ...(insertedSong as PlaylistSongRecord), position: currentSongs.length }])
-    setPlaylistCounts((currentCounts) => ({
-      ...currentCounts,
-      [selectedPlaylistId]: (currentCounts[selectedPlaylistId] ?? 0) + 1,
-    }))
-    setTotalSongCount((currentCount) => currentCount + 1)
-    setSongTitle('')
-    setArtistName('')
-    setIsExplicit(false)
+    if (selectedFile.size > MAX_COVER_IMAGE_BYTES) {
+      setErrorText('Cover image is too large. Use an image up to 3 MB.')
+      return
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(selectedFile)
+      setCustomCoverDataUrl(dataUrl)
+      setCustomCoverName(selectedFile.name)
+      setErrorText(null)
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Unable to import that cover image.')
+    }
   }
 
   const onRemoveSongFromPlaylist = async (songId: string) => {
@@ -637,24 +727,29 @@ function SetlistLibraryPage() {
     setErrorText(null)
     setSuccessText(null)
 
-    const { error } = await supabase
-      .from('playlist_songs')
-      .delete()
-      .eq('playlist_id', selectedPlaylistId)
-      .eq('song_id', songId)
+    try {
+      const { error } = await supabase
+        .from('playlist_songs')
+        .delete()
+        .eq('playlist_id', selectedPlaylistId)
+        .eq('song_id', songId)
 
-    setBusyAction(null)
+      if (error) {
+        throw error
+      }
 
-    if (error) {
-      setErrorText(error.message)
-      return
+      setSongs((currentSongs) => currentSongs.filter((song) => song.id !== songId))
+      setPlaylistCounts((currentCounts) => ({
+        ...currentCounts,
+        [selectedPlaylistId]: Math.max((currentCounts[selectedPlaylistId] ?? 1) - 1, 0),
+      }))
+      setSuccessText('Song removed from playlist.')
+    } catch (error) {
+      console.warn('SetlistLibraryPage: failed to remove song from playlist', { songId, error })
+      setErrorText(error instanceof Error ? error.message : 'Unable to remove song from playlist.')
+    } finally {
+      setBusyAction(null)
     }
-
-    setSongs((currentSongs) => currentSongs.filter((song) => song.id !== songId))
-    setPlaylistCounts((currentCounts) => ({
-      ...currentCounts,
-      [selectedPlaylistId]: Math.max((currentCounts[selectedPlaylistId] ?? 1) - 1, 0),
-    }))
   }
 
   const onAddSongToLiveQueue = async (song: PlaylistSongRecord) => {
@@ -895,10 +990,21 @@ function SetlistLibraryPage() {
               />
               Explicit
             </label>
+            <label className="setlist-search" htmlFor="setlist-cover-file">
+              <span>Cover image (optional)</span>
+              <input
+                id="setlist-cover-file"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={onSelectCoverImage}
+              />
+            </label>
             <button type="submit" className="primary-button" disabled={!selectedPlaylistId || busyAction === 'add-song'}>
               {busyAction === 'add-song' ? 'Adding...' : 'Add Song'}
             </button>
           </form>
+
+          {customCoverName ? <p className="subcopy no-margin-bottom">Selected cover: {customCoverName}</p> : null}
 
           <div className="setlist-import-block">
             <label className="setlist-search" htmlFor="setlist-import-file">

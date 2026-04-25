@@ -2,10 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import {
-  PLAYBACK_STATE_BROADCAST_CHANNEL,
   BETWEEN_SONG_QUOTES,
   PLAYBACK_STATE_EVENT,
-  PLAYBACK_STATE_STORAGE_KEY,
   readSharedPlaybackState,
   type SharedPlaybackState,
 } from '../lib/playbackState'
@@ -32,6 +30,20 @@ const SPOTLIGHT_CAPTION_BUILDERS = [
 const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
+const MIRROR_PLAYBACK_STORAGE_KEY = 'human-jukebox-playback-state'
+const MIRROR_PLAYBACK_BROADCAST_CHANNEL = 'human-jukebox-playback-state'
+const MIRROR_SAFE_MARGINS_STORAGE_KEY = 'human-jukebox-mirror-safe-margins'
+
+type MirrorDensityMode = 'medium' | 'cinema'
+
+function normalizeMirrorText(value: unknown, fallback: string) {
+  if (typeof value !== 'string') {
+    return fallback
+  }
+
+  const trimmedValue = value.trim()
+  return trimmedValue || fallback
+}
 
 type SpotlightQueueItem = {
   id: string
@@ -48,6 +60,12 @@ function pickSpotlightCaption(authorName: string) {
 function playShutterSound() {
   try {
     const audioContext = new window.AudioContext()
+
+    if (audioContext.state === 'suspended') {
+      void audioContext.close()
+      return false
+    }
+
     const gainNode = audioContext.createGain()
     const oscillator = audioContext.createOscillator()
 
@@ -67,8 +85,11 @@ function playShutterSound() {
     window.setTimeout(() => {
       void audioContext.close()
     }, 160)
+
+    return true
   } catch {
     // Some browsers block autoplay audio; visual flash still runs.
+    return false
   }
 }
 
@@ -78,40 +99,71 @@ function MirrorPage() {
   const [flashActive, setFlashActive] = useState(false)
   const [queuedSpotlightCount, setQueuedSpotlightCount] = useState(0)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
+  const [mirrorWarning, setMirrorWarning] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [highContrastMode, setHighContrastMode] = useState(false)
+  const [densityMode, setDensityMode] = useState<MirrorDensityMode>('medium')
+  const [showSafeMargins, setShowSafeMargins] = useState(false)
+  const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
   const [fallbackBetweenSongs, setFallbackBetweenSongs] = useState(false)
   const [fallbackQuoteIndex, setFallbackQuoteIndex] = useState(0)
+  const [showShutterFallbackPulse, setShowShutterFallbackPulse] = useState(false)
+  const [failedCoverUrls, setFailedCoverUrls] = useState<Record<string, true>>({})
   const spotlightTimerRef = useRef<number | null>(null)
   const fallbackBetweenSongsTimerRef = useRef<number | null>(null)
+  const shutterFallbackPulseTimerRef = useRef<number | null>(null)
   const previousSongIdRef = useRef<string | null>(null)
   const spotlightQueueRef = useRef<SpotlightQueueItem[]>([])
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
 
-  const nowPlaying = songs[0]
+  const safeSongs = useMemo(() => songs.filter((song) => (
+    song
+    && typeof song.id === 'string'
+    && typeof song.title === 'string'
+    && typeof song.artist === 'string'
+  )), [songs])
+  const nowPlaying = safeSongs[0]
   const isLive = event?.roomOpen ?? false
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
   const eventId = event?.id ?? null
-  const audienceUrl = getAudienceUrl(eventId, { compact: true })
+  const audienceUrlResolver = getAudienceUrl as (...args: unknown[]) => string
+  const audienceUrl = audienceUrlResolver(eventId, { compact: true })
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=${encodeURIComponent(audienceUrl)}`
   const playbackSong = playbackState?.currentSongId
-    ? songs.find((song) => song.id === playbackState.currentSongId) ?? null
+    ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
   const activeSong = playbackSong ?? nowPlaying
   const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
-  const hasPlaybackBetweenSongsState = Boolean(playbackState && !playbackState.isStarted && songs.length > 0)
+  const hasPlaybackBetweenSongsState = Boolean(playbackState && !playbackState.isStarted && safeSongs.length > 0)
   const isBetweenSongs = hasPlaybackBetweenSongsState || fallbackBetweenSongs
+  const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
-    ? songs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, 4)
-    : songs.slice(0, 4)
+    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, 4)
+    : safeSongs.slice(0, 4)
+  const hiddenQueueCount = Math.max(0, safeSongs.length - (isNowPlayingStarted ? 1 : 0) - upNext.length)
   const betweenSongQuoteIndex = hasPlaybackBetweenSongsState
     ? (playbackState?.quoteIndex ?? 0)
     : fallbackQuoteIndex
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex % BETWEEN_SONG_QUOTES.length]
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
+  const shouldShowEditorControls = !(highContrastMode && hideControlsForAudience)
+
+  const onCoverLoadError = (coverUrl: string | null | undefined) => {
+    if (!coverUrl) {
+      return
+    }
+
+    setFailedCoverUrls((currentUrls) => {
+      if (currentUrls[coverUrl]) {
+        return currentUrls
+      }
+
+      return { ...currentUrls, [coverUrl]: true }
+    })
+  }
 
   useEffect(() => {
     const syncFullscreenState = () => {
@@ -127,6 +179,43 @@ function MirrorPage() {
   }, [])
 
   useEffect(() => {
+    const syncPresentationState = () => {
+      const fullscreenActive = Boolean(document.fullscreenElement)
+      const fullscreenDisplayMode = window.matchMedia('(display-mode: fullscreen)').matches
+      const projectedMode = fullscreenActive || fullscreenDisplayMode
+
+      setHideControlsForAudience(projectedMode)
+    }
+
+    syncPresentationState()
+    window.addEventListener('fullscreenchange', syncPresentationState)
+    window.addEventListener('resize', syncPresentationState)
+
+    return () => {
+      window.removeEventListener('fullscreenchange', syncPresentationState)
+      window.removeEventListener('resize', syncPresentationState)
+    }
+  }, [])
+
+  useEffect(() => {
+    const onRuntimeError = () => {
+      setMirrorWarning('Mirror recovered from a runtime issue. Showing last known state.')
+    }
+
+    const onUnhandledRejection = () => {
+      setMirrorWarning('Mirror sync is retrying in the background. Display remains live.')
+    }
+
+    window.addEventListener('error', onRuntimeError)
+    window.addEventListener('unhandledrejection', onUnhandledRejection)
+
+    return () => {
+      window.removeEventListener('error', onRuntimeError)
+      window.removeEventListener('unhandledrejection', onUnhandledRejection)
+    }
+  }, [])
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
@@ -134,11 +223,22 @@ function MirrorPage() {
     const searchParams = new URLSearchParams(window.location.search)
     const contrastParam = searchParams.get('contrast')?.trim().toLowerCase()
       ?? searchParams.get('hc')?.trim().toLowerCase()
+    const densityParam = searchParams.get('density')?.trim().toLowerCase()
+      ?? searchParams.get('dm')?.trim().toLowerCase()
+    const safeMarginsParam = searchParams.get('safeMargins')?.trim().toLowerCase()
+      ?? searchParams.get('safe')?.trim().toLowerCase()
 
     const hasContrastQuery = contrastParam === '1' || contrastParam === 'high' || contrastParam === 'true'
     const persistedContrastPreference = window.localStorage.getItem(MIRROR_HIGH_CONTRAST_STORAGE_KEY) === '1'
+    const hasSafeMarginsQuery = safeMarginsParam === '1' || safeMarginsParam === 'on' || safeMarginsParam === 'true'
+    const persistedSafeMarginsPreference = window.localStorage.getItem(MIRROR_SAFE_MARGINS_STORAGE_KEY) === '1'
+    const resolvedDensityMode: MirrorDensityMode = densityParam === 'cinema' || densityParam === 'xl' || densityParam === 'large'
+      ? 'cinema'
+      : 'medium'
 
     setHighContrastMode(hasContrastQuery || persistedContrastPreference)
+    setDensityMode(resolvedDensityMode)
+    setShowSafeMargins(hasSafeMarginsQuery || persistedSafeMarginsPreference)
   }, [])
 
   useEffect(() => {
@@ -150,6 +250,14 @@ function MirrorPage() {
   }, [highContrastMode])
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(MIRROR_SAFE_MARGINS_STORAGE_KEY, showSafeMargins ? '1' : '0')
+  }, [showSafeMargins])
+
+  useEffect(() => {
     if (!eventId) {
       setPlaybackState(null)
       return
@@ -158,12 +266,25 @@ function MirrorPage() {
     let isCurrent = true
     let subscription: ReturnType<typeof supabase.channel> | null = null
     let playbackBroadcastChannel: BroadcastChannel | null = null
+    let playbackHealthTimerId: number | null = null
 
     const syncPlaybackState = async () => {
       if (!isCurrent) return
       const state = await readSharedPlaybackState(eventId)
       if (isCurrent) {
-        setPlaybackState(state)
+        if (state) {
+          setPlaybackState(state)
+          setMirrorWarning(null)
+          return
+        }
+
+        setMirrorWarning('Realtime playback sync is reconnecting. Using queue fallback.')
+      }
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void syncPlaybackState()
       }
     }
 
@@ -182,7 +303,11 @@ function MirrorPage() {
             void syncPlaybackState()
           },
         )
-        .subscribe()
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR') {
+            setMirrorWarning('Mirror realtime channel reconnecting. Display remains active.')
+          }
+        })
     }
 
     const onPlaybackStateEvent = (nextEvent: Event) => {
@@ -194,7 +319,7 @@ function MirrorPage() {
     }
 
     const onStoragePlaybackState = (nextEvent: StorageEvent) => {
-      if (nextEvent.key !== PLAYBACK_STATE_STORAGE_KEY || !nextEvent.newValue) {
+      if (nextEvent.key !== MIRROR_PLAYBACK_STORAGE_KEY || !nextEvent.newValue) {
         return
       }
 
@@ -214,7 +339,7 @@ function MirrorPage() {
     window.addEventListener('storage', onStoragePlaybackState)
 
     if ('BroadcastChannel' in window) {
-      playbackBroadcastChannel = new BroadcastChannel(PLAYBACK_STATE_BROADCAST_CHANNEL)
+      playbackBroadcastChannel = new BroadcastChannel(MIRROR_PLAYBACK_BROADCAST_CHANNEL)
       playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
         const detail = messageEvent.data
         if (detail?.eventId === eventId && detail.state) {
@@ -223,13 +348,22 @@ function MirrorPage() {
       }
     }
 
+    playbackHealthTimerId = window.setInterval(() => {
+      void syncPlaybackState()
+    }, 15000)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
     return () => {
       isCurrent = false
       if (subscription) {
         void subscription.unsubscribe()
       }
+      if (playbackHealthTimerId) {
+        window.clearInterval(playbackHealthTimerId)
+      }
       window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
       window.removeEventListener('storage', onStoragePlaybackState)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       playbackBroadcastChannel?.close()
     }
   }, [eventId])
@@ -241,6 +375,9 @@ function MirrorPage() {
       }
       if (fallbackBetweenSongsTimerRef.current) {
         window.clearTimeout(fallbackBetweenSongsTimerRef.current)
+      }
+      if (shutterFallbackPulseTimerRef.current) {
+        window.clearTimeout(shutterFallbackPulseTimerRef.current)
       }
       spotlightBusyRef.current = false
       spotlightQueueRef.current = []
@@ -288,7 +425,7 @@ function MirrorPage() {
     }
 
     previousSongIdRef.current = nextSongId
-  }, [fallbackQuoteIndex, hasPlaybackBetweenSongsState, playbackState?.quoteIndex, songs])
+  }, [fallbackQuoteIndex, hasPlaybackBetweenSongsState, playbackState?.quoteIndex, safeSongs])
 
   useEffect(() => {
     if (!eventId || !showSpotlight) {
@@ -306,7 +443,21 @@ function MirrorPage() {
     const startSpotlight = (nextItem: SpotlightQueueItem) => {
       spotlightBusyRef.current = true
       setFlashActive(true)
-      playShutterSound()
+      const shutterSoundPlayed = playShutterSound()
+
+      if (!shutterSoundPlayed) {
+        setShowShutterFallbackPulse(true)
+
+        if (shutterFallbackPulseTimerRef.current) {
+          window.clearTimeout(shutterFallbackPulseTimerRef.current)
+        }
+
+        shutterFallbackPulseTimerRef.current = window.setTimeout(() => {
+          setShowShutterFallbackPulse(false)
+          shutterFallbackPulseTimerRef.current = null
+        }, 840)
+      }
+
       setQueuedSpotlightCount(spotlightQueueRef.current.length)
 
       window.setTimeout(() => {
@@ -400,7 +551,16 @@ function MirrorPage() {
         .order('created_at', { ascending: false })
         .limit(15)
 
-      if (!isCurrent || error || !data?.length) {
+      if (!isCurrent) {
+        return
+      }
+
+      if (error) {
+        setMirrorWarning('Crowd spotlight sync is reconnecting.')
+        return
+      }
+
+      if (!data?.length) {
         return
       }
 
@@ -435,6 +595,10 @@ function MirrorPage() {
         window.clearTimeout(spotlightTimerRef.current)
         spotlightTimerRef.current = null
       }
+      if (shutterFallbackPulseTimerRef.current) {
+        window.clearTimeout(shutterFallbackPulseTimerRef.current)
+        shutterFallbackPulseTimerRef.current = null
+      }
       seenSpotlightPostIdsRef.current = new Set()
       void supabase.removeChannel(channel)
     }
@@ -457,45 +621,61 @@ function MirrorPage() {
   }
 
   return (
-    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''}`} aria-label="Mirror display screen">
+    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
       <header className="mirror-header">
-        <p className="mirror-brand">🎸 Human Jukebox</p>
-        {event ? (
-          <div>
-            <p className="mirror-event-name">
-              {event.name}
-              {event.venue ? ` · ${event.venue}` : ''}
-            </p>
-            {event.subtitle ? <p className="mirror-event-subtitle">{event.subtitle}</p> : null}
+        <div className="mirror-header-main">
+          <p className="mirror-brand">🎸 Human Jukebox</p>
+          {event ? (
+            <div>
+              <p className="mirror-event-name">
+                {normalizeMirrorText(event.name, 'Live Event')}
+                {event.venue ? ` · ${normalizeMirrorText(event.venue, '')}` : ''}
+              </p>
+              {event.subtitle ? <p className="mirror-event-subtitle">{normalizeMirrorText(event.subtitle, '')}</p> : null}
+            </div>
+          ) : null}
+        </div>
+        <div className="mirror-header-meta">
+          {mirrorWarning ? <p className="mirror-warning" role="status">{mirrorWarning}</p> : null}
+          <span className={`mirror-status ${event?.roomOpen ? 'mirror-open' : 'mirror-paused'}`}>
+            {event?.roomOpen ? '● Live' : '● Paused'}
+          </span>
+        </div>
+        {shouldShowEditorControls ? (
+          <div className="mirror-editor-controls" aria-label="Mirror editor controls">
+            <button
+              type="button"
+              className="mirror-fullscreen-button"
+              onClick={async () => {
+                try {
+                  if (!document.fullscreenElement) {
+                    await document.documentElement.requestFullscreen()
+                  } else {
+                    await document.exitFullscreen()
+                  }
+                } catch {
+                  setMirrorWarning('Fullscreen toggle was blocked by the browser. Press F11 as a fallback.')
+                }
+              }}
+            >
+              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            </button>
+            <button
+              type="button"
+              className="mirror-contrast-button"
+              onClick={() => setHighContrastMode((currentMode) => !currentMode)}
+            >
+              {highContrastMode ? 'High Contrast: On' : 'High Contrast: Off'}
+            </button>
+            <button
+              type="button"
+              className="mirror-contrast-button"
+              onClick={() => setShowSafeMargins((currentValue) => !currentValue)}
+            >
+              {showSafeMargins ? 'Safe Margins: On' : 'Safe Margins: Off'}
+            </button>
           </div>
         ) : null}
-        <span className={`mirror-status ${event?.roomOpen ? 'mirror-open' : 'mirror-paused'}`}>
-          {event?.roomOpen ? '● Live' : '● Paused'}
-        </span>
-        <button
-          type="button"
-          className="mirror-fullscreen-button"
-          onClick={async () => {
-            try {
-              if (!document.fullscreenElement) {
-                await document.documentElement.requestFullscreen()
-              } else {
-                await document.exitFullscreen()
-              }
-            } catch {
-              // Ignore browser fullscreen failures; button remains available.
-            }
-          }}
-        >
-          {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-        </button>
-        <button
-          type="button"
-          className="mirror-contrast-button"
-          onClick={() => setHighContrastMode((currentMode) => !currentMode)}
-        >
-          {highContrastMode ? 'High Contrast: On' : 'High Contrast: Off'}
-        </button>
         {isLive ? (
           <div className="mirror-header-qr" aria-label="Audience join QR">
             <img src={qrUrl} alt="QR code for the audience request page" className="mirror-header-qr-image" />
@@ -527,22 +707,24 @@ function MirrorPage() {
             <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isBetweenSongs ? 'mirror-now-playing-interstitial' : ''}`}>
               {isBetweenSongs ? (
                 <>
+                  <div className="mirror-interstitial-sweep" aria-hidden="true" />
                   <p className="mirror-between-songs-quote">{betweenSongQuote}</p>
                 </>
               ) : (
                 <>
                   <p className="mirror-eyebrow">Now Playing</p>
                   <div className="mirror-now-playing-track">
-                    {activeSong?.cover_url ? (
+                    {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
                       <img
                         src={activeSong.cover_url}
                         alt={`Cover art for ${activeSong.title}`}
                         className="mirror-now-playing-cover"
+                        onError={() => onCoverLoadError(activeSong.cover_url)}
                       />
                     ) : null}
                     <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">{activeSong?.title ?? 'Waiting for requests…'}</h1>
-                      <p className="mirror-artist">{activeSong?.artist ?? 'Be the first to request a song!'}</p>
+                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests...')}</h1>
+                      <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be the first to request a song!')}</p>
                       {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                     </div>
                   </div>
@@ -551,23 +733,24 @@ function MirrorPage() {
             </section>
 
             <section className="mirror-secondary-grid">
-              <section className="mirror-up-next">
+              <section className={`mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`}>
                 <p className="mirror-up-next-label">Up Next</p>
                 {upNext.length > 0 ? (
                   <ol className="mirror-queue">
                     {upNext.map((song, index) => (
                       <li key={song.id} className="mirror-queue-item">
                         <span className="mirror-queue-pos">{index + 2}</span>
-                        {song.cover_url ? (
+                        {!shouldCompactQueue && song.cover_url && !failedCoverUrls[song.cover_url] ? (
                           <img
                             src={song.cover_url}
                             alt={`Cover art for ${song.title}`}
                             className="mirror-queue-cover"
+                            onError={() => onCoverLoadError(song.cover_url)}
                           />
                         ) : null}
                         <div className="mirror-queue-info">
-                          <span className="mirror-queue-title">{song.title}</span>
-                          <span className="mirror-queue-artist">{song.artist}</span>
+                          <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                          <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
                           {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                         </div>
                         <span className="mirror-queue-votes">+{song.votes_count}</span>
@@ -577,6 +760,9 @@ function MirrorPage() {
                 ) : (
                   <p className="mirror-empty-note">No songs in the queue yet.</p>
                 )}
+                {shouldCompactQueue && hiddenQueueCount > 0 ? (
+                  <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
+                ) : null}
               </section>
 
               <LiveFeedPanel mode="mirror" showComposer={false} title="Crowd Feed" />
@@ -603,6 +789,8 @@ function MirrorPage() {
       ) : null}
 
       {showSpotlight && flashActive ? <div className="mirror-spotlight-flash" aria-hidden="true" /> : null}
+      {showSpotlight && showShutterFallbackPulse ? <div className="mirror-spotlight-fallback-pulse" aria-hidden="true" /> : null}
+      {showSafeMargins && shouldShowEditorControls ? <div className="mirror-safe-margins-overlay" aria-hidden="true" /> : null}
 
       {isLive && event?.requestInstructions ? (
         <footer className="mirror-footer">

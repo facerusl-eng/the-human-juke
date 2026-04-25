@@ -37,6 +37,16 @@ function getStoredAuthorName() {
   return window.localStorage.getItem(AUTHOR_NAME_STORAGE_KEY) ?? ''
 }
 
+function normalizeAuthorName(authorName: string, fallbackName: string) {
+  const trimmedName = authorName.trim()
+
+  if (!trimmedName) {
+    return fallbackName
+  }
+
+  return trimmedName.slice(0, 28)
+}
+
 function getSuggestedAuthorName(email: string | undefined, isHost: boolean) {
   if (isHost) {
     return 'Host'
@@ -139,33 +149,41 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
         setLoading(true)
       }
 
-      const { data, error } = await supabase
-        .from('feed_posts')
-        .select('id, event_id, user_id, author_name, message, image_data_url, created_at')
-        .eq('event_id', event.id)
-        .order('created_at', { ascending: false })
-        .limit(FEED_MAX_POSTS)
+      try {
+        const { data, error } = await supabase
+          .from('feed_posts')
+          .select('id, event_id, user_id, author_name, message, image_data_url, created_at')
+          .eq('event_id', event.id)
+          .order('created_at', { ascending: false })
+          .limit(FEED_MAX_POSTS)
 
-      if (!isCurrent) {
+        if (!isCurrent) {
+          isFetchingPostsRef.current = false
+          return
+        }
+
+        if (error) {
+          throw error
+        }
+
+        setErrorText(null)
+        setPosts((data ?? []) as FeedPost[])
+      } catch (error) {
+        console.warn('LiveFeedPanel: failed to load posts', error)
+        if (isCurrent) {
+          setErrorText('Unable to load the live feed right now.')
+        }
+      } finally {
+        if (isCurrent) {
+          setLoading(false)
+        }
+
         isFetchingPostsRef.current = false
-        return
-      }
 
-      if (error) {
-        setErrorText('Unable to load the live feed right now.')
-        setLoading(false)
-        isFetchingPostsRef.current = false
-        return
-      }
-
-      setErrorText(null)
-      setPosts((data ?? []) as FeedPost[])
-      setLoading(false)
-      isFetchingPostsRef.current = false
-
-      if (hasQueuedReloadRef.current) {
-        hasQueuedReloadRef.current = false
-        void loadPosts(true)
+        if (hasQueuedReloadRef.current) {
+          hasQueuedReloadRef.current = false
+          void loadPosts(true)
+        }
       }
     }
 
@@ -282,7 +300,9 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
       return
     }
 
-    if (!message.trim() && !imageDataUrl) {
+    const trimmedMessage = message.trim()
+
+    if (!trimmedMessage && !imageDataUrl) {
       setErrorText('Write a message, add an image, or both.')
       return
     }
@@ -290,13 +310,15 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
     setBusy(true)
 
     try {
+      const normalizedAuthorName = normalizeAuthorName(resolvedAuthorName, suggestedAuthorName)
+
       const { data: insertedPost, error } = await supabase
         .from('feed_posts')
         .insert({
           event_id: event.id,
           user_id: user.id,
-          author_name: resolvedAuthorName,
-          message: message.trim(),
+          author_name: normalizedAuthorName,
+          message: trimmedMessage,
           image_data_url: imageDataUrl,
         })
         .select('id, event_id, user_id, author_name, message, image_data_url, created_at')
@@ -328,12 +350,17 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
   const deletePost = async (postId: string) => {
     setErrorText(null)
 
-    const { error } = await supabase
-      .from('feed_posts')
-      .delete()
-      .eq('id', postId)
+    try {
+      const { error } = await supabase
+        .from('feed_posts')
+        .delete()
+        .eq('id', postId)
 
-    if (error) {
+      if (error) {
+        throw error
+      }
+    } catch (error) {
+      console.warn('LiveFeedPanel: failed to delete post', { postId, error })
       setErrorText('Unable to remove that post right now.')
     }
   }
@@ -397,6 +424,8 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
               accept="image/*"
               capture="environment"
               className="live-feed-file-input"
+              aria-label="Upload crowd feed photo"
+              title="Upload crowd feed photo"
               onChange={onImageSelected}
             />
             <button

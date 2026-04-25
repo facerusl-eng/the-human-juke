@@ -53,8 +53,8 @@ function ShellLayout() {
           <button
             type="button"
             className="mobile-nav-toggle"
-            aria-expanded={isMobileNavOpen ? 'true' : 'false'}
             aria-controls="primary-site-nav"
+            aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
             onClick={() => setIsMobileNavOpen((open) => !open)}
           >
             {isMobileNavOpen ? 'Close menu' : 'Menu'}
@@ -124,12 +124,18 @@ function ShellLayout() {
                 placeholder="halligunnar@icloud.com"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                autoComplete="username"
+                required
+                aria-required="true"
               />
               <input
                 type="password"
                 placeholder="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+                aria-required="true"
               />
               <button type="submit" className="primary-button">
                 Admin Sign In

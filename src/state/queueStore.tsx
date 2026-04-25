@@ -406,7 +406,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           try {
             await withAuthLockRetry(() => refreshProfile(), 2)
-          } catch {
+          } catch (error) {
+            console.warn('queueStore: profile refresh failed after audience event sync', error)
             // Profile sync can recover on next auth refresh.
           }
         }
@@ -449,10 +450,11 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         try {
           await fetchQueueSnapshot(resolvedEventId)
-        } catch {
+        } catch (error) {
           const canFallbackToLatestActive = !isHostSession && Boolean(requestedEventId) && requestedEventId === resolvedEventId
 
           if (!canFallbackToLatestActive) {
+            console.warn('queueStore: failed to load requested event snapshot', error)
             throw new Error('Unable to load requested event.')
           }
 
@@ -489,7 +491,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           try {
             await fetchQueueSnapshot(resolvedEventId)
-          } catch {
+          } catch (error) {
+            console.warn('queueStore: transient snapshot refresh failure', error)
             // Keep the last known snapshot when transient network errors occur.
           } finally {
             snapshotInFlight = false
@@ -545,7 +548,8 @@ function QueueProvider({ children }: PropsWithChildren) {
             void refreshSnapshot()
           }
         }, QUEUE_POLL_INTERVAL_MS)
-      } catch {
+      } catch (error) {
+        console.warn('queueStore: initial queue load failed', error)
         // Keep previous state so transient failures do not blank the UI.
         if (isCurrent) {
           setLoading(false)
@@ -618,7 +622,8 @@ function QueueProvider({ children }: PropsWithChildren) {
         if (payload.eventId === event.id) {
           void fetchQueueSnapshot(event.id)
         }
-      } catch {
+      } catch (error) {
+        console.warn('queueStore: failed to parse room sync payload', error)
         // Ignore malformed payloads.
       }
     }
@@ -652,7 +657,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         const normalizedArtist = artist.trim()
 
         if (!normalizedTitle || !normalizedArtist) {
-          return
+          throw new Error('Song title and artist are required.')
         }
 
         const shouldBypassRules = options?.bypassEventRules || isHostSession
@@ -766,7 +771,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         try {
           await withAuthLockRetry(() => refreshProfile(), 2)
-        } catch {
+        } catch (error) {
+          console.warn('queueStore: profile refresh failed after setActiveEvent', error)
           // The active gig change succeeded; profile refresh can recover on next load.
         }
 
@@ -842,7 +848,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           try {
             await withAuthLockRetry(() => refreshProfile(), 2)
-          } catch {
+          } catch (error) {
+            console.warn('queueStore: profile refresh failed after fallback activation', error)
             // The profile can recover on the next load if refresh contention occurs.
           }
         } else if (needsFallbackGig) {
@@ -863,7 +870,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           try {
             await withAuthLockRetry(() => refreshProfile(), 2)
-          } catch {
+          } catch (error) {
+            console.warn('queueStore: profile refresh failed after clearing fallback gig', error)
             // The profile can recover on the next load if refresh contention occurs.
           }
         }
@@ -1093,6 +1101,12 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error('Host account required. Sign out and sign back in with the host email to create a gig.')
         }
 
+        const normalizedName = name.trim()
+
+        if (!normalizedName) {
+          throw new Error('Gig name is required.')
+        }
+
         const { data: authUserData, error: authUserError } = await withTimeout(
           withAuthLockRetry(() => supabase.auth.getUser()),
           DEFAULT_DB_TIMEOUT_MS,
@@ -1111,7 +1125,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               .from('events')
               .insert({
                 host_id: authenticatedUserId,
-                name,
+                name: normalizedName,
                 venue: venue || null,
                 is_active: false,
                 playlist_only_requests: true,
@@ -1129,7 +1143,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error(insertError.message)
         }
 
-        const { defaultPlaylistId, karaokePlaylistId } = await ensureDefaultHostPlaylists(authenticatedUserId, name)
+        const { defaultPlaylistId, karaokePlaylistId } = await ensureDefaultHostPlaylists(authenticatedUserId, normalizedName)
 
         const playlistIdsForGig = [...new Set([defaultPlaylistId, karaokePlaylistId].filter((playlistId): playlistId is string => Boolean(playlistId)))]
 
@@ -1171,7 +1185,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         try {
           await withAuthLockRetry(() => refreshProfile(), 2)
-        } catch {
+        } catch (error) {
+          console.warn('queueStore: profile refresh failed after event creation', error)
           // Profile refresh can fail under auth lock contention; event creation already succeeded.
         }
 

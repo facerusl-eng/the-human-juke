@@ -1,48 +1,62 @@
 import './App.css'
 import { Suspense, lazy } from 'react'
-import type { ReactNode } from 'react'
-import { Navigate, createBrowserRouter, useParams } from 'react-router-dom'
+import { Navigate, createBrowserRouter, isRouteErrorResponse, useRouteError } from 'react-router-dom'
 import RequireHost from './components/RequireHost'
 import ShellLayout from './components/ShellLayout'
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
 
-const HomePage = lazy(() => import('./pages/HomePage'))
-const EventPage = lazy(() => import('./pages/EventPage'))
-const FeedPage = lazy(() => import('./pages/FeedPage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const CreateGigPage = lazy(() => import('./pages/CreateGigPage'))
-const GigsPage = lazy(() => import('./pages/GigsPage'))
+const EventPage = lazy(() => import('./pages/EventPage'))
+const FeedPage = lazy(() => import('./pages/FeedPage'))
 const GigControlPage = lazy(() => import('./pages/GigControlPage'))
 const GigSettingsPage = lazy(() => import('./pages/GigSettingsPage'))
-const SettingsPage = lazy(() => import('./pages/SettingsPage'))
-const SetlistLibraryPage = lazy(() => import('./pages/SetlistLibraryPage'))
+const HomePage = lazy(() => import('./pages/HomePage'))
 const MirrorPage = lazy(() => import('./pages/MirrorPage'))
+const SetlistLibraryPage = lazy(() => import('./pages/SetlistLibraryPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
-function RouteFallback() {
+function RouteLoading() {
   return (
-    <section className="admin-shell" aria-label="Loading page">
-      <section className="queue-panel">Loading...</section>
+    <div className="app-shell" role="status" aria-live="polite">
+      <p>Loading page...</p>
+    </div>
+  )
+}
+
+function RouteErrorFallback() {
+  const routeError = useRouteError()
+  const fallbackMessage = isRouteErrorResponse(routeError)
+    ? routeError.statusText || 'This page could not be loaded.'
+    : routeError instanceof Error
+      ? routeError.message
+      : 'This page could not be loaded.'
+
+  return (
+    <section className="app-shell" aria-label="Page error">
+      <section className="queue-panel">
+        <p className="eyebrow">Temporary issue</p>
+        <h1>We hit a loading error</h1>
+        <p className="subcopy">{fallbackMessage}</p>
+        <div className="hero-actions no-margin-bottom">
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => {
+              window.location.reload()
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </section>
     </section>
   )
 }
 
-function LazyRoute({ children }: { children: ReactNode }) {
-  return (
-    <Suspense fallback={<RouteFallback />}>
-      {children}
-    </Suspense>
-  )
-}
-
-function AudienceShortcutRedirect() {
-  const { eventId } = useParams<{ eventId: string }>()
-
-  if (!eventId) {
-    return <Navigate to="/audience" replace />
-  }
-
-  return <Navigate to={`/audience?event=${encodeURIComponent(eventId)}`} replace />
+function withSuspense(element: React.ReactNode) {
+  return <Suspense fallback={<RouteLoading />}>{element}</Suspense>
 }
 
 const router = createBrowserRouter([
@@ -55,107 +69,70 @@ const router = createBrowserRouter([
         </QueueProvider>
       </AuthProvider>
     ),
+    errorElement: <RouteErrorFallback />,
     children: [
       {
         index: true,
-        element: (
-          <LazyRoute>
-            <HomePage />
-          </LazyRoute>
-        ),
+        element: withSuspense(<HomePage />),
       },
       {
         path: 'audience',
-        element: (
-          <LazyRoute>
-            <EventPage />
-          </LazyRoute>
-        ),
+        element: withSuspense(<EventPage />),
       },
       {
         path: 'feed',
-        element: (
-          <LazyRoute>
-            <FeedPage />
-          </LazyRoute>
-        ),
+        element: withSuspense(<FeedPage />),
       },
       {
         path: 'event',
         element: <Navigate to="/audience" replace />,
       },
       {
-        path: 'a/:eventId',
-        element: <AudienceShortcutRedirect />,
-      },
-      {
         path: 'admin',
-        element: (
+        element: withSuspense(
           <RequireHost>
-            <LazyRoute>
-              <AdminPage />
-            </LazyRoute>
-          </RequireHost>
+            <AdminPage />
+          </RequireHost>,
         ),
       },
       {
         path: 'admin/create-gig',
-        element: (
+        element: withSuspense(
           <RequireHost>
-            <LazyRoute>
-              <CreateGigPage />
-            </LazyRoute>
-          </RequireHost>
-        ),
-      },
-      {
-        path: 'admin/gigs',
-        element: (
-          <RequireHost>
-            <LazyRoute>
-              <GigsPage />
-            </LazyRoute>
-          </RequireHost>
+            <CreateGigPage />
+          </RequireHost>,
         ),
       },
       {
         path: 'admin/gig-control',
-        element: (
+        element: withSuspense(
           <RequireHost>
-            <LazyRoute>
-              <GigControlPage />
-            </LazyRoute>
-          </RequireHost>
+            <GigControlPage />
+          </RequireHost>,
         ),
       },
       {
         path: 'admin/gig-settings',
-        element: (
+        element: withSuspense(
           <RequireHost>
-            <LazyRoute>
-              <GigSettingsPage />
-            </LazyRoute>
-          </RequireHost>
+            <GigSettingsPage />
+          </RequireHost>,
         ),
       },
       {
         path: 'admin/settings',
-        element: (
+        element: withSuspense(
           <RequireHost>
-            <LazyRoute>
-              <SettingsPage />
-            </LazyRoute>
-          </RequireHost>
+            <SettingsPage />
+          </RequireHost>,
         ),
       },
       {
         path: 'admin/setlist-library',
-        element: (
+        element: withSuspense(
           <RequireHost>
-            <LazyRoute>
-              <SetlistLibraryPage />
-            </LazyRoute>
-          </RequireHost>
+            <SetlistLibraryPage />
+          </RequireHost>,
         ),
       },
       {
@@ -166,15 +143,14 @@ const router = createBrowserRouter([
   },
   {
     path: '/mirror',
-    element: (
+    element: withSuspense(
       <AuthProvider>
         <QueueProvider>
-          <LazyRoute>
-            <MirrorPage />
-          </LazyRoute>
+          <MirrorPage />
         </QueueProvider>
-      </AuthProvider>
+      </AuthProvider>,
     ),
+    errorElement: <RouteErrorFallback />,
   },
 ])
 

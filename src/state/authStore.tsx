@@ -100,7 +100,8 @@ function AuthProvider({ children }: PropsWithChildren) {
           const loadedProfile = await getProfile(nextSession.user.id)
           const nextProfile = await syncAllowedHostRole(nextSession.user, loadedProfile)
           setProfile(nextProfile)
-        } catch {
+        } catch (error) {
+          console.warn('authStore: failed to refresh profile for active session', error)
           // Keep the current profile when profile reload fails.
         }
       } else {
@@ -143,6 +144,7 @@ function AuthProvider({ children }: PropsWithChildren) {
         }
 
         if (error) {
+          console.warn('authStore: getSession failed', error)
           setSession(null)
           setUser(null)
           setProfile(null)
@@ -161,14 +163,17 @@ function AuthProvider({ children }: PropsWithChildren) {
           const guestSession = await ensureAudienceSession()
           await applySessionState(guestSession)
         } catch (error) {
+          console.warn('authStore: failed to create initial audience session', error)
           setAuthError(error instanceof Error ? error.message : 'Audience sign-in is currently unavailable.')
           await applySessionState(null)
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!isMounted) {
           return
         }
+
+        console.warn('authStore: unexpected getSession exception', error)
 
         setSession(null)
         setUser(null)
@@ -194,6 +199,7 @@ function AuthProvider({ children }: PropsWithChildren) {
         const guestSession = await ensureAudienceSession()
         await applySessionState(guestSession)
       } catch (error) {
+        console.warn('authStore: failed to restore audience session after auth change', error)
         setAuthError(error instanceof Error ? error.message : 'Audience sign-in is currently unavailable.')
         await applySessionState(null)
       }
@@ -230,6 +236,7 @@ function AuthProvider({ children }: PropsWithChildren) {
           await applySessionState(guestSession)
         }
       } catch (error) {
+        console.warn('authStore: retrying audience session after failure', error)
         if (!isCancelled) {
           setAuthError(error instanceof Error ? error.message : 'Audience sign-in is currently unavailable.')
         }

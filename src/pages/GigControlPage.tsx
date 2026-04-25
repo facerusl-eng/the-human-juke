@@ -41,6 +41,38 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
 
+  const copyJoinUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(joinUrl)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1400)
+      return
+    } catch {
+      // Fall back to a hidden textarea when clipboard permissions are blocked.
+    }
+
+    try {
+      const fallbackInput = document.createElement('textarea')
+      fallbackInput.value = joinUrl
+      fallbackInput.setAttribute('readonly', '')
+      fallbackInput.style.position = 'fixed'
+      fallbackInput.style.left = '-9999px'
+      document.body.appendChild(fallbackInput)
+      fallbackInput.select()
+      const copiedWithFallback = document.execCommand('copy')
+      document.body.removeChild(fallbackInput)
+
+      if (!copiedWithFallback) {
+        throw new Error('copy-failed')
+      }
+
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1400)
+    } catch {
+      setErrorText('Copy failed. You can still select and copy the audience link manually.')
+    }
+  }
+
   const resolveCoverUrlForSong = (songId: string | null) => {
     if (!songId) {
       return null
@@ -304,9 +336,7 @@ function GigControlPage() {
               type="button"
               className="secondary-button"
               onClick={async () => {
-                await navigator.clipboard.writeText(joinUrl)
-                setCopied(true)
-                setTimeout(() => setCopied(false), 1400)
+                await copyJoinUrl()
               }}
             >
               {copied ? 'Copied!' : 'Copy Audience Link'}
@@ -390,9 +420,7 @@ function GigControlPage() {
             type="button"
             className="secondary-button"
             onClick={async () => {
-              await navigator.clipboard.writeText(joinUrl)
-              setCopied(true)
-              setTimeout(() => setCopied(false), 1400)
+              await copyJoinUrl()
             }}
           >
             {copied ? 'Copied!' : 'Copy Audience Link'}

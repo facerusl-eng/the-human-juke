@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { FormEvent } from 'react'
+import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
+import SongVoteCard from '../components/audience/SongVoteCard'
 import { useQueueStore } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
 import { commitAudienceName, readCommittedAudienceName } from '../lib/audienceIdentity'
@@ -46,6 +48,11 @@ type CuratedSong = {
 
 type PickerViewMode = 'cards' | 'rows' | 'covers'
 type PerformerMode = 'performer' | 'audience'
+type SongRequestErrors = {
+  songTitle?: string
+  artistName?: string
+  selection?: string
+}
 
 function EventPage() {
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
@@ -95,13 +102,17 @@ function EventPage() {
   const [performerMode, setPerformerMode] = useState<PerformerMode>('performer')
   const [audienceNameInput, setAudienceNameInput] = useState('')
   const [audienceName, setAudienceName] = useState('')
+  const [audienceNameError, setAudienceNameError] = useState<string | null>(null)
+  const [songRequestErrors, setSongRequestErrors] = useState<SongRequestErrors>({})
   const [errorText, setErrorText] = useState<string | null>(null)
   const [submittingSongId, setSubmittingSongId] = useState<string | null>(null)
   const [votePulseTicks, setVotePulseTicks] = useState<Record<string, number>>({})
+  const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [canScrollSetlist, setCanScrollSetlist] = useState(false)
   const [isSetlistScrollAtEnd, setIsSetlistScrollAtEnd] = useState(false)
   const previousVotesRef = useRef<Map<string, number>>(new Map())
+  const previousSongRanksRef = useRef<Map<string, number>>(new Map())
   const curatedPickerScrollRef = useRef<HTMLDivElement | null>(null)
 
   const roomOpen = event?.roomOpen ?? false
@@ -429,12 +440,21 @@ function EventPage() {
   useEffect(() => {
     const previousVotes = previousVotesRef.current
     const increasedSongIds: string[] = []
+    const previousSongRanks = previousSongRanksRef.current
+    const movedSongIds: string[] = []
 
     for (const song of songs) {
       const previousVotesCount = previousVotes.get(song.id)
 
       if (typeof previousVotesCount === 'number' && song.votes_count > previousVotesCount) {
         increasedSongIds.push(song.id)
+      }
+
+      const previousRank = previousSongRanks.get(song.id)
+      const nextRank = upNext.findIndex((upNextSong) => upNextSong.id === song.id)
+
+      if (typeof previousRank === 'number' && nextRank >= 0 && previousRank !== nextRank) {
+        movedSongIds.push(song.id)
       }
     }
 
@@ -450,8 +470,21 @@ function EventPage() {
       })
     }
 
+    if (movedSongIds.length) {
+      setSongMoveTicks((currentTicks) => {
+        const nextTicks = { ...currentTicks }
+
+        for (const songId of movedSongIds) {
+          nextTicks[songId] = (nextTicks[songId] ?? 0) + 1
+        }
+
+        return nextTicks
+      })
+    }
+
     previousVotesRef.current = new Map(songs.map((song) => [song.id, song.votes_count]))
-  }, [songs])
+    previousSongRanksRef.current = new Map(upNext.map((song, index) => [song.id, index]))
+  }, [songs, upNext])
 
   useEffect(() => {
     const storedAudienceName = readCommittedAudienceName()
@@ -554,11 +587,13 @@ function EventPage() {
   const onSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault()
     setErrorText(null)
+    setSongRequestErrors({})
 
     if (showCuratedPicker) {
       const selectedSong = curatedSongs.find((song) => song.id === selectedCuratedSongId)
 
       if (!selectedSong) {
+        setSongRequestErrors({ selection: 'Please select a song from the setlist first.' })
         setErrorText('Choose a song first.')
         return
       }
@@ -568,7 +603,18 @@ function EventPage() {
       return
     }
 
-    if (!songTitle.trim() || !artistName.trim()) {
+    const nextErrors: SongRequestErrors = {}
+
+    if (!songTitle.trim()) {
+      nextErrors.songTitle = 'Song title is required.'
+    }
+
+    if (!artistName.trim()) {
+      nextErrors.artistName = 'Artist is required.'
+    }
+
+    if (nextErrors.songTitle || nextErrors.artistName) {
+      setSongRequestErrors(nextErrors)
       setErrorText('Enter both song title and artist.')
       return
     }
@@ -585,10 +631,12 @@ function EventPage() {
 
   const onAudienceNameSubmit = (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault()
+    setAudienceNameError(null)
 
     const normalizedAudienceName = audienceNameInput.trim()
 
     if (!normalizedAudienceName) {
+      setAudienceNameError('Please enter your name to continue.')
       setErrorText('Please enter your name to continue.')
       return
     }
@@ -625,11 +673,13 @@ function EventPage() {
                 id="audience-name"
                 value={audienceNameInput}
                 onChange={(event) => setAudienceNameInput(event.target.value)}
-                placeholder="Your name"
+                placeholder="e.g. Alex"
                 maxLength={40}
+                aria-describedby={audienceNameError ? 'audience-name-error' : undefined}
                 autoFocus
               />
             </div>
+            {audienceNameError ? <p id="audience-name-error" className="error-text request-error-inline" role="alert">{audienceNameError}</p> : null}
             <button type="submit" className="primary-button">Join Audience</button>
           </form>
           {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
@@ -653,13 +703,15 @@ function EventPage() {
   }
 
   return (
-    <section className="audience-shell audience-shell-compact" aria-label="Audience app">
+    <section className="audience-shell audience-shell-compact audience-shell-modern" aria-label="Audience app">
       <section className="audience-stage">
-        <div className="panel-head">
-          <div>
-            <h1>{event?.name ?? 'Audience Live'}</h1>
-            {event?.subtitle ? <p className="subcopy audience-event-subtitle">{event.subtitle}</p> : null}
-          </div>
+        <AudienceFixedHeader
+          eventName={event?.name ?? 'Audience Live'}
+          subtitle={event?.subtitle ?? null}
+          logoSrc="/the-human-jukebox-logo.svg"
+        />
+
+        <div className="panel-head audience-stage-status">
           <span className="live-dot">Room Open</span>
         </div>
 
@@ -688,61 +740,28 @@ function EventPage() {
             <span className="meta-badge">Most votes rises first</span>
           </div>
           <ol className="queue-list">
-            {upNext.map((song, songIndex) => {
-              const voteHeatPercent = hottestVoteCount > 0
-                ? Math.round((song.votes_count / hottestVoteCount) * 100)
-                : 0
-
-              return (
-              <li key={song.id} className="audience-song-row">
-                <div className="queue-rank-chip" aria-label={`Rank ${songIndex + 1}`}>
-                  #{songIndex + 1}
-                </div>
-                <div className="queue-song-main">
-                  {song.cover_url ? (
-                    <img src={normalizeCoverUrl(song.cover_url) ?? song.cover_url} alt={`Cover art for ${song.title}`} className="song-cover" />
-                  ) : null}
-                  <div>
-                  <p className="song">{song.title}</p>
-                  <p className="artist">
-                    {song.artist}
-                    {song.audience_sings ? <span className="karaoke-tag"> - Karaoke</span> : ''}
-                    {song.is_explicit ? ' - Explicit' : ''}
-                    {song.voting_locked ? ' - Voting Locked' : ''}
-                  </p>
-                  <div className="vote-heat-track" aria-label={`Vote momentum ${voteHeatPercent}%`}>
-                    <span className="vote-heat-fill" style={{ width: `${voteHeatPercent}%` }} />
-                  </div>
-                  </div>
-                </div>
-                <div className="queue-actions">
-                  <span
-                    key={`votes-${song.id}-${votePulseTicks[song.id] ?? 0}`}
-                    className={`votes ${(votePulseTicks[song.id] ?? 0) > 0 ? 'votes-pulse' : ''}`}
-                  >
-                    +{song.votes_count}
-                  </span>
-                  <button
-                    type="button"
-                    className="tap-vote like-vote"
-                    onClick={async () => {
-                      try {
-                        await upvoteSong(song.id)
-                      } catch {
-                        setErrorText('Vote failed. You may have already voted or voting is locked.')
-                      }
-                    }}
-                    disabled={!roomOpen || song.voting_locked}
-                  >
-                    Like
-                  </button>
-                </div>
-              </li>
-              )
-            })}
+            {upNext.map((song, songIndex) => (
+              <SongVoteCard
+                key={song.id}
+                song={song}
+                rank={songIndex + 1}
+                hottestVoteCount={hottestVoteCount}
+                votePulseTick={votePulseTicks[song.id] ?? 0}
+                moveTick={songMoveTicks[song.id] ?? 0}
+                normalizeCoverUrl={normalizeCoverUrl}
+                disabled={!roomOpen || song.voting_locked}
+                onVote={async (songId) => {
+                  try {
+                    await upvoteSong(songId)
+                  } catch {
+                    setErrorText('Vote failed. You may have already voted or voting is locked.')
+                  }
+                }}
+              />
+            ))}
           </ol>
         </article>
-        <section className="queue-panel audience-request-panel">
+        <section className={`queue-panel audience-request-panel ${submittingSongId ? 'is-submitting' : ''}`}>
           <div className="panel-head audience-request-head">
             <div>
               <p className="eyebrow audience-request-eyebrow">Request a song</p>
@@ -750,6 +769,9 @@ function EventPage() {
             </div>
             {showCuratedPicker ? <span className="meta-badge">Curated setlist</span> : <span className="meta-badge">Open request</span>}
           </div>
+          {showCuratedPicker ? (
+            <p className="subcopy audience-request-note">Pick a song, choose who sings, then tap Add Request.</p>
+          ) : null}
           {event?.requestInstructions ? (
             <p className="subcopy audience-request-note">{event.requestInstructions}</p>
           ) : null}
@@ -772,7 +794,7 @@ function EventPage() {
                     id="song-search"
                     value={songSearchQuery}
                     onChange={(event) => setSongSearchQuery(event.target.value)}
-                    placeholder="Search title or artist"
+                    placeholder="Search by song title or artist"
                     disabled={!curatedSongs.length}
                   />
                 </div>
@@ -804,12 +826,53 @@ function EventPage() {
                     </div>
 
                     {selectedCuratedSong ? (
-                      <p className="meta-badge audience-policy-badge">
-                        Selected: {selectedCuratedSong.title} - {selectedCuratedSong.artist}
-                      </p>
+                      <div className="curated-selected-summary" role="status" aria-live="polite">
+                        <p className="curated-selected-summary-label">Selected song</p>
+                        <p className="curated-selected-summary-title">{selectedCuratedSong.title}</p>
+                        <p className="curated-selected-summary-artist">{selectedCuratedSong.artist}</p>
+                        <p className="performer-mode-label">Who should sing this one?</p>
+                        <div className="performer-mode-toggle" role="group" aria-label="Performer choice">
+                          <button
+                            type="button"
+                            className={`performer-mode-chip ${performerMode === 'performer' ? 'is-active' : ''}`}
+                            onClick={() => setPerformerMode('performer')}
+                          >
+                            {performerDisplayName} sings
+                          </button>
+                          <button
+                            type="button"
+                            className={`performer-mode-chip karaoke-choice-button ${performerMode === 'audience' ? 'is-active' : ''}`}
+                            onClick={() => setPerformerMode('audience')}
+                          >
+                            I want to sing
+                          </button>
+                        </div>
+                        {performerMode === 'audience' ? (
+                          <p className="meta-badge audience-policy-badge">This request will be marked as Karaoke in the queue.</p>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="primary-button"
+                          aria-label={`Request ${selectedCuratedSong.title} by ${selectedCuratedSong.artist}`}
+                          disabled={Boolean(submittingSongId)}
+                          onClick={() => {
+                            void submitCuratedSong(selectedCuratedSong, performerMode)
+                          }}
+                        >
+                          {submittingSongId ? 'Adding...' : 'Request Song'}
+                        </button>
+                        <button
+                          type="button"
+                          className="tertiary-button"
+                          onClick={() => setSelectedCuratedSongId('')}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     ) : (
                       <p className="meta-badge audience-policy-badge">Choose a song to continue.</p>
                     )}
+                    {songRequestErrors.selection ? <p className="error-text request-error-inline" role="alert">{songRequestErrors.selection}</p> : null}
 
                     {availableCuratedSongs.length ? (
                       <div className="curated-picker-scroll-shell">
@@ -834,7 +897,6 @@ function EventPage() {
                             {availableCuratedSongs.map((song) => {
                               const isSelected = selectedCuratedSongId === song.id
                               const fallbackInitial = song.title.charAt(0).toUpperCase() || '♪'
-                              const isSubmittingThisSong = submittingSongId === song.id
 
                               return (
                                 <li key={song.id} className={`curated-pick-item ${isSelected ? 'is-selected' : ''}`}>
@@ -859,33 +921,6 @@ function EventPage() {
                                     </span>
                                     {isSelected ? <span className="curated-selected-pill">Selected</span> : null}
                                   </button>
-                                  {isSelected ? (
-                                    <div className="curated-performer-overlay" role="group" aria-label="Performer choice">
-                                      <p className="curated-performer-overlay-label">Who sings this one?</p>
-                                      <div className="curated-performer-overlay-actions">
-                                        <button
-                                          type="button"
-                                          className={`performer-mode-chip ${performerMode === 'performer' ? 'is-active' : ''}`}
-                                          disabled={Boolean(submittingSongId)}
-                                          onClick={() => {
-                                            void submitCuratedSong(song, 'performer')
-                                          }}
-                                        >
-                                          {isSubmittingThisSong ? 'Adding...' : `${performerDisplayName} sings`}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className={`performer-mode-chip karaoke-choice-button ${performerMode === 'audience' ? 'is-active' : ''}`}
-                                          disabled={Boolean(submittingSongId)}
-                                          onClick={() => {
-                                            void submitCuratedSong(song, 'audience')
-                                          }}
-                                        >
-                                          I sing myself
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : null}
                                 </li>
                               )
                             })}
@@ -912,8 +947,10 @@ function EventPage() {
                     id="song-title"
                     value={songTitle}
                     onChange={(event) => setSongTitle(event.target.value)}
+                    aria-describedby={songRequestErrors.songTitle ? 'song-title-error' : undefined}
                     placeholder="Blinding Lights"
                   />
+                  {songRequestErrors.songTitle ? <p id="song-title-error" className="error-text request-error-inline" role="alert">{songRequestErrors.songTitle}</p> : null}
                 </div>
                 <div className="field-row">
                   <label htmlFor="artist-name">Artist</label>
@@ -921,8 +958,10 @@ function EventPage() {
                     id="artist-name"
                     value={artistName}
                     onChange={(event) => setArtistName(event.target.value)}
+                    aria-describedby={songRequestErrors.artistName ? 'artist-name-error' : undefined}
                     placeholder="The Weeknd"
                   />
+                  {songRequestErrors.artistName ? <p id="artist-name-error" className="error-text request-error-inline" role="alert">{songRequestErrors.artistName}</p> : null}
                 </div>
                 <label className="checkbox-row" htmlFor="song-explicit">
                   <input
@@ -961,16 +1000,32 @@ function EventPage() {
               </div>
             ) : null}
 
-            {!showCuratedPicker && readySongLabel ? (
+            {readySongLabel ? (
               <p className="meta-badge audience-policy-badge">Ready to request: {readySongLabel}</p>
             ) : null}
 
+            <button
+              type="submit"
+              className="primary-button"
+              aria-label="Request Song"
+              disabled={!hasSongSelection || Boolean(submittingSongId)}
+            >
+              {submittingSongId ? 'Adding...' : 'Request Song'}
+            </button>
+
             {!showCuratedPicker ? (
               <button
-                type="submit"
-                className="primary-button"
+                type="button"
+                className="tertiary-button"
+                onClick={() => {
+                  setSongTitle('')
+                  setArtistName('')
+                  setIsExplicit(false)
+                  setSongRequestErrors({})
+                  setErrorText(null)
+                }}
               >
-                Add Request
+                Cancel
               </button>
             ) : null}
 

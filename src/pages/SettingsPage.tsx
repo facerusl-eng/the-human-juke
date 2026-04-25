@@ -54,26 +54,43 @@ function normalizeOptionalUrl(value: string) {
 function SettingsPage() {
   const { user, refreshProfile } = useAuthStore()
   const [settings, setSettings] = useState<HostSettings>(DEFAULTS)
+  const [loadingSettings, setLoadingSettings] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    if (!user) return
+    if (!user) {
+      setSettings(DEFAULTS)
+      setLoadError(null)
+      setLoadingSettings(false)
+      return
+    }
 
-    supabase
-      .from('profiles')
-      .select(
-        'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, default_gig_name, default_venue',
-      )
-      .eq('user_id', user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (error) {
-          setLoadError('Could not load settings.')
+    let isCurrent = true
+
+    const loadSettings = async () => {
+      setLoadError(null)
+      setLoadingSettings(true)
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select(
+            'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, default_gig_name, default_venue',
+          )
+          .eq('user_id', user.id)
+          .single()
+
+        if (!isCurrent) {
           return
         }
+
+        if (error) {
+          throw error
+        }
+
         if (data) {
           setSettings({
             display_name: data.display_name ?? '',
@@ -88,7 +105,23 @@ function SettingsPage() {
             default_venue: data.default_venue ?? '',
           })
         }
-      })
+      } catch (error) {
+        console.warn('SettingsPage: failed to load host settings', error)
+        if (isCurrent) {
+          setLoadError('Could not load settings.')
+        }
+      } finally {
+        if (isCurrent) {
+          setLoadingSettings(false)
+        }
+      }
+    }
+
+    void loadSettings()
+
+    return () => {
+      isCurrent = false
+    }
   }, [user])
 
   const set = (key: keyof HostSettings) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -96,7 +129,11 @@ function SettingsPage() {
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!user) return
+    if (!user) {
+      setSaveError('Host session not available. Please sign in again.')
+      console.warn('SettingsPage: save blocked because user is missing')
+      return
+    }
 
     setSaving(true)
     setSaveError(null)
@@ -119,36 +156,57 @@ function SettingsPage() {
 
     if (invalidField) {
       setSaving(false)
-      setSaveError('Please enter valid social/tip links. Example: instagram.com/yourname')
+      const fieldLabels: Record<string, string> = {
+        instagram_url: 'Instagram URL',
+        tiktok_url: 'TikTok URL',
+        youtube_url: 'YouTube URL',
+        facebook_url: 'Facebook URL',
+        paypal_url: 'PayPal URL',
+        mobilpay_url: 'MobilePay URL',
+      }
+      const invalidFieldName = fieldLabels[invalidField[0]] ?? 'URL field'
+      setSaveError(`Please enter a valid ${invalidFieldName}. Example: instagram.com/yourname`)
       return
     }
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        display_name: settings.display_name.trim() || null,
-        bio: settings.bio.trim() || null,
-        instagram_url: normalizedSocialFields.instagram_url,
-        tiktok_url: normalizedSocialFields.tiktok_url,
-        youtube_url: normalizedSocialFields.youtube_url,
-        facebook_url: normalizedSocialFields.facebook_url,
-        paypal_url: normalizedSocialFields.paypal_url,
-        mobilpay_url: normalizedSocialFields.mobilpay_url,
-        default_gig_name: settings.default_gig_name.trim() || null,
-        default_venue: settings.default_venue.trim() || null,
-      })
-      .eq('user_id', user.id)
-
-    setSaving(false)
-
-    if (error) {
-      setSaveError('Save failed: ' + error.message)
-      return
+    const profileUpdatePayload = {
+      user_id: user.id,
+      display_name: settings.display_name.trim() || null,
+      bio: settings.bio.trim() || null,
+      instagram_url: normalizedSocialFields.instagram_url,
+      tiktok_url: normalizedSocialFields.tiktok_url,
+      youtube_url: normalizedSocialFields.youtube_url,
+      facebook_url: normalizedSocialFields.facebook_url,
+      paypal_url: normalizedSocialFields.paypal_url,
+      mobilpay_url: normalizedSocialFields.mobilpay_url,
+      default_gig_name: settings.default_gig_name.trim() || null,
+      default_venue: settings.default_venue.trim() || null,
     }
 
-    await refreshProfile()
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert(profileUpdatePayload, { onConflict: 'user_id' })
+
+      if (error) {
+        throw error
+      }
+
+      try {
+        await refreshProfile()
+      } catch (error) {
+        console.warn('SettingsPage: profile refresh failed after save', error)
+      }
+
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 3000)
+    } catch (error) {
+      console.warn('SettingsPage: failed to save settings', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected save error.'
+      setSaveError('Save failed: ' + errorMessage)
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loadError) {
@@ -166,6 +224,8 @@ function SettingsPage() {
         <h1>Settings</h1>
         <p className="subcopy">Manage your performer profile, social links, tip jar, and event defaults.</p>
       </section>
+
+      {loadingSettings ? <p className="subcopy">Loading settings…</p> : null}
 
       <form className="settings-form" onSubmit={onSubmit}>
 

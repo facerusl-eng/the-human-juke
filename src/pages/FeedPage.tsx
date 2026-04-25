@@ -7,6 +7,7 @@ import { commitAudienceName, readCommittedAudienceName } from '../lib/audienceId
 function FeedPage() {
   const [nameInput, setNameInput] = useState('')
   const [nameCommitted, setNameCommitted] = useState('')
+  const [nameError, setNameError] = useState<string | null>(null)
 
   useEffect(() => {
     const storedName = readCommittedAudienceName()
@@ -23,9 +24,11 @@ function FeedPage() {
     const normalizedName = nameInput.trim()
 
     if (!normalizedName) {
+      setNameError('Please enter your name before continuing.')
       return
     }
 
+    setNameError(null)
     commitAudienceName(normalizedName)
     setNameCommitted(normalizedName)
   }
@@ -43,12 +46,19 @@ function FeedPage() {
               <input
                 id="feed-entry-name"
                 value={nameInput}
-                onChange={(nextEvent) => setNameInput(nextEvent.target.value)}
+                onChange={(nextEvent) => {
+                  setNameInput(nextEvent.target.value)
+                  if (nameError) {
+                    setNameError(null)
+                  }
+                }}
                 placeholder="Your name"
                 maxLength={40}
                 autoFocus
+                required
               />
             </div>
+            {nameError ? <p className="error-text">{nameError}</p> : null}
             <button type="submit" className="primary-button">Continue to Feed</button>
           </form>
         </article>
