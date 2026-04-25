@@ -1,22 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { SyntheticEvent } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { AUDIENCE_NAME_COMMITTED_EVENT, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from '../state/authStore'
-
-const PRIMARY_APP_LOGO_SRC = '/the-human-jukebox-logo.png'
-const FALLBACK_APP_LOGO_SRC = '/the-human-jukebox-logo.svg'
-
-function applyLogoFallback(event: SyntheticEvent<HTMLImageElement>) {
-  const imageElement = event.currentTarget
-
-  if (imageElement.dataset.logoFallbackApplied === 'true') {
-    return
-  }
-
-  imageElement.dataset.logoFallbackApplied = 'true'
-  imageElement.src = FALLBACK_APP_LOGO_SRC
-}
 
 function ShellLayout() {
   const location = useLocation()
@@ -63,12 +48,7 @@ function ShellLayout() {
     <main className={shellClassName}>
       <header className={topbarClassName}>
         <p className="brand" aria-label="The Human Jukebox">
-          <img
-            src={PRIMARY_APP_LOGO_SRC}
-            onError={applyLogoFallback}
-            alt="The Human Jukebox"
-            className="brand-logo"
-          />
+          <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
         </p>
         {showAdminMobileMenu ? (
           <button
@@ -98,13 +78,7 @@ function ShellLayout() {
                   aria-label="Audience"
                   title="Open the live queue and request songs"
                 >
-                  <img
-                    src={PRIMARY_APP_LOGO_SRC}
-                    onError={applyLogoFallback}
-                    alt=""
-                    className="top-nav-logo-image"
-                    aria-hidden="true"
-                  />
+                  <img src="/the-human-jukebox-logo.svg" alt="" className="top-nav-logo-image" aria-hidden="true" />
                 </NavLink>
               ) : (
                 <NavLink to="/audience">Audience</NavLink>
@@ -120,13 +94,7 @@ function ShellLayout() {
                       aria-label="Dashboard"
                       title="Open host tools and event controls"
                     >
-                      <img
-                        src={PRIMARY_APP_LOGO_SRC}
-                        onError={applyLogoFallback}
-                        alt=""
-                        className="top-nav-logo-image"
-                        aria-hidden="true"
-                      />
+                      <img src="/the-human-jukebox-logo.svg" alt="" className="top-nav-logo-image" aria-hidden="true" />
                     </NavLink>
                   ) : (
                     <NavLink to="/admin" end>Dashboard</NavLink>
@@ -146,13 +114,7 @@ function ShellLayout() {
                     aria-label="Admin"
                     title="Sign in and manage your event"
                   >
-                    <img
-                      src={PRIMARY_APP_LOGO_SRC}
-                      onError={applyLogoFallback}
-                      alt=""
-                      className="top-nav-logo-image"
-                      aria-hidden="true"
-                    />
+                    <img src="/the-human-jukebox-logo.svg" alt="" className="top-nav-logo-image" aria-hidden="true" />
                   </NavLink>
                 ) : (
                   <NavLink to="/admin">Admin</NavLink>
