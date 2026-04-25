@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
@@ -54,6 +54,7 @@ function AuthProvider({ children }: PropsWithChildren) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
+  const isHostSignInInProgressRef = useRef(false)
 
   const syncAllowedHostRole = useCallback(
     async (currentUser: User, currentProfile: Profile | null) => {
@@ -185,6 +186,10 @@ function AuthProvider({ children }: PropsWithChildren) {
         return
       }
 
+      if (isHostSignInInProgressRef.current) {
+        return
+      }
+
       try {
         const guestSession = await ensureAudienceSession()
         await applySessionState(guestSession)
@@ -202,7 +207,7 @@ function AuthProvider({ children }: PropsWithChildren) {
   }, [applySessionState, ensureAudienceSession])
 
   useEffect(() => {
-    if (session || user) {
+    if (session || user || isHostSignInInProgressRef.current) {
       return
     }
 
@@ -211,6 +216,10 @@ function AuthProvider({ children }: PropsWithChildren) {
 
     const retryEnsureAudienceSession = async () => {
       if (isCancelled) {
+        return
+      }
+
+      if (isHostSignInInProgressRef.current) {
         return
       }
 
@@ -257,10 +266,18 @@ function AuthProvider({ children }: PropsWithChildren) {
       signInHost: async (email: string, password: string) => {
         const normalizedEmail = email.trim().toLowerCase()
 
-        const signInResult = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        })
+        isHostSignInInProgressRef.current = true
+
+        let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>
+
+        try {
+          signInResult = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          })
+        } finally {
+          isHostSignInInProgressRef.current = false
+        }
 
         if (!signInResult.error) {
           return
