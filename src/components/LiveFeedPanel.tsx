@@ -20,6 +20,7 @@ type LiveFeedPanelProps = {
   mode: 'audience' | 'mirror' | 'page'
   showComposer?: boolean
   title?: string
+  showModerationControls?: boolean
 }
 
 const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '❤️']
@@ -78,7 +79,12 @@ function isFeedPostVisible(post: FeedPost, now: number, mode: LiveFeedPanelProps
   return new Date(post.created_at).getTime() + FEED_IMAGE_REVEAL_DELAY_MS <= now
 }
 
-function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveFeedPanelProps) {
+function LiveFeedPanel({
+  mode,
+  showComposer = true,
+  title = 'Live Feed',
+  showModerationControls = true,
+}: LiveFeedPanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const isFetchingPostsRef = useRef(false)
   const hasQueuedReloadRef = useRef(false)
@@ -127,6 +133,9 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
   useEffect(() => {
     let isCurrent = true
     let pollTimerId: number | null = null
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let channelReconnectTimerId: number | null = null
+    let channelReconnectAttempt = 0
 
     const loadPosts = async (silent = false) => {
       if (isFetchingPostsRef.current) {
@@ -200,32 +209,80 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
 
     void loadPosts(false)
 
+    const clearChannelReconnectTimer = () => {
+      if (channelReconnectTimerId !== null) {
+        window.clearTimeout(channelReconnectTimerId)
+        channelReconnectTimerId = null
+      }
+    }
+
+    const disconnectFeedChannel = () => {
+      if (!channel) {
+        return
+      }
+
+      void supabase.removeChannel(channel)
+      channel = null
+    }
+
+    const connectFeedChannel = () => {
+      if (!isCurrent || !event?.id) {
+        return
+      }
+
+      clearChannelReconnectTimer()
+      disconnectFeedChannel()
+
+      channel = supabase
+        .channel(`feed-posts-${event.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'feed_posts',
+            filter: `event_id=eq.${event.id}`,
+          },
+          () => {
+            requestReload(true)
+          },
+        )
+        .subscribe((status) => {
+          if (!isCurrent) {
+            return
+          }
+
+          if (status === 'SUBSCRIBED') {
+            channelReconnectAttempt = 0
+            requestReload(true)
+            return
+          }
+
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            setErrorText('Feed realtime is reconnecting. Showing latest posts...')
+            requestReload(true)
+
+            if (channelReconnectTimerId !== null) {
+              return
+            }
+
+            const retryDelayMs = Math.min(1000 * (2 ** channelReconnectAttempt), 8000)
+            channelReconnectAttempt += 1
+            channelReconnectTimerId = window.setTimeout(() => {
+              channelReconnectTimerId = null
+              connectFeedChannel()
+            }, retryDelayMs)
+          }
+        })
+    }
+
     if (!event?.id) {
       return () => {
         isCurrent = false
       }
     }
 
-    const channel = supabase
-      .channel(`feed-posts-${event.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'feed_posts',
-          filter: `event_id=eq.${event.id}`,
-        },
-        () => {
-          requestReload(true)
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          setErrorText('Feed realtime is reconnecting. Showing latest posts...')
-          requestReload(true)
-        }
-      })
+    connectFeedChannel()
 
     pollTimerId = window.setInterval(() => {
       if (isCurrent && !document.hidden) {
@@ -235,18 +292,21 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
 
     const reloadOnReconnect = () => {
       if (!document.hidden) {
+        connectFeedChannel()
         requestReload(true)
       }
     }
 
     window.addEventListener('focus', reloadOnReconnect)
     window.addEventListener('online', reloadOnReconnect)
+    window.addEventListener('pageshow', reloadOnReconnect)
     document.addEventListener('visibilitychange', reloadOnReconnect)
 
     return () => {
       isCurrent = false
       isFetchingPostsRef.current = false
       hasQueuedReloadRef.current = false
+      clearChannelReconnectTimer()
       if (reloadTimerIdRef.current !== null) {
         window.clearTimeout(reloadTimerIdRef.current)
         reloadTimerIdRef.current = null
@@ -256,8 +316,9 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
       }
       window.removeEventListener('focus', reloadOnReconnect)
       window.removeEventListener('online', reloadOnReconnect)
+      window.removeEventListener('pageshow', reloadOnReconnect)
       document.removeEventListener('visibilitychange', reloadOnReconnect)
-      void supabase.removeChannel(channel)
+      disconnectFeedChannel()
     }
   }, [event?.id])
 
@@ -470,7 +531,7 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
             </p>
           ) : (
             visiblePosts.map((post) => {
-              const canDelete = user?.id === post.user_id || isHost
+              const canDelete = showModerationControls && (user?.id === post.user_id || isHost)
               const hasImage = Boolean(post.image_data_url)
 
               return (

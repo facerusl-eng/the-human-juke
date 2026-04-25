@@ -4,17 +4,29 @@ import { useQueueStore } from '../state/queueStore'
 
 function AdminPage() {
   const navigate = useNavigate()
-  const { event, hostEvents, songs, setActiveEvent, toggleRoomOpen, toggleExplicitFilter } = useQueueStore()
+  const { event, hostEvents, songs, loading, setActiveEvent, toggleRoomOpen, toggleExplicitFilter } = useQueueStore()
   const [activatingEventId, setActivatingEventId] = useState<string | null>(null)
   const [activeSwitchError, setActiveSwitchError] = useState<string | null>(null)
   const [quickActionBusy, setQuickActionBusy] = useState<null | 'room' | 'explicit'>(null)
   const [quickActionError, setQuickActionError] = useState<string | null>(null)
   const totalVotes = songs.reduce((sum, song) => sum + song.votes_count, 0)
 
+  if (loading) {
+    return (
+      <section className="admin-shell" aria-label="Admin dashboard loading">
+        <section className="queue-panel admin-mobile-panel" role="status" aria-live="polite">
+          <p className="eyebrow">Host Dashboard</p>
+          <h1>Loading dashboard...</h1>
+          <p className="subcopy">Preparing your gig controls and active events.</p>
+        </section>
+      </section>
+    )
+  }
+
   return (
     <section className="admin-shell" aria-label="Admin dashboard">
       {/* Hub header */}
-      <section className="hero-card admin-card">
+      <section className="hero-card admin-card admin-home-hero">
         <p className="eyebrow">Host Dashboard</p>
         <h1>Human Jukebox</h1>
         <p className="subcopy">
@@ -50,10 +62,10 @@ function AdminPage() {
       </section>
 
       {/* Action cards */}
-      <div className="admin-hub-grid">
+      <div className="admin-hub-grid admin-hub-grid-mobile">
         <button
           type="button"
-          className="admin-hub-card"
+          className="admin-hub-card admin-hub-card-mobile"
           onClick={() => navigate('/admin/gigs')}
         >
           <span className="hub-icon">🗂</span>
@@ -63,7 +75,7 @@ function AdminPage() {
 
         <button
           type="button"
-          className="admin-hub-card"
+          className="admin-hub-card admin-hub-card-mobile"
           onClick={() => navigate('/admin/create-gig')}
         >
           <span className="hub-icon">＋</span>
@@ -73,7 +85,7 @@ function AdminPage() {
 
         <button
           type="button"
-          className="admin-hub-card"
+          className="admin-hub-card admin-hub-card-mobile"
           onClick={() => navigate('/admin/gig-control')}
           disabled={!event}
         >
@@ -84,7 +96,7 @@ function AdminPage() {
 
         <button
           type="button"
-          className="admin-hub-card"
+          className="admin-hub-card admin-hub-card-mobile"
           onClick={() => navigate('/admin/gig-settings')}
           disabled={!event}
         >
@@ -95,7 +107,7 @@ function AdminPage() {
 
         <button
           type="button"
-          className="admin-hub-card"
+          className="admin-hub-card admin-hub-card-mobile"
           onClick={() => window.open('/mirror', '_blank')}
           disabled={!event}
         >
@@ -106,7 +118,7 @@ function AdminPage() {
 
         <button
           type="button"
-          className="admin-hub-card"
+          className="admin-hub-card admin-hub-card-mobile"
           onClick={() => navigate('/audience')}
         >
           <span className="hub-icon">🎵</span>
@@ -116,7 +128,7 @@ function AdminPage() {
 
         <button
           type="button"
-          className="admin-hub-card"
+          className="admin-hub-card admin-hub-card-mobile"
           onClick={() => navigate('/admin/settings')}
         >
           <span className="hub-icon">⚙️</span>
@@ -126,7 +138,7 @@ function AdminPage() {
 
         <button
           type="button"
-          className="admin-hub-card"
+          className="admin-hub-card admin-hub-card-mobile"
           onClick={() => navigate('/admin/setlist-library')}
         >
           <span className="hub-icon">📚</span>
@@ -135,7 +147,7 @@ function AdminPage() {
         </button>
       </div>
 
-      <section className="queue-panel admin-quick-controls" aria-label="Gig switcher">
+      <section className="queue-panel admin-quick-controls admin-mobile-panel" aria-label="Gig switcher">
         <div className="panel-head">
           <h2>Audience Active Gig</h2>
         </div>
@@ -148,7 +160,7 @@ function AdminPage() {
               const isBusy = activatingEventId === hostEvent.id
 
               return (
-                <li key={hostEvent.id}>
+                <li key={hostEvent.id} className="admin-gig-switch-row">
                   <div>
                     <p className="song">{hostEvent.name}</p>
                     <p className="artist">{hostEvent.venue ?? 'No venue set'}</p>
@@ -157,7 +169,7 @@ function AdminPage() {
                       {event?.id === hostEvent.id ? ' · Open in your control panel' : ''}
                     </p>
                   </div>
-                  <div className="queue-actions">
+                  <div className="queue-actions admin-gig-switch-actions">
                     <button
                       type="button"
                       className="secondary-button"
@@ -193,12 +205,12 @@ function AdminPage() {
 
       {/* Quick controls for active gig */}
       {event ? (
-        <section className="queue-panel admin-quick-controls">
+        <section className="queue-panel admin-quick-controls admin-mobile-panel">
           <div className="panel-head">
             <h2>Quick Controls</h2>
             <span className="meta-badge">{event.name}</span>
           </div>
-          <div className="hero-actions">
+          <div className="hero-actions admin-quick-action-buttons">
             <button
               type="button"
               className={event.roomOpen ? 'secondary-button' : 'primary-button'}
@@ -221,7 +233,7 @@ function AdminPage() {
                 }
               }}
             >
-              {event.roomOpen ? 'Pause Queue' : 'Open Queue'}
+              {quickActionBusy === 'room' ? 'Updating...' : event.roomOpen ? 'Pause Queue' : 'Open Queue'}
             </button>
             <button
               type="button"
@@ -245,7 +257,7 @@ function AdminPage() {
                 }
               }}
             >
-              {event.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit'}
+              {quickActionBusy === 'explicit' ? 'Updating...' : event.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit'}
             </button>
           </div>
           {quickActionError ? <p className="error-text">{quickActionError}</p> : null}

@@ -291,7 +291,15 @@ function GigControlPage() {
   }
 
   if (loading) {
-    return <section className="gig-control-shell"><p className="subcopy">Loading gig data…</p></section>
+    return (
+      <section className="gig-control-shell" aria-label="Gig control loading">
+        <section className="queue-panel gig-control-loading" role="status" aria-live="polite">
+          <p className="eyebrow">Live Control</p>
+          <h1>Loading gig controls...</h1>
+          <p className="subcopy">Syncing queue, playback, and host actions.</p>
+        </section>
+      </section>
+    )
   }
 
   if (!event) {
@@ -362,7 +370,7 @@ function GigControlPage() {
               across every playlist attached to it.
             </p>
           </div>
-          <div className="gig-control-actions">
+          <div className="gig-control-actions gig-control-primary-actions">
             <button
               type="button"
               className={event.roomOpen ? 'secondary-button' : 'primary-button'}
@@ -384,7 +392,7 @@ function GigControlPage() {
                 }
               }}
             >
-              {event.roomOpen ? 'Pause Live' : 'Go Live'}
+              {roomToggleBusy ? 'Updating...' : event.roomOpen ? 'Pause Live' : 'Go Live'}
             </button>
             <button
               type="button"
@@ -407,7 +415,7 @@ function GigControlPage() {
                 }
               }}
             >
-              {event.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit'}
+              {explicitToggleBusy ? 'Updating...' : event.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit'}
             </button>
             <button
               type="button"
@@ -576,7 +584,7 @@ function GigControlPage() {
                   <p className="artist">{nowPlaying.artist}</p>
                 </div>
               </div>
-              <div className="hero-actions gig-now-playing-actions">
+              <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
                 <button
                   type="button"
                   className="primary-button"
@@ -683,7 +691,7 @@ function GigControlPage() {
                   </div>
                 </div>
                 <span className="votes">+{song.votes_count}</span>
-                <div className="queue-actions">
+                <div className="queue-actions gig-control-row-actions">
                   <button
                     type="button"
                     className="vote-button danger-button"
@@ -740,7 +748,7 @@ function GigControlPage() {
         )}
       </section>
 
-      {errorText ? <p className="error-text">{errorText}</p> : null}
+      {errorText ? <p className="error-text gig-control-error-text" role="alert">{errorText}</p> : null}
     </section>
   )
 }

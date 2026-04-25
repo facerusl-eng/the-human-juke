@@ -9,6 +9,7 @@ import {
 } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 import { useQueueStore } from '../state/queueStore'
+import { useAuthStore } from '../state/authStore'
 
 type FeedImageSpotlight = {
   id: string
@@ -119,6 +120,7 @@ function playShutterSound() {
 
 function MirrorPage() {
   const { event, songs, loading } = useQueueStore()
+  const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [flashActive, setFlashActive] = useState(false)
   const [queuedSpotlightCount, setQueuedSpotlightCount] = useState(0)
@@ -175,6 +177,7 @@ function MirrorPage() {
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = !hideControlsForAudience && !isEmbeddedPreview
+  const shouldShowAdminElements = shouldShowEditorControls && isHost
 
   const onCoverLoadError = (coverUrl: string | null | undefined) => {
     if (!coverUrl) {
@@ -305,28 +308,53 @@ function MirrorPage() {
     let subscription: ReturnType<typeof supabase.channel> | null = null
     let playbackBroadcastChannel: BroadcastChannel | null = null
     let playbackHealthTimerId: number | null = null
+    let reconnectTimerId: number | null = null
+    let reconnectAttempt = 0
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimerId !== null) {
+        window.clearTimeout(reconnectTimerId)
+        reconnectTimerId = null
+      }
+    }
+
+    const disconnectSubscription = () => {
+      if (subscription) {
+        void subscription.unsubscribe()
+        subscription = null
+      }
+    }
 
     const syncPlaybackState = async () => {
       if (!isCurrent) return
-      const state = await readSharedPlaybackState(eventId)
-      if (isCurrent) {
-        if (state) {
-          setPlaybackState(state)
-          setMirrorWarning(null)
-          return
+
+      try {
+        const state = await readSharedPlaybackState(eventId)
+
+        if (isCurrent) {
+          if (state) {
+            setPlaybackState(state)
+            setMirrorWarning(null)
+            return
+          }
+
+          setMirrorWarning('Realtime playback sync is reconnecting. Using queue fallback.')
         }
-
-        setMirrorWarning('Realtime playback sync is reconnecting. Using queue fallback.')
+      } catch {
+        if (isCurrent) {
+          setMirrorWarning('Realtime playback sync is reconnecting. Using queue fallback.')
+        }
       }
     }
 
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void syncPlaybackState()
+    const reconnectSubscription = () => {
+      if (!isCurrent) {
+        return
       }
-    }
 
-    const setupSubscription = () => {
+      clearReconnectTimer()
+      disconnectSubscription()
+
       subscription = supabase
         .channel(`playback_state:${eventId}`)
         .on(
@@ -342,10 +370,60 @@ function MirrorPage() {
           },
         )
         .subscribe((status) => {
-          if (status === 'CHANNEL_ERROR') {
+          if (!isCurrent) {
+            return
+          }
+
+          if (status === 'SUBSCRIBED') {
+            reconnectAttempt = 0
+            setMirrorWarning(null)
+            void syncPlaybackState()
+            return
+          }
+
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             setMirrorWarning('Mirror realtime channel reconnecting. Display remains active.')
+
+            if (reconnectTimerId !== null) {
+              return
+            }
+
+            const retryDelayMs = Math.min(1000 * (2 ** reconnectAttempt), 8000)
+            reconnectAttempt += 1
+            reconnectTimerId = window.setTimeout(() => {
+              reconnectTimerId = null
+              reconnectSubscription()
+              void syncPlaybackState()
+            }, retryDelayMs)
           }
         })
+    }
+
+    const recoverMirrorSync = () => {
+      if (!isCurrent) {
+        return
+      }
+
+      reconnectSubscription()
+      void syncPlaybackState()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        recoverMirrorSync()
+      }
+    }
+
+    const onWindowFocus = () => {
+      recoverMirrorSync()
+    }
+
+    const onOnline = () => {
+      recoverMirrorSync()
+    }
+
+    const onPageShow = () => {
+      recoverMirrorSync()
     }
 
     const onPlaybackStateEvent = (nextEvent: Event) => {
@@ -353,6 +431,7 @@ function MirrorPage() {
 
       if (detail?.eventId === eventId) {
         setPlaybackState(detail.state)
+        setMirrorWarning(null)
       }
     }
 
@@ -365,6 +444,7 @@ function MirrorPage() {
         const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
         if (detail.eventId === eventId && detail.state) {
           setPlaybackState(detail.state)
+          setMirrorWarning(null)
         }
       } catch {
         // Ignore malformed storage payloads.
@@ -372,9 +452,12 @@ function MirrorPage() {
     }
 
     void syncPlaybackState()
-    setupSubscription()
+    reconnectSubscription()
     window.addEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
     window.addEventListener('storage', onStoragePlaybackState)
+    window.addEventListener('focus', onWindowFocus)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('pageshow', onPageShow)
 
     if ('BroadcastChannel' in window) {
       playbackBroadcastChannel = new BroadcastChannel(MIRROR_PLAYBACK_BROADCAST_CHANNEL)
@@ -382,6 +465,7 @@ function MirrorPage() {
         const detail = messageEvent.data
         if (detail?.eventId === eventId && detail.state) {
           setPlaybackState(detail.state)
+          setMirrorWarning(null)
         }
       }
     }
@@ -393,14 +477,16 @@ function MirrorPage() {
 
     return () => {
       isCurrent = false
-      if (subscription) {
-        void subscription.unsubscribe()
-      }
+      clearReconnectTimer()
+      disconnectSubscription()
       if (playbackHealthTimerId) {
         window.clearInterval(playbackHealthTimerId)
       }
       window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
       window.removeEventListener('storage', onStoragePlaybackState)
+      window.removeEventListener('focus', onWindowFocus)
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('pageshow', onPageShow)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       playbackBroadcastChannel?.close()
     }
@@ -561,24 +647,26 @@ function MirrorPage() {
       })
     }
 
-    const channel = supabase
-      .channel(`mirror-feed-spotlight-${eventId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'feed_posts',
-          filter: `event_id=eq.${eventId}`,
-        },
-        (payload) => {
-          const nextPost = payload.new as { id?: string; image_data_url?: string | null; author_name?: string | null }
-          trackAndEnqueueSpotlight(nextPost)
-        },
-      )
-      .subscribe()
-
     let isCurrent = true
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let reconnectTimerId: number | null = null
+    let reconnectAttempt = 0
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimerId !== null) {
+        window.clearTimeout(reconnectTimerId)
+        reconnectTimerId = null
+      }
+    }
+
+    const disconnectSpotlightChannel = () => {
+      if (!channel) {
+        return
+      }
+
+      void supabase.removeChannel(channel)
+      channel = null
+    }
 
     const loadRecentImagePosts = async (seedOnly: boolean) => {
       const { data, error } = await supabase
@@ -618,7 +706,87 @@ function MirrorPage() {
       }
     }
 
+    const reconnectSpotlightChannel = () => {
+      if (!isCurrent) {
+        return
+      }
+
+      clearReconnectTimer()
+      disconnectSpotlightChannel()
+
+      channel = supabase
+        .channel(`mirror-feed-spotlight-${eventId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'feed_posts',
+            filter: `event_id=eq.${eventId}`,
+          },
+          (payload) => {
+            const nextPost = payload.new as { id?: string; image_data_url?: string | null; author_name?: string | null }
+            trackAndEnqueueSpotlight(nextPost)
+          },
+        )
+        .subscribe((status) => {
+          if (!isCurrent) {
+            return
+          }
+
+          if (status === 'SUBSCRIBED') {
+            reconnectAttempt = 0
+            setMirrorWarning(null)
+            return
+          }
+
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            setMirrorWarning('Crowd spotlight sync is reconnecting.')
+
+            if (reconnectTimerId !== null) {
+              return
+            }
+
+            const retryDelayMs = Math.min(1000 * (2 ** reconnectAttempt), 8000)
+            reconnectAttempt += 1
+            reconnectTimerId = window.setTimeout(() => {
+              reconnectTimerId = null
+              reconnectSpotlightChannel()
+              void loadRecentImagePosts(false)
+            }, retryDelayMs)
+          }
+        })
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        reconnectSpotlightChannel()
+        void loadRecentImagePosts(false)
+      }
+    }
+
+    const onWindowFocus = () => {
+      reconnectSpotlightChannel()
+      void loadRecentImagePosts(false)
+    }
+
+    const onOnline = () => {
+      reconnectSpotlightChannel()
+      void loadRecentImagePosts(false)
+    }
+
+    const onPageShow = () => {
+      reconnectSpotlightChannel()
+      void loadRecentImagePosts(false)
+    }
+
     void loadRecentImagePosts(true)
+    reconnectSpotlightChannel()
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('focus', onWindowFocus)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('pageshow', onPageShow)
 
     const pollTimerId = window.setInterval(() => {
       if (isCurrent) {
@@ -628,6 +796,7 @@ function MirrorPage() {
 
     return () => {
       isCurrent = false
+      clearReconnectTimer()
       window.clearInterval(pollTimerId)
       if (spotlightTimerRef.current) {
         window.clearTimeout(spotlightTimerRef.current)
@@ -638,7 +807,11 @@ function MirrorPage() {
         shutterFallbackPulseTimerRef.current = null
       }
       seenSpotlightPostIdsRef.current = new Set()
-      void supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('focus', onWindowFocus)
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('pageshow', onPageShow)
+      disconnectSpotlightChannel()
     }
   }, [eventId, showSpotlight])
 
@@ -659,7 +832,7 @@ function MirrorPage() {
   }
 
   return (
-    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
+    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowAdminElements ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
       <header className="mirror-header">
         <div className="mirror-header-main">
           <p className="mirror-brand">🎸 Human Jukebox</p>
@@ -679,7 +852,7 @@ function MirrorPage() {
             {event?.roomOpen ? '● Live' : '● Paused'}
           </span>
         </div>
-        {shouldShowEditorControls ? (
+        {shouldShowAdminElements ? (
           <div className="mirror-editor-controls" aria-label="Mirror editor controls">
             <button
               type="button"
@@ -761,68 +934,72 @@ function MirrorPage() {
           </section>
         ) : (
           <>
-            <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isBetweenSongs ? 'mirror-now-playing-interstitial' : ''}`}>
-              {isBetweenSongs ? (
-                <>
-                  <div className="mirror-interstitial-sweep" aria-hidden="true" />
-                  <p className="mirror-between-songs-quote">{betweenSongQuote}</p>
-                </>
-              ) : (
-                <>
-                  <p className="mirror-eyebrow">Now Playing</p>
-                  <div className="mirror-now-playing-track">
-                    {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
-                      <img
-                        src={activeSong.cover_url}
-                        alt={`Cover art for ${activeSong.title}`}
-                        className="mirror-now-playing-cover"
-                        onError={() => onCoverLoadError(activeSong.cover_url)}
-                      />
-                    ) : null}
-                    <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests...')}</h1>
-                      <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be the first to request a song!')}</p>
-                      {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
-                    </div>
-                  </div>
-                </>
-              )}
-            </section>
-
-            <section className="mirror-secondary-grid">
-              <section className={`mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`}>
-                <p className="mirror-up-next-label">Up Next</p>
-                {upNext.length > 0 ? (
-                  <ol className="mirror-queue">
-                    {upNext.map((song, index) => (
-                      <li key={song.id} className="mirror-queue-item">
-                        <span className="mirror-queue-pos">{index + 2}</span>
-                        {!shouldCompactQueue && song.cover_url && !failedCoverUrls[song.cover_url] ? (
-                          <img
-                            src={song.cover_url}
-                            alt={`Cover art for ${song.title}`}
-                            className="mirror-queue-cover"
-                            onError={() => onCoverLoadError(song.cover_url)}
-                          />
-                        ) : null}
-                        <div className="mirror-queue-info">
-                          <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
-                          <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
-                          {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
-                        </div>
-                        <span className="mirror-queue-votes">+{song.votes_count}</span>
-                      </li>
-                    ))}
-                  </ol>
+            {shouldShowAdminElements ? (
+              <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isBetweenSongs ? 'mirror-now-playing-interstitial' : ''}`}>
+                {isBetweenSongs ? (
+                  <>
+                    <div className="mirror-interstitial-sweep" aria-hidden="true" />
+                    <p className="mirror-between-songs-quote">{betweenSongQuote}</p>
+                  </>
                 ) : (
-                  <p className="mirror-empty-note">No songs in the queue yet.</p>
+                  <>
+                    <p className="mirror-eyebrow">Now Playing</p>
+                    <div className="mirror-now-playing-track">
+                      {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
+                        <img
+                          src={activeSong.cover_url}
+                          alt={`Cover art for ${activeSong.title}`}
+                          className="mirror-now-playing-cover"
+                          onError={() => onCoverLoadError(activeSong.cover_url)}
+                        />
+                      ) : null}
+                      <div className="mirror-now-playing-meta">
+                        <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests...')}</h1>
+                        <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be the first to request a song!')}</p>
+                        {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
+                      </div>
+                    </div>
+                  </>
                 )}
-                {shouldCompactQueue && hiddenQueueCount > 0 ? (
-                  <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
-                ) : null}
               </section>
+            ) : null}
 
-              <LiveFeedPanel mode="mirror" showComposer={false} title="Crowd Feed" />
+            <section className={`mirror-secondary-grid ${shouldShowAdminElements ? '' : 'mirror-secondary-grid-feed-only'}`}>
+              {shouldShowAdminElements ? (
+                <section className={`mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`}>
+                  <p className="mirror-up-next-label">Up Next</p>
+                  {upNext.length > 0 ? (
+                    <ol className="mirror-queue">
+                      {upNext.map((song, index) => (
+                        <li key={song.id} className="mirror-queue-item">
+                          <span className="mirror-queue-pos">{index + 2}</span>
+                          {!shouldCompactQueue && song.cover_url && !failedCoverUrls[song.cover_url] ? (
+                            <img
+                              src={song.cover_url}
+                              alt={`Cover art for ${song.title}`}
+                              className="mirror-queue-cover"
+                              onError={() => onCoverLoadError(song.cover_url)}
+                            />
+                          ) : null}
+                          <div className="mirror-queue-info">
+                            <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                            <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                            {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
+                          </div>
+                          <span className="mirror-queue-votes">+{song.votes_count}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="mirror-empty-note">No songs in the queue yet.</p>
+                  )}
+                  {shouldCompactQueue && hiddenQueueCount > 0 ? (
+                    <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
+                  ) : null}
+                </section>
+              ) : null}
+
+              <LiveFeedPanel mode="mirror" showComposer={false} title="Crowd Feed" showModerationControls={shouldShowAdminElements} />
             </section>
           </>
         )}
@@ -847,7 +1024,7 @@ function MirrorPage() {
 
       {showSpotlight && flashActive ? <div className="mirror-spotlight-flash" aria-hidden="true" /> : null}
       {showSpotlight && showShutterFallbackPulse ? <div className="mirror-spotlight-fallback-pulse" aria-hidden="true" /> : null}
-      {showSafeMargins && shouldShowEditorControls ? <div className="mirror-safe-margins-overlay" aria-hidden="true" /> : null}
+      {showSafeMargins && shouldShowAdminElements ? <div className="mirror-safe-margins-overlay" aria-hidden="true" /> : null}
 
       {isLive && event?.requestInstructions ? (
         <footer className="mirror-footer">
