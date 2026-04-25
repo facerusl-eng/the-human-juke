@@ -148,7 +148,7 @@ function SettingsPage() {
         const { data, error } = await supabase
           .from('profiles')
           .select(
-            'display_name, website_url, bio, performer_photo_url, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, theme_preset, accent_color, default_gig_name, default_venue, default_audience_bg_blur, default_mirror_layout',
+            'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, default_gig_name, default_venue',
           )
           .eq('user_id', user.id)
           .single()
@@ -162,24 +162,19 @@ function SettingsPage() {
         }
 
         if (data) {
-          setState({
+          setState((prev) => ({
+            ...prev,
             display_name: data.display_name ?? '',
-            website_url: data.website_url ?? '',
             bio: data.bio ?? '',
-            performer_photo_url: data.performer_photo_url ?? '',
             instagram_url: data.instagram_url ?? '',
             tiktok_url: data.tiktok_url ?? '',
             youtube_url: data.youtube_url ?? '',
             facebook_url: data.facebook_url ?? '',
             paypal_url: data.paypal_url ?? '',
             mobilpay_url: data.mobilpay_url ?? '',
-            theme_preset: data.theme_preset ?? 'dark',
-            accent_color: data.accent_color ?? '#5dd7ff',
             default_gig_name: data.default_gig_name ?? '',
             default_venue: data.default_venue ?? '',
-            default_audience_bg_blur: data.default_audience_bg_blur ?? 5,
-            default_mirror_layout: data.default_mirror_layout ?? 'centered',
-          })
+          }))
         }
       } catch (error) {
         console.warn('SettingsPage: failed to load host settings', error)
@@ -276,34 +271,48 @@ function SettingsPage() {
       return
     }
 
-    const profileUpdatePayload = {
+    // Core columns that always exist
+    const corePayload = {
       user_id: user.id,
       display_name: stateToSave.display_name.trim() || null,
-      website_url: normalizedSocialFields.website_url,
       bio: stateToSave.bio.trim() || null,
-      performer_photo_url: stateToSave.performer_photo_url.trim() || null,
       instagram_url: normalizedSocialFields.instagram_url,
       tiktok_url: normalizedSocialFields.tiktok_url,
       youtube_url: normalizedSocialFields.youtube_url,
       facebook_url: normalizedSocialFields.facebook_url,
       paypal_url: normalizedSocialFields.paypal_url,
       mobilpay_url: normalizedSocialFields.mobilpay_url,
-      theme_preset: stateToSave.theme_preset,
-      accent_color: stateToSave.accent_color,
       default_gig_name: stateToSave.default_gig_name.trim() || null,
       default_venue: stateToSave.default_venue.trim() || null,
-      default_audience_bg_blur: stateToSave.default_audience_bg_blur,
-      default_mirror_layout: stateToSave.default_mirror_layout,
     }
 
     try {
+      // Save core columns (always safe)
       const { error } = await supabase
         .from('profiles')
-        .upsert(profileUpdatePayload, { onConflict: 'user_id' })
+        .upsert(corePayload, { onConflict: 'user_id' })
 
       if (error) {
         throw error
       }
+
+      // Also try saving extended columns (requires migration to have been run — silent if not)
+      void supabase
+        .from('profiles')
+        .update({
+          website_url: normalizedSocialFields.website_url,
+          performer_photo_url: stateToSave.performer_photo_url.trim() || null,
+          theme_preset: stateToSave.theme_preset,
+          accent_color: stateToSave.accent_color,
+          default_audience_bg_blur: stateToSave.default_audience_bg_blur,
+          default_mirror_layout: stateToSave.default_mirror_layout,
+        })
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) {
+            console.warn('SettingsPage: extended columns not saved (migration pending?)', error.message)
+          }
+        })
 
       try {
         await refreshProfile()

@@ -502,3 +502,23 @@ CREATE POLICY event_playlists_host_insert ON public.event_playlists
     )
     AND public.is_playlist_owner(event_playlists.playlist_id)
   );
+
+-- ─── Settings Page redesign: new profile columns (April 2026) ───────────────
+-- Run in Supabase SQL Editor to enable website, photo, theme, and default screen settings
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS website_url TEXT,
+  ADD COLUMN IF NOT EXISTS performer_photo_url TEXT,
+  ADD COLUMN IF NOT EXISTS theme_preset TEXT NOT NULL DEFAULT 'dark',
+  ADD COLUMN IF NOT EXISTS accent_color TEXT NOT NULL DEFAULT '#5dd7ff',
+  ADD COLUMN IF NOT EXISTS default_audience_bg_blur INTEGER NOT NULL DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS default_mirror_layout TEXT NOT NULL DEFAULT 'centered';
+
+-- ─── Settings Page redesign: new profile columns (April 2026) ───────────────
+-- Run in Supabase SQL Editor to enable website, photo, theme, and default screen settings
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS website_url TEXT,
+  ADD COLUMN IF NOT EXISTS performer_photo_url TEXT,
+  ADD COLUMN IF NOT EXISTS theme_preset TEXT NOT NULL DEFAULT 'dark',
+  ADD COLUMN IF NOT EXISTS accent_color TEXT NOT NULL DEFAULT '#5dd7ff',
+  ADD COLUMN IF NOT EXISTS default_audience_bg_blur INTEGER NOT NULL DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS default_mirror_layout TEXT NOT NULL DEFAULT 'centered';
