@@ -2786,8 +2786,8 @@
 }
 
 .mirror-header-qr-image {
-  width: clamp(44px, 4.2vw, 58px);
-  height: clamp(44px, 4.2vw, 58px);
+  width: clamp(52px, 5.2vw, 74px);
+  height: clamp(52px, 5.2vw, 74px);
   border-radius: 8px;
   padding: 0.16rem;
   background: #f7fbff;
