@@ -286,14 +286,45 @@ function SettingsPage() {
     }
 
     try {
-      // Save core columns (always safe)
-      const { error } = await supabase
+      // Save core columns. Update first; if no profile row exists yet, insert one.
+      const { data: updatedProfile, error: updateError } = await supabase
         .from('profiles')
         .update(corePayload)
         .eq('user_id', user.id)
+        .select('user_id')
+        .maybeSingle()
 
-      if (error) {
-        throw error
+      if (updateError) {
+        throw updateError
+      }
+
+      if (!updatedProfile) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: user.id,
+            ...corePayload,
+          })
+
+        if (insertError) {
+          // If another write created the row in the meantime, retry the update once.
+          const insertErrorCode = typeof insertError === 'object' && insertError !== null && 'code' in insertError
+            ? String((insertError as { code?: unknown }).code)
+            : ''
+
+          if (insertErrorCode === '23505') {
+            const { error: retryUpdateError } = await supabase
+              .from('profiles')
+              .update(corePayload)
+              .eq('user_id', user.id)
+
+            if (retryUpdateError) {
+              throw retryUpdateError
+            }
+          } else {
+            throw insertError
+          }
+        }
       }
 
       // Also try saving extended columns (requires migration to have been run — silent if not)
@@ -326,7 +357,12 @@ function SettingsPage() {
       }, 2000)
     } catch (error) {
       console.warn('SettingsPage: failed to save settings', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unexpected save error.'
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error !== null && 'message' in error
+            ? String((error as { message?: unknown }).message)
+            : 'Unexpected save error.'
       setSaveError('Save failed: ' + errorMessage)
       setSaveStatus('error')
     }
