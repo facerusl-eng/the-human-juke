@@ -638,7 +638,7 @@ function EventPage() {
                 <div className="panel-head" id="audience-tip-jar">
                   <h2>Tip Jar</h2>
                 </div>
-                <p className="subcopy tip-jar-copy">If tonight&apos;s soundtrack hit the right note, send the artist a little love. Encore energy is priceless, but tips help keep the music rolling. 🎤✨</p>
+                <p className="subcopy tip-jar-copy">If that last song made you sing like nobody&apos;s watching (they were), toss the artist a tip. Applause is cute, rent is louder. 🎤✨</p>
                 <ul className="link-list" aria-label="Tip links">
                   {allTipLinks.map((link) => (
                     <li key={link.label}>
