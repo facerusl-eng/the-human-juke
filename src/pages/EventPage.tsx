@@ -13,6 +13,7 @@ import {
   type SharedPlaybackState,
 } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
+import { setEventOGTags, resetOGTags } from '../lib/metaTags'
 
 type HostProfile = {
   display_name: string | null
@@ -193,6 +194,20 @@ function EventPage() {
       isCurrent = false
     }
   }, [event?.hostId])
+
+  // Update OG meta tags for social media sharing
+  useEffect(() => {
+    if (!event) {
+      resetOGTags()
+      return
+    }
+
+    const description = event.venue
+      ? `Join the queue at ${event.name} in ${event.venue}. Request songs and vote with the audience!`
+      : `Join the queue for ${event.name}. Request songs and vote with the audience!`
+
+    setEventOGTags(event.name, description, undefined, typeof window !== 'undefined' ? window.location.href : undefined)
+  }, [event?.id, event?.name, event?.venue])
 
   useEffect(() => {
     const previousVotes = previousVotesRef.current

@@ -10,6 +10,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useQueueStore } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
+import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 
 type FeedImageSpotlight = {
   id: string
@@ -297,6 +298,17 @@ function MirrorPage() {
 
     window.localStorage.setItem(MIRROR_VENUE_MODE_STORAGE_KEY, venueMode)
   }, [venueMode])
+
+  // Update OG meta tags for social media sharing
+  useEffect(() => {
+    if (!event) {
+      resetOGTags()
+      return
+    }
+
+    const gigUrl = typeof window !== 'undefined' ? window.location.href : undefined
+    setGigOGTags(event.name, event.venue ?? null, event.name, undefined, gigUrl)
+  }, [event?.id, event?.name, event?.venue])
 
   useEffect(() => {
     if (!eventId) {

@@ -4,6 +4,7 @@ import { readCommittedAudienceName } from '../lib/audienceIdentity'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
 import { useQueueStore } from '../state/queueStore'
+import { setEventOGTags, resetOGTags } from '../lib/metaTags'
 
 type CuratedSong = {
   id: string
@@ -97,6 +98,20 @@ function AudienceSongListPage() {
       navigate('/audience', { replace: true })
     }
   }, [audienceName, navigate])
+
+  // Update OG meta tags for social media sharing
+  useEffect(() => {
+    if (!event) {
+      resetOGTags()
+      return
+    }
+
+    const description = event.venue
+      ? `Browse and request songs for ${event.name} in ${event.venue}!`
+      : `Browse and request songs for ${event.name}!`
+
+    setEventOGTags(event.name, description, undefined, typeof window !== 'undefined' ? window.location.href : undefined)
+  }, [event?.id, event?.name, event?.venue])
 
   useEffect(() => {
     let isCurrent = true

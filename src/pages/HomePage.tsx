@@ -1,10 +1,17 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueueStore } from '../state/queueStore'
+import { resetOGTags } from '../lib/metaTags'
 
 function HomePage() {
   const navigate = useNavigate()
   const { songs, event } = useQueueStore()
   const topSongs = songs.slice(0, 3)
+
+  useEffect(() => {
+    // Reset OG tags to app defaults on home page
+    resetOGTags()
+  }, [])
 
   return (
     <section className="home-shell" aria-label="Home page">
