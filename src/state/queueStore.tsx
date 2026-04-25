@@ -424,7 +424,9 @@ function QueueProvider({ children }: PropsWithChildren) {
             ?? nextHostEvents[0]?.id
             ?? null
         } else {
-          targetEventId = requestedEventId ?? await fetchLatestActiveEventId()
+          // Audience reopen behavior: prefer requested URL event, then last synced profile event,
+          // then fall back to latest active gig.
+          targetEventId = requestedEventId ?? eventId ?? await fetchLatestActiveEventId()
         }
 
         if (!targetEventId) {
@@ -451,7 +453,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         try {
           await fetchQueueSnapshot(resolvedEventId)
         } catch (error) {
-          const canFallbackToLatestActive = !isHostSession && Boolean(requestedEventId) && requestedEventId === resolvedEventId
+          const canFallbackToLatestActive = !isHostSession
 
           if (!canFallbackToLatestActive) {
             console.warn('queueStore: failed to load requested event snapshot', error)
