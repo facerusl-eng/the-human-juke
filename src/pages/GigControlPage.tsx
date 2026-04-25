@@ -37,7 +37,7 @@ function GigControlPage() {
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
-  const joinUrl = getAudienceUrl()
+  const joinUrl = getAudienceUrl(event?.id)
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
 

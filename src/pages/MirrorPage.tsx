@@ -89,9 +89,9 @@ function MirrorPage() {
   const isLive = event?.roomOpen ?? false
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
-  const audienceUrl = getAudienceUrl()
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(audienceUrl)}`
   const eventId = event?.id ?? null
+  const audienceUrl = getAudienceUrl(eventId)
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(audienceUrl)}`
   const playbackSong = playbackState?.currentSongId
     ? songs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
@@ -438,7 +438,7 @@ function MirrorPage() {
           </section>
         ) : (
           <>
-            <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''}`}>
+            <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isBetweenSongs ? 'mirror-now-playing-interstitial' : ''}`}>
               {isBetweenSongs ? (
                 <>
                   <p className="mirror-between-songs-quote">{betweenSongQuote}</p>

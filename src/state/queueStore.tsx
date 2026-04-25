@@ -138,6 +138,17 @@ function sortByVotesDesc(songs: QueueSong[]) {
   return [...songs].sort((songA, songB) => songB.votes_count - songA.votes_count)
 }
 
+function readRequestedEventIdFromUrl() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const searchParams = new URLSearchParams(window.location.search)
+  const requestedEventId = searchParams.get('event') ?? searchParams.get('eventId')
+
+  return requestedEventId?.trim() || null
+}
+
 async function fetchLatestActiveEventId() {
   const { data, error } = await withTimeout(
     supabase
@@ -335,6 +346,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
       try {
         let targetEventId: string | null = null
+        const requestedEventId = readRequestedEventIdFromUrl()
 
         if (isHostSession) {
           const nextHostEvents = await fetchHostEvents(user.id)
@@ -348,7 +360,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             ?? nextHostEvents[0]?.id
             ?? null
         } else {
-          targetEventId = await fetchLatestActiveEventId()
+          targetEventId = requestedEventId ?? await fetchLatestActiveEventId()
         }
 
         if (!targetEventId) {
@@ -360,29 +372,48 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
+        let resolvedEventId = targetEventId
+
         if (isCurrent) {
           setPerformedSongs([])
         }
 
-        await fetchQueueSnapshot(targetEventId)
+        try {
+          await fetchQueueSnapshot(resolvedEventId)
+        } catch {
+          const canFallbackToLatestActive = !isHostSession && Boolean(requestedEventId) && requestedEventId === resolvedEventId
+
+          if (!canFallbackToLatestActive) {
+            throw new Error('Unable to load requested event.')
+          }
+
+          const latestActiveEventId = await fetchLatestActiveEventId()
+
+          if (!latestActiveEventId) {
+            throw new Error('No active gig found.')
+          }
+
+          resolvedEventId = latestActiveEventId
+          await fetchQueueSnapshot(resolvedEventId)
+        }
 
         if (!isCurrent) {
           return
         }
 
         activeChannel = supabase
-          .channel(`queue-live-${targetEventId}`)
+          .channel(`queue-live-${resolvedEventId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'queue_songs',
-          filter: `event_id=eq.${targetEventId}`,
+          filter: `event_id=eq.${resolvedEventId}`,
         },
         () => {
           if (isCurrent) {
-            void fetchQueueSnapshot(targetEventId)
+            void fetchQueueSnapshot(resolvedEventId)
           }
         },
       )
@@ -392,11 +423,11 @@ function QueueProvider({ children }: PropsWithChildren) {
           event: 'UPDATE',
           schema: 'public',
           table: 'events',
-          filter: `id=eq.${targetEventId}`,
+          filter: `id=eq.${resolvedEventId}`,
         },
         () => {
           if (isCurrent) {
-            void fetchQueueSnapshot(targetEventId)
+            void fetchQueueSnapshot(resolvedEventId)
           }
         },
       )
@@ -404,7 +435,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         if (status === 'SUBSCRIBED') {
           // Force a fresh fetch once subscribed to catch any missed changes
           if (isCurrent) {
-            void fetchQueueSnapshot(targetEventId)
+            void fetchQueueSnapshot(resolvedEventId)
           }
         }
       })
@@ -413,7 +444,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         // Realtime is helpful but not guaranteed, so polling is the fallback
         audiencePollTimerId = window.setInterval(() => {
           if (isCurrent) {
-            void fetchQueueSnapshot(targetEventId)
+            void fetchQueueSnapshot(resolvedEventId)
           }
         }, 1500)
       } catch {

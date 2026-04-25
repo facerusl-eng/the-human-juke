@@ -50,7 +50,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
   const [saved, setSaved] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
 
-  const audienceUrl = getAudienceUrl()
+  const audienceUrl = getAudienceUrl(event.id)
 
   useEffect(() => {
     if (!user?.id || !event?.id) {
