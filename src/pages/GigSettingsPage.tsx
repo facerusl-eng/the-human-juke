@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { fetchSongArtwork } from '../lib/songArtwork'
@@ -23,66 +23,68 @@ type PlaylistArtworkRow = {
   library_songs: PlaylistArtworkSong | PlaylistArtworkSong[] | null
 }
 
+type SettingsState = {
+  gigName: string
+  venue: string
+  subtitle: string
+  requestInstructions: string
+  playlistOnlyRequests: boolean
+  mirrorPhotoSpotlightEnabled: boolean
+  allowDuplicateRequests: boolean
+  maxActiveRequestsPerUser: string
+  selectedPlaylistIds: string[]
+  roomOpen: boolean
+  explicitFilterEnabled: boolean
+}
+
+type UndoRedoState = SettingsState & { timestamp: number }
+
 type GigSettingsFormProps = {
   event: NonNullable<ReturnType<typeof useQueueStore>['event']>
   onBack: () => void
   updateEventSettings: ReturnType<typeof useQueueStore>['updateEventSettings']
 }
 
+const AUTOSAVE_DELAY_MS = 2000
+const MAX_UNDO_STATES = 20
+
 function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsFormProps) {
   const { user } = useAuthStore()
-  const [gigName, setGigName] = useState(event.name)
-  const [venue, setVenue] = useState(event.venue ?? '')
-  const [subtitle, setSubtitle] = useState(event.subtitle ?? '')
-  const [requestInstructions, setRequestInstructions] = useState(event.requestInstructions ?? '')
-  const [playlistOnlyRequests, setPlaylistOnlyRequests] = useState(event.playlistOnlyRequests)
-  const [mirrorPhotoSpotlightEnabled, setMirrorPhotoSpotlightEnabled] = useState(event.mirrorPhotoSpotlightEnabled)
-  const [allowDuplicateRequests, setAllowDuplicateRequests] = useState(event.allowDuplicateRequests)
-  const [maxActiveRequestsPerUser, setMaxActiveRequestsPerUser] = useState(
-    event.maxActiveRequestsPerUser ? String(event.maxActiveRequestsPerUser) : '',
-  )
+
+  // Form State
+  const [state, setState] = useState<SettingsState>({
+    gigName: event.name,
+    venue: event.venue ?? '',
+    subtitle: event.subtitle ?? '',
+    requestInstructions: event.requestInstructions ?? '',
+    playlistOnlyRequests: event.playlistOnlyRequests,
+    mirrorPhotoSpotlightEnabled: event.mirrorPhotoSpotlightEnabled,
+    allowDuplicateRequests: event.allowDuplicateRequests,
+    maxActiveRequestsPerUser: event.maxActiveRequestsPerUser ? String(event.maxActiveRequestsPerUser) : '',
+    selectedPlaylistIds: [],
+    roomOpen: event.roomOpen,
+    explicitFilterEnabled: event.explicitFilterEnabled,
+  })
+
+  // Undo/Redo
+  const [undoStack, setUndoStack] = useState<UndoRedoState[]>([])
+  const [redoStack, setRedoStack] = useState<UndoRedoState[]>([])
+
+  // UI State
   const [playlists, setPlaylists] = useState<HostPlaylist[]>([])
-  const [selectedPlaylistIds, setSelectedPlaylistIds] = useState<string[]>([])
   const [loadingPlaylists, setLoadingPlaylists] = useState(true)
-  const [roomOpen, setRoomOpen] = useState(event.roomOpen)
-  const [explicitFilterEnabled, setExplicitFilterEnabled] = useState(event.explicitFilterEnabled)
   const [busy, setBusy] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
+
+  // Autosave
+  const autosaveTimerRef = useRef<number | null>(null)
 
   const audienceUrl = getAudienceUrl(event.id)
 
-  const copyAudienceUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(audienceUrl)
-      setSaved(true)
-      return
-    } catch {
-      // Fall through to legacy copy method when clipboard permissions are unavailable.
-    }
-
-    try {
-      const fallbackInput = document.createElement('textarea')
-      fallbackInput.value = audienceUrl
-      fallbackInput.setAttribute('readonly', '')
-      fallbackInput.style.position = 'fixed'
-      fallbackInput.style.left = '-9999px'
-      document.body.appendChild(fallbackInput)
-      fallbackInput.select()
-      const copied = document.execCommand('copy')
-      document.body.removeChild(fallbackInput)
-
-      if (!copied) {
-        throw new Error('copy-failed')
-      }
-
-      setSaved(true)
-    } catch (error) {
-      console.warn('GigSettingsPage: failed to copy audience URL', error)
-      setErrorText('Copy failed. You can still copy the audience link manually.')
-    }
-  }
-
+  // Load playlists
   useEffect(() => {
     if (!user?.id || !event?.id) {
       return
@@ -120,7 +122,10 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
         }
 
         setPlaylists((playlistsResult.data ?? []) as HostPlaylist[])
-        setSelectedPlaylistIds((selectedResult.data ?? []).map((row) => row.playlist_id as string))
+        setState((current) => ({
+          ...current,
+          selectedPlaylistIds: (selectedResult.data ?? []).map((row) => row.playlist_id as string),
+        }))
       } catch (error) {
         console.warn('GigSettingsPage: failed to load playlists', error)
         if (isCurrent) {
@@ -189,326 +194,577 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     }
   }
 
-  const onSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
-    formEvent.preventDefault()
-    setErrorText(null)
-    setSaved(false)
+  // State update helpers
+  const updateState = (updates: Partial<SettingsState>) => {
+    setState((current) => {
+      const newState = { ...current, ...updates }
+      triggerAutosave(newState)
+      return newState
+    })
+  }
 
-    if (!gigName.trim()) {
+  const pushUndoState = () => {
+    setUndoStack((current) => [...current.slice(-MAX_UNDO_STATES + 1), { ...state, timestamp: Date.now() }])
+    setRedoStack([])
+  }
+
+  const onUndo = () => {
+    if (undoStack.length === 0) return
+    const previousState = undoStack[undoStack.length - 1]
+    setRedoStack((current) => [...current, { ...state, timestamp: Date.now() }])
+    setState(previousState)
+    setUndoStack((current) => current.slice(0, -1))
+    clearAutosaveTimer()
+  }
+
+  const onRedo = () => {
+    if (redoStack.length === 0) return
+    const nextState = redoStack[redoStack.length - 1]
+    setUndoStack((current) => [...current, { ...state, timestamp: Date.now() }])
+    setState(nextState)
+    setRedoStack((current) => current.slice(0, -1))
+    clearAutosaveTimer()
+  }
+
+  // Autosave
+  const clearAutosaveTimer = () => {
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current)
+      autosaveTimerRef.current = null
+    }
+  }
+
+  const triggerAutosave = (newState: SettingsState) => {
+    clearAutosaveTimer()
+    setSaveStatus('saving')
+    autosaveTimerRef.current = window.setTimeout(() => {
+      void performSave(newState)
+    }, AUTOSAVE_DELAY_MS)
+  }
+
+  const performSave = async (saveState: SettingsState) => {
+    setErrorText(null)
+
+    if (!saveState.gigName.trim()) {
       setErrorText('Gig name is required.')
+      setSaveStatus('error')
       return
     }
 
-    setBusy(true)
-
     try {
-      const normalizedLimit = maxActiveRequestsPerUser.trim()
+      const normalizedLimit = saveState.maxActiveRequestsPerUser.trim()
       const parsedLimit = normalizedLimit ? Number.parseInt(normalizedLimit, 10) : null
 
       if (parsedLimit !== null && (!Number.isFinite(parsedLimit) || parsedLimit < 1)) {
         setErrorText('Request cap must be at least 1, or left blank for no cap.')
-        setBusy(false)
+        setSaveStatus('error')
         return
       }
 
       await updateEventSettings({
-        name: gigName.trim(),
-        venue: venue.trim(),
-        subtitle: subtitle.trim(),
-        requestInstructions: requestInstructions.trim(),
-        playlistOnlyRequests,
-        selectedPlaylistIds,
-        mirrorPhotoSpotlightEnabled,
-        allowDuplicateRequests,
+        name: saveState.gigName.trim(),
+        venue: saveState.venue.trim(),
+        subtitle: saveState.subtitle.trim(),
+        requestInstructions: saveState.requestInstructions.trim(),
+        playlistOnlyRequests: saveState.playlistOnlyRequests,
+        selectedPlaylistIds: saveState.selectedPlaylistIds,
+        mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
+        allowDuplicateRequests: saveState.allowDuplicateRequests,
         maxActiveRequestsPerUser: parsedLimit,
-        roomOpen,
-        explicitFilterEnabled,
+        roomOpen: saveState.roomOpen,
+        explicitFilterEnabled: saveState.explicitFilterEnabled,
       })
 
-      await ensurePlaylistArtwork(selectedPlaylistIds)
-      setSaved(true)
+      await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 2000)
     } catch (error) {
       console.warn('GigSettingsPage: failed to save settings', error)
       setErrorText(error instanceof Error ? error.message : 'Unable to save gig settings.')
-    } finally {
-      setBusy(false)
+      setSaveStatus('error')
     }
   }
 
+  const onManualSave = async (formEvent: FormEvent<HTMLFormElement>) => {
+    formEvent.preventDefault()
+    clearAutosaveTimer()
+    setBusy(true)
+    await performSave(state)
+    setBusy(false)
+  }
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections((current) => {
+      const next = new Set(current)
+      if (next.has(sectionId)) {
+        next.delete(sectionId)
+      } else {
+        next.add(sectionId)
+      }
+      return next
+    })
+  }
+
+  const copyAudienceUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(audienceUrl)
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 1500)
+      return
+    } catch {
+      // Fall through to legacy copy method
+    }
+
+    try {
+      const fallbackInput = document.createElement('textarea')
+      fallbackInput.value = audienceUrl
+      fallbackInput.setAttribute('readonly', '')
+      fallbackInput.style.position = 'fixed'
+      fallbackInput.style.left = '-9999px'
+      document.body.appendChild(fallbackInput)
+      fallbackInput.select()
+      const copied = document.execCommand('copy')
+      document.body.removeChild(fallbackInput)
+
+      if (!copied) {
+        throw new Error('copy-failed')
+      }
+
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 1500)
+    } catch (error) {
+      console.warn('GigSettingsPage: failed to copy audience URL', error)
+      setErrorText('Copy failed. You can still copy the audience link manually.')
+    }
+  }
+
+  const isModified = state.gigName !== event.name
+    || state.venue !== (event.venue ?? '')
+    || state.subtitle !== (event.subtitle ?? '')
+    || state.requestInstructions !== (event.requestInstructions ?? '')
+    || state.playlistOnlyRequests !== event.playlistOnlyRequests
+    || state.mirrorPhotoSpotlightEnabled !== event.mirrorPhotoSpotlightEnabled
+    || state.allowDuplicateRequests !== event.allowDuplicateRequests
+    || state.roomOpen !== event.roomOpen
+    || state.explicitFilterEnabled !== event.explicitFilterEnabled
+
   return (
     <>
-      <section className="hero-card admin-card gig-settings-hero">
-        <div>
-          <p className="eyebrow">Gig Settings</p>
-          <h1>{event.name}</h1>
-          <p className="subcopy">
-            Update the active show details, room status, and audience rules for this gig.
-          </p>
+      {/* Header */}
+      <section className="gig-settings-header">
+        <div className="gig-settings-header-content">
+          <h1>{state.gigName}</h1>
+          <p className="subcopy">Manage show settings, audience access, and playback rules</p>
         </div>
-        <div className="gig-settings-hero-actions">
+        <div className="gig-settings-header-actions">
           <button type="button" className="secondary-button" onClick={onBack}>
-            Back to Gig Control
+            Back
           </button>
-          <button type="button" className="ghost-button" onClick={() => window.open('/mirror', '_blank')}>
-            Open Mirror Screen
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => window.open('/mirror', '_blank')}
+            title="Open mirror screen in new window"
+          >
+            Mirror Screen
           </button>
         </div>
       </section>
 
-      <section className="gig-settings-layout">
-        <form className="queue-panel gig-settings-form" onSubmit={onSubmit}>
-          <div className="panel-head">
-            <h2>Show Details</h2>
-            {saved ? <span className="meta-badge settings-saved-badge">Saved</span> : null}
+      {/* Main Content */}
+      <form className="gig-settings-form" onSubmit={onManualSave}>
+        {/* Undo/Redo & Status Bar */}
+        <div className="gig-settings-toolbar">
+          <div className="toolbar-group">
+            <button
+              type="button"
+              className="icon-button secondary-button"
+              onClick={onUndo}
+              disabled={undoStack.length === 0}
+              title="Undo last change"
+            >
+              ↶ Undo
+            </button>
+            <button
+              type="button"
+              className="icon-button secondary-button"
+              onClick={onRedo}
+              disabled={redoStack.length === 0}
+              title="Redo last change"
+            >
+              ↷ Redo
+            </button>
           </div>
 
+          <div className="toolbar-status">
+            {saveStatus === 'saving' && <span className="status-badge saving">Saving...</span>}
+            {saveStatus === 'saved' && <span className="status-badge saved">✓ Saved</span>}
+            {saveStatus === 'error' && <span className="status-badge error">✗ Error</span>}
+            {isModified && saveStatus === 'idle' && <span className="status-badge unsaved">Unsaved changes</span>}
+          </div>
+
+          <div className="toolbar-buttons">
+            <button type="submit" className="primary-button" disabled={busy || !isModified}>
+              {busy ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
+
+        {/* Sections */}
+        <CollapsibleSection
+          id="gigInfo"
+          title="Gig Info"
+          icon="ℹ️"
+          isExpanded={expandedSections.has('gigInfo')}
+          onToggle={() => toggleSection('gigInfo')}
+        >
           <div className="field-row">
-            <label htmlFor="gig-settings-name">Gig name</label>
+            <label htmlFor="gig-name">Gig Name</label>
             <input
-              id="gig-settings-name"
-              value={gigName}
-              onChange={(event) => setGigName(event.target.value)}
+              id="gig-name"
+              type="text"
+              value={state.gigName}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ gigName: e.target.value })
+              }}
               placeholder="Friday Night at The Anchor"
               required
-              aria-required="true"
             />
           </div>
 
           <div className="field-row">
-            <label htmlFor="gig-settings-venue">Venue</label>
+            <label htmlFor="gig-venue">Venue</label>
             <input
-              id="gig-settings-venue"
-              value={venue}
-              onChange={(event) => setVenue(event.target.value)}
+              id="gig-venue"
+              type="text"
+              value={state.venue}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ venue: e.target.value })
+              }}
               placeholder="The Anchor Bar, Main Stage"
             />
           </div>
 
           <div className="field-row">
-            <label htmlFor="gig-settings-subtitle">Show subtitle</label>
+            <label htmlFor="gig-subtitle">Show Subtitle</label>
             <input
-              id="gig-settings-subtitle"
-              value={subtitle}
-              onChange={(event) => setSubtitle(event.target.value)}
-              placeholder="Soul, funk, and crowd favorites all night"
+              id="gig-subtitle"
+              type="text"
+              value={state.subtitle}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ subtitle: e.target.value })
+              }}
+              placeholder="Soul, funk, and crowd favorites"
             />
           </div>
+        </CollapsibleSection>
 
+        <CollapsibleSection
+          id="requestSettings"
+          title="Audience Request Rules"
+          icon="🎤"
+          isExpanded={expandedSections.has('requestSettings')}
+          onToggle={() => toggleSection('requestSettings')}
+        >
           <div className="field-row">
-            <label htmlFor="gig-settings-instructions">Audience request note</label>
+            <label htmlFor="gig-instructions">Request Instructions</label>
             <textarea
-              id="gig-settings-instructions"
-              value={requestInstructions}
-              onChange={(event) => setRequestInstructions(event.target.value)}
-              placeholder="Add the song title and artist. Requests stay cleaner when you include both."
-              rows={4}
+              id="gig-instructions"
+              value={state.requestInstructions}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ requestInstructions: e.target.value })
+              }}
+              placeholder="Tell the audience how to request songs..."
+              rows={3}
             />
           </div>
 
           <div className="field-row">
-            <label htmlFor="gig-settings-request-cap">Active requests per audience member</label>
+            <label htmlFor="gig-request-cap">Max Requests Per Person</label>
             <input
-              id="gig-settings-request-cap"
+              id="gig-request-cap"
               type="number"
               min="1"
               step="1"
-              inputMode="numeric"
-              value={maxActiveRequestsPerUser}
-              onChange={(event) => setMaxActiveRequestsPerUser(event.target.value)}
-              placeholder="Leave blank for no cap"
+              value={state.maxActiveRequestsPerUser}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ maxActiveRequestsPerUser: e.target.value })
+              }}
+              placeholder="Leave blank for no limit"
             />
           </div>
 
-          <div className="gig-settings-toggles">
-            <label className="gig-settings-toggle-card" htmlFor="gig-room-open">
+          <div className="toggle-group">
+            <label className="toggle-card" htmlFor="gig-room-open">
               <input
                 id="gig-room-open"
                 type="checkbox"
-                checked={roomOpen}
-                onChange={(event) => setRoomOpen(event.target.checked)}
+                checked={state.roomOpen}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ roomOpen: e.target.checked })
+                }}
               />
               <div>
-                <strong>{roomOpen ? 'Room Open' : 'Room Paused'}</strong>
-                <span>Allow the audience to submit new song requests.</span>
+                <strong>{state.roomOpen ? '✓ Room Open' : '⊘ Room Paused'}</strong>
+                <span>Audience can submit requests</span>
               </div>
             </label>
 
-            <label className="gig-settings-toggle-card" htmlFor="gig-explicit-filter">
+            <label className="toggle-card" htmlFor="gig-playlist-only">
+              <input
+                id="gig-playlist-only"
+                type="checkbox"
+                checked={state.playlistOnlyRequests}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ playlistOnlyRequests: e.target.checked })
+                }}
+              />
+              <div>
+                <strong>{state.playlistOnlyRequests ? '📋 Playlists Only' : '🔓 Open Text'}</strong>
+                <span>Restrict to setlist or allow any song</span>
+              </div>
+            </label>
+
+            <label className="toggle-card" htmlFor="gig-allow-duplicates">
+              <input
+                id="gig-allow-duplicates"
+                type="checkbox"
+                checked={state.allowDuplicateRequests}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ allowDuplicateRequests: e.target.checked })
+                }}
+              />
+              <div>
+                <strong>{state.allowDuplicateRequests ? '✓ Duplicates Allowed' : '✗ Block Duplicates'}</strong>
+                <span>Allow same song requested multiple times</span>
+              </div>
+            </label>
+
+            <label className="toggle-card" htmlFor="gig-explicit-filter">
               <input
                 id="gig-explicit-filter"
                 type="checkbox"
-                checked={explicitFilterEnabled}
-                onChange={(event) => setExplicitFilterEnabled(event.target.checked)}
+                checked={state.explicitFilterEnabled}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ explicitFilterEnabled: e.target.checked })
+                }}
               />
               <div>
-                <strong>{explicitFilterEnabled ? 'Explicit Filter On' : 'Explicit Filter Off'}</strong>
-                <span>Block explicit requests automatically during this show.</span>
+                <strong>{state.explicitFilterEnabled ? '🔇 Explicit Blocked' : '🔊 Explicit Allowed'}</strong>
+                <span>Block requests for explicit tracks</span>
               </div>
             </label>
+          </div>
+        </CollapsibleSection>
 
-            <label className="gig-settings-toggle-card" htmlFor="gig-duplicates-allowed">
+        <CollapsibleSection
+          id="setlistSelection"
+          title="Setlist Selection"
+          icon="🎵"
+          isExpanded={expandedSections.has('setlistSelection')}
+          onToggle={() => toggleSection('setlistSelection')}
+        >
+          <div className="playlist-section">
+            {loadingPlaylists ? (
+              <p className="subcopy">Loading playlists...</p>
+            ) : playlists.length === 0 ? (
+              <p className="subcopy">No playlists yet. Create playlists in Setlist Library.</p>
+            ) : (
+              <>
+                <div className="playlist-count">
+                  <span className="meta-badge">{state.selectedPlaylistIds.length} selected</span>
+                </div>
+                <div className="playlist-grid">
+                  {playlists.map((playlist) => {
+                    const isSelected = state.selectedPlaylistIds.includes(playlist.id)
+                    return (
+                      <label
+                        key={playlist.id}
+                        className={`playlist-card ${isSelected ? 'selected' : ''}`}
+                        htmlFor={`playlist-${playlist.id}`}
+                      >
+                        <input
+                          id={`playlist-${playlist.id}`}
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            pushUndoState()
+                            updateState({
+                              selectedPlaylistIds: e.target.checked
+                                ? [...state.selectedPlaylistIds, playlist.id]
+                                : state.selectedPlaylistIds.filter((id) => id !== playlist.id),
+                            })
+                          }}
+                        />
+                        <div className="playlist-info">
+                          <strong>{playlist.name}</strong>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          id="mirrorSettings"
+          title="Mirror Screen Settings"
+          icon="🪞"
+          isExpanded={expandedSections.has('mirrorSettings')}
+          onToggle={() => toggleSection('mirrorSettings')}
+        >
+          <div className="toggle-group">
+            <label className="toggle-card" htmlFor="gig-mirror-spotlight">
               <input
-                id="gig-duplicates-allowed"
+                id="gig-mirror-spotlight"
                 type="checkbox"
-                checked={allowDuplicateRequests}
-                onChange={(event) => setAllowDuplicateRequests(event.target.checked)}
+                checked={state.mirrorPhotoSpotlightEnabled}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mirrorPhotoSpotlightEnabled: e.target.checked })
+                }}
               />
               <div>
-                <strong>{allowDuplicateRequests ? 'Duplicate Requests Allowed' : 'Duplicate Requests Blocked'}</strong>
-                <span>Prevent the same title and artist from being added twice to the live queue.</span>
-              </div>
-            </label>
-
-            <label className="gig-settings-toggle-card" htmlFor="gig-playlist-only-requests">
-              <input
-                id="gig-playlist-only-requests"
-                type="checkbox"
-                checked={playlistOnlyRequests}
-                onChange={(event) => setPlaylistOnlyRequests(event.target.checked)}
-              />
-              <div>
-                <strong>{playlistOnlyRequests ? 'Audience Restricted To Gig Playlists' : 'Audience Can Type Any Song'}</strong>
-                <span>When enabled, audience can only request songs from playlists selected below.</span>
-              </div>
-            </label>
-
-            <label className="gig-settings-toggle-card" htmlFor="gig-mirror-photo-spotlight">
-              <input
-                id="gig-mirror-photo-spotlight"
-                type="checkbox"
-                checked={mirrorPhotoSpotlightEnabled}
-                onChange={(event) => setMirrorPhotoSpotlightEnabled(event.target.checked)}
-              />
-              <div>
-                <strong>{mirrorPhotoSpotlightEnabled ? 'Mirror Photo Spotlight On' : 'Mirror Photo Spotlight Off'}</strong>
-                <span>Show audience photo posts as a large 7-second polaroid spotlight on mirror.</span>
+                <strong>{state.mirrorPhotoSpotlightEnabled ? '✓ Photo Spotlight On' : '⊘ Photo Spotlight Off'}</strong>
+                <span>Show audience photos as large 7-second spotlight on mirror</span>
               </div>
             </label>
           </div>
+        </CollapsibleSection>
 
-          <section className="gig-settings-playlist-picker" aria-label="Playlists for this gig">
-            <div className="panel-head">
-              <h2>Playlists For This Gig</h2>
-              <span className="meta-badge">{selectedPlaylistIds.length} selected</span>
+        <CollapsibleSection
+          id="audienceAccess"
+          title="Audience Access & Sharing"
+          icon="🔗"
+          isExpanded={expandedSections.has('audienceAccess')}
+          onToggle={() => toggleSection('audienceAccess')}
+        >
+          <div className="access-section">
+            <div className="link-card">
+              <span className="link-label">Audience Link</span>
+              <code className="link-value">{audienceUrl}</code>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void copyAudienceUrl()}
+              >
+                📋 Copy Link
+              </button>
             </div>
-            {loadingPlaylists ? <p className="subcopy no-margin">Loading playlists…</p> : null}
-            {!loadingPlaylists && playlists.length === 0 ? (
-              <p className="subcopy no-margin">No playlists yet. Create playlists in Setlist Library first.</p>
-            ) : null}
-            {!loadingPlaylists && playlists.length > 0 ? (
-              <div className="gig-settings-playlist-list">
-                {playlists.map((playlist) => {
-                  const isSelected = selectedPlaylistIds.includes(playlist.id)
 
-                  return (
-                    <label key={playlist.id} className="gig-settings-playlist-option" htmlFor={`gig-playlist-${playlist.id}`}>
-                      <input
-                        id={`gig-playlist-${playlist.id}`}
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={(event) => {
-                          setSelectedPlaylistIds((currentIds) => {
-                            if (event.target.checked) {
-                              return [...currentIds, playlist.id]
-                            }
+            <div className="quick-links">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => window.open('/audience', '_blank')}
+              >
+                Open Audience View
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => window.open('/mirror', '_blank')}
+              >
+                Open Mirror Screen
+              </button>
+            </div>
 
-                            return currentIds.filter((playlistId) => playlistId !== playlist.id)
-                          })
-                        }}
-                      />
-                      <div>
-                        <strong>{playlist.name}</strong>
-                      </div>
-                    </label>
-                  )
-                })}
+            <div className="status-grid">
+              <div className="status-item">
+                <span className="status-icon">{state.roomOpen ? '✓' : '✗'}</span>
+                <div>
+                  <strong>{state.roomOpen ? 'Room Open' : 'Room Paused'}</strong>
+                  <span className="small-text">Queue status</span>
+                </div>
               </div>
-            ) : null}
-          </section>
-
-          {errorText ? <p className="error-text no-margin">{errorText}</p> : null}
-
-          <div className="hero-actions no-margin-bottom">
-            <button type="submit" className="primary-button" disabled={busy}>
-              {busy ? 'Saving...' : 'Save Gig Settings'}
-            </button>
-            <button type="button" className="secondary-button" disabled={busy} onClick={onBack}>
-              Cancel
-            </button>
-          </div>
-        </form>
-
-        <section className="queue-panel gig-settings-sidecar">
-          <div className="panel-head">
-            <h2>Audience Access</h2>
-            <span className="meta-badge">Live</span>
-          </div>
-
-          <p className="subcopy">
-            Share the audience link, then control whether the room is open and whether explicit tracks are allowed.
-          </p>
-
-          <div className="gig-settings-link-card">
-            <span className="gig-settings-link-label">Audience Link</span>
-            <p className="gig-settings-link-value">{audienceUrl}</p>
-          </div>
-
-          <div className="gig-settings-status-list">
-            <div>
-              <strong>{roomOpen ? 'Open' : 'Paused'}</strong>
-              <span>Queue status</span>
-            </div>
-            <div>
-              <strong>{explicitFilterEnabled ? 'Blocked' : 'Allowed'}</strong>
-              <span>Explicit tracks</span>
-            </div>
-            <div>
-              <strong>{venue || 'Not set'}</strong>
-              <span>Venue</span>
-            </div>
-            <div>
-              <strong>{subtitle || 'No subtitle yet'}</strong>
-              <span>Show subtitle</span>
-            </div>
-            <div>
-              <strong>{maxActiveRequestsPerUser.trim() || 'No cap'}</strong>
-              <span>Requests per audience member</span>
-            </div>
-            <div>
-              <strong>{allowDuplicateRequests ? 'Allowed' : 'Blocked'}</strong>
-              <span>Duplicate songs</span>
-            </div>
-            <div>
-              <strong>{playlistOnlyRequests ? 'Playlist only' : 'Open text requests'}</strong>
-              <span>Audience request mode</span>
-            </div>
-            <div>
-              <strong>{selectedPlaylistIds.length}</strong>
-              <span>Gig playlists selected</span>
-            </div>
-            <div>
-              <strong>{mirrorPhotoSpotlightEnabled ? 'Enabled' : 'Disabled'}</strong>
-              <span>Mirror photo spotlight</span>
+              <div className="status-item">
+                <span className="status-icon">{state.explicitFilterEnabled ? '🔇' : '🔊'}</span>
+                <div>
+                  <strong>{state.explicitFilterEnabled ? 'Explicit Blocked' : 'Explicit Allowed'}</strong>
+                  <span className="small-text">Content policy</span>
+                </div>
+              </div>
+              <div className="status-item">
+                <span className="status-icon">📍</span>
+                <div>
+                  <strong>{state.venue || 'Not set'}</strong>
+                  <span className="small-text">Venue</span>
+                </div>
+              </div>
+              <div className="status-item">
+                <span className="status-icon">👥</span>
+                <div>
+                  <strong>{state.maxActiveRequestsPerUser || 'No limit'}</strong>
+                  <span className="small-text">Requests per person</span>
+                </div>
+              </div>
             </div>
           </div>
+        </CollapsibleSection>
 
-          <div className="hero-actions no-margin-bottom">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={async () => {
-                await copyAudienceUrl()
-              }}
-            >
-              Copy Audience Link
-            </button>
-            <button type="button" className="ghost-button" onClick={() => window.open('/audience', '_blank')}>
-              Open Audience View
-            </button>
+        {/* Error Message */}
+        {errorText && (
+          <div className="error-message">
+            <span>⚠️</span>
+            <p>{errorText}</p>
           </div>
-        </section>
-      </section>
+        )}
+
+        {/* Action Buttons */}
+        <div className="form-actions">
+          <button type="submit" className="primary-button" disabled={busy || !isModified}>
+            {busy ? 'Saving...' : 'Save Changes'}
+          </button>
+          <button type="button" className="secondary-button" onClick={onBack} disabled={busy}>
+            Cancel
+          </button>
+        </div>
+      </form>
     </>
+  )
+}
+
+// Collapsible Section Component
+interface CollapsibleSectionProps {
+  id: string
+  title: string
+  icon?: string
+  isExpanded: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}
+
+function CollapsibleSection({ id, title, icon, isExpanded, onToggle, children }: CollapsibleSectionProps) {
+  return (
+    <section className={`collapsible-section ${isExpanded ? 'expanded' : 'collapsed'}`}>
+      <button
+        type="button"
+        className="section-header"
+        onClick={onToggle}
+        aria-expanded={isExpanded}
+        aria-controls={`section-content-${id}`}
+      >
+        <span className="section-icon">{icon}</span>
+        <span className="section-title">{title}</span>
+        <span className="section-toggle">{isExpanded ? '▼' : '▶'}</span>
+      </button>
+      {isExpanded && (
+        <div id={`section-content-${id}`} className="section-content">
+          {children}
+        </div>
+      )}
+    </section>
   )
 }
 
