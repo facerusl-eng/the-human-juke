@@ -5348,6 +5348,192 @@
   }
 }
 
+.app-shell-audience-fullscreen {
+  max-width: none;
+  width: 100%;
+  padding: 0;
+}
+
+.audience-start-actions-panel {
+  gap: 0.75rem;
+}
+
+.audience-start-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.audience-song-list-shell {
+  min-height: 100svh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(93, 215, 255, 0.24) 0%, transparent 42%),
+    radial-gradient(circle at 88% 10%, rgba(255, 99, 132, 0.17) 0%, transparent 40%),
+    #0a1228;
+  color: #f4f8ff;
+  padding: max(0.85rem, env(safe-area-inset-top)) 0.85rem calc(0.95rem + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 0.75rem;
+}
+
+.audience-song-list-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.audience-song-list-header-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.audience-song-list-header-copy h1 {
+  margin: 0;
+}
+
+.audience-song-list-search {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.audience-song-list-search label {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b8d2ff;
+}
+
+.audience-song-list-search input {
+  min-height: 3rem;
+  border-radius: 12px;
+  border: 1px solid rgba(93, 215, 255, 0.38);
+  background: rgba(8, 14, 34, 0.84);
+  color: #f7fbff;
+}
+
+.audience-song-list-note {
+  margin: 0;
+}
+
+.audience-song-list-scroll {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid rgba(93, 215, 255, 0.3);
+  border-radius: 14px;
+  background: rgba(7, 13, 30, 0.56);
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.48rem;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.audience-song-list-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.audience-song-list-item {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.audience-song-list-card {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(93, 215, 255, 0.36);
+  background: linear-gradient(145deg, rgba(10, 16, 38, 0.92) 0%, rgba(16, 21, 46, 0.94) 100%);
+  padding: 0.62rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem;
+  text-align: left;
+  align-items: center;
+  color: inherit;
+}
+
+.audience-song-list-cover {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.audience-song-list-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.audience-song-list-title {
+  font-weight: 700;
+  color: #f8fbff;
+}
+
+.audience-song-list-artist {
+  color: #b8d2ff;
+  font-size: 0.92rem;
+}
+
+.audience-song-choice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(3, 8, 22, 0.74);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.75rem;
+}
+
+.audience-song-choice-sheet {
+  width: min(640px, 100%);
+  border-radius: 18px;
+  border: 1px solid rgba(93, 215, 255, 0.4);
+  background: linear-gradient(145deg, rgba(14, 20, 45, 0.97) 0%, rgba(18, 23, 52, 0.98) 100%);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.6rem;
+  box-shadow: 0 26px 48px rgba(4, 7, 20, 0.58);
+}
+
+.audience-song-choice-sheet h2,
+.audience-song-choice-sheet .subcopy {
+  margin: 0;
+}
+
+.audience-song-choice-actions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.audience-song-choice-button {
+  min-height: 3rem;
+}
+
+@media (max-width: 720px) {
+  .audience-start-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .audience-song-list-shell {
+    padding: max(0.7rem, env(safe-area-inset-top)) 0.7rem calc(0.9rem + env(safe-area-inset-bottom));
+  }
+
+  .audience-song-list-card {
+    padding: 0.66rem;
+  }
+
+  .audience-song-list-cover {
+    width: 60px;
+    height: 60px;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    Settings Page
    ───────────────────────────────────────────────────────────── */

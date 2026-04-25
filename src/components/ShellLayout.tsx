@@ -15,10 +15,13 @@ function ShellLayout() {
   const [authActionBusy, setAuthActionBusy] = useState<null | 'sign-in' | 'sign-out'>(null)
   const [hasAudienceAccess, setHasAudienceAccess] = useState(() => Boolean(readCommittedAudienceName()))
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
   const showAdminMobileMenu = isAdminMode && !isAudienceMode
-  const shellClassName = location.pathname.startsWith('/admin/setlist-library')
+  const shellClassName = isAudienceSongListMode
+    ? 'app-shell app-shell-audience-fullscreen'
+    : location.pathname.startsWith('/admin/setlist-library')
     ? 'app-shell app-shell-wide'
     : 'app-shell'
   const topbarClassName = isAdminMode ? 'topbar topbar-admin' : 'topbar'
@@ -64,7 +67,7 @@ function ShellLayout() {
 
   return (
     <main className={shellClassName}>
-      <header className={topbarClassName}>
+      {!isAudienceSongListMode ? <header className={topbarClassName}>
         <p className="brand" aria-label="The Human Jukebox">
           <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
         </p>
@@ -208,8 +211,8 @@ function ShellLayout() {
           {errorText ? <p className="error-text">{errorText}</p> : null}
         </div>
         ) : null}
-      </header>
-      {runtimeNotice ? (
+      </header> : null}
+      {runtimeNotice && !isAudienceSongListMode ? (
         <section className="queue-panel" role="status" aria-live="polite">
           <div className="hero-actions no-margin-bottom">
             <p className="subcopy no-margin">{runtimeNotice}</p>
@@ -224,13 +227,13 @@ function ShellLayout() {
         </section>
       ) : null}
       <Outlet />
-      <footer className="site-legal-footer" aria-label="Copyright notice">
+      {!isAudienceSongListMode ? <footer className="site-legal-footer" aria-label="Copyright notice">
         <p>
           © {new Date().getFullYear()} Haraldur G Asmundsson. All rights reserved. The Human Jukebox name,
           branding, and related content are proprietary. Unauthorized use, reproduction, or distribution is
           prohibited.
         </p>
-      </footer>
+      </footer> : null}
     </main>
   )
 }

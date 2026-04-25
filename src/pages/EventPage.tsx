@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
 import SongVoteCard from '../components/audience/SongVoteCard'
 import { useQueueStore } from '../state/queueStore'
@@ -11,8 +12,19 @@ import {
   readSharedPlaybackState,
   type SharedPlaybackState,
 } from '../lib/playbackState'
-import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
+
+type HostProfile = {
+  display_name: string | null
+  instagram_url: string | null
+  tiktok_url: string | null
+  youtube_url: string | null
+  facebook_url: string | null
+  paypal_url: string | null
+  mobilpay_url: string | null
+}
+
+const MAX_AUDIENCE_NAME_LENGTH = 40
 
 function normalizeCoverUrl(coverUrl: string | null | undefined) {
   if (!coverUrl) {
@@ -27,35 +39,6 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
 
   return trimmedCoverUrl.replace(/^http:\/\//i, 'https://')
 }
-
-type HostProfile = {
-  display_name: string | null
-  instagram_url: string | null
-  tiktok_url: string | null
-  youtube_url: string | null
-  facebook_url: string | null
-  paypal_url: string | null
-  mobilpay_url: string | null
-}
-
-type CuratedSong = {
-  id: string
-  title: string
-  artist: string
-  cover_url: string | null
-  is_explicit: boolean
-}
-
-type PickerViewMode = 'cards' | 'rows' | 'covers'
-type PerformerMode = 'performer' | 'audience'
-type SongRequestErrors = {
-  songTitle?: string
-  artistName?: string
-  selection?: string
-}
-
-const MAX_AUDIENCE_NAME_LENGTH = 40
-const MAX_SONG_FIELD_LENGTH = 120
 
 function hasUnsafeControlChars(value: string) {
   return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
@@ -85,21 +68,96 @@ function normalizeExternalLink(url: string | null | undefined) {
   }
 }
 
-function normalizeDisplayText(value: string | null | undefined, fallback: string) {
-  const trimmedValue = value?.trim()
-  return trimmedValue || fallback
-}
-
 function EventPage() {
-  const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
   const { authError } = useAuthStore()
   const {
     event,
     songs,
+    performedSongs,
     loading,
-    addSong,
     upvoteSong,
   } = useQueueStore()
+
+  const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
+  const [audienceNameInput, setAudienceNameInput] = useState('')
+  const [audienceName, setAudienceName] = useState('')
+  const [audienceNameError, setAudienceNameError] = useState<string | null>(null)
+  const [errorText, setErrorText] = useState<string | null>(null)
+  const [confirmationText, setConfirmationText] = useState<string | null>(null)
+  const [votingSongIds, setVotingSongIds] = useState<Record<string, boolean>>({})
+  const [votePulseTicks, setVotePulseTicks] = useState<Record<string, number>>({})
+  const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
+  const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
+
+  const previousVotesRef = useRef<Map<string, number>>(new Map())
+  const previousSongRanksRef = useRef<Map<string, number>>(new Map())
+
+  const roomOpen = event?.roomOpen ?? false
+  const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
+  const activeRequestCap = event?.maxActiveRequestsPerUser ?? null
+  const nowPlaying = songs[0]
+  const playbackSong = playbackState?.currentSongId
+    ? songs.find((song) => song.id === playbackState.currentSongId) ?? null
+    : null
+  const activeSong = playbackSong ?? nowPlaying
+  const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
+  const displaySong = isNowPlayingStarted ? activeSong : nowPlaying
+  const displaySongCoverUrl = displaySong?.cover_url ?? playbackState?.currentSongCoverUrl ?? null
+  const upNext = isNowPlayingStarted
+    ? songs.filter((song) => song.id !== activeSong?.id)
+    : songs.slice(1)
+  const isBetweenSongs = playbackState && !playbackState.isStarted
+  const betweenSongQuote = isBetweenSongs
+    ? BETWEEN_SONG_QUOTES[(playbackState?.quoteIndex ?? 0) % BETWEEN_SONG_QUOTES.length]
+    : null
+  const hottestVoteCount = upNext.reduce((highestVotes, song) => Math.max(highestVotes, song.votes_count), 0)
+  const recentlyPlayedSongs = performedSongs.slice(0, 8)
+
+  const socialLinks = useMemo(() => ([
+    { label: 'Instagram', url: hostProfile?.instagram_url },
+    { label: 'TikTok', url: hostProfile?.tiktok_url },
+    { label: 'YouTube', url: hostProfile?.youtube_url },
+    { label: 'Facebook', url: hostProfile?.facebook_url },
+  ]
+    .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
+    .filter((link): link is { label: string; url: string } => Boolean(link.url))), [hostProfile])
+
+  const tipLinks = useMemo(() => ([
+    { label: 'MobilePay', url: hostProfile?.mobilpay_url },
+    { label: 'PayPal', url: hostProfile?.paypal_url },
+  ]
+    .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
+    .filter((link): link is { label: string; url: string } => Boolean(link.url))), [hostProfile])
+
+  useEffect(() => {
+    const state = location.state as { requestConfirmation?: string } | null
+
+    if (!state?.requestConfirmation) {
+      return
+    }
+
+    setConfirmationText(state.requestConfirmation)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+
+    const timerId = window.setTimeout(() => {
+      setConfirmationText(null)
+    }, 2600)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [location.pathname, location.search, location.state, navigate])
+
+  useEffect(() => {
+    const storedAudienceName = readCommittedAudienceName()
+
+    if (storedAudienceName) {
+      setAudienceName(storedAudienceName)
+      setAudienceNameInput(storedAudienceName)
+    }
+  }, [])
 
   useEffect(() => {
     let isCurrent = true
@@ -135,396 +193,6 @@ function EventPage() {
       isCurrent = false
     }
   }, [event?.hostId])
-  const [songTitle, setSongTitle] = useState('')
-  const [artistName, setArtistName] = useState('')
-  const [isExplicit, setIsExplicit] = useState(false)
-  const [curatedSongs, setCuratedSongs] = useState<CuratedSong[]>([])
-  const [curatedSongsLoading, setCuratedSongsLoading] = useState(false)
-  const [selectedCuratedSongId, setSelectedCuratedSongId] = useState('')
-  const [songSearchQuery, setSongSearchQuery] = useState('')
-  const [pickerViewMode, setPickerViewMode] = useState<PickerViewMode>('rows')
-  const [performerMode, setPerformerMode] = useState<PerformerMode>('performer')
-  const [audienceNameInput, setAudienceNameInput] = useState('')
-  const [audienceName, setAudienceName] = useState('')
-  const [audienceNameError, setAudienceNameError] = useState<string | null>(null)
-  const [songRequestErrors, setSongRequestErrors] = useState<SongRequestErrors>({})
-  const [errorText, setErrorText] = useState<string | null>(null)
-  const [submittingSongId, setSubmittingSongId] = useState<string | null>(null)
-  const [votingSongIds, setVotingSongIds] = useState<Record<string, boolean>>({})
-  const [votePulseTicks, setVotePulseTicks] = useState<Record<string, number>>({})
-  const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
-  const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
-  const [canScrollSetlist, setCanScrollSetlist] = useState(false)
-  const [isSetlistScrollAtEnd, setIsSetlistScrollAtEnd] = useState(false)
-  const previousVotesRef = useRef<Map<string, number>>(new Map())
-  const previousSongRanksRef = useRef<Map<string, number>>(new Map())
-  const curatedPickerScrollRef = useRef<HTMLDivElement | null>(null)
-
-  const roomOpen = event?.roomOpen ?? false
-  const playlistOnlyRequests = event?.playlistOnlyRequests ?? false
-  const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
-  const activeRequestCap = event?.maxActiveRequestsPerUser ?? null
-  const nowPlaying = songs[0]
-  const playbackSong = playbackState?.currentSongId
-    ? songs.find((song) => song.id === playbackState.currentSongId) ?? null
-    : null
-  const activeSong = playbackSong ?? nowPlaying
-  const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
-  const displaySong = isNowPlayingStarted ? activeSong : nowPlaying
-  const displaySongCoverUrl = displaySong?.cover_url ?? playbackState?.currentSongCoverUrl ?? null
-  const upNext = isNowPlayingStarted
-    ? songs.filter((song) => song.id !== activeSong?.id).slice(0)
-    : songs.slice(1)
-  const isBetweenSongs = playbackState && !playbackState.isStarted
-  const betweenSongQuote = isBetweenSongs
-    ? BETWEEN_SONG_QUOTES[(playbackState?.quoteIndex ?? 0) % BETWEEN_SONG_QUOTES.length]
-    : null
-  const hottestVoteCount = upNext.reduce((highestVotes, song) => Math.max(highestVotes, song.votes_count), 0)
-  const normalizedSearchQuery = songSearchQuery.trim().toLowerCase()
-  const filteredCuratedSongs = normalizedSearchQuery
-    ? curatedSongs.filter((song) => `${song.title} ${song.artist}`.toLowerCase().includes(normalizedSearchQuery))
-    : curatedSongs
-  const coveredCuratedSongs = filteredCuratedSongs.filter((song) => Boolean(song.cover_url && song.cover_url.trim()))
-  const displayCuratedSongs = coveredCuratedSongs.length > 0 ? coveredCuratedSongs : filteredCuratedSongs
-  const queuedLibrarySongIds = new Set(
-    songs
-      .map((song) => song.library_song_id)
-      .filter((songId): songId is string => Boolean(songId)),
-  )
-  const availableCuratedSongs = displayCuratedSongs.filter((song) => !queuedLibrarySongIds.has(song.id))
-  const groupedCuratedSongs = useMemo(() => (
-    availableCuratedSongs.map((song, index) => {
-      const title = normalizeDisplayText(song.title, 'Untitled Song')
-      const artist = normalizeDisplayText(song.artist, 'Unknown Artist')
-      const songKey = title.charAt(0).toUpperCase() || '#'
-      const previousSong = availableCuratedSongs[index - 1]
-      const previousTitle = previousSong ? normalizeDisplayText(previousSong.title, 'Untitled Song') : ''
-      const previousSongKey = previousTitle.charAt(0).toUpperCase() || '#'
-
-      return {
-        song,
-        title,
-        artist,
-        sectionLabel: index === 0 || songKey !== previousSongKey ? songKey : null,
-      }
-    })
-  ), [availableCuratedSongs])
-  const selectedCuratedSong = availableCuratedSongs.find((song) => song.id === selectedCuratedSongId) ?? null
-  const showCuratedPicker = curatedSongs.length > 0
-  const shouldShowSetlistScrollButton = canScrollSetlist || availableCuratedSongs.length > 6
-  const performerDisplayName = hostProfile?.display_name?.trim() || 'Performer'
-  const socialLinks = [
-    { label: 'Instagram', url: hostProfile?.instagram_url },
-    { label: 'TikTok', url: hostProfile?.tiktok_url },
-    { label: 'YouTube', url: hostProfile?.youtube_url },
-    { label: 'Facebook', url: hostProfile?.facebook_url },
-  ]
-    .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
-    .filter((link): link is { label: string; url: string } => Boolean(link.url))
-  const tipLinks = [
-    { label: 'MobilePay', url: hostProfile?.mobilpay_url },
-    { label: 'PayPal', url: hostProfile?.paypal_url },
-  ]
-    .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
-    .filter((link): link is { label: string; url: string } => Boolean(link.url))
-  const hasSongSelection = showCuratedPicker
-    ? Boolean(selectedCuratedSongId)
-    : Boolean(songTitle.trim() && artistName.trim())
-  const readySongLabel = selectedCuratedSong
-    ? `${selectedCuratedSong.title} - ${selectedCuratedSong.artist}`
-    : null
-
-  const updateSetlistScrollState = () => {
-    const scrollRegion = curatedPickerScrollRef.current
-
-    if (!scrollRegion) {
-      setCanScrollSetlist(false)
-      setIsSetlistScrollAtEnd(false)
-      return
-    }
-
-    const nextCanScroll = scrollRegion.scrollHeight - scrollRegion.clientHeight > 8
-    const nextIsAtEnd = nextCanScroll
-      ? scrollRegion.scrollTop + scrollRegion.clientHeight >= scrollRegion.scrollHeight - 12
-      : false
-
-    setCanScrollSetlist(nextCanScroll)
-    setIsSetlistScrollAtEnd(nextIsAtEnd)
-  }
-
-  const scrollSetlist = () => {
-    const scrollRegion = curatedPickerScrollRef.current
-
-    if (!scrollRegion) {
-      return
-    }
-
-    if (isSetlistScrollAtEnd) {
-      scrollRegion.scrollTo({ top: 0, behavior: 'smooth' })
-      return
-    }
-
-    scrollRegion.scrollBy({
-      top: Math.max(scrollRegion.clientHeight * 0.82, 240),
-      behavior: 'smooth',
-    })
-  }
-
-  useEffect(() => {
-    if (selectedCuratedSongId && !availableCuratedSongs.some((song) => song.id === selectedCuratedSongId)) {
-      setSelectedCuratedSongId('')
-    }
-  }, [selectedCuratedSongId, availableCuratedSongs])
-
-  useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => {
-      updateSetlistScrollState()
-    })
-
-    return () => {
-      window.cancelAnimationFrame(frameId)
-    }
-  }, [availableCuratedSongs.length, pickerViewMode, selectedCuratedSongId, songSearchQuery])
-
-  useEffect(() => {
-    let isCurrent = true
-
-    const loadCuratedSongs = async () => {
-      setErrorText(null)
-      setCuratedSongsLoading(true)
-
-      const loadLibraryFallbackSongs = async () => {
-        const { data: coveredFallbackSongs, error: coveredFallbackSongsError } = await supabase
-          .from('library_songs')
-          .select('id, title, artist, cover_url, is_explicit')
-          .not('cover_url', 'is', null)
-          .neq('cover_url', '')
-          .order('created_at', { ascending: false })
-          .limit(180)
-
-        if (coveredFallbackSongsError) {
-          if (isCurrent) {
-            setErrorText(coveredFallbackSongsError.message)
-          }
-          return
-        }
-
-        const nextSongsSource = (coveredFallbackSongs ?? []) as CuratedSong[]
-
-        if (nextSongsSource.length === 0) {
-          const { data: fallbackSongs, error: fallbackSongsError } = await supabase
-            .from('library_songs')
-            .select('id, title, artist, cover_url, is_explicit')
-            .order('created_at', { ascending: false })
-            .limit(180)
-
-          if (fallbackSongsError) {
-            if (isCurrent) {
-              setErrorText(fallbackSongsError.message)
-            }
-            return
-          }
-
-          const allNextSongs = ((fallbackSongs ?? []) as CuratedSong[])
-            .sort((left, right) => left.title.localeCompare(right.title))
-
-          setCuratedSongs(allNextSongs)
-          setSelectedCuratedSongId((currentSongId) => {
-            if (currentSongId && allNextSongs.some((song) => song.id === currentSongId)) {
-              return currentSongId
-            }
-
-            return ''
-          })
-
-          return
-        }
-
-        const nextSongs = nextSongsSource.sort((left, right) => left.title.localeCompare(right.title))
-
-        setCuratedSongs(nextSongs)
-        setSelectedCuratedSongId((currentSongId) => {
-          if (currentSongId && nextSongs.some((song) => song.id === currentSongId)) {
-            return currentSongId
-          }
-
-          return ''
-        })
-      }
-
-      try {
-        if (!event?.id) {
-          await loadLibraryFallbackSongs()
-          return
-        }
-
-        const { data: eventPlaylists, error: eventPlaylistsError } = await supabase
-          .from('event_playlists')
-          .select('playlist_id')
-          .eq('event_id', event.id)
-
-        if (eventPlaylistsError) {
-          if (isCurrent) {
-            setErrorText(eventPlaylistsError.message)
-          }
-          return
-        }
-
-        const playlistIds = (eventPlaylists ?? []).map((row) => row.playlist_id as string)
-
-        if (!playlistIds.length) {
-          await loadLibraryFallbackSongs()
-          return
-        }
-
-        const { data: playlistSongs, error: playlistSongsError } = await supabase
-          .from('playlist_songs')
-          .select('song_id')
-          .in('playlist_id', playlistIds)
-
-        if (playlistSongsError) {
-          if (isCurrent) {
-            setErrorText(playlistSongsError.message)
-          }
-          return
-        }
-
-        if (!isCurrent) {
-          return
-        }
-
-        const songIds = [...new Set((playlistSongs ?? [])
-          .map((row) => (row as { song_id?: string | null }).song_id)
-          .filter((songId): songId is string => Boolean(songId)))]
-
-        if (!songIds.length) {
-          await loadLibraryFallbackSongs()
-          return
-        }
-
-        const { data: librarySongs, error: librarySongsError } = await supabase
-          .from('library_songs')
-          .select('id, title, artist, cover_url, is_explicit')
-          .in('id', songIds)
-
-        if (librarySongsError) {
-          if (isCurrent) {
-            setErrorText(librarySongsError.message)
-          }
-          return
-        }
-
-        if (!isCurrent) {
-          return
-        }
-
-        const dedupedSongs = new Map<string, CuratedSong>()
-
-        for (const song of (librarySongs ?? []) as CuratedSong[]) {
-          if (!dedupedSongs.has(song.id)) {
-            dedupedSongs.set(song.id, song)
-          }
-        }
-
-        const nextSongs = [...dedupedSongs.values()]
-          .sort((left, right) => {
-            const leftHasCover = Boolean(left.cover_url && left.cover_url.trim())
-            const rightHasCover = Boolean(right.cover_url && right.cover_url.trim())
-
-            if (leftHasCover !== rightHasCover) {
-              return leftHasCover ? -1 : 1
-            }
-
-            return left.title.localeCompare(right.title)
-          })
-
-        const hasAnyCover = nextSongs.some((song) => Boolean(song.cover_url && song.cover_url.trim()))
-
-        if (!hasAnyCover) {
-          await loadLibraryFallbackSongs()
-          return
-        }
-
-        setCuratedSongs(nextSongs)
-        setSelectedCuratedSongId((currentSongId) => {
-          if (currentSongId && nextSongs.some((song) => song.id === currentSongId)) {
-            return currentSongId
-          }
-
-          return ''
-        })
-      } catch (error) {
-        console.warn('EventPage: failed to load curated songs', error)
-        if (isCurrent) {
-          setErrorText('Unable to load song choices right now. Please try again in a moment.')
-        }
-      } finally {
-        if (isCurrent) {
-          setCuratedSongsLoading(false)
-        }
-      }
-    }
-
-    void loadCuratedSongs()
-
-    return () => {
-      isCurrent = false
-    }
-  }, [event?.id, playlistOnlyRequests])
-
-  useEffect(() => {
-    const songsMissingArtwork = curatedSongs
-      .filter((song) => !song.cover_url?.trim())
-      .slice(0, 8)
-
-    if (!songsMissingArtwork.length) {
-      return
-    }
-
-    let isCancelled = false
-
-    const hydrateArtwork = async () => {
-      for (const song of songsMissingArtwork) {
-        let coverUrl: string | null = null
-
-        try {
-          coverUrl = await fetchSongArtwork(song.title, song.artist)
-        } catch (error) {
-          console.warn('EventPage: artwork fetch failed', { songId: song.id, error })
-          continue
-        }
-
-        if (!coverUrl || isCancelled) {
-          continue
-        }
-
-        const normalizedCoverUrl = normalizeCoverUrl(coverUrl)
-
-        if (!normalizedCoverUrl) {
-          continue
-        }
-
-        const { error } = await supabase
-          .from('library_songs')
-          .update({ cover_url: normalizedCoverUrl })
-          .eq('id', song.id)
-
-        if (!error && !isCancelled) {
-          setCuratedSongs((currentSongs) => currentSongs.map((currentSong) => (
-            currentSong.id === song.id ? { ...currentSong, cover_url: normalizedCoverUrl } : currentSong
-          )))
-        } else if (error) {
-          console.warn('EventPage: artwork update failed', { songId: song.id, error })
-        }
-      }
-    }
-
-    void hydrateArtwork()
-
-    return () => {
-      isCancelled = true
-    }
-  }, [curatedSongs])
 
   useEffect(() => {
     const previousVotes = previousVotesRef.current
@@ -576,15 +244,6 @@ function EventPage() {
   }, [songs, upNext])
 
   useEffect(() => {
-    const storedAudienceName = readCommittedAudienceName()
-
-    if (storedAudienceName) {
-      setAudienceName(storedAudienceName)
-      setAudienceNameInput(storedAudienceName)
-    }
-  }, [])
-
-  useEffect(() => {
     const eventId = event?.id
 
     if (!eventId) {
@@ -609,23 +268,21 @@ function EventPage() {
       }
     }
 
-    const setupSubscription = () => {
-      subscription = supabase
-        .channel(`playback_state:${eventId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'playback_state',
-            filter: `event_id=eq.${eventId}`,
-          },
-          () => {
-            void syncPlaybackState()
-          },
-        )
-        .subscribe()
-    }
+    subscription = supabase
+      .channel(`playback_state:${eventId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'playback_state',
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => {
+          void syncPlaybackState()
+        },
+      )
+      .subscribe()
 
     const onPlaybackStateEvent = (nextEvent: Event) => {
       const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState }>).detail
@@ -636,7 +293,6 @@ function EventPage() {
     }
 
     void syncPlaybackState()
-    setupSubscription()
     syncTimerId = window.setInterval(() => {
       void syncPlaybackState()
     }, 1200)
@@ -653,95 +309,6 @@ function EventPage() {
       window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
     }
   }, [event?.id])
-
-  const submitCuratedSong = async (song: CuratedSong, requestedPerformerMode: PerformerMode) => {
-    if (submittingSongId) {
-      return
-    }
-
-    setErrorText(null)
-    setPerformerMode(requestedPerformerMode)
-    setSubmittingSongId(song.id)
-
-    try {
-      await addSong(song.title, song.artist, song.is_explicit, {
-        coverUrl: song.cover_url,
-        librarySongId: song.id,
-        performerMode: requestedPerformerMode,
-      })
-      setCuratedSongs((currentSongs) => currentSongs.filter((currentSong) => currentSong.id !== song.id))
-      setSelectedCuratedSongId('')
-    } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Unable to add this request. Check room settings and try again.')
-    } finally {
-      setSubmittingSongId(null)
-    }
-  }
-
-  const onSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
-    formEvent.preventDefault()
-    setErrorText(null)
-    setSongRequestErrors({})
-
-    if (showCuratedPicker) {
-      const selectedSong = curatedSongs.find((song) => song.id === selectedCuratedSongId)
-
-      if (!selectedSong) {
-        setSongRequestErrors({ selection: 'Please select a song from the setlist first.' })
-        setErrorText('Choose a song first.')
-        return
-      }
-
-      await submitCuratedSong(selectedSong, performerMode)
-
-      return
-    }
-
-    const nextErrors: SongRequestErrors = {}
-
-    if (!songTitle.trim()) {
-      nextErrors.songTitle = 'Song title is required.'
-    }
-
-    if (!artistName.trim()) {
-      nextErrors.artistName = 'Artist is required.'
-    }
-
-    if (nextErrors.songTitle || nextErrors.artistName) {
-      setSongRequestErrors(nextErrors)
-      setErrorText('Enter both song title and artist.')
-      return
-    }
-
-    const normalizedSongTitle = songTitle.trim()
-    const normalizedArtistName = artistName.trim()
-
-    if (normalizedSongTitle.length > MAX_SONG_FIELD_LENGTH) {
-      setSongRequestErrors({ songTitle: `Song title must be ${MAX_SONG_FIELD_LENGTH} characters or less.` })
-      setErrorText('Song title is too long.')
-      return
-    }
-
-    if (normalizedArtistName.length > MAX_SONG_FIELD_LENGTH) {
-      setSongRequestErrors({ artistName: `Artist must be ${MAX_SONG_FIELD_LENGTH} characters or less.` })
-      setErrorText('Artist is too long.')
-      return
-    }
-
-    if (hasUnsafeControlChars(normalizedSongTitle) || hasUnsafeControlChars(normalizedArtistName)) {
-      setErrorText('Please remove unsupported characters from song title or artist.')
-      return
-    }
-
-    try {
-      await addSong(normalizedSongTitle, normalizedArtistName, isExplicit, { performerMode })
-      setSongTitle('')
-      setArtistName('')
-      setIsExplicit(false)
-    } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Unable to add this request. Check room settings and try again.')
-    }
-  }
 
   const onAudienceNameSubmit = (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault()
@@ -838,9 +405,59 @@ function EventPage() {
           logoSrc="/the-human-jukebox-logo.svg"
         />
 
-        <div className="panel-head audience-stage-status">
-          <span className="live-dot">Room Open</span>
-        </div>
+        <section className="queue-panel audience-start-actions-panel" aria-label="Audience actions">
+          <div className="panel-head audience-request-head">
+            <div>
+              <p className="eyebrow audience-request-eyebrow">Audience Home</p>
+              <h2>Hi {audienceName}</h2>
+            </div>
+            <span className="meta-badge">Room Open</span>
+          </div>
+          {confirmationText ? <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">{confirmationText}</p> : null}
+          {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
+          <div className="audience-start-actions">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => {
+                navigate(`/audience/song-list${location.search || ''}`)
+              }}
+            >
+              Song List
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                document.getElementById('audience-tip-jar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              disabled={tipLinks.length === 0}
+            >
+              Tip Jar
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                document.getElementById('audience-social-links')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              disabled={socialLinks.length === 0}
+            >
+              Social Links
+            </button>
+          </div>
+          {event?.requestInstructions ? <p className="subcopy audience-request-note">{event.requestInstructions}</p> : null}
+          {duplicateRequestsBlocked || activeRequestCap ? (
+            <div className="audience-policy-list">
+              {duplicateRequestsBlocked ? <p className="meta-badge audience-policy-badge">Duplicate requests are blocked for this gig.</p> : null}
+              {activeRequestCap ? (
+                <p className="meta-badge audience-policy-badge">
+                  {`Each audience member can keep ${activeRequestCap} active request${activeRequestCap === 1 ? '' : 's'} in the queue.`}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
 
         <article className="now-playing-card">
           <p className="eyebrow">Now Playing</p>
@@ -855,7 +472,7 @@ function EventPage() {
               ) : null}
               <div>
                 <h2>{displaySong?.title ?? 'Queue is warming up'}</h2>
-                <p className="artist">{displaySong?.artist ?? 'Add the first request below.'}</p>
+                <p className="artist">{displaySong?.artist ?? 'Open Song List to add a request.'}</p>
               </div>
             </div>
           )}
@@ -863,7 +480,7 @@ function EventPage() {
 
         <article className="queue-panel">
           <div className="panel-head">
-            <h2>Up Next</h2>
+            <h2>Live Queue</h2>
             <span className="meta-badge">Most votes rises first</span>
           </div>
           <ol className="queue-list">
@@ -902,295 +519,43 @@ function EventPage() {
             ))}
           </ol>
         </article>
-        <section className={`queue-panel audience-request-panel ${submittingSongId ? 'is-submitting' : ''}`}>
-          <div className="panel-head audience-request-head">
-            <div>
-              <p className="eyebrow audience-request-eyebrow">Request a song</p>
-              <h2>Pick tonight's next moment</h2>
-            </div>
-            {showCuratedPicker ? <span className="meta-badge">Curated setlist</span> : <span className="meta-badge">Open request</span>}
+
+        <article className="queue-panel" aria-label="Played songs">
+          <div className="panel-head">
+            <h2>Played Songs</h2>
+            <span className="meta-badge">Latest on top</span>
           </div>
-          {showCuratedPicker ? (
-            <p className="subcopy audience-request-note">Pick a song, choose who sings, then tap Add Request.</p>
-          ) : null}
-          {event?.requestInstructions ? (
-            <p className="subcopy audience-request-note">{event.requestInstructions}</p>
-          ) : null}
-          {duplicateRequestsBlocked || activeRequestCap ? (
-            <div className="audience-policy-list">
-              {duplicateRequestsBlocked ? <p className="meta-badge audience-policy-badge">Duplicate requests are blocked for this gig.</p> : null}
-              {activeRequestCap ? (
-                <p className="meta-badge audience-policy-badge">
-                  {`Each audience member can keep ${activeRequestCap} active request${activeRequestCap === 1 ? '' : 's'} in the queue.`}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          <form className="queue-form audience-request-form" onSubmit={onSubmit}>
-            {showCuratedPicker ? (
-              <>
-                <div className="field-row">
-                  <label htmlFor="song-search">Search songs from tonight's playlists</label>
-                  <input
-                    id="song-search"
-                    value={songSearchQuery}
-                    onChange={(event) => setSongSearchQuery(event.target.value)}
-                    placeholder="Search by song title or artist"
-                    disabled={!curatedSongs.length}
-                  />
+          <ol className="queue-list">
+            {recentlyPlayedSongs.length === 0 ? <li className="subcopy">No songs played yet.</li> : null}
+            {recentlyPlayedSongs.map((song, index) => (
+              <li key={`${song.id}-${song.performedAt}`} className="audience-song-row">
+                <span className="queue-rank-chip" aria-label={`Played position ${index + 1}`}>
+                  {index + 1}
+                </span>
+                <div className="queue-song-main audience-song-main">
+                  {song.cover_url ? (
+                    <img
+                      src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
+                      alt={`Cover art for ${song.title}`}
+                      className="song-cover"
+                    />
+                  ) : <span className="song-cover song-cover-fallback" aria-hidden="true">♪</span>}
+                  <div>
+                    <p className="song">{song.title}</p>
+                    <p className="artist">{song.artist}</p>
+                  </div>
                 </div>
-
-                {curatedSongs.length ? (
-                  <>
-                    <div className="picker-view-switch" role="group" aria-label="Song picker layouts">
-                      <button
-                        type="button"
-                        className={`picker-view-chip ${pickerViewMode === 'cards' ? 'is-active' : ''}`}
-                        onClick={() => setPickerViewMode('cards')}
-                      >
-                        Visual Cards
-                      </button>
-                      <button
-                        type="button"
-                        className={`picker-view-chip ${pickerViewMode === 'rows' ? 'is-active' : ''}`}
-                        onClick={() => setPickerViewMode('rows')}
-                      >
-                        List Rows
-                      </button>
-                      <button
-                        type="button"
-                        className={`picker-view-chip ${pickerViewMode === 'covers' ? 'is-active' : ''}`}
-                        onClick={() => setPickerViewMode('covers')}
-                      >
-                        Cover Wall
-                      </button>
-                    </div>
-
-                    {selectedCuratedSong ? (
-                      <div className="curated-selected-summary" role="status" aria-live="polite">
-                        <p className="curated-selected-summary-label">Selected song</p>
-                        <p className="curated-selected-summary-title">{selectedCuratedSong.title}</p>
-                        <p className="curated-selected-summary-artist">{selectedCuratedSong.artist}</p>
-                        <p className="performer-mode-label">Who should sing this one?</p>
-                        <div className="performer-mode-toggle" role="group" aria-label="Performer choice">
-                          <button
-                            type="button"
-                            className={`performer-mode-chip ${performerMode === 'performer' ? 'is-active' : ''}`}
-                            onClick={() => setPerformerMode('performer')}
-                          >
-                            {performerDisplayName} sings
-                          </button>
-                          <button
-                            type="button"
-                            className={`performer-mode-chip karaoke-choice-button ${performerMode === 'audience' ? 'is-active' : ''}`}
-                            onClick={() => setPerformerMode('audience')}
-                          >
-                            I want to sing
-                          </button>
-                        </div>
-                        {performerMode === 'audience' ? (
-                          <p className="meta-badge audience-policy-badge">This request will be marked as Karaoke in the queue.</p>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="primary-button"
-                          aria-label={`Request ${selectedCuratedSong.title} by ${selectedCuratedSong.artist}`}
-                          disabled={Boolean(submittingSongId)}
-                          onClick={() => {
-                            void submitCuratedSong(selectedCuratedSong, performerMode)
-                          }}
-                        >
-                          {submittingSongId ? 'Adding...' : 'Request Song'}
-                        </button>
-                        <button
-                          type="button"
-                          className="tertiary-button"
-                          onClick={() => setSelectedCuratedSongId('')}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="meta-badge audience-policy-badge">Choose a song to continue.</p>
-                    )}
-                    {songRequestErrors.selection ? <p className="error-text request-error-inline" role="alert">{songRequestErrors.selection}</p> : null}
-
-                    {curatedSongsLoading ? (
-                      <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">Loading songs...</p>
-                    ) : null}
-
-                    {!curatedSongsLoading && availableCuratedSongs.length ? (
-                      <div className="curated-picker-scroll-shell">
-                        {shouldShowSetlistScrollButton ? (
-                          <div className="curated-picker-scroll-head">
-                            <p className="curated-picker-scroll-label">Scroll the setlist</p>
-                            <button
-                              type="button"
-                              className="curated-picker-scroll-button"
-                              onClick={scrollSetlist}
-                            >
-                              {isSetlistScrollAtEnd ? 'Back to top' : 'More songs'}
-                            </button>
-                          </div>
-                        ) : null}
-                        <div
-                          ref={curatedPickerScrollRef}
-                          className="curated-picker-scroll-region"
-                          onScroll={updateSetlistScrollState}
-                        >
-                          <p className="curated-picker-results" aria-live="polite">
-                            {availableCuratedSongs.length} song{availableCuratedSongs.length === 1 ? '' : 's'} available
-                          </p>
-                          <ul className={`curated-picker curated-picker-${pickerViewMode} ${selectedCuratedSongId ? 'is-selection-active' : ''}`} aria-label="Curated song choices">
-                            {groupedCuratedSongs.map(({ song, title, artist, sectionLabel }) => {
-                              const isSelected = selectedCuratedSongId === song.id
-                              const fallbackInitial = title.charAt(0).toUpperCase() || '♪'
-
-                              return (
-                                <li key={song.id} className={`curated-pick-item ${isSelected ? 'is-selected' : ''}`}>
-                                  {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
-                                  <button
-                                    type="button"
-                                    className={`curated-pick ${isSelected ? 'is-selected' : ''}`}
-                                    disabled={Boolean(submittingSongId)}
-                                    aria-pressed={isSelected}
-                                    onClick={() => {
-                                      setSelectedCuratedSongId(song.id)
-                                      setErrorText(null)
-                                    }}
-                                  >
-                                    {song.cover_url ? (
-                                      <img src={normalizeCoverUrl(song.cover_url) ?? song.cover_url} alt={`Cover art for ${title}`} className="curated-pick-cover" />
-                                    ) : (
-                                      <span className="curated-pick-fallback" aria-hidden="true">{fallbackInitial}</span>
-                                    )}
-                                    <span className="curated-pick-copy">
-                                      <span className="curated-pick-title">{title}</span>
-                                      <span className="curated-pick-artist">{artist}</span>
-                                      {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
-                                    </span>
-                                    {isSelected ? <span className="curated-selected-pill">Selected</span> : null}
-                                  </button>
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        </div>
-                      </div>
-                    ) : !curatedSongsLoading ? (
-                      <p className="meta-badge audience-policy-badge">
-                        {displayCuratedSongs.length
-                          ? 'All matching songs are already in the queue.'
-                          : 'No songs matched that search. Try another title or artist.'}
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="meta-badge audience-policy-badge">No songs are assigned to this gig yet.</p>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="field-row">
-                  <label htmlFor="song-title">Song title</label>
-                  <input
-                    id="song-title"
-                    value={songTitle}
-                    onChange={(event) => setSongTitle(event.target.value)}
-                    aria-describedby={songRequestErrors.songTitle ? 'song-title-error' : undefined}
-                    placeholder="Blinding Lights"
-                    maxLength={MAX_SONG_FIELD_LENGTH}
-                  />
-                  {songRequestErrors.songTitle ? <p id="song-title-error" className="error-text request-error-inline" role="alert">{songRequestErrors.songTitle}</p> : null}
-                </div>
-                <div className="field-row">
-                  <label htmlFor="artist-name">Artist</label>
-                  <input
-                    id="artist-name"
-                    value={artistName}
-                    onChange={(event) => setArtistName(event.target.value)}
-                    aria-describedby={songRequestErrors.artistName ? 'artist-name-error' : undefined}
-                    placeholder="The Weeknd"
-                    maxLength={MAX_SONG_FIELD_LENGTH}
-                  />
-                  {songRequestErrors.artistName ? <p id="artist-name-error" className="error-text request-error-inline" role="alert">{songRequestErrors.artistName}</p> : null}
-                </div>
-                <label className="checkbox-row" htmlFor="song-explicit">
-                  <input
-                    id="song-explicit"
-                    type="checkbox"
-                    checked={isExplicit}
-                    onChange={(event) => setIsExplicit(event.target.checked)}
-                  />
-                  Explicit song
-                </label>
-              </>
-            )}
-
-            {!showCuratedPicker && hasSongSelection ? (
-              <div className="performer-mode-panel">
-                <p className="performer-mode-label">Who should perform this request?</p>
-                <div className="performer-mode-toggle" role="group" aria-label="Performer choice">
-                  <button
-                    type="button"
-                    className={`performer-mode-chip ${performerMode === 'performer' ? 'is-active' : ''}`}
-                    onClick={() => setPerformerMode('performer')}
-                  >
-                    {performerDisplayName} sings
-                  </button>
-                  <button
-                    type="button"
-                    className={`performer-mode-chip karaoke-choice-button ${performerMode === 'audience' ? 'is-active' : ''}`}
-                    onClick={() => setPerformerMode('audience')}
-                  >
-                    I want to sing it myself
-                  </button>
-                </div>
-                {performerMode === 'audience' ? (
-                  <p className="meta-badge audience-policy-badge">This request will be marked as Karaoke in the queue.</p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {readySongLabel ? (
-              <p className="meta-badge audience-policy-badge">Ready to request: {readySongLabel}</p>
-            ) : null}
-
-            <button
-              type="submit"
-              className="primary-button"
-              aria-label="Request Song"
-              disabled={!hasSongSelection || Boolean(submittingSongId)}
-            >
-              {submittingSongId ? 'Adding...' : 'Request Song'}
-            </button>
-
-            {!showCuratedPicker ? (
-              <button
-                type="button"
-                className="tertiary-button"
-                onClick={() => {
-                  setSongTitle('')
-                  setArtistName('')
-                  setIsExplicit(false)
-                  setSongRequestErrors({})
-                  setErrorText(null)
-                }}
-              >
-                Cancel
-              </button>
-            ) : null}
-
-            {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
-          </form>
-        </section>
+              </li>
+            ))}
+          </ol>
+        </article>
 
         {socialLinks.length > 0 || tipLinks.length > 0 ? (
           <section className="queue-panel link-panel" aria-label="Performer links">
             {socialLinks.length > 0 ? (
               <>
-                <div className="panel-head">
-                  <h2>Follow</h2>
+                <div className="panel-head" id="audience-social-links">
+                  <h2>Social Links</h2>
                 </div>
                 <ul className="link-list" aria-label="Social media links">
                   {socialLinks.map((link) => (
@@ -1206,7 +571,7 @@ function EventPage() {
 
             {tipLinks.length > 0 ? (
               <>
-                <div className="panel-head">
+                <div className="panel-head" id="audience-tip-jar">
                   <h2>Tip Jar</h2>
                 </div>
                 <p className="subcopy">To tip... or not to tip... that is the question. But the answer is yes</p>
