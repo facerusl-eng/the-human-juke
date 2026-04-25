@@ -5741,19 +5741,25 @@
 }
 
 .audience-how-it-works {
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(79, 70, 229, 0.38);
   border-radius: 14px;
-  background: rgba(99, 102, 241, 0.08);
+  background:
+    radial-gradient(circle at 16% 14%, rgba(147, 197, 253, 0.22) 0%, transparent 34%),
+    linear-gradient(145deg, rgba(32, 39, 78, 0.96), rgba(38, 24, 76, 0.94));
   padding: 0.7rem 0.85rem;
   display: grid;
   gap: 0.45rem;
+  box-shadow:
+    0 12px 22px rgba(17, 24, 39, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .audience-how-it-works-title {
   margin: 0;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #1f2937;
+  color: #f8fbff;
+  text-shadow: 0 1px 8px rgba(14, 165, 233, 0.2);
 }
 
 .audience-how-it-works-list {
@@ -5761,7 +5767,7 @@
   padding-left: 1.1rem;
   display: grid;
   gap: 0.32rem;
-  color: #374151;
+  color: #e6edff;
 }
 
 .audience-song-list-shell {
@@ -6649,9 +6655,14 @@
 /* Audience tip jar: keep playful copy/chips while frame matches theme cards */
 
 .audience-shell-modern .tip-jar-copy {
-  color: #7c2d12;
+  color: #fff4df;
   font-weight: 600;
   line-height: 1.45;
+  padding: 0.62rem 0.7rem;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  background: linear-gradient(145deg, rgba(133, 45, 0, 0.86), rgba(154, 52, 18, 0.84));
+  text-shadow: 0 1px 6px rgba(78, 26, 0, 0.45);
 }
 
 .audience-shell-modern .tip-chip {
