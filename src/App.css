@@ -6435,3 +6435,178 @@
     min-width: 720px;
   }
 }
+
+/* ─── GIG CONTROL — DEDICATED MOBILE / TABLET LAYOUT ──────────────────────── */
+
+/* TABLET: 769px – 1100px — 2-column header area */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .gig-control-top-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(200px, 256px);
+    grid-template-rows: auto auto;
+  }
+
+  .gig-control-header {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  .gig-control-qr-card {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .gig-mirror-preview-card {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .gig-control-actions.gig-control-primary-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    width: 100%;
+  }
+
+  .gig-control-primary-actions .ghost-button {
+    grid-column: 1 / -1;
+  }
+
+  .gig-control-primary-actions .primary-button,
+  .gig-control-primary-actions .secondary-button,
+  .gig-control-primary-actions .ghost-button {
+    min-height: 3.2rem;
+    width: 100%;
+  }
+}
+
+/* MOBILE: ≤768px — dedicated mobile-first layout */
+@media (max-width: 768px) {
+  /* Flex column so `order` works for section reordering */
+  .gig-control-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  /* Section ordering: Now Playing first, controls second */
+  .gig-now-playing        { order: 1; }
+  .gig-control-top-grid   { order: 2; }
+  .gig-queue-panel        { order: 3; }
+  .gig-manual-add-panel   { order: 4; }
+  .gig-performed-panel    { order: 5; }
+  .gig-control-error-text { order: 6; }
+
+  /* Top grid: single column, just the header card */
+  .gig-control-top-grid {
+    display: block;
+  }
+
+  /* Hide QR and mirror preview — not useful on small screens */
+  .gig-control-qr-card,
+  .gig-mirror-preview-card {
+    display: none;
+  }
+
+  /* Hide spacebar instruction — no keyboard on mobile */
+  .gig-playback-note {
+    display: none;
+  }
+
+  /* Header card: tighter padding on mobile */
+  .gig-control-header {
+    padding: 1rem;
+  }
+
+  /* Primary action buttons: 2-column grid for easy reach */
+  .gig-control-actions.gig-control-primary-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    width: 100%;
+  }
+
+  /* Ghost/nav buttons (Gig Settings, Open Mirror Screen) span full width */
+  .gig-control-primary-actions .ghost-button {
+    grid-column: 1 / -1;
+  }
+
+  /* All primary action buttons: large, easy tap targets */
+  .gig-control-primary-actions .primary-button,
+  .gig-control-primary-actions .secondary-button,
+  .gig-control-primary-actions .ghost-button {
+    min-height: 3.4rem;
+    font-size: 0.93rem;
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Now Playing card: well padded and prominent */
+  .gig-now-playing .now-playing-card {
+    padding: 1rem;
+  }
+
+  /* Touch action buttons row (Start, Mark Played, Skip): 2-column grid */
+  .gig-now-playing-actions.gig-control-touch-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    margin-top: 1rem;
+    margin-bottom: 0;
+  }
+
+  /* Start Song (only child in row) spans full width */
+  .gig-now-playing-actions .primary-button:only-child {
+    grid-column: 1 / -1;
+  }
+
+  /* Start / Mark Played / Skip buttons: large touch targets */
+  .gig-control-touch-actions .primary-button,
+  .gig-control-touch-actions .secondary-button {
+    min-height: 3.5rem;
+    font-size: 1rem;
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Queue Remove button: full width, easy to tap */
+  .gig-control-row-actions {
+    width: 100%;
+  }
+
+  .gig-control-row-actions .vote-button {
+    min-height: 2.8rem;
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Manual add form inputs: larger, touch-friendly */
+  .gig-manual-add-form input {
+    min-height: 3rem;
+  }
+}
+
+/* SMALL MOBILE: ≤480px — extra compact tweaks */
+@media (max-width: 480px) {
+  .gig-control-shell {
+    gap: 0.72rem;
+  }
+
+  .gig-control-primary-actions .primary-button,
+  .gig-control-primary-actions .secondary-button {
+    font-size: 0.86rem;
+    min-height: 3.2rem;
+  }
+
+  .gig-now-playing .now-playing-card h2 {
+    font-size: 1.2rem;
+  }
+
+  .gig-control-touch-actions .primary-button,
+  .gig-control-touch-actions .secondary-button {
+    min-height: 3.3rem;
+    font-size: 0.94rem;
+  }
+}

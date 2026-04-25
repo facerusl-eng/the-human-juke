@@ -652,7 +652,25 @@ function GigControlPage() {
             <>
               <div className="gig-between-songs-state">
                 <p className="gig-between-songs-quote">{betweenSongQuote}</p>
-                <p className="subcopy gig-between-songs-hint">Press Space to start the next song.</p>
+                <p className="subcopy gig-between-songs-hint">Tap to start, or press Space.</p>
+              </div>
+              <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={spaceActionBusy}
+                  onClick={async () => {
+                    if (spaceActionBusy) return
+                    try {
+                      await syncStartedState(true)
+                    } catch (error) {
+                      console.warn('GigControlPage: start song failed', error)
+                      setErrorText('Failed to start song. Please try again.')
+                    }
+                  }}
+                >
+                  {spaceActionBusy ? 'Starting…' : '▶ Start Song'}
+                </button>
               </div>
             </>
           ) : (
