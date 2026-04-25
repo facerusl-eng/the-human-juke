@@ -2788,8 +2788,8 @@
 }
 
 .mirror-header-qr-image {
-  width: clamp(52px, 5.2vw, 74px);
-  height: clamp(52px, 5.2vw, 74px);
+  width: clamp(120px, 12vw, 190px);
+  height: clamp(120px, 12vw, 190px);
   border-radius: 8px;
   padding: 0.16rem;
   background: #f7fbff;
@@ -2963,6 +2963,28 @@
   font-size: clamp(1rem, 2.3vw, 1.5rem);
 }
 
+.mirror-qr-block {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.9rem, 1.8vw, 1.4rem);
+}
+
+.mirror-qr-image {
+  width: clamp(220px, 24vw, 330px);
+  height: clamp(220px, 24vw, 330px);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: clamp(0.28rem, 0.8vw, 0.44rem);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow:
+    0 22px 40px rgba(4, 8, 22, 0.36),
+    0 0 28px rgba(93, 215, 255, 0.16);
+}
+
+.mirror-qr-copy {
+  min-width: 0;
+}
+
 .mirror-how-it-works {
   display: grid;
   gap: 0.35rem;
@@ -3133,6 +3155,15 @@
   background: rgba(224, 240, 255, 0.12);
   border-color: rgba(224, 240, 255, 0.55);
   color: #ffffff;
+}
+
+.mirror-shell-high-contrast .mirror-header-qr-image,
+.mirror-shell-high-contrast .mirror-qr-image {
+  background: #ffffff;
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 26px 46px rgba(0, 0, 0, 0.7),
+    0 0 0 2px rgba(255, 255, 255, 0.7);
 }
 
 .mirror-queue-pos {

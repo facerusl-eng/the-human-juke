@@ -143,6 +143,18 @@ function readRequestedEventIdFromUrl() {
     return null
   }
 
+  const pathSegments = window.location.pathname
+    .split('/')
+    .filter(Boolean)
+
+  if (pathSegments[0] === 'a') {
+    const compactEventId = decodeURIComponent(pathSegments[1] ?? '').trim()
+
+    if (compactEventId) {
+      return compactEventId
+    }
+  }
+
   const searchParams = new URLSearchParams(window.location.search)
   const requestedEventId = searchParams.get('event') ?? searchParams.get('eventId')
 

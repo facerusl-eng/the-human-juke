@@ -1,20 +1,28 @@
 const DEV_PUBLIC_ORIGIN = import.meta.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
 
+type AudienceUrlOptions = {
+  compact?: boolean
+}
+
 function isLocalHostName(hostname: string) {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
 }
 
-export function getAudienceUrl(eventId?: string | null) {
+export function getAudienceUrl(eventId?: string | null, options: AudienceUrlOptions = {}) {
   if (typeof window === 'undefined') {
     return ''
   }
 
   const normalizedEventId = eventId?.trim()
+  const useCompactPath = options.compact ?? false
 
   const buildAudienceUrl = (origin: string) => {
-    const audienceUrl = new URL('/audience', origin)
+    const audiencePath = useCompactPath && normalizedEventId
+      ? `/a/${encodeURIComponent(normalizedEventId)}`
+      : '/audience'
+    const audienceUrl = new URL(audiencePath, origin)
 
-    if (normalizedEventId) {
+    if (normalizedEventId && !useCompactPath) {
       audienceUrl.searchParams.set('event', normalizedEventId)
     }
 

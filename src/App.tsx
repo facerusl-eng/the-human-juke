@@ -1,7 +1,7 @@
 import './App.css'
 import { Suspense, lazy } from 'react'
 import type { ReactNode } from 'react'
-import { Navigate, createBrowserRouter } from 'react-router-dom'
+import { Navigate, createBrowserRouter, useParams } from 'react-router-dom'
 import RequireHost from './components/RequireHost'
 import ShellLayout from './components/ShellLayout'
 import { AuthProvider } from './state/authStore'
@@ -33,6 +33,16 @@ function LazyRoute({ children }: { children: ReactNode }) {
       {children}
     </Suspense>
   )
+}
+
+function AudienceShortcutRedirect() {
+  const { eventId } = useParams<{ eventId: string }>()
+
+  if (!eventId) {
+    return <Navigate to="/audience" replace />
+  }
+
+  return <Navigate to={`/audience?event=${encodeURIComponent(eventId)}`} replace />
 }
 
 const router = createBrowserRouter([
@@ -73,6 +83,10 @@ const router = createBrowserRouter([
       {
         path: 'event',
         element: <Navigate to="/audience" replace />,
+      },
+      {
+        path: 'a/:eventId',
+        element: <AudienceShortcutRedirect />,
       },
       {
         path: 'admin',

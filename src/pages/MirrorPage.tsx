@@ -92,8 +92,8 @@ function MirrorPage() {
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
   const eventId = event?.id ?? null
-  const audienceUrl = getAudienceUrl(eventId)
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(audienceUrl)}`
+  const audienceUrl = getAudienceUrl(eventId, { compact: true })
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=${encodeURIComponent(audienceUrl)}`
   const playbackSong = playbackState?.currentSongId
     ? songs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
