@@ -149,13 +149,6 @@ function EventPage() {
     )
   ), [hostProfile])
 
-  const tipLinks = useMemo(() => ([
-    { label: 'MobilePay', url: hostProfile?.mobilpay_url },
-    { label: 'PayPal', url: hostProfile?.paypal_url },
-  ]
-    .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
-    .filter((link): link is { label: string; url: string } => Boolean(link.url))), [hostProfile])
-
   const resolvedMobilepayLink = resolveMobilepayLink(hostProfile?.mobilpay_url)
   const allTipLinks = useMemo(() => {
     const links: { label: string; url: string }[] = []

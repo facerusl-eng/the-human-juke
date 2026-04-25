@@ -150,8 +150,7 @@ function SettingsPage() {
         const { data, error } = await supabase
           .from('profiles')
           .select(
-            'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, default_gig_name, default_venue',
-                      'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, default_gig_name, default_venue',
+            'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, default_gig_name, default_venue',
           )
           .eq('user_id', user.id)
           .single()
@@ -174,7 +173,6 @@ function SettingsPage() {
             youtube_url: data.youtube_url ?? '',
             facebook_url: data.facebook_url ?? '',
             paypal_url: data.paypal_url ?? '',
-            mobilpay_url: data.mobilpay_url ?? '',
             mobilpay_url: data.mobilpay_url ?? '',
             contact_email: data.contact_email ?? '',
             default_gig_name: data.default_gig_name ?? '',
@@ -283,7 +281,6 @@ function SettingsPage() {
       youtube_url: normalizedSocialFields.youtube_url,
       facebook_url: normalizedSocialFields.facebook_url,
       paypal_url: normalizedSocialFields.paypal_url,
-      mobilpay_url: stateToSave.mobilpay_url.trim() || null,
       mobilpay_url: stateToSave.mobilpay_url.trim() || null,
       contact_email: stateToSave.contact_email.trim() || null,
       default_gig_name: stateToSave.default_gig_name.trim() || null,
