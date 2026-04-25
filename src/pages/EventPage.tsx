@@ -105,6 +105,7 @@ function EventPage() {
   const [audienceNameError, setAudienceNameError] = useState<string | null>(null)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [confirmationText, setConfirmationText] = useState<string | null>(null)
+  const [showHowItWorks, setShowHowItWorks] = useState(false)
   const [votingSongIds, setVotingSongIds] = useState<Record<string, boolean>>({})
   const [votePulseTicks, setVotePulseTicks] = useState<Record<string, number>>({})
   const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
@@ -488,7 +489,27 @@ function EventPage() {
             >
               Social Links
             </button>
+            <button
+              type="button"
+              className="secondary-button"
+              aria-expanded={showHowItWorks ? 'true' : 'false'}
+              aria-controls="audience-how-it-works"
+              onClick={() => setShowHowItWorks((current) => !current)}
+            >
+              {showHowItWorks ? 'Hide How It Works' : 'How It Works'}
+            </button>
           </div>
+          {showHowItWorks ? (
+            <div id="audience-how-it-works" className="audience-how-it-works" role="region" aria-label="How the audience app works">
+              <p className="audience-how-it-works-title">How It Works</p>
+              <ol className="audience-how-it-works-list">
+                <li>Tap Song List to browse and add your request.</li>
+                <li>Vote in Live Queue to push your favorites up.</li>
+                <li>Watch Now Playing and keep the energy going.</li>
+                <li>Use Social Links or Tip Jar to support the artist.</li>
+              </ol>
+            </div>
+          ) : null}
           {event?.requestInstructions ? <p className="subcopy audience-request-note">{event.requestInstructions}</p> : null}
           {duplicateRequestsBlocked || activeRequestCap ? (
             <div className="audience-policy-list">
@@ -617,7 +638,7 @@ function EventPage() {
                 <div className="panel-head" id="audience-tip-jar">
                   <h2>Tip Jar</h2>
                 </div>
-                <p className="subcopy tip-jar-copy">If a song made you sing too loud on purpose, tip the artist here. Mic drops are free, snacks are not. 🎤✨</p>
+                <p className="subcopy tip-jar-copy">If tonight&apos;s soundtrack hit the right note, send the artist a little love. Encore energy is priceless, but tips help keep the music rolling. 🎤✨</p>
                 <ul className="link-list" aria-label="Tip links">
                   {allTipLinks.map((link) => (
                     <li key={link.label}>

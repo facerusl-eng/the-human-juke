@@ -5740,6 +5740,30 @@
   gap: 0.5rem;
 }
 
+.audience-how-it-works {
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 14px;
+  background: rgba(99, 102, 241, 0.08);
+  padding: 0.7rem 0.85rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.audience-how-it-works-title {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #1f2937;
+}
+
+.audience-how-it-works-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.32rem;
+  color: #374151;
+}
+
 .audience-song-list-shell {
   min-height: 100svh;
   background:
@@ -5893,7 +5917,12 @@
 
 @media (max-width: 720px) {
   .audience-start-actions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .audience-start-actions .primary-button,
+  .audience-start-actions .secondary-button {
+    min-height: 3.05rem;
   }
 
   .audience-song-list-shell {
@@ -5907,6 +5936,12 @@
   .audience-song-list-cover {
     width: 60px;
     height: 60px;
+  }
+}
+
+@media (max-width: 430px) {
+  .audience-start-actions {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -6611,14 +6646,7 @@
   }
 }
 
-/* Audience tip jar: warmer look + friendlier emphasis */
-.audience-shell-modern .link-panel.tip-jar-panel {
-  border-color: rgba(249, 115, 22, 0.28);
-  background:
-    radial-gradient(circle at 86% 12%, rgba(251, 146, 60, 0.18) 0%, transparent 34%),
-    radial-gradient(circle at 10% 86%, rgba(244, 63, 94, 0.14) 0%, transparent 30%),
-    #ffffff;
-}
+/* Audience tip jar: keep playful copy/chips while frame matches theme cards */
 
 .audience-shell-modern .tip-jar-copy {
   color: #7c2d12;
