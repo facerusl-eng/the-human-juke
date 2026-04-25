@@ -543,6 +543,7 @@ function MirrorPage() {
                     <div className="mirror-now-playing-meta">
                       <h1 className="mirror-title">{activeSong?.title ?? 'Waiting for requests…'}</h1>
                       <p className="mirror-artist">{activeSong?.artist ?? 'Be the first to request a song!'}</p>
+                      {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                     </div>
                   </div>
                 </>
@@ -567,6 +568,7 @@ function MirrorPage() {
                         <div className="mirror-queue-info">
                           <span className="mirror-queue-title">{song.title}</span>
                           <span className="mirror-queue-artist">{song.artist}</span>
+                          {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                         </div>
                         <span className="mirror-queue-votes">+{song.votes_count}</span>
                       </li>
