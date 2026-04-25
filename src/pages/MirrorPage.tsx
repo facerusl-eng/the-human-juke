@@ -223,8 +223,8 @@ function MirrorPage() {
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex % BETWEEN_SONG_QUOTES.length]
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
-  const shouldShowEditorControls = !hideControlsForAudience && !isEmbeddedPreview
-  const shouldShowAdminElements = shouldShowEditorControls && isHost
+  const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
+  const shouldShowAdminElements = isHost
 
   const onCoverLoadError = (coverUrl: string | null | undefined) => {
     if (!coverUrl) {
@@ -894,7 +894,7 @@ function MirrorPage() {
   }
 
   return (
-    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowAdminElements ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
+    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
       <header className="mirror-header">
         <div className="mirror-header-main">
           <p className="mirror-brand">🎸 Human Jukebox</p>
@@ -914,7 +914,7 @@ function MirrorPage() {
             {event?.roomOpen ? '● Live' : '● Paused'}
           </span>
         </div>
-        {shouldShowAdminElements ? (
+        {shouldShowEditorControls ? (
           <div className="mirror-editor-controls" aria-label="Mirror editor controls">
             <button
               type="button"
