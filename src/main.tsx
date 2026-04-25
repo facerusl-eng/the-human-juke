@@ -3,6 +3,51 @@ import { RouterProvider } from 'react-router-dom'
 import './index.css'
 import router from './App.tsx'
 
+async function cleanupLegacyServiceWorkers() {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return
+  }
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+
+    if (registrations.length === 0) {
+      return
+    }
+
+    let unregisteredAny = false
+
+    await Promise.all(
+      registrations.map(async (registration) => {
+        try {
+          const unregistered = await registration.unregister()
+
+          if (unregistered) {
+            unregisteredAny = true
+          }
+        } catch {
+          // Ignore unregister failures and continue with remaining registrations.
+        }
+      }),
+    )
+
+    if ('caches' in window) {
+      try {
+        const cacheKeys = await caches.keys()
+        await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)))
+      } catch {
+        // Ignore cache cleanup failures.
+      }
+    }
+
+    if (unregisteredAny && navigator.serviceWorker.controller) {
+      window.location.reload()
+    }
+  } catch {
+    // Ignore service worker access failures in restricted browsers.
+  }
+}
+
 function setupBuildUpdateRefresh() {
   if (!import.meta.env.PROD || typeof window === 'undefined') {
     return
@@ -71,6 +116,7 @@ function setupBuildUpdateRefresh() {
 }
 
 setupBuildUpdateRefresh()
+void cleanupLegacyServiceWorkers()
 
 createRoot(document.getElementById('root')!).render(
   <RouterProvider router={router} />,
