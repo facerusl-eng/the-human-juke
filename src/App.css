@@ -2758,7 +2758,8 @@
   background: rgba(244, 162, 97, 0.08);
 }
 
-.mirror-fullscreen-button {
+.mirror-fullscreen-button,
+.mirror-contrast-button {
   border: 1px solid rgba(93, 215, 255, 0.22);
   background: rgba(93, 215, 255, 0.1);
   color: #dff3ff;
@@ -2771,7 +2772,8 @@
   transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
-.mirror-fullscreen-button:hover {
+.mirror-fullscreen-button:hover,
+.mirror-contrast-button:hover {
   transform: translateY(-1px);
   background: rgba(93, 215, 255, 0.18);
   border-color: rgba(93, 215, 255, 0.36);
@@ -3056,6 +3058,81 @@
 .mirror-shell-live .mirror-queue-item {
   background: rgba(8, 18, 38, 0.72);
   border-color: rgba(93, 215, 255, 0.28);
+}
+
+.mirror-shell-high-contrast {
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(144, 216, 255, 0.15) 0%, transparent 38%),
+    #02060f;
+  color: #ffffff;
+}
+
+.mirror-shell-high-contrast .mirror-header,
+.mirror-shell-high-contrast .mirror-now-playing,
+.mirror-shell-high-contrast .mirror-up-next,
+.mirror-shell-high-contrast .live-feed-panel-mirror,
+.mirror-shell-high-contrast .mirror-footer,
+.mirror-shell-high-contrast .mirror-pre-show,
+.mirror-shell-high-contrast .mirror-how-it-works,
+.mirror-shell-high-contrast .mirror-empty-note,
+.mirror-shell-high-contrast .mirror-queue-item {
+  background: rgba(3, 8, 20, 0.94) !important;
+  border-color: rgba(224, 240, 255, 0.52) !important;
+  box-shadow:
+    0 22px 44px rgba(0, 0, 0, 0.66),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.mirror-shell-high-contrast .mirror-brand,
+.mirror-shell-high-contrast .mirror-eyebrow,
+.mirror-shell-high-contrast .mirror-up-next-label,
+.mirror-shell-high-contrast .mirror-how-it-works-label,
+.mirror-shell-high-contrast .mirror-footer strong,
+.mirror-shell-high-contrast .mirror-queue-votes {
+  color: #8ee7ff;
+  text-shadow: none;
+}
+
+.mirror-shell-high-contrast .mirror-event-name,
+.mirror-shell-high-contrast .mirror-event-subtitle,
+.mirror-shell-high-contrast .mirror-artist,
+.mirror-shell-high-contrast .mirror-queue-artist,
+.mirror-shell-high-contrast .mirror-how-it-works p,
+.mirror-shell-high-contrast .mirror-footer p,
+.mirror-shell-high-contrast .mirror-pre-show-subtitle,
+.mirror-shell-high-contrast .mirror-between-songs-hint {
+  color: #e9f2ff;
+  text-shadow: none;
+}
+
+.mirror-shell-high-contrast .mirror-title,
+.mirror-shell-high-contrast .mirror-pre-show-title,
+.mirror-shell-high-contrast .mirror-between-songs-quote,
+.mirror-shell-high-contrast .mirror-queue-title {
+  color: #ffffff;
+  text-shadow:
+    0 0 6px rgba(0, 0, 0, 0.9),
+    0 0 14px rgba(0, 0, 0, 0.65);
+}
+
+.mirror-shell-high-contrast .mirror-open {
+  color: #9cffb7;
+  border-color: rgba(156, 255, 183, 0.78);
+  background: rgba(35, 84, 44, 0.55);
+  text-shadow: none;
+}
+
+.mirror-shell-high-contrast .mirror-paused {
+  color: #ffe2ba;
+  border-color: rgba(255, 226, 186, 0.74);
+  background: rgba(96, 62, 25, 0.58);
+}
+
+.mirror-shell-high-contrast .mirror-fullscreen-button,
+.mirror-shell-high-contrast .mirror-contrast-button {
+  background: rgba(224, 240, 255, 0.12);
+  border-color: rgba(224, 240, 255, 0.55);
+  color: #ffffff;
 }
 
 .mirror-queue-pos {

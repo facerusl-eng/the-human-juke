@@ -30,6 +30,7 @@ const SPOTLIGHT_CAPTION_BUILDERS = [
 ]
 
 const SPOTLIGHT_DURATION_MS = 7000
+const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
 
 type SpotlightQueueItem = {
   id: string
@@ -77,6 +78,7 @@ function MirrorPage() {
   const [queuedSpotlightCount, setQueuedSpotlightCount] = useState(0)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [highContrastMode, setHighContrastMode] = useState(false)
   const [fallbackBetweenSongs, setFallbackBetweenSongs] = useState(false)
   const [fallbackQuoteIndex, setFallbackQuoteIndex] = useState(0)
   const spotlightTimerRef = useRef<number | null>(null)
@@ -121,6 +123,29 @@ function MirrorPage() {
       window.removeEventListener('fullscreenchange', syncFullscreenState)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const contrastParam = searchParams.get('contrast')?.trim().toLowerCase()
+      ?? searchParams.get('hc')?.trim().toLowerCase()
+
+    const hasContrastQuery = contrastParam === '1' || contrastParam === 'high' || contrastParam === 'true'
+    const persistedContrastPreference = window.localStorage.getItem(MIRROR_HIGH_CONTRAST_STORAGE_KEY) === '1'
+
+    setHighContrastMode(hasContrastQuery || persistedContrastPreference)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(MIRROR_HIGH_CONTRAST_STORAGE_KEY, highContrastMode ? '1' : '0')
+  }, [highContrastMode])
 
   useEffect(() => {
     if (!eventId) {
@@ -378,7 +403,7 @@ function MirrorPage() {
   }
 
   return (
-    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'}`} aria-label="Mirror display screen">
+    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''}`} aria-label="Mirror display screen">
       <header className="mirror-header">
         <p className="mirror-brand">🎸 Human Jukebox</p>
         {event ? (
@@ -409,6 +434,13 @@ function MirrorPage() {
           }}
         >
           {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+        </button>
+        <button
+          type="button"
+          className="mirror-contrast-button"
+          onClick={() => setHighContrastMode((currentMode) => !currentMode)}
+        >
+          {highContrastMode ? 'High Contrast: On' : 'High Contrast: Off'}
         </button>
         {isLive ? (
           <div className="mirror-header-qr" aria-label="Audience join QR">
