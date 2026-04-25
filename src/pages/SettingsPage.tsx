@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import type { FormEvent } from 'react'
 import { useAuthStore } from '../state/authStore'
 import { supabase } from '../lib/supabase'
 

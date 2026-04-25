@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChangeEvent, FormEvent } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { fetchSongArtwork } from '../lib/songArtwork'
@@ -76,7 +76,6 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
   const [busy, setBusy] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [errorText, setErrorText] = useState<string | null>(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
 
   // Autosave
