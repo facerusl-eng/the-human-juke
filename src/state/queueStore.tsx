@@ -88,6 +88,15 @@ type QueueContextValue = {
 const QueueContext = createContext<QueueContextValue | null>(null)
 const DEFAULT_DB_TIMEOUT_MS = 25_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
+const QUEUE_POLL_INTERVAL_MS = 5000
+
+function isFeedRoutePath() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.pathname.startsWith('/feed')
+}
 
 function isAuthLockContentionError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
@@ -348,6 +357,9 @@ function QueueProvider({ children }: PropsWithChildren) {
     let isCurrent = true
     let activeChannel: ReturnType<typeof supabase.channel> | null = null
     let audiencePollTimerId: number | null = null
+    const feedRouteMode = isFeedRoutePath()
+    let snapshotInFlight = false
+    let snapshotQueued = false
 
     const load = async () => {
       if (!user) {
@@ -463,57 +475,80 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
-        activeChannel = supabase
-          .channel(`queue-live-${resolvedEventId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'queue_songs',
-          filter: `event_id=eq.${resolvedEventId}`,
-        },
-        () => {
-          if (isCurrent) {
-            void fetchQueueSnapshot(resolvedEventId)
+        const refreshSnapshot = async () => {
+          if (!isCurrent) {
+            return
           }
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'events',
-          filter: `id=eq.${resolvedEventId}`,
-        },
-        () => {
-          if (isCurrent) {
-            void fetchQueueSnapshot(resolvedEventId)
+
+          if (snapshotInFlight) {
+            snapshotQueued = true
+            return
           }
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          // Force a fresh fetch once subscribed to catch any missed changes
-          if (isCurrent) {
-            void fetchQueueSnapshot(resolvedEventId)
+
+          snapshotInFlight = true
+
+          try {
+            await fetchQueueSnapshot(resolvedEventId)
+          } catch {
+            // Keep the last known snapshot when transient network errors occur.
+          } finally {
+            snapshotInFlight = false
+
+            if (snapshotQueued) {
+              snapshotQueued = false
+              void refreshSnapshot()
+            }
           }
         }
-      })
 
-        // Use aggressive polling for all users to ensure queue syncs reliably
-        // Realtime is helpful but not guaranteed, so polling is the fallback
+        activeChannel = supabase
+          .channel(`queue-live-${resolvedEventId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'queue_songs',
+              filter: `event_id=eq.${resolvedEventId}`,
+            },
+            () => {
+              if (!feedRouteMode) {
+                void refreshSnapshot()
+              }
+            },
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'events',
+              filter: `id=eq.${resolvedEventId}`,
+            },
+            () => {
+              void refreshSnapshot()
+            },
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              // Force a fresh fetch once subscribed to catch any missed changes.
+              void refreshSnapshot()
+            }
+          })
+
         audiencePollTimerId = window.setInterval(() => {
-          if (isCurrent) {
-            void fetchQueueSnapshot(resolvedEventId)
+          if (document.hidden) {
+            return
           }
-        }, 1500)
+
+          if (isCurrent) {
+            void refreshSnapshot()
+          }
+        }, QUEUE_POLL_INTERVAL_MS)
       } catch {
-        activeEventIdRef.current = null
+        // Keep previous state so transient failures do not blank the UI.
         if (isCurrent) {
-          setEvent(null)
-          setSongs([])
+          setLoading(false)
         }
       } finally {
         if (isCurrent) {
