@@ -121,6 +121,11 @@ function LiveFeedPanel({
   }, [authorName])
 
   useEffect(() => {
+    // feedNow is only used to gate image reveal in mirror mode
+    if (!isMirrorMode) {
+      return
+    }
+
     const timer = window.setInterval(() => {
       setFeedNow(Date.now())
     }, 1000)
@@ -128,7 +133,7 @@ function LiveFeedPanel({
     return () => {
       window.clearInterval(timer)
     }
-  }, [])
+  }, [isMirrorMode])
 
   useEffect(() => {
     let isCurrent = true

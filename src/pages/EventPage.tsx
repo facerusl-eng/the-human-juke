@@ -23,6 +23,7 @@ type HostProfile = {
   facebook_url: string | null
   paypal_url: string | null
   mobilpay_url: string | null
+  contact_email: string | null
 }
 
 const MAX_AUDIENCE_NAME_LENGTH = 40
@@ -46,6 +47,21 @@ function hasUnsafeControlChars(value: string) {
 }
 
 function normalizeExternalLink(url: string | null | undefined) {
+  // Handles MobilePay stored as either a URL or a raw phone number / username.
+  // Returns { href, display } or null.
+  function resolveMobilepayLink(value: string | null | undefined): { href: string; display: string } | null {
+    const trimmed = value?.trim()
+    if (!trimmed) return null
+    // Phone number pattern: +45... or just digits with optional +
+    if (/^\+?[\d\s\-]{6,16}$/.test(trimmed)) {
+      const digits = trimmed.replace(/[\s\-]/g, '')
+      return { href: `tel:${digits}`, display: `MobilePay (${trimmed})` }
+    }
+    const url = normalizeExternalLink(trimmed)
+    if (!url) return null
+    return { href: url, display: 'MobilePay' }
+  }
+
   const trimmedUrl = url?.trim()
 
   if (!trimmedUrl) {
@@ -123,7 +139,13 @@ function EventPage() {
     { label: 'Facebook', url: hostProfile?.facebook_url },
   ]
     .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
-    .filter((link): link is { label: string; url: string } => Boolean(link.url))), [hostProfile])
+    .filter((link): link is { label: string; url: string } => Boolean(link.url))
+    .concat(
+      hostProfile?.contact_email?.trim()
+        ? [{ label: '✉ Email', url: `mailto:${hostProfile.contact_email.trim()}` }]
+        : []
+    )
+  ), [hostProfile])
 
   const tipLinks = useMemo(() => ([
     { label: 'MobilePay', url: hostProfile?.mobilpay_url },
@@ -131,6 +153,17 @@ function EventPage() {
   ]
     .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
     .filter((link): link is { label: string; url: string } => Boolean(link.url))), [hostProfile])
+
+  const resolvedMobilepayLink = resolveMobilepayLink(hostProfile?.mobilpay_url)
+  const allTipLinks = useMemo(() => {
+    const links: { label: string; url: string }[] = []
+    if (resolvedMobilepayLink) {
+      links.push({ label: resolvedMobilepayLink.display, url: resolvedMobilepayLink.href })
+    }
+    const paypal = normalizeExternalLink(hostProfile?.paypal_url)
+    if (paypal) links.push({ label: 'PayPal', url: paypal })
+    return links
+  }, [resolvedMobilepayLink, hostProfile?.paypal_url])
 
   useEffect(() => {
     const state = location.state as { requestConfirmation?: string } | null
@@ -169,7 +202,7 @@ function EventPage() {
 
         const baseQuery = supabase
           .from('profiles')
-          .select('display_name, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url')
+          .select('display_name, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email')
 
         const query = hostId
           ? baseQuery.eq('user_id', hostId).maybeSingle()
@@ -446,7 +479,7 @@ function EventPage() {
               onClick={() => {
                 document.getElementById('audience-tip-jar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }}
-              disabled={tipLinks.length === 0}
+              disabled={allTipLinks.length === 0}
             >
               Tip Jar
             </button>
@@ -565,7 +598,7 @@ function EventPage() {
           </ol>
         </article>
 
-        {socialLinks.length > 0 || tipLinks.length > 0 ? (
+        {socialLinks.length > 0 || allTipLinks.length > 0 ? (
           <section className="queue-panel link-panel" aria-label="Performer links">
             {socialLinks.length > 0 ? (
               <>
@@ -584,14 +617,14 @@ function EventPage() {
               </>
             ) : null}
 
-            {tipLinks.length > 0 ? (
+            {allTipLinks.length > 0 ? (
               <>
                 <div className="panel-head" id="audience-tip-jar">
                   <h2>Tip Jar</h2>
                 </div>
-                <p className="subcopy">To tip... or not to tip... that is the question. But the answer is yes</p>
+                <p className="subcopy">Loving the music? 🎶 Tips go straight to the artist — every little bit means a lot. Thank you! 🙏</p>
                 <ul className="link-list" aria-label="Tip links">
-                  {tipLinks.map((link) => (
+                  {allTipLinks.map((link) => (
                     <li key={link.label}>
                       <a className="link-chip tip-chip" href={link.url} target="_blank" rel="noreferrer">
                         {link.label}

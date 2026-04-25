@@ -528,3 +528,7 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS gig_date DATE,
   ADD COLUMN IF NOT EXISTS gig_start_time TIME,
   ADD COLUMN IF NOT EXISTS gig_end_time TIME;
+
+-- ─── Contact email on profiles (April 2026) ─────────────────────────────────
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS contact_email TEXT;

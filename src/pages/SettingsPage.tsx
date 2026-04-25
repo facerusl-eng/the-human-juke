@@ -13,6 +13,7 @@ type SettingsState = {
   facebook_url: string
   paypal_url: string
   mobilpay_url: string
+  contact_email: string
   theme_preset: string
   accent_color: string
   default_gig_name: string
@@ -39,6 +40,7 @@ const DEFAULTS: SettingsState = {
   facebook_url: '',
   paypal_url: '',
   mobilpay_url: '',
+  contact_email: '',
   theme_preset: 'dark',
   accent_color: '#5dd7ff',
   default_gig_name: '',
@@ -149,6 +151,7 @@ function SettingsPage() {
           .from('profiles')
           .select(
             'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, default_gig_name, default_venue',
+                      'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, default_gig_name, default_venue',
           )
           .eq('user_id', user.id)
           .single()
@@ -172,6 +175,8 @@ function SettingsPage() {
             facebook_url: data.facebook_url ?? '',
             paypal_url: data.paypal_url ?? '',
             mobilpay_url: data.mobilpay_url ?? '',
+            mobilpay_url: data.mobilpay_url ?? '',
+            contact_email: data.contact_email ?? '',
             default_gig_name: data.default_gig_name ?? '',
             default_venue: data.default_venue ?? '',
           }))
@@ -279,6 +284,8 @@ function SettingsPage() {
       facebook_url: normalizedSocialFields.facebook_url,
       paypal_url: normalizedSocialFields.paypal_url,
       mobilpay_url: stateToSave.mobilpay_url.trim() || null,
+      mobilpay_url: stateToSave.mobilpay_url.trim() || null,
+      contact_email: stateToSave.contact_email.trim() || null,
       default_gig_name: stateToSave.default_gig_name.trim() || null,
       default_venue: stateToSave.default_venue.trim() || null,
     }
@@ -636,6 +643,18 @@ function SettingsPage() {
                 </label>
               </div>
             ))}
+
+          <div className="field-row">
+            <label>
+              <span>✉ Contact Email</span>
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={state.contact_email}
+                onChange={(e) => updateState({ ...state, contact_email: e.target.value })}
+              />
+            </label>
+          </div>
           </div>
         </CollapsibleSection>
 
