@@ -3225,6 +3225,49 @@
   gap: clamp(0.28rem, 0.6vw, 0.64rem);
 }
 
+.mirror-shell-hide-controls .mirror-secondary-grid {
+  grid-template-rows: minmax(0, 0.5fr) minmax(0, 0.5fr);
+}
+
+.mirror-shell-hide-controls .mirror-up-next {
+  padding: clamp(0.7rem, 0.95vw, 1rem);
+}
+
+.mirror-shell-hide-controls .mirror-queue {
+  gap: clamp(0.48rem, 0.72vw, 0.72rem);
+}
+
+.mirror-shell-hide-controls .mirror-queue-item {
+  min-height: clamp(60px, 7vh, 92px);
+  padding: clamp(0.7rem, 0.95vw, 1rem);
+  border-radius: 14px;
+}
+
+.mirror-shell-hide-controls .mirror-queue-pos {
+  font-size: clamp(1.15rem, 1.85vw, 1.7rem);
+  min-width: 2.2rem;
+}
+
+.mirror-shell-hide-controls .mirror-queue-title {
+  font-size: clamp(1.18rem, 1.9vw, 1.9rem);
+}
+
+.mirror-shell-hide-controls .mirror-queue-artist {
+  font-size: clamp(1rem, 1.35vw, 1.3rem);
+}
+
+.mirror-shell-hide-controls .mirror-queue-votes {
+  font-size: clamp(1.08rem, 1.7vw, 1.6rem);
+}
+
+.mirror-shell-hide-controls .live-feed-panel-mirror .live-feed-post-head strong {
+  font-size: clamp(1.04rem, 1.28vw, 1.32rem);
+}
+
+.mirror-shell-hide-controls .live-feed-panel-mirror .live-feed-post-message {
+  font-size: clamp(0.98rem, 1.12vw, 1.14rem);
+}
+
 .mirror-shell-density-medium {
   --mirror-brand-size: clamp(1rem, 2vw, 1.4rem);
   --mirror-event-size: clamp(0.9rem, 1.6vw, 1.1rem);
@@ -4690,6 +4733,23 @@
 
   .mirror-secondary-grid {
     grid-template-rows: minmax(0, 0.4fr) minmax(0, 0.6fr);
+  }
+
+  .mirror-shell-hide-controls .mirror-secondary-grid {
+    grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.48fr);
+  }
+
+  .mirror-shell-hide-controls .mirror-queue-item {
+    min-height: clamp(52px, 5.8vh, 76px);
+    padding: clamp(0.56rem, 0.78vw, 0.76rem);
+  }
+
+  .mirror-shell-hide-controls .mirror-queue-title {
+    font-size: clamp(1.02rem, 1.45vw, 1.46rem);
+  }
+
+  .mirror-shell-hide-controls .mirror-queue-votes {
+    font-size: clamp(0.96rem, 1.36vw, 1.28rem);
   }
 
   .mirror-title {
