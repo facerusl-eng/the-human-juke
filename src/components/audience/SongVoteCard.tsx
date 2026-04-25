@@ -6,6 +6,7 @@ type SongVoteCardProps = {
   hottestVoteCount: number
   votePulseTick: number
   moveTick: number
+  isVoting?: boolean
   disabled: boolean
   onVote: (songId: string) => Promise<void>
   normalizeCoverUrl: (coverUrl: string | null | undefined) => string | null
@@ -17,6 +18,7 @@ function SongVoteCard({
   hottestVoteCount,
   votePulseTick,
   moveTick,
+  isVoting = false,
   disabled,
   onVote,
   normalizeCoverUrl,
@@ -38,7 +40,7 @@ function SongVoteCard({
               alt={`Cover art for ${song.title}`}
               className="song-cover"
             />
-          ) : null}
+          ) : <span className="song-cover song-cover-fallback" aria-hidden="true">♪</span>}
           <div>
             <p className="song">{song.title}</p>
             <p className="artist">
@@ -66,9 +68,10 @@ function SongVoteCard({
             void onVote(song.id)
           }}
           disabled={disabled}
+          aria-busy={isVoting}
           aria-label={`Vote for ${song.title} by ${song.artist}`}
         >
-          Vote
+          {isVoting ? 'Voting...' : 'Vote'}
         </button>
         <span
           key={`votes-${song.id}-${votePulseTick}`}

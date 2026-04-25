@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { FormEvent } from 'react'
 import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
 import SongVoteCard from '../components/audience/SongVoteCard'
@@ -85,6 +85,11 @@ function normalizeExternalLink(url: string | null | undefined) {
   }
 }
 
+function normalizeDisplayText(value: string | null | undefined, fallback: string) {
+  const trimmedValue = value?.trim()
+  return trimmedValue || fallback
+}
+
 function EventPage() {
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
   const { authError } = useAuthStore()
@@ -134,6 +139,7 @@ function EventPage() {
   const [artistName, setArtistName] = useState('')
   const [isExplicit, setIsExplicit] = useState(false)
   const [curatedSongs, setCuratedSongs] = useState<CuratedSong[]>([])
+  const [curatedSongsLoading, setCuratedSongsLoading] = useState(false)
   const [selectedCuratedSongId, setSelectedCuratedSongId] = useState('')
   const [songSearchQuery, setSongSearchQuery] = useState('')
   const [pickerViewMode, setPickerViewMode] = useState<PickerViewMode>('rows')
@@ -186,6 +192,23 @@ function EventPage() {
       .filter((songId): songId is string => Boolean(songId)),
   )
   const availableCuratedSongs = displayCuratedSongs.filter((song) => !queuedLibrarySongIds.has(song.id))
+  const groupedCuratedSongs = useMemo(() => (
+    availableCuratedSongs.map((song, index) => {
+      const title = normalizeDisplayText(song.title, 'Untitled Song')
+      const artist = normalizeDisplayText(song.artist, 'Unknown Artist')
+      const songKey = title.charAt(0).toUpperCase() || '#'
+      const previousSong = availableCuratedSongs[index - 1]
+      const previousTitle = previousSong ? normalizeDisplayText(previousSong.title, 'Untitled Song') : ''
+      const previousSongKey = previousTitle.charAt(0).toUpperCase() || '#'
+
+      return {
+        song,
+        title,
+        artist,
+        sectionLabel: index === 0 || songKey !== previousSongKey ? songKey : null,
+      }
+    })
+  ), [availableCuratedSongs])
   const selectedCuratedSong = availableCuratedSongs.find((song) => song.id === selectedCuratedSongId) ?? null
   const showCuratedPicker = curatedSongs.length > 0
   const shouldShowSetlistScrollButton = canScrollSetlist || availableCuratedSongs.length > 6
@@ -268,6 +291,7 @@ function EventPage() {
 
     const loadCuratedSongs = async () => {
       setErrorText(null)
+      setCuratedSongsLoading(true)
 
       const loadLibraryFallbackSongs = async () => {
         const { data: coveredFallbackSongs, error: coveredFallbackSongsError } = await supabase
@@ -433,6 +457,10 @@ function EventPage() {
         console.warn('EventPage: failed to load curated songs', error)
         if (isCurrent) {
           setErrorText('Unable to load song choices right now. Please try again in a moment.')
+        }
+      } finally {
+        if (isCurrent) {
+          setCuratedSongsLoading(false)
         }
       }
     }
@@ -850,6 +878,7 @@ function EventPage() {
                 moveTick={songMoveTicks[song.id] ?? 0}
                 normalizeCoverUrl={normalizeCoverUrl}
                 disabled={!roomOpen || song.voting_locked || Boolean(votingSongIds[song.id])}
+                isVoting={Boolean(votingSongIds[song.id])}
                 onVote={async (songId) => {
                   if (votingSongIds[songId]) {
                     return
@@ -986,7 +1015,11 @@ function EventPage() {
                     )}
                     {songRequestErrors.selection ? <p className="error-text request-error-inline" role="alert">{songRequestErrors.selection}</p> : null}
 
-                    {availableCuratedSongs.length ? (
+                    {curatedSongsLoading ? (
+                      <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">Loading songs...</p>
+                    ) : null}
+
+                    {!curatedSongsLoading && availableCuratedSongs.length ? (
                       <div className="curated-picker-scroll-shell">
                         {shouldShowSetlistScrollButton ? (
                           <div className="curated-picker-scroll-head">
@@ -1005,30 +1038,35 @@ function EventPage() {
                           className="curated-picker-scroll-region"
                           onScroll={updateSetlistScrollState}
                         >
+                          <p className="curated-picker-results" aria-live="polite">
+                            {availableCuratedSongs.length} song{availableCuratedSongs.length === 1 ? '' : 's'} available
+                          </p>
                           <ul className={`curated-picker curated-picker-${pickerViewMode} ${selectedCuratedSongId ? 'is-selection-active' : ''}`} aria-label="Curated song choices">
-                            {availableCuratedSongs.map((song) => {
+                            {groupedCuratedSongs.map(({ song, title, artist, sectionLabel }) => {
                               const isSelected = selectedCuratedSongId === song.id
-                              const fallbackInitial = song.title.charAt(0).toUpperCase() || '♪'
+                              const fallbackInitial = title.charAt(0).toUpperCase() || '♪'
 
                               return (
                                 <li key={song.id} className={`curated-pick-item ${isSelected ? 'is-selected' : ''}`}>
+                                  {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
                                   <button
                                     type="button"
                                     className={`curated-pick ${isSelected ? 'is-selected' : ''}`}
                                     disabled={Boolean(submittingSongId)}
+                                    aria-pressed={isSelected}
                                     onClick={() => {
                                       setSelectedCuratedSongId(song.id)
                                       setErrorText(null)
                                     }}
                                   >
                                     {song.cover_url ? (
-                                      <img src={normalizeCoverUrl(song.cover_url) ?? song.cover_url} alt={`Cover art for ${song.title}`} className="curated-pick-cover" />
+                                      <img src={normalizeCoverUrl(song.cover_url) ?? song.cover_url} alt={`Cover art for ${title}`} className="curated-pick-cover" />
                                     ) : (
                                       <span className="curated-pick-fallback" aria-hidden="true">{fallbackInitial}</span>
                                     )}
                                     <span className="curated-pick-copy">
-                                      <span className="curated-pick-title">{song.title}</span>
-                                      <span className="curated-pick-artist">{song.artist}</span>
+                                      <span className="curated-pick-title">{title}</span>
+                                      <span className="curated-pick-artist">{artist}</span>
                                       {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
                                     </span>
                                     {isSelected ? <span className="curated-selected-pill">Selected</span> : null}
@@ -1039,13 +1077,13 @@ function EventPage() {
                           </ul>
                         </div>
                       </div>
-                    ) : (
+                    ) : !curatedSongsLoading ? (
                       <p className="meta-badge audience-policy-badge">
                         {displayCuratedSongs.length
                           ? 'All matching songs are already in the queue.'
                           : 'No songs matched that search. Try another title or artist.'}
                       </p>
-                    )}
+                    ) : null}
                   </>
                 ) : (
                   <p className="meta-badge audience-policy-badge">No songs are assigned to this gig yet.</p>
