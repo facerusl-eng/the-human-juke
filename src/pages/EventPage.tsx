@@ -54,6 +54,37 @@ type SongRequestErrors = {
   selection?: string
 }
 
+const MAX_AUDIENCE_NAME_LENGTH = 40
+const MAX_SONG_FIELD_LENGTH = 120
+
+function hasUnsafeControlChars(value: string) {
+  return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
+}
+
+function normalizeExternalLink(url: string | null | undefined) {
+  const trimmedUrl = url?.trim()
+
+  if (!trimmedUrl) {
+    return null
+  }
+
+  const withProtocol = /^https?:\/\//i.test(trimmedUrl)
+    ? trimmedUrl
+    : `https://${trimmedUrl}`
+
+  try {
+    const normalizedUrl = new URL(withProtocol)
+
+    if (!['http:', 'https:'].includes(normalizedUrl.protocol)) {
+      return null
+    }
+
+    return normalizedUrl.toString()
+  } catch {
+    return null
+  }
+}
+
 function EventPage() {
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
   const { authError } = useAuthStore()
@@ -69,20 +100,27 @@ function EventPage() {
     let isCurrent = true
 
     const loadHostProfile = async () => {
-      const hostId = event?.hostId
+      try {
+        const hostId = event?.hostId
 
-      const baseQuery = supabase
-        .from('profiles')
-        .select('display_name, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url')
+        const baseQuery = supabase
+          .from('profiles')
+          .select('display_name, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url')
 
-      const query = hostId
-        ? baseQuery.eq('user_id', hostId).maybeSingle()
-        : baseQuery.eq('role', 'host').limit(1).maybeSingle()
+        const query = hostId
+          ? baseQuery.eq('user_id', hostId).maybeSingle()
+          : baseQuery.eq('role', 'host').limit(1).maybeSingle()
 
-      const { data } = await query
+        const { data } = await query
 
-      if (isCurrent) {
-        setHostProfile((data as HostProfile | null) ?? null)
+        if (isCurrent) {
+          setHostProfile((data as HostProfile | null) ?? null)
+        }
+      } catch (error) {
+        console.warn('EventPage: failed to load host profile', error)
+        if (isCurrent) {
+          setHostProfile(null)
+        }
       }
     }
 
@@ -106,6 +144,7 @@ function EventPage() {
   const [songRequestErrors, setSongRequestErrors] = useState<SongRequestErrors>({})
   const [errorText, setErrorText] = useState<string | null>(null)
   const [submittingSongId, setSubmittingSongId] = useState<string | null>(null)
+  const [votingSongIds, setVotingSongIds] = useState<Record<string, boolean>>({})
   const [votePulseTicks, setVotePulseTicks] = useState<Record<string, number>>({})
   const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
@@ -156,11 +195,15 @@ function EventPage() {
     { label: 'TikTok', url: hostProfile?.tiktok_url },
     { label: 'YouTube', url: hostProfile?.youtube_url },
     { label: 'Facebook', url: hostProfile?.facebook_url },
-  ].filter((link): link is { label: string; url: string } => Boolean(link.url?.trim()))
+  ]
+    .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
+    .filter((link): link is { label: string; url: string } => Boolean(link.url))
   const tipLinks = [
     { label: 'MobilePay', url: hostProfile?.mobilpay_url },
     { label: 'PayPal', url: hostProfile?.paypal_url },
-  ].filter((link): link is { label: string; url: string } => Boolean(link.url?.trim()))
+  ]
+    .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
+    .filter((link): link is { label: string; url: string } => Boolean(link.url))
   const hasSongSelection = showCuratedPicker
     ? Boolean(selectedCuratedSongId)
     : Boolean(songTitle.trim() && artistName.trim())
@@ -224,6 +267,8 @@ function EventPage() {
     let isCurrent = true
 
     const loadCuratedSongs = async () => {
+      setErrorText(null)
+
       const loadLibraryFallbackSongs = async () => {
         const { data: coveredFallbackSongs, error: coveredFallbackSongsError } = await supabase
           .from('library_songs')
@@ -283,106 +328,113 @@ function EventPage() {
         })
       }
 
-      if (!event?.id) {
-        await loadLibraryFallbackSongs()
-        return
-      }
-
-      const { data: eventPlaylists, error: eventPlaylistsError } = await supabase
-        .from('event_playlists')
-        .select('playlist_id')
-        .eq('event_id', event.id)
-
-      if (eventPlaylistsError) {
-        if (isCurrent) {
-          setErrorText(eventPlaylistsError.message)
+      try {
+        if (!event?.id) {
+          await loadLibraryFallbackSongs()
+          return
         }
-        return
-      }
 
-      const playlistIds = (eventPlaylists ?? []).map((row) => row.playlist_id as string)
+        const { data: eventPlaylists, error: eventPlaylistsError } = await supabase
+          .from('event_playlists')
+          .select('playlist_id')
+          .eq('event_id', event.id)
 
-      if (!playlistIds.length) {
-        await loadLibraryFallbackSongs()
-        return
-      }
-
-      const { data: playlistSongs, error: playlistSongsError } = await supabase
-        .from('playlist_songs')
-        .select('song_id')
-        .in('playlist_id', playlistIds)
-
-      if (playlistSongsError) {
-        if (isCurrent) {
-          setErrorText(playlistSongsError.message)
+        if (eventPlaylistsError) {
+          if (isCurrent) {
+            setErrorText(eventPlaylistsError.message)
+          }
+          return
         }
-        return
-      }
 
-      if (!isCurrent) {
-        return
-      }
+        const playlistIds = (eventPlaylists ?? []).map((row) => row.playlist_id as string)
 
-      const songIds = [...new Set((playlistSongs ?? [])
-        .map((row) => (row as { song_id?: string | null }).song_id)
-        .filter((songId): songId is string => Boolean(songId)))]
-
-      if (!songIds.length) {
-        await loadLibraryFallbackSongs()
-        return
-      }
-
-      const { data: librarySongs, error: librarySongsError } = await supabase
-        .from('library_songs')
-        .select('id, title, artist, cover_url, is_explicit')
-        .in('id', songIds)
-
-      if (librarySongsError) {
-        if (isCurrent) {
-          setErrorText(librarySongsError.message)
+        if (!playlistIds.length) {
+          await loadLibraryFallbackSongs()
+          return
         }
-        return
-      }
 
-      if (!isCurrent) {
-        return
-      }
+        const { data: playlistSongs, error: playlistSongsError } = await supabase
+          .from('playlist_songs')
+          .select('song_id')
+          .in('playlist_id', playlistIds)
 
-      const dedupedSongs = new Map<string, CuratedSong>()
-
-      for (const song of (librarySongs ?? []) as CuratedSong[]) {
-        if (!dedupedSongs.has(song.id)) {
-          dedupedSongs.set(song.id, song)
+        if (playlistSongsError) {
+          if (isCurrent) {
+            setErrorText(playlistSongsError.message)
+          }
+          return
         }
-      }
 
-      const nextSongs = [...dedupedSongs.values()]
-        .sort((left, right) => {
-          const leftHasCover = Boolean(left.cover_url && left.cover_url.trim())
-          const rightHasCover = Boolean(right.cover_url && right.cover_url.trim())
+        if (!isCurrent) {
+          return
+        }
 
-          if (leftHasCover !== rightHasCover) {
-            return leftHasCover ? -1 : 1
+        const songIds = [...new Set((playlistSongs ?? [])
+          .map((row) => (row as { song_id?: string | null }).song_id)
+          .filter((songId): songId is string => Boolean(songId)))]
+
+        if (!songIds.length) {
+          await loadLibraryFallbackSongs()
+          return
+        }
+
+        const { data: librarySongs, error: librarySongsError } = await supabase
+          .from('library_songs')
+          .select('id, title, artist, cover_url, is_explicit')
+          .in('id', songIds)
+
+        if (librarySongsError) {
+          if (isCurrent) {
+            setErrorText(librarySongsError.message)
+          }
+          return
+        }
+
+        if (!isCurrent) {
+          return
+        }
+
+        const dedupedSongs = new Map<string, CuratedSong>()
+
+        for (const song of (librarySongs ?? []) as CuratedSong[]) {
+          if (!dedupedSongs.has(song.id)) {
+            dedupedSongs.set(song.id, song)
+          }
+        }
+
+        const nextSongs = [...dedupedSongs.values()]
+          .sort((left, right) => {
+            const leftHasCover = Boolean(left.cover_url && left.cover_url.trim())
+            const rightHasCover = Boolean(right.cover_url && right.cover_url.trim())
+
+            if (leftHasCover !== rightHasCover) {
+              return leftHasCover ? -1 : 1
+            }
+
+            return left.title.localeCompare(right.title)
+          })
+
+        const hasAnyCover = nextSongs.some((song) => Boolean(song.cover_url && song.cover_url.trim()))
+
+        if (!hasAnyCover) {
+          await loadLibraryFallbackSongs()
+          return
+        }
+
+        setCuratedSongs(nextSongs)
+        setSelectedCuratedSongId((currentSongId) => {
+          if (currentSongId && nextSongs.some((song) => song.id === currentSongId)) {
+            return currentSongId
           }
 
-          return left.title.localeCompare(right.title)
+          return ''
         })
-
-      const hasAnyCover = nextSongs.some((song) => Boolean(song.cover_url && song.cover_url.trim()))
-
-      if (!hasAnyCover) {
-        await loadLibraryFallbackSongs()
-        return
-      }
-
-      setCuratedSongs(nextSongs)
-      setSelectedCuratedSongId((currentSongId) => {
-        if (currentSongId && nextSongs.some((song) => song.id === currentSongId)) {
-          return currentSongId
+      } catch (error) {
+        console.warn('EventPage: failed to load curated songs', error)
+        if (isCurrent) {
+          setErrorText('Unable to load song choices right now. Please try again in a moment.')
         }
-
-        return ''
-      })
+      }
     }
 
     void loadCuratedSongs()
@@ -405,7 +457,14 @@ function EventPage() {
 
     const hydrateArtwork = async () => {
       for (const song of songsMissingArtwork) {
-        const coverUrl = await fetchSongArtwork(song.title, song.artist)
+        let coverUrl: string | null = null
+
+        try {
+          coverUrl = await fetchSongArtwork(song.title, song.artist)
+        } catch (error) {
+          console.warn('EventPage: artwork fetch failed', { songId: song.id, error })
+          continue
+        }
 
         if (!coverUrl || isCancelled) {
           continue
@@ -426,6 +485,8 @@ function EventPage() {
           setCuratedSongs((currentSongs) => currentSongs.map((currentSong) => (
             currentSong.id === song.id ? { ...currentSong, cover_url: normalizedCoverUrl } : currentSong
           )))
+        } else if (error) {
+          console.warn('EventPage: artwork update failed', { songId: song.id, error })
         }
       }
     }
@@ -509,9 +570,14 @@ function EventPage() {
 
     const syncPlaybackState = async () => {
       if (!isCurrent) return
-      const state = await readSharedPlaybackState(eventId)
-      if (isCurrent) {
-        setPlaybackState(state)
+
+      try {
+        const state = await readSharedPlaybackState(eventId)
+        if (isCurrent) {
+          setPlaybackState(state)
+        }
+      } catch (error) {
+        console.warn('EventPage: playback sync failed', error)
       }
     }
 
@@ -619,8 +685,28 @@ function EventPage() {
       return
     }
 
+    const normalizedSongTitle = songTitle.trim()
+    const normalizedArtistName = artistName.trim()
+
+    if (normalizedSongTitle.length > MAX_SONG_FIELD_LENGTH) {
+      setSongRequestErrors({ songTitle: `Song title must be ${MAX_SONG_FIELD_LENGTH} characters or less.` })
+      setErrorText('Song title is too long.')
+      return
+    }
+
+    if (normalizedArtistName.length > MAX_SONG_FIELD_LENGTH) {
+      setSongRequestErrors({ artistName: `Artist must be ${MAX_SONG_FIELD_LENGTH} characters or less.` })
+      setErrorText('Artist is too long.')
+      return
+    }
+
+    if (hasUnsafeControlChars(normalizedSongTitle) || hasUnsafeControlChars(normalizedArtistName)) {
+      setErrorText('Please remove unsupported characters from song title or artist.')
+      return
+    }
+
     try {
-      await addSong(songTitle.trim(), artistName.trim(), isExplicit, { performerMode })
+      await addSong(normalizedSongTitle, normalizedArtistName, isExplicit, { performerMode })
       setSongTitle('')
       setArtistName('')
       setIsExplicit(false)
@@ -638,6 +724,18 @@ function EventPage() {
     if (!normalizedAudienceName) {
       setAudienceNameError('Please enter your name to continue.')
       setErrorText('Please enter your name to continue.')
+      return
+    }
+
+    if (normalizedAudienceName.length > MAX_AUDIENCE_NAME_LENGTH) {
+      setAudienceNameError(`Please keep your name under ${MAX_AUDIENCE_NAME_LENGTH} characters.`)
+      setErrorText(`Please keep your name under ${MAX_AUDIENCE_NAME_LENGTH} characters.`)
+      return
+    }
+
+    if (hasUnsafeControlChars(normalizedAudienceName)) {
+      setAudienceNameError('Please remove unsupported characters from your name.')
+      setErrorText('Please remove unsupported characters from your name.')
       return
     }
 
@@ -675,6 +773,7 @@ function EventPage() {
                 onChange={(event) => setAudienceNameInput(event.target.value)}
                 placeholder="e.g. Alex"
                 maxLength={40}
+                required
                 aria-describedby={audienceNameError ? 'audience-name-error' : undefined}
                 autoFocus
               />
@@ -740,6 +839,7 @@ function EventPage() {
             <span className="meta-badge">Most votes rises first</span>
           </div>
           <ol className="queue-list">
+            {upNext.length === 0 ? <li className="subcopy">No songs queued yet.</li> : null}
             {upNext.map((song, songIndex) => (
               <SongVoteCard
                 key={song.id}
@@ -749,12 +849,24 @@ function EventPage() {
                 votePulseTick={votePulseTicks[song.id] ?? 0}
                 moveTick={songMoveTicks[song.id] ?? 0}
                 normalizeCoverUrl={normalizeCoverUrl}
-                disabled={!roomOpen || song.voting_locked}
+                disabled={!roomOpen || song.voting_locked || Boolean(votingSongIds[song.id])}
                 onVote={async (songId) => {
+                  if (votingSongIds[songId]) {
+                    return
+                  }
+
+                  setVotingSongIds((currentState) => ({ ...currentState, [songId]: true }))
+
                   try {
                     await upvoteSong(songId)
                   } catch {
                     setErrorText('Vote failed. You may have already voted or voting is locked.')
+                  } finally {
+                    setVotingSongIds((currentState) => {
+                      const nextState = { ...currentState }
+                      delete nextState[songId]
+                      return nextState
+                    })
                   }
                 }}
               />
@@ -949,6 +1061,7 @@ function EventPage() {
                     onChange={(event) => setSongTitle(event.target.value)}
                     aria-describedby={songRequestErrors.songTitle ? 'song-title-error' : undefined}
                     placeholder="Blinding Lights"
+                    maxLength={MAX_SONG_FIELD_LENGTH}
                   />
                   {songRequestErrors.songTitle ? <p id="song-title-error" className="error-text request-error-inline" role="alert">{songRequestErrors.songTitle}</p> : null}
                 </div>
@@ -960,6 +1073,7 @@ function EventPage() {
                     onChange={(event) => setArtistName(event.target.value)}
                     aria-describedby={songRequestErrors.artistName ? 'artist-name-error' : undefined}
                     placeholder="The Weeknd"
+                    maxLength={MAX_SONG_FIELD_LENGTH}
                   />
                   {songRequestErrors.artistName ? <p id="artist-name-error" className="error-text request-error-inline" role="alert">{songRequestErrors.artistName}</p> : null}
                 </div>

@@ -1,6 +1,6 @@
 import './App.css'
 import { Suspense, lazy } from 'react'
-import { Navigate, createBrowserRouter, isRouteErrorResponse, useRouteError } from 'react-router-dom'
+import { Navigate, createBrowserRouter, isRouteErrorResponse, useNavigate, useRouteError, useParams } from 'react-router-dom'
 import RequireHost from './components/RequireHost'
 import ShellLayout from './components/ShellLayout'
 import { AuthProvider } from './state/authStore'
@@ -12,6 +12,7 @@ const EventPage = lazy(() => import('./pages/EventPage'))
 const FeedPage = lazy(() => import('./pages/FeedPage'))
 const GigControlPage = lazy(() => import('./pages/GigControlPage'))
 const GigSettingsPage = lazy(() => import('./pages/GigSettingsPage'))
+const GigsPage = lazy(() => import('./pages/GigsPage'))
 const HomePage = lazy(() => import('./pages/HomePage'))
 const MirrorPage = lazy(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazy(() => import('./pages/SetlistLibraryPage'))
@@ -26,6 +27,7 @@ function RouteLoading() {
 }
 
 function RouteErrorFallback() {
+  const navigate = useNavigate()
   const routeError = useRouteError()
   const fallbackMessage = isRouteErrorResponse(routeError)
     ? routeError.statusText || 'This page could not be loaded.'
@@ -42,9 +44,18 @@ function RouteErrorFallback() {
         <div className="hero-actions no-margin-bottom">
           <button
             type="button"
+            className="secondary-button"
+            onClick={() => {
+              navigate('/', { replace: true })
+            }}
+          >
+            Go Home
+          </button>
+          <button
+            type="button"
             className="primary-button"
             onClick={() => {
-              window.location.reload()
+              navigate(0)
             }}
           >
             Retry
@@ -53,6 +64,16 @@ function RouteErrorFallback() {
       </section>
     </section>
   )
+}
+
+function AudienceShortcutRedirect() {
+  const { eventId } = useParams<{ eventId: string }>()
+
+  if (!eventId) {
+    return <Navigate to="/audience" replace />
+  }
+
+  return <Navigate to={`/audience?event=${encodeURIComponent(eventId)}`} replace />
 }
 
 function withSuspense(element: React.ReactNode) {
@@ -88,6 +109,10 @@ const router = createBrowserRouter([
         element: <Navigate to="/audience" replace />,
       },
       {
+        path: 'a/:eventId',
+        element: <AudienceShortcutRedirect />,
+      },
+      {
         path: 'admin',
         element: withSuspense(
           <RequireHost>
@@ -100,6 +125,14 @@ const router = createBrowserRouter([
         element: withSuspense(
           <RequireHost>
             <CreateGigPage />
+          </RequireHost>,
+        ),
+      },
+      {
+        path: 'admin/gigs',
+        element: withSuspense(
+          <RequireHost>
+            <GigsPage />
           </RequireHost>,
         ),
       },

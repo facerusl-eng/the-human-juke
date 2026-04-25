@@ -3,6 +3,16 @@ import { RouterProvider } from 'react-router-dom'
 import './index.css'
 import router from './App.tsx'
 
+const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
+
+function emitRuntimeNotice(message: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.dispatchEvent(new CustomEvent<string>(GLOBAL_RUNTIME_NOTICE_EVENT, { detail: message }))
+}
+
 async function cleanupLegacyServiceWorkers() {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return
@@ -44,6 +54,7 @@ async function cleanupLegacyServiceWorkers() {
       window.location.reload()
     }
   } catch {
+    emitRuntimeNotice('Background cleanup had issues. The app will keep running and retry later.')
     // Ignore service worker access failures in restricted browsers.
   }
 }
@@ -85,6 +96,7 @@ function setupBuildUpdateRefresh() {
         window.location.reload()
       }
     } catch {
+      emitRuntimeNotice('Network sync is temporarily unavailable. Retrying in the background.')
       // Ignore transient network failures and try again on the next trigger.
     } finally {
       checking = false
@@ -115,7 +127,22 @@ function setupBuildUpdateRefresh() {
   }, 60_000)
 }
 
+function installGlobalRuntimeHooks() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.addEventListener('error', () => {
+    emitRuntimeNotice('A runtime issue was detected. The app is trying to recover automatically.')
+  })
+
+  window.addEventListener('unhandledrejection', () => {
+    emitRuntimeNotice('A background request failed. The app will retry without reloading.')
+  })
+}
+
 setupBuildUpdateRefresh()
+installGlobalRuntimeHooks()
 void cleanupLegacyServiceWorkers()
 
 createRoot(document.getElementById('root')!).render(

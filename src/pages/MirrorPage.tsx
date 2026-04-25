@@ -33,8 +33,32 @@ const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
 const MIRROR_PLAYBACK_STORAGE_KEY = 'human-jukebox-playback-state'
 const MIRROR_PLAYBACK_BROADCAST_CHANNEL = 'human-jukebox-playback-state'
 const MIRROR_SAFE_MARGINS_STORAGE_KEY = 'human-jukebox-mirror-safe-margins'
+const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 
 type MirrorDensityMode = 'medium' | 'cinema'
+type MirrorVenueMode = 'club' | 'lounge' | 'festival'
+
+function resolveMirrorVenueMode(value: string | null | undefined): MirrorVenueMode | null {
+  if (!value) {
+    return null
+  }
+
+  const normalizedValue = value.trim().toLowerCase()
+
+  if (normalizedValue === 'club' || normalizedValue === 'tight') {
+    return 'club'
+  }
+
+  if (normalizedValue === 'festival' || normalizedValue === 'big-stage' || normalizedValue === 'arena') {
+    return 'festival'
+  }
+
+  if (normalizedValue === 'lounge' || normalizedValue === 'balanced') {
+    return 'lounge'
+  }
+
+  return null
+}
 
 function normalizeMirrorText(value: unknown, fallback: string) {
   if (typeof value !== 'string') {
@@ -103,6 +127,7 @@ function MirrorPage() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [highContrastMode, setHighContrastMode] = useState(false)
   const [densityMode, setDensityMode] = useState<MirrorDensityMode>('medium')
+  const [venueMode, setVenueMode] = useState<MirrorVenueMode>('lounge')
   const [showSafeMargins, setShowSafeMargins] = useState(false)
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
   const [fallbackBetweenSongs, setFallbackBetweenSongs] = useState(false)
@@ -149,7 +174,7 @@ function MirrorPage() {
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex % BETWEEN_SONG_QUOTES.length]
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
-  const shouldShowEditorControls = !(highContrastMode && hideControlsForAudience)
+  const shouldShowEditorControls = !hideControlsForAudience && !isEmbeddedPreview
 
   const onCoverLoadError = (coverUrl: string | null | undefined) => {
     if (!coverUrl) {
@@ -225,6 +250,8 @@ function MirrorPage() {
       ?? searchParams.get('hc')?.trim().toLowerCase()
     const densityParam = searchParams.get('density')?.trim().toLowerCase()
       ?? searchParams.get('dm')?.trim().toLowerCase()
+    const venueParam = searchParams.get('venue')?.trim().toLowerCase()
+      ?? searchParams.get('vm')?.trim().toLowerCase()
     const safeMarginsParam = searchParams.get('safeMargins')?.trim().toLowerCase()
       ?? searchParams.get('safe')?.trim().toLowerCase()
 
@@ -232,12 +259,15 @@ function MirrorPage() {
     const persistedContrastPreference = window.localStorage.getItem(MIRROR_HIGH_CONTRAST_STORAGE_KEY) === '1'
     const hasSafeMarginsQuery = safeMarginsParam === '1' || safeMarginsParam === 'on' || safeMarginsParam === 'true'
     const persistedSafeMarginsPreference = window.localStorage.getItem(MIRROR_SAFE_MARGINS_STORAGE_KEY) === '1'
+    const persistedVenueMode = resolveMirrorVenueMode(window.localStorage.getItem(MIRROR_VENUE_MODE_STORAGE_KEY))
+    const resolvedVenueMode = resolveMirrorVenueMode(venueParam) ?? persistedVenueMode ?? 'lounge'
     const resolvedDensityMode: MirrorDensityMode = densityParam === 'cinema' || densityParam === 'xl' || densityParam === 'large'
       ? 'cinema'
       : 'medium'
 
     setHighContrastMode(hasContrastQuery || persistedContrastPreference)
     setDensityMode(resolvedDensityMode)
+    setVenueMode(resolvedVenueMode)
     setShowSafeMargins(hasSafeMarginsQuery || persistedSafeMarginsPreference)
   }, [])
 
@@ -256,6 +286,14 @@ function MirrorPage() {
 
     window.localStorage.setItem(MIRROR_SAFE_MARGINS_STORAGE_KEY, showSafeMargins ? '1' : '0')
   }, [showSafeMargins])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(MIRROR_VENUE_MODE_STORAGE_KEY, venueMode)
+  }, [venueMode])
 
   useEffect(() => {
     if (!eventId) {
@@ -621,7 +659,7 @@ function MirrorPage() {
   }
 
   return (
-    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
+    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
       <header className="mirror-header">
         <div className="mirror-header-main">
           <p className="mirror-brand">🎸 Human Jukebox</p>
@@ -673,6 +711,25 @@ function MirrorPage() {
               onClick={() => setShowSafeMargins((currentValue) => !currentValue)}
             >
               {showSafeMargins ? 'Safe Margins: On' : 'Safe Margins: Off'}
+            </button>
+            <button
+              type="button"
+              className="mirror-contrast-button"
+              onClick={() => {
+                setVenueMode((currentMode) => {
+                  if (currentMode === 'club') {
+                    return 'lounge'
+                  }
+
+                  if (currentMode === 'lounge') {
+                    return 'festival'
+                  }
+
+                  return 'club'
+                })
+              }}
+            >
+              Venue: {venueMode === 'club' ? 'Club' : venueMode === 'festival' ? 'Festival' : 'Lounge'}
             </button>
           </div>
         ) : null}

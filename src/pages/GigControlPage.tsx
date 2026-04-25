@@ -5,6 +5,12 @@ import { getAudienceUrl } from '../lib/audienceUrl'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
 import { useQueueStore } from '../state/queueStore'
 
+const MAX_SONG_FIELD_LENGTH = 120
+
+function hasUnsafeControlChars(value: string) {
+  return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
+}
+
 function GigControlPage() {
   const navigate = useNavigate()
   const {
@@ -29,6 +35,10 @@ function GigControlPage() {
   const [manualKaraoke, setManualKaraoke] = useState(false)
   const [isNowPlayingStarted, setIsNowPlayingStarted] = useState(false)
   const [spaceActionBusy, setSpaceActionBusy] = useState(false)
+  const [manualAddBusy, setManualAddBusy] = useState(false)
+  const [roomToggleBusy, setRoomToggleBusy] = useState(false)
+  const [explicitToggleBusy, setExplicitToggleBusy] = useState(false)
+  const [songActionBusyId, setSongActionBusyId] = useState<string | null>(null)
   const [switchingGigId, setSwitchingGigId] = useState<string | null>(null)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const quoteIndexRef = useRef(0)
@@ -95,44 +105,51 @@ function GigControlPage() {
     let isCurrent = true
 
     const initializePlaybackState = async () => {
-      const sharedPlaybackState = await readSharedPlaybackState(activeEventId)
+      try {
+        const sharedPlaybackState = await readSharedPlaybackState(activeEventId)
 
-      if (!isCurrent) return
+        if (!isCurrent) return
 
-      if (!nowPlaying?.id) {
-        setIsNowPlayingStarted(false)
-        previousSongIdRef.current = null
+        if (!nowPlaying?.id) {
+          setIsNowPlayingStarted(false)
+          previousSongIdRef.current = null
 
-        await writeSharedPlaybackState(activeEventId, {
-          currentSongId: null,
-          currentSongCoverUrl: null,
-          isStarted: false,
-          quoteIndex: sharedPlaybackState?.quoteIndex ?? quoteIndexRef.current,
-        })
-        return
-      }
-
-      if (sharedPlaybackState) {
-        const normalizedQuoteIndex = sharedPlaybackState.quoteIndex % BETWEEN_SONG_QUOTES.length
-        quoteIndexRef.current = normalizedQuoteIndex
-        setBetweenSongQuoteIndex(normalizedQuoteIndex)
-
-        if (sharedPlaybackState.currentSongId === nowPlaying.id) {
-          setIsNowPlayingStarted(sharedPlaybackState.isStarted)
-          previousSongIdRef.current = nowPlaying.id
+          await writeSharedPlaybackState(activeEventId, {
+            currentSongId: null,
+            currentSongCoverUrl: null,
+            isStarted: false,
+            quoteIndex: sharedPlaybackState?.quoteIndex ?? quoteIndexRef.current,
+          })
           return
         }
+
+        if (sharedPlaybackState) {
+          const normalizedQuoteIndex = sharedPlaybackState.quoteIndex % BETWEEN_SONG_QUOTES.length
+          quoteIndexRef.current = normalizedQuoteIndex
+          setBetweenSongQuoteIndex(normalizedQuoteIndex)
+
+          if (sharedPlaybackState.currentSongId === nowPlaying.id) {
+            setIsNowPlayingStarted(sharedPlaybackState.isStarted)
+            previousSongIdRef.current = nowPlaying.id
+            return
+          }
+        }
+
+        setIsNowPlayingStarted(false)
+        await writeSharedPlaybackState(activeEventId, {
+          currentSongId: nowPlaying.id,
+          currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying.id),
+          isStarted: false,
+          quoteIndex: quoteIndexRef.current,
+        })
+
+        previousSongIdRef.current = nowPlaying.id
+      } catch (error) {
+        console.warn('GigControlPage: playback initialization failed', error)
+        if (isCurrent) {
+          setErrorText('Playback controls are reconnecting. Please try again.')
+        }
       }
-
-      setIsNowPlayingStarted(false)
-      await writeSharedPlaybackState(activeEventId, {
-        currentSongId: nowPlaying.id,
-        currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying.id),
-        isStarted: false,
-        quoteIndex: quoteIndexRef.current,
-      })
-
-      previousSongIdRef.current = nowPlaying.id
     }
 
     void initializePlaybackState()
@@ -154,12 +171,17 @@ function GigControlPage() {
       return
     }
 
-    await writeSharedPlaybackState(event.id, {
-      currentSongId: nextSongId,
-      currentSongCoverUrl: resolveCoverUrlForSong(nextSongId),
-      isStarted: nextStarted,
-      quoteIndex: quoteIndexRef.current,
-    })
+    try {
+      await writeSharedPlaybackState(event.id, {
+        currentSongId: nextSongId,
+        currentSongCoverUrl: resolveCoverUrlForSong(nextSongId),
+        isStarted: nextStarted,
+        quoteIndex: quoteIndexRef.current,
+      })
+    } catch (error) {
+      console.warn('GigControlPage: playback sync write failed', error)
+      throw error
+    }
   }
 
   const beginBetweenSongsTransition = async () => {
@@ -197,21 +219,27 @@ function GigControlPage() {
 
       event.preventDefault()
 
-      if (!isNowPlayingStarted) {
-        await syncStartedState(true)
-        return
-      }
+      try {
+        if (!isNowPlayingStarted) {
+          await syncStartedState(true)
+          return
+        }
 
-      setSpaceActionBusy(true)
-      const previousQuoteIndex = await beginBetweenSongsTransition()
-      void markPlayed()
-        .catch(async () => {
+        setSpaceActionBusy(true)
+        const previousQuoteIndex = await beginBetweenSongsTransition()
+
+        try {
+          await markPlayed()
+        } catch {
           await restoreStartedSong(previousQuoteIndex)
           setErrorText('Failed to mark as played.')
-        })
-        .finally(() => {
-          setSpaceActionBusy(false)
-        })
+        }
+      } catch (error) {
+        console.warn('GigControlPage: spacebar playback action failed', error)
+        setErrorText('Playback control failed. Please try again.')
+      } finally {
+        setSpaceActionBusy(false)
+      }
     }
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
@@ -222,13 +250,32 @@ function GigControlPage() {
     event.preventDefault()
     setErrorText(null)
 
-    if (!manualTitle.trim() || !manualArtist.trim()) {
+    if (manualAddBusy) {
+      return
+    }
+
+    const normalizedTitle = manualTitle.trim()
+    const normalizedArtist = manualArtist.trim()
+
+    if (!normalizedTitle || !normalizedArtist) {
       setErrorText('Enter both song title and artist for manual add.')
       return
     }
 
+    if (normalizedTitle.length > MAX_SONG_FIELD_LENGTH || normalizedArtist.length > MAX_SONG_FIELD_LENGTH) {
+      setErrorText(`Song title and artist must be ${MAX_SONG_FIELD_LENGTH} characters or less.`)
+      return
+    }
+
+    if (hasUnsafeControlChars(normalizedTitle) || hasUnsafeControlChars(normalizedArtist)) {
+      setErrorText('Please remove unsupported characters from song title or artist.')
+      return
+    }
+
+    setManualAddBusy(true)
+
     try {
-      await addSong(manualTitle.trim(), manualArtist.trim(), manualExplicit, {
+      await addSong(normalizedTitle, normalizedArtist, manualExplicit, {
         performerMode: manualKaraoke ? 'audience' : 'performer',
         bypassEventRules: true,
       })
@@ -238,6 +285,8 @@ function GigControlPage() {
       setManualKaraoke(false)
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Failed to add song manually.')
+    } finally {
+      setManualAddBusy(false)
     }
   }
 
@@ -317,8 +366,22 @@ function GigControlPage() {
             <button
               type="button"
               className={event.roomOpen ? 'secondary-button' : 'primary-button'}
+              disabled={roomToggleBusy || explicitToggleBusy}
               onClick={async () => {
-                try { await toggleRoomOpen() } catch { setErrorText('Failed to toggle room.') }
+                if (roomToggleBusy || explicitToggleBusy) {
+                  return
+                }
+
+                setRoomToggleBusy(true)
+
+                try {
+                  await toggleRoomOpen()
+                } catch (error) {
+                  console.warn('GigControlPage: room toggle failed', error)
+                  setErrorText('Failed to toggle room.')
+                } finally {
+                  setRoomToggleBusy(false)
+                }
               }}
             >
               {event.roomOpen ? 'Pause Live' : 'Go Live'}
@@ -326,8 +389,22 @@ function GigControlPage() {
             <button
               type="button"
               className="secondary-button"
+              disabled={roomToggleBusy || explicitToggleBusy}
               onClick={async () => {
-                try { await toggleExplicitFilter() } catch { setErrorText('Failed to toggle filter.') }
+                if (roomToggleBusy || explicitToggleBusy) {
+                  return
+                }
+
+                setExplicitToggleBusy(true)
+
+                try {
+                  await toggleExplicitFilter()
+                } catch (error) {
+                  console.warn('GigControlPage: explicit filter toggle failed', error)
+                  setErrorText('Failed to toggle filter.')
+                } finally {
+                  setExplicitToggleBusy(false)
+                }
               }}
             >
               {event.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit'}
@@ -441,6 +518,9 @@ function GigControlPage() {
               value={manualTitle}
               onChange={(nextEvent) => setManualTitle(nextEvent.target.value)}
               placeholder="Wonderwall"
+              maxLength={MAX_SONG_FIELD_LENGTH}
+              required
+              disabled={manualAddBusy}
             />
           </div>
           <div className="field-row">
@@ -450,6 +530,9 @@ function GigControlPage() {
               value={manualArtist}
               onChange={(nextEvent) => setManualArtist(nextEvent.target.value)}
               placeholder="Oasis"
+              maxLength={MAX_SONG_FIELD_LENGTH}
+              required
+              disabled={manualAddBusy}
             />
           </div>
           <label className="checkbox-row" htmlFor="manual-explicit">
@@ -458,6 +541,7 @@ function GigControlPage() {
               type="checkbox"
               checked={manualExplicit}
               onChange={(nextEvent) => setManualExplicit(nextEvent.target.checked)}
+              disabled={manualAddBusy}
             />
             Explicit song
           </label>
@@ -467,10 +551,13 @@ function GigControlPage() {
               type="checkbox"
               checked={manualKaraoke}
               onChange={(nextEvent) => setManualKaraoke(nextEvent.target.checked)}
+              disabled={manualAddBusy}
             />
             Mark as Karaoke request
           </label>
-          <button type="submit" className="primary-button">Add To Queue</button>
+          <button type="submit" className="primary-button" disabled={manualAddBusy}>
+            {manualAddBusy ? 'Adding…' : 'Add To Queue'}
+          </button>
         </form>
       </section>
 
@@ -493,15 +580,27 @@ function GigControlPage() {
                 <button
                   type="button"
                   className="primary-button"
-                  disabled={spaceActionBusy}
+                  disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
                   onClick={async () => {
-                      const previousQuoteIndex = await beginBetweenSongsTransition()
+                    if (spaceActionBusy || songActionBusyId === nowPlaying.id) {
+                      return
+                    }
+
+                    setSongActionBusyId(nowPlaying.id)
+                    let previousQuoteIndex = quoteIndexRef.current
 
                     try {
+                      previousQuoteIndex = await beginBetweenSongsTransition()
                       await markPlayed()
                     } catch {
-                      restoreStartedSong(previousQuoteIndex)
+                      try {
+                        await restoreStartedSong(previousQuoteIndex)
+                      } catch {
+                        // Keep queue controls responsive even when playback restore fails.
+                      }
                       setErrorText('Failed to mark as played.')
+                    } finally {
+                      setSongActionBusyId(null)
                     }
                   }}
                 >
@@ -510,15 +609,27 @@ function GigControlPage() {
                 <button
                   type="button"
                   className="secondary-button"
-                  disabled={spaceActionBusy}
+                  disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
                   onClick={async () => {
-                      const previousQuoteIndex = await beginBetweenSongsTransition()
+                    if (spaceActionBusy || songActionBusyId === nowPlaying.id) {
+                      return
+                    }
+
+                    setSongActionBusyId(nowPlaying.id)
+                    let previousQuoteIndex = quoteIndexRef.current
 
                     try {
+                      previousQuoteIndex = await beginBetweenSongsTransition()
                       await removeSong(nowPlaying.id)
                     } catch {
-                      restoreStartedSong(previousQuoteIndex)
+                      try {
+                        await restoreStartedSong(previousQuoteIndex)
+                      } catch {
+                        // Keep queue controls responsive even when playback restore fails.
+                      }
                       setErrorText('Failed to skip song.')
+                    } finally {
+                      setSongActionBusyId(null)
                     }
                   }}
                 >
@@ -576,11 +687,24 @@ function GigControlPage() {
                   <button
                     type="button"
                     className="vote-button danger-button"
+                    disabled={songActionBusyId === song.id}
                     onClick={async () => {
-                      try { await removeSong(song.id) } catch { setErrorText('Failed to remove.') }
+                      if (songActionBusyId === song.id) {
+                        return
+                      }
+
+                      setSongActionBusyId(song.id)
+
+                      try {
+                        await removeSong(song.id)
+                      } catch {
+                        setErrorText('Failed to remove.')
+                      } finally {
+                        setSongActionBusyId(null)
+                      }
                     }}
                   >
-                    Remove
+                    {songActionBusyId === song.id ? 'Removing…' : 'Remove'}
                   </button>
                 </div>
               </li>

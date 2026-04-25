@@ -3,12 +3,16 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { AUDIENCE_NAME_COMMITTED_EVENT, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from '../state/authStore'
 
+const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
+
 function ShellLayout() {
   const location = useLocation()
   const { user, isHost, loading, signInHost, signOut } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
+  const [authActionBusy, setAuthActionBusy] = useState<null | 'sign-in' | 'sign-out'>(null)
   const [hasAudienceAccess, setHasAudienceAccess] = useState(() => Boolean(readCommittedAudienceName()))
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
@@ -42,6 +46,21 @@ function ShellLayout() {
   useEffect(() => {
     setIsMobileNavOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    const onRuntimeNotice = (event: Event) => {
+      const customEvent = event as CustomEvent<string>
+      if (typeof customEvent.detail === 'string' && customEvent.detail.trim()) {
+        setRuntimeNotice(customEvent.detail)
+      }
+    }
+
+    window.addEventListener(GLOBAL_RUNTIME_NOTICE_EVENT, onRuntimeNotice as EventListener)
+
+    return () => {
+      window.removeEventListener(GLOBAL_RUNTIME_NOTICE_EVENT, onRuntimeNotice as EventListener)
+    }
+  }, [])
 
   return (
     <main className={shellClassName}>
@@ -107,15 +126,24 @@ function ShellLayout() {
                   return
                 }
 
+                if (authActionBusy) {
+                  return
+                }
+
+                setAuthActionBusy('sign-in')
+
                 try {
                   await signInHost(email.trim(), password.trim())
                 } catch (error) {
+                  console.warn('ShellLayout: host sign-in failed', error)
                   if (error instanceof Error) {
                     setErrorText(error.message)
                     return
                   }
 
                   setErrorText('Admin sign-in failed.')
+                } finally {
+                  setAuthActionBusy(null)
                 }
               }}
             >
@@ -125,8 +153,10 @@ function ShellLayout() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="username"
+                maxLength={120}
                 required
                 aria-required="true"
+                disabled={Boolean(authActionBusy)}
               />
               <input
                 type="password"
@@ -134,11 +164,13 @@ function ShellLayout() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete="current-password"
+                maxLength={128}
                 required
                 aria-required="true"
+                disabled={Boolean(authActionBusy)}
               />
-              <button type="submit" className="primary-button">
-                Admin Sign In
+              <button type="submit" className="primary-button" disabled={Boolean(authActionBusy)}>
+                {authActionBusy === 'sign-in' ? 'Signing in...' : 'Admin Sign In'}
               </button>
             </form>
           ) : null}
@@ -149,16 +181,26 @@ function ShellLayout() {
               <button
                 type="button"
                 className="ghost-button"
+                disabled={Boolean(authActionBusy)}
                 onClick={async () => {
+                  if (authActionBusy) {
+                    return
+                  }
+
                   setErrorText(null)
+                  setAuthActionBusy('sign-out')
+
                   try {
                     await signOut()
-                  } catch {
+                  } catch (error) {
+                    console.warn('ShellLayout: sign-out failed', error)
                     setErrorText('Sign out failed.')
+                  } finally {
+                    setAuthActionBusy(null)
                   }
                 }}
               >
-                Sign Out
+                {authActionBusy === 'sign-out' ? 'Signing out...' : 'Sign Out'}
               </button>
             </>
           ) : null}
@@ -167,6 +209,20 @@ function ShellLayout() {
         </div>
         ) : null}
       </header>
+      {runtimeNotice ? (
+        <section className="queue-panel" role="status" aria-live="polite">
+          <div className="hero-actions no-margin-bottom">
+            <p className="subcopy no-margin">{runtimeNotice}</p>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setRuntimeNotice(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </section>
+      ) : null}
       <Outlet />
       <footer className="site-legal-footer" aria-label="Copyright notice">
         <p>
