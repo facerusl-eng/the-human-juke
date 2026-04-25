@@ -3303,7 +3303,10 @@
     0 36px 80px rgba(0, 0, 0, 0.56),
     0 0 0 1px rgba(255, 255, 255, 0.45) inset;
   transform: rotate(-1.5deg);
-  animation: mirror-polaroid-pop 520ms cubic-bezier(.2, .85, .2, 1) both;
+  transform-origin: center center;
+  animation:
+    mirror-polaroid-pop 520ms cubic-bezier(.2, .85, .2, 1) both,
+    mirror-polaroid-to-feed 7000ms cubic-bezier(.2, .7, .2, 1) both;
 }
 
 .mirror-polaroid-photo {
@@ -3362,6 +3365,19 @@
   100% {
     opacity: 1;
     transform: translateY(0) scale(1) rotate(-1.5deg);
+  }
+}
+
+@keyframes mirror-polaroid-to-feed {
+  0%,
+  80% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(-1.5deg);
+  }
+
+  100% {
+    opacity: 0.65;
+    transform: translate(34vw, 20vh) scale(0.28) rotate(0deg);
   }
 }
 
