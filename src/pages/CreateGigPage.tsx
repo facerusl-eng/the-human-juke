@@ -1,15 +1,20 @@
 import { useState } from 'react'
-import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
+
+type Step = 'info' | 'datetime'
 
 function CreateGigPage() {
   const navigate = useNavigate()
   const { isHost, loading } = useAuthStore()
   const { event, createEvent } = useQueueStore()
+  const [step, setStep] = useState<Step>('info')
   const [gigName, setGigName] = useState('')
   const [venue, setVenue] = useState('')
+  const [gigDate, setGigDate] = useState('')
+  const [gigStartTime, setGigStartTime] = useState('')
+  const [gigEndTime, setGigEndTime] = useState('')
   const [busy, setBusy] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
 
@@ -23,12 +28,16 @@ function CreateGigPage() {
     return /row-level security policy.*events/i.test(message)
   }
 
-  const runCreateWithLockRetry = async (name: string, nextVenue: string) => {
+  const runCreateWithLockRetry = async (
+    name: string,
+    nextVenue: string,
+    dateTime?: { gigDate?: string; gigStartTime?: string; gigEndTime?: string },
+  ) => {
     const maxAttempts = 6
 
     for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
       try {
-        await createEvent(name, nextVenue)
+        await createEvent(name, nextVenue, dateTime)
         return
       } catch (error) {
         const isLastAttempt = attemptIndex === maxAttempts - 1
@@ -55,8 +64,8 @@ function CreateGigPage() {
     ])
   }
 
-  const onSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
-    formEvent.preventDefault()
+  const handleInfoSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
     setErrorText(null)
 
     if (!gigName.trim()) {
@@ -64,10 +73,23 @@ function CreateGigPage() {
       return
     }
 
+    setStep('datetime')
+  }
+
+  const doCreate = async (includeDatetime: boolean) => {
+    setErrorText(null)
     setBusy(true)
 
+    const dateTime = includeDatetime
+      ? {
+          gigDate: gigDate || undefined,
+          gigStartTime: gigStartTime || undefined,
+          gigEndTime: gigEndTime || undefined,
+        }
+      : undefined
+
     try {
-      await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim()))
+      await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), dateTime))
       navigate('/admin/gig-control')
     } catch (error) {
       if (isAuthLockError(error)) {
@@ -115,10 +137,98 @@ function CreateGigPage() {
     )
   }
 
+  if (step === 'datetime') {
+    return (
+      <section className="create-gig-shell" aria-label="Set gig date and time">
+        <section className="hero-card create-gig-card">
+          <p className="eyebrow">Step 2 of 2</p>
+          <h1>Set Date &amp; Time?</h1>
+          <p className="subcopy">
+            Adding a date and time is optional. You can always update this later in Gig Settings.
+          </p>
+
+          <div className="create-gig-datetime-choice">
+            <button
+              type="button"
+              className="create-gig-choice-btn primary-choice"
+              disabled={busy}
+              onClick={() => doCreate(false)}
+            >
+              <span className="choice-icon">⏭</span>
+              <strong>Skip for now</strong>
+              <span className="choice-hint">Create the gig without a date</span>
+            </button>
+
+            <div className="create-gig-choice-divider">or</div>
+
+            <div className="create-gig-datetime-fields">
+              <p className="create-gig-datetime-label">Set date &amp; time</p>
+
+              <div className="field-row">
+                <label htmlFor="gig-date">Date</label>
+                <input
+                  id="gig-date"
+                  type="date"
+                  value={gigDate}
+                  onChange={(e) => setGigDate(e.target.value)}
+                />
+              </div>
+
+              <div className="create-gig-time-row">
+                <div className="field-row">
+                  <label htmlFor="gig-start-time">Start time</label>
+                  <input
+                    id="gig-start-time"
+                    type="time"
+                    value={gigStartTime}
+                    onChange={(e) => setGigStartTime(e.target.value)}
+                  />
+                </div>
+
+                <div className="field-row">
+                  <label htmlFor="gig-end-time">End time <span className="optional-label">(optional)</span></label>
+                  <input
+                    id="gig-end-time"
+                    type="time"
+                    value={gigEndTime}
+                    onChange={(e) => setGigEndTime(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="primary-button create-gig-confirm-btn"
+                disabled={busy}
+                onClick={() => doCreate(true)}
+              >
+                {busy ? 'Creating…' : 'Create Gig with Date & Time'}
+              </button>
+            </div>
+          </div>
+
+          {errorText ? <p className="error-text">{errorText}</p> : null}
+
+          <div className="create-gig-back-row">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => { setStep('info'); setErrorText(null) }}
+              disabled={busy}
+            >
+              ← Back
+            </button>
+          </div>
+        </section>
+      </section>
+    )
+  }
+
+  // Step 1: basic info
   return (
     <section className="create-gig-shell" aria-label="Create gig">
       <section className="hero-card create-gig-card">
-        <p className="eyebrow">Setup</p>
+        <p className="eyebrow">Step 1 of 2</p>
         <h1>Create a New Gig</h1>
         <p className="subcopy">
           Name your gig now, then choose from the dashboard which gig is live for your audience.
@@ -133,7 +243,7 @@ function CreateGigPage() {
           </div>
         ) : null}
 
-        <form className="queue-form create-gig-form" onSubmit={onSubmit}>
+        <form className="queue-form create-gig-form" onSubmit={handleInfoSubmit}>
           <div className="field-row">
             <label htmlFor="gig-name">Gig name *</label>
             <input
@@ -157,14 +267,13 @@ function CreateGigPage() {
           </div>
           {errorText ? <p className="error-text">{errorText}</p> : null}
           <div className="hero-actions">
-            <button type="submit" className="primary-button" disabled={busy}>
-              {busy ? 'Creating…' : 'Create Gig'}
+            <button type="submit" className="primary-button">
+              Next →
             </button>
             <button
               type="button"
               className="secondary-button"
               onClick={() => navigate('/admin')}
-              disabled={busy}
             >
               Cancel
             </button>

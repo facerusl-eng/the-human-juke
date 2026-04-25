@@ -522,3 +522,9 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS accent_color TEXT NOT NULL DEFAULT '#5dd7ff',
   ADD COLUMN IF NOT EXISTS default_audience_bg_blur INTEGER NOT NULL DEFAULT 5,
   ADD COLUMN IF NOT EXISTS default_mirror_layout TEXT NOT NULL DEFAULT 'centered';
+
+-- ─── Optional gig date/time columns (April 2026) ────────────────────────────
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS gig_date DATE,
+  ADD COLUMN IF NOT EXISTS gig_start_time TIME,
+  ADD COLUMN IF NOT EXISTS gig_end_time TIME;

@@ -81,7 +81,7 @@ type QueueContextValue = {
   toggleExplicitFilter: () => Promise<void>
   toggleVotingLock: (songId: string, nextValue: boolean) => Promise<void>
   removeSong: (songId: string) => Promise<void>
-  createEvent: (name: string, venue: string) => Promise<void>
+  createEvent: (name: string, venue: string, dateTime?: { gigDate?: string; gigStartTime?: string; gigEndTime?: string }) => Promise<void>
   markPlayed: () => Promise<void>
 }
 
@@ -1092,7 +1092,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           await fetchQueueSnapshot(event.id)
         }
       },
-      createEvent: async (name: string, venue: string) => {
+      createEvent: async (name: string, venue: string, dateTime?: { gigDate?: string; gigStartTime?: string; gigEndTime?: string }) => {
         if (!user) {
           throw new Error('Sign in with the host account before creating a gig.')
         }
@@ -1131,6 +1131,9 @@ function QueueProvider({ children }: PropsWithChildren) {
                 playlist_only_requests: true,
                 room_open: false,
                 explicit_filter_enabled: true,
+                gig_date: dateTime?.gigDate ?? null,
+                gig_start_time: dateTime?.gigStartTime ?? null,
+                gig_end_time: dateTime?.gigEndTime ?? null,
               })
               .select('id')
               .single(),
