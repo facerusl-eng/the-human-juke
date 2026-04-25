@@ -46,22 +46,24 @@ function hasUnsafeControlChars(value: string) {
   return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
 }
 
-function normalizeExternalLink(url: string | null | undefined) {
-  // Handles MobilePay stored as either a URL or a raw phone number / username.
-  // Returns { href, display } or null.
-  function resolveMobilepayLink(value: string | null | undefined): { href: string; display: string } | null {
-    const trimmed = value?.trim()
-    if (!trimmed) return null
-    // Phone number pattern: +45... or just digits with optional +
-    if (/^\+?[\d\s\-]{6,16}$/.test(trimmed)) {
-      const digits = trimmed.replace(/[\s\-]/g, '')
-      return { href: `tel:${digits}`, display: `MobilePay (${trimmed})` }
-    }
-    const url = normalizeExternalLink(trimmed)
-    if (!url) return null
-    return { href: url, display: 'MobilePay' }
+// Handles MobilePay stored as either a URL or a raw phone number / username.
+// Returns { href, display } or null.
+function resolveMobilepayLink(value: string | null | undefined): { href: string; display: string } | null {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+
+  // Phone number pattern: +45... or just digits with optional +
+  if (/^\+?[\d\s\-]{6,16}$/.test(trimmed)) {
+    const digits = trimmed.replace(/[\s\-]/g, '')
+    return { href: `tel:${digits}`, display: `MobilePay (${trimmed})` }
   }
 
+  const url = normalizeExternalLink(trimmed)
+  if (!url) return null
+  return { href: url, display: 'MobilePay' }
+}
+
+function normalizeExternalLink(url: string | null | undefined) {
   const trimmedUrl = url?.trim()
 
   if (!trimmedUrl) {
@@ -599,7 +601,7 @@ function EventPage() {
         </article>
 
         {socialLinks.length > 0 || allTipLinks.length > 0 ? (
-          <section className="queue-panel link-panel" aria-label="Performer links">
+          <section className={`queue-panel link-panel${allTipLinks.length > 0 ? ' tip-jar-panel' : ''}`} aria-label="Performer links">
             {socialLinks.length > 0 ? (
               <>
                 <div className="panel-head" id="audience-social-links">
@@ -622,7 +624,7 @@ function EventPage() {
                 <div className="panel-head" id="audience-tip-jar">
                   <h2>Tip Jar</h2>
                 </div>
-                <p className="subcopy">Loving the music? 🎶 Tips go straight to the artist — every little bit means a lot. Thank you! 🙏</p>
+                <p className="subcopy tip-jar-copy">If a song made you sing too loud on purpose, tip the artist here. Mic drops are free, snacks are not. 🎤✨</p>
                 <ul className="link-list" aria-label="Tip links">
                   {allTipLinks.map((link) => (
                     <li key={link.label}>

@@ -6610,3 +6610,31 @@
     font-size: 0.94rem;
   }
 }
+
+/* Audience tip jar: warmer look + friendlier emphasis */
+.audience-shell-modern .link-panel.tip-jar-panel {
+  border-color: rgba(249, 115, 22, 0.28);
+  background:
+    radial-gradient(circle at 86% 12%, rgba(251, 146, 60, 0.18) 0%, transparent 34%),
+    radial-gradient(circle at 10% 86%, rgba(244, 63, 94, 0.14) 0%, transparent 30%),
+    #ffffff;
+}
+
+.audience-shell-modern .tip-jar-copy {
+  color: #7c2d12;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.audience-shell-modern .tip-chip {
+  border-color: rgba(234, 88, 12, 0.42);
+  background: linear-gradient(140deg, rgba(255, 237, 213, 0.95), rgba(254, 205, 211, 0.88));
+  color: #7c2d12;
+  box-shadow: 0 8px 18px rgba(194, 65, 12, 0.14);
+}
+
+.audience-shell-modern .tip-chip:hover,
+.audience-shell-modern .tip-chip:focus-visible {
+  border-color: rgba(234, 88, 12, 0.7);
+  box-shadow: 0 10px 24px rgba(190, 24, 93, 0.2);
+}
