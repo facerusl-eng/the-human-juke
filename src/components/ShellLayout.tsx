@@ -1,7 +1,22 @@
 import { useEffect, useState } from 'react'
+import type { SyntheticEvent } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { AUDIENCE_NAME_COMMITTED_EVENT, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from '../state/authStore'
+
+const PRIMARY_APP_LOGO_SRC = '/the-human-jukebox-logo.png'
+const FALLBACK_APP_LOGO_SRC = '/the-human-jukebox-logo.svg'
+
+function applyLogoFallback(event: SyntheticEvent<HTMLImageElement>) {
+  const imageElement = event.currentTarget
+
+  if (imageElement.dataset.logoFallbackApplied === 'true') {
+    return
+  }
+
+  imageElement.dataset.logoFallbackApplied = 'true'
+  imageElement.src = FALLBACK_APP_LOGO_SRC
+}
 
 function ShellLayout() {
   const location = useLocation()
@@ -14,6 +29,7 @@ function ShellLayout() {
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
   const showAdminMobileMenu = isAdminMode && !isAudienceMode
+  const showPhotoNavActions = location.pathname === '/'
   const shellClassName = location.pathname.startsWith('/admin/setlist-library')
     ? 'app-shell app-shell-wide'
     : 'app-shell'
@@ -47,13 +63,18 @@ function ShellLayout() {
     <main className={shellClassName}>
       <header className={topbarClassName}>
         <p className="brand" aria-label="The Human Jukebox">
-          <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
+          <img
+            src={PRIMARY_APP_LOGO_SRC}
+            onError={applyLogoFallback}
+            alt="The Human Jukebox"
+            className="brand-logo"
+          />
         </p>
         {showAdminMobileMenu ? (
           <button
             type="button"
             className="mobile-nav-toggle"
-            aria-expanded={isMobileNavOpen}
+            aria-expanded={isMobileNavOpen ? 'true' : 'false'}
             aria-controls="primary-site-nav"
             onClick={() => setIsMobileNavOpen((open) => !open)}
           >
@@ -70,11 +91,46 @@ function ShellLayout() {
           ) : (
             <>
               <NavLink to="/" end>Home</NavLink>
-              <NavLink to="/audience">Audience</NavLink>
+              {showPhotoNavActions ? (
+                <NavLink
+                  to="/audience"
+                  className="top-nav-logo-link top-nav-logo-link-audience"
+                  aria-label="Audience"
+                  title="Open the live queue and request songs"
+                >
+                  <img
+                    src={PRIMARY_APP_LOGO_SRC}
+                    onError={applyLogoFallback}
+                    alt=""
+                    className="top-nav-logo-image"
+                    aria-hidden="true"
+                  />
+                </NavLink>
+              ) : (
+                <NavLink to="/audience">Audience</NavLink>
+              )}
               <NavLink to="/feed">Feed</NavLink>
               {isHost ? (
                 <>
-                  <NavLink to="/admin" end>Dashboard</NavLink>
+                  {showPhotoNavActions ? (
+                    <NavLink
+                      to="/admin"
+                      end
+                      className="top-nav-logo-link top-nav-logo-link-admin"
+                      aria-label="Dashboard"
+                      title="Open host tools and event controls"
+                    >
+                      <img
+                        src={PRIMARY_APP_LOGO_SRC}
+                        onError={applyLogoFallback}
+                        alt=""
+                        className="top-nav-logo-image"
+                        aria-hidden="true"
+                      />
+                    </NavLink>
+                  ) : (
+                    <NavLink to="/admin" end>Dashboard</NavLink>
+                  )}
                   <NavLink to="/admin/gigs">Gigs</NavLink>
                   <NavLink to="/admin/create-gig">New Gig</NavLink>
                   <NavLink to="/admin/gig-control">Gig Control</NavLink>
@@ -83,7 +139,24 @@ function ShellLayout() {
                   <NavLink to="/admin/settings">Settings</NavLink>
                 </>
               ) : (
-                <NavLink to="/admin">Admin</NavLink>
+                showPhotoNavActions ? (
+                  <NavLink
+                    to="/admin"
+                    className="top-nav-logo-link top-nav-logo-link-admin"
+                    aria-label="Admin"
+                    title="Sign in and manage your event"
+                  >
+                    <img
+                      src={PRIMARY_APP_LOGO_SRC}
+                      onError={applyLogoFallback}
+                      alt=""
+                      className="top-nav-logo-image"
+                      aria-hidden="true"
+                    />
+                  </NavLink>
+                ) : (
+                  <NavLink to="/admin">Admin</NavLink>
+                )
               )}
             </>
           )}
