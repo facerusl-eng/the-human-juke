@@ -150,7 +150,7 @@ function SettingsPage() {
         const { data, error } = await supabase
           .from('profiles')
           .select(
-            'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, default_gig_name, default_venue',
+            'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, default_gig_name, default_venue',
           )
           .eq('user_id', user.id)
           .single()
@@ -174,23 +174,10 @@ function SettingsPage() {
             facebook_url: data.facebook_url ?? '',
             paypal_url: data.paypal_url ?? '',
             mobilpay_url: data.mobilpay_url ?? '',
+            contact_email: data.contact_email ?? '',
             default_gig_name: data.default_gig_name ?? '',
             default_venue: data.default_venue ?? '',
           }))
-
-          // Optional column: load silently if migration exists.
-          const { data: optionalData, error: optionalError } = await supabase
-            .from('profiles')
-            .select('contact_email')
-            .eq('user_id', user.id)
-            .maybeSingle()
-
-          if (!optionalError) {
-            setState((prev) => ({
-              ...prev,
-              contact_email: optionalData?.contact_email ?? '',
-            }))
-          }
         }
       } catch (error) {
         console.warn('SettingsPage: failed to load host settings', error)
@@ -285,6 +272,7 @@ function SettingsPage() {
       facebook_url: normalizedSocialFields.facebook_url,
       paypal_url: normalizedSocialFields.paypal_url,
       mobilpay_url: stateToSave.mobilpay_url.trim() || null,
+      contact_email: stateToSave.contact_email.trim() || null,
       default_gig_name: stateToSave.default_gig_name.trim() || null,
       default_venue: stateToSave.default_venue.trim() || null,
     }
@@ -336,7 +324,6 @@ function SettingsPage() {
         .from('profiles')
         .update({
           website_url: normalizedSocialFields.website_url,
-          contact_email: stateToSave.contact_email.trim() || null,
           performer_photo_url: stateToSave.performer_photo_url.trim() || null,
           theme_preset: stateToSave.theme_preset,
           accent_color: stateToSave.accent_color,
