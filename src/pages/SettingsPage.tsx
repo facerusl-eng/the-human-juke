@@ -100,7 +100,7 @@ function CollapsibleSection({
         type="button"
         className="section-header"
         onClick={onToggle}
-        aria-expanded={isExpanded}
+        aria-expanded={isExpanded ? 'true' : 'false'}
         aria-controls={`${id}-content`}
       >
         <span className="section-icon">{icon}</span>
@@ -653,10 +653,8 @@ function SettingsPage() {
                 type="button"
                 className={`theme-preset-card ${state.theme_preset === key ? 'selected' : ''}`}
                 onClick={() => handleApplyTheme(key)}
-                style={{
-                  '--preview-accent': preset.accent,
-                  '--preview-bg': preset.bg,
-                } as React.CSSProperties}
+                data-accent={preset.accent}
+                data-bg={preset.bg}
               >
                 <div className="preset-preview"></div>
                 <span>{preset.name}</span>
@@ -797,7 +795,7 @@ function SettingsPage() {
                 type="file"
                 accept="application/json"
                 onChange={handleImport}
-                style={{ display: 'none' }}
+                className="visually-hidden"
               />
             </label>
 
