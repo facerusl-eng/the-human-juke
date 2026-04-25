@@ -14,7 +14,6 @@ function ShellLayout() {
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
   const showAdminMobileMenu = isAdminMode && !isAudienceMode
-  const showPhotoNavActions = location.pathname === '/'
   const shellClassName = location.pathname.startsWith('/admin/setlist-library')
     ? 'app-shell app-shell-wide'
     : 'app-shell'
@@ -71,34 +70,11 @@ function ShellLayout() {
           ) : (
             <>
               <NavLink to="/" end>Home</NavLink>
-              {showPhotoNavActions ? (
-                <NavLink
-                  to="/audience"
-                  className="top-nav-logo-link top-nav-logo-link-audience"
-                  aria-label="Audience"
-                  title="Open the live queue and request songs"
-                >
-                  <img src="/the-human-jukebox-logo.svg" alt="" className="top-nav-logo-image" aria-hidden="true" />
-                </NavLink>
-              ) : (
-                <NavLink to="/audience">Audience</NavLink>
-              )}
+              <NavLink to="/audience">Audience</NavLink>
               <NavLink to="/feed">Feed</NavLink>
               {isHost ? (
                 <>
-                  {showPhotoNavActions ? (
-                    <NavLink
-                      to="/admin"
-                      end
-                      className="top-nav-logo-link top-nav-logo-link-admin"
-                      aria-label="Dashboard"
-                      title="Open host tools and event controls"
-                    >
-                      <img src="/the-human-jukebox-logo.svg" alt="" className="top-nav-logo-image" aria-hidden="true" />
-                    </NavLink>
-                  ) : (
-                    <NavLink to="/admin" end>Dashboard</NavLink>
-                  )}
+                  <NavLink to="/admin" end>Dashboard</NavLink>
                   <NavLink to="/admin/gigs">Gigs</NavLink>
                   <NavLink to="/admin/create-gig">New Gig</NavLink>
                   <NavLink to="/admin/gig-control">Gig Control</NavLink>
@@ -107,18 +83,7 @@ function ShellLayout() {
                   <NavLink to="/admin/settings">Settings</NavLink>
                 </>
               ) : (
-                showPhotoNavActions ? (
-                  <NavLink
-                    to="/admin"
-                    className="top-nav-logo-link top-nav-logo-link-admin"
-                    aria-label="Admin"
-                    title="Sign in and manage your event"
-                  >
-                    <img src="/the-human-jukebox-logo.svg" alt="" className="top-nav-logo-image" aria-hidden="true" />
-                  </NavLink>
-                ) : (
-                  <NavLink to="/admin">Admin</NavLink>
-                )
+                <NavLink to="/admin">Admin</NavLink>
               )}
             </>
           )}

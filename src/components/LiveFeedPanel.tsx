@@ -25,7 +25,9 @@ type LiveFeedPanelProps = {
 const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '❤️']
 const AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
 const FEED_IMAGE_REVEAL_DELAY_MS = 7000
-const FEED_POLL_INTERVAL_MS = 2000
+const FEED_POLL_INTERVAL_MS = 5000
+const FEED_FETCH_DEBOUNCE_MS = 300
+const FEED_MAX_POSTS = 40
 
 function getStoredAuthorName() {
   if (typeof window === 'undefined') {
@@ -68,6 +70,9 @@ function isFeedPostVisible(post: FeedPost, now: number, mode: LiveFeedPanelProps
 
 function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveFeedPanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const isFetchingPostsRef = useRef(false)
+  const hasQueuedReloadRef = useRef(false)
+  const reloadTimerIdRef = useRef<number | null>(null)
   const { user, isHost } = useAuthStore()
   const { event } = useQueueStore()
   const [posts, setPosts] = useState<FeedPost[]>([])
@@ -113,16 +118,24 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
     let isCurrent = true
     let pollTimerId: number | null = null
 
-    const loadPosts = async () => {
+    const loadPosts = async (silent = false) => {
+      if (isFetchingPostsRef.current) {
+        hasQueuedReloadRef.current = true
+        return
+      }
+
+      isFetchingPostsRef.current = true
+
       if (!event?.id) {
         if (isCurrent) {
           setPosts([])
           setLoading(false)
         }
+        isFetchingPostsRef.current = false
         return
       }
 
-      if (isCurrent) {
+      if (isCurrent && !silent) {
         setLoading(true)
       }
 
@@ -131,24 +144,43 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
         .select('id, event_id, user_id, author_name, message, image_data_url, created_at')
         .eq('event_id', event.id)
         .order('created_at', { ascending: false })
-        .limit(40)
+        .limit(FEED_MAX_POSTS)
 
       if (!isCurrent) {
+        isFetchingPostsRef.current = false
         return
       }
 
       if (error) {
         setErrorText('Unable to load the live feed right now.')
-        setPosts([])
         setLoading(false)
+        isFetchingPostsRef.current = false
         return
       }
 
+      setErrorText(null)
       setPosts((data ?? []) as FeedPost[])
       setLoading(false)
+      isFetchingPostsRef.current = false
+
+      if (hasQueuedReloadRef.current) {
+        hasQueuedReloadRef.current = false
+        void loadPosts(true)
+      }
     }
 
-    void loadPosts()
+    const requestReload = (silent = true) => {
+      if (reloadTimerIdRef.current !== null) {
+        return
+      }
+
+      reloadTimerIdRef.current = window.setTimeout(() => {
+        reloadTimerIdRef.current = null
+        void loadPosts(silent)
+      }, FEED_FETCH_DEBOUNCE_MS)
+    }
+
+    void loadPosts(false)
 
     if (!event?.id) {
       return () => {
@@ -167,22 +199,46 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
           filter: `event_id=eq.${event.id}`,
         },
         () => {
-          void loadPosts()
+          requestReload(true)
         },
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          setErrorText('Feed realtime is reconnecting. Showing latest posts...')
+          requestReload(true)
+        }
+      })
 
     pollTimerId = window.setInterval(() => {
-      if (isCurrent) {
-        void loadPosts()
+      if (isCurrent && !document.hidden) {
+        requestReload(true)
       }
     }, FEED_POLL_INTERVAL_MS)
 
+    const reloadOnReconnect = () => {
+      if (!document.hidden) {
+        requestReload(true)
+      }
+    }
+
+    window.addEventListener('focus', reloadOnReconnect)
+    window.addEventListener('online', reloadOnReconnect)
+    document.addEventListener('visibilitychange', reloadOnReconnect)
+
     return () => {
       isCurrent = false
+      isFetchingPostsRef.current = false
+      hasQueuedReloadRef.current = false
+      if (reloadTimerIdRef.current !== null) {
+        window.clearTimeout(reloadTimerIdRef.current)
+        reloadTimerIdRef.current = null
+      }
       if (pollTimerId !== null) {
         window.clearInterval(pollTimerId)
       }
+      window.removeEventListener('focus', reloadOnReconnect)
+      window.removeEventListener('online', reloadOnReconnect)
+      document.removeEventListener('visibilitychange', reloadOnReconnect)
       void supabase.removeChannel(channel)
     }
   }, [event?.id])
@@ -256,7 +312,7 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
             return currentPosts
           }
 
-          return [insertedPost as FeedPost, ...currentPosts].slice(0, 40)
+              return [insertedPost as FeedPost, ...currentPosts].slice(0, FEED_MAX_POSTS)
         })
       }
 
