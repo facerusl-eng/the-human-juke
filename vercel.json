@@ -23,6 +23,13 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/a/:eventId",
+      "destination": "/audience?event=:eventId",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
