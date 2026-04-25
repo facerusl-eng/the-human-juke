@@ -256,33 +256,23 @@ function SettingsPage() {
 
     setSaveError(null)
 
-    const normalizedSocialFields = {
-      instagram_url: normalizeOptionalUrl(stateToSave.instagram_url),
-      tiktok_url: normalizeOptionalUrl(stateToSave.tiktok_url),
-      youtube_url: normalizeOptionalUrl(stateToSave.youtube_url),
-      facebook_url: normalizeOptionalUrl(stateToSave.facebook_url),
-      paypal_url: normalizeOptionalUrl(stateToSave.paypal_url),
-      website_url: normalizeOptionalUrl(stateToSave.website_url),
+    const resolveOptionalLinkValue = (value: string) => {
+      const trimmedValue = value.trim()
+      if (!trimmedValue) {
+        return null
+      }
+
+      // Prefer normalized URLs, but keep raw input so one field never blocks save.
+      return normalizeOptionalUrl(trimmedValue) ?? trimmedValue
     }
 
-    const invalidField = Object.entries(normalizedSocialFields).find(([fieldName, normalizedUrl]) => {
-      const originalValue = stateToSave[fieldName as keyof SettingsState] as string
-      return originalValue.trim().length > 0 && !normalizedUrl
-    })
-
-    if (invalidField) {
-      const fieldLabels: Record<string, string> = {
-        instagram_url: 'Instagram URL',
-        tiktok_url: 'TikTok URL',
-        youtube_url: 'YouTube URL',
-        facebook_url: 'Facebook URL',
-        paypal_url: 'PayPal URL',
-        website_url: 'Website URL',
-      }
-      const invalidFieldName = fieldLabels[invalidField[0]] ?? 'URL field'
-      setSaveError(`Please enter a valid ${invalidFieldName}. Example: instagram.com/yourname`)
-      setSaveStatus('error')
-      return
+    const normalizedSocialFields = {
+      instagram_url: resolveOptionalLinkValue(stateToSave.instagram_url),
+      tiktok_url: resolveOptionalLinkValue(stateToSave.tiktok_url),
+      youtube_url: resolveOptionalLinkValue(stateToSave.youtube_url),
+      facebook_url: resolveOptionalLinkValue(stateToSave.facebook_url),
+      paypal_url: resolveOptionalLinkValue(stateToSave.paypal_url),
+      website_url: resolveOptionalLinkValue(stateToSave.website_url),
     }
 
     // Core columns that always exist
