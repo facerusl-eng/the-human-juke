@@ -273,7 +273,6 @@ function SettingsPage() {
 
     // Core columns that always exist
     const corePayload = {
-      user_id: user.id,
       display_name: stateToSave.display_name.trim() || null,
       bio: stateToSave.bio.trim() || null,
       instagram_url: normalizedSocialFields.instagram_url,
@@ -290,7 +289,8 @@ function SettingsPage() {
       // Save core columns (always safe)
       const { error } = await supabase
         .from('profiles')
-        .upsert(corePayload, { onConflict: 'user_id' })
+        .update(corePayload)
+        .eq('user_id', user.id)
 
       if (error) {
         throw error
