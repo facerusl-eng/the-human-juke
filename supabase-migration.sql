@@ -1,3 +1,51 @@
+-- Allow QR audience access for room-open gigs even when is_active/profile sync lags
+DROP POLICY IF EXISTS events_select_authenticated ON public.events;
+CREATE POLICY events_select_authenticated ON public.events
+  FOR SELECT TO authenticated
+  USING (
+    is_active = true
+    OR room_open = true
+    OR host_id = auth.uid()
+  );
+
+DROP POLICY IF EXISTS queue_songs_select_event ON public.queue_songs;
+CREATE POLICY queue_songs_select_event ON public.queue_songs
+  FOR SELECT TO authenticated
+  USING (
+    (
+      is_removed = false
+      AND (
+        event_id IN (
+          SELECT p.active_event_id
+          FROM public.profiles p
+          WHERE p.user_id = auth.uid()
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM public.events e
+          WHERE e.id = queue_songs.event_id
+            AND e.room_open = true
+        )
+      )
+    )
+    OR is_host_for_event(event_id)
+  );
+
+DROP POLICY IF EXISTS queue_songs_insert_guest ON public.queue_songs;
+CREATE POLICY queue_songs_insert_guest ON public.queue_songs
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = queue_songs.event_id
+        AND e.room_open = true
+        AND (
+          e.explicit_filter_enabled = false
+          OR queue_songs.is_explicit = false
+        )
+    )
+  );
 -- Run this in the Supabase SQL Editor
 -- Dashboard → SQL Editor → paste and run
 
@@ -345,21 +393,35 @@ BEGIN
       );
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'event_playlists' AND policyname = 'event_playlists_host_insert'
-  ) THEN
-    CREATE POLICY event_playlists_host_insert ON public.event_playlists
-      FOR INSERT TO authenticated
-      WITH CHECK (is_host_for_event(event_id));
-  END IF;
+  DROP POLICY IF EXISTS event_playlists_host_insert ON public.event_playlists;
+  CREATE POLICY event_playlists_host_insert ON public.event_playlists
+    FOR INSERT TO authenticated
+    WITH CHECK (
+      EXISTS (
+        SELECT 1
+        FROM public.events events
+        WHERE events.id = event_playlists.event_id
+          AND events.host_id = auth.uid()
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM public.playlists playlists
+        WHERE playlists.id = event_playlists.playlist_id
+          AND playlists.user_id = auth.uid()
+      )
+    );
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'event_playlists' AND policyname = 'event_playlists_host_delete'
-  ) THEN
-    CREATE POLICY event_playlists_host_delete ON public.event_playlists
-      FOR DELETE TO authenticated
-      USING (is_host_for_event(event_id));
-  END IF;
+  DROP POLICY IF EXISTS event_playlists_host_delete ON public.event_playlists;
+  CREATE POLICY event_playlists_host_delete ON public.event_playlists
+    FOR DELETE TO authenticated
+    USING (
+      EXISTS (
+        SELECT 1
+        FROM public.events events
+        WHERE events.id = event_playlists.event_id
+          AND events.host_id = auth.uid()
+      )
+    );
 END $$;
 
 -- Allow hosts to delete gigs safely and clear host profile pointers when a gig is removed
@@ -376,3 +438,34 @@ ALTER TABLE public.profiles
   FOREIGN KEY (active_event_id)
   REFERENCES public.events(id)
   ON DELETE SET NULL;
+
+CREATE OR REPLACE FUNCTION public.is_playlist_owner(target_playlist_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.playlists playlists
+    WHERE playlists.id = target_playlist_id
+      AND playlists.user_id = auth.uid()
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_playlist_owner(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_playlist_owner(UUID) TO authenticated;
+
+DROP POLICY IF EXISTS event_playlists_host_insert ON public.event_playlists;
+CREATE POLICY event_playlists_host_insert ON public.event_playlists
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.events events
+      WHERE events.id = event_playlists.event_id
+        AND events.host_id = auth.uid()
+    )
+    AND public.is_playlist_owner(event_playlists.playlist_id)
+  );
