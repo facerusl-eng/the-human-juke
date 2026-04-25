@@ -25,6 +25,7 @@ type LiveFeedPanelProps = {
 const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '❤️']
 const AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
 const FEED_IMAGE_REVEAL_DELAY_MS = 7000
+const FEED_POLL_INTERVAL_MS = 2000
 
 function getStoredAuthorName() {
   if (typeof window === 'undefined') {
@@ -53,7 +54,11 @@ function formatPostTime(createdAt: string) {
   }).format(new Date(createdAt))
 }
 
-function isFeedPostVisible(post: FeedPost, now: number) {
+function isFeedPostVisible(post: FeedPost, now: number, mode: LiveFeedPanelProps['mode']) {
+  if (mode !== 'mirror') {
+    return true
+  }
+
   if (!post.image_data_url) {
     return true
   }
@@ -80,9 +85,10 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
   )
   const resolvedAuthorName = authorName.trim() || suggestedAuthorName
   const showJumpLink = mode === 'audience'
+  const isMirrorMode = mode === 'mirror'
   const visiblePosts = useMemo(
-    () => posts.filter((post) => isFeedPostVisible(post, feedNow)),
-    [feedNow, posts],
+    () => posts.filter((post) => isFeedPostVisible(post, feedNow, mode)),
+    [feedNow, mode, posts],
   )
 
   useEffect(() => {
@@ -105,6 +111,7 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
 
   useEffect(() => {
     let isCurrent = true
+    let pollTimerId: number | null = null
 
     const loadPosts = async () => {
       if (!event?.id) {
@@ -165,8 +172,17 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
       )
       .subscribe()
 
+    pollTimerId = window.setInterval(() => {
+      if (isCurrent) {
+        void loadPosts()
+      }
+    }, FEED_POLL_INTERVAL_MS)
+
     return () => {
       isCurrent = false
+      if (pollTimerId !== null) {
+        window.clearInterval(pollTimerId)
+      }
       void supabase.removeChannel(channel)
     }
   }, [event?.id])
@@ -218,16 +234,30 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
     setBusy(true)
 
     try {
-      const { error } = await supabase.from('feed_posts').insert({
-        event_id: event.id,
-        user_id: user.id,
-        author_name: resolvedAuthorName,
-        message: message.trim(),
-        image_data_url: imageDataUrl,
-      })
+      const { data: insertedPost, error } = await supabase
+        .from('feed_posts')
+        .insert({
+          event_id: event.id,
+          user_id: user.id,
+          author_name: resolvedAuthorName,
+          message: message.trim(),
+          image_data_url: imageDataUrl,
+        })
+        .select('id, event_id, user_id, author_name, message, image_data_url, created_at')
+        .single()
 
       if (error) {
         throw error
+      }
+
+      if (insertedPost) {
+        setPosts((currentPosts) => {
+          if (currentPosts.some((post) => post.id === insertedPost.id)) {
+            return currentPosts
+          }
+
+          return [insertedPost as FeedPost, ...currentPosts].slice(0, 40)
+        })
       }
 
       setMessage('')
@@ -348,7 +378,11 @@ function LiveFeedPanel({ mode, showComposer = true, title = 'Live Feed' }: LiveF
       {!loading ? (
         <div className="live-feed-list" role="list">
           {visiblePosts.length === 0 ? (
-            <p className="subcopy no-margin">No feed posts yet. Start the conversation.</p>
+            <p className="subcopy no-margin">
+              {isMirrorMode
+                ? 'No community posts yet. Audience shout-outs and photos will appear here live.'
+                : 'No feed posts yet. Start the conversation.'}
+            </p>
           ) : (
             visiblePosts.map((post) => {
               const canDelete = user?.id === post.user_id || isHost

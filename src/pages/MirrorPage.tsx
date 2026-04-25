@@ -30,6 +30,7 @@ const SPOTLIGHT_CAPTION_BUILDERS = [
 ]
 
 const SPOTLIGHT_DURATION_MS = 7000
+const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
 
 type SpotlightQueueItem = {
@@ -86,6 +87,7 @@ function MirrorPage() {
   const previousSongIdRef = useRef<string | null>(null)
   const spotlightQueueRef = useRef<SpotlightQueueItem[]>([])
   const spotlightBusyRef = useRef(false)
+  const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
 
   const nowPlaying = songs[0]
   const isLive = event?.roomOpen ?? false
@@ -292,6 +294,7 @@ function MirrorPage() {
     if (!eventId || !showSpotlight) {
       spotlightQueueRef.current = []
       spotlightBusyRef.current = false
+      seenSpotlightPostIdsRef.current = new Set()
 
       if (spotlightTimerRef.current) {
         window.clearTimeout(spotlightTimerRef.current)
@@ -346,6 +349,29 @@ function MirrorPage() {
       startSpotlight(nextItem)
     }
 
+    const trackAndEnqueueSpotlight = (nextPost: {
+      id?: string
+      image_data_url?: string | null
+      author_name?: string | null
+    }) => {
+      if (!nextPost.image_data_url || !nextPost.id) {
+        return
+      }
+
+      if (seenSpotlightPostIdsRef.current.has(nextPost.id)) {
+        return
+      }
+
+      seenSpotlightPostIdsRef.current.add(nextPost.id)
+
+      enqueueSpotlight({
+        id: nextPost.id,
+        eventId,
+        imageDataUrl: nextPost.image_data_url,
+        authorName: nextPost.author_name?.trim() || 'Guest',
+      })
+    }
+
     const channel = supabase
       .channel(`mirror-feed-spotlight-${eventId}`)
       .on(
@@ -357,31 +383,59 @@ function MirrorPage() {
           filter: `event_id=eq.${eventId}`,
         },
         (payload) => {
-          const nextPost = payload.new as {
-            id?: string
-            image_data_url?: string | null
-            author_name?: string | null
-          }
-
-          if (!nextPost.image_data_url) {
-            return
-          }
-
-          enqueueSpotlight({
-            id: nextPost.id ?? crypto.randomUUID(),
-            eventId,
-            imageDataUrl: nextPost.image_data_url,
-            authorName: nextPost.author_name?.trim() || 'Guest',
-          })
+          const nextPost = payload.new as { id?: string; image_data_url?: string | null; author_name?: string | null }
+          trackAndEnqueueSpotlight(nextPost)
         },
       )
       .subscribe()
 
+    let isCurrent = true
+
+    const loadRecentImagePosts = async (seedOnly: boolean) => {
+      const { data, error } = await supabase
+        .from('feed_posts')
+        .select('id, image_data_url, author_name, created_at')
+        .eq('event_id', eventId)
+        .not('image_data_url', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(15)
+
+      if (!isCurrent || error || !data?.length) {
+        return
+      }
+
+      const orderedPosts = [...data].reverse()
+
+      for (const nextPost of orderedPosts) {
+        if (!nextPost.id) {
+          continue
+        }
+
+        if (seedOnly) {
+          seenSpotlightPostIdsRef.current.add(nextPost.id)
+          continue
+        }
+
+        trackAndEnqueueSpotlight(nextPost)
+      }
+    }
+
+    void loadRecentImagePosts(true)
+
+    const pollTimerId = window.setInterval(() => {
+      if (isCurrent) {
+        void loadRecentImagePosts(false)
+      }
+    }, SPOTLIGHT_POLL_INTERVAL_MS)
+
     return () => {
+      isCurrent = false
+      window.clearInterval(pollTimerId)
       if (spotlightTimerRef.current) {
         window.clearTimeout(spotlightTimerRef.current)
         spotlightTimerRef.current = null
       }
+      seenSpotlightPostIdsRef.current = new Set()
       void supabase.removeChannel(channel)
     }
   }, [eventId, showSpotlight])
