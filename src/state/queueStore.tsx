@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { supabase } from '../lib/supabase'
 import { fetchSongArtwork } from '../lib/songArtwork'
@@ -275,6 +275,7 @@ function QueueProvider({ children }: PropsWithChildren) {
   const [songs, setSongs] = useState<QueueSong[]>([])
   const [performedSongs, setPerformedSongs] = useState<PerformedSong[]>([])
   const [loading, setLoading] = useState(true)
+  const activeEventIdRef = useRef<string | null>(null)
 
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
@@ -325,6 +326,12 @@ function QueueProvider({ children }: PropsWithChildren) {
     setSongs(sortByVotesDesc((songsData ?? []) as QueueSong[]))
   }
 
+  const fetchQueueSnapshotRef = useRef(fetchQueueSnapshot)
+
+  useEffect(() => {
+    fetchQueueSnapshotRef.current = fetchQueueSnapshot
+  }, [fetchQueueSnapshot])
+
   useEffect(() => {
     let isCurrent = true
     let activeChannel: ReturnType<typeof supabase.channel> | null = null
@@ -332,6 +339,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const load = async () => {
       if (!user) {
+        activeEventIdRef.current = null
         if (isCurrent) {
           setEvent(null)
           setHostEvents([])
@@ -364,6 +372,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         if (!targetEventId) {
+          activeEventIdRef.current = null
           if (isCurrent) {
             setEvent(null)
             setSongs([])
@@ -373,6 +382,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         let resolvedEventId = targetEventId
+        activeEventIdRef.current = resolvedEventId
 
         if (isCurrent) {
           setPerformedSongs([])
@@ -448,6 +458,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }, 1500)
       } catch {
+        activeEventIdRef.current = null
         if (isCurrent) {
           setEvent(null)
           setSongs([])
@@ -471,6 +482,38 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
   }, [user, eventId, isHostSession])
+
+  useEffect(() => {
+    const refreshOnForeground = () => {
+      if (document.hidden) {
+        return
+      }
+
+      const currentEventId = activeEventIdRef.current
+
+      if (!currentEventId) {
+        return
+      }
+
+      void fetchQueueSnapshotRef.current(currentEventId)
+    }
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshOnForeground()
+      }
+    }
+
+    window.addEventListener('focus', refreshOnForeground)
+    window.addEventListener('online', refreshOnForeground)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', refreshOnForeground)
+      window.removeEventListener('online', refreshOnForeground)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
 
   useEffect(() => {
     if (!event?.id) {
