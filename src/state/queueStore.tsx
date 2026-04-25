@@ -356,6 +356,37 @@ function QueueProvider({ children }: PropsWithChildren) {
         let targetEventId: string | null = null
         const requestedEventId = readRequestedEventIdFromUrl()
 
+        const syncAudienceActiveEventId = async (nextEventId: string) => {
+          if (isHostSession) {
+            return
+          }
+
+          if (eventId === nextEventId) {
+            return
+          }
+
+          const { error: profileUpdateError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('profiles')
+                .update({ active_event_id: nextEventId })
+                .eq('user_id', user.id),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while joining the live audience event. Please try again.',
+          )
+
+          if (profileUpdateError) {
+            throw new Error(profileUpdateError.message)
+          }
+
+          try {
+            await withAuthLockRetry(() => refreshProfile(), 2)
+          } catch {
+            // Profile sync can recover on next auth refresh.
+          }
+        }
+
         if (isHostSession) {
           const nextHostEvents = await fetchHostEvents(user.id)
 
@@ -381,6 +412,10 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
+        if (!isHostSession) {
+          await syncAudienceActiveEventId(targetEventId)
+        }
+
         let resolvedEventId = targetEventId
         activeEventIdRef.current = resolvedEventId
 
@@ -404,6 +439,11 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
 
           resolvedEventId = latestActiveEventId
+
+          if (!isHostSession) {
+            await syncAudienceActiveEventId(resolvedEventId)
+          }
+
           await fetchQueueSnapshot(resolvedEventId)
         }
 
