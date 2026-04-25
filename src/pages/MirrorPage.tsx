@@ -71,6 +71,52 @@ function normalizeMirrorText(value: unknown, fallback: string) {
   return trimmedValue || fallback
 }
 
+type FullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null
+  webkitExitFullscreen?: () => Promise<void> | void
+}
+
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void
+}
+
+function getActiveFullscreenElement() {
+  const fullscreenDocument = document as FullscreenDocument
+  return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? null
+}
+
+async function requestFullscreenSafe(targetElement: HTMLElement) {
+  const fullscreenTarget = targetElement as FullscreenElement
+
+  if (typeof fullscreenTarget.requestFullscreen === 'function') {
+    await fullscreenTarget.requestFullscreen()
+    return
+  }
+
+  if (typeof fullscreenTarget.webkitRequestFullscreen === 'function') {
+    await fullscreenTarget.webkitRequestFullscreen()
+    return
+  }
+
+  throw new Error('Fullscreen API is unavailable in this browser.')
+}
+
+async function exitFullscreenSafe() {
+  const fullscreenDocument = document as FullscreenDocument
+
+  if (typeof document.exitFullscreen === 'function') {
+    await document.exitFullscreen()
+    return
+  }
+
+  if (typeof fullscreenDocument.webkitExitFullscreen === 'function') {
+    await fullscreenDocument.webkitExitFullscreen()
+    return
+  }
+
+  throw new Error('Exiting fullscreen is unavailable in this browser.')
+}
+
 type SpotlightQueueItem = {
   id: string
   eventId: string
@@ -196,20 +242,22 @@ function MirrorPage() {
 
   useEffect(() => {
     const syncFullscreenState = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement))
+      setIsFullscreen(Boolean(getActiveFullscreenElement()))
     }
 
     syncFullscreenState()
     window.addEventListener('fullscreenchange', syncFullscreenState)
+    window.addEventListener('webkitfullscreenchange', syncFullscreenState)
 
     return () => {
       window.removeEventListener('fullscreenchange', syncFullscreenState)
+      window.removeEventListener('webkitfullscreenchange', syncFullscreenState)
     }
   }, [])
 
   useEffect(() => {
     const syncPresentationState = () => {
-      const fullscreenActive = Boolean(document.fullscreenElement)
+      const fullscreenActive = Boolean(getActiveFullscreenElement())
       const fullscreenDisplayMode = window.matchMedia('(display-mode: fullscreen)').matches
       const projectedMode = fullscreenActive || fullscreenDisplayMode
 
@@ -218,10 +266,12 @@ function MirrorPage() {
 
     syncPresentationState()
     window.addEventListener('fullscreenchange', syncPresentationState)
+    window.addEventListener('webkitfullscreenchange', syncPresentationState)
     window.addEventListener('resize', syncPresentationState)
 
     return () => {
       window.removeEventListener('fullscreenchange', syncPresentationState)
+      window.removeEventListener('webkitfullscreenchange', syncPresentationState)
       window.removeEventListener('resize', syncPresentationState)
     }
   }, [])
@@ -871,13 +921,14 @@ function MirrorPage() {
               className="mirror-fullscreen-button"
               onClick={async () => {
                 try {
-                  if (!document.fullscreenElement) {
-                    await document.documentElement.requestFullscreen()
+                  if (!getActiveFullscreenElement()) {
+                    await requestFullscreenSafe(document.documentElement)
                   } else {
-                    await document.exitFullscreen()
+                    await exitFullscreenSafe()
                   }
-                } catch {
-                  setMirrorWarning('Fullscreen toggle was blocked by the browser. Press F11 as a fallback.')
+                } catch (error) {
+                  console.warn('MirrorPage: fullscreen toggle failed', error)
+                  setMirrorWarning('Fullscreen was blocked by the browser or iframe policy. Open /mirror in its own tab, then press F11 as fallback.')
                 }
               }}
             >
