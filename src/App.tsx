@@ -1,6 +1,7 @@
 import './App.css'
 import './setlist-library.css'
 import './gig-settings.css'
+import './admin-settings.css'
 import { Suspense, lazy } from 'react'
 import { Navigate, createBrowserRouter, isRouteErrorResponse, useNavigate, useRouteError, useParams } from 'react-router-dom'
 import RequireHost from './components/RequireHost'
