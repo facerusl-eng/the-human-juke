@@ -46,6 +46,39 @@ CREATE POLICY queue_songs_insert_guest ON public.queue_songs
         )
     )
   );
+
+DROP POLICY IF EXISTS feed_posts_event_select ON public.feed_posts;
+CREATE POLICY feed_posts_event_select ON public.feed_posts
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = feed_posts.event_id
+        AND (
+          e.is_active = true
+          OR e.room_open = true
+          OR is_host_for_event(e.id)
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS feed_posts_event_insert ON public.feed_posts;
+CREATE POLICY feed_posts_event_insert ON public.feed_posts
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = feed_posts.event_id
+        AND (
+          e.is_active = true
+          OR e.room_open = true
+          OR is_host_for_event(e.id)
+        )
+    )
+  );
 -- Run this in the Supabase SQL Editor
 -- Dashboard → SQL Editor → paste and run
 
