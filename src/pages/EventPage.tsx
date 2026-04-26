@@ -158,6 +158,10 @@ function EventPage() {
     : null
   const hottestVoteCount = upNext.reduce((highestVotes, song) => Math.max(highestVotes, song.votes_count), 0)
   const recentlyPlayedSongs = performedSongs.slice(0, 8)
+  const hasRequestedEventParam = Boolean(
+    new URLSearchParams(location.search).get('event')
+    || new URLSearchParams(location.search).get('eventId'),
+  )
 
   const socialLinks = useMemo(() => ([
     { label: 'Instagram', url: hostProfile?.instagram_url },
@@ -589,6 +593,15 @@ function EventPage() {
           <p className="subcopy audience-entry-copy">No pressure - just enjoy yourself and blame the rest on the music.</p>
           {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
           <p className="meta-badge audience-soon-badge">Event starting soon</p>
+          {hasRequestedEventParam ? (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => navigate('/audience')}
+            >
+              View all upcoming gigs
+            </button>
+          ) : null}
         </article>
       </section>
     )
