@@ -2486,6 +2486,152 @@
   margin-bottom: 0;
 }
 
+.admin-mobile-home {
+  gap: clamp(0.85rem, 2.8vw, 1.3rem);
+}
+
+.admin-mobile-block {
+  padding: clamp(1rem, 3vw, 1.4rem);
+  border-radius: 18px;
+}
+
+.admin-mobile-section-head {
+  gap: 0.55rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+.admin-mobile-section-head h2 {
+  margin: 0;
+  font-size: clamp(1.06rem, 3.8vw, 1.2rem);
+}
+
+.admin-mobile-status-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.admin-mobile-status-grid li {
+  padding: 0.78rem;
+  border-radius: 14px;
+}
+
+.admin-mobile-inline-actions,
+.admin-mobile-action-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.62rem;
+}
+
+.admin-mobile-inline-actions {
+  margin-top: 0.75rem;
+}
+
+.admin-mobile-cta {
+  width: 100%;
+  min-height: 3.35rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: 14px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.admin-mobile-priority {
+  box-shadow:
+    0 10px 22px rgba(8, 10, 36, 0.44),
+    0 0 14px rgba(93, 215, 255, 0.2);
+}
+
+.admin-mobile-switch-list {
+  gap: 0.7rem;
+}
+
+.admin-mobile-switch-row {
+  padding: 0.92rem;
+  border: 1px solid rgba(93, 215, 255, 0.2);
+  border-radius: 14px;
+  background: rgba(9, 14, 34, 0.5);
+}
+
+.admin-recovery-banner {
+  border-color: rgba(255, 170, 60, 0.48);
+  background:
+    radial-gradient(circle at 14% 18%, rgba(255, 170, 60, 0.16) 0%, transparent 38%),
+    linear-gradient(140deg, rgba(22, 22, 40, 0.92) 0%, rgba(30, 24, 50, 0.94) 100%);
+}
+
+.admin-safe-mode-panel {
+  border-color: rgba(255, 170, 60, 0.42);
+  background:
+    radial-gradient(circle at 86% 12%, rgba(255, 170, 60, 0.16) 0%, transparent 36%),
+    linear-gradient(145deg, rgba(18, 22, 43, 0.94) 0%, rgba(30, 29, 62, 0.96) 100%);
+}
+
+.admin-mobile-live-strip {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .admin-mobile-block {
+    padding: 1rem;
+  }
+
+  .admin-mobile-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-mobile-cta {
+    min-height: 3.7rem;
+    font-size: 1rem;
+    padding: 0.8rem 0.95rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-mobile-home {
+    padding-bottom: calc(5.7rem + env(safe-area-inset-bottom));
+  }
+
+  .admin-mobile-live-strip {
+    position: fixed;
+    left: 0.72rem;
+    right: 0.72rem;
+    bottom: max(0.68rem, env(safe-area-inset-bottom));
+    z-index: 30;
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 16px;
+    border: 1px solid rgba(93, 215, 255, 0.34);
+    background: rgba(10, 15, 35, 0.92);
+    box-shadow:
+      0 12px 32px rgba(4, 8, 24, 0.46),
+      0 0 14px rgba(93, 215, 255, 0.16);
+    backdrop-filter: blur(7px);
+  }
+
+  .admin-mobile-live-strip.admin-mobile-live-strip-with-context {
+    grid-template-columns: 1.3fr 1fr 1fr;
+  }
+
+  .admin-mobile-live-strip-button {
+    min-height: 3.1rem;
+    border-radius: 12px;
+    padding: 0.65rem 0.58rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    text-align: center;
+  }
+}
+
+@media (min-width: 900px) {
+  .admin-mobile-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ─── GIG CONTROL ────────────────────────────────── */
 
 .gig-control-shell {
