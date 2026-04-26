@@ -865,7 +865,16 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
-        const coverUrl = options?.coverUrl ?? await fetchSongArtwork(normalizedTitle, normalizedArtist)
+        let coverUrl = options?.coverUrl ?? null
+
+        if (!coverUrl) {
+          try {
+            coverUrl = await fetchSongArtwork(normalizedTitle, normalizedArtist)
+          } catch (error) {
+            console.warn('queueStore: artwork lookup failed, continuing without cover', error)
+            coverUrl = null
+          }
+        }
 
         const { error } = await supabase.from('queue_songs').insert({
           event_id: targetEventId,

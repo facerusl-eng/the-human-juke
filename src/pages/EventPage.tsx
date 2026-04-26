@@ -549,7 +549,11 @@ function EventPage() {
           ? baseQuery.eq('user_id', hostId).maybeSingle()
           : baseQuery.eq('role', 'host').limit(1).maybeSingle()
 
-        const { data } = await query
+        const { data, error } = await query
+
+        if (error) {
+          throw error
+        }
 
         if (isCurrent) {
           setHostProfile((data as HostProfile | null) ?? null)
@@ -699,6 +703,10 @@ function EventPage() {
         if (status === 'SUBSCRIBED') {
           return
         }
+
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setUpcomingEventsNotice('Live updates are reconnecting. Upcoming events are still available.')
+        }
       })
 
     pollTimerId = window.setInterval(() => {
@@ -822,7 +830,11 @@ function EventPage() {
           void syncPlaybackState()
         },
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.warn('EventPage: playback subscription reconnecting', { eventId, status })
+        }
+      })
 
     const onPlaybackStateEvent = (nextEvent: Event) => {
       const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState }>).detail

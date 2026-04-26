@@ -95,7 +95,18 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
       .eq('event_id', eventId)
       .single()
 
-    if (error || !data) {
+    if (error) {
+      if (error.code !== 'PGRST116') {
+        console.warn('playbackState: read failed', {
+          eventId,
+          code: error.code,
+          message: error.message,
+        })
+      }
+      return null
+    }
+
+    if (!data) {
       return null
     }
 
@@ -107,7 +118,8 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
       isStarted: data.is_started ?? false,
       quoteIndex: normalizedQuoteIndex,
     }
-  } catch {
+  } catch (error) {
+    console.warn('playbackState: unexpected read error', { eventId, error })
     return null
   }
 }
