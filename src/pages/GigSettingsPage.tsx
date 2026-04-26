@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
 import { SaveStatusBadges } from '../components/settings/SaveStatusBadges'
@@ -41,6 +41,7 @@ type SettingsState = {
   roomOpen: boolean
   explicitFilterEnabled: boolean
   showInAudienceNoGig: boolean
+  coverImageUrl: string
 }
 
 type UndoRedoState = SettingsState & { timestamp: number }
@@ -52,6 +53,28 @@ type GigSettingsFormProps = {
 }
 
 const MAX_UNDO_STATES = 20
+const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error('Could not process that image. Try another file.'))
+    }
+
+    reader.onerror = () => {
+      reject(new Error('Could not read that image file.'))
+    }
+
+    reader.readAsDataURL(file)
+  })
+}
 
 function normalizePlaylistIds(playlistIds: string[]) {
   return [...new Set(playlistIds)].sort()
@@ -85,6 +108,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     roomOpen: event.roomOpen,
     explicitFilterEnabled: event.explicitFilterEnabled,
     showInAudienceNoGig: event.showInAudienceNoGig,
+    coverImageUrl: event.coverImageUrl ?? '',
   })
   const [initialSelectedPlaylistIds, setInitialSelectedPlaylistIds] = useState<string[]>([])
 
@@ -296,6 +320,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
         roomOpen: saveState.roomOpen,
         explicitFilterEnabled: saveState.explicitFilterEnabled,
         showInAudienceNoGig: saveState.showInAudienceNoGig,
+        coverImageUrl: saveState.coverImageUrl.trim() || null,
       })
 
       await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
@@ -305,6 +330,34 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
       console.warn('GigSettingsPage: failed to save settings', error)
       setErrorText(error instanceof Error ? error.message : 'Unable to save gig settings.')
       markError()
+    }
+  }
+
+  const onSelectCoverImage = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = changeEvent.target.files?.[0]
+    changeEvent.target.value = ''
+
+    if (!selectedFile) {
+      return
+    }
+
+    if (!selectedFile.type.startsWith('image/')) {
+      setErrorText('Please choose an image file for the gig cover.')
+      return
+    }
+
+    if (selectedFile.size > MAX_GIG_COVER_IMAGE_BYTES) {
+      setErrorText('Cover image is too large. Use an image up to 3 MB.')
+      return
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(selectedFile)
+      pushUndoState()
+      updateState({ coverImageUrl: dataUrl })
+      setErrorText(null)
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Unable to import that cover image.')
     }
   }
 
@@ -374,6 +427,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     || state.roomOpen !== event.roomOpen
     || state.explicitFilterEnabled !== event.explicitFilterEnabled
     || !arePlaylistSelectionsEqual(state.selectedPlaylistIds, initialSelectedPlaylistIds)
+    || state.coverImageUrl !== (event.coverImageUrl ?? '')
     || state.showInAudienceNoGig !== event.showInAudienceNoGig
 
   return (
@@ -714,6 +768,34 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
                   <span>Show this event in the Audience App when no live gig is running</span>
                 </div>
               </label>
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-cover-image">Upcoming card cover image</label>
+              <input
+                id="gig-cover-image"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  void onSelectCoverImage(e)
+                }}
+              />
+              <p className="field-hint">Shown on this gig card in the Audience App when no gig is live.</p>
+              {state.coverImageUrl ? (
+                <div className="photo-preview">
+                  <img src={state.coverImageUrl} alt="Gig cover preview" />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      pushUndoState()
+                      updateState({ coverImageUrl: '' })
+                    }}
+                  >
+                    Remove cover
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div className="status-grid">

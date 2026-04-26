@@ -43,6 +43,7 @@ type EventSettingsUpdates = {
   roomOpen: boolean
   explicitFilterEnabled: boolean
   showInAudienceNoGig: boolean
+  coverImageUrl: string | null
 }
 
 type EventState = {
@@ -59,6 +60,7 @@ type EventState = {
   roomOpen: boolean
   explicitFilterEnabled: boolean
   showInAudienceNoGig: boolean
+  coverImageUrl: string | null
 }
 
 type CreateEventOptions = {
@@ -66,6 +68,7 @@ type CreateEventOptions = {
   gigStartTime?: string
   gigEndTime?: string
   showInAudienceNoGig?: boolean
+  coverImageUrl?: string | null
 }
 
 export type HostEventSummary = {
@@ -111,6 +114,26 @@ function isFeedRoutePath() {
 function isAuthLockContentionError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
   return /lock broken|steal option|navigatorlockacquiretimeouterror|auth-token/i.test(message)
+}
+
+function isMissingCoverImageColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('cover_image_url')
 }
 
 async function withAuthLockRetry<T>(operation: () => PromiseLike<T>, maxAttempts = 5) {
@@ -313,14 +336,44 @@ function QueueProvider({ children }: PropsWithChildren) {
   const isHostSession = isHost
 
   const fetchQueueSnapshot = async (activeEventId: string) => {
+    const loadEventSnapshot = async () => {
+      const withCoverSelect = 'id, host_id, name, venue, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
+      const withoutCoverSelect = 'id, host_id, name, venue, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
+
+      const { data, error } = await supabase
+        .from('events')
+        .select(withCoverSelect)
+        .eq('id', activeEventId)
+        .single()
+
+      if (!error) {
+        return data as Record<string, unknown>
+      }
+
+      if (!isMissingCoverImageColumnError(error)) {
+        throw error
+      }
+
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('events')
+        .select(withoutCoverSelect)
+        .eq('id', activeEventId)
+        .single()
+
+      if (fallbackError) {
+        throw fallbackError
+      }
+
+      return {
+        ...(fallbackData as Record<string, unknown>),
+        cover_image_url: null,
+      }
+    }
+
     const [{ data: eventData, error: eventError }, { data: songsData, error: songsError }] =
       await withTimeout(
         Promise.all([
-          supabase
-            .from('events')
-            .select('id, host_id, name, venue, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig')
-            .eq('id', activeEventId)
-            .single(),
+          loadEventSnapshot().then((data) => ({ data, error: null as null | unknown })),
           supabase
             .from('queue_songs')
             .select('id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings')
@@ -342,7 +395,7 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     setEvent({
-      id: eventData.id,
+      id: String((eventData as Record<string, unknown>).id ?? ''),
       hostId: (eventData as Record<string, unknown>).host_id as string | null ?? null,
       name: (eventData as Record<string, unknown>).name as string ?? 'Untitled Gig',
       venue: (eventData as Record<string, unknown>).venue as string | null ?? null,
@@ -352,9 +405,10 @@ function QueueProvider({ children }: PropsWithChildren) {
       mirrorPhotoSpotlightEnabled: ((eventData as Record<string, unknown>).mirror_photo_spotlight_enabled as boolean | null) ?? true,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
-      roomOpen: eventData.room_open,
-      explicitFilterEnabled: eventData.explicit_filter_enabled,
+      roomOpen: ((eventData as Record<string, unknown>).room_open as boolean | null) ?? false,
+      explicitFilterEnabled: ((eventData as Record<string, unknown>).explicit_filter_enabled as boolean | null) ?? false,
       showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
+      coverImageUrl: ((eventData as Record<string, unknown>).cover_image_url as string | null) ?? null,
     })
     setSongs(sortByVotesDesc((songsData ?? []) as QueueSong[]))
   }
@@ -1015,6 +1069,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 room_open: updates.roomOpen,
                 explicit_filter_enabled: updates.explicitFilterEnabled,
                 show_in_audience_no_gig: updates.showInAudienceNoGig,
+                cover_image_url: updates.coverImageUrl,
               })
               .eq('id', event.id),
           ),
@@ -1022,7 +1077,34 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error) {
+        if (error && isMissingCoverImageColumnError(error)) {
+          const { error: fallbackError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('events')
+                .update({
+                  name: updates.name,
+                  venue: updates.venue || null,
+                  subtitle: updates.subtitle || null,
+                  request_instructions: updates.requestInstructions || null,
+                  playlist_only_requests: updates.playlistOnlyRequests,
+                  mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
+                  allow_duplicate_requests: updates.allowDuplicateRequests,
+                  max_active_requests_per_user: updates.maxActiveRequestsPerUser,
+                  room_open: updates.roomOpen,
+                  explicit_filter_enabled: updates.explicitFilterEnabled,
+                  show_in_audience_no_gig: updates.showInAudienceNoGig,
+                })
+                .eq('id', event.id),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while saving event settings. Please try again.',
+          )
+
+          if (fallbackError) {
+            throw fallbackError
+          }
+        } else if (error) {
           throw error
         }
 
@@ -1200,23 +1282,28 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         const authenticatedUserId = authUserData.user.id
 
-        const { data: newEvent, error: insertError } = await withTimeout(
+        const newEventPayload = {
+          host_id: authenticatedUserId,
+          name: normalizedName,
+          venue: venue || null,
+          is_active: false,
+          playlist_only_requests: true,
+          room_open: false,
+          explicit_filter_enabled: true,
+          gig_date: options?.gigDate ?? null,
+          gig_start_time: options?.gigStartTime ?? null,
+          gig_end_time: options?.gigEndTime ?? null,
+          show_in_audience_no_gig: options?.showInAudienceNoGig ?? false,
+          cover_image_url: options?.coverImageUrl ?? null,
+        }
+
+        let newEvent: { id: string } | null = null
+
+        const { data: insertedWithCover, error: insertError } = await withTimeout(
           withAuthLockRetry(() =>
             supabase
               .from('events')
-              .insert({
-                host_id: authenticatedUserId,
-                name: normalizedName,
-                venue: venue || null,
-                is_active: false,
-                playlist_only_requests: true,
-                room_open: false,
-                explicit_filter_enabled: true,
-                gig_date: options?.gigDate ?? null,
-                gig_start_time: options?.gigStartTime ?? null,
-                gig_end_time: options?.gigEndTime ?? null,
-                show_in_audience_no_gig: options?.showInAudienceNoGig ?? false,
-              })
+              .insert(newEventPayload)
               .select('id')
               .single(),
           ),
@@ -1224,8 +1311,33 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while creating gig. Please try again.',
         )
 
-        if (insertError) {
+        if (insertError && isMissingCoverImageColumnError(insertError)) {
+          const { cover_image_url: _discardCoverImageUrl, ...fallbackPayload } = newEventPayload
+          const { data: insertedWithoutCover, error: fallbackInsertError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('events')
+                .insert(fallbackPayload)
+                .select('id')
+                .single(),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while creating gig. Please try again.',
+          )
+
+          if (fallbackInsertError) {
+            throw new Error(fallbackInsertError.message)
+          }
+
+          newEvent = insertedWithoutCover as { id: string }
+        } else if (insertError) {
           throw new Error(insertError.message)
+        } else {
+          newEvent = insertedWithCover as { id: string }
+        }
+
+        if (!newEvent?.id) {
+          throw new Error('Unable to create gig.')
         }
 
         const { defaultPlaylistId, karaokePlaylistId } = await ensureDefaultHostPlaylists(authenticatedUserId, normalizedName)

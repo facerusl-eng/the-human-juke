@@ -27,9 +27,6 @@ type HostProfile = {
   contact_email: string | null
 }
 
-const MAX_AUDIENCE_NAME_LENGTH = 40
-const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
-
 function normalizeCoverUrl(coverUrl: string | null | undefined) {
   if (!coverUrl) {
     return null
@@ -43,6 +40,29 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
 
   return trimmedCoverUrl.replace(/^http:\/\//i, 'https://')
 }
+
+function isMissingCoverImageColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('cover_image_url')
+}
+
+const MAX_AUDIENCE_NAME_LENGTH = 40
+const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 
 function hasUnsafeControlChars(value: string) {
   return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
@@ -240,28 +260,50 @@ function EventPage() {
 
     const loadUpcomingEvents = async () => {
       try {
+        let eventRows: Array<Record<string, unknown>> = []
+
         const { data, error } = await supabase
           .from('events')
-          .select('id, name, venue, gig_date, gig_start_time')
+          .select('id, name, venue, gig_date, gig_start_time, cover_image_url')
           .eq('show_in_audience_no_gig', true)
           .order('gig_date', { ascending: true, nullsFirst: false })
           .order('gig_start_time', { ascending: true, nullsFirst: false })
           .order('created_at', { ascending: true })
 
-        if (error) {
+        if (error && isMissingCoverImageColumnError(error)) {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('events')
+            .select('id, name, venue, gig_date, gig_start_time')
+            .eq('show_in_audience_no_gig', true)
+            .order('gig_date', { ascending: true, nullsFirst: false })
+            .order('gig_start_time', { ascending: true, nullsFirst: false })
+            .order('created_at', { ascending: true })
+
+          if (fallbackError) {
+            throw fallbackError
+          }
+
+          eventRows = (fallbackData ?? []).map((eventData) => ({
+            ...(eventData as Record<string, unknown>),
+            cover_image_url: null,
+          }))
+        } else if (error) {
           throw error
+        } else {
+          eventRows = (data ?? []) as Array<Record<string, unknown>>
         }
 
         if (!isCurrent) {
           return
         }
 
-        setUpcomingEvents(((data ?? []) as Array<Record<string, unknown>>).map((eventData) => ({
+        setUpcomingEvents(eventRows.map((eventData) => ({
           id: String(eventData.id ?? ''),
           name: (eventData.name as string | null) ?? 'Untitled Gig',
           venue: (eventData.venue as string | null) ?? null,
           gigDate: (eventData.gig_date as string | null) ?? null,
           gigStartTime: (eventData.gig_start_time as string | null) ?? null,
+          coverImageUrl: normalizeCoverUrl((eventData.cover_image_url as string | null) ?? null),
         })))
       } catch (error) {
         console.warn('EventPage: failed to load upcoming no-gig events', error)

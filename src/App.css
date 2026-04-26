@@ -1417,6 +1417,14 @@
   color: #ffffff;
   font-size: 1.4rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.audience-no-gig-event-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .audience-no-gig-event-body {

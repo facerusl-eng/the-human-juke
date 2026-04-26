@@ -4,6 +4,7 @@ type AudienceUpcomingEvent = {
   venue: string | null
   gigDate: string | null
   gigStartTime: string | null
+  coverImageUrl: string | null
 }
 
 const NO_GIG_MESSAGES = [
@@ -74,7 +75,11 @@ function AudienceNoGigState({ upcomingEvents }: { upcomingEvents: AudienceUpcomi
                 return (
                   <article key={upcomingEvent.id} className="audience-no-gig-event-card">
                     <div className="audience-no-gig-event-art" aria-hidden="true">
-                      <span>♪</span>
+                      {upcomingEvent.coverImageUrl ? (
+                        <img src={upcomingEvent.coverImageUrl} alt="" loading="lazy" />
+                      ) : (
+                        <span>♪</span>
+                      )}
                     </div>
                     <div className="audience-no-gig-event-body">
                       <p className="audience-no-gig-event-title">{upcomingEvent.name}</p>

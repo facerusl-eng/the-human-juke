@@ -5,6 +5,29 @@ import { useQueueStore } from '../state/queueStore'
 
 type Step = 'info' | 'datetime'
 
+const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error('Could not process that image. Try another file.'))
+    }
+
+    reader.onerror = () => {
+      reject(new Error('Could not read that image file.'))
+    }
+
+    reader.readAsDataURL(file)
+  })
+}
+
 function CreateGigPage() {
   const navigate = useNavigate()
   const { isHost, loading } = useAuthStore()
@@ -16,6 +39,8 @@ function CreateGigPage() {
   const [gigStartTime, setGigStartTime] = useState('')
   const [gigEndTime, setGigEndTime] = useState('')
   const [showInAudienceNoGig, setShowInAudienceNoGig] = useState(false)
+  const [coverImageDataUrl, setCoverImageDataUrl] = useState<string | null>(null)
+  const [coverImageName, setCoverImageName] = useState('')
   const [busy, setBusy] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
 
@@ -87,8 +112,9 @@ function CreateGigPage() {
           gigStartTime: gigStartTime || undefined,
           gigEndTime: gigEndTime || undefined,
           showInAudienceNoGig,
+          coverImageUrl: coverImageDataUrl,
         }
-      : { showInAudienceNoGig }
+      : { showInAudienceNoGig, coverImageUrl: coverImageDataUrl }
 
     try {
       await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), eventOptions))
@@ -113,6 +139,36 @@ function CreateGigPage() {
       setErrorText(errorMessage)
     } finally {
       setBusy(false)
+    }
+  }
+
+  const onSelectCoverImage = async (changeEvent: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = changeEvent.target.files?.[0]
+    changeEvent.target.value = ''
+
+    if (!selectedFile) {
+      setCoverImageDataUrl(null)
+      setCoverImageName('')
+      return
+    }
+
+    if (!selectedFile.type.startsWith('image/')) {
+      setErrorText('Please choose an image file for the gig cover.')
+      return
+    }
+
+    if (selectedFile.size > MAX_GIG_COVER_IMAGE_BYTES) {
+      setErrorText('Cover image is too large. Use an image up to 3 MB.')
+      return
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(selectedFile)
+      setCoverImageDataUrl(dataUrl)
+      setCoverImageName(selectedFile.name)
+      setErrorText(null)
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Unable to import that cover image.')
     }
   }
 
@@ -276,6 +332,36 @@ function CreateGigPage() {
             />
             <span>Show this event in the Audience App when no gig is running</span>
           </label>
+
+          <div className="field-row">
+            <label htmlFor="gig-cover-image">Gig cover image (optional)</label>
+            <input
+              id="gig-cover-image"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                void onSelectCoverImage(e)
+              }}
+            />
+            <p className="field-hint">Shown in Upcoming Events when no gig is live. Max 3 MB.</p>
+            {coverImageDataUrl ? (
+              <div className="photo-preview">
+                <img src={coverImageDataUrl} alt="Gig cover preview" />
+                <p className="field-hint">{coverImageName || 'Cover selected'}</p>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    setCoverImageDataUrl(null)
+                    setCoverImageName('')
+                  }}
+                >
+                  Remove cover
+                </button>
+              </div>
+            ) : null}
+          </div>
+
           {errorText ? <p className="error-text">{errorText}</p> : null}
           <div className="hero-actions">
             <button type="submit" className="primary-button">

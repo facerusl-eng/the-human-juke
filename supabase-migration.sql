@@ -93,7 +93,8 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS mirror_photo_spotlight_enabled BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS allow_duplicate_requests BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS max_active_requests_per_user INTEGER,
-  ADD COLUMN IF NOT EXISTS show_in_audience_no_gig BOOLEAN NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS show_in_audience_no_gig BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
 
 CREATE INDEX IF NOT EXISTS events_show_in_audience_no_gig_idx
   ON public.events (show_in_audience_no_gig, gig_date, gig_start_time)
