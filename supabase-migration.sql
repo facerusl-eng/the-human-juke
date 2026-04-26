@@ -539,3 +539,76 @@ ALTER TABLE public.events
 -- ─── Contact email on profiles (April 2026) ─────────────────────────────────
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS contact_email TEXT;
+
+-- ─── Custom songs and uploaded song covers (April 2026) ─────────────────────
+CREATE TABLE IF NOT EXISTS public.custom_songs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  artist TEXT,
+  cover_url TEXT,
+  created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS custom_songs_created_by_created_at_idx
+  ON public.custom_songs (created_by, created_at DESC);
+
+ALTER TABLE public.custom_songs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS custom_songs_owner_select ON public.custom_songs;
+CREATE POLICY custom_songs_owner_select ON public.custom_songs
+  FOR SELECT TO authenticated
+  USING (created_by = auth.uid());
+
+DROP POLICY IF EXISTS custom_songs_owner_insert ON public.custom_songs;
+CREATE POLICY custom_songs_owner_insert ON public.custom_songs
+  FOR INSERT TO authenticated
+  WITH CHECK (created_by = auth.uid());
+
+DROP POLICY IF EXISTS custom_songs_owner_update ON public.custom_songs;
+CREATE POLICY custom_songs_owner_update ON public.custom_songs
+  FOR UPDATE TO authenticated
+  USING (created_by = auth.uid())
+  WITH CHECK (created_by = auth.uid());
+
+DROP POLICY IF EXISTS custom_songs_owner_delete ON public.custom_songs;
+CREATE POLICY custom_songs_owner_delete ON public.custom_songs
+  FOR DELETE TO authenticated
+  USING (created_by = auth.uid());
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('song-covers', 'song-covers', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS song_covers_public_read ON storage.objects;
+CREATE POLICY song_covers_public_read ON storage.objects
+  FOR SELECT TO public
+  USING (bucket_id = 'song-covers');
+
+DROP POLICY IF EXISTS song_covers_owner_insert ON storage.objects;
+CREATE POLICY song_covers_owner_insert ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'song-covers'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS song_covers_owner_update ON storage.objects;
+CREATE POLICY song_covers_owner_update ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'song-covers'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  )
+  WITH CHECK (
+    bucket_id = 'song-covers'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS song_covers_owner_delete ON storage.objects;
+CREATE POLICY song_covers_owner_delete ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'song-covers'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );

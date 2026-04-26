@@ -1,22 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AddSongTabs from '../components/actions/AddSongTabs'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
 import { useClipboardCopy } from '../hooks/useClipboardCopy'
 import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { captureQueueSnapshot, getLatestQueueSnapshot } from '../lib/queueSnapshots'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
+import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
-
-const MAX_SONG_FIELD_LENGTH = 120
-
-function hasUnsafeControlChars(value: string) {
-  return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
-}
 
 function GigControlPage() {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const {
     event,
     hostEvents,
@@ -33,13 +29,8 @@ function GigControlPage() {
   } = useQueueStore()
 
   const [errorText, setErrorText] = useState<string | null>(null)
-  const [manualTitle, setManualTitle] = useState('')
-  const [manualArtist, setManualArtist] = useState('')
-  const [manualExplicit, setManualExplicit] = useState(false)
-  const [manualKaraoke, setManualKaraoke] = useState(false)
   const [isNowPlayingStarted, setIsNowPlayingStarted] = useState(false)
   const [spaceActionBusy, setSpaceActionBusy] = useState(false)
-  const [manualAddBusy, setManualAddBusy] = useState(false)
   const [songActionBusyId, setSongActionBusyId] = useState<string | null>(null)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const [snapshotStatusText, setSnapshotStatusText] = useState<string | null>(null)
@@ -68,6 +59,13 @@ function GigControlPage() {
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
+  const queuedLibrarySongIds = useMemo(() => (
+    new Set(
+      songs
+        .map((song) => song.library_song_id)
+        .filter((songId): songId is string => Boolean(songId)),
+    )
+  ), [songs])
   const joinUrl = getAudienceUrl(event?.id)
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
@@ -334,50 +332,6 @@ function GigControlPage() {
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
   }, [isNowPlayingStarted, markPlayed, nowPlaying, spaceActionBusy])
 
-  const onManualAdd = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setErrorText(null)
-
-    if (manualAddBusy) {
-      return
-    }
-
-    const normalizedTitle = manualTitle.trim()
-    const normalizedArtist = manualArtist.trim()
-
-    if (!normalizedTitle || !normalizedArtist) {
-      setErrorText('Enter both song title and artist for manual add.')
-      return
-    }
-
-    if (normalizedTitle.length > MAX_SONG_FIELD_LENGTH || normalizedArtist.length > MAX_SONG_FIELD_LENGTH) {
-      setErrorText(`Song title and artist must be ${MAX_SONG_FIELD_LENGTH} characters or less.`)
-      return
-    }
-
-    if (hasUnsafeControlChars(normalizedTitle) || hasUnsafeControlChars(normalizedArtist)) {
-      setErrorText('Please remove unsupported characters from song title or artist.')
-      return
-    }
-
-    setManualAddBusy(true)
-
-    try {
-      await addSong(normalizedTitle, normalizedArtist, manualExplicit, {
-        performerMode: manualKaraoke ? 'audience' : 'performer',
-        bypassEventRules: true,
-      })
-      setManualTitle('')
-      setManualArtist('')
-      setManualExplicit(false)
-      setManualKaraoke(false)
-    } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Failed to add song manually.')
-    } finally {
-      setManualAddBusy(false)
-    }
-  }
-
   const headerActions: ActionButtonConfig[] = [
     {
       id: 'toggle-room-open',
@@ -566,57 +520,14 @@ function GigControlPage() {
       <section className="queue-panel gig-manual-add-panel" aria-label="Admin add song controls">
         <div className="panel-head">
           <h2>Add Song To Queue</h2>
-          <span className="meta-badge">Admin control</span>
+          <span className="meta-badge">Playlist + Custom</span>
         </div>
-        <form className="queue-form gig-manual-add-form" onSubmit={onManualAdd}>
-          <div className="field-row">
-            <label htmlFor="manual-song-title">Song title</label>
-            <input
-              id="manual-song-title"
-              value={manualTitle}
-              onChange={(nextEvent) => setManualTitle(nextEvent.target.value)}
-              placeholder="Wonderwall"
-              maxLength={MAX_SONG_FIELD_LENGTH}
-              required
-              disabled={manualAddBusy}
-            />
-          </div>
-          <div className="field-row">
-            <label htmlFor="manual-song-artist">Artist</label>
-            <input
-              id="manual-song-artist"
-              value={manualArtist}
-              onChange={(nextEvent) => setManualArtist(nextEvent.target.value)}
-              placeholder="Oasis"
-              maxLength={MAX_SONG_FIELD_LENGTH}
-              required
-              disabled={manualAddBusy}
-            />
-          </div>
-          <label className="checkbox-row" htmlFor="manual-explicit">
-            <input
-              id="manual-explicit"
-              type="checkbox"
-              checked={manualExplicit}
-              onChange={(nextEvent) => setManualExplicit(nextEvent.target.checked)}
-              disabled={manualAddBusy}
-            />
-            Explicit song
-          </label>
-          <label className="checkbox-row" htmlFor="manual-karaoke">
-            <input
-              id="manual-karaoke"
-              type="checkbox"
-              checked={manualKaraoke}
-              onChange={(nextEvent) => setManualKaraoke(nextEvent.target.checked)}
-              disabled={manualAddBusy}
-            />
-            Mark as Karaoke request
-          </label>
-          <button type="submit" className="primary-button" disabled={manualAddBusy}>
-            {manualAddBusy ? 'Adding…' : 'Add To Queue'}
-          </button>
-        </form>
+        <AddSongTabs
+          eventId={event.id}
+          userId={user?.id ?? null}
+          addSong={addSong}
+          queuedLibrarySongIds={queuedLibrarySongIds}
+        />
       </section>
 
       {/* Now Playing */}

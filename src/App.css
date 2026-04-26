@@ -3315,6 +3315,96 @@
   margin-bottom: 0;
 }
 
+.gig-add-song-tabs {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.gig-add-song-tab-switcher {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.gig-add-song-tab-button {
+  min-height: 2.8rem;
+}
+
+.gig-add-song-tab-button.is-active {
+  border-color: rgba(93, 215, 255, 0.85) !important;
+  background: rgba(93, 215, 255, 0.2) !important;
+  color: #f3f9ff !important;
+}
+
+.gig-add-song-tab-content {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.gig-add-song-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.gig-add-song-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.6rem;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 156, 202, 0.34);
+  background: rgba(15, 24, 46, 0.5);
+}
+
+.gig-add-song-main {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.gig-add-song-main .song,
+.gig-add-song-main .artist {
+  margin: 0;
+}
+
+.gig-add-song-main .song {
+  color: #f7fbff;
+}
+
+.gig-add-song-main .artist {
+  color: #bdd4f7;
+}
+
+.gig-add-song-item .secondary-button {
+  white-space: nowrap;
+  min-width: 8.1rem;
+}
+
+.gig-custom-song-form {
+  margin-bottom: 0;
+}
+
+.gig-custom-song-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+@media (max-width: 680px) {
+  .gig-add-song-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .gig-add-song-item .secondary-button {
+    width: 100%;
+  }
+}
+
 .danger-button {
   border-color: rgba(255, 80, 80, 0.5) !important;
   color: #ff9090 !important;
