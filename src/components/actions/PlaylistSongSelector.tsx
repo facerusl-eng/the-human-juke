@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
 export type PlaylistSong = {
@@ -201,4 +201,4 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
   )
 }
 
-export default PlaylistSongSelector
+export default memo(PlaylistSongSelector)

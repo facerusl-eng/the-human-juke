@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router-dom'
 
 type AudienceFixedHeaderProps = {
@@ -26,4 +27,4 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc }: AudienceFixedHead
   )
 }
 
-export default AudienceFixedHeader
+export default memo(AudienceFixedHeader)

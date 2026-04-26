@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 export type CustomSong = {
   id: string
   title: string
@@ -83,4 +85,4 @@ function CustomSongList({ songs, addingSongId, onAddSong }: CustomSongListProps)
   )
 }
 
-export default CustomSongList
+export default memo(CustomSongList)

@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from 'react'
 import type { QueueSong } from '../../state/queueStore'
 
 type SongVoteCardProps = {
@@ -23,9 +24,15 @@ function SongVoteCard({
   onVote,
   normalizeCoverUrl,
 }: SongVoteCardProps) {
-  const voteHeatPercent = hottestVoteCount > 0
-    ? Math.round((song.votes_count / hottestVoteCount) * 100)
-    : 0
+  const voteHeatPercent = useMemo(() => (
+    hottestVoteCount > 0
+      ? Math.round((song.votes_count / hottestVoteCount) * 100)
+      : 0
+  ), [hottestVoteCount, song.votes_count])
+
+  const onVoteClick = useCallback(() => {
+    void onVote(song.id)
+  }, [onVote, song.id])
 
   return (
     <li className={`audience-song-card ${moveTick > 0 ? 'song-card-move' : ''}`}>
@@ -64,9 +71,7 @@ function SongVoteCard({
         <button
           type="button"
           className="secondary-button tap-vote like-vote audience-vote-button"
-          onClick={() => {
-            void onVote(song.id)
-          }}
+          onClick={onVoteClick}
           disabled={disabled}
           aria-busy={isVoting}
           aria-label={`Vote for ${song.title} by ${song.artist}`}
@@ -85,4 +90,4 @@ function SongVoteCard({
   )
 }
 
-export default SongVoteCard
+export default memo(SongVoteCard)

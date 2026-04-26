@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 export type ActionButtonConfig = {
   id: string
   label: string
@@ -26,7 +28,7 @@ function getActionButtonClassName(
     .join(' ')
 }
 
-export function ActionButtonGroup({
+export const ActionButtonGroup = memo(function ActionButtonGroup({
   actions,
   layoutClassName,
   buttonClassName,
@@ -53,4 +55,4 @@ export function ActionButtonGroup({
       ))}
     </div>
   )
-}
+})

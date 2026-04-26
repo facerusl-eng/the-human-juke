@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import AudienceNoGigState, { type AudienceUpcomingEvent } from '../components/audience/AudienceNoGigState'
@@ -159,6 +159,21 @@ async function fetchJsonNoStore(path: string) {
 
 function isExpectedApiFallbackError(error: unknown) {
   return error instanceof Error && error.message.startsWith(EXPECTED_API_FALLBACK_ERROR_PREFIX)
+}
+
+function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlaybackState | null) {
+  if (left === right) {
+    return true
+  }
+
+  if (!left || !right) {
+    return false
+  }
+
+  return left.currentSongId === right.currentSongId
+    && left.currentSongCoverUrl === right.currentSongCoverUrl
+    && left.isStarted === right.isStarted
+    && left.quoteIndex === right.quoteIndex
 }
 
 function getLiveGigIdFromApiPayload(payload: unknown): string | null {
@@ -329,6 +344,7 @@ function EventPage() {
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
   const audienceLinkVersionRef = useRef(AUDIENCE_CACHE_VERSION)
+  const votingSongIdsRef = useRef<Record<string, boolean>>({})
 
   const roomOpen = event?.roomOpen ?? false
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
@@ -350,12 +366,33 @@ function EventPage() {
     : null
   const hottestVoteCount = upNext.reduce((highestVotes, song) => Math.max(highestVotes, song.votes_count), 0)
   const recentlyPlayedSongs = performedSongs.slice(0, 8)
-  const hasRequestedEventParam = Boolean(
-    new URLSearchParams(location.search).get('event')
-    || new URLSearchParams(location.search).get('eventId'),
-  )
-  const requestedEventId = new URLSearchParams(location.search).get('event')
-    ?? new URLSearchParams(location.search).get('eventId')
+  const eventSearchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
+  const hasRequestedEventParam = Boolean(requestedEventId)
+
+  useEffect(() => {
+    votingSongIdsRef.current = votingSongIds
+  }, [votingSongIds])
+
+  const handleVoteSong = useCallback(async (songId: string) => {
+    if (votingSongIdsRef.current[songId]) {
+      return
+    }
+
+    setVotingSongIds((currentState) => ({ ...currentState, [songId]: true }))
+
+    try {
+      await upvoteSong(songId)
+    } catch {
+      setErrorText('Vote failed. You may have already voted or voting is locked.')
+    } finally {
+      setVotingSongIds((currentState) => {
+        const nextState = { ...currentState }
+        delete nextState[songId]
+        return nextState
+      })
+    }
+  }, [upvoteSong])
 
   useEffect(() => {
     if (!loading || event) {
@@ -660,7 +697,7 @@ function EventPage() {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          void loadUpcomingEvents()
+          return
         }
       })
 
@@ -764,7 +801,7 @@ function EventPage() {
       try {
         const state = await readSharedPlaybackState(eventId)
         if (isCurrent) {
-          setPlaybackState(state)
+          setPlaybackState((currentState) => (isSamePlaybackState(currentState, state) ? currentState : state))
         }
       } catch (error) {
         console.warn('EventPage: playback sync failed', error)
@@ -791,7 +828,7 @@ function EventPage() {
       const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState }>).detail
 
       if (detail?.eventId === eventId) {
-        setPlaybackState(detail.state)
+        setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state) ? currentState : detail.state))
       }
     }
 
@@ -1067,25 +1104,7 @@ function EventPage() {
                 normalizeCoverUrl={normalizeCoverUrl}
                 disabled={!roomOpen || song.voting_locked || Boolean(votingSongIds[song.id])}
                 isVoting={Boolean(votingSongIds[song.id])}
-                onVote={async (songId) => {
-                  if (votingSongIds[songId]) {
-                    return
-                  }
-
-                  setVotingSongIds((currentState) => ({ ...currentState, [songId]: true }))
-
-                  try {
-                    await upvoteSong(songId)
-                  } catch {
-                    setErrorText('Vote failed. You may have already voted or voting is locked.')
-                  } finally {
-                    setVotingSongIds((currentState) => {
-                      const nextState = { ...currentState }
-                      delete nextState[songId]
-                      return nextState
-                    })
-                  }
-                }}
+                onVote={handleVoteSong}
               />
             ))}
           </ol>
