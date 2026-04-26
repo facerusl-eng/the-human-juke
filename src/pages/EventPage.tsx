@@ -154,7 +154,11 @@ async function fetchJsonNoStore(path: string) {
     throw new Error(`${EXPECTED_API_FALLBACK_ERROR_PREFIX} unexpected response content-type (${contentType || 'unknown'})`)
   }
 
-  return response.json() as Promise<unknown>
+  try {
+    return await response.json() as unknown
+  } catch {
+    throw new Error(`${EXPECTED_API_FALLBACK_ERROR_PREFIX} invalid JSON payload`)
+  }
 }
 
 function isExpectedApiFallbackError(error: unknown) {
@@ -463,11 +467,13 @@ function EventPage() {
           navigate(`/audience?v=${audienceLinkVersionRef.current}`, { replace: true })
         }
       } catch (error) {
-        if (!isExpectedApiFallbackError(error)) {
+        const expectedFallbackError = isExpectedApiFallbackError(error)
+
+        if (!expectedFallbackError) {
           console.warn('EventPage: live gig API check failed', error)
         }
 
-        if (isCurrent && !event) {
+        if (isCurrent && !event && !expectedFallbackError) {
           setUpcomingEventsNotice('Live status is reconnecting. Upcoming events are shown below.')
         }
       }
