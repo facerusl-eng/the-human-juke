@@ -612,3 +612,36 @@ CREATE POLICY song_covers_owner_delete ON storage.objects
     bucket_id = 'song-covers'
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ─── Crash telemetry logging (April 2026) ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.crash_telemetry (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  route TEXT NOT NULL,
+  error_fingerprint TEXT NOT NULL,
+  error_message TEXT NOT NULL,
+  stack_snippet TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS crash_telemetry_created_at_idx
+  ON public.crash_telemetry (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS crash_telemetry_route_created_at_idx
+  ON public.crash_telemetry (route, created_at DESC);
+
+ALTER TABLE public.crash_telemetry ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'crash_telemetry'
+      AND policyname = 'crash_telemetry_insert_authenticated'
+  ) THEN
+    CREATE POLICY crash_telemetry_insert_authenticated ON public.crash_telemetry
+      FOR INSERT TO authenticated
+      WITH CHECK (true);
+  END IF;
+END $$;

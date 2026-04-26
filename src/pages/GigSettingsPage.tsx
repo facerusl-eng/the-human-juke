@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
@@ -127,8 +127,12 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [playlists, setPlaylists] = useState<HostPlaylist[]>([])
   const [loadingPlaylists, setLoadingPlaylists] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [processingCoverImage, setProcessingCoverImage] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
+  const isMountedRef = useRef(true)
+  const manualSaveInFlightRef = useRef(false)
+  const coverImageInFlightRef = useRef(false)
   const otherAudienceFallbackGigCount = hostEvents.filter(
     (hostEvent) => hostEvent.id !== event.id && hostEvent.showInAudienceNoGig,
   ).length
@@ -150,6 +154,14 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     setCopyError,
     copyText,
   } = useClipboardCopy({ successDurationMs: 1500 })
+
+  useEffect(() => {
+    isMountedRef.current = true
+
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   // Load playlists
   useEffect(() => {
@@ -347,10 +359,21 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   }
 
   const onSelectCoverImage = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
+    if (coverImageInFlightRef.current) {
+      return
+    }
+
+    coverImageInFlightRef.current = true
+    setProcessingCoverImage(true)
+
     const selectedFile = changeEvent.target.files?.[0]
     changeEvent.target.value = ''
 
     if (!selectedFile) {
+      coverImageInFlightRef.current = false
+      if (isMountedRef.current) {
+        setProcessingCoverImage(false)
+      }
       return
     }
 
@@ -366,20 +389,49 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
     try {
       const dataUrl = await readFileAsDataUrl(selectedFile)
+
+      if (!isMountedRef.current) {
+        return
+      }
+
       pushUndoState()
       updateState({ coverImageUrl: dataUrl })
       setErrorText(null)
     } catch (error) {
+      if (!isMountedRef.current) {
+        return
+      }
+
       setErrorText(error instanceof Error ? error.message : 'Unable to import that cover image.')
+    } finally {
+      coverImageInFlightRef.current = false
+
+      if (isMountedRef.current) {
+        setProcessingCoverImage(false)
+      }
     }
   }
 
   const onManualSave = async (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault()
+
+    if (manualSaveInFlightRef.current) {
+      return
+    }
+
+    manualSaveInFlightRef.current = true
     cancelAutosave()
     setBusy(true)
-    await performSave(state)
-    setBusy(false)
+
+    try {
+      await performSave(state)
+    } finally {
+      manualSaveInFlightRef.current = false
+
+      if (isMountedRef.current) {
+        setBusy(false)
+      }
+    }
   }
 
   const toggleSection = (sectionId: string) => {
@@ -846,6 +898,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 onChange={(e) => {
                   void onSelectCoverImage(e)
                 }}
+                disabled={busy || processingCoverImage}
               />
               <p className="field-hint">Shown on this gig card in the Audience App when no gig is live.</p>
               {state.coverImageUrl ? (
@@ -926,6 +979,7 @@ function GigSettingsPage() {
   const [selectedGigId, setSelectedGigId] = useState<string>('')
   const [switchingGig, setSwitchingGig] = useState(false)
   const [switchGigError, setSwitchGigError] = useState<string | null>(null)
+  const switchGigInFlightRef = useRef(false)
 
   useEffect(() => {
     if (event?.id) {
@@ -936,10 +990,11 @@ function GigSettingsPage() {
   const onSwitchGig = async () => {
     const targetGigId = selectedGigId.trim()
 
-    if (!targetGigId || !event || targetGigId === event.id) {
+    if (!targetGigId || !event || targetGigId === event.id || switchGigInFlightRef.current) {
       return
     }
 
+    switchGigInFlightRef.current = true
     setSwitchGigError(null)
     setSwitchingGig(true)
 
@@ -948,6 +1003,7 @@ function GigSettingsPage() {
     } catch (error) {
       setSwitchGigError(error instanceof Error ? error.message : 'Unable to switch gig.')
     } finally {
+      switchGigInFlightRef.current = false
       setSwitchingGig(false)
     }
   }

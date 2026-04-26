@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import './index.css'
 import router from './App.tsx'
+import { logCrashTelemetry } from './lib/crashTelemetry'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 
@@ -166,14 +167,40 @@ function installGlobalRuntimeHooks() {
     return
   }
 
-  window.addEventListener('error', () => {
+  window.addEventListener('error', (event) => {
+    logCrashTelemetry({
+      route: typeof window === 'undefined' ? undefined : window.location.pathname,
+      error: event.error ?? event.message,
+      extra: {
+        source: 'global-error',
+        filename: event.filename,
+        line: event.lineno,
+        column: event.colno,
+      },
+    })
+
+    if (event.error) {
+      console.warn('Global runtime error captured', event.error)
+    }
     emitRuntimeNotice('A runtime issue was detected. The app is trying to recover automatically.')
   })
 
   window.addEventListener('unhandledrejection', (event) => {
     if (isAbortLikeRejection(event.reason)) {
+      event.preventDefault()
       return
     }
+
+    logCrashTelemetry({
+      route: typeof window === 'undefined' ? undefined : window.location.pathname,
+      error: event.reason,
+      extra: {
+        source: 'global-unhandledrejection',
+      },
+    })
+
+    event.preventDefault()
+    console.warn('Unhandled promise rejection captured', event.reason)
 
     emitRuntimeNotice('A background request failed. The app will retry without reloading.')
   })
@@ -183,6 +210,21 @@ setupBuildUpdateRefresh()
 installGlobalRuntimeHooks()
 void cleanupLegacyServiceWorkers()
 
-createRoot(document.getElementById('root')!).render(
-  <RouterProvider router={router} />,
-)
+const rootElement = document.getElementById('root')
+
+if (!rootElement) {
+  const message = 'App root container is missing. Please refresh the page.'
+  logCrashTelemetry({
+    route: '/',
+    error: new Error(message),
+    extra: {
+      source: 'bootstrap-root-missing',
+    },
+  })
+  console.error(message)
+  emitRuntimeNotice(message)
+} else {
+  createRoot(rootElement).render(
+    <RouterProvider router={router} />,
+  )
+}

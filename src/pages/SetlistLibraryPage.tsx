@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { DEFAULT_SETLIST_SONGS } from '../lib/defaultSetlist'
 import { fetchSongArtwork } from '../lib/songArtwork'
@@ -252,8 +252,42 @@ function SetlistLibraryPage() {
   const [errorText, setErrorText] = useState<string | null>(null)
   const [successText, setSuccessText] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
+  const actionLocksRef = useRef<Set<string>>(new Set())
 
   const deferredSearchText = useDeferredValue(searchText)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    const actionLocks = actionLocksRef.current
+
+    return () => {
+      isMountedRef.current = false
+      actionLocks.clear()
+    }
+  }, [])
+
+  const beginAction = (actionKey: string) => {
+    if (actionLocksRef.current.has(actionKey)) {
+      return false
+    }
+
+    actionLocksRef.current.add(actionKey)
+
+    if (isMountedRef.current) {
+      setBusyAction(actionKey)
+    }
+
+    return true
+  }
+
+  const endAction = (actionKey: string) => {
+    actionLocksRef.current.delete(actionKey)
+
+    if (isMountedRef.current) {
+      setBusyAction((currentAction) => (currentAction === actionKey ? null : currentAction))
+    }
+  }
 
   const selectedPlaylist = useMemo(
     () => playlists.find((playlist) => playlist.id === selectedPlaylistId) ?? null,
@@ -509,12 +543,17 @@ function SetlistLibraryPage() {
   const onCreatePlaylist = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
+    const actionKey = 'create-playlist'
+
     if (!userId || !playlistName.trim()) {
       setErrorText('Playlist name is required.')
       return
     }
 
-    setBusyAction('create-playlist')
+    if (!beginAction(actionKey)) {
+      return
+    }
+
     setErrorText(null)
     setSuccessText(null)
 
@@ -542,19 +581,26 @@ function SetlistLibraryPage() {
       setSuccessText('Playlist created.')
     } catch (error) {
       console.warn('SetlistLibraryPage: failed to create playlist', error)
-      setErrorText(error instanceof Error ? error.message : 'Unable to create playlist.')
+      if (isMountedRef.current) {
+        setErrorText(error instanceof Error ? error.message : 'Unable to create playlist.')
+      }
     } finally {
-      setBusyAction(null)
+      endAction(actionKey)
     }
   }
 
   const onRenamePlaylist = async () => {
+    const actionKey = 'rename-playlist'
+
     if (!selectedPlaylist || !draftPlaylistName.trim()) {
       setErrorText('Playlist name is required.')
       return
     }
 
-    setBusyAction('rename-playlist')
+    if (!beginAction(actionKey)) {
+      return
+    }
+
     setErrorText(null)
     setSuccessText(null)
 
@@ -576,13 +622,17 @@ function SetlistLibraryPage() {
       setSuccessText('Playlist renamed.')
     } catch (error) {
       console.warn('SetlistLibraryPage: failed to rename playlist', error)
-      setErrorText(error instanceof Error ? error.message : 'Unable to rename playlist.')
+      if (isMountedRef.current) {
+        setErrorText(error instanceof Error ? error.message : 'Unable to rename playlist.')
+      }
     } finally {
-      setBusyAction(null)
+      endAction(actionKey)
     }
   }
 
   const onDeletePlaylist = async () => {
+    const actionKey = 'delete-playlist'
+
     if (!selectedPlaylist || playlists.length <= 1) {
       return
     }
@@ -593,7 +643,10 @@ function SetlistLibraryPage() {
       return
     }
 
-    setBusyAction('delete-playlist')
+    if (!beginAction(actionKey)) {
+      return
+    }
+
     setErrorText(null)
     setSuccessText(null)
 
@@ -620,20 +673,26 @@ function SetlistLibraryPage() {
       setSuccessText('Playlist deleted.')
     } catch (error) {
       console.warn('SetlistLibraryPage: failed to delete playlist', error)
-      setErrorText(error instanceof Error ? error.message : 'Unable to delete playlist.')
+      if (isMountedRef.current) {
+        setErrorText(error instanceof Error ? error.message : 'Unable to delete playlist.')
+      }
     } finally {
-      setBusyAction(null)
+      endAction(actionKey)
     }
   }
 
   const onAddSongToPlaylist = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const actionKey = 'add-song'
 
     if (!user || !selectedPlaylistId || !songTitle.trim() || !artistName.trim()) {
       return
     }
 
-    setBusyAction('add-song')
+    if (!beginAction(actionKey)) {
+      return
+    }
+
     setErrorText(null)
     setSuccessText(null)
 
@@ -682,9 +741,11 @@ function SetlistLibraryPage() {
       setSuccessText('Song added to playlist.')
     } catch (error) {
       console.warn('SetlistLibraryPage: failed to add song to playlist', error)
-      setErrorText(error instanceof Error ? error.message : 'Unable to add song to playlist.')
+      if (isMountedRef.current) {
+        setErrorText(error instanceof Error ? error.message : 'Unable to add song to playlist.')
+      }
     } finally {
-      setBusyAction(null)
+      endAction(actionKey)
     }
   }
 
@@ -719,11 +780,16 @@ function SetlistLibraryPage() {
   }
 
   const onRemoveSongFromPlaylist = async (songId: string) => {
+    const actionKey = `remove-song-${songId}`
+
     if (!selectedPlaylistId) {
       return
     }
 
-    setBusyAction(`remove-song-${songId}`)
+    if (!beginAction(actionKey)) {
+      return
+    }
+
     setErrorText(null)
     setSuccessText(null)
 
@@ -746,14 +812,21 @@ function SetlistLibraryPage() {
       setSuccessText('Song removed from playlist.')
     } catch (error) {
       console.warn('SetlistLibraryPage: failed to remove song from playlist', { songId, error })
-      setErrorText(error instanceof Error ? error.message : 'Unable to remove song from playlist.')
+      if (isMountedRef.current) {
+        setErrorText(error instanceof Error ? error.message : 'Unable to remove song from playlist.')
+      }
     } finally {
-      setBusyAction(null)
+      endAction(actionKey)
     }
   }
 
   const onAddSongToLiveQueue = async (song: PlaylistSongRecord) => {
-    setBusyAction(`queue-song-${song.id}`)
+    const actionKey = `queue-song-${song.id}`
+
+    if (!beginAction(actionKey)) {
+      return
+    }
+
     setErrorText(null)
     setSuccessText(null)
 
@@ -764,13 +837,16 @@ function SetlistLibraryPage() {
         bypassEventRules: true,
       })
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Failed to queue this song.')
+      if (isMountedRef.current) {
+        setErrorText(error instanceof Error ? error.message : 'Failed to queue this song.')
+      }
     } finally {
-      setBusyAction(null)
+      endAction(actionKey)
     }
   }
 
   const onImportPlaylistFile = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
+    const actionKey = 'import-file'
     const selectedFile = changeEvent.target.files?.[0]
     changeEvent.target.value = ''
 
@@ -783,7 +859,10 @@ function SetlistLibraryPage() {
       return
     }
 
-    setBusyAction('import-file')
+    if (!beginAction(actionKey)) {
+      return
+    }
+
     setErrorText(null)
     setSuccessText(null)
 
@@ -842,9 +921,11 @@ function SetlistLibraryPage() {
       setTotalSongCount((currentCount) => currentCount + nextSongsToAdd.length)
       setSuccessText(`Imported ${nextSongsToAdd.length} song${nextSongsToAdd.length === 1 ? '' : 's'} from ${selectedFile.name}.`)
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Unable to import songs from this file.')
+      if (isMountedRef.current) {
+        setErrorText(error instanceof Error ? error.message : 'Unable to import songs from this file.')
+      }
     } finally {
-      setBusyAction(null)
+      endAction(actionKey)
     }
   }
 

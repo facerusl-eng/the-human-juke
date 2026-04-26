@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
 import { useGigActions } from '../hooks/useGigActions'
+import { logCrashTelemetry } from '../lib/crashTelemetry'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
@@ -34,6 +35,14 @@ class AdminInitErrorBoundary extends Component<AdminInitErrorBoundaryProps, Admi
   }
 
   componentDidCatch(error: Error) {
+    logCrashTelemetry({
+      route: '/admin',
+      error,
+      extra: {
+        source: 'admin-init-boundary',
+      },
+    })
+
     this.props.onRecoverableError(error.message || 'A dashboard section failed to initialize.')
   }
 
@@ -234,6 +243,9 @@ function AdminDashboardContent({
   }, [navigate])
   const openAdminSettings = useCallback(() => {
     navigate('/admin/settings')
+  }, [navigate])
+  const openCrashTelemetry = useCallback(() => {
+    navigate('/admin/crash-telemetry')
   }, [navigate])
   const openCreateGig = useCallback(() => {
     navigate('/admin/create-gig')
@@ -440,6 +452,11 @@ function AdminDashboardContent({
       id: 'open-admin-settings',
       label: 'Admin Settings',
       onClick: openAdminSettings,
+    },
+    {
+      id: 'open-crash-telemetry',
+      label: 'Crash Telemetry',
+      onClick: openCrashTelemetry,
     },
     {
       id: 'open-create-gig',
@@ -848,6 +865,13 @@ function AdminPage() {
     <AdminInitErrorBoundary
       recoveryKey={recoveryKey}
       onRecoverableError={(message) => {
+        logCrashTelemetry({
+          route: '/admin',
+          error: new Error(message),
+          extra: {
+            source: 'admin-recoverable-error',
+          },
+        })
         runRecovery(`${message} Reconnecting...`)
       }}
     >

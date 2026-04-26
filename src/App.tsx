@@ -3,15 +3,18 @@ import './App.css'
 import './setlist-library.css'
 import './gig-settings.css'
 import './admin-settings.css'
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { Navigate, createBrowserRouter, isRouteErrorResponse, useNavigate, useRouteError, useParams } from 'react-router-dom'
+import AppCrashBoundary from './components/AppCrashBoundary'
 import RequireHost from './components/RequireHost'
 import ShellLayout from './components/ShellLayout'
+import { logCrashTelemetry } from './lib/crashTelemetry'
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
 
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const CreateGigPage = lazy(() => import('./pages/CreateGigPage'))
+const CrashTelemetryPage = lazy(() => import('./pages/CrashTelemetryPage'))
 const EventPage = lazy(() => import('./pages/EventPage'))
 const AudienceSongListPage = lazy(() => import('./pages/AudienceSongListPage'))
 const FeedPage = lazy(() => import('./pages/FeedPage'))
@@ -45,6 +48,16 @@ function RouteErrorFallback() {
     : routeError instanceof Error
       ? routeError.message
       : 'This page could not be loaded.'
+
+  useEffect(() => {
+    logCrashTelemetry({
+      route: typeof window === 'undefined' ? 'route-error' : window.location.pathname,
+      error: routeError instanceof Error ? routeError : new Error(fallbackMessage),
+      extra: {
+        source: 'route-error-fallback',
+      },
+    })
+  }, [fallbackMessage, routeError])
 
   return (
     <section className="app-shell" aria-label="Page error">
@@ -91,15 +104,20 @@ function withSuspense(element: React.ReactNode) {
   return <Suspense fallback={<RouteLoading />}>{element}</Suspense>
 }
 
+function withCrashBoundary(areaLabel: string, element: React.ReactNode) {
+  return <AppCrashBoundary areaLabel={areaLabel}>{element}</AppCrashBoundary>
+}
+
 const router = createBrowserRouter([
   {
     path: '/',
-    element: (
+    element: withCrashBoundary(
+      'App Shell',
       <AuthProvider>
         <QueueProvider>
           <ShellLayout />
         </QueueProvider>
-      </AuthProvider>
+      </AuthProvider>,
     ),
     errorElement: <RouteErrorFallback />,
     children: [
@@ -109,15 +127,15 @@ const router = createBrowserRouter([
       },
       {
         path: 'audience',
-        element: withSuspense(<EventPage />),
+        element: withSuspense(withCrashBoundary('Audience', <EventPage />)),
       },
       {
         path: 'audience/song-list',
-        element: withSuspense(<AudienceSongListPage />),
+        element: withSuspense(withCrashBoundary('Audience', <AudienceSongListPage />)),
       },
       {
         path: 'feed',
-        element: withSuspense(<FeedPage />),
+        element: withSuspense(withCrashBoundary('Audience', <FeedPage />)),
       },
       {
         path: 'event',
@@ -138,65 +156,100 @@ const router = createBrowserRouter([
       {
         path: 'admin',
         element: withSuspense(
-          <RequireHost>
-            <AdminPage />
-          </RequireHost>,
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <AdminPage />
+            </RequireHost>,
+          ),
         ),
       },
       {
         path: 'admin/create-gig',
         element: withSuspense(
-          <RequireHost>
-            <CreateGigPage />
-          </RequireHost>,
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <CreateGigPage />
+            </RequireHost>,
+          ),
         ),
       },
       {
         path: 'admin/gigs',
         element: withSuspense(
-          <RequireHost>
-            <GigsPage />
-          </RequireHost>,
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <GigsPage />
+            </RequireHost>,
+          ),
         ),
       },
       {
         path: 'admin/gig-control',
         element: withSuspense(
-          <RequireHost>
-            <GigControlPage />
-          </RequireHost>,
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <GigControlPage />
+            </RequireHost>,
+          ),
         ),
       },
       {
         path: 'admin/gig-settings',
         element: withSuspense(
-          <RequireHost>
-            <GigSettingsPage />
-          </RequireHost>,
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <GigSettingsPage />
+            </RequireHost>,
+          ),
         ),
       },
       {
         path: 'admin/settings',
         element: withSuspense(
-          <RequireHost>
-            <SettingsPage />
-          </RequireHost>,
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <SettingsPage />
+            </RequireHost>,
+          ),
         ),
       },
       {
         path: 'admin/health-check',
         element: withSuspense(
-          <RequireHost>
-            <HealthCheckPage />
-          </RequireHost>,
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <HealthCheckPage />
+            </RequireHost>,
+          ),
+        ),
+      },
+      {
+        path: 'admin/crash-telemetry',
+        element: withSuspense(
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <CrashTelemetryPage />
+            </RequireHost>,
+          ),
         ),
       },
       {
         path: 'admin/setlist-library',
         element: withSuspense(
-          <RequireHost>
-            <SetlistLibraryPage />
-          </RequireHost>,
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <SetlistLibraryPage />
+            </RequireHost>,
+          ),
         ),
       },
       {
@@ -208,11 +261,14 @@ const router = createBrowserRouter([
   {
     path: '/mirror',
     element: withSuspense(
-      <AuthProvider>
-        <QueueProvider>
-          <MirrorPage />
-        </QueueProvider>
-      </AuthProvider>,
+      withCrashBoundary(
+        'Mirror',
+        <AuthProvider>
+          <QueueProvider>
+            <MirrorPage />
+          </QueueProvider>
+        </AuthProvider>,
+      ),
     ),
     errorElement: <RouteErrorFallback />,
   },

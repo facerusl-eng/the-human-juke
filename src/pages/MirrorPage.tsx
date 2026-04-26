@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { getAudienceUrl } from '../lib/audienceUrl'
+import { logCrashTelemetry } from '../lib/crashTelemetry'
 import {
   BETWEEN_SONG_QUOTES,
   PLAYBACK_STATE_EVENT,
@@ -204,8 +205,22 @@ function MirrorPage() {
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
   const eventId = event?.id ?? null
-  const audienceUrlResolver = getAudienceUrl as (...args: unknown[]) => string
-  const audienceUrl = audienceUrlResolver(eventId, { compact: true })
+  const audienceUrl = useMemo(() => {
+    try {
+      const audienceUrlResolver = getAudienceUrl as (...args: unknown[]) => string
+      return audienceUrlResolver(eventId, { compact: true })
+    } catch (error) {
+      logCrashTelemetry({
+        route: '/mirror',
+        error,
+        extra: {
+          source: 'mirror-audience-url-resolver',
+        },
+      })
+      console.warn('MirrorPage: audience URL resolution failed', error)
+      return '/audience'
+    }
+  }, [eventId])
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=${encodeURIComponent(audienceUrl)}`
   const playbackSong = playbackState?.currentSongId
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
@@ -279,11 +294,25 @@ function MirrorPage() {
   }, [])
 
   useEffect(() => {
-    const onRuntimeError = () => {
+    const onRuntimeError = (event: ErrorEvent) => {
+      logCrashTelemetry({
+        route: '/mirror',
+        error: event.error ?? event.message,
+        extra: {
+          source: 'mirror-runtime-error',
+        },
+      })
       setMirrorWarning('Mirror recovered from a runtime issue. Showing last known state.')
     }
 
-    const onUnhandledRejection = () => {
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      logCrashTelemetry({
+        route: '/mirror',
+        error: event.reason,
+        extra: {
+          source: 'mirror-unhandled-rejection',
+        },
+      })
       setMirrorWarning('Mirror sync is retrying in the background. Display remains live.')
     }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
@@ -44,6 +44,35 @@ function CreateGigPage() {
   const [coverImageName, setCoverImageName] = useState('')
   const [busy, setBusy] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
+  const pendingTimerIdsRef = useRef<number[]>([])
+
+  const clearTrackedTimeout = useCallback((timerId: number) => {
+    window.clearTimeout(timerId)
+    pendingTimerIdsRef.current = pendingTimerIdsRef.current.filter((currentTimerId) => currentTimerId !== timerId)
+  }, [])
+
+  const scheduleTrackedTimeout = useCallback((callback: () => void, delayMs: number) => {
+    const timerId = window.setTimeout(() => {
+      pendingTimerIdsRef.current = pendingTimerIdsRef.current.filter((currentTimerId) => currentTimerId !== timerId)
+      callback()
+    }, delayMs)
+
+    pendingTimerIdsRef.current.push(timerId)
+    return timerId
+  }, [])
+
+  useEffect(() => {
+    isMountedRef.current = true
+
+    return () => {
+      isMountedRef.current = false
+      pendingTimerIdsRef.current.forEach((timerId) => {
+        window.clearTimeout(timerId)
+      })
+      pendingTimerIdsRef.current = []
+    }
+  }, [])
 
   useEffect(() => {
     if (!user?.id || !isHost) {
@@ -110,25 +139,34 @@ function CreateGigPage() {
         }
 
         await new Promise<void>((resolve) => {
-          window.setTimeout(resolve, 450 * (attemptIndex + 1))
+          scheduleTrackedTimeout(resolve, 450 * (attemptIndex + 1))
         })
       }
     }
   }
 
   const withSubmitTimeout = <T,>(promise: Promise<T>) => {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        window.setTimeout(() => {
-          reject(new Error('Create gig is taking longer than expected. Please wait a moment and try again.'))
-        }, 35_000)
-      }),
-    ])
+    return new Promise<T>((resolve, reject) => {
+      const timeoutId = scheduleTrackedTimeout(() => {
+        reject(new Error('Create gig is taking longer than expected. Please wait a moment and try again.'))
+      }, 35_000)
+
+      promise
+        .then(resolve)
+        .catch(reject)
+        .finally(() => {
+          clearTrackedTimeout(timeoutId)
+        })
+    })
   }
 
   const handleInfoSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+
+    if (busy) {
+      return
+    }
+
     setErrorText(null)
 
     if (!gigName.trim()) {
@@ -140,6 +178,10 @@ function CreateGigPage() {
   }
 
   const doCreate = async (includeDatetime: boolean) => {
+    if (busy) {
+      return
+    }
+
     setErrorText(null)
     setBusy(true)
 
@@ -157,6 +199,10 @@ function CreateGigPage() {
       await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), eventOptions))
       navigate('/admin/gig-control')
     } catch (error) {
+      if (!isMountedRef.current) {
+        return
+      }
+
       if (isAuthLockError(error)) {
         setErrorText('Session lock is busy. Close duplicate admin tabs, wait 2 seconds, then try Create Gig again.')
         return
@@ -175,7 +221,9 @@ function CreateGigPage() {
             : 'Failed to create gig. Check your connection and try again.'
       setErrorText(errorMessage)
     } finally {
-      setBusy(false)
+      if (isMountedRef.current) {
+        setBusy(false)
+      }
     }
   }
 
@@ -201,6 +249,11 @@ function CreateGigPage() {
 
     try {
       const dataUrl = await readFileAsDataUrl(selectedFile)
+
+      if (!isMountedRef.current) {
+        return
+      }
+
       setCoverImageDataUrl(dataUrl)
       setCoverImageName(selectedFile.name)
       setErrorText(null)
@@ -401,13 +454,14 @@ function CreateGigPage() {
 
           {errorText ? <p className="error-text">{errorText}</p> : null}
           <div className="hero-actions">
-            <button type="submit" className="primary-button">
+            <button type="submit" className="primary-button" disabled={busy}>
               Next →
             </button>
             <button
               type="button"
               className="secondary-button"
               onClick={() => navigate('/admin')}
+              disabled={busy}
             >
               Cancel
             </button>

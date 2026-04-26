@@ -345,6 +345,7 @@ function EventPage() {
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
   const audienceLinkVersionRef = useRef(AUDIENCE_CACHE_VERSION)
   const votingSongIdsRef = useRef<Record<string, boolean>>({})
+  const confirmationTimerRef = useRef<number | null>(null)
 
   const roomOpen = event?.roomOpen ?? false
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
@@ -373,6 +374,15 @@ function EventPage() {
   useEffect(() => {
     votingSongIdsRef.current = votingSongIds
   }, [votingSongIds])
+
+  useEffect(() => {
+    return () => {
+      if (confirmationTimerRef.current !== null) {
+        window.clearTimeout(confirmationTimerRef.current)
+        confirmationTimerRef.current = null
+      }
+    }
+  }, [])
 
   const handleVoteSong = useCallback(async (songId: string) => {
     if (votingSongIdsRef.current[songId]) {
@@ -516,13 +526,14 @@ function EventPage() {
     setConfirmationText(state.requestConfirmation)
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
 
-    const timerId = window.setTimeout(() => {
-      setConfirmationText(null)
-    }, 2600)
-
-    return () => {
-      window.clearTimeout(timerId)
+    if (confirmationTimerRef.current !== null) {
+      window.clearTimeout(confirmationTimerRef.current)
     }
+
+    confirmationTimerRef.current = window.setTimeout(() => {
+      setConfirmationText(null)
+      confirmationTimerRef.current = null
+    }, 2600)
   }, [location.pathname, location.search, location.state, navigate])
 
   useEffect(() => {
@@ -866,6 +877,10 @@ function EventPage() {
     formEvent.preventDefault()
     setAudienceNameError(null)
 
+    if (audienceNameSaving) {
+      return
+    }
+
     const normalizedAudienceName = audienceNameInput.trim()
 
     if (!normalizedAudienceName) {
@@ -895,7 +910,15 @@ function EventPage() {
       setAudienceName(normalizedAudienceName)
       setErrorText(null)
       setConfirmationText('Welcome! 🎤')
-      window.setTimeout(() => setConfirmationText(null), 2000)
+
+      if (confirmationTimerRef.current !== null) {
+        window.clearTimeout(confirmationTimerRef.current)
+      }
+
+      confirmationTimerRef.current = window.setTimeout(() => {
+        setConfirmationText(null)
+        confirmationTimerRef.current = null
+      }, 2000)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save your name.'
       setAudienceNameError(errorMessage)
