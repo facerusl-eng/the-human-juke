@@ -5,6 +5,7 @@ import { ActionButtonGroup, type ActionButtonConfig } from '../components/action
 import { useClipboardCopy } from '../hooks/useClipboardCopy'
 import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
+import { captureQueueSnapshot, getLatestQueueSnapshot } from '../lib/queueSnapshots'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
 import { useQueueStore } from '../state/queueStore'
 
@@ -40,6 +41,7 @@ function GigControlPage() {
   const [manualAddBusy, setManualAddBusy] = useState(false)
   const [songActionBusyId, setSongActionBusyId] = useState<string | null>(null)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
+  const [snapshotStatusText, setSnapshotStatusText] = useState<string | null>(null)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -77,6 +79,54 @@ function GigControlPage() {
     if (copiedSuccessfully) {
       setErrorText(null)
       setCopyError(null)
+    }
+  }
+
+  const saveQueueSnapshot = () => {
+    if (!event) {
+      setSnapshotStatusText('No active gig to snapshot.')
+      return
+    }
+
+    captureQueueSnapshot({
+      eventId: event.id,
+      eventName: event.name,
+      roomOpen: event.roomOpen,
+      explicitFilterEnabled: event.explicitFilterEnabled,
+      queue: songs,
+      performed: performedSongs,
+    })
+
+    setSnapshotStatusText(`Snapshot saved at ${new Date().toLocaleTimeString()}.`)
+  }
+
+  const downloadLatestSnapshot = () => {
+    if (!event) {
+      setSnapshotStatusText('No active gig to export.')
+      return
+    }
+
+    const latestSnapshot = getLatestQueueSnapshot(event.id)
+
+    if (!latestSnapshot) {
+      setSnapshotStatusText('No snapshot found yet. Save one first.')
+      return
+    }
+
+    try {
+      const blob = new Blob([JSON.stringify(latestSnapshot, null, 2)], { type: 'application/json' })
+      const objectUrl = window.URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = objectUrl
+      anchor.download = `${event.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-queue-snapshot.json`
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      window.URL.revokeObjectURL(objectUrl)
+      setSnapshotStatusText('Latest snapshot downloaded.')
+    } catch (error) {
+      console.warn('GigControlPage: snapshot download failed', error)
+      setSnapshotStatusText('Snapshot export failed. Try again.')
     }
   }
 
@@ -466,6 +516,15 @@ function GigControlPage() {
           >
             {copiedAudienceLink ? 'Copied!' : 'Copy Audience Link'}
           </button>
+          <div className="hero-actions no-margin-bottom">
+            <button type="button" className="secondary-button" onClick={saveQueueSnapshot}>
+              Save Queue Snapshot
+            </button>
+            <button type="button" className="ghost-button" onClick={downloadLatestSnapshot}>
+              Download Latest Snapshot
+            </button>
+          </div>
+          {snapshotStatusText ? <p className="subcopy no-margin">{snapshotStatusText}</p> : null}
         </article>
       </section>
 

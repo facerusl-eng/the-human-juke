@@ -2,16 +2,19 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { AUDIENCE_NAME_COMMITTED_EVENT, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from '../state/authStore'
+import { useQueueStore } from '../state/queueStore'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 
 function ShellLayout() {
   const location = useLocation()
   const { user, isHost, loading, signInHost, signOut } = useAuthStore()
+  const { event } = useQueueStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errorText, setErrorText] = useState<string | null>(null)
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
+  const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine)
   const [authActionBusy, setAuthActionBusy] = useState<null | 'sign-in' | 'sign-out'>(null)
   const [hasAudienceAccess, setHasAudienceAccess] = useState(() => Boolean(readCommittedAudienceName()))
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
@@ -19,6 +22,8 @@ function ShellLayout() {
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
   const showMobileMenu = !isAudienceMode
+  const hasLiveGig = Boolean(event?.roomOpen)
+  const canOpenFeed = isHost || (hasAudienceAccess && hasLiveGig)
   const shellClassName = isAudienceSongListMode
     ? 'app-shell app-shell-audience-fullscreen'
     : location.pathname.startsWith('/admin/setlist-library')
@@ -66,18 +71,33 @@ function ShellLayout() {
     }
   }, [])
 
+  useEffect(() => {
+    const onOnline = () => setNetworkOnline(true)
+    const onOffline = () => setNetworkOnline(false)
+
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+
+    return () => {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
+
   return (
     <main className={shellClassName}>
       {!isAudienceSongListMode ? <header className={topbarClassName}>
         <p className="brand" aria-label="The Human Jukebox">
           <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
         </p>
+        <span className={`meta-badge connection-badge ${networkOnline ? 'connection-online' : 'connection-offline'}`}>
+          {networkOnline ? 'Online' : 'Offline'}
+        </span>
         {showMobileMenu ? (
           <button
             type="button"
             className="mobile-nav-toggle"
             aria-controls="primary-site-nav"
-            aria-expanded={isMobileNavOpen}
             aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
             onClick={() => setIsMobileNavOpen((open) => !open)}
           >
@@ -88,14 +108,14 @@ function ShellLayout() {
           {isAudienceMode ? (
             <>
               <NavLink to="/audience">Audience</NavLink>
-              {hasAudienceAccess ? <NavLink to="/feed">Feed</NavLink> : null}
+              {canOpenFeed ? <NavLink to="/feed">Feed</NavLink> : null}
               {isHost ? <NavLink to="/admin/gig-control">Back to Admin</NavLink> : null}
             </>
           ) : (
             <>
               <NavLink to="/" end>Home</NavLink>
               <NavLink to="/audience">Audience</NavLink>
-              <NavLink to="/feed">Feed</NavLink>
+              {canOpenFeed ? <NavLink to="/feed">Feed</NavLink> : null}
               {isHost ? (
                 <>
                   <NavLink to="/admin" end>Dashboard</NavLink>
@@ -103,6 +123,7 @@ function ShellLayout() {
                   <NavLink to="/admin/create-gig">New Gig</NavLink>
                   <NavLink to="/admin/gig-control">Gig Control</NavLink>
                   <NavLink to="/admin/gig-settings">Gig Settings</NavLink>
+                  <NavLink to="/admin/health-check">Health Check</NavLink>
                   <NavLink to="/admin/setlist-library">Setlist</NavLink>
                   <NavLink to="/admin/settings">Settings</NavLink>
                 </>

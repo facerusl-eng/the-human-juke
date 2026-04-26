@@ -53,6 +53,21 @@ type GigSettingsFormProps = {
 
 const MAX_UNDO_STATES = 20
 
+function normalizePlaylistIds(playlistIds: string[]) {
+  return [...new Set(playlistIds)].sort()
+}
+
+function arePlaylistSelectionsEqual(left: string[], right: string[]) {
+  const normalizedLeft = normalizePlaylistIds(left)
+  const normalizedRight = normalizePlaylistIds(right)
+
+  if (normalizedLeft.length !== normalizedRight.length) {
+    return false
+  }
+
+  return normalizedLeft.every((playlistId, index) => playlistId === normalizedRight[index])
+}
+
 function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsFormProps) {
   const { user } = useAuthStore()
 
@@ -71,6 +86,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     explicitFilterEnabled: event.explicitFilterEnabled,
     showInAudienceNoGig: event.showInAudienceNoGig,
   })
+  const [initialSelectedPlaylistIds, setInitialSelectedPlaylistIds] = useState<string[]>([])
 
   // Undo/Redo
   const [undoStack, setUndoStack] = useState<UndoRedoState[]>([])
@@ -138,10 +154,13 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
           return
         }
 
+        const loadedSelectedPlaylistIds = (selectedResult.data ?? []).map((row) => row.playlist_id as string)
+
         setPlaylists((playlistsResult.data ?? []) as HostPlaylist[])
+        setInitialSelectedPlaylistIds(normalizePlaylistIds(loadedSelectedPlaylistIds))
         setState((current) => ({
           ...current,
-          selectedPlaylistIds: (selectedResult.data ?? []).map((row) => row.playlist_id as string),
+          selectedPlaylistIds: loadedSelectedPlaylistIds,
         }))
       } catch (error) {
         console.warn('GigSettingsPage: failed to load playlists', error)
@@ -280,6 +299,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
       })
 
       await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
+      setInitialSelectedPlaylistIds(normalizePlaylistIds(saveState.selectedPlaylistIds))
       markSaved()
     } catch (error) {
       console.warn('GigSettingsPage: failed to save settings', error)
@@ -353,6 +373,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
     || state.roomOpen !== event.roomOpen
     || state.explicitFilterEnabled !== event.explicitFilterEnabled
+    || !arePlaylistSelectionsEqual(state.selectedPlaylistIds, initialSelectedPlaylistIds)
     || state.showInAudienceNoGig !== event.showInAudienceNoGig
 
   return (

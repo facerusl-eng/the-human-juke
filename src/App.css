@@ -102,6 +102,27 @@
     0 0 14px rgba(93, 215, 255, 0.22);
 }
 
+.connection-badge {
+  min-width: 5.8rem;
+  text-align: center;
+}
+
+.connection-online {
+  border-color: rgba(95, 217, 165, 0.58);
+  background: rgba(10, 42, 31, 0.86);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0 14px rgba(95, 217, 165, 0.24);
+}
+
+.connection-offline {
+  border-color: rgba(255, 132, 118, 0.58);
+  background: rgba(63, 16, 24, 0.86);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 14px rgba(255, 132, 118, 0.22);
+}
+
 .site-nav a {
   color: #d3e6ff;
   text-decoration: none;

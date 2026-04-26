@@ -287,6 +287,15 @@ function AuthProvider({ children }: PropsWithChildren) {
         }
 
         if (!signInResult.error) {
+          const returnedSession = signInResult.data.session
+
+          if (returnedSession) {
+            await applySessionState(returnedSession)
+          } else {
+            const { data: sessionData } = await supabase.auth.getSession()
+            await applySessionState(sessionData.session ?? null)
+          }
+
           return
         }
 
@@ -309,9 +318,11 @@ function AuthProvider({ children }: PropsWithChildren) {
         if (error) {
           throw error
         }
+
+        await applySessionState(null)
       },
     }),
-    [user, session, profile, loading, authError, refreshProfile],
+    [user, session, profile, loading, authError, refreshProfile, applySessionState],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

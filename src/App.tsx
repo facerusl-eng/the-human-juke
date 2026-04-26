@@ -17,6 +17,7 @@ const FeedPage = lazy(() => import('./pages/FeedPage'))
 const GigControlPage = lazy(() => import('./pages/GigControlPage'))
 const GigSettingsPage = lazy(() => import('./pages/GigSettingsPage'))
 const GigsPage = lazy(() => import('./pages/GigsPage'))
+const HealthCheckPage = lazy(() => import('./pages/HealthCheckPage'))
 const HomePage = lazy(() => import('./pages/HomePage'))
 const MirrorPage = lazy(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazy(() => import('./pages/SetlistLibraryPage'))
@@ -165,6 +166,14 @@ const router = createBrowserRouter([
         element: withSuspense(
           <RequireHost>
             <SettingsPage />
+          </RequireHost>,
+        ),
+      },
+      {
+        path: 'admin/health-check',
+        element: withSuspense(
+          <RequireHost>
+            <HealthCheckPage />
           </RequireHost>,
         ),
       },

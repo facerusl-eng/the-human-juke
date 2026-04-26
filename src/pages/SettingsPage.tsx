@@ -90,6 +90,7 @@ function SettingsPage() {
     new Set(['account', 'performer', 'social', 'tipjar']),
   )
   const [loadingSettings, setLoadingSettings] = useState(false)
+  const [manualSaveBusy, setManualSaveBusy] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const {
@@ -122,7 +123,7 @@ function SettingsPage() {
         const { data, error } = await supabase
           .from('profiles')
           .select(
-            'display_name, bio, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, default_gig_name, default_venue',
+            'display_name, website_url, bio, performer_photo_url, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, theme_preset, accent_color, default_gig_name, default_venue, default_audience_bg_blur, default_mirror_layout',
           )
           .eq('user_id', user.id)
           .single()
@@ -136,10 +137,27 @@ function SettingsPage() {
         }
 
         if (data) {
+          const rawThemePreset = data.theme_preset ?? ''
+          const hasValidThemePreset = Object.prototype.hasOwnProperty.call(THEME_PRESETS, rawThemePreset)
+
+          const rawBlur = typeof data.default_audience_bg_blur === 'number'
+            ? data.default_audience_bg_blur
+            : Number(data.default_audience_bg_blur)
+          const normalizedBlur = Number.isFinite(rawBlur)
+            ? Math.max(0, Math.min(10, Math.round(rawBlur)))
+            : DEFAULTS.default_audience_bg_blur
+
+          const rawMirrorLayout = data.default_mirror_layout ?? ''
+          const normalizedMirrorLayout = ['centered', 'side-by-side', 'minimal'].includes(rawMirrorLayout)
+            ? rawMirrorLayout
+            : DEFAULTS.default_mirror_layout
+
           setState((prev) => ({
             ...prev,
             display_name: data.display_name ?? '',
+            website_url: data.website_url ?? '',
             bio: data.bio ?? '',
+            performer_photo_url: data.performer_photo_url ?? '',
             instagram_url: data.instagram_url ?? '',
             tiktok_url: data.tiktok_url ?? '',
             youtube_url: data.youtube_url ?? '',
@@ -147,8 +165,12 @@ function SettingsPage() {
             paypal_url: data.paypal_url ?? '',
             mobilpay_url: data.mobilpay_url ?? '',
             contact_email: data.contact_email ?? '',
+            theme_preset: hasValidThemePreset ? rawThemePreset : DEFAULTS.theme_preset,
+            accent_color: data.accent_color ?? DEFAULTS.accent_color,
             default_gig_name: data.default_gig_name ?? '',
             default_venue: data.default_venue ?? '',
+            default_audience_bg_blur: normalizedBlur,
+            default_mirror_layout: normalizedMirrorLayout,
           }))
         }
       } catch (error) {
@@ -271,8 +293,8 @@ function SettingsPage() {
         }
       }
 
-      // Also try saving extended columns (requires migration to have been run — silent if not)
-      void supabase
+      // Save extended profile/theme columns as part of the same save lifecycle.
+      const { error: extendedColumnsError } = await supabase
         .from('profiles')
         .update({
           website_url: normalizedSocialFields.website_url,
@@ -283,11 +305,10 @@ function SettingsPage() {
           default_mirror_layout: stateToSave.default_mirror_layout,
         })
         .eq('user_id', user.id)
-        .then(({ error }) => {
-          if (error) {
-            console.warn('SettingsPage: extended columns not saved (migration pending?)', error.message)
-          }
-        })
+
+      if (extendedColumnsError) {
+        throw extendedColumnsError
+      }
 
       try {
         await refreshProfile()
@@ -335,6 +356,13 @@ function SettingsPage() {
       next.has(sectionId) ? next.delete(sectionId) : next.add(sectionId)
       return next
     })
+  }
+
+  const onManualSaveClick = async () => {
+    cancelAutosave()
+    setManualSaveBusy(true)
+    await performSave(state)
+    setManualSaveBusy(false)
   }
 
   const handleExport = () => {
@@ -436,6 +464,17 @@ function SettingsPage() {
             title="Redo (Ctrl+Y)"
           >
             ↷ Redo
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => {
+              void onManualSaveClick()
+            }}
+            disabled={loadingSettings || manualSaveBusy || saveStatus === 'saving'}
+            title="Save now"
+          >
+            {manualSaveBusy || saveStatus === 'saving' ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
 

@@ -184,6 +184,8 @@ function AdminDashboardContent({
   const { event, hostEvents, songs, loading, setActiveEvent, toggleRoomOpen, toggleExplicitFilter } = useQueueStore()
   const [activeSwitchError, setActiveSwitchError] = useState<string | null>(null)
   const [quickActionError, setQuickActionError] = useState<string | null>(null)
+  const [panicModeActive, setPanicModeActive] = useState(false)
+  const [panicSnapshot, setPanicSnapshot] = useState<{ roomOpen: boolean; explicitFilterEnabled: boolean } | null>(null)
   const [profileBusy, setProfileBusy] = useState<null | 'logout'>(null)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [subscriptionState, setSubscriptionState] = useState<'connecting' | 'healthy' | 'degraded'>('connecting')
@@ -520,6 +522,75 @@ function AdminDashboardContent({
     quickGigActions.runToggleRoomOpen,
   ])
 
+  const activatePanicMode = useCallback(async () => {
+    if (!event || quickGigActions.quickActionBusy) {
+      return
+    }
+
+    setQuickActionError(null)
+    setPanicSnapshot({
+      roomOpen: event.roomOpen,
+      explicitFilterEnabled: event.explicitFilterEnabled,
+    })
+
+    try {
+      if (event.roomOpen) {
+        await quickGigActions.runToggleRoomOpen()
+      }
+
+      if (!event.explicitFilterEnabled) {
+        await quickGigActions.runToggleExplicitFilter()
+      }
+
+      setPanicModeActive(true)
+    } catch (error) {
+      console.warn('AdminPage: panic mode activation failed', error)
+      setQuickActionError(error instanceof Error ? error.message : 'Failed to activate panic mode.')
+    }
+  }, [event, quickGigActions])
+
+  const undoPanicMode = useCallback(async () => {
+    if (!event || !panicSnapshot || quickGigActions.quickActionBusy) {
+      return
+    }
+
+    setQuickActionError(null)
+
+    try {
+      if (event.roomOpen !== panicSnapshot.roomOpen) {
+        await quickGigActions.runToggleRoomOpen()
+      }
+
+      if (event.explicitFilterEnabled !== panicSnapshot.explicitFilterEnabled) {
+        await quickGigActions.runToggleExplicitFilter()
+      }
+
+      setPanicModeActive(false)
+      setPanicSnapshot(null)
+    } catch (error) {
+      console.warn('AdminPage: panic mode undo failed', error)
+      setQuickActionError(error instanceof Error ? error.message : 'Failed to undo panic mode.')
+    }
+  }, [event, panicSnapshot, quickGigActions])
+
+  const panicModeActions: ActionButtonConfig[] = [
+    {
+      id: 'panic-mode-toggle',
+      label: panicModeActive ? 'Undo Panic Mode' : 'Activate Panic Mode',
+      onClick: async () => {
+        if (panicModeActive) {
+          await undoPanicMode()
+          return
+        }
+
+        await activatePanicMode()
+      },
+      disabled: !event || quickGigActions.quickActionBusy,
+      variant: panicModeActive ? 'secondary' : 'primary',
+      className: 'admin-mobile-priority',
+    },
+  ]
+
   return (
     <section className="admin-shell admin-mobile-home" aria-label="Admin dashboard">
       {recoveryNotice ? (
@@ -536,6 +607,9 @@ function AdminDashboardContent({
           <p className="subcopy no-margin-bottom">
             {subscriptionError ?? 'Attaching live listeners for queue and event changes.'}
           </p>
+          {subscriptionState === 'degraded' ? (
+            <p className="meta-badge">Fallback polling active</p>
+          ) : null}
         </section>
       ) : null}
 
@@ -582,6 +656,9 @@ function AdminDashboardContent({
               <h2>Quick Controls</h2>
               <span className="meta-badge">One-hand mode</span>
             </div>
+
+            <ActionButtonGroup actions={panicModeActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
+            {panicModeActive ? <p className="meta-badge">Panic mode is active: requests paused + explicit blocked.</p> : null}
 
             <ActionButtonGroup actions={quickControlActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
             {quickActionError ? <p className="error-text">{quickActionError}</p> : null}

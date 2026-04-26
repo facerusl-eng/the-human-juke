@@ -66,6 +66,7 @@ function setupBuildUpdateRefresh() {
 
   const currentEntryPath = new URL(import.meta.url, window.location.href).pathname
   let checking = false
+  let hasNotifiedBuildUpdate = false
 
   const checkForUpdatedBuild = async () => {
     if (checking) {
@@ -93,7 +94,10 @@ function setupBuildUpdateRefresh() {
       const deployedEntryPath = new URL(match[1], window.location.origin).pathname
 
       if (deployedEntryPath !== currentEntryPath) {
-        window.location.reload()
+        if (!hasNotifiedBuildUpdate) {
+          hasNotifiedBuildUpdate = true
+          emitRuntimeNotice('A new app update is available. Refresh when convenient to apply it.')
+        }
       }
     } catch {
       emitRuntimeNotice('Network sync is temporarily unavailable. Retrying in the background.')
