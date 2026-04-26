@@ -25,9 +25,14 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 function RouteLoading() {
   return (
-    <div className="app-shell" role="status" aria-live="polite">
-      <p>Loading page...</p>
-    </div>
+    <section className="app-shell page-loading-shell" role="status" aria-live="polite" aria-label="Loading page">
+      <section className="queue-panel page-loading-panel">
+        <p className="eyebrow">The Human Jukebox</p>
+        <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
+        <div className="loading-skeleton loading-skeleton-line" aria-hidden="true"></div>
+        <div className="loading-skeleton loading-skeleton-line loading-skeleton-line-short" aria-hidden="true"></div>
+      </section>
+    </section>
   )
 }
 

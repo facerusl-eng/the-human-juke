@@ -372,8 +372,9 @@ function GigControlPage() {
       <section className="gig-control-shell" aria-label="Gig control loading">
         <section className="queue-panel gig-control-loading" role="status" aria-live="polite">
           <p className="eyebrow">Live Control</p>
-          <h1>Loading gig controls...</h1>
-          <p className="subcopy">Syncing queue, playback, and host actions.</p>
+          <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
+          <div className="loading-skeleton loading-skeleton-line" aria-hidden="true"></div>
+          <div className="loading-skeleton loading-skeleton-line loading-skeleton-line-short" aria-hidden="true"></div>
         </section>
       </section>
     )

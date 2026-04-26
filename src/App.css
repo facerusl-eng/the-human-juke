@@ -3315,6 +3315,56 @@
   margin-bottom: 0;
 }
 
+.page-loading-shell {
+  min-height: calc(100dvh - 9rem);
+  display: grid;
+  align-items: start;
+}
+
+.page-loading-panel,
+.gig-control-loading,
+.audience-entry-card {
+  min-height: 11.5rem;
+}
+
+.loading-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(160, 186, 226, 0.18);
+}
+
+.loading-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.34) 45%, transparent 100%);
+  animation: loading-shimmer 1.1s ease-in-out infinite;
+}
+
+.loading-skeleton-title {
+  height: 1.6rem;
+  width: min(19rem, 82%);
+  margin: 0.35rem 0 0.75rem;
+}
+
+.loading-skeleton-line {
+  height: 0.95rem;
+  width: 100%;
+  margin-top: 0.45rem;
+}
+
+.loading-skeleton-line-short {
+  width: 72%;
+}
+
+@keyframes loading-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 .gig-add-song-tabs {
   display: grid;
   gap: 0.8rem;

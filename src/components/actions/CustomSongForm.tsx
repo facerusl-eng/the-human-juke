@@ -61,6 +61,35 @@ function readFileAsDataUrl(file: File) {
   })
 }
 
+function getSupabaseErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object') {
+    const normalizedError = error as {
+      message?: unknown
+      details?: unknown
+      hint?: unknown
+      code?: unknown
+    }
+
+    const pieces = [normalizedError.message, normalizedError.details, normalizedError.hint]
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .filter(Boolean)
+
+    if (pieces.length > 0) {
+      return pieces.join(' - ')
+    }
+
+    if (typeof normalizedError.code === 'string' && normalizedError.code.trim()) {
+      return `Request failed (${normalizedError.code.trim()}).`
+    }
+  }
+
+  return fallbackMessage
+}
+
 type CustomSongFormProps = {
   userId: string
   onSavedSong: (song: CustomSong) => void
@@ -141,9 +170,7 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
       } catch (fallbackError) {
         const uploadMessage = fallbackError instanceof Error
           ? fallbackError.message
-          : error instanceof Error
-          ? error.message
-          : 'Cover upload failed. You can still save without a cover.'
+          : getSupabaseErrorMessage(error, 'Cover upload failed. You can still save without a cover.')
 
         setErrorText(uploadMessage)
         onStatus(uploadMessage, 'error')
@@ -215,7 +242,7 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
       setCoverName(null)
     } catch (error) {
       console.warn('CustomSongForm: failed to save custom song', error)
-      const saveMessage = error instanceof Error ? error.message : 'Could not save custom song.'
+      const saveMessage = getSupabaseErrorMessage(error, 'Could not save custom song.')
       setErrorText(saveMessage)
       onStatus(saveMessage, 'error')
     } finally {

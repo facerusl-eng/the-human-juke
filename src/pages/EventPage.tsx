@@ -830,7 +830,9 @@ function EventPage() {
       <section className="audience-entry-shell" aria-label="Audience loading">
         <article className="queue-panel audience-entry-card">
           <p className="eyebrow">Audience App</p>
-          <h1>Loading live queue...</h1>
+          <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
+          <div className="loading-skeleton loading-skeleton-line" aria-hidden="true"></div>
+          <div className="loading-skeleton loading-skeleton-line loading-skeleton-line-short" aria-hidden="true"></div>
         </article>
       </section>
     )
