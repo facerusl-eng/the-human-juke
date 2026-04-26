@@ -307,6 +307,7 @@ function EventPage() {
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [audienceLoadingFallbackActive, setAudienceLoadingFallbackActive] = useState(false)
+  const [hasResolvedInitialAudienceLoad, setHasResolvedInitialAudienceLoad] = useState(false)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -354,6 +355,16 @@ function EventPage() {
       window.clearTimeout(timerId)
     }
   }, [loading, event])
+
+  useEffect(() => {
+    if (hasResolvedInitialAudienceLoad) {
+      return
+    }
+
+    if (!loading || Boolean(event) || upcomingEvents.length > 0 || Boolean(upcomingEventsNotice)) {
+      setHasResolvedInitialAudienceLoad(true)
+    }
+  }, [loading, event, upcomingEvents.length, upcomingEventsNotice, hasResolvedInitialAudienceLoad])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -825,7 +836,13 @@ function EventPage() {
     }
   }
 
-  if (loading && !audienceLoadingFallbackActive) {
+  if (
+    loading
+    && !audienceLoadingFallbackActive
+    && !hasResolvedInitialAudienceLoad
+    && !event
+    && upcomingEvents.length === 0
+  ) {
     return (
       <section className="audience-entry-shell" aria-label="Audience loading">
         <article className="queue-panel audience-entry-card">
