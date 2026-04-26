@@ -38,6 +38,7 @@ const MIRROR_PLAYBACK_STORAGE_KEY = 'human-jukebox-playback-state'
 const MIRROR_PLAYBACK_BROADCAST_CHANNEL = 'human-jukebox-playback-state'
 const MIRROR_SAFE_MARGINS_STORAGE_KEY = 'human-jukebox-mirror-safe-margins'
 const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
+const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 
 type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
@@ -189,10 +190,46 @@ function MirrorPage() {
   const spotlightTimerRef = useRef<number | null>(null)
   const fallbackBetweenSongsTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
+  const mirrorWarningClearTimerRef = useRef<number | null>(null)
+  const mirrorWarningLastShownAtRef = useRef<number>(0)
   const previousSongIdRef = useRef<string | null>(null)
   const spotlightQueueRef = useRef<SpotlightQueueItem[]>([])
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
+
+  const setMirrorWarningMessage = (message: string) => {
+    if (mirrorWarningClearTimerRef.current !== null) {
+      window.clearTimeout(mirrorWarningClearTimerRef.current)
+      mirrorWarningClearTimerRef.current = null
+    }
+
+    mirrorWarningLastShownAtRef.current = Date.now()
+    setMirrorWarning((currentWarning) => (currentWarning === message ? currentWarning : message))
+  }
+
+  const clearMirrorWarningSmoothly = () => {
+    const elapsedMs = Date.now() - mirrorWarningLastShownAtRef.current
+    const delayMs = Math.max(0, MIRROR_WARNING_MIN_VISIBLE_MS - elapsedMs)
+
+    if (mirrorWarningClearTimerRef.current !== null) {
+      window.clearTimeout(mirrorWarningClearTimerRef.current)
+      mirrorWarningClearTimerRef.current = null
+    }
+
+    mirrorWarningClearTimerRef.current = window.setTimeout(() => {
+      setMirrorWarning(null)
+      mirrorWarningClearTimerRef.current = null
+    }, delayMs)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (mirrorWarningClearTimerRef.current !== null) {
+        window.clearTimeout(mirrorWarningClearTimerRef.current)
+        mirrorWarningClearTimerRef.current = null
+      }
+    }
+  }, [])
 
   const safeSongs = useMemo(() => songs.filter((song) => (
     song
@@ -231,8 +268,8 @@ function MirrorPage() {
   const isBetweenSongs = hasPlaybackBetweenSongsState || fallbackBetweenSongs
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
-    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, 4)
-    : safeSongs.slice(0, 4)
+    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, 6)
+    : safeSongs.slice(0, 6)
   const hiddenQueueCount = Math.max(0, safeSongs.length - (isNowPlayingStarted ? 1 : 0) - upNext.length)
   const betweenSongQuoteIndex = hasPlaybackBetweenSongsState
     ? (playbackState?.quoteIndex ?? 0)
@@ -302,7 +339,7 @@ function MirrorPage() {
           source: 'mirror-runtime-error',
         },
       })
-      setMirrorWarning('Mirror recovered from a runtime issue. Showing last known state.')
+      setMirrorWarningMessage('Mirror recovered from a runtime issue. Showing last known state.')
     }
 
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -313,7 +350,7 @@ function MirrorPage() {
           source: 'mirror-unhandled-rejection',
         },
       })
-      setMirrorWarning('Mirror sync is retrying in the background. Display remains live.')
+      setMirrorWarningMessage('Mirror sync is retrying in the background. Display remains live.')
     }
 
     window.addEventListener('error', onRuntimeError)
@@ -448,15 +485,15 @@ function MirrorPage() {
         if (isCurrent) {
           if (state) {
             setPlaybackState(state)
-            setMirrorWarning(null)
+            clearMirrorWarningSmoothly()
             return
           }
 
-          setMirrorWarning('Realtime playback sync is reconnecting. Using queue fallback.')
+          setMirrorWarningMessage('Realtime playback sync is reconnecting. Using queue fallback.')
         }
       } catch {
         if (isCurrent) {
-          setMirrorWarning('Realtime playback sync is reconnecting. Using queue fallback.')
+          setMirrorWarningMessage('Realtime playback sync is reconnecting. Using queue fallback.')
         }
       }
     }
@@ -490,13 +527,13 @@ function MirrorPage() {
 
           if (status === 'SUBSCRIBED') {
             reconnectAttempt = 0
-            setMirrorWarning(null)
+            clearMirrorWarningSmoothly()
             void syncPlaybackState()
             return
           }
 
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            setMirrorWarning('Mirror realtime channel reconnecting. Display remains active.')
+            setMirrorWarningMessage('Mirror realtime channel reconnecting. Display remains active.')
 
             if (reconnectTimerId !== null) {
               return
@@ -545,7 +582,7 @@ function MirrorPage() {
 
       if (detail?.eventId === eventId) {
         setPlaybackState(detail.state)
-        setMirrorWarning(null)
+        clearMirrorWarningSmoothly()
       }
     }
 
@@ -558,7 +595,7 @@ function MirrorPage() {
         const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
         if (detail.eventId === eventId && detail.state) {
           setPlaybackState(detail.state)
-          setMirrorWarning(null)
+          clearMirrorWarningSmoothly()
         }
       } catch {
         // Ignore malformed storage payloads.
@@ -579,7 +616,7 @@ function MirrorPage() {
         const detail = messageEvent.data
         if (detail?.eventId === eventId && detail.state) {
           setPlaybackState(detail.state)
-          setMirrorWarning(null)
+          clearMirrorWarningSmoothly()
         }
       }
     }
@@ -796,7 +833,7 @@ function MirrorPage() {
       }
 
       if (error) {
-        setMirrorWarning('Crowd spotlight sync is reconnecting.')
+        setMirrorWarningMessage('Crowd spotlight sync is reconnecting.')
         return
       }
 
@@ -850,12 +887,12 @@ function MirrorPage() {
 
           if (status === 'SUBSCRIBED') {
             reconnectAttempt = 0
-            setMirrorWarning(null)
+            clearMirrorWarningSmoothly()
             return
           }
 
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            setMirrorWarning('Crowd spotlight sync is reconnecting.')
+            setMirrorWarningMessage('Crowd spotlight sync is reconnecting.')
 
             if (reconnectTimerId !== null) {
               return
@@ -961,7 +998,11 @@ function MirrorPage() {
           ) : null}
         </div>
         <div className="mirror-header-meta">
-          {mirrorWarning ? <p className="mirror-warning" role="status">{mirrorWarning}</p> : null}
+          {mirrorWarning ? (
+            <p className="mirror-warning" role="status">{mirrorWarning}</p>
+          ) : (
+            <p className="mirror-warning mirror-warning-hidden">\u00a0</p>
+          )}
           <span className={`mirror-status ${event?.roomOpen ? 'mirror-open' : 'mirror-paused'}`}>
             {event?.roomOpen ? '● Live' : '● Paused'}
           </span>
@@ -980,7 +1021,7 @@ function MirrorPage() {
                   }
                 } catch (error) {
                   console.warn('MirrorPage: fullscreen toggle failed', error)
-                  setMirrorWarning('Fullscreen was blocked by the browser or iframe policy. Open /mirror in its own tab, then press F11 as fallback.')
+                  setMirrorWarningMessage('Fullscreen was blocked by the browser or iframe policy. Open /mirror in its own tab, then press F11 as fallback.')
                 }
               }}
             >
@@ -1021,11 +1062,6 @@ function MirrorPage() {
             </button>
           </div>
         ) : null}
-        {isLive ? (
-          <div className="mirror-header-qr" aria-label="Audience join QR">
-            <img src={qrUrl} alt="QR code for the audience request page" className="mirror-header-qr-image" />
-          </div>
-        ) : null}
       </header>
 
       <main className={`mirror-stage ${isLive ? 'mirror-stage-live' : ''}`}>
@@ -1049,72 +1085,76 @@ function MirrorPage() {
           </section>
         ) : (
           <>
-            {shouldShowAdminElements ? (
-              <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isBetweenSongs ? 'mirror-now-playing-interstitial' : ''}`}>
-                {isBetweenSongs ? (
-                  <>
-                    <div className="mirror-interstitial-sweep" aria-hidden="true" />
-                    <p className="mirror-between-songs-quote">{betweenSongQuote}</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="mirror-eyebrow">Now Playing</p>
-                    <div className="mirror-now-playing-track">
-                      {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
-                        <img
-                          src={activeSong.cover_url}
-                          alt={`Cover art for ${activeSong.title}`}
-                          className="mirror-now-playing-cover"
-                          onError={() => onCoverLoadError(activeSong.cover_url)}
-                        />
-                      ) : null}
-                      <div className="mirror-now-playing-meta">
-                        <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests...')}</h1>
-                        <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be the first to request a song!')}</p>
-                        {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
-                      </div>
+            <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isBetweenSongs ? 'mirror-now-playing-interstitial' : ''}`}>
+              {isBetweenSongs ? (
+                <>
+                  <div className="mirror-interstitial-sweep" aria-hidden="true" />
+                  <p className="mirror-between-songs-quote">{betweenSongQuote}</p>
+                </>
+              ) : (
+                <>
+                  <p className="mirror-eyebrow">Now Playing</p>
+                  <div className="mirror-now-playing-track">
+                    {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
+                      <img
+                        src={activeSong.cover_url}
+                        alt={`Cover art for ${activeSong.title}`}
+                        className="mirror-now-playing-cover"
+                        onError={() => onCoverLoadError(activeSong.cover_url)}
+                      />
+                    ) : null}
+                    <div className="mirror-now-playing-meta">
+                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests...')}</h1>
+                      <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be the first to request a song!')}</p>
+                      {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                     </div>
-                  </>
-                )}
-              </section>
-            ) : null}
+                  </div>
+                </>
+              )}
+            </section>
 
             <section className={`mirror-secondary-grid ${shouldShowAdminElements ? '' : 'mirror-secondary-grid-feed-only'}`}>
-              {shouldShowAdminElements ? (
-                <section className={`mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`}>
-                  <p className="mirror-up-next-label">Up Next</p>
-                  {upNext.length > 0 ? (
-                    <ol className="mirror-queue">
-                      {upNext.map((song, index) => (
-                        <li key={song.id} className="mirror-queue-item">
-                          <span className="mirror-queue-pos">{index + 2}</span>
-                          {!shouldCompactQueue && song.cover_url && !failedCoverUrls[song.cover_url] ? (
-                            <img
-                              src={song.cover_url}
-                              alt={`Cover art for ${song.title}`}
-                              className="mirror-queue-cover"
-                              onError={() => onCoverLoadError(song.cover_url)}
-                            />
-                          ) : null}
-                          <div className="mirror-queue-info">
-                            <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
-                            <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
-                            {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
-                          </div>
-                          <span className="mirror-queue-votes">+{song.votes_count}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  ) : (
-                    <p className="mirror-empty-note">No songs in the queue yet.</p>
-                  )}
-                  {shouldCompactQueue && hiddenQueueCount > 0 ? (
-                    <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
-                  ) : null}
-                </section>
-              ) : null}
+              <LiveFeedPanel mode="mirror" showComposer={false} title="Live Feed" showModerationControls={shouldShowAdminElements} />
 
-              <LiveFeedPanel mode="mirror" showComposer={false} title="Crowd Feed" showModerationControls={shouldShowAdminElements} />
+              <section className={`mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`}>
+                <p className="mirror-up-next-label">Queue</p>
+                {upNext.length > 0 ? (
+                  <ol className="mirror-queue">
+                    {upNext.map((song, index) => (
+                      <li key={song.id} className="mirror-queue-item">
+                        <span className="mirror-queue-pos">{index + 2}</span>
+                        {!shouldCompactQueue && song.cover_url && !failedCoverUrls[song.cover_url] ? (
+                          <img
+                            src={song.cover_url}
+                            alt={`Cover art for ${song.title}`}
+                            className="mirror-queue-cover"
+                            onError={() => onCoverLoadError(song.cover_url)}
+                          />
+                        ) : null}
+                        <div className="mirror-queue-info">
+                          <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                          <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                          {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
+                        </div>
+                        <span className="mirror-queue-votes">+{song.votes_count}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="mirror-empty-note">No songs in the queue yet.</p>
+                )}
+                {shouldCompactQueue && hiddenQueueCount > 0 ? (
+                  <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
+                ) : null}
+              </section>
+            </section>
+
+            <section className="mirror-join-strip" aria-label="Audience join prompt">
+              <img src={qrUrl} alt="QR code for the audience request page" className="mirror-join-strip-qr" />
+              <div className="mirror-join-strip-copy">
+                <p className="mirror-join-strip-title">Scan to join the show</p>
+                <p className="mirror-join-strip-url">{audienceUrl}</p>
+              </div>
             </section>
           </>
         )}

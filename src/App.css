@@ -3808,11 +3808,16 @@
 .mirror-warning {
   margin: 0;
   max-width: min(58ch, 42vw);
+  min-height: 1.2em;
   font-size: clamp(0.66rem, 1vw, 0.78rem);
   line-height: 1.32;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #ffd6a8;
+}
+
+.mirror-warning-hidden {
+  visibility: hidden;
 }
 
 .mirror-shell-live .mirror-header {
@@ -3921,42 +3926,50 @@
 }
 
 .mirror-stage-live {
-  grid-template-columns: minmax(0, 1.46fr) minmax(420px, 1fr);
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   align-items: stretch;
 }
 
 .mirror-secondary-grid {
   display: grid;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.42fr) minmax(0, 0.58fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: clamp(0.38rem, 0.68vw, 0.68rem);
   align-items: stretch;
 }
 
 .mirror-secondary-grid-feed-only {
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .mirror-stage-live .mirror-now-playing {
   grid-column: 1;
   grid-row: 1;
-  height: 100%;
 }
 
 .mirror-stage-live .mirror-secondary-grid {
-  grid-column: 2;
-  grid-row: 1;
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.mirror-stage-live .live-feed-panel-mirror {
+  min-height: 0;
+  height: 100%;
+}
+
+.mirror-stage-live .mirror-up-next {
+  min-height: 0;
   height: 100%;
 }
 
 .mirror-shell-venue-club .mirror-stage-live {
-  grid-template-columns: minmax(0, 1.34fr) minmax(340px, 0.96fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .mirror-shell-venue-club .mirror-secondary-grid {
-  grid-template-rows: minmax(0, 0.39fr) minmax(0, 0.61fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
 }
 
 .mirror-shell-venue-club .mirror-now-playing {
@@ -3969,19 +3982,19 @@
 }
 
 .mirror-shell-venue-lounge .mirror-stage-live {
-  grid-template-columns: minmax(0, 1.46fr) minmax(420px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .mirror-shell-venue-lounge .mirror-secondary-grid {
-  grid-template-rows: minmax(0, 0.42fr) minmax(0, 0.58fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
 }
 
 .mirror-shell-venue-festival .mirror-stage-live {
-  grid-template-columns: minmax(0, 1.62fr) minmax(440px, 0.94fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .mirror-shell-venue-festival .mirror-secondary-grid {
-  grid-template-rows: minmax(0, 0.45fr) minmax(0, 0.55fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(340px, 0.78fr);
 }
 
 .mirror-shell-venue-festival .mirror-now-playing-cover {
@@ -4232,6 +4245,55 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
+.mirror-join-strip {
+  grid-column: 1;
+  grid-row: 3;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(0.8rem, 1.5vw, 1.1rem);
+  padding: clamp(0.52rem, 0.9vw, 0.82rem);
+  border-radius: 16px;
+  border: 1px solid rgba(93, 215, 255, 0.24);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(93, 215, 255, 0.12) 0%, transparent 30%),
+    linear-gradient(145deg, rgba(9, 17, 35, 0.86) 0%, rgba(12, 24, 44, 0.88) 100%);
+  box-shadow:
+    0 18px 34px rgba(4, 8, 22, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.mirror-join-strip-qr {
+  width: clamp(76px, 7vw, 108px);
+  height: clamp(76px, 7vw, 108px);
+  border-radius: 10px;
+  padding: 0.18rem;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.44);
+}
+
+.mirror-join-strip-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.mirror-join-strip-title {
+  margin: 0;
+  font-size: clamp(1rem, 1.8vw, 1.34rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e9f6ff;
+}
+
+.mirror-join-strip-url {
+  margin: 0;
+  color: rgba(184, 210, 255, 0.9);
+  font-size: clamp(0.88rem, 1.35vw, 1.08rem);
+  overflow-wrap: anywhere;
+}
+
 .mirror-empty-note {
   margin: 0;
   padding: 1rem 1.15rem;
@@ -4317,6 +4379,7 @@
 .mirror-shell-high-contrast .mirror-header,
 .mirror-shell-high-contrast .mirror-now-playing,
 .mirror-shell-high-contrast .mirror-up-next,
+.mirror-shell-high-contrast .mirror-join-strip,
 .mirror-shell-high-contrast .live-feed-panel-mirror,
 .mirror-shell-high-contrast .mirror-footer,
 .mirror-shell-high-contrast .mirror-pre-show,
@@ -4333,6 +4396,7 @@
 .mirror-shell-high-contrast .mirror-brand,
 .mirror-shell-high-contrast .mirror-eyebrow,
 .mirror-shell-high-contrast .mirror-up-next-label,
+.mirror-shell-high-contrast .mirror-join-strip-title,
 .mirror-shell-high-contrast .mirror-how-it-works-label,
 .mirror-shell-high-contrast .mirror-footer strong,
 .mirror-shell-high-contrast .mirror-queue-votes {
@@ -4343,6 +4407,7 @@
 .mirror-shell-high-contrast .mirror-event-name,
 .mirror-shell-high-contrast .mirror-event-subtitle,
 .mirror-shell-high-contrast .mirror-artist,
+.mirror-shell-high-contrast .mirror-join-strip-url,
 .mirror-shell-high-contrast .mirror-queue-artist,
 .mirror-shell-high-contrast .mirror-how-it-works p,
 .mirror-shell-high-contrast .mirror-footer p,
