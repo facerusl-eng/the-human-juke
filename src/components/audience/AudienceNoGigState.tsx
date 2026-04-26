@@ -4,6 +4,7 @@ type AudienceUpcomingEvent = {
   venue: string | null
   gigDate: string | null
   gigStartTime: string | null
+  gigEndTime: string | null
   coverImageUrl: string | null
 }
 
@@ -41,6 +42,35 @@ function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | 
   }).format(parsedDate)
 
   return `${dateLabel} · ${timeLabel}`
+}
+
+function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: string | null) {
+  if (!gigStartTime && !gigEndTime) {
+    return null
+  }
+
+  const formatClockTime = (clockTime: string) => {
+    const parsedDate = new Date(`2000-01-01T${clockTime}:00`)
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return clockTime
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(parsedDate)
+  }
+
+  if (gigStartTime && gigEndTime) {
+    return `${formatClockTime(gigStartTime)} - ${formatClockTime(gigEndTime)}`
+  }
+
+  if (gigStartTime) {
+    return `Starts ${formatClockTime(gigStartTime)}`
+  }
+
+  return `Ends ${formatClockTime(gigEndTime as string)}`
 }
 
 function AudienceNoGigState({
@@ -89,6 +119,7 @@ function AudienceNoGigState({
             <div className="audience-no-gig-event-list">
               {upcomingEvents.map((upcomingEvent) => {
                 const dateLabel = formatUpcomingEventDate(upcomingEvent.gigDate, upcomingEvent.gigStartTime)
+                const timeRangeLabel = formatUpcomingEventTimeRange(upcomingEvent.gigStartTime, upcomingEvent.gigEndTime)
                 const eventHref = getEventHref ? getEventHref(upcomingEvent.id) : null
 
                 return (
@@ -103,6 +134,7 @@ function AudienceNoGigState({
                     <div className="audience-no-gig-event-body">
                       <p className="audience-no-gig-event-title">{upcomingEvent.name}</p>
                       {dateLabel ? <p className="audience-no-gig-event-meta">{dateLabel}</p> : null}
+                      {timeRangeLabel ? <p className="audience-no-gig-event-meta">{timeRangeLabel}</p> : null}
                       <p className="audience-no-gig-event-meta">
                         {upcomingEvent.venue?.trim() ? upcomingEvent.venue : 'Venue to be announced'}
                       </p>

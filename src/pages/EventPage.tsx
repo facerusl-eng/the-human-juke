@@ -90,7 +90,7 @@ function isAuthSessionError(error: unknown) {
 async function fetchUpcomingEventRows() {
   const { data, error } = await supabase
     .from('events')
-    .select('id, name, venue, gig_date, gig_start_time, cover_image_url')
+    .select('id, name, venue, gig_date, gig_start_time, gig_end_time, cover_image_url')
     .eq('show_in_audience_no_gig', true)
     .order('gig_date', { ascending: true, nullsFirst: false })
     .order('gig_start_time', { ascending: true, nullsFirst: false })
@@ -99,7 +99,7 @@ async function fetchUpcomingEventRows() {
   if (error && isMissingCoverImageColumnError(error)) {
     const { data: fallbackData, error: fallbackError } = await supabase
       .from('events')
-      .select('id, name, venue, gig_date, gig_start_time')
+      .select('id, name, venue, gig_date, gig_start_time, gig_end_time')
       .eq('show_in_audience_no_gig', true)
       .order('gig_date', { ascending: true, nullsFirst: false })
       .order('gig_start_time', { ascending: true, nullsFirst: false })
@@ -229,6 +229,7 @@ function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomi
     venue: (eventData.venue as string | null) ?? null,
     gigDate: (eventData.gig_date as string | null) ?? null,
     gigStartTime: (eventData.gig_start_time as string | null) ?? null,
+    gigEndTime: (eventData.gig_end_time as string | null) ?? null,
     coverImageUrl: normalizeCoverUrl((eventData.cover_image_url as string | null) ?? null),
   }))
 }
