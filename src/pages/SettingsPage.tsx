@@ -16,6 +16,8 @@ type SettingsState = {
   facebook_url: string
   paypal_url: string
   mobilpay_url: string
+  buymeacoffee_url: string
+  kofi_url: string
   contact_email: string
   theme_preset: string
   accent_color: string
@@ -42,6 +44,8 @@ const DEFAULTS: SettingsState = {
   facebook_url: '',
   paypal_url: '',
   mobilpay_url: '',
+  buymeacoffee_url: '',
+  kofi_url: '',
   contact_email: '',
   theme_preset: 'dark',
   accent_color: '#5dd7ff',
@@ -124,7 +128,7 @@ function SettingsPage() {
         const { data, error } = await supabase
           .from('profiles')
           .select(
-            'display_name, website_url, bio, performer_photo_url, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, theme_preset, accent_color, default_gig_name, default_venue, default_audience_bg_blur, default_mirror_layout',
+            'display_name, website_url, bio, performer_photo_url, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, buymeacoffee_url, kofi_url, contact_email, theme_preset, accent_color, default_gig_name, default_venue, default_audience_bg_blur, default_mirror_layout',
           )
           .eq('user_id', user.id)
           .maybeSingle()
@@ -165,6 +169,8 @@ function SettingsPage() {
             facebook_url: data.facebook_url ?? '',
             paypal_url: data.paypal_url ?? '',
             mobilpay_url: data.mobilpay_url ?? '',
+            buymeacoffee_url: data.buymeacoffee_url ?? '',
+            kofi_url: data.kofi_url ?? '',
             contact_email: data.contact_email ?? '',
             theme_preset: hasValidThemePreset ? rawThemePreset : DEFAULTS.theme_preset,
             accent_color: data.accent_color ?? DEFAULTS.accent_color,
@@ -234,6 +240,8 @@ function SettingsPage() {
       youtube_url: resolveOptionalLinkValue(stateToSave.youtube_url),
       facebook_url: resolveOptionalLinkValue(stateToSave.facebook_url),
       paypal_url: resolveOptionalLinkValue(stateToSave.paypal_url),
+      buymeacoffee_url: resolveOptionalLinkValue(stateToSave.buymeacoffee_url),
+      kofi_url: resolveOptionalLinkValue(stateToSave.kofi_url),
       website_url: resolveOptionalLinkValue(stateToSave.website_url),
     }
 
@@ -246,6 +254,8 @@ function SettingsPage() {
       youtube_url: normalizedSocialFields.youtube_url,
       facebook_url: normalizedSocialFields.facebook_url,
       paypal_url: normalizedSocialFields.paypal_url,
+      buymeacoffee_url: normalizedSocialFields.buymeacoffee_url,
+      kofi_url: normalizedSocialFields.kofi_url,
       mobilpay_url: stateToSave.mobilpay_url.trim() || null,
       contact_email: stateToSave.contact_email.trim() || null,
       default_gig_name: stateToSave.default_gig_name.trim() || null,
@@ -692,6 +702,30 @@ function SettingsPage() {
                 placeholder="mobilepay.dk/your-link or +4512345678"
                 value={state.mobilpay_url}
                 onChange={(e) => updateState({ ...state, mobilpay_url: e.target.value })}
+              />
+            </label>
+          </div>
+
+          <div className="field-row">
+            <label>
+              <span>Buy Me a Coffee Link</span>
+              <input
+                type="text"
+                placeholder="https://buymeacoffee.com/yourhandle"
+                value={state.buymeacoffee_url}
+                onChange={(e) => updateState({ ...state, buymeacoffee_url: e.target.value })}
+              />
+            </label>
+          </div>
+
+          <div className="field-row">
+            <label>
+              <span>Ko-fi Link</span>
+              <input
+                type="text"
+                placeholder="https://ko-fi.com/yourhandle"
+                value={state.kofi_url}
+                onChange={(e) => updateState({ ...state, kofi_url: e.target.value })}
               />
             </label>
           </div>
