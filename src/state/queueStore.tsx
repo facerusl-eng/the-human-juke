@@ -33,6 +33,9 @@ type AddSongOptions = {
 type EventSettingsUpdates = {
   name: string
   venue: string
+  gigDate: string
+  gigStartTime: string
+  gigEndTime: string
   subtitle: string
   requestInstructions: string
   playlistOnlyRequests: boolean
@@ -51,6 +54,9 @@ type EventState = {
   hostId: string | null
   name: string
   venue: string | null
+  gigDate: string | null
+  gigStartTime: string | null
+  gigEndTime: string | null
   subtitle: string | null
   requestInstructions: string | null
   playlistOnlyRequests: boolean
@@ -337,8 +343,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const fetchQueueSnapshot = async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
-      const withCoverSelect = 'id, host_id, name, venue, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
-      const withoutCoverSelect = 'id, host_id, name, venue, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
+      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
+      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
 
       const { data, error } = await supabase
         .from('events')
@@ -399,6 +405,9 @@ function QueueProvider({ children }: PropsWithChildren) {
       hostId: (eventData as Record<string, unknown>).host_id as string | null ?? null,
       name: (eventData as Record<string, unknown>).name as string ?? 'Untitled Gig',
       venue: (eventData as Record<string, unknown>).venue as string | null ?? null,
+      gigDate: (eventData as Record<string, unknown>).gig_date as string | null ?? null,
+      gigStartTime: (eventData as Record<string, unknown>).gig_start_time as string | null ?? null,
+      gigEndTime: (eventData as Record<string, unknown>).gig_end_time as string | null ?? null,
       subtitle: (eventData as Record<string, unknown>).subtitle as string | null ?? null,
       requestInstructions: (eventData as Record<string, unknown>).request_instructions as string | null ?? null,
       playlistOnlyRequests: ((eventData as Record<string, unknown>).playlist_only_requests as boolean | null) ?? false,
@@ -1060,6 +1069,9 @@ function QueueProvider({ children }: PropsWithChildren) {
               .update({
                 name: updates.name,
                 venue: updates.venue || null,
+                gig_date: updates.gigDate || null,
+                gig_start_time: updates.gigStartTime || null,
+                gig_end_time: updates.gigEndTime || null,
                 subtitle: updates.subtitle || null,
                 request_instructions: updates.requestInstructions || null,
                 playlist_only_requests: updates.playlistOnlyRequests,
@@ -1085,6 +1097,9 @@ function QueueProvider({ children }: PropsWithChildren) {
                 .update({
                   name: updates.name,
                   venue: updates.venue || null,
+                  gig_date: updates.gigDate || null,
+                  gig_start_time: updates.gigStartTime || null,
+                  gig_end_time: updates.gigEndTime || null,
                   subtitle: updates.subtitle || null,
                   request_instructions: updates.requestInstructions || null,
                   playlist_only_requests: updates.playlistOnlyRequests,

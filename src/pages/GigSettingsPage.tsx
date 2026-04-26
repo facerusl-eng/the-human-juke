@@ -31,6 +31,9 @@ type PlaylistArtworkRow = {
 type SettingsState = {
   gigName: string
   venue: string
+  gigDate: string
+  gigStartTime: string
+  gigEndTime: string
   subtitle: string
   requestInstructions: string
   playlistOnlyRequests: boolean
@@ -98,6 +101,9 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
   const [state, setState] = useState<SettingsState>({
     gigName: event.name,
     venue: event.venue ?? '',
+    gigDate: event.gigDate ?? '',
+    gigStartTime: event.gigStartTime ?? '',
+    gigEndTime: event.gigEndTime ?? '',
     subtitle: event.subtitle ?? '',
     requestInstructions: event.requestInstructions ?? '',
     playlistOnlyRequests: event.playlistOnlyRequests,
@@ -310,6 +316,9 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
       await updateEventSettings({
         name: saveState.gigName.trim(),
         venue: saveState.venue.trim(),
+        gigDate: saveState.gigDate,
+        gigStartTime: saveState.gigStartTime,
+        gigEndTime: saveState.gigEndTime,
         subtitle: saveState.subtitle.trim(),
         requestInstructions: saveState.requestInstructions.trim(),
         playlistOnlyRequests: saveState.playlistOnlyRequests,
@@ -419,6 +428,9 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
 
   const isModified = state.gigName !== event.name
     || state.venue !== (event.venue ?? '')
+    || state.gigDate !== (event.gigDate ?? '')
+    || state.gigStartTime !== (event.gigStartTime ?? '')
+    || state.gigEndTime !== (event.gigEndTime ?? '')
     || state.subtitle !== (event.subtitle ?? '')
     || state.requestInstructions !== (event.requestInstructions ?? '')
     || state.playlistOnlyRequests !== event.playlistOnlyRequests
@@ -516,6 +528,47 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
               }}
               placeholder="The Anchor Bar, Main Stage"
             />
+          </div>
+
+          <div className="create-gig-time-row">
+            <div className="field-row">
+              <label htmlFor="gig-date">Date</label>
+              <input
+                id="gig-date"
+                type="date"
+                value={state.gigDate}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ gigDate: e.target.value })
+                }}
+              />
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-start-time">Start time</label>
+              <input
+                id="gig-start-time"
+                type="time"
+                value={state.gigStartTime}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ gigStartTime: e.target.value })
+                }}
+              />
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-end-time">End time</label>
+              <input
+                id="gig-end-time"
+                type="time"
+                value={state.gigEndTime}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ gigEndTime: e.target.value })
+                }}
+              />
+            </div>
           </div>
 
           <div className="field-row">
@@ -855,7 +908,35 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
 
 function GigSettingsPage() {
   const navigate = useNavigate()
-  const { event, loading, updateEventSettings } = useQueueStore()
+  const { event, hostEvents, loading, updateEventSettings, setActiveEvent } = useQueueStore()
+  const [selectedGigId, setSelectedGigId] = useState<string>('')
+  const [switchingGig, setSwitchingGig] = useState(false)
+  const [switchGigError, setSwitchGigError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (event?.id) {
+      setSelectedGigId(event.id)
+    }
+  }, [event?.id])
+
+  const onSwitchGig = async () => {
+    const targetGigId = selectedGigId.trim()
+
+    if (!targetGigId || !event || targetGigId === event.id) {
+      return
+    }
+
+    setSwitchGigError(null)
+    setSwitchingGig(true)
+
+    try {
+      await setActiveEvent(targetGigId)
+    } catch (error) {
+      setSwitchGigError(error instanceof Error ? error.message : 'Unable to switch gig.')
+    } finally {
+      setSwitchingGig(false)
+    }
+  }
 
   if (loading) {
     return <section className="gig-settings-shell"><section className="queue-panel">Loading gig settings...</section></section>
@@ -883,6 +964,41 @@ function GigSettingsPage() {
 
   return (
     <section className="gig-settings-shell" aria-label="Gig settings">
+      {hostEvents.length > 1 ? (
+        <section className="queue-panel">
+          <div className="field-row">
+            <label htmlFor="gig-settings-target-gig">Choose gig to apply settings</label>
+            <select
+              id="gig-settings-target-gig"
+              value={selectedGigId}
+              onChange={(e) => {
+                setSelectedGigId(e.target.value)
+              }}
+              disabled={switchingGig}
+            >
+              {hostEvents.map((hostGig) => (
+                <option key={hostGig.id} value={hostGig.id}>
+                  {hostGig.name}{hostGig.venue ? ` - ${hostGig.venue}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="hero-actions no-margin-bottom">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void onSwitchGig()
+              }}
+              disabled={switchingGig || !event || selectedGigId === event.id}
+            >
+              {switchingGig ? 'Switching...' : 'Switch to Selected Gig'}
+            </button>
+          </div>
+          {switchGigError ? <p className="error-text">{switchGigError}</p> : null}
+        </section>
+      ) : null}
+
       <GigSettingsForm
         key={event.id}
         event={event}
