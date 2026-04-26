@@ -51,6 +51,7 @@ type UndoRedoState = SettingsState & { timestamp: number }
 
 type GigSettingsFormProps = {
   event: NonNullable<ReturnType<typeof useQueueStore>['event']>
+  hostEvents: ReturnType<typeof useQueueStore>['hostEvents']
   onBack: () => void
   updateEventSettings: ReturnType<typeof useQueueStore>['updateEventSettings']
 }
@@ -94,7 +95,7 @@ function arePlaylistSelectionsEqual(left: string[], right: string[]) {
   return normalizedLeft.every((playlistId, index) => playlistId === normalizedRight[index])
 }
 
-function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsFormProps) {
+function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: GigSettingsFormProps) {
   const { user } = useAuthStore()
 
   // Form State
@@ -128,6 +129,9 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
   const [busy, setBusy] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
+  const otherAudienceFallbackGigCount = hostEvents.filter(
+    (hostEvent) => hostEvent.id !== event.id && hostEvent.showInAudienceNoGig,
+  ).length
   const {
     saveStatus,
     cancelAutosave,
@@ -821,6 +825,16 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
                   <span>Show this event in the Audience App when no live gig is running</span>
                 </div>
               </label>
+              <p className="field-hint">
+                {state.showInAudienceNoGig
+                  ? `Audience fallback preview: "${state.gigName || 'Untitled Gig'}" can appear when no live room is open.`
+                  : `Audience fallback preview: "${state.gigName || 'Untitled Gig'}" is hidden while no live room is open.`}
+              </p>
+              {state.showInAudienceNoGig && otherAudienceFallbackGigCount > 0 ? (
+                <p className="error-text request-error-inline">
+                  {`Heads up: ${otherAudienceFallbackGigCount} other gig${otherAudienceFallbackGigCount === 1 ? ' is' : 's are'} also set to show when no live room is open.`}
+                </p>
+              ) : null}
             </div>
 
             <div className="field-row">
@@ -1002,6 +1016,7 @@ function GigSettingsPage() {
       <GigSettingsForm
         key={event.id}
         event={event}
+        hostEvents={hostEvents}
         onBack={() => navigate('/admin/gig-control')}
         updateEventSettings={updateEventSettings}
       />

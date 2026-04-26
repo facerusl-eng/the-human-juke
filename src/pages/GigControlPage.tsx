@@ -29,6 +29,7 @@ function GigControlPage() {
     setActiveEvent,
     toggleRoomOpen,
     toggleExplicitFilter,
+    setShowInAudienceNoGig,
   } = useQueueStore()
 
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -62,6 +63,7 @@ function GigControlPage() {
 
   const quoteIndexRef = useRef(0)
   const previousSongIdRef = useRef<string | null>(null)
+  const previousRoomOpenRef = useRef<boolean | null>(null)
 
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
@@ -135,6 +137,39 @@ function GigControlPage() {
       setErrorText(copyError)
     }
   }, [copyError])
+
+  useEffect(() => {
+    if (!event) {
+      previousRoomOpenRef.current = null
+      return
+    }
+
+    const previousRoomOpen = previousRoomOpenRef.current
+    const hasJustEnded = previousRoomOpen === true && event.roomOpen === false
+
+    previousRoomOpenRef.current = event.roomOpen
+
+    if (!hasJustEnded || !event.showInAudienceNoGig) {
+      return
+    }
+
+    const shouldHideFromOfflineAudience = window.confirm(
+      'This gig has ended. Do you want to remove it from the offline Audience page?',
+    )
+
+    if (!shouldHideFromOfflineAudience) {
+      return
+    }
+
+    void (async () => {
+      try {
+        await setShowInAudienceNoGig(false)
+      } catch (error) {
+        console.warn('GigControlPage: failed to update offline audience visibility after gig end', error)
+        setErrorText(error instanceof Error ? error.message : 'Could not update offline audience visibility.')
+      }
+    })()
+  }, [event, setShowInAudienceNoGig])
 
   const resolveCoverUrlForSong = (songId: string | null) => {
     if (!songId) {

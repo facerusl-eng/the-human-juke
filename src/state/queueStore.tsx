@@ -82,6 +82,7 @@ export type HostEventSummary = {
   name: string
   venue: string | null
   isActive: boolean
+  showInAudienceNoGig: boolean
   createdAt: string
 }
 
@@ -98,6 +99,7 @@ type QueueContextValue = {
   upvoteSong: (songId: string) => Promise<void>
   toggleRoomOpen: () => Promise<void>
   toggleExplicitFilter: () => Promise<void>
+  setShowInAudienceNoGig: (visible: boolean) => Promise<void>
   toggleVotingLock: (songId: string, nextValue: boolean) => Promise<void>
   removeSong: (songId: string) => Promise<void>
   createEvent: (name: string, venue: string, options?: CreateEventOptions) => Promise<void>
@@ -215,6 +217,7 @@ async function fetchLatestActiveEventId() {
       .from('events')
       .select('id')
       .eq('is_active', true)
+      .eq('room_open', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -233,7 +236,7 @@ async function fetchHostEvents(hostId: string) {
   const { data, error } = await withTimeout(
     supabase
       .from('events')
-      .select('id, name, venue, is_active, created_at')
+      .select('id, name, venue, is_active, show_in_audience_no_gig, created_at')
       .eq('host_id', hostId)
       .order('created_at', { ascending: false }),
     DEFAULT_DB_TIMEOUT_MS,
@@ -249,6 +252,7 @@ async function fetchHostEvents(hostId: string) {
     name: (eventData.name as string | null) ?? 'Untitled Gig',
     venue: (eventData.venue as string | null) ?? null,
     isActive: ((eventData.is_active as boolean | null) ?? false),
+    showInAudienceNoGig: ((eventData.show_in_audience_no_gig as boolean | null) ?? false),
     createdAt: (eventData.created_at as string | null) ?? '',
   }))
 }
@@ -499,9 +503,9 @@ function QueueProvider({ children }: PropsWithChildren) {
             ?? nextHostEvents[0]?.id
             ?? null
         } else {
-          // Audience reopen behavior: prefer requested URL event, then last synced profile event,
-          // then fall back to latest active gig.
-          targetEventId = requestedEventId ?? eventId ?? await fetchLatestActiveEventId()
+          // Audience default behavior: prefer explicit event in URL.
+          // Otherwise, only auto-attach to currently live gigs (room open).
+          targetEventId = requestedEventId ?? await fetchLatestActiveEventId()
         }
 
         const requestAudienceReload = () => {
@@ -1161,6 +1165,19 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
+        setHostEvents((currentHostEvents) => currentHostEvents.map((hostEvent) => {
+          if (hostEvent.id !== event.id) {
+            return hostEvent
+          }
+
+          return {
+            ...hostEvent,
+            name: updates.name,
+            venue: updates.venue || null,
+            showInAudienceNoGig: updates.showInAudienceNoGig,
+          }
+        }))
+
         await fetchQueueSnapshot(event.id)
       },
       upvoteSong: async (songId: string) => {
@@ -1239,6 +1256,34 @@ function QueueProvider({ children }: PropsWithChildren) {
         if (error) {
           throw error
         }
+
+        await fetchQueueSnapshot(event.id)
+      },
+      setShowInAudienceNoGig: async (visible: boolean) => {
+        if (!event) {
+          return
+        }
+
+        const { error } = await withTimeout(
+          withAuthLockRetry(() =>
+            supabase
+              .from('events')
+              .update({ show_in_audience_no_gig: visible })
+              .eq('id', event.id),
+          ),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Timed out while updating audience visibility. Please try again.',
+        )
+
+        if (error) {
+          throw new Error(error.message)
+        }
+
+        setHostEvents((currentHostEvents) => currentHostEvents.map((hostEvent) => (
+          hostEvent.id === event.id
+            ? { ...hostEvent, showInAudienceNoGig: visible }
+            : hostEvent
+        )))
 
         await fetchQueueSnapshot(event.id)
       },

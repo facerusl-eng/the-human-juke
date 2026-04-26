@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
+import { supabase } from '../lib/supabase'
 
 type Step = 'info' | 'datetime'
 
@@ -30,7 +31,7 @@ function readFileAsDataUrl(file: File) {
 
 function CreateGigPage() {
   const navigate = useNavigate()
-  const { isHost, loading } = useAuthStore()
+  const { user, isHost, loading } = useAuthStore()
   const { event, createEvent } = useQueueStore()
   const [step, setStep] = useState<Step>('info')
   const [gigName, setGigName] = useState('')
@@ -43,6 +44,42 @@ function CreateGigPage() {
   const [coverImageName, setCoverImageName] = useState('')
   const [busy, setBusy] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!user?.id || !isHost) {
+      return
+    }
+
+    let isCurrent = true
+
+    const loadHostCreateDefaults = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('default_gig_name, default_venue')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (!isCurrent || error || !data) {
+          return
+        }
+
+        const defaultGigName = (data.default_gig_name ?? '').trim()
+        const defaultVenue = (data.default_venue ?? '').trim()
+
+        setGigName((currentValue) => currentValue.trim() || defaultGigName)
+        setVenue((currentValue) => currentValue.trim() || defaultVenue)
+      } catch (error) {
+        console.warn('CreateGigPage: failed to load default gig settings', error)
+      }
+    }
+
+    void loadHostCreateDefaults()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [isHost, user?.id])
 
   const isAuthLockError = (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)

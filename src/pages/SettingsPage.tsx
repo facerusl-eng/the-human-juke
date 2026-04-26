@@ -126,7 +126,7 @@ function SettingsPage() {
             'display_name, website_url, bio, performer_photo_url, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, theme_preset, accent_color, default_gig_name, default_venue, default_audience_bg_blur, default_mirror_layout',
           )
           .eq('user_id', user.id)
-          .single()
+          .maybeSingle()
 
         if (!isCurrent) {
           return
