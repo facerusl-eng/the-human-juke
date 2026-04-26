@@ -115,7 +115,7 @@ function setupBuildUpdateRefresh() {
       }
 
       const html = await response.text()
-      const match = html.match(/<script[^>]+src="([^\"]*\/assets\/index-[^\"]+\.js)"/i)
+      const match = html.match(/<script[^>]+src="([^"]*\/assets\/index-[^"]+\.js)"/i)
 
       if (!match?.[1]) {
         return

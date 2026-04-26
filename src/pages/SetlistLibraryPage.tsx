@@ -81,8 +81,8 @@ function detectDelimiter(line: string) {
 function normalizeLine(line: string) {
   return line
     .trim()
-    .replace(/^\d+[\.)\-]\s*/, '')
-    .replace(/^[\u2022*\-]\s*/, '')
+    .replace(/^\d+[.)-]\s*/, '')
+    .replace(/^[\u2022*-]\s*/, '')
     .trim()
 }
 

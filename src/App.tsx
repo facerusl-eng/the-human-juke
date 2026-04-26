@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import './App.css'
 import './setlist-library.css'
 import './gig-settings.css'
@@ -121,6 +122,14 @@ const router = createBrowserRouter([
       {
         path: 'event',
         element: <Navigate to="/audience" replace />,
+      },
+      {
+        path: 'events',
+        element: <Navigate to="/audience" replace />,
+      },
+      {
+        path: 'login',
+        element: <Navigate to="/admin" replace />,
       },
       {
         path: 'a/:eventId',

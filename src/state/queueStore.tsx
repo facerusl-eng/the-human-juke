@@ -592,13 +592,13 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (!canFallbackToLatestActive) {
             console.warn('queueStore: failed to load requested event snapshot', error)
-            throw new Error('Unable to load requested event.')
+            throw new Error('Unable to load requested event.', { cause: error })
           }
 
           const latestActiveEventId = await fetchLatestActiveEventId()
 
           if (!latestActiveEventId) {
-            throw new Error('No active gig found.')
+            throw new Error('No active gig found.', { cause: error })
           }
 
           resolvedEventId = latestActiveEventId
@@ -1382,7 +1382,8 @@ function QueueProvider({ children }: PropsWithChildren) {
         )
 
         if (insertError && isMissingCoverImageColumnError(insertError)) {
-          const { cover_image_url: _discardCoverImageUrl, ...fallbackPayload } = newEventPayload
+          const fallbackPayload = { ...newEventPayload }
+          delete (fallbackPayload as { cover_image_url?: string | null }).cover_image_url
           const { data: insertedWithoutCover, error: fallbackInsertError } = await withTimeout(
             withAuthLockRetry(() =>
               supabase

@@ -240,7 +240,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     ).values()]
 
     for (const song of songsMissingArtwork) {
-      let coverUrl: string | null = null
+      let coverUrl: string | null
 
       try {
         coverUrl = await fetchSongArtwork(song.title, song.artist)

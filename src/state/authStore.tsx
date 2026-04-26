@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase'
 const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
 const AUTH_REQUEST_TIMEOUT_MS = 12_000
 const AUTH_TRANSIENT_RETRY_COUNT = 2
+const AUTH_HOST_SIGN_IN_TIMEOUT_MS = 25_000
+const AUTH_HOST_SIGN_IN_RETRY_COUNT = 3
 
 type Role = 'guest' | 'host'
 
@@ -123,13 +125,48 @@ async function getProfile(userId: string) {
     .from('profiles')
     .select('role, active_event_id')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw error
   }
 
-  return data as Profile
+  if (data) {
+    return data as Profile
+  }
+
+  // Bootstrap missing profile rows so auth can recover instead of stalling.
+  const { data: insertedProfile, error: insertError } = await supabase
+    .from('profiles')
+    .insert({
+      user_id: userId,
+      role: 'guest',
+      active_event_id: null,
+    })
+    .select('role, active_event_id')
+    .single()
+
+  if (insertError) {
+    if (insertError.code === '23505') {
+      const { data: retriedProfile, error: retryError } = await supabase
+        .from('profiles')
+        .select('role, active_event_id')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (retryError) {
+        throw retryError
+      }
+
+      if (retriedProfile) {
+        return retriedProfile as Profile
+      }
+    }
+
+    throw insertError
+  }
+
+  return insertedProfile as Profile
 }
 
 function AuthProvider({ children }: PropsWithChildren) {
@@ -366,14 +403,32 @@ function AuthProvider({ children }: PropsWithChildren) {
         let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>
 
         try {
-          signInResult = await retryTransientAuthOperation(() => withTimeout(
-            supabase.auth.signInWithPassword({
-              email: normalizedEmail,
-              password,
-            }),
-            AUTH_REQUEST_TIMEOUT_MS,
-            'Admin sign-in timed out. Please try again.',
-          ))
+          signInResult = await retryTransientAuthOperation(
+            () => withTimeout(
+              supabase.auth.signInWithPassword({
+                email: normalizedEmail,
+                password,
+              }),
+              AUTH_HOST_SIGN_IN_TIMEOUT_MS,
+              'Admin sign-in timed out. Please try again.',
+            ),
+            AUTH_HOST_SIGN_IN_RETRY_COUNT,
+          )
+        } catch (error) {
+          if (isTransientAuthError(error)) {
+            try {
+              const { data: sessionData } = await supabase.auth.getSession()
+
+              if (sessionData.session) {
+                await applySessionState(sessionData.session)
+                return
+              }
+            } catch (sessionError) {
+              console.warn('authStore: session recovery failed after transient host sign-in error', sessionError)
+            }
+          }
+
+          throw error
         } finally {
           isHostSignInInProgressRef.current = false
         }

@@ -354,7 +354,13 @@ function SettingsPage() {
   const toggleSection = (sectionId: string) => {
     setExpandedSections((current) => {
       const next = new Set(current)
-      next.has(sectionId) ? next.delete(sectionId) : next.add(sectionId)
+
+      if (next.has(sectionId)) {
+        next.delete(sectionId)
+      } else {
+        next.add(sectionId)
+      }
+
       return next
     })
   }

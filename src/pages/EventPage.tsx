@@ -88,8 +88,6 @@ function isAuthSessionError(error: unknown) {
 }
 
 async function fetchUpcomingEventRows() {
-  let eventRows: Array<Record<string, unknown>> = []
-
   const { data, error } = await supabase
     .from('events')
     .select('id, name, venue, gig_date, gig_start_time, cover_image_url')
@@ -111,17 +109,17 @@ async function fetchUpcomingEventRows() {
       throw fallbackError
     }
 
-    eventRows = (fallbackData ?? []).map((eventData) => ({
+    return (fallbackData ?? []).map((eventData) => ({
       ...(eventData as Record<string, unknown>),
       cover_image_url: null,
     }))
-  } else if (error) {
-    throw error
-  } else {
-    eventRows = (data ?? []) as Array<Record<string, unknown>>
   }
 
-  return eventRows
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []) as Array<Record<string, unknown>>
 }
 
 const MAX_AUDIENCE_NAME_LENGTH = 40
@@ -235,7 +233,15 @@ async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
 }
 
 function hasUnsafeControlChars(value: string) {
-  return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
+  for (let index = 0; index < value.length; index += 1) {
+    const charCode = value.charCodeAt(index)
+
+    if ((charCode >= 0 && charCode <= 8) || (charCode >= 11 && charCode <= 12) || (charCode >= 14 && charCode <= 31) || charCode === 127) {
+      return true
+    }
+  }
+
+  return false
 }
 
 // Handles MobilePay stored as either a URL or a raw phone number / username.
@@ -245,8 +251,8 @@ function resolveMobilepayLink(value: string | null | undefined): { href: string;
   if (!trimmed) return null
 
   // Phone number pattern: +45... or just digits with optional +
-  if (/^\+?[\d\s\-]{6,16}$/.test(trimmed)) {
-    const digits = trimmed.replace(/[\s\-]/g, '')
+  if (/^\+?[\d\s-]{6,16}$/.test(trimmed)) {
+    const digits = trimmed.replace(/[\s-]/g, '')
     return { href: `tel:${digits}`, display: `MobilePay (${trimmed})` }
   }
 
@@ -311,7 +317,7 @@ function EventPage() {
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
-  const audienceLinkVersionRef = useRef(`${AUDIENCE_CACHE_VERSION}-${Date.now().toString(36)}`)
+  const audienceLinkVersionRef = useRef(AUDIENCE_CACHE_VERSION)
 
   const roomOpen = event?.roomOpen ?? false
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
@@ -979,7 +985,6 @@ function EventPage() {
             <button
               type="button"
               className="secondary-button"
-              aria-expanded={showHowItWorks}
               aria-controls="audience-how-it-works"
               onClick={() => setShowHowItWorks((current) => !current)}
             >

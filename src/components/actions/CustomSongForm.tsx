@@ -8,7 +8,15 @@ const MAX_CUSTOM_SONG_ARTIST_LENGTH = 120
 const MAX_CUSTOM_SONG_COVER_BYTES = 5 * 1024 * 1024
 
 function hasUnsafeControlChars(value: string) {
-  return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
+  for (let index = 0; index < value.length; index += 1) {
+    const charCode = value.charCodeAt(index)
+
+    if ((charCode >= 0 && charCode <= 8) || (charCode >= 11 && charCode <= 12) || (charCode >= 14 && charCode <= 31) || charCode === 127) {
+      return true
+    }
+  }
+
+  return false
 }
 
 function resolveCoverFileExtension(contentType: string, originalName: string) {

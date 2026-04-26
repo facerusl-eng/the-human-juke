@@ -1,5 +1,5 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ErrorInfo, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
 import { useGigActions } from '../hooks/useGigActions'
@@ -33,7 +33,7 @@ class AdminInitErrorBoundary extends Component<AdminInitErrorBoundaryProps, Admi
     }
   }
 
-  componentDidCatch(error: Error, _errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error) {
     this.props.onRecoverableError(error.message || 'A dashboard section failed to initialize.')
   }
 
