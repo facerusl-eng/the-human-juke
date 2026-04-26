@@ -409,11 +409,7 @@ function AdminDashboardContent({
     event,
     openAudienceScreen,
     openMirrorScreen,
-    quickGigActions.explicitToggleBusy,
-    quickGigActions.quickActionBusy,
-    quickGigActions.roomToggleBusy,
-    quickGigActions.runToggleExplicitFilter,
-    quickGigActions.runToggleRoomOpen,
+    quickGigActions,
   ])
   const queueShortcutActions: ActionButtonConfig[] = [
     {
@@ -515,11 +511,7 @@ function AdminDashboardContent({
     event,
     openAudienceScreen,
     openMirrorScreen,
-    quickGigActions.explicitToggleBusy,
-    quickGigActions.quickActionBusy,
-    quickGigActions.roomToggleBusy,
-    quickGigActions.runToggleExplicitFilter,
-    quickGigActions.runToggleRoomOpen,
+    quickGigActions,
   ])
 
   const activatePanicMode = useCallback(async () => {

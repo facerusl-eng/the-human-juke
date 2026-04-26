@@ -381,7 +381,7 @@ function MirrorPage() {
 
     const gigUrl = typeof window !== 'undefined' ? window.location.href : undefined
     setGigOGTags(event.name, event.venue ?? null, event.name, undefined, gigUrl)
-  }, [event?.id, event?.name, event?.venue])
+  }, [event, event?.id, event?.name, event?.venue])
 
   useEffect(() => {
     if (!eventId) {
@@ -634,7 +634,7 @@ function MirrorPage() {
     }
 
     previousSongIdRef.current = nextSongId
-  }, [fallbackQuoteIndex, hasPlaybackBetweenSongsState, playbackState?.quoteIndex, safeSongs])
+  }, [fallbackQuoteIndex, hasPlaybackBetweenSongsState, playbackState?.quoteIndex, safeSongs, songs])
 
   useEffect(() => {
     if (!eventId || !showSpotlight) {

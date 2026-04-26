@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AddSongTabs from '../components/actions/AddSongTabs'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
@@ -169,13 +169,13 @@ function GigControlPage() {
     })()
   }, [event, setShowInAudienceNoGig])
 
-  const resolveCoverUrlForSong = (songId: string | null) => {
+  const resolveCoverUrlForSong = useCallback((songId: string | null) => {
     if (!songId) {
       return null
     }
 
     return songs.find((song) => song.id === songId)?.cover_url ?? null
-  }
+  }, [songs])
 
   useEffect(() => {
     const activeEventId = event?.id
@@ -243,14 +243,15 @@ function GigControlPage() {
     return () => {
       isCurrent = false
     }
-  }, [event?.id, nowPlaying?.id])
+  }, [event?.id, nowPlaying?.id, resolveCoverUrlForSong])
 
   const setQuoteIndex = (nextQuoteIndex: number) => {
     quoteIndexRef.current = nextQuoteIndex
     setBetweenSongQuoteIndex(nextQuoteIndex)
   }
 
-  const syncStartedState = async (nextStarted: boolean, nextSongId = nowPlaying?.id ?? null) => {
+  const syncStartedState = useCallback(async (nextStarted: boolean, nextSongId?: string | null) => {
+    const targetSongId = nextSongId ?? nowPlaying?.id ?? null
     setIsNowPlayingStarted(nextStarted)
 
     if (!event?.id) {
@@ -259,8 +260,8 @@ function GigControlPage() {
 
     try {
       await writeSharedPlaybackState(event.id, {
-        currentSongId: nextSongId,
-        currentSongCoverUrl: resolveCoverUrlForSong(nextSongId),
+        currentSongId: targetSongId,
+        currentSongCoverUrl: resolveCoverUrlForSong(targetSongId),
         isStarted: nextStarted,
         quoteIndex: quoteIndexRef.current,
       })
@@ -268,9 +269,9 @@ function GigControlPage() {
       console.warn('GigControlPage: playback sync write failed', error)
       throw error
     }
-  }
+  }, [event, nowPlaying?.id, resolveCoverUrlForSong])
 
-  const beginBetweenSongsTransition = async () => {
+  const beginBetweenSongsTransition = useCallback(async () => {
     const previousQuoteIndex = quoteIndexRef.current
     const nextQuoteIndex = (previousQuoteIndex + 1) % BETWEEN_SONG_QUOTES.length
 
@@ -278,12 +279,12 @@ function GigControlPage() {
     await syncStartedState(false, songs[1]?.id ?? null)
 
     return previousQuoteIndex
-  }
+  }, [songs, syncStartedState])
 
-  const restoreStartedSong = async (previousQuoteIndex: number) => {
+  const restoreStartedSong = useCallback(async (previousQuoteIndex: number) => {
     setQuoteIndex(previousQuoteIndex)
     await syncStartedState(true, nowPlaying?.id ?? null)
-  }
+  }, [nowPlaying?.id, syncStartedState])
 
   useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
@@ -330,7 +331,7 @@ function GigControlPage() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [isNowPlayingStarted, markPlayed, nowPlaying, spaceActionBusy])
+  }, [beginBetweenSongsTransition, isNowPlayingStarted, markPlayed, nowPlaying, restoreStartedSong, spaceActionBusy, syncStartedState])
 
   const headerActions: ActionButtonConfig[] = [
     {

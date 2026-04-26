@@ -120,7 +120,7 @@ async function retryTransientAuthOperation<T>(operation: () => Promise<T>, attem
   throw lastError
 }
 
-async function getProfile(userId: string) {
+async function getProfile(userId: string): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
     .select('role, active_event_id')
@@ -147,6 +147,13 @@ async function getProfile(userId: string) {
     .single()
 
   if (insertError) {
+    if (insertError.code === '42501') {
+      return {
+        role: 'guest' as const,
+        active_event_id: null,
+      }
+    }
+
     if (insertError.code === '23505') {
       const { data: retriedProfile, error: retryError } = await supabase
         .from('profiles')

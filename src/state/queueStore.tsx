@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { supabase } from '../lib/supabase'
 import { saveToLocalStorage } from '../lib/saveHandling'
@@ -345,7 +345,7 @@ function QueueProvider({ children }: PropsWithChildren) {
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
 
-  const fetchQueueSnapshot = async (activeEventId: string) => {
+  const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
       const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
       const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
@@ -424,7 +424,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       coverImageUrl: ((eventData as Record<string, unknown>).cover_image_url as string | null) ?? null,
     })
     setSongs(sortByVotesDesc((songsData ?? []) as QueueSong[]))
-  }
+  }, [])
 
   const fetchQueueSnapshotRef = useRef(fetchQueueSnapshot)
 
@@ -736,7 +736,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         window.clearInterval(audiencePollTimerId)
       }
     }
-  }, [user, eventId, isHostSession, audienceRefreshTick])
+  }, [user, eventId, isHostSession, audienceRefreshTick, refreshProfile, fetchQueueSnapshot])
 
   useEffect(() => {
     const refreshOnForeground = () => {
@@ -768,7 +768,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       window.removeEventListener('online', refreshOnForeground)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [])
+  }, [fetchQueueSnapshot])
 
   useEffect(() => {
     if (!event?.id) {
@@ -797,7 +797,7 @@ function QueueProvider({ children }: PropsWithChildren) {
     return () => {
       window.removeEventListener('storage', onStorage)
     }
-  }, [event?.id])
+  }, [event?.id, fetchQueueSnapshot])
 
   const value = useMemo(
     () => ({
@@ -1520,7 +1520,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
       },
     }),
-    [event, hostEvents, songs, performedSongs, loading, user, eventId, isHostSession, refreshProfile],
+    [event, hostEvents, songs, performedSongs, loading, user, eventId, isHostSession, refreshProfile, fetchQueueSnapshot],
   )
 
   return <QueueContext.Provider value={value}>{children}</QueueContext.Provider>

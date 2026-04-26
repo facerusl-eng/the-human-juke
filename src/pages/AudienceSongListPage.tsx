@@ -111,7 +111,7 @@ function AudienceSongListPage() {
       : `Browse and request songs for ${event.name}!`
 
     setEventOGTags(event.name, description, undefined, typeof window !== 'undefined' ? window.location.href : undefined)
-  }, [event?.id, event?.name, event?.venue])
+  }, [event, event?.id, event?.name, event?.venue])
 
   useEffect(() => {
     let isCurrent = true

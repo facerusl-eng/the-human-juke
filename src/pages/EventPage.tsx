@@ -126,6 +126,7 @@ const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 const LIVE_GIG_POLL_INTERVAL_MS = 12000
 const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
+const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 
 function makeCacheBustedUrl(path: string) {
   const requestUrl = new URL(path, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
@@ -144,10 +145,20 @@ async function fetchJsonNoStore(path: string) {
   })
 
   if (!response.ok) {
-    throw new Error(`Request failed (${response.status})`)
+    throw new Error(`${EXPECTED_API_FALLBACK_ERROR_PREFIX} request failed (${response.status})`)
+  }
+
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+
+  if (!contentType.includes('application/json')) {
+    throw new Error(`${EXPECTED_API_FALLBACK_ERROR_PREFIX} unexpected response content-type (${contentType || 'unknown'})`)
   }
 
   return response.json() as Promise<unknown>
+}
+
+function isExpectedApiFallbackError(error: unknown) {
+  return error instanceof Error && error.message.startsWith(EXPECTED_API_FALLBACK_ERROR_PREFIX)
 }
 
 function getLiveGigIdFromApiPayload(payload: unknown): string | null {
@@ -404,7 +415,9 @@ function EventPage() {
           navigate(`/audience?v=${audienceLinkVersionRef.current}`, { replace: true })
         }
       } catch (error) {
-        console.warn('EventPage: live gig API check failed', error)
+        if (!isExpectedApiFallbackError(error)) {
+          console.warn('EventPage: live gig API check failed', error)
+        }
 
         if (isCurrent && !event) {
           setUpcomingEventsNotice('Live status is reconnecting. Upcoming events are shown below.')
@@ -546,7 +559,9 @@ function EventPage() {
         try {
           mappedEvents = await fetchUpcomingEventsFromApi()
         } catch (apiError) {
-          console.warn('EventPage: /events fetch failed, falling back to Supabase', apiError)
+          if (!isExpectedApiFallbackError(apiError)) {
+            console.warn('EventPage: /events fetch failed, falling back to Supabase', apiError)
+          }
           const eventRows = await fetchUpcomingEventRows()
           mappedEvents = mapUpcomingEvents(eventRows)
         }
@@ -680,7 +695,7 @@ function EventPage() {
       : `Join the queue for ${event.name}. Request songs and vote with the audience!`
 
     setEventOGTags(event.name, description, undefined, typeof window !== 'undefined' ? window.location.href : undefined)
-  }, [event?.id, event?.name, event?.venue])
+  }, [event, event?.id, event?.name, event?.venue])
 
   useEffect(() => {
     const previousVotes = previousVotesRef.current
