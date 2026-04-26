@@ -93,6 +93,7 @@ function SettingsPage() {
   const [manualSaveBusy, setManualSaveBusy] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [advancedNotice, setAdvancedNotice] = useState<string | null>(null)
   const {
     saveStatus,
     cancelAutosave,
@@ -376,8 +377,11 @@ function SettingsPage() {
     const a = document.createElement('a')
     a.href = url
     a.download = `performer-settings-${Date.now()}.json`
+    document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    setAdvancedNotice('Settings exported successfully.')
   }
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -398,6 +402,7 @@ function SettingsPage() {
           ? importedSettings.theme_preset
           : 'dark',
       })
+      setAdvancedNotice('Settings imported. Click Save Settings to persist immediately.')
     } catch (error) {
       setSaveError('Failed to import settings. Please check the file format.')
       console.warn('SettingsPage: import failed', error)
@@ -411,6 +416,7 @@ function SettingsPage() {
     }
     pushUndoState()
     updateState(DEFAULTS)
+    setAdvancedNotice('Defaults restored. Click Save Settings to persist immediately.')
   }
 
   const handleApplyTheme = (presetKey: string) => {
@@ -844,7 +850,7 @@ function SettingsPage() {
           id="advanced"
           title="Advanced Options"
           icon="⚙️"
-          isExpanded={false}
+          isExpanded={expandedSections.has('advanced')}
           onToggle={() => toggleSection('advanced')}
           as="div"
           contentIdPrefix="settings"
@@ -884,6 +890,7 @@ function SettingsPage() {
             Use export/import to backup settings or move them between accounts. Reset will clear all
             customizations.
           </p>
+          {advancedNotice ? <p className="field-hint" role="status">{advancedNotice}</p> : null}
         </SettingsSection>
 
         {/* Error Message */}
