@@ -1094,6 +1094,7 @@ function MirrorPage() {
               ) : (
                 <>
                   <p className="mirror-eyebrow">Now Playing</p>
+                  <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
                   <div className="mirror-now-playing-track">
                     {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
                       <img
@@ -1147,14 +1148,6 @@ function MirrorPage() {
                   <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
                 ) : null}
               </section>
-            </section>
-
-            <section className="mirror-join-strip" aria-label="Audience join prompt">
-              <img src={qrUrl} alt="QR code for the audience request page" className="mirror-join-strip-qr" />
-              <div className="mirror-join-strip-copy">
-                <p className="mirror-join-strip-title">Scan to join the show</p>
-                <p className="mirror-join-strip-url">{audienceUrl}</p>
-              </div>
             </section>
           </>
         )}

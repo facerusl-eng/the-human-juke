@@ -4018,6 +4018,7 @@
   justify-items: center;
   text-align: center;
   gap: 0.55rem;
+  position: relative;
   padding: clamp(0.64rem, 1vw, 1rem);
   border-radius: 20px;
   border: 1px solid rgba(93, 215, 255, 0.16);
@@ -4080,6 +4081,21 @@
   gap: clamp(0.8rem, 1.3vw, 1.05rem);
   align-items: center;
   width: min(100%, 1320px);
+}
+
+.mirror-now-playing-qr {
+  position: absolute;
+  top: clamp(0.7rem, 1vw, 1rem);
+  right: clamp(0.7rem, 1vw, 1rem);
+  width: clamp(78px, 7vw, 108px);
+  height: clamp(78px, 7vw, 108px);
+  border-radius: 10px;
+  padding: 0.16rem;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.44);
+  box-shadow:
+    0 12px 24px rgba(4, 8, 22, 0.28),
+    0 0 0 1px rgba(93, 215, 255, 0.14);
 }
 
 .mirror-stage-live .mirror-now-playing-track {
@@ -6807,7 +6823,7 @@
 
 .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 0.57fr) minmax(0, 0.31fr) auto !important;
+  grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.48fr) !important;
 }
 
 .mirror-stage-live .mirror-now-playing {
@@ -6829,7 +6845,7 @@
 }
 
 .mirror-shell-hide-controls .mirror-stage-live {
-  grid-template-rows: minmax(0, 0.6fr) minmax(0, 0.28fr) auto !important;
+  grid-template-rows: minmax(0, 0.54fr) minmax(0, 0.46fr) !important;
 }
 
 .mirror-shell-hide-controls .mirror-stage-live .mirror-secondary-grid {
@@ -6889,24 +6905,6 @@
   font-size: clamp(0.84rem, 1.1vw, 1rem);
 }
 
-.mirror-join-strip {
-  gap: 0.72rem;
-  padding: 0.44rem 0.62rem;
-}
-
-.mirror-join-strip-qr {
-  width: clamp(68px, 5.8vw, 88px);
-  height: clamp(68px, 5.8vw, 88px);
-}
-
-.mirror-join-strip-title {
-  font-size: clamp(0.88rem, 1.16vw, 1.06rem);
-}
-
-.mirror-join-strip-url {
-  font-size: clamp(0.72rem, 0.92vw, 0.88rem);
-}
-
 .live-feed-panel-mirror .live-feed-list {
   gap: 0.42rem;
 }
@@ -6930,7 +6928,7 @@
 
 @media (max-width: 1180px) {
   .mirror-stage-live {
-    grid-template-rows: minmax(0, 0.5fr) minmax(0, 0.38fr) auto !important;
+    grid-template-rows: minmax(0, 0.48fr) minmax(0, 0.52fr) !important;
   }
 
   .mirror-stage-live .mirror-secondary-grid {
@@ -6941,11 +6939,18 @@
 
 @media (max-width: 900px) {
   .mirror-stage-live {
-    grid-template-rows: minmax(0, 0.46fr) minmax(0, 0.42fr) auto !important;
+    grid-template-rows: minmax(0, 0.46fr) minmax(0, 0.54fr) !important;
   }
 
   .mirror-now-playing-cover {
     width: clamp(88px, 24vw, 124px);
+  }
+
+  .mirror-now-playing-qr {
+    width: clamp(62px, 16vw, 82px);
+    height: clamp(62px, 16vw, 82px);
+    top: 0.58rem;
+    right: 0.58rem;
   }
 
   .mirror-title {
