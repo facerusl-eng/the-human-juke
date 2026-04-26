@@ -244,7 +244,6 @@ function EventPage() {
           .from('events')
           .select('id, name, venue, gig_date, gig_start_time')
           .eq('show_in_audience_no_gig', true)
-          .eq('is_active', false)
           .order('gig_date', { ascending: true, nullsFirst: false })
           .order('gig_start_time', { ascending: true, nullsFirst: false })
           .order('created_at', { ascending: true })
