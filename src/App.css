@@ -3832,12 +3832,16 @@
 
 .mirror-brand {
   margin: 0;
-  font-family: var(--font-head);
-  font-size: var(--mirror-brand-size);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(93, 215, 255, 0.9);
-  text-shadow: 0 0 16px rgba(93, 215, 255, 0.5);
+  display: inline-flex;
+  align-items: center;
+}
+
+.mirror-brand-logo {
+  display: block;
+  width: clamp(156px, 18vw, 280px);
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 0 16px rgba(93, 215, 255, 0.18));
 }
 
 .mirror-event-name {

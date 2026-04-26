@@ -986,7 +986,9 @@ function MirrorPage() {
     <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
       <header className="mirror-header">
         <div className="mirror-header-main">
-          <p className="mirror-brand">🎸 Human Jukebox</p>
+          <p className="mirror-brand" aria-label="The Human Jukebox">
+            <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
+          </p>
           {event ? (
             <div>
               <p className="mirror-event-name">
@@ -1086,6 +1088,7 @@ function MirrorPage() {
         ) : (
           <>
             <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isBetweenSongs ? 'mirror-now-playing-interstitial' : ''}`}>
+              <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
               {isBetweenSongs ? (
                 <>
                   <div className="mirror-interstitial-sweep" aria-hidden="true" />
@@ -1094,7 +1097,6 @@ function MirrorPage() {
               ) : (
                 <>
                   <p className="mirror-eyebrow">Now Playing</p>
-                  <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
                   <div className="mirror-now-playing-track">
                     {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
                       <img
