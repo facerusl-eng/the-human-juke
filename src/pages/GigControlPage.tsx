@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
+import { useClipboardCopy } from '../hooks/useClipboardCopy'
+import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
 import { useQueueStore } from '../state/queueStore'
@@ -28,7 +31,6 @@ function GigControlPage() {
   } = useQueueStore()
 
   const [errorText, setErrorText] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [manualTitle, setManualTitle] = useState('')
   const [manualArtist, setManualArtist] = useState('')
   const [manualExplicit, setManualExplicit] = useState(false)
@@ -36,11 +38,26 @@ function GigControlPage() {
   const [isNowPlayingStarted, setIsNowPlayingStarted] = useState(false)
   const [spaceActionBusy, setSpaceActionBusy] = useState(false)
   const [manualAddBusy, setManualAddBusy] = useState(false)
-  const [roomToggleBusy, setRoomToggleBusy] = useState(false)
-  const [explicitToggleBusy, setExplicitToggleBusy] = useState(false)
   const [songActionBusyId, setSongActionBusyId] = useState<string | null>(null)
-  const [switchingGigId, setSwitchingGigId] = useState<string | null>(null)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
+  const {
+    copied: copiedAudienceLink,
+    copyError,
+    setCopyError,
+    copyText,
+  } = useClipboardCopy({ successDurationMs: 1400 })
+  const gigActions = useGigActions({
+    setActiveEvent,
+    toggleRoomOpen,
+    toggleExplicitFilter,
+    setErrorText,
+    errors: {
+      setActiveEvent: 'Failed to switch gig.',
+      toggleRoomOpen: 'Failed to toggle room.',
+      toggleExplicitFilter: 'Failed to toggle filter.',
+    },
+  })
+
   const quoteIndexRef = useRef(0)
   const previousSongIdRef = useRef<string | null>(null)
 
@@ -52,36 +69,22 @@ function GigControlPage() {
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
 
   const copyJoinUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(joinUrl)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1400)
-      return
-    } catch {
-      // Fall back to a hidden textarea when clipboard permissions are blocked.
-    }
+    const copiedSuccessfully = await copyText(
+      joinUrl,
+      'Copy failed. You can still select and copy the audience link manually.',
+    )
 
-    try {
-      const fallbackInput = document.createElement('textarea')
-      fallbackInput.value = joinUrl
-      fallbackInput.setAttribute('readonly', '')
-      fallbackInput.style.position = 'fixed'
-      fallbackInput.style.left = '-9999px'
-      document.body.appendChild(fallbackInput)
-      fallbackInput.select()
-      const copiedWithFallback = document.execCommand('copy')
-      document.body.removeChild(fallbackInput)
-
-      if (!copiedWithFallback) {
-        throw new Error('copy-failed')
-      }
-
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1400)
-    } catch {
-      setErrorText('Copy failed. You can still select and copy the audience link manually.')
+    if (copiedSuccessfully) {
+      setErrorText(null)
+      setCopyError(null)
     }
   }
+
+  useEffect(() => {
+    if (copyError) {
+      setErrorText(copyError)
+    }
+  }, [copyError])
 
   const resolveCoverUrlForSong = (songId: string | null) => {
     if (!songId) {
@@ -290,6 +293,41 @@ function GigControlPage() {
     }
   }
 
+  const headerActions: ActionButtonConfig[] = [
+    {
+      id: 'toggle-room-open',
+      label: gigActions.roomToggleBusy ? 'Updating...' : event?.roomOpen ? 'Pause Live' : 'Go Live',
+      onClick: async () => {
+        await gigActions.runToggleRoomOpen()
+      },
+      disabled: gigActions.quickActionBusy,
+      variant: event?.roomOpen ? 'secondary' : 'primary',
+    },
+    {
+      id: 'toggle-explicit-filter',
+      label: gigActions.explicitToggleBusy ? 'Updating...' : event?.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit',
+      onClick: async () => {
+        await gigActions.runToggleExplicitFilter()
+      },
+      disabled: gigActions.quickActionBusy,
+    },
+    {
+      id: 'open-gig-settings',
+      label: 'Gig Settings',
+      onClick: () => navigate('/admin/gig-settings'),
+      variant: 'ghost',
+    },
+    {
+      id: 'open-mirror-screen',
+      label: 'Open Mirror Screen',
+      onClick: () => {
+        const mirrorUrl = `${window.location.origin}/mirror`
+        window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
+      },
+      variant: 'ghost',
+    },
+  ]
+
   if (loading) {
     return (
       <section className="gig-control-shell" aria-label="Gig control loading">
@@ -333,7 +371,7 @@ function GigControlPage() {
                   id="gig-switcher"
                   className="gig-switcher-select"
                   value={event.id}
-                  disabled={Boolean(switchingGigId)}
+                  disabled={Boolean(gigActions.activatingEventId)}
                   onChange={async (changeEvent) => {
                     const nextGigId = changeEvent.target.value
 
@@ -341,16 +379,7 @@ function GigControlPage() {
                       return
                     }
 
-                    setErrorText(null)
-                    setSwitchingGigId(nextGigId)
-
-                    try {
-                      await setActiveEvent(nextGigId)
-                    } catch (error) {
-                      setErrorText(error instanceof Error ? error.message : 'Failed to switch gig.')
-                    } finally {
-                      setSwitchingGigId(null)
-                    }
+                    await gigActions.switchActiveGig(nextGigId)
                   }}
                 >
                   {hostEvents.map((hostEvent) => (
@@ -370,80 +399,7 @@ function GigControlPage() {
               across every playlist attached to it.
             </p>
           </div>
-          <div className="gig-control-actions gig-control-primary-actions">
-            <button
-              type="button"
-              className={event.roomOpen ? 'secondary-button' : 'primary-button'}
-              disabled={roomToggleBusy || explicitToggleBusy}
-              onClick={async () => {
-                if (roomToggleBusy || explicitToggleBusy) {
-                  return
-                }
-
-                setRoomToggleBusy(true)
-
-                try {
-                  await toggleRoomOpen()
-                } catch (error) {
-                  console.warn('GigControlPage: room toggle failed', error)
-                  setErrorText('Failed to toggle room.')
-                } finally {
-                  setRoomToggleBusy(false)
-                }
-              }}
-            >
-              {roomToggleBusy ? 'Updating...' : event.roomOpen ? 'Pause Live' : 'Go Live'}
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={roomToggleBusy || explicitToggleBusy}
-              onClick={async () => {
-                if (roomToggleBusy || explicitToggleBusy) {
-                  return
-                }
-
-                setExplicitToggleBusy(true)
-
-                try {
-                  await toggleExplicitFilter()
-                } catch (error) {
-                  console.warn('GigControlPage: explicit filter toggle failed', error)
-                  setErrorText('Failed to toggle filter.')
-                } finally {
-                  setExplicitToggleBusy(false)
-                }
-              }}
-            >
-              {explicitToggleBusy ? 'Updating...' : event.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit'}
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={async () => {
-                await copyJoinUrl()
-              }}
-            >
-              {copied ? 'Copied!' : 'Copy Audience Link'}
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => navigate('/admin/gig-settings')}
-            >
-              Gig Settings
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => {
-                const mirrorUrl = `${window.location.origin}/mirror`
-                window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
-              }}
-            >
-              Open Mirror Screen
-            </button>
-          </div>
+          <ActionButtonGroup actions={headerActions} layoutClassName="gig-control-actions gig-control-primary-actions" />
         </article>
 
         <article className="gig-mirror-preview-card" aria-label="Live mirror preview">
@@ -508,7 +464,7 @@ function GigControlPage() {
               await copyJoinUrl()
             }}
           >
-            {copied ? 'Copied!' : 'Copy Audience Link'}
+            {copiedAudienceLink ? 'Copied!' : 'Copy Audience Link'}
           </button>
         </article>
       </section>

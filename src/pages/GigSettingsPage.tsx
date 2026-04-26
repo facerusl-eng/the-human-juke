@@ -1,6 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
+import { SaveStatusBadges } from '../components/settings/SaveStatusBadges'
+import { SettingsSection } from '../components/settings/SettingsSection'
+import { useAutosaveSaveLifecycle } from '../hooks/useAutosaveSaveLifecycle'
+import { useClipboardCopy } from '../hooks/useClipboardCopy'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
@@ -35,6 +40,7 @@ type SettingsState = {
   selectedPlaylistIds: string[]
   roomOpen: boolean
   explicitFilterEnabled: boolean
+  showInAudienceNoGig: boolean
 }
 
 type UndoRedoState = SettingsState & { timestamp: number }
@@ -45,7 +51,6 @@ type GigSettingsFormProps = {
   updateEventSettings: ReturnType<typeof useQueueStore>['updateEventSettings']
 }
 
-const AUTOSAVE_DELAY_MS = 2000
 const MAX_UNDO_STATES = 20
 
 function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsFormProps) {
@@ -64,6 +69,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     selectedPlaylistIds: [],
     roomOpen: event.roomOpen,
     explicitFilterEnabled: event.explicitFilterEnabled,
+    showInAudienceNoGig: event.showInAudienceNoGig,
   })
 
   // Undo/Redo
@@ -74,14 +80,26 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
   const [playlists, setPlaylists] = useState<HostPlaylist[]>([])
   const [loadingPlaylists, setLoadingPlaylists] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [errorText, setErrorText] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
-
-  // Autosave
-  const autosaveTimerRef = useRef<number | null>(null)
+  const {
+    saveStatus,
+    cancelAutosave,
+    markSaved,
+    markError,
+    scheduleAutosave,
+  } = useAutosaveSaveLifecycle({
+    autosaveDelayMs: 2000,
+    savedResetDelayMs: 2000,
+  })
 
   const audienceUrl = getAudienceUrl(event.id)
+  const {
+    copied: copiedAudienceLink,
+    copyError,
+    setCopyError,
+    copyText,
+  } = useClipboardCopy({ successDurationMs: 1500 })
 
   // Load playlists
   useEffect(() => {
@@ -197,7 +215,9 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
   const updateState = (updates: Partial<SettingsState>) => {
     setState((current) => {
       const newState = { ...current, ...updates }
-      triggerAutosave(newState)
+      scheduleAutosave(async () => {
+        void performSave(newState)
+      })
       return newState
     })
   }
@@ -213,7 +233,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     setRedoStack((current) => [...current, { ...state, timestamp: Date.now() }])
     setState(previousState)
     setUndoStack((current) => current.slice(0, -1))
-    clearAutosaveTimer()
+    cancelAutosave()
   }
 
   const onRedo = () => {
@@ -222,23 +242,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     setUndoStack((current) => [...current, { ...state, timestamp: Date.now() }])
     setState(nextState)
     setRedoStack((current) => current.slice(0, -1))
-    clearAutosaveTimer()
-  }
-
-  // Autosave
-  const clearAutosaveTimer = () => {
-    if (autosaveTimerRef.current !== null) {
-      window.clearTimeout(autosaveTimerRef.current)
-      autosaveTimerRef.current = null
-    }
-  }
-
-  const triggerAutosave = (newState: SettingsState) => {
-    clearAutosaveTimer()
-    setSaveStatus('saving')
-    autosaveTimerRef.current = window.setTimeout(() => {
-      void performSave(newState)
-    }, AUTOSAVE_DELAY_MS)
+    cancelAutosave()
   }
 
   const performSave = async (saveState: SettingsState) => {
@@ -246,7 +250,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
 
     if (!saveState.gigName.trim()) {
       setErrorText('Gig name is required.')
-      setSaveStatus('error')
+      markError()
       return
     }
 
@@ -256,7 +260,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
 
       if (parsedLimit !== null && (!Number.isFinite(parsedLimit) || parsedLimit < 1)) {
         setErrorText('Request cap must be at least 1, or left blank for no cap.')
-        setSaveStatus('error')
+        markError()
         return
       }
 
@@ -272,21 +276,21 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
         maxActiveRequestsPerUser: parsedLimit,
         roomOpen: saveState.roomOpen,
         explicitFilterEnabled: saveState.explicitFilterEnabled,
+        showInAudienceNoGig: saveState.showInAudienceNoGig,
       })
 
       await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 2000)
+      markSaved()
     } catch (error) {
       console.warn('GigSettingsPage: failed to save settings', error)
       setErrorText(error instanceof Error ? error.message : 'Unable to save gig settings.')
-      setSaveStatus('error')
+      markError()
     }
   }
 
   const onManualSave = async (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault()
-    clearAutosaveTimer()
+    cancelAutosave()
     setBusy(true)
     await performSave(state)
     setBusy(false)
@@ -305,37 +309,40 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
   }
 
   const copyAudienceUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(audienceUrl)
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 1500)
-      return
-    } catch {
-      // Fall through to legacy copy method
-    }
+    const copiedSuccessfully = await copyText(
+      audienceUrl,
+      'Copy failed. You can still copy the audience link manually.',
+    )
 
-    try {
-      const fallbackInput = document.createElement('textarea')
-      fallbackInput.value = audienceUrl
-      fallbackInput.setAttribute('readonly', '')
-      fallbackInput.style.position = 'fixed'
-      fallbackInput.style.left = '-9999px'
-      document.body.appendChild(fallbackInput)
-      fallbackInput.select()
-      const copied = document.execCommand('copy')
-      document.body.removeChild(fallbackInput)
-
-      if (!copied) {
-        throw new Error('copy-failed')
-      }
-
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 1500)
-    } catch (error) {
-      console.warn('GigSettingsPage: failed to copy audience URL', error)
-      setErrorText('Copy failed. You can still copy the audience link manually.')
+    if (copiedSuccessfully) {
+      markSaved(1500)
+      setCopyError(null)
+      setErrorText(null)
     }
   }
+
+  const headerActions: ActionButtonConfig[] = [
+    {
+      id: 'go-back',
+      label: 'Back',
+      onClick: onBack,
+    },
+    {
+      id: 'open-mirror-screen',
+      label: 'Mirror Screen',
+      onClick: () => {
+        window.open('/mirror', '_blank')
+      },
+      title: 'Open mirror screen in new window',
+      variant: 'ghost',
+    },
+  ]
+
+  useEffect(() => {
+    if (copyError) {
+      setErrorText(copyError)
+    }
+  }, [copyError])
 
   const isModified = state.gigName !== event.name
     || state.venue !== (event.venue ?? '')
@@ -346,6 +353,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
     || state.roomOpen !== event.roomOpen
     || state.explicitFilterEnabled !== event.explicitFilterEnabled
+    || state.showInAudienceNoGig !== event.showInAudienceNoGig
 
   return (
     <>
@@ -355,19 +363,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
           <h1>{state.gigName}</h1>
           <p className="subcopy">Manage show settings, audience access, and playback rules</p>
         </div>
-        <div className="gig-settings-header-actions">
-          <button type="button" className="secondary-button" onClick={onBack}>
-            Back
-          </button>
-          <button
-            type="button"
-            className="ghost-button"
-            onClick={() => window.open('/mirror', '_blank')}
-            title="Open mirror screen in new window"
-          >
-            Mirror Screen
-          </button>
-        </div>
+        <ActionButtonGroup actions={headerActions} layoutClassName="gig-settings-header-actions" />
       </section>
 
       {/* Main Content */}
@@ -395,12 +391,11 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
             </button>
           </div>
 
-          <div className="toolbar-status">
-            {saveStatus === 'saving' && <span className="status-badge saving">Saving...</span>}
-            {saveStatus === 'saved' && <span className="status-badge saved">✓ Saved</span>}
-            {saveStatus === 'error' && <span className="status-badge error">✗ Error</span>}
-            {isModified && saveStatus === 'idle' && <span className="status-badge unsaved">Unsaved changes</span>}
-          </div>
+          <SaveStatusBadges
+            saveStatus={saveStatus}
+            showUnsaved={isModified && saveStatus === 'idle'}
+            errorLabel="✗ Error"
+          />
 
           <div className="toolbar-buttons">
             <button type="submit" className="primary-button" disabled={busy || !isModified}>
@@ -410,12 +405,14 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
         </div>
 
         {/* Sections */}
-        <CollapsibleSection
+        <SettingsSection
           id="gigInfo"
           title="Gig Info"
           icon="ℹ️"
           isExpanded={expandedSections.has('gigInfo')}
           onToggle={() => toggleSection('gigInfo')}
+          expandedClassName="expanded"
+          collapsedClassName="collapsed"
         >
           <div className="field-row">
             <label htmlFor="gig-name">Gig Name</label>
@@ -459,14 +456,16 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
               placeholder="Soul, funk, and crowd favorites"
             />
           </div>
-        </CollapsibleSection>
+        </SettingsSection>
 
-        <CollapsibleSection
+        <SettingsSection
           id="requestSettings"
           title="Audience Request Rules"
           icon="🎤"
           isExpanded={expandedSections.has('requestSettings')}
           onToggle={() => toggleSection('requestSettings')}
+          expandedClassName="expanded"
+          collapsedClassName="collapsed"
         >
           <div className="field-row">
             <label htmlFor="gig-instructions">Request Instructions</label>
@@ -563,14 +562,16 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
               </div>
             </label>
           </div>
-        </CollapsibleSection>
+        </SettingsSection>
 
-        <CollapsibleSection
+        <SettingsSection
           id="setlistSelection"
           title="Setlist Selection"
           icon="🎵"
           isExpanded={expandedSections.has('setlistSelection')}
           onToggle={() => toggleSection('setlistSelection')}
+          expandedClassName="expanded"
+          collapsedClassName="collapsed"
         >
           <div className="playlist-section">
             {loadingPlaylists ? (
@@ -614,14 +615,16 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
               </>
             )}
           </div>
-        </CollapsibleSection>
+        </SettingsSection>
 
-        <CollapsibleSection
+        <SettingsSection
           id="mirrorSettings"
           title="Mirror Screen Settings"
           icon="🪞"
           isExpanded={expandedSections.has('mirrorSettings')}
           onToggle={() => toggleSection('mirrorSettings')}
+          expandedClassName="expanded"
+          collapsedClassName="collapsed"
         >
           <div className="toggle-group">
             <label className="toggle-card" htmlFor="gig-mirror-spotlight">
@@ -640,14 +643,16 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
               </div>
             </label>
           </div>
-        </CollapsibleSection>
+        </SettingsSection>
 
-        <CollapsibleSection
+        <SettingsSection
           id="audienceAccess"
           title="Audience Access & Sharing"
           icon="🔗"
           isExpanded={expandedSections.has('audienceAccess')}
           onToggle={() => toggleSection('audienceAccess')}
+          expandedClassName="expanded"
+          collapsedClassName="collapsed"
         >
           <div className="access-section">
             <div className="link-card">
@@ -658,7 +663,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
                 className="secondary-button"
                 onClick={() => void copyAudienceUrl()}
               >
-                📋 Copy Link
+                {copiedAudienceLink ? '✓ Copied' : '📋 Copy Link'}
               </button>
             </div>
 
@@ -670,13 +675,24 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
               >
                 Open Audience View
               </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => window.open('/mirror', '_blank')}
-              >
-                Open Mirror Screen
-              </button>
+            </div>
+
+            <div className="toggle-group">
+              <label className="gig-settings-toggle-card" htmlFor="gig-show-in-audience-no-gig">
+                <input
+                  id="gig-show-in-audience-no-gig"
+                  type="checkbox"
+                  checked={state.showInAudienceNoGig}
+                  onChange={(e) => {
+                    pushUndoState()
+                    updateState({ showInAudienceNoGig: e.target.checked })
+                  }}
+                />
+                <div>
+                  <strong>{state.showInAudienceNoGig ? '✓ Show When No Gig Is Live' : '⊘ Hidden When No Gig Is Live'}</strong>
+                  <span>Show this event in the Audience App when no live gig is running</span>
+                </div>
+              </label>
             </div>
 
             <div className="status-grid">
@@ -710,7 +726,7 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
               </div>
             </div>
           </div>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Error Message */}
         {errorText && (
@@ -731,39 +747,6 @@ function GigSettingsForm({ event, onBack, updateEventSettings }: GigSettingsForm
         </div>
       </form>
     </>
-  )
-}
-
-// Collapsible Section Component
-interface CollapsibleSectionProps {
-  id: string
-  title: string
-  icon?: string
-  isExpanded: boolean
-  onToggle: () => void
-  children: React.ReactNode
-}
-
-function CollapsibleSection({ id, title, icon, isExpanded, onToggle, children }: CollapsibleSectionProps) {
-  return (
-    <section className={`collapsible-section ${isExpanded ? 'expanded' : 'collapsed'}`}>
-      <button
-        type="button"
-        className="section-header"
-        onClick={onToggle}
-        aria-expanded={isExpanded}
-        aria-controls={`section-content-${id}`}
-      >
-        <span className="section-icon">{icon}</span>
-        <span className="section-title">{title}</span>
-        <span className="section-toggle">{isExpanded ? '▼' : '▶'}</span>
-      </button>
-      {isExpanded && (
-        <div id={`section-content-${id}`} className="section-content">
-          {children}
-        </div>
-      )}
-    </section>
   )
 }
 

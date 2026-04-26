@@ -52,6 +52,7 @@ export const BETWEEN_SONG_QUOTES = [
 ]
 
 import { supabase } from './supabase'
+import { saveToLocalStorage } from './saveHandling'
 
 export const PLAYBACK_STATE_EVENT = 'human-jukebox:playback-state'
 export const PLAYBACK_STATE_STORAGE_KEY = 'human-jukebox:playback-state-sync'
@@ -73,11 +74,7 @@ type SharedPlaybackStateMessage = {
 function broadcastPlaybackState(message: SharedPlaybackStateMessage) {
   window.dispatchEvent(new CustomEvent(PLAYBACK_STATE_EVENT, { detail: message }))
 
-  try {
-    window.localStorage.setItem(PLAYBACK_STATE_STORAGE_KEY, JSON.stringify(message))
-  } catch {
-    // Ignore storage quota/private mode failures.
-  }
+  saveToLocalStorage(PLAYBACK_STATE_STORAGE_KEY, message)
 
   try {
     if ('BroadcastChannel' in window) {

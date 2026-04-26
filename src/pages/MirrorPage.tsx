@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase'
 import { useQueueStore } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
+import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
 
 type FeedImageSpotlight = {
   id: string
@@ -311,10 +312,10 @@ function MirrorPage() {
       ?? searchParams.get('safe')?.trim().toLowerCase()
 
     const hasContrastQuery = contrastParam === '1' || contrastParam === 'high' || contrastParam === 'true'
-    const persistedContrastPreference = window.localStorage.getItem(MIRROR_HIGH_CONTRAST_STORAGE_KEY) === '1'
+    const persistedContrastPreference = readTextFromLocalStorage(MIRROR_HIGH_CONTRAST_STORAGE_KEY) === '1'
     const hasSafeMarginsQuery = safeMarginsParam === '1' || safeMarginsParam === 'on' || safeMarginsParam === 'true'
-    const persistedSafeMarginsPreference = window.localStorage.getItem(MIRROR_SAFE_MARGINS_STORAGE_KEY) === '1'
-    const persistedVenueMode = resolveMirrorVenueMode(window.localStorage.getItem(MIRROR_VENUE_MODE_STORAGE_KEY))
+    const persistedSafeMarginsPreference = readTextFromLocalStorage(MIRROR_SAFE_MARGINS_STORAGE_KEY) === '1'
+    const persistedVenueMode = resolveMirrorVenueMode(readTextFromLocalStorage(MIRROR_VENUE_MODE_STORAGE_KEY))
     const resolvedVenueMode = resolveMirrorVenueMode(venueParam) ?? persistedVenueMode ?? 'lounge'
     const resolvedDensityMode: MirrorDensityMode = densityParam === 'cinema' || densityParam === 'xl' || densityParam === 'large'
       ? 'cinema'
@@ -331,14 +332,14 @@ function MirrorPage() {
       return
     }
 
-    try {
-      window.localStorage.setItem(MIRROR_HIGH_CONTRAST_STORAGE_KEY, highContrastMode ? '1' : '0')
+    const result = saveTextToLocalStorage(MIRROR_HIGH_CONTRAST_STORAGE_KEY, highContrastMode ? '1' : '0')
+    if (result.success) {
       _setStorageError(null)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Could not save contrast preference'
-      _setStorageError(errorMessage)
-      console.warn('MirrorPage: failed to save high contrast mode', error)
+      return
     }
+
+    _setStorageError(result.error ?? 'Could not save contrast preference')
+    console.warn('MirrorPage: failed to save high contrast mode', result.error)
   }, [highContrastMode])
 
   useEffect(() => {
@@ -346,14 +347,14 @@ function MirrorPage() {
       return
     }
 
-    try {
-      window.localStorage.setItem(MIRROR_SAFE_MARGINS_STORAGE_KEY, showSafeMargins ? '1' : '0')
+    const result = saveTextToLocalStorage(MIRROR_SAFE_MARGINS_STORAGE_KEY, showSafeMargins ? '1' : '0')
+    if (result.success) {
       _setStorageError(null)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Could not save safe margins preference'
-      _setStorageError(errorMessage)
-      console.warn('MirrorPage: failed to save safe margins', error)
+      return
     }
+
+    _setStorageError(result.error ?? 'Could not save safe margins preference')
+    console.warn('MirrorPage: failed to save safe margins', result.error)
   }, [showSafeMargins])
 
   useEffect(() => {
@@ -361,14 +362,14 @@ function MirrorPage() {
       return
     }
 
-    try {
-      window.localStorage.setItem(MIRROR_VENUE_MODE_STORAGE_KEY, venueMode)
+    const result = saveTextToLocalStorage(MIRROR_VENUE_MODE_STORAGE_KEY, venueMode)
+    if (result.success) {
       _setStorageError(null)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Could not save venue mode preference'
-      _setStorageError(errorMessage)
-      console.warn('MirrorPage: failed to save venue mode', error)
+      return
     }
+
+    _setStorageError(result.error ?? 'Could not save venue mode preference')
+    console.warn('MirrorPage: failed to save venue mode', result.error)
   }, [venueMode])
 
   // Update OG meta tags for social media sharing

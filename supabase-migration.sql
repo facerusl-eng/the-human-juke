@@ -5,6 +5,7 @@ CREATE POLICY events_select_authenticated ON public.events
   USING (
     is_active = true
     OR room_open = true
+    OR show_in_audience_no_gig = true
     OR host_id = auth.uid()
   );
 
@@ -91,7 +92,12 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS playlist_only_requests BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS mirror_photo_spotlight_enabled BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS allow_duplicate_requests BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS max_active_requests_per_user INTEGER;
+  ADD COLUMN IF NOT EXISTS max_active_requests_per_user INTEGER,
+  ADD COLUMN IF NOT EXISTS show_in_audience_no_gig BOOLEAN NOT NULL DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS events_show_in_audience_no_gig_idx
+  ON public.events (show_in_audience_no_gig, gig_date, gig_start_time)
+  WHERE show_in_audience_no_gig = true;
 
 ALTER TABLE public.events
   ALTER COLUMN host_code_hash DROP NOT NULL;

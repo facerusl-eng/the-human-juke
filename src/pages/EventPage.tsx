@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import AudienceNoGigState, { type AudienceUpcomingEvent } from '../components/audience/AudienceNoGigState'
 import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
 import SongVoteCard from '../components/audience/SongVoteCard'
 import { useQueueStore } from '../state/queueStore'
@@ -27,6 +28,7 @@ type HostProfile = {
 }
 
 const MAX_AUDIENCE_NAME_LENGTH = 40
+const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 
 function normalizeCoverUrl(coverUrl: string | null | undefined) {
   if (!coverUrl) {
@@ -111,6 +113,7 @@ function EventPage() {
   const [votePulseTicks, setVotePulseTicks] = useState<Record<string, number>>({})
   const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
+  const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>([])
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -224,6 +227,90 @@ function EventPage() {
       isCurrent = false
     }
   }, [event?.hostId])
+
+  useEffect(() => {
+    if (event) {
+      setUpcomingEvents([])
+      return
+    }
+
+    let isCurrent = true
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let pollTimerId: number | null = null
+
+    const loadUpcomingEvents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('id, name, venue, gig_date, gig_start_time')
+          .eq('show_in_audience_no_gig', true)
+          .eq('is_active', false)
+          .order('gig_date', { ascending: true, nullsFirst: false })
+          .order('gig_start_time', { ascending: true, nullsFirst: false })
+          .order('created_at', { ascending: true })
+
+        if (error) {
+          throw error
+        }
+
+        if (!isCurrent) {
+          return
+        }
+
+        setUpcomingEvents(((data ?? []) as Array<Record<string, unknown>>).map((eventData) => ({
+          id: String(eventData.id ?? ''),
+          name: (eventData.name as string | null) ?? 'Untitled Gig',
+          venue: (eventData.venue as string | null) ?? null,
+          gigDate: (eventData.gig_date as string | null) ?? null,
+          gigStartTime: (eventData.gig_start_time as string | null) ?? null,
+        })))
+      } catch (error) {
+        console.warn('EventPage: failed to load upcoming no-gig events', error)
+        if (isCurrent) {
+          setUpcomingEvents([])
+        }
+      }
+    }
+
+    void loadUpcomingEvents()
+
+    channel = supabase
+      .channel(`audience-upcoming-events-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'events',
+        },
+        () => {
+          void loadUpcomingEvents()
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          void loadUpcomingEvents()
+        }
+      })
+
+    pollTimerId = window.setInterval(() => {
+      if (document.hidden) {
+        return
+      }
+
+      void loadUpcomingEvents()
+    }, UPCOMING_EVENTS_POLL_INTERVAL_MS)
+
+    return () => {
+      isCurrent = false
+      if (channel) {
+        void supabase.removeChannel(channel)
+      }
+      if (pollTimerId !== null) {
+        window.clearInterval(pollTimerId)
+      }
+    }
+  }, [event])
 
   // Update OG meta tags for social media sharing
   useEffect(() => {
@@ -410,6 +497,10 @@ function EventPage() {
     )
   }
 
+  if (!event) {
+    return <AudienceNoGigState upcomingEvents={upcomingEvents} />
+  }
+
   if (!audienceName) {
     return (
       <section className="audience-entry-shell" aria-label="Audience entry">
@@ -514,7 +605,7 @@ function EventPage() {
             <button
               type="button"
               className="secondary-button"
-              aria-expanded={showHowItWorks ? 'true' : 'false'}
+              aria-expanded={showHowItWorks}
               aria-controls="audience-how-it-works"
               onClick={() => setShowHowItWorks((current) => !current)}
             >

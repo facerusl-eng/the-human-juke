@@ -18,7 +18,7 @@ function ShellLayout() {
   const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
-  const showAdminMobileMenu = isAdminMode && !isAudienceMode
+  const showMobileMenu = !isAudienceMode
   const shellClassName = isAudienceSongListMode
     ? 'app-shell app-shell-audience-fullscreen'
     : location.pathname.startsWith('/admin/setlist-library')
@@ -28,6 +28,7 @@ function ShellLayout() {
   const siteNavClassName = [
     'site-nav',
     isAdminMode ? 'site-nav-admin' : '',
+    showMobileMenu ? 'site-nav-collapsible' : '',
     isMobileNavOpen ? 'site-nav-open' : '',
   ].filter(Boolean).join(' ')
 
@@ -71,11 +72,12 @@ function ShellLayout() {
         <p className="brand" aria-label="The Human Jukebox">
           <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
         </p>
-        {showAdminMobileMenu ? (
+        {showMobileMenu ? (
           <button
             type="button"
             className="mobile-nav-toggle"
             aria-controls="primary-site-nav"
+            aria-expanded={isMobileNavOpen}
             aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
             onClick={() => setIsMobileNavOpen((open) => !open)}
           >

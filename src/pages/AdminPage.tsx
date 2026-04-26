@@ -1,6 +1,8 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
+import { useGigActions } from '../hooks/useGigActions'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
@@ -78,6 +80,30 @@ function AdminSafeFallback({
   onOpenAudience: () => void
   onOpenGigControl: () => void
 }) {
+  const safeModeActions: ActionButtonConfig[] = [
+    {
+      id: 'retry-dashboard',
+      label: 'Retry full dashboard',
+      onClick: onRetry,
+      variant: 'primary',
+    },
+    {
+      id: 'open-gig-control',
+      label: 'Open Gig Control',
+      onClick: onOpenGigControl,
+    },
+    {
+      id: 'open-mirror',
+      label: 'Open Mirror Screen',
+      onClick: onOpenMirror,
+    },
+    {
+      id: 'open-audience',
+      label: 'Open Audience Screen',
+      onClick: onOpenAudience,
+    },
+  ]
+
   return (
     <section className="admin-shell admin-mobile-home" aria-label="Admin dashboard safe mode">
       <section className="queue-panel admin-mobile-block admin-safe-mode-panel" role="status" aria-live="polite">
@@ -86,20 +112,7 @@ function AdminSafeFallback({
         <p className="subcopy">
           {recoveryNotice ?? 'Reconnecting... We are restoring the full dashboard automatically.'}
         </p>
-        <div className="admin-mobile-action-grid">
-          <button type="button" className="primary-button admin-mobile-cta" onClick={onRetry}>
-            Retry full dashboard
-          </button>
-          <button type="button" className="secondary-button admin-mobile-cta" onClick={onOpenGigControl}>
-            Open Gig Control
-          </button>
-          <button type="button" className="secondary-button admin-mobile-cta" onClick={onOpenMirror}>
-            Open Mirror Screen
-          </button>
-          <button type="button" className="secondary-button admin-mobile-cta" onClick={onOpenAudience}>
-            Open Audience Screen
-          </button>
-        </div>
+        <ActionButtonGroup actions={safeModeActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
       </section>
     </section>
   )
@@ -169,20 +182,63 @@ function AdminDashboardContent({
   const navigate = useNavigate()
   const { signOut, isHost } = useAuthStore()
   const { event, hostEvents, songs, loading, setActiveEvent, toggleRoomOpen, toggleExplicitFilter } = useQueueStore()
-  const [activatingEventId, setActivatingEventId] = useState<string | null>(null)
   const [activeSwitchError, setActiveSwitchError] = useState<string | null>(null)
-  const [quickActionBusy, setQuickActionBusy] = useState<null | 'room' | 'explicit'>(null)
   const [quickActionError, setQuickActionError] = useState<string | null>(null)
   const [profileBusy, setProfileBusy] = useState<null | 'logout'>(null)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [subscriptionState, setSubscriptionState] = useState<'connecting' | 'healthy' | 'degraded'>('connecting')
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
 
+  const activeGigActions = useGigActions({
+    setActiveEvent,
+    setErrorText: setActiveSwitchError,
+    errors: {
+      setActiveEvent: 'Failed to change active gig. Please try again.',
+    },
+  })
+
+  const quickGigActions = useGigActions({
+    toggleRoomOpen,
+    toggleExplicitFilter,
+    setErrorText: setQuickActionError,
+    errors: {
+      toggleRoomOpen: 'Could not change gig status. Please try again.',
+      toggleExplicitFilter: 'Could not update explicit filter. Please try again.',
+    },
+  })
+
   const totalVotes = songs.reduce((sum, song) => sum + song.votes_count, 0)
   const activeEventSummary = useMemo(
     () => hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null,
     [hostEvents, event?.id],
   )
+  const openGigControl = useCallback(() => {
+    navigate('/admin/gig-control')
+  }, [navigate])
+  const openGigSettings = useCallback(() => {
+    navigate('/admin/gig-settings')
+  }, [navigate])
+  const openAudienceScreen = useCallback(() => {
+    navigate('/audience')
+  }, [navigate])
+  const openMirrorScreen = useCallback(() => {
+    window.open('/mirror', '_blank')
+  }, [])
+  const openSetlistLibrary = useCallback(() => {
+    navigate('/admin/setlist-library')
+  }, [navigate])
+  const openGigList = useCallback(() => {
+    navigate('/admin/gigs')
+  }, [navigate])
+  const openAdminSettings = useCallback(() => {
+    navigate('/admin/settings')
+  }, [navigate])
+  const openCreateGig = useCallback(() => {
+    navigate('/admin/create-gig')
+  }, [navigate])
+  const openAudienceFeed = useCallback(() => {
+    navigate('/feed')
+  }, [navigate])
 
   useEffect(() => {
     if (!loading) {
@@ -298,40 +354,6 @@ function AdminDashboardContent({
     }
   }, [loading, subscriptionState, onRecoverableFailure])
 
-  const handleToggleRoomOpen = useCallback(async () => {
-    setQuickActionError(null)
-    setQuickActionBusy('room')
-
-    try {
-      await toggleRoomOpen()
-    } catch (error) {
-      console.warn('AdminPage: failed to toggle room status', error)
-      setQuickActionError(
-        error instanceof Error ? error.message : 'Could not change gig status. Please try again.',
-      )
-    } finally {
-      setQuickActionBusy(null)
-    }
-  }, [toggleRoomOpen])
-
-  const handleToggleExplicitFilter = useCallback(async () => {
-    setQuickActionError(null)
-    setQuickActionBusy('explicit')
-
-    try {
-      await toggleExplicitFilter()
-    } catch (error) {
-      console.warn('AdminPage: failed to toggle explicit filter', error)
-      setQuickActionError(
-        error instanceof Error
-          ? error.message
-          : 'Could not update explicit filter. Please try again.',
-      )
-    } finally {
-      setQuickActionBusy(null)
-    }
-  }, [toggleExplicitFilter])
-
   const contextualStripAction = useMemo<null | 'explicit' | 'mirror'>(() => {
     if (!event) {
       return 'mirror'
@@ -343,6 +365,160 @@ function AdminDashboardContent({
 
     return null
   }, [event])
+  const quickControlActions = useMemo<ActionButtonConfig[]>(() => [
+    {
+      id: 'toggle-room-open',
+      label: quickGigActions.roomToggleBusy
+        ? 'Updating...'
+        : event?.roomOpen
+        ? 'Pause Requests'
+        : 'Open Requests',
+      onClick: async () => {
+        await quickGigActions.runToggleRoomOpen()
+      },
+      disabled: !event || quickGigActions.quickActionBusy,
+      variant: event?.roomOpen ? 'secondary' : 'primary',
+      className: 'admin-mobile-priority',
+    },
+    {
+      id: 'open-audience',
+      label: 'Audience Screen',
+      onClick: openAudienceScreen,
+    },
+    {
+      id: 'open-mirror',
+      label: 'Mirror Screen',
+      onClick: openMirrorScreen,
+      disabled: !event || quickGigActions.quickActionBusy,
+    },
+    {
+      id: 'toggle-explicit-filter',
+      label: quickGigActions.explicitToggleBusy
+        ? 'Updating...'
+        : event?.explicitFilterEnabled
+        ? 'Allow Explicit'
+        : 'Block Explicit',
+      onClick: async () => {
+        await quickGigActions.runToggleExplicitFilter()
+      },
+      disabled: !event || quickGigActions.quickActionBusy,
+    },
+  ], [
+    event,
+    openAudienceScreen,
+    openMirrorScreen,
+    quickGigActions.explicitToggleBusy,
+    quickGigActions.quickActionBusy,
+    quickGigActions.roomToggleBusy,
+    quickGigActions.runToggleExplicitFilter,
+    quickGigActions.runToggleRoomOpen,
+  ])
+  const queueShortcutActions: ActionButtonConfig[] = [
+    {
+      id: 'open-gig-control',
+      label: 'Manage Live Queue',
+      onClick: openGigControl,
+      disabled: !event,
+    },
+    {
+      id: 'open-setlist-library',
+      label: 'Open Setlist Library',
+      onClick: openSetlistLibrary,
+    },
+    {
+      id: 'open-gig-list',
+      label: 'View All Gigs',
+      onClick: openGigList,
+    },
+  ]
+  const settingsToolActions: ActionButtonConfig[] = [
+    {
+      id: 'open-gig-settings',
+      label: 'Gig Settings',
+      onClick: openGigSettings,
+      disabled: !event,
+    },
+    {
+      id: 'open-admin-settings',
+      label: 'Admin Settings',
+      onClick: openAdminSettings,
+    },
+    {
+      id: 'open-create-gig',
+      label: 'Create Gig',
+      onClick: openCreateGig,
+    },
+    {
+      id: 'open-audience-feed',
+      label: 'Open Audience Feed',
+      onClick: openAudienceFeed,
+    },
+  ]
+  const retryDashboardActions: ActionButtonConfig[] = [
+    {
+      id: 'retry-dashboard-sync',
+      label: 'Retry dashboard sync',
+      onClick: onManualRetry,
+      variant: 'ghost',
+    },
+  ]
+  const liveStripActions = useMemo<ActionButtonConfig[]>(() => {
+    const actions: ActionButtonConfig[] = [
+      {
+        id: 'strip-toggle-room-open',
+        label: quickGigActions.roomToggleBusy
+          ? 'Updating...'
+          : event?.roomOpen
+          ? 'Pause Requests'
+          : 'Open Requests',
+        onClick: async () => {
+          await quickGigActions.runToggleRoomOpen()
+        },
+        disabled: !event || quickGigActions.quickActionBusy,
+        variant: event?.roomOpen ? 'secondary' : 'primary',
+      },
+      {
+        id: 'strip-open-audience',
+        label: 'Audience',
+        onClick: openAudienceScreen,
+      },
+    ]
+
+    if (contextualStripAction === 'explicit') {
+      actions.push({
+        id: 'strip-toggle-explicit-filter',
+        label: quickGigActions.explicitToggleBusy
+          ? 'Updating...'
+          : event?.explicitFilterEnabled
+          ? 'Allow Explicit'
+          : 'Block Explicit',
+        onClick: async () => {
+          await quickGigActions.runToggleExplicitFilter()
+        },
+        disabled: !event || quickGigActions.quickActionBusy,
+      })
+    }
+
+    if (contextualStripAction === 'mirror') {
+      actions.push({
+        id: 'strip-open-mirror',
+        label: 'Mirror',
+        onClick: openMirrorScreen,
+      })
+    }
+
+    return actions
+  }, [
+    contextualStripAction,
+    event,
+    openAudienceScreen,
+    openMirrorScreen,
+    quickGigActions.explicitToggleBusy,
+    quickGigActions.quickActionBusy,
+    quickGigActions.roomToggleBusy,
+    quickGigActions.runToggleExplicitFilter,
+    quickGigActions.runToggleRoomOpen,
+  ])
 
   return (
     <section className="admin-shell admin-mobile-home" aria-label="Admin dashboard">
@@ -399,24 +575,6 @@ function AdminDashboardContent({
               <p className="subcopy no-margin-bottom">No active gig selected.</p>
             )}
 
-            <div className="admin-mobile-inline-actions">
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                onClick={() => navigate('/admin/gig-control')}
-                disabled={!event}
-              >
-                Open Gig Control
-              </button>
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                onClick={() => navigate('/admin/gig-settings')}
-                disabled={!event}
-              >
-                Open Gig Settings
-              </button>
-            </div>
           </section>
 
           <section className="queue-panel admin-mobile-block" aria-label="Quick controls">
@@ -425,54 +583,7 @@ function AdminDashboardContent({
               <span className="meta-badge">One-hand mode</span>
             </div>
 
-            <div className="admin-mobile-action-grid">
-              <button
-                type="button"
-                className={event?.roomOpen ? 'secondary-button admin-mobile-cta admin-mobile-priority' : 'primary-button admin-mobile-cta admin-mobile-priority'}
-                disabled={!event || quickActionBusy !== null}
-                onClick={() => {
-                  void handleToggleRoomOpen()
-                }}
-              >
-                {quickActionBusy === 'room'
-                  ? 'Updating...'
-                  : event?.roomOpen
-                  ? 'Pause Requests'
-                  : 'Open Requests'}
-              </button>
-
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                onClick={() => navigate('/audience')}
-              >
-                Audience Screen
-              </button>
-
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                disabled={!event || quickActionBusy !== null}
-                onClick={() => window.open('/mirror', '_blank')}
-              >
-                Mirror Screen
-              </button>
-
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                disabled={!event || quickActionBusy !== null}
-                onClick={() => {
-                  void handleToggleExplicitFilter()
-                }}
-              >
-                {quickActionBusy === 'explicit'
-                  ? 'Updating...'
-                  : event?.explicitFilterEnabled
-                  ? 'Allow Explicit'
-                  : 'Block Explicit'}
-              </button>
-            </div>
+            <ActionButtonGroup actions={quickControlActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
             {quickActionError ? <p className="error-text">{quickActionError}</p> : null}
           </section>
 
@@ -481,30 +592,7 @@ function AdminDashboardContent({
               <h2>Setlist and Queue</h2>
             </div>
 
-            <div className="admin-mobile-action-grid">
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                onClick={() => navigate('/admin/gig-control')}
-                disabled={!event}
-              >
-                Manage Live Queue
-              </button>
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                onClick={() => navigate('/admin/setlist-library')}
-              >
-                Open Setlist Library
-              </button>
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                onClick={() => navigate('/admin/gigs')}
-              >
-                View All Gigs
-              </button>
-            </div>
+            <ActionButtonGroup actions={queueShortcutActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
           </section>
 
           <section className="queue-panel admin-mobile-block" aria-label="Settings and tools">
@@ -512,29 +600,7 @@ function AdminDashboardContent({
               <h2>Settings and Tools</h2>
             </div>
 
-            <div className="admin-mobile-action-grid">
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                onClick={() => navigate('/admin/settings')}
-              >
-                Admin Settings
-              </button>
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                onClick={() => navigate('/admin/create-gig')}
-              >
-                Create Gig
-              </button>
-              <button
-                type="button"
-                className="secondary-button admin-mobile-cta"
-                onClick={() => navigate('/feed')}
-              >
-                Open Audience Feed
-              </button>
-            </div>
+            <ActionButtonGroup actions={settingsToolActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
           </section>
 
           <section className="queue-panel admin-mobile-block" aria-label="Profile and logout">
@@ -544,31 +610,34 @@ function AdminDashboardContent({
             </div>
 
             <p className="subcopy">Use this section to safely end your session from mobile.</p>
-            <div className="admin-mobile-action-grid">
-              <button
-                type="button"
-                className="ghost-button admin-mobile-cta"
-                disabled={profileBusy !== null}
-                onClick={async () => {
-                  setProfileError(null)
-                  setProfileBusy('logout')
+            <ActionButtonGroup
+              actions={[
+                {
+                  id: 'logout',
+                  label: profileBusy === 'logout' ? 'Signing out...' : 'Logout',
+                  onClick: async () => {
+                    setProfileError(null)
+                    setProfileBusy('logout')
 
-                  try {
-                    await signOut()
-                    navigate('/', { replace: true })
-                  } catch (error) {
-                    console.warn('AdminPage: sign-out failed', error)
-                    setProfileError(
-                      error instanceof Error ? error.message : 'Sign out failed. Please try again.',
-                    )
-                  } finally {
-                    setProfileBusy(null)
-                  }
-                }}
-              >
-                {profileBusy === 'logout' ? 'Signing out...' : 'Logout'}
-              </button>
-            </div>
+                    try {
+                      await signOut()
+                      navigate('/', { replace: true })
+                    } catch (error) {
+                      console.warn('AdminPage: sign-out failed', error)
+                      setProfileError(
+                        error instanceof Error ? error.message : 'Sign out failed. Please try again.',
+                      )
+                    } finally {
+                      setProfileBusy(null)
+                    }
+                  },
+                  disabled: profileBusy !== null,
+                  variant: 'ghost',
+                },
+              ]}
+              layoutClassName="admin-mobile-action-grid"
+              buttonClassName="admin-mobile-cta"
+            />
             {profileError ? <p className="error-text">{profileError}</p> : null}
           </section>
 
@@ -582,7 +651,7 @@ function AdminDashboardContent({
             ) : (
               <ul className="queue-list admin-mobile-switch-list">
                 {hostEvents.map((hostEvent) => {
-                  const isBusy = activatingEventId === hostEvent.id
+                  const isBusy = activeGigActions.activatingEventId === hostEvent.id
 
                   return (
                     <li key={hostEvent.id} className="admin-gig-switch-row admin-mobile-switch-row">
@@ -600,20 +669,7 @@ function AdminDashboardContent({
                           className="secondary-button admin-mobile-cta"
                           disabled={hostEvent.isActive || isBusy}
                           onClick={async () => {
-                            setActiveSwitchError(null)
-                            setActivatingEventId(hostEvent.id)
-
-                            try {
-                              await setActiveEvent(hostEvent.id)
-                            } catch (error) {
-                              if (error instanceof Error) {
-                                setActiveSwitchError(error.message)
-                              } else {
-                                setActiveSwitchError('Failed to change active gig. Please try again.')
-                              }
-                            } finally {
-                              setActivatingEventId(null)
-                            }
+                            await activeGigActions.switchActiveGig(hostEvent.id)
                           }}
                         >
                           {hostEvent.isActive ? 'Live Now' : isBusy ? 'Switching...' : 'Set Live for Audience'}
@@ -627,66 +683,16 @@ function AdminDashboardContent({
 
             {activeSwitchError ? <p className="error-text">{activeSwitchError}</p> : null}
 
-            <div className="admin-mobile-action-grid">
-              <button type="button" className="ghost-button admin-mobile-cta" onClick={onManualRetry}>
-                Retry dashboard sync
-              </button>
-            </div>
+            <ActionButtonGroup actions={retryDashboardActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
           </section>
 
-          <section
-            className={`admin-mobile-live-strip${contextualStripAction ? ' admin-mobile-live-strip-with-context' : ''}`}
-            aria-label="Live controls"
-          >
-            <button
-              type="button"
-              className={event?.roomOpen ? 'secondary-button admin-mobile-live-strip-button' : 'primary-button admin-mobile-live-strip-button'}
-              disabled={!event || quickActionBusy !== null}
-              onClick={() => {
-                void handleToggleRoomOpen()
-              }}
-            >
-              {quickActionBusy === 'room'
-                ? 'Updating...'
-                : event?.roomOpen
-                ? 'Pause Requests'
-                : 'Open Requests'}
-            </button>
-            <button
-              type="button"
-              className="secondary-button admin-mobile-live-strip-button"
-              onClick={() => navigate('/audience')}
-            >
-              Audience
-            </button>
-
-            {contextualStripAction === 'explicit' ? (
-              <button
-                type="button"
-                className="secondary-button admin-mobile-live-strip-button"
-                disabled={!event || quickActionBusy !== null}
-                onClick={() => {
-                  void handleToggleExplicitFilter()
-                }}
-              >
-                {quickActionBusy === 'explicit'
-                  ? 'Updating...'
-                  : event?.explicitFilterEnabled
-                  ? 'Allow Explicit'
-                  : 'Block Explicit'}
-              </button>
-            ) : null}
-
-            {contextualStripAction === 'mirror' ? (
-              <button
-                type="button"
-                className="secondary-button admin-mobile-live-strip-button"
-                onClick={() => window.open('/mirror', '_blank')}
-              >
-                Mirror
-              </button>
-            ) : null}
-          </section>
+          <ActionButtonGroup
+            actions={liveStripActions}
+            layoutClassName={
+              `admin-mobile-live-strip${contextualStripAction ? ' admin-mobile-live-strip-with-context' : ''}`
+            }
+            buttonClassName="admin-mobile-live-strip-button"
+          />
         </>
       )}
     </section>

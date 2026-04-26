@@ -3,6 +3,7 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { prepareFeedImage } from '../lib/feedImage'
+import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 
@@ -35,7 +36,7 @@ function getStoredAuthorName() {
     return ''
   }
 
-  return window.localStorage.getItem(AUTHOR_NAME_STORAGE_KEY) ?? ''
+  return readTextFromLocalStorage(AUTHOR_NAME_STORAGE_KEY, '')
 }
 
 function normalizeAuthorName(authorName: string, fallbackName: string) {
@@ -117,11 +118,9 @@ function LiveFeedPanel({
       return
     }
 
-    try {
-      window.localStorage.setItem(AUTHOR_NAME_STORAGE_KEY, authorName.trim())
-    } catch (error) {
-      console.warn('LiveFeedPanel: failed to save author name to localStorage', error)
-      // Silently ignore storage errors (e.g., in private browsing mode)
+    const result = saveTextToLocalStorage(AUTHOR_NAME_STORAGE_KEY, authorName.trim())
+    if (!result.success) {
+      console.warn('LiveFeedPanel: failed to save author name to localStorage', result.error)
     }
   }, [authorName])
 

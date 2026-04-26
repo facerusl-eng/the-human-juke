@@ -168,6 +168,27 @@ export function saveToLocalStorage(
 }
 
 /**
+ * Safely saves a raw string value to localStorage with error handling.
+ */
+export function saveTextToLocalStorage(
+  key: string,
+  value: string,
+): SaveResult<void> {
+  try {
+    if (typeof window === 'undefined') {
+      return { success: false, error: 'localStorage is not available in this context.' }
+    }
+
+    window.localStorage.setItem(key, value)
+    return { success: true }
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Failed to save to local storage.'
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
  * Safely reads from localStorage with error handling
  */
 export function readFromLocalStorage<T>(
@@ -185,6 +206,26 @@ export function readFromLocalStorage<T>(
     }
 
     return JSON.parse(value) as T
+  } catch (error) {
+    console.warn(`Failed to read from localStorage key "${key}":`, error)
+    return fallback
+  }
+}
+
+/**
+ * Safely reads a raw string value from localStorage with error handling.
+ */
+export function readTextFromLocalStorage(
+  key: string,
+  fallback: string = '',
+): string {
+  try {
+    if (typeof window === 'undefined') {
+      return fallback
+    }
+
+    const value = window.localStorage.getItem(key)
+    return value ?? fallback
   } catch (error) {
     console.warn(`Failed to read from localStorage key "${key}":`, error)
     return fallback

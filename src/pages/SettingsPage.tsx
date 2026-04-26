@@ -1,4 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { SaveStatusBadges } from '../components/settings/SaveStatusBadges'
+import { SettingsSection } from '../components/settings/SettingsSection'
+import { useAutosaveSaveLifecycle } from '../hooks/useAutosaveSaveLifecycle'
 import { useAuthStore } from '../state/authStore'
 import { supabase } from '../lib/supabase'
 
@@ -26,7 +29,6 @@ type UndoRedoState = SettingsState & {
   timestamp: number
 }
 
-const AUTOSAVE_DELAY_MS = 2000
 const MAX_UNDO_STATES = 20
 
 const DEFAULTS: SettingsState = {
@@ -79,45 +81,6 @@ function normalizeOptionalUrl(value: string) {
   }
 }
 
-type CollapsibleSectionProps = {
-  id: string
-  title: string
-  icon: string
-  isExpanded: boolean
-  onToggle: () => void
-  children: React.ReactNode
-}
-
-function CollapsibleSection({
-  id,
-  title,
-  icon,
-  isExpanded,
-  onToggle,
-  children,
-}: CollapsibleSectionProps) {
-  return (
-    <div className="collapsible-section" data-section={id}>
-      <button
-        type="button"
-        className="section-header"
-        onClick={onToggle}
-        aria-expanded={isExpanded ? 'true' : 'false'}
-        aria-controls={`${id}-content`}
-      >
-        <span className="section-icon">{icon}</span>
-        <span className="section-title">{title}</span>
-        <span className="section-toggle">›</span>
-      </button>
-      {isExpanded && (
-        <div id={`${id}-content`} className="section-content">
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function SettingsPage() {
   const { user, refreshProfile } = useAuthStore()
   const [state, setState] = useState<SettingsState>(DEFAULTS)
@@ -128,9 +91,18 @@ function SettingsPage() {
   )
   const [loadingSettings, setLoadingSettings] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'unsaved' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
-  const autosaveTimerRef = useRef<number | null>(null)
+  const {
+    saveStatus,
+    cancelAutosave,
+    markUnsaved,
+    markSaved,
+    markError,
+    scheduleAutosave,
+  } = useAutosaveSaveLifecycle({
+    autosaveDelayMs: 2000,
+    savedResetDelayMs: 2000,
+  })
 
   useEffect(() => {
     if (!user) {
@@ -198,31 +170,11 @@ function SettingsPage() {
     }
   }, [user])
 
-  const clearAutosaveTimer = () => {
-    if (autosaveTimerRef.current !== null) {
-      window.clearTimeout(autosaveTimerRef.current)
-      autosaveTimerRef.current = null
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      clearAutosaveTimer()
-    }
-  }, [])
-
   const updateState = (newState: SettingsState) => {
     setState(newState)
-    setSaveStatus('unsaved')
-    triggerAutosave(newState)
-  }
-
-  const triggerAutosave = (newState: SettingsState) => {
-    clearAutosaveTimer()
-    setSaveStatus('saving')
-    autosaveTimerRef.current = window.setTimeout(() => {
+    scheduleAutosave(async () => {
       void performSave(newState)
-    }, AUTOSAVE_DELAY_MS)
+    })
   }
 
   const pushUndoState = () => {
@@ -236,7 +188,7 @@ function SettingsPage() {
   const performSave = async (stateToSave: SettingsState) => {
     if (!user) {
       setSaveError('Host session not available. Please sign in again.')
-      setSaveStatus('error')
+      markError()
       console.warn('SettingsPage: save blocked because user is missing')
       return
     }
@@ -343,10 +295,7 @@ function SettingsPage() {
         console.warn('SettingsPage: profile refresh failed after save', error)
       }
 
-      setSaveStatus('saved')
-      window.setTimeout(() => {
-        setSaveStatus('idle')
-      }, 2000)
+      markSaved()
     } catch (error) {
       console.warn('SettingsPage: failed to save settings', error)
       const errorMessage =
@@ -356,7 +305,7 @@ function SettingsPage() {
             ? String((error as { message?: unknown }).message)
             : 'Unexpected save error.'
       setSaveError('Save failed: ' + errorMessage)
-      setSaveStatus('error')
+      markError()
     }
   }
 
@@ -366,8 +315,8 @@ function SettingsPage() {
     setRedoStack((current) => [...current, { ...state, timestamp: Date.now() }])
     setUndoStack((current) => current.slice(0, -1))
     setState(previousState)
-    setSaveStatus('unsaved')
-    clearAutosaveTimer()
+    markUnsaved()
+    cancelAutosave()
   }
 
   const onRedo = () => {
@@ -376,8 +325,8 @@ function SettingsPage() {
     setUndoStack((current) => [...current, { ...state, timestamp: Date.now() }])
     setRedoStack((current) => current.slice(0, -1))
     setState(nextState)
-    setSaveStatus('unsaved')
-    clearAutosaveTimer()
+    markUnsaved()
+    cancelAutosave()
   }
 
   const toggleSection = (sectionId: string) => {
@@ -490,24 +439,28 @@ function SettingsPage() {
           </button>
         </div>
 
-        <div className="toolbar-status">
-          {saveStatus === 'unsaved' && <span className="status-badge unsaved">Unsaved Changes</span>}
-          {saveStatus === 'saving' && <span className="status-badge saving">Saving...</span>}
-          {saveStatus === 'saved' && <span className="status-badge saved">✓ Saved</span>}
-          {saveStatus === 'error' && <span className="status-badge error">✕ Error</span>}
-        </div>
+        <SaveStatusBadges
+          saveStatus={saveStatus}
+          showUnsaved={saveStatus === 'unsaved'}
+          unsavedLabel="Unsaved Changes"
+        />
       </div>
 
       {loadingSettings ? <p className="subcopy">Loading settings…</p> : null}
 
       <div className="admin-settings-form">
         {/* Account Settings */}
-        <CollapsibleSection
+        <SettingsSection
           id="account"
           title="Account Settings"
           icon="👤"
           isExpanded={expandedSections.has('account')}
           onToggle={() => toggleSection('account')}
+          as="div"
+          contentIdPrefix="settings"
+          expandedToggleLabel="›"
+          collapsedToggleLabel="›"
+          dataSection
         >
           <div className="field-row">
             <label>
@@ -533,15 +486,20 @@ function SettingsPage() {
               />
             </label>
           </div>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Performer Profile */}
-        <CollapsibleSection
+        <SettingsSection
           id="performer"
           title="Performer Profile"
           icon="🎤"
           isExpanded={expandedSections.has('performer')}
           onToggle={() => toggleSection('performer')}
+          as="div"
+          contentIdPrefix="settings"
+          expandedToggleLabel="›"
+          collapsedToggleLabel="›"
+          dataSection
         >
           <div className="field-row">
             <label>
@@ -580,15 +538,20 @@ function SettingsPage() {
               </div>
             )}
           </div>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Social Media */}
-        <CollapsibleSection
+        <SettingsSection
           id="social"
           title="Social Media Links"
           icon="📱"
           isExpanded={expandedSections.has('social')}
           onToggle={() => toggleSection('social')}
+          as="div"
+          contentIdPrefix="settings"
+          expandedToggleLabel="›"
+          collapsedToggleLabel="›"
+          dataSection
         >
           <div className="social-links-grid">
             {[
@@ -643,15 +606,20 @@ function SettingsPage() {
             </label>
           </div>
           </div>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Tip Jar */}
-        <CollapsibleSection
+        <SettingsSection
           id="tipjar"
           title="Tip Jar & Payment"
           icon="💰"
           isExpanded={expandedSections.has('tipjar')}
           onToggle={() => toggleSection('tipjar')}
+          as="div"
+          contentIdPrefix="settings"
+          expandedToggleLabel="›"
+          collapsedToggleLabel="›"
+          dataSection
         >
           <div className="field-row">
             <label>
@@ -676,15 +644,20 @@ function SettingsPage() {
               />
             </label>
           </div>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Theme & Branding */}
-        <CollapsibleSection
+        <SettingsSection
           id="theme"
           title="Theme & Branding"
           icon="🎨"
           isExpanded={expandedSections.has('theme')}
           onToggle={() => toggleSection('theme')}
+          as="div"
+          contentIdPrefix="settings"
+          expandedToggleLabel="›"
+          collapsedToggleLabel="›"
+          dataSection
         >
           <div className="theme-presets-grid">
             {Object.entries(THEME_PRESETS).map(([key, preset]) => (
@@ -723,15 +696,20 @@ function SettingsPage() {
           >
             Reset to Default Theme
           </button>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Default Gig Settings */}
-        <CollapsibleSection
+        <SettingsSection
           id="defaults"
           title="Default Gig Settings"
           icon="🎵"
           isExpanded={expandedSections.has('defaults')}
           onToggle={() => toggleSection('defaults')}
+          as="div"
+          contentIdPrefix="settings"
+          expandedToggleLabel="›"
+          collapsedToggleLabel="›"
+          dataSection
         >
           <div className="field-row">
             <label>
@@ -760,15 +738,20 @@ function SettingsPage() {
           </div>
 
           <p className="field-hint">These values auto-fill when you create a new gig.</p>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Default Audience Screen Settings */}
-        <CollapsibleSection
+        <SettingsSection
           id="audience"
           title="Default Audience Screen"
           icon="🎪"
           isExpanded={expandedSections.has('audience')}
           onToggle={() => toggleSection('audience')}
+          as="div"
+          contentIdPrefix="settings"
+          expandedToggleLabel="›"
+          collapsedToggleLabel="›"
+          dataSection
         >
           <div className="field-row">
             <label>
@@ -785,15 +768,20 @@ function SettingsPage() {
           </div>
 
           <p className="field-hint">Applied to new gigs when they are created.</p>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Default Mirror Screen Settings */}
-        <CollapsibleSection
+        <SettingsSection
           id="mirror"
           title="Default Mirror Screen"
           icon="📺"
           isExpanded={expandedSections.has('mirror')}
           onToggle={() => toggleSection('mirror')}
+          as="div"
+          contentIdPrefix="settings"
+          expandedToggleLabel="›"
+          collapsedToggleLabel="›"
+          dataSection
         >
           <div className="field-row">
             <label>
@@ -810,15 +798,20 @@ function SettingsPage() {
           </div>
 
           <p className="field-hint">Applied to new gigs when they are created.</p>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Advanced Options */}
-        <CollapsibleSection
+        <SettingsSection
           id="advanced"
           title="Advanced Options"
           icon="⚙️"
           isExpanded={false}
           onToggle={() => toggleSection('advanced')}
+          as="div"
+          contentIdPrefix="settings"
+          expandedToggleLabel="›"
+          collapsedToggleLabel="›"
+          dataSection
         >
           <div className="advanced-actions">
             <button
@@ -852,7 +845,7 @@ function SettingsPage() {
             Use export/import to backup settings or move them between accounts. Reset will clear all
             customizations.
           </p>
-        </CollapsibleSection>
+        </SettingsSection>
 
         {/* Error Message */}
         {saveError && <p className="error-message" role="alert">{saveError}</p>}

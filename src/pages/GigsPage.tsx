@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useGigActions } from '../hooks/useGigActions'
 import { useQueueStore } from '../state/queueStore'
 
 function formatGigDate(createdAt: string) {
@@ -17,24 +18,21 @@ function formatGigDate(createdAt: string) {
 function GigsPage() {
   const navigate = useNavigate()
   const { event, hostEvents, setActiveEvent, deleteEvent } = useQueueStore()
-  const [activatingEventId, setActivatingEventId] = useState<string | null>(null)
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const gigActions = useGigActions({
+    setActiveEvent,
+    setErrorText,
+    errors: {
+      setActiveEvent: 'Failed to switch gig. Please try again.',
+    },
+  })
 
   const chooseGig = async (gigId: string, goToControl = true) => {
-    setErrorText(null)
-    setActivatingEventId(gigId)
+    const switched = await gigActions.switchActiveGig(gigId)
 
-    try {
-      await setActiveEvent(gigId)
-
-      if (goToControl) {
-        navigate('/admin/gig-control')
-      }
-    } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Failed to switch gig. Please try again.')
-    } finally {
-      setActivatingEventId(null)
+    if (switched && goToControl) {
+      navigate('/admin/gig-control')
     }
   }
 
@@ -87,7 +85,7 @@ function GigsPage() {
           <ul className="gig-management-list">
             {hostEvents.map((hostEvent) => {
               const isCurrentGig = event?.id === hostEvent.id
-              const isActivating = activatingEventId === hostEvent.id
+              const isActivating = gigActions.activatingEventId === hostEvent.id
               const isDeleting = deletingEventId === hostEvent.id
               const isBusy = isActivating || isDeleting
 

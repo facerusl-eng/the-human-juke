@@ -15,6 +15,7 @@ function CreateGigPage() {
   const [gigDate, setGigDate] = useState('')
   const [gigStartTime, setGigStartTime] = useState('')
   const [gigEndTime, setGigEndTime] = useState('')
+  const [showInAudienceNoGig, setShowInAudienceNoGig] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
 
@@ -31,13 +32,13 @@ function CreateGigPage() {
   const runCreateWithLockRetry = async (
     name: string,
     nextVenue: string,
-    dateTime?: { gigDate?: string; gigStartTime?: string; gigEndTime?: string },
+    options?: { gigDate?: string; gigStartTime?: string; gigEndTime?: string; showInAudienceNoGig?: boolean },
   ) => {
     const maxAttempts = 6
 
     for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
       try {
-        await createEvent(name, nextVenue, dateTime)
+        await createEvent(name, nextVenue, options)
         return
       } catch (error) {
         const isLastAttempt = attemptIndex === maxAttempts - 1
@@ -80,16 +81,17 @@ function CreateGigPage() {
     setErrorText(null)
     setBusy(true)
 
-    const dateTime = includeDatetime
+    const eventOptions = includeDatetime
       ? {
           gigDate: gigDate || undefined,
           gigStartTime: gigStartTime || undefined,
           gigEndTime: gigEndTime || undefined,
+          showInAudienceNoGig,
         }
-      : undefined
+      : { showInAudienceNoGig }
 
     try {
-      await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), dateTime))
+      await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), eventOptions))
       navigate('/admin/gig-control')
     } catch (error) {
       if (isAuthLockError(error)) {
@@ -265,6 +267,15 @@ function CreateGigPage() {
               placeholder="The Anchor Bar, Main Stage"
             />
           </div>
+          <label className="checkbox-row create-gig-checkbox-row" htmlFor="show-in-audience-no-gig">
+            <input
+              id="show-in-audience-no-gig"
+              type="checkbox"
+              checked={showInAudienceNoGig}
+              onChange={(e) => setShowInAudienceNoGig(e.target.checked)}
+            />
+            <span>Show this event in the Audience App when no gig is running</span>
+          </label>
           {errorText ? <p className="error-text">{errorText}</p> : null}
           <div className="hero-actions">
             <button type="submit" className="primary-button">

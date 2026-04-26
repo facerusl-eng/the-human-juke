@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { supabase } from '../lib/supabase'
+import { saveToLocalStorage } from '../lib/saveHandling'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { useAuthStore } from './authStore'
 
@@ -41,6 +42,7 @@ type EventSettingsUpdates = {
   maxActiveRequestsPerUser: number | null
   roomOpen: boolean
   explicitFilterEnabled: boolean
+  showInAudienceNoGig: boolean
 }
 
 type EventState = {
@@ -56,6 +58,14 @@ type EventState = {
   maxActiveRequestsPerUser: number | null
   roomOpen: boolean
   explicitFilterEnabled: boolean
+  showInAudienceNoGig: boolean
+}
+
+type CreateEventOptions = {
+  gigDate?: string
+  gigStartTime?: string
+  gigEndTime?: string
+  showInAudienceNoGig?: boolean
 }
 
 export type HostEventSummary = {
@@ -81,7 +91,7 @@ type QueueContextValue = {
   toggleExplicitFilter: () => Promise<void>
   toggleVotingLock: (songId: string, nextValue: boolean) => Promise<void>
   removeSong: (songId: string) => Promise<void>
-  createEvent: (name: string, venue: string, dateTime?: { gigDate?: string; gigStartTime?: string; gigEndTime?: string }) => Promise<void>
+  createEvent: (name: string, venue: string, options?: CreateEventOptions) => Promise<void>
   markPlayed: () => Promise<void>
 }
 
@@ -296,6 +306,7 @@ function QueueProvider({ children }: PropsWithChildren) {
   const [songs, setSongs] = useState<QueueSong[]>([])
   const [performedSongs, setPerformedSongs] = useState<PerformedSong[]>([])
   const [loading, setLoading] = useState(true)
+  const [audienceRefreshTick, setAudienceRefreshTick] = useState(0)
   const activeEventIdRef = useRef<string | null>(null)
 
   const eventId = profile?.active_event_id ?? null
@@ -307,7 +318,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         Promise.all([
           supabase
             .from('events')
-            .select('id, host_id, name, venue, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled')
+            .select('id, host_id, name, venue, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig')
             .eq('id', activeEventId)
             .single(),
           supabase
@@ -343,6 +354,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
       roomOpen: eventData.room_open,
       explicitFilterEnabled: eventData.explicit_filter_enabled,
+      showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
     })
     setSongs(sortByVotesDesc((songsData ?? []) as QueueSong[]))
   }
@@ -429,6 +441,30 @@ function QueueProvider({ children }: PropsWithChildren) {
           targetEventId = requestedEventId ?? eventId ?? await fetchLatestActiveEventId()
         }
 
+        const requestAudienceReload = () => {
+          if (!isCurrent || isHostSession) {
+            return
+          }
+
+          setAudienceRefreshTick((currentTick) => currentTick + 1)
+        }
+
+        const maybeReloadAudienceWhenLiveReturns = async () => {
+          if (isHostSession) {
+            return
+          }
+
+          try {
+            const latestActiveEventId = await fetchLatestActiveEventId()
+
+            if (latestActiveEventId && latestActiveEventId !== activeEventIdRef.current) {
+              requestAudienceReload()
+            }
+          } catch (error) {
+            console.warn('queueStore: failed to re-check latest active event', error)
+          }
+        }
+
         if (!targetEventId) {
           activeEventIdRef.current = null
           if (isCurrent) {
@@ -436,6 +472,36 @@ function QueueProvider({ children }: PropsWithChildren) {
             setSongs([])
             setPerformedSongs([])
           }
+
+          if (!isHostSession) {
+            activeChannel = supabase
+              .channel(`audience-live-watch-${Date.now()}`)
+              .on(
+                'postgres_changes',
+                {
+                  event: '*',
+                  schema: 'public',
+                  table: 'events',
+                },
+                () => {
+                  void maybeReloadAudienceWhenLiveReturns()
+                },
+              )
+              .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                  void maybeReloadAudienceWhenLiveReturns()
+                }
+              })
+
+            audiencePollTimerId = window.setInterval(() => {
+              if (document.hidden || !isCurrent) {
+                return
+              }
+
+              void maybeReloadAudienceWhenLiveReturns()
+            }, QUEUE_POLL_INTERVAL_MS)
+          }
+
           return
         }
 
@@ -492,6 +558,25 @@ function QueueProvider({ children }: PropsWithChildren) {
           snapshotInFlight = true
 
           try {
+            if (!isHostSession && !requestedEventId) {
+              const latestActiveEventId = await fetchLatestActiveEventId()
+
+              if (!latestActiveEventId) {
+                activeEventIdRef.current = null
+                setEvent(null)
+                setSongs([])
+                setPerformedSongs([])
+                requestAudienceReload()
+                return
+              }
+
+              if (latestActiveEventId !== resolvedEventId) {
+                activeEventIdRef.current = latestActiveEventId
+                requestAudienceReload()
+                return
+              }
+            }
+
             await fetchQueueSnapshot(resolvedEventId)
           } catch (error) {
             console.warn('queueStore: transient snapshot refresh failure', error)
@@ -574,7 +659,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         window.clearInterval(audiencePollTimerId)
       }
     }
-  }, [user, eventId, isHostSession])
+  }, [user, eventId, isHostSession, audienceRefreshTick])
 
   useEffect(() => {
     const refreshOnForeground = () => {
@@ -929,6 +1014,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 max_active_requests_per_user: updates.maxActiveRequestsPerUser,
                 room_open: updates.roomOpen,
                 explicit_filter_enabled: updates.explicitFilterEnabled,
+                show_in_audience_no_gig: updates.showInAudienceNoGig,
               })
               .eq('id', event.id),
           ),
@@ -1035,18 +1121,11 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw error
         }
 
-        try {
-          window.localStorage.setItem(
-            ROOM_OPEN_SYNC_KEY,
-            JSON.stringify({
-              eventId: event.id,
-              roomOpen: nextRoomOpen,
-              timestamp: Date.now(),
-            }),
-          )
-        } catch {
-          // Ignore storage sync failures.
-        }
+        saveToLocalStorage(ROOM_OPEN_SYNC_KEY, {
+          eventId: event.id,
+          roomOpen: nextRoomOpen,
+          timestamp: Date.now(),
+        })
 
         await fetchQueueSnapshot(event.id)
       },
@@ -1094,7 +1173,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           await fetchQueueSnapshot(event.id)
         }
       },
-      createEvent: async (name: string, venue: string, dateTime?: { gigDate?: string; gigStartTime?: string; gigEndTime?: string }) => {
+      createEvent: async (name: string, venue: string, options?: CreateEventOptions) => {
         if (!user) {
           throw new Error('Sign in with the host account before creating a gig.')
         }
@@ -1133,9 +1212,10 @@ function QueueProvider({ children }: PropsWithChildren) {
                 playlist_only_requests: true,
                 room_open: false,
                 explicit_filter_enabled: true,
-                gig_date: dateTime?.gigDate ?? null,
-                gig_start_time: dateTime?.gigStartTime ?? null,
-                gig_end_time: dateTime?.gigEndTime ?? null,
+                gig_date: options?.gigDate ?? null,
+                gig_start_time: options?.gigStartTime ?? null,
+                gig_end_time: options?.gigEndTime ?? null,
+                show_in_audience_no_gig: options?.showInAudienceNoGig ?? false,
               })
               .select('id')
               .single(),
