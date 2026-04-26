@@ -268,8 +268,8 @@ function MirrorPage() {
   const isBetweenSongs = hasPlaybackBetweenSongsState || fallbackBetweenSongs
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
-    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, 6)
-    : safeSongs.slice(0, 6)
+    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, 5)
+    : safeSongs.slice(0, 5)
   const hiddenQueueCount = Math.max(0, safeSongs.length - (isNowPlayingStarted ? 1 : 0) - upNext.length)
   const betweenSongQuoteIndex = hasPlaybackBetweenSongsState
     ? (playbackState?.quoteIndex ?? 0)
