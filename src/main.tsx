@@ -13,6 +13,36 @@ function emitRuntimeNotice(message: string) {
   window.dispatchEvent(new CustomEvent<string>(GLOBAL_RUNTIME_NOTICE_EVENT, { detail: message }))
 }
 
+function getRejectionMessage(reason: unknown): string {
+  if (typeof reason === 'string') {
+    return reason
+  }
+
+  if (reason && typeof reason === 'object' && 'message' in reason) {
+    const message = (reason as { message?: unknown }).message
+
+    if (typeof message === 'string') {
+      return message
+    }
+  }
+
+  return ''
+}
+
+function isAbortLikeRejection(reason: unknown): boolean {
+  if (reason && typeof reason === 'object' && 'name' in reason) {
+    const name = (reason as { name?: unknown }).name
+
+    if (name === 'AbortError') {
+      return true
+    }
+  }
+
+  const message = getRejectionMessage(reason).toLowerCase()
+
+  return message.includes('aborted') || message.includes('aborterror') || message.includes('canceled')
+}
+
 async function cleanupLegacyServiceWorkers() {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return
@@ -140,7 +170,11 @@ function installGlobalRuntimeHooks() {
     emitRuntimeNotice('A runtime issue was detected. The app is trying to recover automatically.')
   })
 
-  window.addEventListener('unhandledrejection', () => {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (isAbortLikeRejection(event.reason)) {
+      return
+    }
+
     emitRuntimeNotice('A background request failed. The app will retry without reloading.')
   })
 }

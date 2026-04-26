@@ -43,7 +43,15 @@ function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | 
   return `${dateLabel} · ${timeLabel}`
 }
 
-function AudienceNoGigState({ upcomingEvents }: { upcomingEvents: AudienceUpcomingEvent[] }) {
+function AudienceNoGigState({
+  upcomingEvents,
+  loadingUpcomingEvents = false,
+  upcomingEventsNotice = null,
+}: {
+  upcomingEvents: AudienceUpcomingEvent[]
+  loadingUpcomingEvents?: boolean
+  upcomingEventsNotice?: string | null
+}) {
   return (
     <section className="audience-entry-shell audience-no-gig-shell" aria-label="Audience app no live gig state">
       <article className="queue-panel audience-entry-card audience-no-gig-card">
@@ -61,6 +69,14 @@ function AudienceNoGigState({ upcomingEvents }: { upcomingEvents: AudienceUpcomi
             </p>
           ))}
         </div>
+
+        {loadingUpcomingEvents ? (
+          <p className="meta-badge" role="status" aria-live="polite">Loading upcoming gigs...</p>
+        ) : null}
+
+        {upcomingEventsNotice ? (
+          <p className="subcopy" role="status" aria-live="polite">{upcomingEventsNotice}</p>
+        ) : null}
 
         {upcomingEvents.length > 0 ? (
           <section className="audience-no-gig-events" aria-label="Upcoming events">

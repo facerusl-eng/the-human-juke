@@ -483,12 +483,14 @@ function QueueProvider({ children }: PropsWithChildren) {
             throw new Error(profileUpdateError.message)
           }
 
-          try {
-            await withAuthLockRetry(() => refreshProfile(), 2)
-          } catch (error) {
+          void withTimeout(
+            withAuthLockRetry(() => refreshProfile(), 2),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while refreshing audience profile sync.',
+          ).catch((error) => {
             console.warn('queueStore: profile refresh failed after audience event sync', error)
             // Profile sync can recover on next auth refresh.
-          }
+          })
         }
 
         if (isHostSession) {

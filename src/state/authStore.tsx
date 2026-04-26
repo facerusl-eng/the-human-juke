@@ -4,6 +4,8 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
 const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
+const AUTH_REQUEST_TIMEOUT_MS = 12_000
+const AUTH_TRANSIENT_RETRY_COUNT = 2
 
 type Role = 'guest' | 'host'
 
@@ -32,6 +34,88 @@ function isAllowedHostEmail(email: string | null | undefined) {
   }
 
   return email.trim().toLowerCase() === ALLOWED_HOST_EMAIL
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: number | null = null
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(message))
+    }, timeoutMs)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId)
+    }
+  }) as Promise<T>
+}
+
+function getErrorText(error: unknown) {
+  if (!error) {
+    return ''
+  }
+
+  if (error instanceof Error) {
+    return error.message.toLowerCase()
+  }
+
+  return String(error).toLowerCase()
+}
+
+function isTransientAuthError(error: unknown) {
+  const text = getErrorText(error)
+
+  return text.includes('network')
+    || text.includes('fetch')
+    || text.includes('timeout')
+    || text.includes('temporar')
+    || text.includes('rate limit')
+    || text.includes('503')
+    || text.includes('504')
+}
+
+function mapHostSignInError(error: unknown) {
+  const text = getErrorText(error)
+
+  if (text.includes('invalid login credentials')) {
+    return 'Invalid email or password.'
+  }
+
+  if (text.includes('email not confirmed')) {
+    return 'Email not confirmed. Open your inbox and click the confirmation link.'
+  }
+
+  if (isTransientAuthError(error)) {
+    return 'Sign-in is taking too long or network is unstable. Please try again.'
+  }
+
+  return error instanceof Error ? error.message : 'Admin sign-in failed.'
+}
+
+async function retryTransientAuthOperation<T>(operation: () => Promise<T>, attempts = AUTH_TRANSIENT_RETRY_COUNT) {
+  let lastError: unknown = null
+
+  for (let attemptIndex = 0; attemptIndex < attempts; attemptIndex += 1) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error
+
+      const isFinalAttempt = attemptIndex === attempts - 1
+
+      if (!isTransientAuthError(error) || isFinalAttempt) {
+        throw error
+      }
+
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 350 * (attemptIndex + 1))
+      })
+    }
+  }
+
+  throw lastError
 }
 
 async function getProfile(userId: string) {
@@ -114,7 +198,11 @@ function AuthProvider({ children }: PropsWithChildren) {
   )
 
   const ensureAudienceSession = useCallback(async () => {
-    const { data, error } = await supabase.auth.signInAnonymously()
+    const { data, error } = await retryTransientAuthOperation(() => withTimeout(
+      supabase.auth.signInAnonymously(),
+      AUTH_REQUEST_TIMEOUT_MS,
+      'Audience sign-in timed out. Retrying...',
+    ))
 
     if (error) {
       if (error.message.toLowerCase().includes('anonymous sign-ins are disabled')) {
@@ -278,10 +366,14 @@ function AuthProvider({ children }: PropsWithChildren) {
         let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>
 
         try {
-          signInResult = await supabase.auth.signInWithPassword({
-            email: normalizedEmail,
-            password,
-          })
+          signInResult = await retryTransientAuthOperation(() => withTimeout(
+            supabase.auth.signInWithPassword({
+              email: normalizedEmail,
+              password,
+            }),
+            AUTH_REQUEST_TIMEOUT_MS,
+            'Admin sign-in timed out. Please try again.',
+          ))
         } finally {
           isHostSignInInProgressRef.current = false
         }
@@ -303,14 +395,10 @@ function AuthProvider({ children }: PropsWithChildren) {
         const isInvalidCredentials = signInErrorMessage.includes('invalid login credentials')
 
         if (!isInvalidCredentials) {
-          if (signInErrorMessage.includes('email not confirmed')) {
-            throw new Error('Email not confirmed. Open your inbox and click the confirmation link.')
-          }
-
-          throw signInResult.error
+          throw new Error(mapHostSignInError(signInResult.error))
         }
 
-        throw new Error('Invalid email or password.')
+        throw new Error(mapHostSignInError(signInResult.error))
       },
       refreshProfile,
       signOut: async () => {

@@ -61,6 +61,69 @@ function isMissingCoverImageColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes('cover_image_url')
 }
 
+function isAuthSessionError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+    status?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code.toUpperCase() : ''
+  const status = typeof normalizedError.status === 'number' ? normalizedError.status : null
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return code === 'PGRST301'
+    || status === 401
+    || text.includes('jwt')
+    || text.includes('not authenticated')
+    || text.includes('auth session missing')
+}
+
+async function fetchUpcomingEventRows() {
+  let eventRows: Array<Record<string, unknown>> = []
+
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, name, venue, gig_date, gig_start_time, cover_image_url')
+    .eq('show_in_audience_no_gig', true)
+    .order('gig_date', { ascending: true, nullsFirst: false })
+    .order('gig_start_time', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+
+  if (error && isMissingCoverImageColumnError(error)) {
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('events')
+      .select('id, name, venue, gig_date, gig_start_time')
+      .eq('show_in_audience_no_gig', true)
+      .order('gig_date', { ascending: true, nullsFirst: false })
+      .order('gig_start_time', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+
+    if (fallbackError) {
+      throw fallbackError
+    }
+
+    eventRows = (fallbackData ?? []).map((eventData) => ({
+      ...(eventData as Record<string, unknown>),
+      cover_image_url: null,
+    }))
+  } else if (error) {
+    throw error
+  } else {
+    eventRows = (data ?? []) as Array<Record<string, unknown>>
+  }
+
+  return eventRows
+}
+
 const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 
@@ -112,7 +175,7 @@ function normalizeExternalLink(url: string | null | undefined) {
 function EventPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { authError } = useAuthStore()
+  const { authError, loading: authLoading, user } = useAuthStore()
   const {
     event,
     songs,
@@ -134,6 +197,8 @@ function EventPage() {
   const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>([])
+  const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false)
+  const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -255,6 +320,14 @@ function EventPage() {
   useEffect(() => {
     if (event) {
       setUpcomingEvents([])
+      setUpcomingEventsLoading(false)
+      setUpcomingEventsNotice(null)
+      return
+    }
+
+    if (authLoading) {
+      setUpcomingEventsLoading(true)
+      setUpcomingEventsNotice('Finishing sign-in before loading upcoming gigs...')
       return
     }
 
@@ -263,38 +336,23 @@ function EventPage() {
     let pollTimerId: number | null = null
 
     const loadUpcomingEvents = async () => {
+      setUpcomingEventsLoading(true)
+
       try {
-        let eventRows: Array<Record<string, unknown>> = []
+        let eventRows = await fetchUpcomingEventRows()
 
-        const { data, error } = await supabase
-          .from('events')
-          .select('id, name, venue, gig_date, gig_start_time, cover_image_url')
-          .eq('show_in_audience_no_gig', true)
-          .order('gig_date', { ascending: true, nullsFirst: false })
-          .order('gig_start_time', { ascending: true, nullsFirst: false })
-          .order('created_at', { ascending: true })
+        if (eventRows.length === 0 && !user) {
+          try {
+            const { error: signInError } = await supabase.auth.signInAnonymously()
 
-        if (error && isMissingCoverImageColumnError(error)) {
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('events')
-            .select('id, name, venue, gig_date, gig_start_time')
-            .eq('show_in_audience_no_gig', true)
-            .order('gig_date', { ascending: true, nullsFirst: false })
-            .order('gig_start_time', { ascending: true, nullsFirst: false })
-            .order('created_at', { ascending: true })
+            if (signInError) {
+              throw signInError
+            }
 
-          if (fallbackError) {
-            throw fallbackError
+            eventRows = await fetchUpcomingEventRows()
+          } catch (signInError) {
+            console.warn('EventPage: anonymous sign-in retry failed for upcoming events', signInError)
           }
-
-          eventRows = (fallbackData ?? []).map((eventData) => ({
-            ...(eventData as Record<string, unknown>),
-            cover_image_url: null,
-          }))
-        } else if (error) {
-          throw error
-        } else {
-          eventRows = (data ?? []) as Array<Record<string, unknown>>
         }
 
         if (!isCurrent) {
@@ -309,10 +367,55 @@ function EventPage() {
           gigStartTime: (eventData.gig_start_time as string | null) ?? null,
           coverImageUrl: normalizeCoverUrl((eventData.cover_image_url as string | null) ?? null),
         })))
+
+        if (eventRows.length === 0) {
+          setUpcomingEventsNotice('No upcoming gigs have been posted yet.')
+        } else {
+          setUpcomingEventsNotice(null)
+        }
       } catch (error) {
         console.warn('EventPage: failed to load upcoming no-gig events', error)
+
+        if (isAuthSessionError(error) && !user) {
+          try {
+            const { error: signInError } = await supabase.auth.signInAnonymously()
+
+            if (signInError) {
+              throw signInError
+            }
+
+            const eventRows = await fetchUpcomingEventRows()
+
+            if (isCurrent) {
+              setUpcomingEvents(eventRows.map((eventData) => ({
+                id: String(eventData.id ?? ''),
+                name: (eventData.name as string | null) ?? 'Untitled Gig',
+                venue: (eventData.venue as string | null) ?? null,
+                gigDate: (eventData.gig_date as string | null) ?? null,
+                gigStartTime: (eventData.gig_start_time as string | null) ?? null,
+                coverImageUrl: normalizeCoverUrl((eventData.cover_image_url as string | null) ?? null),
+              })))
+
+              if (eventRows.length === 0) {
+                setUpcomingEventsNotice('No upcoming gigs have been posted yet.')
+              } else {
+                setUpcomingEventsNotice(null)
+              }
+            }
+
+            return
+          } catch (retryError) {
+            console.warn('EventPage: auth retry failed while loading upcoming no-gig events', retryError)
+          }
+        }
+
         if (isCurrent) {
           setUpcomingEvents([])
+          setUpcomingEventsNotice('Could not load upcoming gigs right now. Retrying in the background...')
+        }
+      } finally {
+        if (isCurrent) {
+          setUpcomingEventsLoading(false)
         }
       }
     }
@@ -355,7 +458,7 @@ function EventPage() {
         window.clearInterval(pollTimerId)
       }
     }
-  }, [event])
+  }, [event, authLoading, user])
 
   // Update OG meta tags for social media sharing
   useEffect(() => {
@@ -543,7 +646,13 @@ function EventPage() {
   }
 
   if (!event) {
-    return <AudienceNoGigState upcomingEvents={upcomingEvents} />
+    return (
+      <AudienceNoGigState
+        upcomingEvents={upcomingEvents}
+        loadingUpcomingEvents={upcomingEventsLoading}
+        upcomingEventsNotice={upcomingEventsNotice ?? authError}
+      />
+    )
   }
 
   if (!audienceName) {
