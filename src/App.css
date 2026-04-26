@@ -3693,7 +3693,7 @@
 }
 
 .mirror-shell-hide-controls .mirror-secondary-grid {
-  grid-template-rows: minmax(0, 0.5fr) minmax(0, 0.5fr);
+  grid-template-columns: minmax(0, 1.32fr) minmax(280px, 0.68fr);
 }
 
 .mirror-shell-hide-controls .mirror-up-next {
@@ -3927,7 +3927,7 @@
 
 .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.36fr) auto;
   align-items: stretch;
 }
 
@@ -3947,11 +3947,15 @@
 .mirror-stage-live .mirror-now-playing {
   grid-column: 1;
   grid-row: 1;
+  min-height: 0;
+  height: 100%;
 }
 
 .mirror-stage-live .mirror-secondary-grid {
   grid-column: 1;
   grid-row: 2;
+  min-height: 0;
+  height: 100%;
 }
 
 .mirror-stage-live .live-feed-panel-mirror {
@@ -3962,10 +3966,12 @@
 .mirror-stage-live .mirror-up-next {
   min-height: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 .mirror-shell-venue-club .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 0.5fr) minmax(0, 0.38fr) auto;
 }
 
 .mirror-shell-venue-club .mirror-secondary-grid {
@@ -3983,6 +3989,7 @@
 
 .mirror-shell-venue-lounge .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.36fr) auto;
 }
 
 .mirror-shell-venue-lounge .mirror-secondary-grid {
@@ -3991,6 +3998,7 @@
 
 .mirror-shell-venue-festival .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 0.54fr) minmax(0, 0.34fr) auto;
 }
 
 .mirror-shell-venue-festival .mirror-secondary-grid {
@@ -5130,19 +5138,23 @@
   }
 
   .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.5fr) minmax(430px, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.54fr) minmax(0, 0.34fr) auto;
   }
 
   .mirror-shell-venue-club .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.32fr) minmax(360px, 0.96fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.36fr) auto;
   }
 
   .mirror-shell-venue-lounge .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.5fr) minmax(430px, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.54fr) minmax(0, 0.34fr) auto;
   }
 
   .mirror-shell-venue-festival .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.68fr) minmax(450px, 0.94fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.56fr) minmax(0, 0.32fr) auto;
   }
 
   .mirror-now-playing {
@@ -5163,21 +5175,21 @@
   }
 
   .mirror-secondary-grid {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 0.42fr) minmax(0, 0.58fr);
+    grid-template-columns: minmax(0, 1.24fr) minmax(320px, 0.76fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: clamp(0.4rem, 0.72vw, 0.76rem);
   }
 
   .mirror-shell-venue-club .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.39fr) minmax(0, 0.61fr);
+    grid-template-columns: minmax(0, 1.16fr) minmax(300px, 0.84fr);
   }
 
   .mirror-shell-venue-lounge .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.42fr) minmax(0, 0.58fr);
+    grid-template-columns: minmax(0, 1.24fr) minmax(320px, 0.76fr);
   }
 
   .mirror-shell-venue-festival .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.45fr) minmax(0, 0.55fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(340px, 0.7fr);
   }
 
   .mirror-up-next {
@@ -5205,32 +5217,27 @@
   }
 
   .mirror-secondary-grid {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 0.4fr) minmax(0, 0.6fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.7fr);
+    grid-template-rows: minmax(0, 1fr);
   }
 
-  .mirror-shell-venue-club .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.3fr) minmax(390px, 0.95fr);
-  }
-
-  .mirror-shell-venue-lounge .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.58fr) minmax(450px, 1fr);
-  }
-
+  .mirror-shell-venue-club .mirror-stage-live,
+  .mirror-shell-venue-lounge .mirror-stage-live,
   .mirror-shell-venue-festival .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.8fr) minmax(500px, 0.9fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.56fr) minmax(0, 0.32fr) auto;
   }
 
   .mirror-shell-venue-club .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.37fr) minmax(0, 0.63fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
   }
 
   .mirror-shell-venue-lounge .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.4fr) minmax(0, 0.6fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(360px, 0.7fr);
   }
 
   .mirror-shell-venue-festival .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.43fr) minmax(0, 0.57fr);
+    grid-template-columns: minmax(0, 1.36fr) minmax(380px, 0.64fr);
   }
 
   .mirror-up-next,
@@ -5250,28 +5257,21 @@
     border-radius: 14px;
   }
 
-  .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.34fr) minmax(360px, 0.94fr);
-  }
-
-  .mirror-shell-venue-club .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.24fr) minmax(320px, 0.92fr);
-  }
-
-  .mirror-shell-venue-lounge .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.34fr) minmax(360px, 0.94fr);
-  }
-
+  .mirror-stage-live,
+  .mirror-shell-venue-club .mirror-stage-live,
+  .mirror-shell-venue-lounge .mirror-stage-live,
   .mirror-shell-venue-festival .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.48fr) minmax(380px, 0.9fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.5fr) minmax(0, 0.36fr) auto;
   }
 
   .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.4fr) minmax(0, 0.6fr);
+    grid-template-columns: minmax(0, 1.16fr) minmax(280px, 0.84fr);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .mirror-shell-hide-controls .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.48fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
   }
 
   .mirror-shell-hide-controls .mirror-queue-item {
@@ -5312,11 +5312,13 @@
   }
 
   .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.28fr) minmax(330px, 0.94fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.5fr) minmax(0, 0.36fr) auto;
   }
 
   .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.39fr) minmax(0, 0.61fr);
+    grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.88fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: clamp(0.26rem, 0.56vw, 0.48rem);
   }
 
@@ -5372,7 +5374,8 @@
   }
 
   .mirror-stage-live {
-    grid-template-columns: minmax(0, 1.78fr) minmax(560px, 0.9fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.58fr) minmax(0, 0.3fr) auto;
   }
 
   .mirror-now-playing,
@@ -5387,7 +5390,8 @@
   }
 
   .mirror-secondary-grid {
-    grid-template-rows: minmax(0, 0.38fr) minmax(0, 0.62fr);
+    grid-template-columns: minmax(0, 1.4fr) minmax(420px, 0.6fr);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .mirror-title {
@@ -5440,7 +5444,7 @@
 
   .mirror-stage-live {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1.02fr) minmax(0, 0.98fr);
+    grid-template-rows: minmax(0, 0.5fr) minmax(0, 0.4fr) auto;
   }
 
   .mirror-stage-live .mirror-now-playing {
@@ -5453,9 +5457,14 @@
     grid-row: 2;
   }
 
+  .mirror-join-strip {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
   .mirror-secondary-grid {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 0.46fr) minmax(0, 0.54fr);
+    grid-template-rows: minmax(0, 0.56fr) minmax(0, 0.44fr);
   }
 
   .mirror-editor-controls {
@@ -5597,6 +5606,25 @@
 
   .mirror-secondary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mirror-join-strip {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 0.55rem;
+    gap: 0.6rem;
+  }
+
+  .mirror-join-strip-qr {
+    width: clamp(64px, 18vw, 88px);
+    height: clamp(64px, 18vw, 88px);
+  }
+
+  .mirror-join-strip-title {
+    font-size: clamp(0.84rem, 3.2vw, 1rem);
+  }
+
+  .mirror-join-strip-url {
+    font-size: clamp(0.72rem, 2.8vw, 0.88rem);
   }
 
   .mirror-header {
