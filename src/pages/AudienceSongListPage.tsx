@@ -94,6 +94,36 @@ function AudienceSongListPage() {
   ), [availableSongs])
 
   useEffect(() => {
+    if (!selectedSong || typeof document === 'undefined') {
+      return
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [selectedSong])
+
+  useEffect(() => {
+    if (!selectedSong) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !submittingMode) {
+        setSelectedSong(null)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [selectedSong, submittingMode])
+
+  useEffect(() => {
     if (!audienceName) {
       navigate('/audience', { replace: true })
     }
@@ -425,7 +455,17 @@ function AudienceSongListPage() {
       ) : null}
 
       {selectedSong ? (
-        <aside className="audience-song-choice-overlay" aria-label="Choose who sings" role="dialog" aria-modal="true">
+        <aside
+          className="audience-song-choice-overlay"
+          aria-label="Choose who sings"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !submittingMode) {
+              setSelectedSong(null)
+            }
+          }}
+        >
           <div className="audience-song-choice-sheet">
             <p className="eyebrow">Selected</p>
             <h2>{normalizeDisplayText(selectedSong.title, 'Untitled Song')}</h2>
