@@ -5,6 +5,8 @@ import router from './App.tsx'
 import { logCrashTelemetry } from './lib/crashTelemetry'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
+const CHUNK_RECOVERY_LAST_ATTEMPT_KEY = 'human-jukebox-chunk-recovery-last-attempt'
+const CHUNK_RECOVERY_THROTTLE_MS = 15_000
 
 function emitRuntimeNotice(message: string) {
   if (typeof window === 'undefined') {
@@ -28,6 +30,62 @@ function getRejectionMessage(reason: unknown): string {
   }
 
   return ''
+}
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string') {
+      return message
+    }
+  }
+
+  return ''
+}
+
+function isChunkLoadFailure(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase()
+
+  return message.includes('failed to fetch dynamically imported module')
+    || message.includes('failed to load module script')
+    || message.includes('importing a module script failed')
+    || message.includes('chunkloaderror')
+    || (message.includes('unexpected token') && message.includes('<'))
+}
+
+function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
+  if (!import.meta.env.PROD || typeof window === 'undefined' || !isChunkLoadFailure(error)) {
+    return false
+  }
+
+  const now = Date.now()
+  const previousAttempt = Number(window.sessionStorage.getItem(CHUNK_RECOVERY_LAST_ATTEMPT_KEY) ?? '0')
+
+  if (Number.isFinite(previousAttempt) && now - previousAttempt < CHUNK_RECOVERY_THROTTLE_MS) {
+    return false
+  }
+
+  window.sessionStorage.setItem(CHUNK_RECOVERY_LAST_ATTEMPT_KEY, `${now}`)
+
+  logCrashTelemetry({
+    route: window.location.pathname,
+    error,
+    extra: {
+      source,
+      recovery: 'chunk-reload',
+    },
+  })
+
+  emitRuntimeNotice('A new app build was detected. Reloading to recover...')
+  window.setTimeout(() => {
+    window.location.reload()
+  }, 60)
+
+  return true
 }
 
 function isAbortLikeRejection(reason: unknown): boolean {
@@ -168,6 +226,10 @@ function installGlobalRuntimeHooks() {
   }
 
   window.addEventListener('error', (event) => {
+    if (recoverFromChunkLoadFailure(event.error ?? event.message, 'global-error-chunk-load')) {
+      return
+    }
+
     logCrashTelemetry({
       route: typeof window === 'undefined' ? undefined : window.location.pathname,
       error: event.error ?? event.message,
@@ -191,6 +253,11 @@ function installGlobalRuntimeHooks() {
       return
     }
 
+    if (recoverFromChunkLoadFailure(event.reason, 'global-unhandledrejection-chunk-load')) {
+      event.preventDefault()
+      return
+    }
+
     logCrashTelemetry({
       route: typeof window === 'undefined' ? undefined : window.location.pathname,
       error: event.reason,
@@ -203,6 +270,20 @@ function installGlobalRuntimeHooks() {
     console.warn('Unhandled promise rejection captured', event.reason)
 
     emitRuntimeNotice('A background request failed. The app will retry without reloading.')
+  })
+
+  window.addEventListener('vite:preloadError', (event) => {
+    const preloadErrorEvent = event as Event & {
+      payload?: unknown
+      error?: unknown
+      preventDefault: () => void
+    }
+
+    const candidateError = preloadErrorEvent.payload ?? preloadErrorEvent.error ?? event
+
+    if (recoverFromChunkLoadFailure(candidateError, 'vite-preload-error')) {
+      preloadErrorEvent.preventDefault()
+    }
   })
 }
 
