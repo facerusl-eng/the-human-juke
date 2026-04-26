@@ -103,6 +103,7 @@ function EventPage() {
   const [audienceNameInput, setAudienceNameInput] = useState('')
   const [audienceName, setAudienceName] = useState('')
   const [audienceNameError, setAudienceNameError] = useState<string | null>(null)
+  const [audienceNameSaving, setAudienceNameSaving] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [confirmationText, setConfirmationText] = useState<string | null>(null)
   const [showHowItWorks, setShowHowItWorks] = useState(false)
@@ -378,9 +379,24 @@ function EventPage() {
       return
     }
 
-    setAudienceName(normalizedAudienceName)
-    setErrorText(null)
-    commitAudienceName(normalizedAudienceName)
+    // Save audience name with loading state
+    setAudienceNameSaving(true)
+    setAudienceNameError(null)
+
+    try {
+      commitAudienceName(normalizedAudienceName)
+      setAudienceName(normalizedAudienceName)
+      setErrorText(null)
+      setConfirmationText('Welcome! 🎤')
+      window.setTimeout(() => setConfirmationText(null), 2000)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save your name.'
+      setAudienceNameError(errorMessage)
+      setErrorText(errorMessage)
+      console.warn('EventPage: failed to save audience name', error)
+    } finally {
+      setAudienceNameSaving(false)
+    }
   }
 
   if (loading) {
@@ -418,7 +434,13 @@ function EventPage() {
               />
             </div>
             {audienceNameError ? <p id="audience-name-error" className="error-text request-error-inline" role="alert">{audienceNameError}</p> : null}
-            <button type="submit" className="primary-button">Join Audience</button>
+            <button 
+              type="submit" 
+              className="primary-button"
+              disabled={audienceNameSaving}
+            >
+              {audienceNameSaving ? 'Joining...' : 'Join Audience'}
+            </button>
           </form>
           {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
         </article>

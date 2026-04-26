@@ -117,7 +117,12 @@ function LiveFeedPanel({
       return
     }
 
-    window.localStorage.setItem(AUTHOR_NAME_STORAGE_KEY, authorName.trim())
+    try {
+      window.localStorage.setItem(AUTHOR_NAME_STORAGE_KEY, authorName.trim())
+    } catch (error) {
+      console.warn('LiveFeedPanel: failed to save author name to localStorage', error)
+      // Silently ignore storage errors (e.g., in private browsing mode)
+    }
   }, [authorName])
 
   useEffect(() => {

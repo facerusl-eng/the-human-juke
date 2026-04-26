@@ -178,6 +178,7 @@ function MirrorPage() {
   const [densityMode, setDensityMode] = useState<MirrorDensityMode>('medium')
   const [venueMode, setVenueMode] = useState<MirrorVenueMode>('lounge')
   const [showSafeMargins, setShowSafeMargins] = useState(false)
+  const [_storageError, _setStorageError] = useState<string | null>(null)
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
   const [fallbackBetweenSongs, setFallbackBetweenSongs] = useState(false)
   const [fallbackQuoteIndex, setFallbackQuoteIndex] = useState(0)
@@ -330,7 +331,14 @@ function MirrorPage() {
       return
     }
 
-    window.localStorage.setItem(MIRROR_HIGH_CONTRAST_STORAGE_KEY, highContrastMode ? '1' : '0')
+    try {
+      window.localStorage.setItem(MIRROR_HIGH_CONTRAST_STORAGE_KEY, highContrastMode ? '1' : '0')
+      _setStorageError(null)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Could not save contrast preference'
+      _setStorageError(errorMessage)
+      console.warn('MirrorPage: failed to save high contrast mode', error)
+    }
   }, [highContrastMode])
 
   useEffect(() => {
@@ -338,7 +346,14 @@ function MirrorPage() {
       return
     }
 
-    window.localStorage.setItem(MIRROR_SAFE_MARGINS_STORAGE_KEY, showSafeMargins ? '1' : '0')
+    try {
+      window.localStorage.setItem(MIRROR_SAFE_MARGINS_STORAGE_KEY, showSafeMargins ? '1' : '0')
+      _setStorageError(null)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Could not save safe margins preference'
+      _setStorageError(errorMessage)
+      console.warn('MirrorPage: failed to save safe margins', error)
+    }
   }, [showSafeMargins])
 
   useEffect(() => {
@@ -346,7 +361,14 @@ function MirrorPage() {
       return
     }
 
-    window.localStorage.setItem(MIRROR_VENUE_MODE_STORAGE_KEY, venueMode)
+    try {
+      window.localStorage.setItem(MIRROR_VENUE_MODE_STORAGE_KEY, venueMode)
+      _setStorageError(null)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Could not save venue mode preference'
+      _setStorageError(errorMessage)
+      console.warn('MirrorPage: failed to save venue mode', error)
+    }
   }, [venueMode])
 
   // Update OG meta tags for social media sharing
