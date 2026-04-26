@@ -627,7 +627,15 @@ function QueueProvider({ children }: PropsWithChildren) {
           snapshotInFlight = true
 
           try {
-            if (!isHostSession && !requestedEventId) {
+            const requestedEventIdFromUrl = readRequestedEventIdFromUrl()
+
+            if (!isHostSession && requestedEventIdFromUrl && requestedEventIdFromUrl !== resolvedEventId) {
+              activeEventIdRef.current = requestedEventIdFromUrl
+              requestAudienceReload()
+              return
+            }
+
+            if (!isHostSession && !requestedEventIdFromUrl) {
               const latestActiveEventId = await fetchLatestActiveEventId()
 
               if (!latestActiveEventId) {

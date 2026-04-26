@@ -126,6 +126,113 @@ async function fetchUpcomingEventRows() {
 
 const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
+const LIVE_GIG_POLL_INTERVAL_MS = 12000
+const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
+
+function makeCacheBustedUrl(path: string) {
+  const requestUrl = new URL(path, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
+  requestUrl.searchParams.set('v', `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`)
+  return requestUrl.toString()
+}
+
+async function fetchJsonNoStore(path: string) {
+  const response = await fetch(makeCacheBustedUrl(path), {
+    cache: 'no-store',
+    headers: {
+      'cache-control': 'no-cache, no-store, max-age=0',
+      pragma: 'no-cache',
+      accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status})`)
+  }
+
+  return response.json() as Promise<unknown>
+}
+
+function getLiveGigIdFromApiPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  const normalizedPayload = payload as {
+    id?: unknown
+    eventId?: unknown
+    event_id?: unknown
+    liveGig?: unknown
+    data?: unknown
+  }
+
+  const directId = normalizedPayload.id ?? normalizedPayload.eventId ?? normalizedPayload.event_id
+
+  if (typeof directId === 'string' && directId.trim()) {
+    return directId.trim()
+  }
+
+  const nestedLiveGig = normalizedPayload.liveGig
+
+  if (nestedLiveGig && typeof nestedLiveGig === 'object') {
+    const nestedId = (nestedLiveGig as { id?: unknown; eventId?: unknown; event_id?: unknown }).id
+      ?? (nestedLiveGig as { id?: unknown; eventId?: unknown; event_id?: unknown }).eventId
+      ?? (nestedLiveGig as { id?: unknown; eventId?: unknown; event_id?: unknown }).event_id
+
+    if (typeof nestedId === 'string' && nestedId.trim()) {
+      return nestedId.trim()
+    }
+  }
+
+  const nestedData = normalizedPayload.data
+
+  if (nestedData && typeof nestedData === 'object') {
+    const nestedId = (nestedData as { id?: unknown; eventId?: unknown; event_id?: unknown }).id
+      ?? (nestedData as { id?: unknown; eventId?: unknown; event_id?: unknown }).eventId
+      ?? (nestedData as { id?: unknown; eventId?: unknown; event_id?: unknown }).event_id
+
+    if (typeof nestedId === 'string' && nestedId.trim()) {
+      return nestedId.trim()
+    }
+  }
+
+  return null
+}
+
+function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomingEvent[] {
+  return rows.map((eventData) => ({
+    id: String(eventData.id ?? ''),
+    name: (eventData.name as string | null) ?? 'Untitled Gig',
+    venue: (eventData.venue as string | null) ?? null,
+    gigDate: (eventData.gig_date as string | null) ?? null,
+    gigStartTime: (eventData.gig_start_time as string | null) ?? null,
+    coverImageUrl: normalizeCoverUrl((eventData.cover_image_url as string | null) ?? null),
+  }))
+}
+
+async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
+  const payload = await fetchJsonNoStore('/events')
+
+  if (!payload) {
+    return []
+  }
+
+  if (Array.isArray(payload)) {
+    return mapUpcomingEvents(payload as Array<Record<string, unknown>>)
+  }
+
+  if (typeof payload === 'object') {
+    const normalizedPayload = payload as { events?: unknown; data?: unknown }
+    const candidateRows = Array.isArray(normalizedPayload.events)
+      ? normalizedPayload.events
+      : Array.isArray(normalizedPayload.data)
+      ? normalizedPayload.data
+      : []
+
+    return mapUpcomingEvents(candidateRows as Array<Record<string, unknown>>)
+  }
+
+  return []
+}
 
 function hasUnsafeControlChars(value: string) {
   return /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(value)
@@ -199,9 +306,11 @@ function EventPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>([])
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
+  const [audienceLoadingFallbackActive, setAudienceLoadingFallbackActive] = useState(false)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
+  const audienceLinkVersionRef = useRef(`${AUDIENCE_CACHE_VERSION}-${Date.now().toString(36)}`)
 
   const roomOpen = event?.roomOpen ?? false
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
@@ -227,6 +336,82 @@ function EventPage() {
     new URLSearchParams(location.search).get('event')
     || new URLSearchParams(location.search).get('eventId'),
   )
+  const requestedEventId = new URLSearchParams(location.search).get('event')
+    ?? new URLSearchParams(location.search).get('eventId')
+
+  useEffect(() => {
+    if (!loading || event) {
+      setAudienceLoadingFallbackActive(false)
+      return
+    }
+
+    const timerId = window.setTimeout(() => {
+      setAudienceLoadingFallbackActive(true)
+      setUpcomingEventsNotice('Loading is taking longer than expected. Showing upcoming events while we reconnect...')
+    }, 3500)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [loading, event])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    let isCurrent = true
+    let pollTimerId: number | null = null
+
+    const checkLiveGig = async () => {
+      try {
+        const payload = await fetchJsonNoStore('/api/live-gig')
+        const liveGigId = getLiveGigIdFromApiPayload(payload)
+
+        if (!isCurrent) {
+          return
+        }
+
+        if (liveGigId) {
+          if (requestedEventId !== liveGigId) {
+            navigate(`/audience?event=${encodeURIComponent(liveGigId)}&v=${audienceLinkVersionRef.current}`, {
+              replace: true,
+            })
+          }
+
+          setUpcomingEventsNotice('A live show just started. Connecting now...')
+          return
+        }
+
+        if (requestedEventId) {
+          navigate(`/audience?v=${audienceLinkVersionRef.current}`, { replace: true })
+        }
+      } catch (error) {
+        console.warn('EventPage: live gig API check failed', error)
+
+        if (isCurrent && !event) {
+          setUpcomingEventsNotice('Live status is reconnecting. Upcoming events are shown below.')
+        }
+      }
+    }
+
+    void checkLiveGig()
+
+    pollTimerId = window.setInterval(() => {
+      if (document.hidden) {
+        return
+      }
+
+      void checkLiveGig()
+    }, LIVE_GIG_POLL_INTERVAL_MS)
+
+    return () => {
+      isCurrent = false
+      if (pollTimerId !== null) {
+        window.clearInterval(pollTimerId)
+      }
+    }
+  }, [navigate, requestedEventId, event])
 
   const socialLinks = useMemo(() => ([
     { label: 'Instagram', url: hostProfile?.instagram_url },
@@ -339,9 +524,17 @@ function EventPage() {
       setUpcomingEventsLoading(true)
 
       try {
-        let eventRows = await fetchUpcomingEventRows()
+        let mappedEvents: AudienceUpcomingEvent[] = []
 
-        if (eventRows.length === 0 && !user) {
+        try {
+          mappedEvents = await fetchUpcomingEventsFromApi()
+        } catch (apiError) {
+          console.warn('EventPage: /events fetch failed, falling back to Supabase', apiError)
+          const eventRows = await fetchUpcomingEventRows()
+          mappedEvents = mapUpcomingEvents(eventRows)
+        }
+
+        if (mappedEvents.length === 0 && !user) {
           try {
             const { error: signInError } = await supabase.auth.signInAnonymously()
 
@@ -349,7 +542,12 @@ function EventPage() {
               throw signInError
             }
 
-            eventRows = await fetchUpcomingEventRows()
+            try {
+              mappedEvents = await fetchUpcomingEventsFromApi()
+            } catch {
+              const eventRows = await fetchUpcomingEventRows()
+              mappedEvents = mapUpcomingEvents(eventRows)
+            }
           } catch (signInError) {
             console.warn('EventPage: anonymous sign-in retry failed for upcoming events', signInError)
           }
@@ -359,16 +557,9 @@ function EventPage() {
           return
         }
 
-        setUpcomingEvents(eventRows.map((eventData) => ({
-          id: String(eventData.id ?? ''),
-          name: (eventData.name as string | null) ?? 'Untitled Gig',
-          venue: (eventData.venue as string | null) ?? null,
-          gigDate: (eventData.gig_date as string | null) ?? null,
-          gigStartTime: (eventData.gig_start_time as string | null) ?? null,
-          coverImageUrl: normalizeCoverUrl((eventData.cover_image_url as string | null) ?? null),
-        })))
+        setUpcomingEvents(mappedEvents)
 
-        if (eventRows.length === 0) {
+        if (mappedEvents.length === 0) {
           setUpcomingEventsNotice('No upcoming gigs have been posted yet.')
         } else {
           setUpcomingEventsNotice(null)
@@ -384,19 +575,19 @@ function EventPage() {
               throw signInError
             }
 
-            const eventRows = await fetchUpcomingEventRows()
+            let mappedEvents: AudienceUpcomingEvent[] = []
+
+            try {
+              mappedEvents = await fetchUpcomingEventsFromApi()
+            } catch {
+              const eventRows = await fetchUpcomingEventRows()
+              mappedEvents = mapUpcomingEvents(eventRows)
+            }
 
             if (isCurrent) {
-              setUpcomingEvents(eventRows.map((eventData) => ({
-                id: String(eventData.id ?? ''),
-                name: (eventData.name as string | null) ?? 'Untitled Gig',
-                venue: (eventData.venue as string | null) ?? null,
-                gigDate: (eventData.gig_date as string | null) ?? null,
-                gigStartTime: (eventData.gig_start_time as string | null) ?? null,
-                coverImageUrl: normalizeCoverUrl((eventData.cover_image_url as string | null) ?? null),
-              })))
+              setUpcomingEvents(mappedEvents)
 
-              if (eventRows.length === 0) {
+              if (mappedEvents.length === 0) {
                 setUpcomingEventsNotice('No upcoming gigs have been posted yet.')
               } else {
                 setUpcomingEventsNotice(null)
@@ -634,7 +825,7 @@ function EventPage() {
     }
   }
 
-  if (loading) {
+  if (loading && !audienceLoadingFallbackActive) {
     return (
       <section className="audience-entry-shell" aria-label="Audience loading">
         <article className="queue-panel audience-entry-card">
@@ -651,6 +842,7 @@ function EventPage() {
         upcomingEvents={upcomingEvents}
         loadingUpcomingEvents={upcomingEventsLoading}
         upcomingEventsNotice={upcomingEventsNotice ?? authError}
+        getEventHref={(eventId) => `/audience?event=${encodeURIComponent(eventId)}&v=${audienceLinkVersionRef.current}`}
       />
     )
   }

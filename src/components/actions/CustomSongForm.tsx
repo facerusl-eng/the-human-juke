@@ -29,6 +29,38 @@ function resolveCoverFileExtension(contentType: string, originalName: string) {
   return 'jpg'
 }
 
+function isAcceptedCoverFile(file: File) {
+  const normalizedType = file.type.toLowerCase()
+  const normalizedName = file.name.toLowerCase()
+
+  if (['image/jpeg', 'image/jpg', 'image/png'].includes(normalizedType)) {
+    return true
+  }
+
+  return normalizedName.endsWith('.jpg') || normalizedName.endsWith('.jpeg') || normalizedName.endsWith('.png')
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error('Could not process that image.'))
+    }
+
+    reader.onerror = () => {
+      reject(new Error('Could not read that image file.'))
+    }
+
+    reader.readAsDataURL(file)
+  })
+}
+
 type CustomSongFormProps = {
   userId: string
   onSavedSong: (song: CustomSong) => void
@@ -39,6 +71,7 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
   const [title, setTitle] = useState('')
   const [artist, setArtist] = useState('')
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [coverSource, setCoverSource] = useState<'storage' | 'local' | null>(null)
   const [coverUploadBusy, setCoverUploadBusy] = useState(false)
   const [saveBusy, setSaveBusy] = useState(false)
   const [coverName, setCoverName] = useState<string | null>(null)
@@ -55,7 +88,7 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
 
     setErrorText(null)
 
-    if (!['image/jpeg', 'image/png'].includes(nextFile.type)) {
+    if (!isAcceptedCoverFile(nextFile)) {
       setErrorText('Cover image must be a JPG or PNG file.')
       return
     }
@@ -90,13 +123,31 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
         .getPublicUrl(filePath)
 
       setCoverUrl(publicUrlData.publicUrl)
+      setCoverSource('storage')
       setCoverName(nextFile.name)
       onStatus('Cover image uploaded.', 'success')
     } catch (error) {
       console.warn('CustomSongForm: failed to upload song cover', error)
-      const uploadMessage = error instanceof Error ? error.message : 'Cover upload failed. You can still save without a cover.'
-      setErrorText(uploadMessage)
-      onStatus(uploadMessage, 'error')
+
+      try {
+        const localDataUrl = await readFileAsDataUrl(nextFile)
+        setCoverUrl(localDataUrl)
+        setCoverSource('local')
+        setCoverName(`${nextFile.name} (local fallback)`)
+
+        const fallbackMessage = 'Storage upload failed, but cover was imported locally and will still be saved.'
+        setErrorText(null)
+        onStatus(fallbackMessage, 'success')
+      } catch (fallbackError) {
+        const uploadMessage = fallbackError instanceof Error
+          ? fallbackError.message
+          : error instanceof Error
+          ? error.message
+          : 'Cover upload failed. You can still save without a cover.'
+
+        setErrorText(uploadMessage)
+        onStatus(uploadMessage, 'error')
+      }
     } finally {
       setCoverUploadBusy(false)
     }
@@ -160,6 +211,7 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
       setTitle('')
       setArtist('')
       setCoverUrl(null)
+      setCoverSource(null)
       setCoverName(null)
     } catch (error) {
       console.warn('CustomSongForm: failed to save custom song', error)
@@ -203,7 +255,7 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
         <input
           id="custom-song-cover"
           type="file"
-          accept="image/jpeg,image/png"
+          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
           disabled={saveBusy || coverUploadBusy}
           onChange={(event) => {
             const selectedFile = event.target.files?.[0] ?? null
@@ -215,6 +267,9 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
 
       {coverUploadBusy ? <p className="meta-badge" role="status" aria-live="polite">Uploading cover...</p> : null}
       {coverName && !coverUploadBusy ? <p className="subcopy no-margin">Uploaded cover: {coverName}</p> : null}
+      {coverSource === 'local' && !coverUploadBusy ? (
+        <p className="meta-badge" role="status" aria-live="polite">Cover source: Local fallback (not from storage bucket)</p>
+      ) : null}
       {errorText ? <p className="error-text" role="alert">{errorText}</p> : null}
 
       <button type="submit" className="primary-button" disabled={saveDisabled}>

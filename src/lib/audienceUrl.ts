@@ -1,4 +1,5 @@
 const DEV_PUBLIC_ORIGIN = import.meta.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
+const AUDIENCE_LINK_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
 
 type AudienceUrlOptions = {
   compact?: boolean
@@ -25,6 +26,8 @@ export function getAudienceUrl(eventId?: string | null, options: AudienceUrlOpti
     if (normalizedEventId && !useCompactPath) {
       audienceUrl.searchParams.set('event', normalizedEventId)
     }
+
+    audienceUrl.searchParams.set('v', AUDIENCE_LINK_VERSION)
 
     return audienceUrl.toString()
   }

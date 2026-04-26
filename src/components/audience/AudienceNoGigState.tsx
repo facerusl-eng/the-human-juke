@@ -47,10 +47,12 @@ function AudienceNoGigState({
   upcomingEvents,
   loadingUpcomingEvents = false,
   upcomingEventsNotice = null,
+  getEventHref,
 }: {
   upcomingEvents: AudienceUpcomingEvent[]
   loadingUpcomingEvents?: boolean
   upcomingEventsNotice?: string | null
+  getEventHref?: (eventId: string) => string
 }) {
   return (
     <section className="audience-entry-shell audience-no-gig-shell" aria-label="Audience app no live gig state">
@@ -87,6 +89,7 @@ function AudienceNoGigState({
             <div className="audience-no-gig-event-list">
               {upcomingEvents.map((upcomingEvent) => {
                 const dateLabel = formatUpcomingEventDate(upcomingEvent.gigDate, upcomingEvent.gigStartTime)
+                const eventHref = getEventHref ? getEventHref(upcomingEvent.id) : null
 
                 return (
                   <article key={upcomingEvent.id} className="audience-no-gig-event-card">
@@ -103,6 +106,11 @@ function AudienceNoGigState({
                       <p className="audience-no-gig-event-meta">
                         {upcomingEvent.venue?.trim() ? upcomingEvent.venue : 'Venue to be announced'}
                       </p>
+                      {eventHref ? (
+                        <p className="audience-no-gig-event-meta">
+                          <a href={eventHref}>Open event page</a>
+                        </p>
+                      ) : null}
                     </div>
                   </article>
                 )

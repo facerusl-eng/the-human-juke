@@ -26,6 +26,14 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
   return trimmedCoverUrl.replace(/^http:\/\//i, 'https://')
 }
 
+function isLocalFallbackCoverUrl(coverUrl: string | null | undefined) {
+  if (!coverUrl) {
+    return false
+  }
+
+  return coverUrl.trim().startsWith('data:')
+}
+
 function CustomSongList({ songs, addingSongId, onAddSong }: CustomSongListProps) {
   return (
     <section className="gig-custom-song-list" aria-label="Saved custom songs">
@@ -50,6 +58,9 @@ function CustomSongList({ songs, addingSongId, onAddSong }: CustomSongListProps)
               <div>
                 <p className="song">{song.title}</p>
                 <p className="artist">{song.artist?.trim() || 'Unknown Artist'}</p>
+                  {isLocalFallbackCoverUrl(song.cover_url) ? (
+                    <p className="meta-badge">Local cover fallback</p>
+                  ) : null}
               </div>
             </div>
             <button
