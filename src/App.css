@@ -6830,6 +6830,7 @@
   min-height: 0;
   height: 100%;
   padding: clamp(0.72rem, 1vw, 1.02rem);
+  padding-right: clamp(6.4rem, 9vw, 8.6rem);
 }
 
 .mirror-stage-live .mirror-secondary-grid {
@@ -6854,6 +6855,7 @@
 
 .mirror-shell-hide-controls .mirror-now-playing {
   padding: clamp(0.82rem, 1.12vw, 1.14rem);
+  padding-right: clamp(6.8rem, 9.5vw, 9rem);
 }
 
 .mirror-now-playing-track {
@@ -6947,6 +6949,11 @@
 
   .mirror-now-playing-cover {
     width: clamp(88px, 24vw, 124px);
+  }
+
+  .mirror-stage-live .mirror-now-playing,
+  .mirror-shell-hide-controls .mirror-now-playing {
+    padding-right: clamp(5.4rem, 18vw, 7rem);
   }
 
   .mirror-now-playing-qr {
