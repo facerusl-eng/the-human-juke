@@ -222,6 +222,41 @@ function MirrorPage() {
     }, delayMs)
   }
 
+  // Keep the screen awake while the mirror is open
+  useEffect(() => {
+    if (!('wakeLock' in navigator)) {
+      return
+    }
+
+    let lock: WakeLockSentinel | null = null
+
+    const acquire = async () => {
+      if (document.visibilityState !== 'visible') {
+        return
+      }
+
+      try {
+        lock = await (navigator as Navigator & { wakeLock: { request(type: string): Promise<WakeLockSentinel> } }).wakeLock.request('screen')
+      } catch {
+        // Wake lock request can be silently denied (e.g. low battery). Safe to ignore.
+      }
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void acquire()
+      }
+    }
+
+    void acquire()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      lock?.release().catch(() => {})
+    }
+  }, [])
+
   useEffect(() => {
     return () => {
       if (mirrorWarningClearTimerRef.current !== null) {
