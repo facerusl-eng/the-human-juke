@@ -43,19 +43,6 @@ function isHeicLikeImage(file: File) {
     || name.endsWith('.heif')
 }
 
-function hasLikelyImageName(file: File) {
-  const name = file.name.toLowerCase()
-
-  return name.endsWith('.jpg')
-    || name.endsWith('.jpeg')
-    || name.endsWith('.png')
-    || name.endsWith('.webp')
-    || name.endsWith('.gif')
-    || name.endsWith('.bmp')
-    || name.endsWith('.heic')
-    || name.endsWith('.heif')
-}
-
 async function convertHeicToJpegDataUrl(file: File) {
   const converterModule = await import('heic2any')
   const converter = converterModule.default
