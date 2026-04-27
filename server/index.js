@@ -16,13 +16,15 @@ let latestRefreshToken = process.env.SPOTIFY_REFRESH_TOKEN ?? null
 app.use(express.json())
 
 function getSpotifyRedirectUri() {
+  if (process.env.NODE_ENV !== 'production') {
+    return spotifyRedirectUriDev
+  }
+
   if (spotifyRedirectUriOverride) {
     return spotifyRedirectUriOverride
   }
 
-  return process.env.NODE_ENV === 'production'
-    ? spotifyRedirectUriProd
-    : spotifyRedirectUriDev
+  return spotifyRedirectUriProd
 }
 
 function getAuthorizeUrl() {
