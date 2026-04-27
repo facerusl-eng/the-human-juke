@@ -4983,11 +4983,14 @@
 
 .live-feed-post {
   display: grid;
-  gap: 0.7rem;
-  padding: 0.9rem;
-  border: 1px solid rgba(93, 215, 255, 0.18);
-  border-radius: 16px;
-  background: rgba(8, 14, 34, 0.58);
+  gap: 0.4rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(93, 215, 255, 0.14) 0%, rgba(93, 215, 255, 0.08) 100%);
+  box-shadow: 0 4px 12px rgba(93, 215, 255, 0.1);
+  max-width: 85%;
+  margin-right: auto;
 }
 
 .live-feed-post-polaroid {
@@ -5012,9 +5015,9 @@
 
 .live-feed-post-head {
   display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  align-items: baseline;
 }
 
 .live-feed-post-head strong,
@@ -5026,6 +5029,7 @@
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+  font-size: 0.95rem;
 }
 
 .live-feed-delete {
@@ -5073,10 +5077,14 @@
 }
 
 .live-feed-panel-mirror .live-feed-post {
-  background: rgba(7, 16, 32, 0.7);
-  border-color: rgba(93, 215, 255, 0.24);
+  background: linear-gradient(135deg, rgba(93, 215, 255, 0.18) 0%, rgba(93, 215, 255, 0.12) 100%);
+  border: none;
+  border-color: transparent;
   padding: clamp(0.8rem, 1.2vw, 1.2rem);
   gap: 1rem;
+  max-width: 88%;
+  margin-right: auto;
+  box-shadow: 0 6px 16px rgba(93, 215, 255, 0.15);
 }
 
 .live-feed-panel-mirror .live-feed-post-image {
