@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
+import type { User } from '@supabase/supabase-js'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { prepareFeedImage } from '../lib/feedImage'
@@ -30,6 +31,7 @@ const FEED_IMAGE_REVEAL_DELAY_MS = 7000
 const FEED_POLL_INTERVAL_MS = 5000
 const FEED_FETCH_DEBOUNCE_MS = 300
 const FEED_MAX_POSTS = 40
+const FEED_PICKER_RECONNECT_SUPPRESS_MS = 20000
 
 function getStoredAuthorName() {
   if (typeof window === 'undefined') {
@@ -100,6 +102,7 @@ function LiveFeedPanel({
   const isFetchingPostsRef = useRef(false)
   const hasQueuedReloadRef = useRef(false)
   const reloadTimerIdRef = useRef<number | null>(null)
+  const suppressReconnectWarningUntilRef = useRef(0)
   const { user, isHost } = useAuthStore()
   const { event } = useQueueStore()
   const [posts, setPosts] = useState<FeedPost[]>([])
@@ -122,6 +125,12 @@ function LiveFeedPanel({
     () => posts.filter((post) => isFeedPostVisible(post, feedNow, mode)),
     [feedNow, mode, posts],
   )
+
+  const suppressReconnectWarning = () => {
+    suppressReconnectWarningUntilRef.current = Date.now() + FEED_PICKER_RECONNECT_SUPPRESS_MS
+  }
+
+  const shouldSuppressReconnectWarning = () => Date.now() < suppressReconnectWarningUntilRef.current
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -252,7 +261,7 @@ function LiveFeedPanel({
       clearChannelReconnectTimer()
       disconnectFeedChannel()
 
-      channel = supabase
+      const nextChannel = supabase
         .channel(`feed-posts-${event.id}`)
         .on(
           'postgres_changes',
@@ -267,18 +276,21 @@ function LiveFeedPanel({
           },
         )
         .subscribe((status) => {
-          if (!isCurrent) {
+          if (!isCurrent || channel !== nextChannel) {
             return
           }
 
           if (status === 'SUBSCRIBED') {
             channelReconnectAttempt = 0
+            setErrorText(null)
             requestReload(true)
             return
           }
 
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            setErrorText('Feed realtime is reconnecting. Showing latest posts...')
+            if (!shouldSuppressReconnectWarning()) {
+              setErrorText('Feed realtime is reconnecting. Showing latest posts...')
+            }
             requestReload(true)
 
             if (channelReconnectTimerId !== null) {
@@ -293,6 +305,8 @@ function LiveFeedPanel({
             }, retryDelayMs)
           }
         })
+
+      channel = nextChannel
     }
 
     if (!event?.id) {
@@ -311,6 +325,11 @@ function LiveFeedPanel({
 
     const reloadOnReconnect = () => {
       if (!document.hidden) {
+        if (shouldSuppressReconnectWarning()) {
+          requestReload(true)
+          return
+        }
+
         connectFeedChannel()
         requestReload(true)
       }
@@ -371,11 +390,42 @@ function LiveFeedPanel({
     }
   }
 
+  const openImagePicker = () => {
+    suppressReconnectWarning()
+    fileInputRef.current?.click()
+  }
+
+  const resolvePostingUser = async (): Promise<User> => {
+    if (user) {
+      return user
+    }
+
+    const { data: existingUserData } = await supabase.auth.getUser()
+
+    if (existingUserData.user) {
+      return existingUserData.user
+    }
+
+    const { error: anonymousSignInError } = await supabase.auth.signInAnonymously()
+
+    if (anonymousSignInError) {
+      throw new Error('Audience sign-in expired. Refresh the page and try posting again.')
+    }
+
+    const { data: nextUserData } = await supabase.auth.getUser()
+
+    if (!nextUserData.user) {
+      throw new Error('Audience sign-in expired. Refresh the page and try posting again.')
+    }
+
+    return nextUserData.user
+  }
+
   const onSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault()
     setErrorText(null)
 
-    if (!user || !event?.id) {
+    if (!event?.id) {
       setErrorText('Join the audience before posting to the live feed.')
       return
     }
@@ -391,13 +441,14 @@ function LiveFeedPanel({
 
     try {
       const normalizedAuthorName = normalizeAuthorName(resolvedAuthorName, suggestedAuthorName)
+      let postingUser = await resolvePostingUser()
 
-      const insertPost = async () => {
+      const insertPost = async (postingUserId: string) => {
         const { data, error } = await supabase
           .from('feed_posts')
           .insert({
             event_id: event.id,
-            user_id: user.id,
+            user_id: postingUserId,
             author_name: normalizedAuthorName,
             message: trimmedMessage,
             image_data_url: imageDataUrl,
@@ -415,7 +466,7 @@ function LiveFeedPanel({
       let insertedPost: FeedPost | null = null
 
       try {
-        insertedPost = await insertPost()
+        insertedPost = await insertPost(postingUser.id)
       } catch (error) {
         if (!isAuthRecoverableInsertError(error)) {
           throw error
@@ -429,7 +480,7 @@ function LiveFeedPanel({
           if (refreshError) {
             throw error
           }
-        } else if (user.is_anonymous) {
+        } else if (postingUser.is_anonymous) {
           const { error: signInError } = await supabase.auth.signInAnonymously()
 
           if (signInError) {
@@ -439,7 +490,8 @@ function LiveFeedPanel({
           throw error
         }
 
-        insertedPost = await insertPost()
+        postingUser = await resolvePostingUser()
+        insertedPost = await insertPost(postingUser.id)
       }
 
       if (insertedPost) {
@@ -540,12 +592,13 @@ function LiveFeedPanel({
               className="live-feed-file-input"
               aria-label="Upload crowd feed photo"
               title="Upload crowd feed photo"
+              onClick={suppressReconnectWarning}
               onChange={onImageSelected}
             />
             <button
               type="button"
               className="secondary-button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={openImagePicker}
             >
               Camera or Photo
             </button>

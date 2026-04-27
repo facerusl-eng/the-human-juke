@@ -1,5 +1,6 @@
 const MAX_IMAGE_DIMENSION = 800
 const OUTPUT_QUALITY = 0.70
+const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024
 // Keep base64 payload well under Supabase PostgREST's ~1 MB request limit
 const MAX_DATA_URL_LENGTH = 500_000
 const MIN_IMAGE_SCALE = 0.35
@@ -23,13 +24,37 @@ function loadImage(source: string) {
   })
 }
 
+function isHeicLikeImage(file: File) {
+  const type = file.type.toLowerCase()
+  const name = file.name.toLowerCase()
+
+  return type.includes('heic')
+    || type.includes('heif')
+    || name.endsWith('.heic')
+    || name.endsWith('.heif')
+}
+
 export async function prepareFeedImage(file: File) {
   if (!file.type.startsWith('image/')) {
     throw new Error('Please choose an image file.')
   }
 
+  if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+    throw new Error('Image is very large. Choose a photo under 20 MB.')
+  }
+
   const sourceDataUrl = await readFileAsDataUrl(file)
-  const image = await loadImage(sourceDataUrl)
+  let image: HTMLImageElement
+
+  try {
+    image = await loadImage(sourceDataUrl)
+  } catch {
+    if (isHeicLikeImage(file)) {
+      throw new Error('This phone photo format is not supported here yet. Save/export as JPG and try again.')
+    }
+
+    throw new Error('Unable to process the selected image.')
+  }
 
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
