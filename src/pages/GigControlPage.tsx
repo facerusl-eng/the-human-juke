@@ -55,6 +55,7 @@ function GigControlPage() {
   const quoteIndexRef = useRef(0)
   const previousSongIdRef = useRef<string | null>(null)
   const previousRoomOpenRef = useRef<boolean | null>(null)
+  const playbackActionLockRef = useRef(false)
 
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
@@ -180,6 +181,7 @@ function GigControlPage() {
   useEffect(() => {
     const activeEventId = event?.id
 
+    playbackActionLockRef.current = false
     setSpaceActionBusy(false)
 
     if (!activeEventId) {
@@ -286,9 +288,58 @@ function GigControlPage() {
     await syncStartedState(true, nowPlaying?.id ?? null)
   }, [nowPlaying?.id, syncStartedState])
 
+  const runPlaybackAction = useCallback(async (
+    action: () => Promise<void>,
+    options?: { includeTransition?: boolean },
+  ) => {
+    if (playbackActionLockRef.current) {
+      return false
+    }
+
+    playbackActionLockRef.current = true
+    setSpaceActionBusy(true)
+
+    const includeTransition = options?.includeTransition ?? true
+    let previousQuoteIndex = quoteIndexRef.current
+
+    try {
+      if (includeTransition) {
+        previousQuoteIndex = await beginBetweenSongsTransition()
+      }
+
+      await action()
+      setErrorText(null)
+      return true
+    } catch (error) {
+      if (includeTransition) {
+        try {
+          await restoreStartedSong(previousQuoteIndex)
+        } catch {
+          // Keep controls responsive even if playback-state rollback fails.
+        }
+      }
+
+      throw error
+    } finally {
+      playbackActionLockRef.current = false
+      setSpaceActionBusy(false)
+    }
+  }, [beginBetweenSongsTransition, restoreStartedSong])
+
+  const startCurrentSong = useCallback(async () => {
+    await runPlaybackAction(async () => {
+      await syncStartedState(true)
+    }, { includeTransition: false })
+  }, [runPlaybackAction, syncStartedState])
+
   useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
-      if (event.key !== ' ') {
+      if (event.key !== ' ' && event.code !== 'Space') {
+        return
+      }
+
+      if (event.repeat) {
+        event.preventDefault()
         return
       }
 
@@ -300,7 +351,7 @@ function GigControlPage() {
         tag === 'SELECT' ||
         activeElement?.isContentEditable
 
-      if (isTypingTarget || !nowPlaying || spaceActionBusy) {
+      if (isTypingTarget || !nowPlaying || playbackActionLockRef.current || spaceActionBusy) {
         return
       }
 
@@ -308,30 +359,22 @@ function GigControlPage() {
 
       try {
         if (!isNowPlayingStarted) {
-          await syncStartedState(true)
+          await startCurrentSong()
           return
         }
 
-        setSpaceActionBusy(true)
-        const previousQuoteIndex = await beginBetweenSongsTransition()
-
-        try {
+        await runPlaybackAction(async () => {
           await markPlayed()
-        } catch {
-          await restoreStartedSong(previousQuoteIndex)
-          setErrorText('Failed to mark as played.')
-        }
+        })
       } catch (error) {
         console.warn('GigControlPage: spacebar playback action failed', error)
         setErrorText('Playback control failed. Please try again.')
-      } finally {
-        setSpaceActionBusy(false)
       }
     }
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [beginBetweenSongsTransition, isNowPlayingStarted, markPlayed, nowPlaying, restoreStartedSong, spaceActionBusy, syncStartedState])
+  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, spaceActionBusy, startCurrentSong])
 
   const headerActions: ActionButtonConfig[] = [
     {
@@ -553,22 +596,18 @@ function GigControlPage() {
                   className="primary-button"
                   disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
                   onClick={async () => {
-                    if (spaceActionBusy || songActionBusyId === nowPlaying.id) {
+                    if (spaceActionBusy || playbackActionLockRef.current || songActionBusyId === nowPlaying.id) {
                       return
                     }
 
                     setSongActionBusyId(nowPlaying.id)
-                    let previousQuoteIndex = quoteIndexRef.current
 
                     try {
-                      previousQuoteIndex = await beginBetweenSongsTransition()
-                      await markPlayed()
-                    } catch {
-                      try {
-                        await restoreStartedSong(previousQuoteIndex)
-                      } catch {
-                        // Keep queue controls responsive even when playback restore fails.
-                      }
+                      await runPlaybackAction(async () => {
+                        await markPlayed()
+                      })
+                    } catch (error) {
+                      console.warn('GigControlPage: mark played failed', error)
                       setErrorText('Failed to mark as played.')
                     } finally {
                       setSongActionBusyId(null)
@@ -582,22 +621,18 @@ function GigControlPage() {
                   className="secondary-button"
                   disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
                   onClick={async () => {
-                    if (spaceActionBusy || songActionBusyId === nowPlaying.id) {
+                    if (spaceActionBusy || playbackActionLockRef.current || songActionBusyId === nowPlaying.id) {
                       return
                     }
 
                     setSongActionBusyId(nowPlaying.id)
-                    let previousQuoteIndex = quoteIndexRef.current
 
                     try {
-                      previousQuoteIndex = await beginBetweenSongsTransition()
-                      await removeSong(nowPlaying.id)
-                    } catch {
-                      try {
-                        await restoreStartedSong(previousQuoteIndex)
-                      } catch {
-                        // Keep queue controls responsive even when playback restore fails.
-                      }
+                      await runPlaybackAction(async () => {
+                        await removeSong(nowPlaying.id)
+                      })
+                    } catch (error) {
+                      console.warn('GigControlPage: skip song failed', error)
                       setErrorText('Failed to skip song.')
                     } finally {
                       setSongActionBusyId(null)
@@ -623,9 +658,9 @@ function GigControlPage() {
                   className="primary-button"
                   disabled={spaceActionBusy}
                   onClick={async () => {
-                    if (spaceActionBusy) return
+                    if (spaceActionBusy || playbackActionLockRef.current) return
                     try {
-                      await syncStartedState(true)
+                      await startCurrentSong()
                     } catch (error) {
                       console.warn('GigControlPage: start song failed', error)
                       setErrorText('Failed to start song. Please try again.')

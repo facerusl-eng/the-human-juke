@@ -49,6 +49,16 @@ function normalizeAuthorName(authorName: string, fallbackName: string) {
   return trimmedName.slice(0, 28)
 }
 
+function isAuthRecoverableInsertError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+
+  return message.includes('jwt')
+    || message.includes('token')
+    || message.includes('not authenticated')
+    || message.includes('row-level security')
+    || message.includes('permission denied')
+}
+
 function getSuggestedAuthorName(email: string | undefined, isHost: boolean) {
   if (isHost) {
     return 'Host'
@@ -382,20 +392,54 @@ function LiveFeedPanel({
     try {
       const normalizedAuthorName = normalizeAuthorName(resolvedAuthorName, suggestedAuthorName)
 
-      const { data: insertedPost, error } = await supabase
-        .from('feed_posts')
-        .insert({
-          event_id: event.id,
-          user_id: user.id,
-          author_name: normalizedAuthorName,
-          message: trimmedMessage,
-          image_data_url: imageDataUrl,
-        })
-        .select('id, event_id, user_id, author_name, message, image_data_url, created_at')
-        .single()
+      const insertPost = async () => {
+        const { data, error } = await supabase
+          .from('feed_posts')
+          .insert({
+            event_id: event.id,
+            user_id: user.id,
+            author_name: normalizedAuthorName,
+            message: trimmedMessage,
+            image_data_url: imageDataUrl,
+          })
+          .select('id, event_id, user_id, author_name, message, image_data_url, created_at')
+          .single()
 
-      if (error) {
-        throw error
+        if (error) {
+          throw error
+        }
+
+        return data as FeedPost
+      }
+
+      let insertedPost: FeedPost | null = null
+
+      try {
+        insertedPost = await insertPost()
+      } catch (error) {
+        if (!isAuthRecoverableInsertError(error)) {
+          throw error
+        }
+
+        const { data: sessionData } = await supabase.auth.getSession()
+
+        if (sessionData.session) {
+          const { error: refreshError } = await supabase.auth.refreshSession()
+
+          if (refreshError) {
+            throw error
+          }
+        } else if (user.is_anonymous) {
+          const { error: signInError } = await supabase.auth.signInAnonymously()
+
+          if (signInError) {
+            throw error
+          }
+        } else {
+          throw error
+        }
+
+        insertedPost = await insertPost()
       }
 
       if (insertedPost) {

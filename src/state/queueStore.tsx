@@ -436,9 +436,45 @@ function QueueProvider({ children }: PropsWithChildren) {
     let isCurrent = true
     let activeChannel: ReturnType<typeof supabase.channel> | null = null
     let audiencePollTimerId: number | null = null
+    let channelReconnectTimerId: number | null = null
+    let channelReconnectAttempt = 0
+    let activeChannelReconnectHandler: (() => void) | null = null
     const feedRouteMode = isFeedRoutePath()
     let snapshotInFlight = false
     let snapshotQueued = false
+
+    const clearChannelReconnectTimer = () => {
+      if (channelReconnectTimerId !== null) {
+        window.clearTimeout(channelReconnectTimerId)
+        channelReconnectTimerId = null
+      }
+    }
+
+    const disconnectActiveChannel = () => {
+      if (activeChannel) {
+        void supabase.removeChannel(activeChannel)
+        activeChannel = null
+      }
+    }
+
+    const scheduleChannelReconnect = () => {
+      if (!isCurrent || !activeChannelReconnectHandler || channelReconnectTimerId !== null) {
+        return
+      }
+
+      const retryDelayMs = Math.min(1000 * (2 ** channelReconnectAttempt), 8000)
+      channelReconnectAttempt += 1
+
+      channelReconnectTimerId = window.setTimeout(() => {
+        channelReconnectTimerId = null
+
+        if (!isCurrent || !activeChannelReconnectHandler) {
+          return
+        }
+
+        activeChannelReconnectHandler()
+      }, retryDelayMs)
+    }
 
     const load = async () => {
       if (!user) {
@@ -543,24 +579,46 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
 
           if (!isHostSession) {
-            activeChannel = supabase
-              .channel(`audience-live-watch-${Date.now()}`)
-              .on(
-                'postgres_changes',
-                {
-                  event: '*',
-                  schema: 'public',
-                  table: 'events',
-                },
-                () => {
-                  void maybeReloadAudienceWhenLiveReturns()
-                },
-              )
-              .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                  void maybeReloadAudienceWhenLiveReturns()
-                }
-              })
+            const connectAudienceLiveWatchChannel = () => {
+              if (!isCurrent) {
+                return
+              }
+
+              clearChannelReconnectTimer()
+              disconnectActiveChannel()
+
+              activeChannel = supabase
+                .channel(`audience-live-watch-${Date.now()}`)
+                .on(
+                  'postgres_changes',
+                  {
+                    event: '*',
+                    schema: 'public',
+                    table: 'events',
+                  },
+                  () => {
+                    void maybeReloadAudienceWhenLiveReturns()
+                  },
+                )
+                .subscribe((status) => {
+                  if (!isCurrent) {
+                    return
+                  }
+
+                  if (status === 'SUBSCRIBED') {
+                    channelReconnectAttempt = 0
+                    void maybeReloadAudienceWhenLiveReturns()
+                    return
+                  }
+
+                  if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                    scheduleChannelReconnect()
+                  }
+                })
+            }
+
+            activeChannelReconnectHandler = connectAudienceLiveWatchChannel
+            connectAudienceLiveWatchChannel()
 
             audiencePollTimerId = window.setInterval(() => {
               if (document.hidden || !isCurrent) {
@@ -668,40 +726,62 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
-        activeChannel = supabase
-          .channel(`queue-live-${resolvedEventId}`)
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'queue_songs',
-              filter: `event_id=eq.${resolvedEventId}`,
-            },
-            () => {
-              if (!feedRouteMode) {
+        const connectQueueLiveChannel = () => {
+          if (!isCurrent) {
+            return
+          }
+
+          clearChannelReconnectTimer()
+          disconnectActiveChannel()
+
+          activeChannel = supabase
+            .channel(`queue-live-${resolvedEventId}`)
+            .on(
+              'postgres_changes',
+              {
+                event: '*',
+                schema: 'public',
+                table: 'queue_songs',
+                filter: `event_id=eq.${resolvedEventId}`,
+              },
+              () => {
+                if (!feedRouteMode) {
+                  void refreshSnapshot()
+                }
+              },
+            )
+            .on(
+              'postgres_changes',
+              {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'events',
+                filter: `id=eq.${resolvedEventId}`,
+              },
+              () => {
                 void refreshSnapshot()
+              },
+            )
+            .subscribe((status) => {
+              if (!isCurrent) {
+                return
               }
-            },
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'events',
-              filter: `id=eq.${resolvedEventId}`,
-            },
-            () => {
-              void refreshSnapshot()
-            },
-          )
-          .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-              // Force a fresh fetch once subscribed to catch any missed changes.
-              void refreshSnapshot()
-            }
-          })
+
+              if (status === 'SUBSCRIBED') {
+                channelReconnectAttempt = 0
+                // Force a fresh fetch once subscribed to catch any missed changes.
+                void refreshSnapshot()
+                return
+              }
+
+              if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                scheduleChannelReconnect()
+              }
+            })
+        }
+
+        activeChannelReconnectHandler = connectQueueLiveChannel
+        connectQueueLiveChannel()
 
         audiencePollTimerId = window.setInterval(() => {
           if (document.hidden) {
@@ -729,9 +809,9 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     return () => {
       isCurrent = false
-      if (activeChannel) {
-        void supabase.removeChannel(activeChannel)
-      }
+      clearChannelReconnectTimer()
+      activeChannelReconnectHandler = null
+      disconnectActiveChannel()
       if (audiencePollTimerId !== null) {
         window.clearInterval(audiencePollTimerId)
       }

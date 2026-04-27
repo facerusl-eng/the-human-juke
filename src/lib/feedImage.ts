@@ -2,6 +2,8 @@ const MAX_IMAGE_DIMENSION = 800
 const OUTPUT_QUALITY = 0.70
 // Keep base64 payload well under Supabase PostgREST's ~1 MB request limit
 const MAX_DATA_URL_LENGTH = 500_000
+const MIN_IMAGE_SCALE = 0.35
+const MIN_OUTPUT_QUALITY = 0.45
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -29,28 +31,38 @@ export async function prepareFeedImage(file: File) {
   const sourceDataUrl = await readFileAsDataUrl(file)
   const image = await loadImage(sourceDataUrl)
 
-  const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height))
-  const width = Math.max(1, Math.round(image.width * scale))
-  const height = Math.max(1, Math.round(image.height * scale))
   const canvas = document.createElement('canvas')
-
-  canvas.width = width
-  canvas.height = height
-
   const context = canvas.getContext('2d')
 
   if (!context) {
     throw new Error('Unable to prepare the selected image.')
   }
 
-  context.drawImage(image, 0, 0, width, height)
+  let scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height))
+  let quality = OUTPUT_QUALITY
 
-  // Always output JPEG — PNG from phone cameras can be several MB even after scaling
-  const compressedDataUrl = canvas.toDataURL('image/jpeg', OUTPUT_QUALITY)
+  while (scale >= MIN_IMAGE_SCALE) {
+    const width = Math.max(1, Math.round(image.width * scale))
+    const height = Math.max(1, Math.round(image.height * scale))
 
-  if (compressedDataUrl.length > MAX_DATA_URL_LENGTH) {
-    throw new Error('Image is too large after compression. Choose a smaller photo.')
+    canvas.width = width
+    canvas.height = height
+    context.clearRect(0, 0, width, height)
+    context.drawImage(image, 0, 0, width, height)
+
+    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality)
+
+    if (compressedDataUrl.length <= MAX_DATA_URL_LENGTH) {
+      return compressedDataUrl
+    }
+
+    if (quality > MIN_OUTPUT_QUALITY) {
+      quality = Math.max(MIN_OUTPUT_QUALITY, quality - 0.08)
+      continue
+    }
+
+    scale *= 0.85
   }
 
-  return compressedDataUrl
+  throw new Error('Image is too large after compression. Choose a smaller photo.')
 }

@@ -3911,8 +3911,8 @@
 }
 
 .mirror-header-qr-image {
-  width: clamp(120px, 12vw, 190px);
-  height: clamp(120px, 12vw, 190px);
+  width: clamp(138px, 13.5vw, 220px);
+  height: clamp(138px, 13.5vw, 220px);
   border-radius: 8px;
   padding: 0.16rem;
   background: #f7fbff;
@@ -4091,8 +4091,8 @@
   position: absolute;
   top: clamp(0.7rem, 1vw, 1rem);
   right: clamp(0.7rem, 1vw, 1rem);
-  width: clamp(78px, 7vw, 108px);
-  height: clamp(78px, 7vw, 108px);
+  width: clamp(90px, 8vw, 124px);
+  height: clamp(90px, 8vw, 124px);
   border-radius: 10px;
   padding: 0.16rem;
   background: #ffffff;
@@ -4205,8 +4205,8 @@
 }
 
 .mirror-qr-image {
-  width: clamp(220px, 24vw, 330px);
-  height: clamp(220px, 24vw, 330px);
+  width: clamp(250px, 27vw, 380px);
+  height: clamp(250px, 27vw, 380px);
   border-radius: 14px;
   background: #ffffff;
   padding: clamp(0.28rem, 0.8vw, 0.44rem);
@@ -5153,8 +5153,8 @@
   }
 
   .mirror-header-qr-image {
-    width: clamp(138px, 8.5vw, 190px);
-    height: clamp(138px, 8.5vw, 190px);
+    width: clamp(150px, 9.2vw, 220px);
+    height: clamp(150px, 9.2vw, 220px);
   }
 
   .mirror-stage-live {
@@ -5389,8 +5389,8 @@
   }
 
   .mirror-header-qr-image {
-    width: clamp(178px, 7.8vw, 250px);
-    height: clamp(178px, 7.8vw, 250px);
+    width: clamp(190px, 8.6vw, 270px);
+    height: clamp(190px, 8.6vw, 270px);
   }
 
   .mirror-stage-live {
@@ -5971,13 +5971,13 @@
   }
 
   .mirror-header-qr-image {
-    width: clamp(96px, 28vw, 132px);
-    height: clamp(96px, 28vw, 132px);
+    width: clamp(112px, 31vw, 150px);
+    height: clamp(112px, 31vw, 150px);
   }
 
   .mirror-qr-image {
-    width: min(70vw, 250px);
-    height: min(70vw, 250px);
+    width: min(78vw, 290px);
+    height: min(78vw, 290px);
   }
 }
 
