@@ -15,6 +15,15 @@ function readFileAsDataUrl(file: File) {
   })
 }
 
+function readBlobAsDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
+    reader.onerror = () => reject(new Error('Unable to read the selected image.'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 function loadImage(source: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
@@ -34,8 +43,40 @@ function isHeicLikeImage(file: File) {
     || name.endsWith('.heif')
 }
 
+function hasLikelyImageName(file: File) {
+  const name = file.name.toLowerCase()
+
+  return name.endsWith('.jpg')
+    || name.endsWith('.jpeg')
+    || name.endsWith('.png')
+    || name.endsWith('.webp')
+    || name.endsWith('.gif')
+    || name.endsWith('.bmp')
+    || name.endsWith('.heic')
+    || name.endsWith('.heif')
+}
+
+async function convertHeicToJpegDataUrl(file: File) {
+  const converterModule = await import('heic2any')
+  const converter = converterModule.default
+
+  const resultBlob = await converter({
+    blob: file,
+    toType: 'image/jpeg',
+    quality: 0.85,
+  })
+
+  const normalizedBlob = Array.isArray(resultBlob) ? resultBlob[0] : resultBlob
+
+  if (!(normalizedBlob instanceof Blob)) {
+    throw new Error('Unable to process this HEIC photo.')
+  }
+
+  return readBlobAsDataUrl(normalizedBlob)
+}
+
 export async function prepareFeedImage(file: File) {
-  if (!file.type.startsWith('image/')) {
+  if (!file.type.startsWith('image/') && !hasLikelyImageName(file)) {
     throw new Error('Please choose an image file.')
   }
 
@@ -43,7 +84,16 @@ export async function prepareFeedImage(file: File) {
     throw new Error('Image is very large. Choose a photo under 20 MB.')
   }
 
-  const sourceDataUrl = await readFileAsDataUrl(file)
+  let sourceDataUrl = await readFileAsDataUrl(file)
+
+  if (isHeicLikeImage(file)) {
+    try {
+      sourceDataUrl = await convertHeicToJpegDataUrl(file)
+    } catch {
+      throw new Error('This phone photo format could not be converted. In Camera settings, choose Most Compatible (JPG), then try again.')
+    }
+  }
+
   let image: HTMLImageElement
 
   try {

@@ -3914,8 +3914,11 @@
   width: clamp(156px, 15vw, 250px);
   height: clamp(156px, 15vw, 250px);
   border-radius: 8px;
-  padding: 0.16rem;
+  padding: clamp(0.18rem, 0.32vw, 0.28rem);
   background: #f7fbff;
+  image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
   box-shadow:
     0 5px 10px rgba(4, 8, 22, 0.22),
     0 0 8px rgba(93, 215, 255, 0.06);
@@ -4094,8 +4097,11 @@
   width: clamp(104px, 9vw, 148px);
   height: clamp(104px, 9vw, 148px);
   border-radius: 10px;
-  padding: 0.16rem;
+  padding: clamp(0.18rem, 0.3vw, 0.24rem);
   background: #ffffff;
+  image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
   border: 1px solid rgba(255, 255, 255, 0.44);
   box-shadow:
     0 12px 24px rgba(4, 8, 22, 0.28),
@@ -4209,7 +4215,10 @@
   height: clamp(290px, 31vw, 440px);
   border-radius: 14px;
   background: #ffffff;
-  padding: clamp(0.28rem, 0.8vw, 0.44rem);
+  padding: clamp(0.34rem, 0.96vw, 0.56rem);
+  image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
   border: 1px solid rgba(255, 255, 255, 0.42);
   box-shadow:
     0 22px 40px rgba(4, 8, 22, 0.36),

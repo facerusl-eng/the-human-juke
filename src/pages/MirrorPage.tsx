@@ -293,7 +293,7 @@ function MirrorPage() {
       return '/audience'
     }
   }, [eventId])
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=720x720&data=${encodeURIComponent(audienceUrl)}`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&margin=4&data=${encodeURIComponent(audienceUrl)}`
   const playbackSong = playbackState?.currentSongId
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
