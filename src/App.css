@@ -5076,6 +5076,12 @@
   padding-bottom: 0.2rem;
 }
 
+  .mirror-shell-venue-club .live-feed-panel-mirror .live-feed-list,
+  .mirror-shell-venue-lounge .live-feed-panel-mirror .live-feed-list {
+    width: 800px;
+    height: 1400px;
+  }
+
 .live-feed-panel-mirror .live-feed-post {
   background: linear-gradient(135deg, rgba(93, 215, 255, 0.18) 0%, rgba(93, 215, 255, 0.12) 100%);
   border: none;
