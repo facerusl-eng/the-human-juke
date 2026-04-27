@@ -5095,6 +5095,7 @@
 
 .live-feed-panel-mirror .live-feed-post-image {
   width: 100%;
+  aspect-ratio: 4 / 3;
   max-height: clamp(180px, 26vh, 320px);
   justify-self: stretch;
 }
@@ -5346,6 +5347,7 @@
   }
 
   .live-feed-panel-mirror .live-feed-post-image {
+    aspect-ratio: 4 / 3;
     max-height: clamp(96px, 15vh, 160px);
   }
 }
@@ -5395,6 +5397,7 @@
   }
 
   .live-feed-panel-mirror .live-feed-post-image {
+    aspect-ratio: 4 / 3;
     max-height: clamp(92px, 14.5vh, 148px);
   }
 }
@@ -5453,6 +5456,7 @@
   }
 
   .live-feed-panel-mirror .live-feed-post-image {
+    aspect-ratio: 4 / 3;
     max-height: clamp(210px, 22vh, 360px);
   }
 }
