@@ -7003,6 +7003,7 @@
 
 .live-feed-panel-mirror .live-feed-post-image {
   width: 100%;
+  aspect-ratio: 4 / 3;
   max-height: clamp(120px, 17vh, 200px);
   object-fit: cover;
   border-radius: 12px;
