@@ -76,20 +76,28 @@ async function convertHeicToJpegDataUrl(file: File) {
 }
 
 export async function prepareFeedImage(file: File) {
+  console.log('prepareFeedImage: started', { name: file.name, size: file.size, type: file.type })
+
   if (!file.type.startsWith('image/') && !hasLikelyImageName(file)) {
+    console.log('prepareFeedImage: file type/name not recognized', { type: file.type, name: file.name })
     throw new Error('Please choose an image file.')
   }
 
   if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+    console.log('prepareFeedImage: file too large', { size: file.size, max: MAX_SOURCE_IMAGE_BYTES })
     throw new Error('Image is very large. Choose a photo under 20 MB.')
   }
 
   let sourceDataUrl = await readFileAsDataUrl(file)
+  console.log('prepareFeedImage: file read complete', { dataUrlLength: sourceDataUrl.length })
 
   if (isHeicLikeImage(file)) {
+    console.log('prepareFeedImage: detected HEIC/HEIF, converting...')
     try {
       sourceDataUrl = await convertHeicToJpegDataUrl(file)
+      console.log('prepareFeedImage: HEIC conversion success')
     } catch {
+      console.log('prepareFeedImage: HEIC conversion failed')
       throw new Error('This phone photo format could not be converted. In Camera settings, choose Most Compatible (JPG), then try again.')
     }
   }
@@ -97,8 +105,11 @@ export async function prepareFeedImage(file: File) {
   let image: HTMLImageElement
 
   try {
+    console.log('prepareFeedImage: loading image from data URL...')
     image = await loadImage(sourceDataUrl)
+    console.log('prepareFeedImage: image loaded', { width: image.width, height: image.height })
   } catch {
+    console.log('prepareFeedImage: image load failed')
     if (isHeicLikeImage(file)) {
       throw new Error('This phone photo format is not supported here yet. Save/export as JPG and try again.')
     }
@@ -110,11 +121,13 @@ export async function prepareFeedImage(file: File) {
   const context = canvas.getContext('2d')
 
   if (!context) {
+    console.log('prepareFeedImage: canvas context creation failed')
     throw new Error('Unable to prepare the selected image.')
   }
 
   let scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height))
   let quality = OUTPUT_QUALITY
+  console.log('prepareFeedImage: compression loop starting', { initialScale: scale })
 
   while (scale >= MIN_IMAGE_SCALE) {
     const width = Math.max(1, Math.round(image.width * scale))
@@ -128,6 +141,7 @@ export async function prepareFeedImage(file: File) {
     const compressedDataUrl = canvas.toDataURL('image/jpeg', quality)
 
     if (compressedDataUrl.length <= MAX_DATA_URL_LENGTH) {
+      console.log('prepareFeedImage: compression successful', { finalScale: scale, finalQuality: quality, dataUrlLength: compressedDataUrl.length })
       return compressedDataUrl
     }
 
@@ -139,5 +153,6 @@ export async function prepareFeedImage(file: File) {
     scale *= 0.85
   }
 
+  console.log('prepareFeedImage: compression failed - image too large even after aggressive compression')
   throw new Error('Image is too large after compression. Choose a smaller photo.')
 }
