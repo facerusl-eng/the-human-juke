@@ -6869,7 +6869,7 @@
 }
 
 .mirror-stage-live .mirror-secondary-grid {
-  grid-template-columns: minmax(0, 1.48fr) minmax(270px, 0.52fr) !important;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) !important;
   grid-template-rows: minmax(0, 1fr) !important;
   min-height: 0;
   height: 100%;
@@ -6885,7 +6885,7 @@
 }
 
 .mirror-shell-hide-controls .mirror-stage-live .mirror-secondary-grid {
-  grid-template-columns: minmax(0, 1.65fr) minmax(230px, 0.35fr) !important;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) !important;
 }
 
 .mirror-shell-hide-controls .mirror-now-playing {
@@ -6919,6 +6919,9 @@
 
 .mirror-up-next {
   gap: 0.24rem;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .live-feed-panel-mirror {
@@ -6978,52 +6981,27 @@
   gap: 0.22rem;
   margin: 0;
   padding-right: 0;
-  overflow: hidden;
-}
-
-.live-feed-panel-mirror .live-feed-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: clamp(0.24rem, 0.52vw, 0.52rem);
-  min-height: 0;
-  height: 100%;
-}
-
-.live-feed-panel-mirror .live-feed-column {
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 0.28rem;
-}
-
-.live-feed-panel-mirror .live-feed-column-title {
-  margin: 0;
-  font-size: clamp(0.72rem, 0.9vw, 0.84rem);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(93, 215, 255, 0.74);
-}
-
-.live-feed-panel-mirror .live-feed-column-list {
-  min-height: 0;
-  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  display: grid;
-  align-content: start;
-  gap: 0.42rem;
-  padding-right: 0.06rem;
 }
 
 .live-feed-panel-mirror .live-feed-post {
-  padding: 0.34rem 0.38rem;
-  gap: 0.3rem;
+  padding: 0.26rem 0.3rem;
+  gap: 0.22rem;
   max-width: none;
   margin-right: 0;
 }
 
+.live-feed-panel-mirror .live-feed-post-polaroid {
+  padding: 0.24rem 0.24rem 0.32rem;
+  border-radius: 14px;
+}
+
 .live-feed-panel-mirror .live-feed-post-image {
-  max-height: clamp(84px, 10vh, 132px);
+  width: 100%;
+  max-height: clamp(210px, 32vh, 460px);
+  object-fit: cover;
+  border-radius: 12px;
 }
 
 .live-feed-panel-mirror .live-feed-post-head strong {
@@ -7041,7 +7019,7 @@
 
   .mirror-stage-live .mirror-secondary-grid {
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: minmax(0, 0.7fr) minmax(0, 0.3fr) !important;
+    grid-template-rows: minmax(0, 0.72fr) minmax(0, 0.28fr) !important;
   }
 }
 
