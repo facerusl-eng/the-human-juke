@@ -762,7 +762,9 @@ function LiveFeedPanel({
 
                   {post.message ? <p className="live-feed-post-message">{post.message}</p> : null}
                   {normalizedPostImageSource ? (
-                    <img src={normalizedPostImageSource} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
+                    <div className="live-feed-post-image-wrapper">
+                      <img src={normalizedPostImageSource} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
+                    </div>
                   ) : null}
                 </article>
               )
