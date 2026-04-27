@@ -1,6 +1,7 @@
-const MAX_IMAGE_DIMENSION = 1280
-const OUTPUT_QUALITY = 0.82
-const MAX_DATA_URL_LENGTH = 1_800_000
+const MAX_IMAGE_DIMENSION = 800
+const OUTPUT_QUALITY = 0.70
+// Keep base64 payload well under Supabase PostgREST's ~1 MB request limit
+const MAX_DATA_URL_LENGTH = 500_000
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -44,8 +45,8 @@ export async function prepareFeedImage(file: File) {
 
   context.drawImage(image, 0, 0, width, height)
 
-  const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
-  const compressedDataUrl = canvas.toDataURL(outputType, outputType === 'image/png' ? undefined : OUTPUT_QUALITY)
+  // Always output JPEG — PNG from phone cameras can be several MB even after scaling
+  const compressedDataUrl = canvas.toDataURL('image/jpeg', OUTPUT_QUALITY)
 
   if (compressedDataUrl.length > MAX_DATA_URL_LENGTH) {
     throw new Error('Image is too large after compression. Choose a smaller photo.')
