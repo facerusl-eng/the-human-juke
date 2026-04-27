@@ -6846,8 +6846,8 @@
 
 /* Live gig mirror overrides */
 .mirror-shell {
-  padding: clamp(0.28rem, 0.65vw, 0.72rem);
-  gap: clamp(0.32rem, 0.72vw, 0.68rem);
+  padding: clamp(0.2rem, 0.5vw, 0.52rem);
+  gap: clamp(0.24rem, 0.56vw, 0.48rem);
 }
 
 .mirror-header {
@@ -6857,7 +6857,7 @@
 
 .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.48fr) !important;
+  grid-template-rows: minmax(0, 0.41fr) minmax(0, 0.59fr) !important;
 }
 
 .mirror-stage-live .mirror-now-playing {
@@ -6868,11 +6868,11 @@
 }
 
 .mirror-stage-live .mirror-secondary-grid {
-  grid-template-columns: minmax(0, 1.32fr) minmax(300px, 0.68fr) !important;
+  grid-template-columns: minmax(0, 1.48fr) minmax(270px, 0.52fr) !important;
   grid-template-rows: minmax(0, 1fr) !important;
   min-height: 0;
   height: 100%;
-  gap: clamp(0.32rem, 0.62vw, 0.58rem);
+  gap: clamp(0.24rem, 0.48vw, 0.42rem);
 }
 
 .mirror-shell-hide-controls .mirror-header {
@@ -6880,11 +6880,11 @@
 }
 
 .mirror-shell-hide-controls .mirror-stage-live {
-  grid-template-rows: minmax(0, 0.54fr) minmax(0, 0.46fr) !important;
+  grid-template-rows: minmax(0, 0.34fr) minmax(0, 0.66fr) !important;
 }
 
 .mirror-shell-hide-controls .mirror-stage-live .mirror-secondary-grid {
-  grid-template-columns: minmax(0, 1.38fr) minmax(320px, 0.62fr) !important;
+  grid-template-columns: minmax(0, 1.55fr) minmax(250px, 0.45fr) !important;
 }
 
 .mirror-shell-hide-controls .mirror-now-playing {
@@ -6913,11 +6913,16 @@
 
 .mirror-up-next,
 .live-feed-panel-mirror {
-  padding: clamp(0.52rem, 0.82vw, 0.78rem);
+  padding: clamp(0.34rem, 0.58vw, 0.52rem);
 }
 
 .mirror-up-next {
   gap: 0.48rem;
+}
+
+.live-feed-panel-mirror {
+  border-radius: 14px;
+  border-width: 1px;
 }
 
 .mirror-queue {
@@ -6945,7 +6950,11 @@
 }
 
 .live-feed-panel-mirror .live-feed-list {
+  width: 100%;
+  height: 100%;
   gap: 0.42rem;
+  margin: 0;
+  padding-right: 0.02rem;
 }
 
 .live-feed-panel-mirror .live-feed-post {
@@ -6967,12 +6976,12 @@
 
 @media (max-width: 1180px) {
   .mirror-stage-live {
-    grid-template-rows: minmax(0, 0.48fr) minmax(0, 0.52fr) !important;
+    grid-template-rows: minmax(0, 0.38fr) minmax(0, 0.62fr) !important;
   }
 
   .mirror-stage-live .mirror-secondary-grid {
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: minmax(0, 0.55fr) minmax(0, 0.45fr) !important;
+    grid-template-rows: minmax(0, 0.64fr) minmax(0, 0.36fr) !important;
   }
 }
 
