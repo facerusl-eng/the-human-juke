@@ -12,6 +12,8 @@ import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
+const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
+type SpotifyTransportMode = 'play' | 'pause'
 
 function GigControlPage() {
   const navigate = useNavigate()
@@ -39,6 +41,8 @@ function GigControlPage() {
   const [snapshotStatusText, setSnapshotStatusText] = useState<string | null>(null)
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
   const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
+  const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
+  const [spotifyAutoTransportEnabled, setSpotifyAutoTransportEnabled] = useState(true)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -76,12 +80,32 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
 
+  const sendSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
+    if (!spotifyAutoTransportEnabled) {
+      return
+    }
+
+    setSpotifyTransportCommand({ mode, nonce: Date.now() })
+  }, [spotifyAutoTransportEnabled])
+
   useEffect(() => {
     const storedToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)
     if (storedToken) {
       setSpotifyAccessToken(storedToken)
     }
+
+    const storedAutoTransport = window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY)
+    if (storedAutoTransport === '0') {
+      setSpotifyAutoTransportEnabled(false)
+    }
   }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY,
+      spotifyAutoTransportEnabled ? '1' : '0',
+    )
+  }, [spotifyAutoTransportEnabled])
 
   const refreshSpotifyAccessToken = useCallback(async () => {
     const response = await fetch('/api/spotify/token')
@@ -381,10 +405,14 @@ function GigControlPage() {
   }, [beginBetweenSongsTransition, restoreStartedSong])
 
   const startCurrentSong = useCallback(async () => {
-    await runPlaybackAction(async () => {
+    const started = await runPlaybackAction(async () => {
       await syncStartedState(true)
     }, { includeTransition: false })
-  }, [runPlaybackAction, syncStartedState])
+
+    if (started) {
+      sendSpotifyTransportCommand('pause')
+    }
+  }, [runPlaybackAction, sendSpotifyTransportCommand, syncStartedState])
 
   useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
@@ -417,9 +445,13 @@ function GigControlPage() {
           return
         }
 
-        await runPlaybackAction(async () => {
+        const finishedSong = await runPlaybackAction(async () => {
           await markPlayed()
         })
+
+        if (finishedSong) {
+          sendSpotifyTransportCommand('play')
+        }
       } catch (error) {
         console.warn('GigControlPage: spacebar playback action failed', error)
         setErrorText('Playback control failed. Please try again.')
@@ -428,7 +460,7 @@ function GigControlPage() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, spaceActionBusy, startCurrentSong])
+  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, sendSpotifyTransportCommand, spaceActionBusy, startCurrentSong])
 
   const headerActions: ActionButtonConfig[] = [
     {
@@ -638,10 +670,31 @@ function GigControlPage() {
       </section>
 
       {spotifyAccessToken ? (
-        <SpotifyPlayerWithSDK
-          accessToken={spotifyAccessToken}
-          onRefreshToken={refreshSpotifyAccessToken}
-        />
+        <>
+          <section className="queue-panel" aria-label="Spotify automation setting">
+            <div className="panel-head">
+              <h2>Spotify Automation</h2>
+              <span className="meta-badge">{spotifyAutoTransportEnabled ? 'On' : 'Off'}</span>
+            </div>
+            <label htmlFor="spotify-auto-transport-toggle" className="gig-switcher-label">
+              <input
+                id="spotify-auto-transport-toggle"
+                type="checkbox"
+                checked={spotifyAutoTransportEnabled}
+                onChange={(changeEvent) => {
+                  setSpotifyAutoTransportEnabled(changeEvent.target.checked)
+                }}
+              />{' '}
+              Auto play between-song Spotify on finish, and auto pause on start
+            </label>
+          </section>
+
+          <SpotifyPlayerWithSDK
+            accessToken={spotifyAccessToken}
+            onRefreshToken={refreshSpotifyAccessToken}
+            transportCommand={spotifyTransportCommand}
+          />
+        </>
       ) : (
         <section className="queue-panel" aria-label="Spotify login prompt">
           <div className="panel-head">
@@ -687,9 +740,13 @@ function GigControlPage() {
                     setSongActionBusyId(nowPlaying.id)
 
                     try {
-                      await runPlaybackAction(async () => {
+                      const finishedSong = await runPlaybackAction(async () => {
                         await markPlayed()
                       })
+
+                      if (finishedSong) {
+                        sendSpotifyTransportCommand('play')
+                      }
                     } catch (error) {
                       console.warn('GigControlPage: mark played failed', error)
                       setErrorText('Failed to mark as played.')

@@ -94,7 +94,7 @@ function normalizePlaylistContextUri(input) {
   return ''
 }
 
-function SpotifyPlayerWithSDK({ accessToken, onRefreshToken }) {
+function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand }) {
   const playerRef = useRef(null)
   const accessTokenRef = useRef(accessToken)
 
@@ -208,6 +208,27 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken }) {
       const refreshedToken = await onRefreshToken()
       accessTokenRef.current = refreshedToken
       return action(refreshedToken)
+    }
+  }
+
+  const syncTogglePlayState = async (shouldPlay) => {
+    if (!playerRef.current) {
+      return
+    }
+
+    const currentState = await playerRef.current.getCurrentState?.()
+
+    if (!currentState) {
+      if (shouldPlay) {
+        await playerRef.current.togglePlay()
+      }
+      return
+    }
+
+    const isPaused = currentState.paused
+
+    if ((shouldPlay && isPaused) || (!shouldPlay && !isPaused)) {
+      await playerRef.current.togglePlay()
     }
   }
 
@@ -332,6 +353,32 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken }) {
       setActionBusy(false)
     }
   }
+
+  useEffect(() => {
+    if (!transportCommand || !deviceId || !playerRef.current) {
+      return
+    }
+
+    void (async () => {
+      try {
+        if (transportCommand.mode === 'play') {
+          if (playlistInput.trim()) {
+            await startPlaylistPlayback(playlistInput)
+          } else {
+            await syncTogglePlayState(true)
+            setPlayerStatus('Between-song Spotify playback started from Gig Control.')
+          }
+
+          return
+        }
+
+        await syncTogglePlayState(false)
+        setPlayerStatus('Between-song Spotify playback paused for now playing track.')
+      } catch (error) {
+        setPlayerStatus(error instanceof Error ? error.message : 'Spotify transport command failed.')
+      }
+    })()
+  }, [deviceId, playlistInput, transportCommand])
 
   return (
     <section className="queue-panel" aria-label="Spotify playback controls">
