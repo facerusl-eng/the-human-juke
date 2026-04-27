@@ -607,6 +607,7 @@ function LiveFeedPanel({
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              capture="environment"
               className="live-feed-file-input"
               aria-label="Upload crowd feed photo"
               onClick={suppressReconnectWarning}
