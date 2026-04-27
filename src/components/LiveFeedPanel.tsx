@@ -128,7 +128,8 @@ function LiveFeedPanel({
   title = 'Live Feed',
   showModerationControls = true,
 }: LiveFeedPanelProps) {
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement | null>(null)
+  const galleryInputRef = useRef<HTMLInputElement | null>(null)
   const isFetchingPostsRef = useRef(false)
   const hasQueuedReloadRef = useRef(false)
   const reloadTimerIdRef = useRef<number | null>(null)
@@ -488,9 +489,23 @@ function LiveFeedPanel({
     setSelectedImageName(null)
     setImageStatusText(null)
     setIsPreparingImage(false)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = ''
     }
+
+    if (galleryInputRef.current) {
+      galleryInputRef.current.value = ''
+    }
+  }
+
+  const openCameraPicker = () => {
+    suppressReconnectWarning()
+    cameraInputRef.current?.click()
+  }
+
+  const openGalleryPicker = () => {
+    suppressReconnectWarning()
+    galleryInputRef.current?.click()
   }
 
   const resolvePostingUser = async (): Promise<User> => {
@@ -689,23 +704,39 @@ function LiveFeedPanel({
 
           <div className="live-feed-media-row">
             <input
-              id={`feed-image-${mode}`}
-              ref={fileInputRef}
+              id={`feed-image-camera-${mode}`}
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               className="live-feed-file-input"
-              aria-label="Upload crowd feed photo"
+              aria-label="Take a crowd feed photo"
               onClick={suppressReconnectWarning}
               onChange={onImageSelected}
             />
-            <label
-              htmlFor={`feed-image-${mode}`}
+            <input
+              id={`feed-image-gallery-${mode}`}
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="live-feed-file-input"
+              aria-label="Choose a crowd feed photo"
+              onClick={suppressReconnectWarning}
+              onChange={onImageSelected}
+            />
+            <button
+              type="button"
               className="secondary-button"
-              onPointerDown={suppressReconnectWarning}
+              onClick={openCameraPicker}
             >
-              Camera or Photo
-            </label>
+              Take Photo
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={openGalleryPicker}
+            >
+              Choose Photo
+            </button>
             {selectedImageName ? <span className="live-feed-image-name">{selectedImageName}</span> : null}
             {imageStatusText ? <span className="live-feed-helper-text">{imageStatusText}</span> : null}
             {previewImageSrc ? (
@@ -714,6 +745,10 @@ function LiveFeedPanel({
               </button>
             ) : null}
           </div>
+
+          <p className="live-feed-helper-text no-margin">
+            On phone: tap <strong>Take Photo</strong> to capture and share instantly to the live feed.
+          </p>
 
           {previewImageSrc ? (
             <img src={previewImageSrc} alt="Selected feed upload preview" className="live-feed-image-preview" />
