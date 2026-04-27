@@ -32,6 +32,7 @@ const FEED_POLL_INTERVAL_MS = 5000
 const FEED_FETCH_DEBOUNCE_MS = 300
 const FEED_MAX_POSTS = 40
 const FEED_PICKER_RECONNECT_SUPPRESS_MS = 20000
+const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif']
 
 function getStoredAuthorName() {
   if (typeof window === 'undefined') {
@@ -92,6 +93,35 @@ function isFeedPostVisible(post: FeedPost, now: number, mode: LiveFeedPanelProps
   return new Date(post.created_at).getTime() + FEED_IMAGE_REVEAL_DELAY_MS <= now
 }
 
+function hasSupportedImageExtension(fileName: string) {
+  const normalizedName = fileName.trim().toLowerCase()
+  return SUPPORTED_IMAGE_EXTENSIONS.some((extension) => normalizedName.endsWith(extension))
+}
+
+function isSupportedImageFile(file: File) {
+  const normalizedType = file.type.trim().toLowerCase()
+
+  if (normalizedType.startsWith('image/')) {
+    return true
+  }
+
+  return hasSupportedImageExtension(file.name)
+}
+
+function normalizeImageSource(value: string | null | undefined) {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const normalizedValue = value.trim()
+
+  if (!normalizedValue || normalizedValue.toLowerCase() === 'undefined' || normalizedValue.toLowerCase() === 'null') {
+    return null
+  }
+
+  return normalizedValue
+}
+
 function LiveFeedPanel({
   mode,
   showComposer = true,
@@ -103,12 +133,15 @@ function LiveFeedPanel({
   const hasQueuedReloadRef = useRef(false)
   const reloadTimerIdRef = useRef<number | null>(null)
   const suppressReconnectWarningUntilRef = useRef(0)
+  const previewObjectUrlRef = useRef<string | null>(null)
   const { user, isHost } = useAuthStore()
   const { event } = useQueueStore()
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [message, setMessage] = useState('')
   const [authorName, setAuthorName] = useState(() => getStoredAuthorName())
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  const [isPreparingImage, setIsPreparingImage] = useState(false)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -122,6 +155,7 @@ function LiveFeedPanel({
   const resolvedAuthorName = authorName.trim() || suggestedAuthorName
   const showJumpLink = mode === 'audience'
   const isMirrorMode = mode === 'mirror'
+  const previewImageSrc = imagePreviewUrl ?? imageDataUrl
   const visiblePosts = useMemo(
     () => posts.filter((post) => isFeedPostVisible(post, feedNow, mode)),
     [feedNow, mode, posts],
@@ -158,6 +192,15 @@ function LiveFeedPanel({
       window.clearInterval(timer)
     }
   }, [isMirrorMode])
+
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current)
+        previewObjectUrlRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     let isCurrent = true
@@ -368,23 +411,52 @@ function LiveFeedPanel({
     if (!file) {
       console.log('LiveFeedPanel.onImageSelected: no file selected')
       setImageStatusText('No photo selected yet.')
+      setIsPreparingImage(false)
       return
     }
 
     setErrorText(null)
     setSelectedImageName(file.name || 'Camera photo')
-    setImageStatusText('Preparing photo...')
+    setImageStatusText('Photo selected. Preparing...')
     console.log('LiveFeedPanel.onImageSelected: image name and status set, starting preparation')
 
     if (file.size === 0) {
       console.log('LiveFeedPanel.onImageSelected: file is empty')
       setImageDataUrl(null)
+      setImagePreviewUrl(null)
       setSelectedImageName(null)
       setImageStatusText(null)
+      setIsPreparingImage(false)
       setErrorText('Camera did not return a usable photo. Please try again or choose from gallery.')
       changeEvent.target.value = ''
       return
     }
+
+    if (!isSupportedImageFile(file)) {
+      setImageDataUrl(null)
+      setImagePreviewUrl(null)
+      setSelectedImageName(null)
+      setImageStatusText(null)
+      setIsPreparingImage(false)
+      setErrorText('Unsupported image format. Please choose JPG, PNG, WEBP, GIF, BMP, or HEIC/HEIF.')
+      changeEvent.target.value = ''
+      return
+    }
+
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current)
+      previewObjectUrlRef.current = null
+    }
+
+    try {
+      const previewUrl = URL.createObjectURL(file)
+      previewObjectUrlRef.current = previewUrl
+      setImagePreviewUrl(previewUrl)
+    } catch {
+      setImagePreviewUrl(null)
+    }
+
+    setIsPreparingImage(true)
 
     try {
       console.log('LiveFeedPanel.onImageSelected: calling prepareFeedImage')
@@ -395,18 +467,27 @@ function LiveFeedPanel({
     } catch (error) {
       console.log('LiveFeedPanel.onImageSelected: prepareFeedImage failed', { error: String(error) })
       setImageDataUrl(null)
+      setImagePreviewUrl(null)
       setSelectedImageName(null)
       setImageStatusText(null)
       setErrorText(error instanceof Error ? error.message : 'Unable to use that photo.')
     } finally {
+      setIsPreparingImage(false)
       changeEvent.target.value = ''
     }
   }
 
   const clearSelectedImage = () => {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current)
+      previewObjectUrlRef.current = null
+    }
+
     setImageDataUrl(null)
+    setImagePreviewUrl(null)
     setSelectedImageName(null)
     setImageStatusText(null)
+    setIsPreparingImage(false)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -448,6 +529,11 @@ function LiveFeedPanel({
     }
 
     const trimmedMessage = message.trim()
+
+    if (isPreparingImage) {
+      setErrorText('Photo is still being prepared. Please wait a moment and post again.')
+      return
+    }
 
     if (!trimmedMessage && !imageDataUrl) {
       setErrorText('Write a message, add an image, or both.')
@@ -622,15 +708,15 @@ function LiveFeedPanel({
             </label>
             {selectedImageName ? <span className="live-feed-image-name">{selectedImageName}</span> : null}
             {imageStatusText ? <span className="live-feed-helper-text">{imageStatusText}</span> : null}
-            {imageDataUrl ? (
+            {previewImageSrc ? (
               <button type="button" className="ghost-button" onClick={clearSelectedImage}>
                 Remove Image
               </button>
             ) : null}
           </div>
 
-          {imageDataUrl ? (
-            <img src={imageDataUrl} alt="Selected feed upload preview" className="live-feed-image-preview" />
+          {previewImageSrc ? (
+            <img src={previewImageSrc} alt="Selected feed upload preview" className="live-feed-image-preview" />
           ) : null}
 
           {errorText ? <p className="error-text no-margin">{errorText}</p> : null}
@@ -657,7 +743,8 @@ function LiveFeedPanel({
           ) : (
             visiblePosts.map((post) => {
               const canDelete = showModerationControls && (user?.id === post.user_id || isHost)
-              const hasImage = Boolean(post.image_data_url)
+              const normalizedPostImageSource = normalizeImageSource(post.image_data_url)
+              const hasImage = Boolean(normalizedPostImageSource)
 
               return (
                 <article key={post.id} className={`live-feed-post ${hasImage ? 'live-feed-post-polaroid' : ''}`} role="listitem">
@@ -674,8 +761,8 @@ function LiveFeedPanel({
                   </div>
 
                   {post.message ? <p className="live-feed-post-message">{post.message}</p> : null}
-                  {post.image_data_url ? (
-                    <img src={post.image_data_url} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
+                  {normalizedPostImageSource ? (
+                    <img src={normalizedPostImageSource} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
                   ) : null}
                 </article>
               )
