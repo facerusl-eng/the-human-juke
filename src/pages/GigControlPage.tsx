@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AddSongTabs from '../components/actions/AddSongTabs'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
+import SpotifyPlayerWithSDK from '../components/SpotifyPlayerWithSDK.jsx'
 import { useClipboardCopy } from '../hooks/useClipboardCopy'
 import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
@@ -9,6 +10,9 @@ import { captureQueueSnapshot, getLatestQueueSnapshot } from '../lib/queueSnapsh
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
+
+const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
+const SPOTIFY_AUTHORIZE_URL = 'https://accounts.spotify.com/authorize?client_id=510534c3ee9046aba1b67cb526ef8b1c&response_type=code&redirect_uri=http://localhost:5173/callback&scope=user-read-playback-state%20user-modify-playback-state%20streaming'
 
 function GigControlPage() {
   const navigate = useNavigate()
@@ -34,6 +38,8 @@ function GigControlPage() {
   const [songActionBusyId, setSongActionBusyId] = useState<string | null>(null)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const [snapshotStatusText, setSnapshotStatusText] = useState<string | null>(null)
+  const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
+  const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -70,6 +76,55 @@ function GigControlPage() {
   const joinUrl = getAudienceUrl(event?.id)
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
+
+  useEffect(() => {
+    const storedToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)
+    if (storedToken) {
+      setSpotifyAccessToken(storedToken)
+    }
+  }, [])
+
+  const refreshSpotifyAccessToken = useCallback(async () => {
+    const response = await fetch('/api/spotify/token')
+    const payload = await response.json().catch(() => ({}))
+
+    if (!response.ok || typeof payload.access_token !== 'string') {
+      throw new Error(payload.error || 'Spotify token refresh failed.')
+    }
+
+    window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
+    setSpotifyAccessToken(payload.access_token)
+    return payload.access_token as string
+  }, [])
+
+  useEffect(() => {
+    if (!spotifyAccessToken) {
+      return
+    }
+
+    let cancelled = false
+    const refreshInterval = window.setInterval(() => {
+      void (async () => {
+        try {
+          const token = await refreshSpotifyAccessToken()
+
+          if (!cancelled) {
+            setSpotifyStatusText(`Spotify session refreshed at ${new Date().toLocaleTimeString()}.`)
+            setSpotifyAccessToken(token)
+          }
+        } catch (error) {
+          if (!cancelled) {
+            setSpotifyStatusText(error instanceof Error ? error.message : 'Spotify refresh failed.')
+          }
+        }
+      })()
+    }, 50 * 60 * 1000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(refreshInterval)
+    }
+  }, [refreshSpotifyAccessToken, spotifyAccessToken])
 
   const copyJoinUrl = async () => {
     const copiedSuccessfully = await copyText(
@@ -378,6 +433,14 @@ function GigControlPage() {
 
   const headerActions: ActionButtonConfig[] = [
     {
+      id: 'connect-spotify',
+      label: spotifyAccessToken ? 'Reconnect Spotify' : 'Connect Spotify',
+      onClick: () => {
+        window.location.assign(SPOTIFY_AUTHORIZE_URL)
+      },
+      variant: spotifyAccessToken ? 'ghost' : 'primary',
+    },
+    {
       id: 'toggle-room-open',
       label: gigActions.roomToggleBusy ? 'Updating...' : event?.roomOpen ? 'Pause Live' : 'Go Live',
       onClick: async () => {
@@ -574,6 +637,28 @@ function GigControlPage() {
           queuedLibrarySongIds={queuedLibrarySongIds}
         />
       </section>
+
+      {spotifyAccessToken ? (
+        <SpotifyPlayerWithSDK
+          accessToken={spotifyAccessToken}
+          onRefreshToken={refreshSpotifyAccessToken}
+        />
+      ) : (
+        <section className="queue-panel" aria-label="Spotify login prompt">
+          <div className="panel-head">
+            <h2>Spotify Web Playback SDK</h2>
+            <span className="meta-badge">Disconnected</span>
+          </div>
+          <p className="subcopy">Connect Spotify to enable play/pause and track skipping from Gig Control.</p>
+          <div className="hero-actions no-margin-bottom">
+            <button type="button" className="primary-button" onClick={() => window.location.assign(SPOTIFY_AUTHORIZE_URL)}>
+              Connect Spotify
+            </button>
+          </div>
+        </section>
+      )}
+
+      {spotifyStatusText ? <p className="subcopy no-margin">{spotifyStatusText}</p> : null}
 
       {/* Now Playing */}
       <section className="gig-now-playing">

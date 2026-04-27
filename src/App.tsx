@@ -26,6 +26,7 @@ const HomePage = lazy(() => import('./pages/HomePage'))
 const MirrorPage = lazy(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazy(() => import('./pages/SetlistLibraryPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const SpotifyCallbackPage = lazy(() => import('./pages/SpotifyCallbackPage'))
 
 function RouteLoading() {
   return (
@@ -152,6 +153,10 @@ const router = createBrowserRouter([
       {
         path: 'a/:eventId',
         element: <AudienceShortcutRedirect />,
+      },
+      {
+        path: 'callback',
+        element: withSuspense(withCrashBoundary('Spotify', <SpotifyCallbackPage />)),
       },
       {
         path: 'admin',

@@ -31,11 +31,13 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
 }
 
 function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onAddSong }: PlaylistSongSelectorProps) {
+  const SONGS_PER_PAGE = 5
   const [playlistName, setPlaylistName] = useState('Selected Playlist')
   const [songs, setSongs] = useState<PlaylistSong[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(0)
 
   useEffect(() => {
     let isCurrent = true
@@ -145,6 +147,17 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
     ))
   }, [songs, searchQuery, queuedLibrarySongIds])
 
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [searchQuery, eventId])
+
+  const totalPages = Math.max(1, Math.ceil(filteredSongs.length / SONGS_PER_PAGE))
+  const safeCurrentPage = Math.min(currentPage, totalPages - 1)
+  const pagedSongs = filteredSongs.slice(
+    safeCurrentPage * SONGS_PER_PAGE,
+    safeCurrentPage * SONGS_PER_PAGE + SONGS_PER_PAGE,
+  )
+
   return (
     <section className="gig-add-song-tab-content" aria-label="Playlist songs">
       <p className="subcopy no-margin">Showing songs from: <strong>{playlistName}</strong></p>
@@ -162,9 +175,37 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
       {loadingSongs ? <p className="meta-badge" role="status" aria-live="polite">Loading playlist songs...</p> : null}
       {errorText ? <p className="error-text" role="alert">{errorText}</p> : null}
 
+      {!loadingSongs && filteredSongs.length > 0 ? (
+        <div className="hero-actions no-margin-bottom" aria-label="Playlist song list pagination">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setCurrentPage((page) => Math.max(0, page - 1))
+            }}
+            disabled={safeCurrentPage === 0}
+          >
+            Previous 5
+          </button>
+          <span className="meta-badge">
+            Page {safeCurrentPage + 1} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setCurrentPage((page) => Math.min(totalPages - 1, page + 1))
+            }}
+            disabled={safeCurrentPage >= totalPages - 1}
+          >
+            Next 5
+          </button>
+        </div>
+      ) : null}
+
       {!loadingSongs ? (
         <ul className="gig-add-song-list" aria-label="Songs in selected playlist">
-          {filteredSongs.map((song) => (
+          {pagedSongs.map((song) => (
             <li key={song.id} className="gig-add-song-item">
               <div className="gig-add-song-main">
                 {song.cover_url ? (
@@ -192,7 +233,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
               </button>
             </li>
           ))}
-          {filteredSongs.length === 0 ? (
+          {pagedSongs.length === 0 ? (
             <li className="subcopy no-margin-bottom">No songs match this playlist search.</li>
           ) : null}
         </ul>
