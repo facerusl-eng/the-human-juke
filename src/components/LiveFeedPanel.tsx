@@ -617,7 +617,7 @@ function LiveFeedPanel({
           {errorText ? <p className="error-text no-margin">{errorText}</p> : null}
 
           <div className="live-feed-actions">
-            <button type="submit" className="primary-button" disabled={busy || !event || !user}>
+            <button type="submit" className="primary-button" disabled={busy || !event}>
               {busy ? 'Posting...' : 'Post to Feed'}
             </button>
             <span className="live-feed-helper-text">{message.trim().length}/280</span>
