@@ -6925,7 +6925,7 @@
 }
 
 .mirror-up-next-label {
-  font-size: clamp(0.92rem, 1.16vw, 1.08rem);
+  font-size: clamp(1rem, 1.28vw, 1.2rem);
 }
 
 .live-feed-panel-mirror {
@@ -6943,7 +6943,7 @@
 .mirror-queue-item {
   min-height: 0;
   height: 100%;
-  padding: 0.56rem 0.72rem;
+  padding: 0.64rem 0.82rem;
   gap: 0.58rem;
   align-items: flex-start;
 }
@@ -6958,7 +6958,7 @@
 }
 
 .mirror-queue-title {
-  font-size: clamp(1.08rem, 1.44vw, 1.42rem);
+  font-size: clamp(1.2rem, 1.62vw, 1.62rem);
   line-height: 1.18;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -6967,7 +6967,7 @@
 }
 
 .mirror-queue-artist {
-  font-size: clamp(0.86rem, 1.08vw, 1.06rem);
+  font-size: clamp(0.94rem, 1.2vw, 1.16rem);
   line-height: 1.2;
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -6976,7 +6976,7 @@
 }
 
 .mirror-queue-votes {
-  font-size: clamp(0.92rem, 1.18vw, 1.08rem);
+  font-size: clamp(1rem, 1.28vw, 1.2rem);
 }
 
 .live-feed-panel-mirror .live-feed-list {
@@ -7003,7 +7003,7 @@
 
 .live-feed-panel-mirror .live-feed-post-image {
   width: 100%;
-  max-height: clamp(170px, 25vh, 320px);
+  max-height: clamp(140px, 20vh, 240px);
   object-fit: cover;
   border-radius: 12px;
 }
