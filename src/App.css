@@ -3934,7 +3934,7 @@
 
 .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.36fr) auto;
+  grid-template-rows: minmax(0, 0.58fr) minmax(0, 0.30fr) auto;
   align-items: stretch;
 }
 
@@ -3978,7 +3978,7 @@
 
 .mirror-shell-venue-club .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.5fr) minmax(0, 0.38fr) auto;
+  grid-template-rows: minmax(0, 0.56fr) minmax(0, 0.32fr) auto;
 }
 
 .mirror-shell-venue-club .mirror-secondary-grid {
@@ -3996,7 +3996,7 @@
 
 .mirror-shell-venue-lounge .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.36fr) auto;
+  grid-template-rows: minmax(0, 0.58fr) minmax(0, 0.30fr) auto;
 }
 
 .mirror-shell-venue-lounge .mirror-secondary-grid {
@@ -4005,7 +4005,7 @@
 
 .mirror-shell-venue-festival .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.54fr) minmax(0, 0.34fr) auto;
+  grid-template-rows: minmax(0, 0.60fr) minmax(0, 0.28fr) auto;
 }
 
 .mirror-shell-venue-festival .mirror-secondary-grid {
@@ -5134,7 +5134,7 @@
   .mirror-shell-venue-lounge .mirror-stage-live,
   .mirror-shell-venue-festival .mirror-stage-live {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    grid-template-rows: minmax(0, 1.2fr) minmax(0, 0.8fr);
   }
 
   .mirror-stage-live .mirror-now-playing {
