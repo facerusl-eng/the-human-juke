@@ -78,8 +78,8 @@ async function convertHeicToJpegDataUrl(file: File) {
 export async function prepareFeedImage(file: File) {
   console.log('prepareFeedImage: started', { name: file.name, size: file.size, type: file.type })
 
-  if (!file.type.startsWith('image/') && !hasLikelyImageName(file)) {
-    console.log('prepareFeedImage: file type/name not recognized', { type: file.type, name: file.name })
+  if (file.size === 0) {
+    console.log('prepareFeedImage: file is empty')
     throw new Error('Please choose an image file.')
   }
 
@@ -108,13 +108,13 @@ export async function prepareFeedImage(file: File) {
     console.log('prepareFeedImage: loading image from data URL...')
     image = await loadImage(sourceDataUrl)
     console.log('prepareFeedImage: image loaded', { width: image.width, height: image.height })
-  } catch {
-    console.log('prepareFeedImage: image load failed')
+  } catch (error) {
+    console.log('prepareFeedImage: image load failed', { error: String(error) })
     if (isHeicLikeImage(file)) {
       throw new Error('This phone photo format is not supported here yet. Save/export as JPG and try again.')
     }
 
-    throw new Error('Unable to process the selected image.')
+    throw new Error('Unable to process the selected image. Try a different photo.')
   }
 
   const canvas = document.createElement('canvas')
