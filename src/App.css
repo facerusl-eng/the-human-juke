@@ -6857,7 +6857,7 @@
 
 .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 0.16fr) minmax(0, 0.84fr) !important;
+  grid-template-rows: minmax(0, 0.22fr) minmax(0, 0.78fr) !important;
   min-height: min(90vh, calc(100vh - 6.5rem));
 }
 
@@ -6881,7 +6881,7 @@
 }
 
 .mirror-shell-hide-controls .mirror-stage-live {
-  grid-template-rows: minmax(0, 0.1fr) minmax(0, 0.9fr) !important;
+  grid-template-rows: minmax(0, 0.16fr) minmax(0, 0.84fr) !important;
 }
 
 .mirror-shell-hide-controls .mirror-stage-live .mirror-secondary-grid {
@@ -7003,7 +7003,7 @@
 
 .live-feed-panel-mirror .live-feed-post-image {
   width: 100%;
-  max-height: clamp(140px, 20vh, 240px);
+  max-height: clamp(120px, 17vh, 200px);
   object-fit: cover;
   border-radius: 12px;
 }
