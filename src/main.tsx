@@ -118,6 +118,15 @@ async function cleanupLegacyServiceWorkers() {
 
     await Promise.all(
       registrations.map(async (registration) => {
+        const scriptUrl = registration.active?.scriptURL
+          ?? registration.waiting?.scriptURL
+          ?? registration.installing?.scriptURL
+          ?? ''
+
+        if (scriptUrl.includes('/service-worker.js')) {
+          return
+        }
+
         try {
           const unregistered = await registration.unregister()
 
@@ -145,6 +154,19 @@ async function cleanupLegacyServiceWorkers() {
   } catch {
     emitRuntimeNotice('Background cleanup had issues. The app will keep running and retry later.')
     // Ignore service worker access failures in restricted browsers.
+  }
+}
+
+async function registerProductionServiceWorker() {
+  if (!import.meta.env.PROD || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.register('/service-worker.js')
+    console.info('Service worker registered', registration.scope)
+  } catch (error) {
+    console.error('Service worker registration failed', error)
   }
 }
 
@@ -290,6 +312,7 @@ function installGlobalRuntimeHooks() {
 setupBuildUpdateRefresh()
 installGlobalRuntimeHooks()
 void cleanupLegacyServiceWorkers()
+void registerProductionServiceWorker()
 
 const rootElement = document.getElementById('root')
 

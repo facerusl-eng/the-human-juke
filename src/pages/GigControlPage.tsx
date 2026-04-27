@@ -6,6 +6,7 @@ import SpotifyPlayerWithSDK from '../components/SpotifyPlayerWithSDK.jsx'
 import { useClipboardCopy } from '../hooks/useClipboardCopy'
 import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
+import { registerBackgroundSync } from '../lib/backgroundSync'
 import { captureQueueSnapshot, getLatestQueueSnapshot } from '../lib/queueSnapshots'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
 import { useAuthStore } from '../state/authStore'
@@ -13,6 +14,7 @@ import { useQueueStore } from '../state/queueStore'
 
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
+const BACKGROUND_SYNC_TAG = 'jukebox-sync'
 type SpotifyTransportMode = 'play' | 'pause'
 
 function GigControlPage() {
@@ -43,6 +45,7 @@ function GigControlPage() {
   const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
   const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
   const [spotifyAutoTransportEnabled, setSpotifyAutoTransportEnabled] = useState(true)
+  const [workerHeartbeatText, setWorkerHeartbeatText] = useState<string | null>(null)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -65,6 +68,7 @@ function GigControlPage() {
   const previousSongIdRef = useRef<string | null>(null)
   const previousRoomOpenRef = useRef<boolean | null>(null)
   const playbackActionLockRef = useRef(false)
+  const gigWorkerRef = useRef<Worker | null>(null)
 
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
@@ -149,6 +153,38 @@ function GigControlPage() {
     }
   }, [refreshSpotifyAccessToken, spotifyAccessToken])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof Worker === 'undefined') {
+      return
+    }
+
+    const worker = new Worker(new URL('../workers/gigWorker.js', import.meta.url), { type: 'module' })
+    gigWorkerRef.current = worker
+
+    worker.addEventListener('message', (event: MessageEvent<{ type?: string, tickCount?: number, tag?: string }>) => {
+      const message = event.data
+
+      if (message?.type === 'tick') {
+        if ((message.tickCount ?? 0) % 10 === 0) {
+          setWorkerHeartbeatText(`Background worker active (${message.tickCount}s).`)
+        }
+        return
+      }
+
+      if (message?.type === 'sync-hint') {
+        void registerBackgroundSync(message.tag || BACKGROUND_SYNC_TAG)
+      }
+    })
+
+    worker.postMessage({ type: 'start' })
+
+    return () => {
+      worker.postMessage({ type: 'stop' })
+      worker.terminate()
+      gigWorkerRef.current = null
+    }
+  }, [])
+
   const copyJoinUrl = async () => {
     const copiedSuccessfully = await copyText(
       joinUrl,
@@ -177,6 +213,7 @@ function GigControlPage() {
     })
 
     setSnapshotStatusText(`Snapshot saved at ${new Date().toLocaleTimeString()}.`)
+    void registerBackgroundSync(BACKGROUND_SYNC_TAG)
   }
 
   const downloadLatestSnapshot = () => {
@@ -386,6 +423,7 @@ function GigControlPage() {
       }
 
       await action()
+      await registerBackgroundSync(BACKGROUND_SYNC_TAG)
       setErrorText(null)
       return true
     } catch (error) {
@@ -862,9 +900,11 @@ function GigControlPage() {
 
                       try {
                         await removeSong(song.id)
+                        await registerBackgroundSync(BACKGROUND_SYNC_TAG)
                       } catch {
                         setErrorText('Failed to remove.')
                       } finally {
+                          {workerHeartbeatText ? <p className="subcopy no-margin">{workerHeartbeatText}</p> : null}
                         setSongActionBusyId(null)
                       }
                     }}

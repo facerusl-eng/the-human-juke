@@ -7,6 +7,7 @@ import { SettingsSection } from '../components/settings/SettingsSection'
 import { useAutosaveSaveLifecycle } from '../hooks/useAutosaveSaveLifecycle'
 import { useClipboardCopy } from '../hooks/useClipboardCopy'
 import { getAudienceUrl } from '../lib/audienceUrl'
+import { registerBackgroundSync } from '../lib/backgroundSync'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
@@ -351,6 +352,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
       setInitialSelectedPlaylistIds(normalizePlaylistIds(saveState.selectedPlaylistIds))
       markSaved()
+      await registerBackgroundSync('jukebox-sync')
     } catch (error) {
       console.warn('GigSettingsPage: failed to save settings', error)
       setErrorText(error instanceof Error ? error.message : 'Unable to save gig settings.')

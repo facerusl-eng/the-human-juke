@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { registerBackgroundSync } from '../lib/backgroundSync'
 
 type UseGigActionsOptions = {
   setActiveEvent?: (nextEventId: string) => Promise<void>
@@ -48,6 +49,7 @@ export function useGigActions(options: UseGigActionsOptions) {
 
     try {
       await setActiveEvent(nextEventId)
+      await registerBackgroundSync('jukebox-sync')
       return true
     } catch (error) {
       setErrorText?.(
@@ -69,6 +71,7 @@ export function useGigActions(options: UseGigActionsOptions) {
 
     try {
       await toggleRoomOpen()
+      await registerBackgroundSync('jukebox-sync')
       return true
     } catch (error) {
       setErrorText?.(
@@ -90,6 +93,7 @@ export function useGigActions(options: UseGigActionsOptions) {
 
     try {
       await toggleExplicitFilter()
+      await registerBackgroundSync('jukebox-sync')
       return true
     } catch (error) {
       setErrorText?.(

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-label="The Human Jukebox icon">
+  <rect width="192" height="192" rx="32" fill="#000000"/>
+  <circle cx="96" cy="96" r="56" fill="#111111" stroke="#f4d35e" stroke-width="8"/>
+  <circle cx="96" cy="96" r="14" fill="#f4d35e"/>
+  <path d="M96 40v28" stroke="#f4d35e" stroke-width="8" stroke-linecap="round"/>
+  <path d="M96 124v28" stroke="#f4d35e" stroke-width="8" stroke-linecap="round"/>
+  <path d="M40 96h28" stroke="#f4d35e" stroke-width="8" stroke-linecap="round"/>
+  <path d="M124 96h28" stroke="#f4d35e" stroke-width="8" stroke-linecap="round"/>
+</svg>
