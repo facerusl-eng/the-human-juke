@@ -5065,9 +5065,9 @@
 .live-feed-panel-mirror .live-feed-list {
   grid-column: 1;
   grid-row: 2;
-  width: 100%;
+  width: 500px;
   max-height: none;
-  height: 100%;
+  height: 1000px;
   justify-self: stretch;
   align-self: stretch;
   min-height: 0;
