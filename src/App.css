@@ -7051,11 +7051,6 @@
   .mirror-artist {
     font-size: clamp(0.94rem, 3.3vw, 1.16rem);
   }
-
-  .live-feed-panel-mirror .live-feed-split {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-  }
 }
 .setlist-kpis strong {
   font-family: var(--font-head);
