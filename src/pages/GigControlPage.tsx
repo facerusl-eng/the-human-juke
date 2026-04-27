@@ -463,6 +463,25 @@ function GigControlPage() {
     }
   }, [runPlaybackAction, sendSpotifyTransportCommand, syncStartedState])
 
+  const runTogglePlayShortcut = useCallback(async () => {
+    if (!nowPlaying || playbackActionLockRef.current || spaceActionBusy) {
+      return
+    }
+
+    if (!isNowPlayingStarted) {
+      await startCurrentSong()
+      return
+    }
+
+    const finishedSong = await runPlaybackAction(async () => {
+      await markPlayed()
+    })
+
+    if (finishedSong) {
+      sendSpotifyTransportCommand('play')
+    }
+  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, sendSpotifyTransportCommand, spaceActionBusy, startCurrentSong])
+
   useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
       if (event.key !== ' ' && event.code !== 'Space') {
@@ -489,18 +508,7 @@ function GigControlPage() {
       event.preventDefault()
 
       try {
-        if (!isNowPlayingStarted) {
-          await startCurrentSong()
-          return
-        }
-
-        const finishedSong = await runPlaybackAction(async () => {
-          await markPlayed()
-        })
-
-        if (finishedSong) {
-          sendSpotifyTransportCommand('play')
-        }
+        await runTogglePlayShortcut()
       } catch (error) {
         console.warn('GigControlPage: spacebar playback action failed', error)
         setErrorText('Playback control failed. Please try again.')
@@ -509,7 +517,7 @@ function GigControlPage() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, sendSpotifyTransportCommand, spaceActionBusy, startCurrentSong])
+  }, [nowPlaying, runTogglePlayShortcut, spaceActionBusy])
 
   const headerActions: ActionButtonConfig[] = [
     {
@@ -550,6 +558,20 @@ function GigControlPage() {
         const mirrorUrl = `${window.location.origin}/mirror`
         window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
       },
+      variant: 'ghost',
+    },
+    {
+      id: 'toggle-play-shortcut',
+      label: isNowPlayingStarted ? 'Toggle Play (Mark Played)' : 'Toggle Play (Start)',
+      onClick: async () => {
+        try {
+          await runTogglePlayShortcut()
+        } catch (error) {
+          console.warn('GigControlPage: toggle play shortcut failed', error)
+          setErrorText('Playback control failed. Please try again.')
+        }
+      },
+      disabled: !nowPlaying || spaceActionBusy || songActionBusyId === nowPlaying?.id,
       variant: 'ghost',
     },
   ]

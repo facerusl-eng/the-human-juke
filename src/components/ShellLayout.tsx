@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AUDIENCE_NAME_COMMITTED_EVENT, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
+const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 
 function ShellLayout() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { user, isHost, loading, signInHost, signOut } = useAuthStore()
   const { event } = useQueueStore()
   const [email, setEmail] = useState('')
@@ -83,6 +85,57 @@ function ShellLayout() {
       window.removeEventListener('offline', onOffline)
     }
   }, [])
+
+  useEffect(() => {
+    if (location.pathname === '/callback') {
+      return
+    }
+
+    const searchParams = new URLSearchParams(location.search)
+    const spotifyCode = searchParams.get('code')
+    const spotifyAuthError = searchParams.get('error')
+
+    if (!spotifyCode && !spotifyAuthError) {
+      return
+    }
+
+    if (spotifyAuthError) {
+      setRuntimeNotice('Spotify authorization was cancelled or denied.')
+      return
+    }
+
+    let cancelled = false
+
+    setRuntimeNotice('Finishing Spotify login...')
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/spotify/callback?code=${encodeURIComponent(spotifyCode as string)}`)
+        const payload = await response.json().catch(() => ({}))
+
+        if (!response.ok || typeof payload.access_token !== 'string') {
+          throw new Error(payload.error || 'Spotify login failed.')
+        }
+
+        window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
+
+        if (!cancelled) {
+          setRuntimeNotice('Spotify connected. Redirecting to Gig Control...')
+          navigate('/admin/gig-control', { replace: true })
+        }
+      } catch (error) {
+        if (cancelled) {
+          return
+        }
+
+        setRuntimeNotice(error instanceof Error ? error.message : 'Spotify callback failed.')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [location.pathname, location.search, navigate])
 
   return (
     <main className={shellClassName}>
