@@ -197,6 +197,17 @@ function GigControlPage() {
     }
   }
 
+  const connectSpotify = useCallback(async () => {
+    try {
+      const token = await refreshSpotifyAccessToken()
+      setSpotifyStatusText(`Spotify connected from saved session at ${new Date().toLocaleTimeString()}.`)
+      setSpotifyAccessToken(token)
+      return
+    } catch {
+      window.location.assign('/api/spotify/login')
+    }
+  }, [refreshSpotifyAccessToken])
+
   const saveQueueSnapshot = () => {
     if (!event) {
       setSnapshotStatusText('No active gig to snapshot.')
@@ -504,8 +515,8 @@ function GigControlPage() {
     {
       id: 'connect-spotify',
       label: spotifyAccessToken ? 'Reconnect Spotify' : 'Connect Spotify',
-      onClick: () => {
-        window.location.assign('/api/spotify/login')
+      onClick: async () => {
+        await connectSpotify()
       },
       variant: spotifyAccessToken ? 'ghost' : 'primary',
     },
@@ -741,7 +752,13 @@ function GigControlPage() {
           </div>
           <p className="subcopy">Connect Spotify to enable play/pause and track skipping from Gig Control.</p>
           <div className="hero-actions no-margin-bottom">
-            <button type="button" className="primary-button" onClick={() => window.location.assign('/api/spotify/login')}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={async () => {
+                await connectSpotify()
+              }}
+            >
               Connect Spotify
             </button>
           </div>
