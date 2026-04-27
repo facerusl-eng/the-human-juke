@@ -20,6 +20,18 @@ type PersistedAuthSession = {
   updatedAt: number
 }
 
+function isAdminRoutePath() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.pathname.startsWith('/admin')
+}
+
+function shouldAutoCreateAudienceSession() {
+  return !isAdminRoutePath()
+}
+
 type Role = 'guest' | 'host'
 
 type Profile = {
@@ -211,6 +223,10 @@ function AuthProvider({ children }: PropsWithChildren) {
       return
     }
 
+    if (isAdminRoutePath() && !snapshot.isHost) {
+      return
+    }
+
     setUser((currentUser) => {
       if (currentUser?.id) {
         return currentUser
@@ -360,6 +376,11 @@ function AuthProvider({ children }: PropsWithChildren) {
           return
         }
 
+        if (!shouldAutoCreateAudienceSession()) {
+          await applySessionState(null)
+          return
+        }
+
         try {
           const guestSession = await ensureAudienceSession()
           await applySessionState(guestSession)
@@ -396,6 +417,11 @@ function AuthProvider({ children }: PropsWithChildren) {
         return
       }
 
+      if (!shouldAutoCreateAudienceSession()) {
+        await applySessionState(null)
+        return
+      }
+
       try {
         const guestSession = await ensureAudienceSession()
         await applySessionState(guestSession)
@@ -414,7 +440,7 @@ function AuthProvider({ children }: PropsWithChildren) {
   }, [applySessionState, ensureAudienceSession])
 
   useEffect(() => {
-    if (session || user || isHostSignInInProgressRef.current) {
+    if (session || user || isHostSignInInProgressRef.current || !shouldAutoCreateAudienceSession()) {
       return
     }
 
