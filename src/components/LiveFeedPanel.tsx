@@ -113,6 +113,7 @@ function LiveFeedPanel({
   const [loading, setLoading] = useState(true)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [selectedImageName, setSelectedImageName] = useState<string | null>(null)
+  const [imageStatusText, setImageStatusText] = useState<string | null>(null)
   const [feedNow, setFeedNow] = useState(() => Date.now())
   const suggestedAuthorName = useMemo(
     () => getSuggestedAuthorName(user?.email, isHost),
@@ -364,14 +365,18 @@ function LiveFeedPanel({
     const file = changeEvent.target.files?.[0]
 
     if (!file) {
+      setImageStatusText('No photo selected yet.')
       return
     }
 
     setErrorText(null)
+    setSelectedImageName(file.name || 'Camera photo')
+    setImageStatusText('Preparing photo...')
 
     if (file.size === 0) {
       setImageDataUrl(null)
       setSelectedImageName(null)
+      setImageStatusText(null)
       setErrorText('Camera did not return a usable photo. Please try again or choose from gallery.')
       changeEvent.target.value = ''
       return
@@ -380,10 +385,11 @@ function LiveFeedPanel({
     try {
       const preparedImage = await prepareFeedImage(file)
       setImageDataUrl(preparedImage)
-      setSelectedImageName(file.name)
+      setImageStatusText('Photo ready.')
     } catch (error) {
       setImageDataUrl(null)
       setSelectedImageName(null)
+      setImageStatusText(null)
       setErrorText(error instanceof Error ? error.message : 'Unable to use that photo.')
     } finally {
       changeEvent.target.value = ''
@@ -393,6 +399,7 @@ function LiveFeedPanel({
   const clearSelectedImage = () => {
     setImageDataUrl(null)
     setSelectedImageName(null)
+    setImageStatusText(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -508,6 +515,7 @@ function LiveFeedPanel({
       }
 
       setMessage('')
+      setImageStatusText(null)
       clearSelectedImage()
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Unable to post to the live feed.')
@@ -592,7 +600,6 @@ function LiveFeedPanel({
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               className="live-feed-file-input"
               aria-label="Upload crowd feed photo"
               onClick={suppressReconnectWarning}
@@ -606,6 +613,7 @@ function LiveFeedPanel({
               Camera or Photo
             </label>
             {selectedImageName ? <span className="live-feed-image-name">{selectedImageName}</span> : null}
+            {imageStatusText ? <span className="live-feed-helper-text">{imageStatusText}</span> : null}
             {imageDataUrl ? (
               <button type="button" className="ghost-button" onClick={clearSelectedImage}>
                 Remove Image
