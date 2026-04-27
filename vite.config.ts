@@ -6,6 +6,12 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      '.lhr.life',
+      '.loca.lt',
+    ],
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

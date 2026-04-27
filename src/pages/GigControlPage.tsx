@@ -12,7 +12,6 @@ import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
-const SPOTIFY_AUTHORIZE_URL = 'https://accounts.spotify.com/authorize?client_id=510534c3ee9046aba1b67cb526ef8b1c&response_type=code&redirect_uri=http://localhost:5173/callback&scope=user-read-playback-state%20user-modify-playback-state%20streaming'
 
 function GigControlPage() {
   const navigate = useNavigate()
@@ -436,7 +435,7 @@ function GigControlPage() {
       id: 'connect-spotify',
       label: spotifyAccessToken ? 'Reconnect Spotify' : 'Connect Spotify',
       onClick: () => {
-        window.location.assign(SPOTIFY_AUTHORIZE_URL)
+        window.location.assign('/api/spotify/login')
       },
       variant: spotifyAccessToken ? 'ghost' : 'primary',
     },
@@ -651,7 +650,7 @@ function GigControlPage() {
           </div>
           <p className="subcopy">Connect Spotify to enable play/pause and track skipping from Gig Control.</p>
           <div className="hero-actions no-margin-bottom">
-            <button type="button" className="primary-button" onClick={() => window.location.assign(SPOTIFY_AUTHORIZE_URL)}>
+            <button type="button" className="primary-button" onClick={() => window.location.assign('/api/spotify/login')}>
               Connect Spotify
             </button>
           </div>

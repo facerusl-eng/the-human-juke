@@ -6,18 +6,31 @@ const port = Number(process.env.SPOTIFY_SERVER_PORT ?? 3001)
 
 const spotifyClientId = process.env.SPOTIFY_CLIENT_ID ?? '510534c3ee9046aba1b67cb526ef8b1c'
 const spotifyClientSecret = process.env.SPOTIFY_CLIENT_SECRET ?? ''
-const spotifyRedirectUri = process.env.SPOTIFY_REDIRECT_URI ?? 'http://localhost:5173/callback'
+const spotifyRedirectUriOverride = process.env.SPOTIFY_REDIRECT_URI?.trim() ?? ''
+const spotifyRedirectUriDev = process.env.SPOTIFY_REDIRECT_URI_DEV ?? 'http://localhost:5173/callback'
+const spotifyRedirectUriProd = process.env.SPOTIFY_REDIRECT_URI_PROD ?? spotifyRedirectUriDev
 const spotifyScopes = 'user-read-playback-state user-modify-playback-state streaming'
 
 let latestRefreshToken = process.env.SPOTIFY_REFRESH_TOKEN ?? null
 
 app.use(express.json())
 
+function getSpotifyRedirectUri() {
+  if (spotifyRedirectUriOverride) {
+    return spotifyRedirectUriOverride
+  }
+
+  return process.env.NODE_ENV === 'production'
+    ? spotifyRedirectUriProd
+    : spotifyRedirectUriDev
+}
+
 function getAuthorizeUrl() {
+  const redirectUri = getSpotifyRedirectUri()
   const params = new URLSearchParams({
     client_id: spotifyClientId,
     response_type: 'code',
-    redirect_uri: spotifyRedirectUri,
+    redirect_uri: redirectUri,
     scope: spotifyScopes,
   })
 
@@ -25,10 +38,11 @@ function getAuthorizeUrl() {
 }
 
 async function exchangeCodeForTokens(code) {
+  const redirectUri = getSpotifyRedirectUri()
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
-    redirect_uri: spotifyRedirectUri,
+    redirect_uri: redirectUri,
   })
 
   const authHeader = Buffer.from(`${spotifyClientId}:${spotifyClientSecret}`).toString('base64')

@@ -52,6 +52,48 @@ async function parseJson(response) {
   return response.json().catch(() => ({}))
 }
 
+function normalizeTrackUri(input) {
+  const trimmed = input.trim()
+
+  if (!trimmed) {
+    return ''
+  }
+
+  if (trimmed.startsWith('spotify:track:')) {
+    return trimmed
+  }
+
+  const trackUrlMatch = trimmed.match(/spotify\.com\/track\/([a-zA-Z0-9]+)/i)
+  if (trackUrlMatch?.[1]) {
+    return `spotify:track:${trackUrlMatch[1]}`
+  }
+
+  return trimmed
+}
+
+function normalizePlaylistContextUri(input) {
+  const trimmed = input.trim()
+
+  if (!trimmed) {
+    return ''
+  }
+
+  if (trimmed.startsWith('spotify:playlist:')) {
+    return trimmed
+  }
+
+  const playlistUrlMatch = trimmed.match(/spotify\.com\/playlist\/([a-zA-Z0-9]+)/i)
+  if (playlistUrlMatch?.[1]) {
+    return `spotify:playlist:${playlistUrlMatch[1]}`
+  }
+
+  if (/^[a-zA-Z0-9]+$/.test(trimmed)) {
+    return `spotify:playlist:${trimmed}`
+  }
+
+  return ''
+}
+
 function SpotifyPlayerWithSDK({ accessToken, onRefreshToken }) {
   const playerRef = useRef(null)
   const accessTokenRef = useRef(accessToken)
@@ -60,6 +102,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken }) {
   const [deviceId, setDeviceId] = useState(null)
   const [playerStatus, setPlayerStatus] = useState('Spotify player is idle.')
   const [spotifyUriInput, setSpotifyUriInput] = useState('')
+  const [playlistInput, setPlaylistInput] = useState('')
   const [actionBusy, setActionBusy] = useState(false)
 
   accessTokenRef.current = accessToken
@@ -211,7 +254,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken }) {
   }
 
   const startPlayback = async (spotifyUri) => {
-    if (!spotifyUri || !deviceId) {
+    const normalizedTrackUri = normalizeTrackUri(spotifyUri)
+
+    if (!normalizedTrackUri || !deviceId) {
       setPlayerStatus('Provide a Spotify URI and wait for device readiness.')
       return
     }
@@ -226,7 +271,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken }) {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ uris: [spotifyUri] }),
+          body: JSON.stringify({ uris: [normalizedTrackUri] }),
         })
 
         if (response.status === 401) {
@@ -240,9 +285,49 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken }) {
         }
       })
 
-      setPlayerStatus(`Started playback for ${spotifyUri}.`)
+      setPlayerStatus(`Started playback for ${normalizedTrackUri}.`)
     } catch (error) {
       setPlayerStatus(error instanceof Error ? error.message : 'Start playback failed.')
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  const startPlaylistPlayback = async (playlistIdOrUri) => {
+    const contextUri = normalizePlaylistContextUri(playlistIdOrUri)
+
+    if (!contextUri || !deviceId) {
+      setPlayerStatus('Provide a valid Spotify playlist ID/URI/URL and wait for device readiness.')
+      return
+    }
+
+    setActionBusy(true)
+
+    try {
+      await withRefreshRetry(async (token) => {
+        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ context_uri: contextUri }),
+        })
+
+        if (response.status === 401) {
+          throw new Error('Spotify access token expired.')
+        }
+
+        if (!response.ok) {
+          const payload = await parseJson(response)
+          const message = payload?.error?.message || payload?.error_description || 'Start playlist playback failed.'
+          throw new Error(message)
+        }
+      })
+
+      setPlayerStatus(`Started playlist playback for ${contextUri}.`)
+    } catch (error) {
+      setPlayerStatus(error instanceof Error ? error.message : 'Start playlist playback failed.')
     } finally {
       setActionBusy(false)
     }
@@ -292,6 +377,28 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken }) {
           }}
         >
           Start Playback
+        </button>
+      </div>
+
+      <label htmlFor="spotify-playlist-input" className="gig-switcher-label">Between Songs Playlist (ID, URI, or URL)</label>
+      <input
+        id="spotify-playlist-input"
+        type="text"
+        value={playlistInput}
+        onChange={(event) => setPlaylistInput(event.target.value)}
+        placeholder="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
+        className="gig-switcher-select"
+      />
+      <div className="hero-actions no-margin-bottom">
+        <button
+          type="button"
+          className="primary-button"
+          disabled={actionBusy || !deviceId}
+          onClick={async () => {
+            await startPlaylistPlayback(playlistInput)
+          }}
+        >
+          Play Playlist Between Songs
         </button>
       </div>
     </section>
