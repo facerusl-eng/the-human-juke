@@ -369,6 +369,14 @@ function LiveFeedPanel({
 
     setErrorText(null)
 
+    if (file.size === 0) {
+      setImageDataUrl(null)
+      setSelectedImageName(null)
+      setErrorText('Camera did not return a usable photo. Please try again or choose from gallery.')
+      changeEvent.target.value = ''
+      return
+    }
+
     try {
       const preparedImage = await prepareFeedImage(file)
       setImageDataUrl(preparedImage)
@@ -388,11 +396,6 @@ function LiveFeedPanel({
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-  }
-
-  const openImagePicker = () => {
-    suppressReconnectWarning()
-    fileInputRef.current?.click()
   }
 
   const resolvePostingUser = async (): Promise<User> => {
@@ -585,23 +588,23 @@ function LiveFeedPanel({
 
           <div className="live-feed-media-row">
             <input
+              id={`feed-image-${mode}`}
               ref={fileInputRef}
               type="file"
               accept="image/*"
               capture="environment"
               className="live-feed-file-input"
               aria-label="Upload crowd feed photo"
-              title="Upload crowd feed photo"
               onClick={suppressReconnectWarning}
               onChange={onImageSelected}
             />
-            <button
-              type="button"
+            <label
+              htmlFor={`feed-image-${mode}`}
               className="secondary-button"
-              onClick={openImagePicker}
+              onPointerDown={suppressReconnectWarning}
             >
               Camera or Photo
-            </button>
+            </label>
             {selectedImageName ? <span className="live-feed-image-name">{selectedImageName}</span> : null}
             {imageDataUrl ? (
               <button type="button" className="ghost-button" onClick={clearSelectedImage}>
