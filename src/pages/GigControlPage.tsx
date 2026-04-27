@@ -15,7 +15,7 @@ import { useQueueStore } from '../state/queueStore'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
 const BACKGROUND_SYNC_TAG = 'jukebox-sync'
-type SpotifyTransportMode = 'play' | 'pause'
+type SpotifyTransportMode = 'play' | 'pause' | 'toggle'
 
 function GigControlPage() {
   const navigate = useNavigate()
@@ -463,7 +463,7 @@ function GigControlPage() {
     }
   }, [runPlaybackAction, sendSpotifyTransportCommand, syncStartedState])
 
-  const runTogglePlayShortcut = useCallback(async () => {
+  const runQueueTogglePlayShortcut = useCallback(async () => {
     if (!nowPlaying || playbackActionLockRef.current || spaceActionBusy) {
       return
     }
@@ -508,7 +508,7 @@ function GigControlPage() {
       event.preventDefault()
 
       try {
-        await runTogglePlayShortcut()
+        await runQueueTogglePlayShortcut()
       } catch (error) {
         console.warn('GigControlPage: spacebar playback action failed', error)
         setErrorText('Playback control failed. Please try again.')
@@ -517,7 +517,7 @@ function GigControlPage() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [nowPlaying, runTogglePlayShortcut, spaceActionBusy])
+  }, [nowPlaying, runQueueTogglePlayShortcut, spaceActionBusy])
 
   const headerActions: ActionButtonConfig[] = [
     {
@@ -562,16 +562,16 @@ function GigControlPage() {
     },
     {
       id: 'toggle-play-shortcut',
-      label: isNowPlayingStarted ? 'Toggle Play (Mark Played)' : 'Toggle Play (Start)',
-      onClick: async () => {
-        try {
-          await runTogglePlayShortcut()
-        } catch (error) {
-          console.warn('GigControlPage: toggle play shortcut failed', error)
-          setErrorText('Playback control failed. Please try again.')
+      label: 'Toggle Spotify Playlist',
+      onClick: () => {
+        if (!spotifyAccessToken) {
+          setErrorText('Connect Spotify first to use the playlist toggle shortcut.')
+          return
         }
+
+        setSpotifyTransportCommand({ mode: 'toggle', nonce: Date.now() })
       },
-      disabled: !nowPlaying || spaceActionBusy || songActionBusyId === nowPlaying?.id,
+      disabled: !spotifyAccessToken,
       variant: 'ghost',
     },
   ]
