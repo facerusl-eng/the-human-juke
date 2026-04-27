@@ -6846,8 +6846,8 @@
 
 /* Live gig mirror overrides */
 .mirror-shell {
-  padding: clamp(0.2rem, 0.5vw, 0.52rem);
-  gap: clamp(0.24rem, 0.56vw, 0.48rem);
+  padding: clamp(0.08rem, 0.26vw, 0.22rem);
+  gap: clamp(0.16rem, 0.36vw, 0.28rem);
 }
 
 .mirror-header {
@@ -6857,13 +6857,14 @@
 
 .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 0.41fr) minmax(0, 0.59fr) !important;
+  grid-template-rows: minmax(0, 0.16fr) minmax(0, 0.84fr) !important;
+  min-height: min(90vh, calc(100vh - 6.5rem));
 }
 
 .mirror-stage-live .mirror-now-playing {
   min-height: 0;
   height: 100%;
-  padding: clamp(0.72rem, 1vw, 1.02rem);
+  padding: clamp(0.34rem, 0.58vw, 0.52rem);
   padding-right: clamp(6.4rem, 9vw, 8.6rem);
 }
 
@@ -6872,7 +6873,7 @@
   grid-template-rows: minmax(0, 1fr) !important;
   min-height: 0;
   height: 100%;
-  gap: clamp(0.24rem, 0.48vw, 0.42rem);
+  gap: clamp(0.14rem, 0.28vw, 0.2rem);
 }
 
 .mirror-shell-hide-controls .mirror-header {
@@ -6880,11 +6881,11 @@
 }
 
 .mirror-shell-hide-controls .mirror-stage-live {
-  grid-template-rows: minmax(0, 0.34fr) minmax(0, 0.66fr) !important;
+  grid-template-rows: minmax(0, 0.1fr) minmax(0, 0.9fr) !important;
 }
 
 .mirror-shell-hide-controls .mirror-stage-live .mirror-secondary-grid {
-  grid-template-columns: minmax(0, 1.55fr) minmax(250px, 0.45fr) !important;
+  grid-template-columns: minmax(0, 1.65fr) minmax(230px, 0.35fr) !important;
 }
 
 .mirror-shell-hide-controls .mirror-now-playing {
@@ -6913,20 +6914,22 @@
 
 .mirror-up-next,
 .live-feed-panel-mirror {
-  padding: clamp(0.34rem, 0.58vw, 0.52rem);
+  padding: clamp(0.16rem, 0.32vw, 0.24rem);
 }
 
 .mirror-up-next {
-  gap: 0.48rem;
+  gap: 0.24rem;
 }
 
 .live-feed-panel-mirror {
+  min-height: 0;
+  height: 100%;
   border-radius: 14px;
   border-width: 1px;
 }
 
 .mirror-queue {
-  gap: 0.38rem;
+  gap: 0.2rem;
   grid-template-rows: repeat(5, minmax(0, 1fr));
 }
 
@@ -6972,9 +6975,9 @@
 .live-feed-panel-mirror .live-feed-list {
   width: 100%;
   height: 100%;
-  gap: 0.42rem;
+  gap: 0.22rem;
   margin: 0;
-  padding-right: 0.02rem;
+  padding-right: 0;
   overflow: hidden;
 }
 
@@ -7013,8 +7016,8 @@
 }
 
 .live-feed-panel-mirror .live-feed-post {
-  padding: 0.5rem 0.58rem;
-  gap: 0.5rem;
+  padding: 0.34rem 0.38rem;
+  gap: 0.3rem;
   max-width: none;
   margin-right: 0;
 }
@@ -7033,12 +7036,12 @@
 
 @media (max-width: 1180px) {
   .mirror-stage-live {
-    grid-template-rows: minmax(0, 0.38fr) minmax(0, 0.62fr) !important;
+    grid-template-rows: minmax(0, 0.2fr) minmax(0, 0.8fr) !important;
   }
 
   .mirror-stage-live .mirror-secondary-grid {
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: minmax(0, 0.64fr) minmax(0, 0.36fr) !important;
+    grid-template-rows: minmax(0, 0.7fr) minmax(0, 0.3fr) !important;
   }
 }
 
