@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
+import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { supabase } from '../lib/supabase'
 
 const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
@@ -8,6 +9,16 @@ const AUTH_REQUEST_TIMEOUT_MS = 12_000
 const AUTH_TRANSIENT_RETRY_COUNT = 2
 const AUTH_HOST_SIGN_IN_TIMEOUT_MS = 25_000
 const AUTH_HOST_SIGN_IN_RETRY_COUNT = 3
+const AUTH_SESSION_STORAGE_KEY = 'human-jukebox-auth-session-snapshot'
+const AUTH_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+type PersistedAuthSession = {
+  userId: string
+  email: string | null
+  isHost: boolean
+  activeEventId: string | null
+  updatedAt: number
+}
 
 type Role = 'guest' | 'host'
 
@@ -183,6 +194,64 @@ function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
   const isHostSignInInProgressRef = useRef(false)
+
+  useEffect(() => {
+    const snapshot = readFromLocalStorage<PersistedAuthSession | null>(AUTH_SESSION_STORAGE_KEY, null)
+
+    if (!snapshot) {
+      return
+    }
+
+    const snapshotAge = Date.now() - (snapshot.updatedAt ?? 0)
+    if (!Number.isFinite(snapshotAge) || snapshotAge > AUTH_SESSION_MAX_AGE_MS) {
+      return
+    }
+
+    if (!snapshot.userId) {
+      return
+    }
+
+    setUser((currentUser) => {
+      if (currentUser?.id) {
+        return currentUser
+      }
+
+      return {
+        id: snapshot.userId,
+        email: snapshot.email,
+      } as User
+    })
+
+    setProfile((currentProfile) => {
+      if (currentProfile) {
+        return currentProfile
+      }
+
+      return {
+        role: snapshot.isHost ? 'host' : 'guest',
+        active_event_id: snapshot.activeEventId,
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!user?.id) {
+      try {
+        window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY)
+      } catch {
+        // Ignore localStorage cleanup failures.
+      }
+      return
+    }
+
+    saveToLocalStorage(AUTH_SESSION_STORAGE_KEY, {
+      userId: user.id,
+      email: user.email ?? null,
+      isHost: profile?.role === 'host',
+      activeEventId: profile?.active_event_id ?? null,
+      updatedAt: Date.now(),
+    } satisfies PersistedAuthSession)
+  }, [profile?.active_event_id, profile?.role, user?.email, user?.id])
 
   const syncAllowedHostRole = useCallback(
     async (currentUser: User, currentProfile: Profile | null) => {

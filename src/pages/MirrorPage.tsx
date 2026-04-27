@@ -4,7 +4,9 @@ import { getAudienceUrl } from '../lib/audienceUrl'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 import {
   BETWEEN_SONG_QUOTES,
+  PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
+  PLAYBACK_STATE_STORAGE_KEY,
   readSharedPlaybackState,
   type SharedPlaybackState,
 } from '../lib/playbackState'
@@ -34,8 +36,8 @@ const SPOTLIGHT_CAPTION_BUILDERS = [
 const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
-const MIRROR_PLAYBACK_STORAGE_KEY = 'human-jukebox-playback-state'
-const MIRROR_PLAYBACK_BROADCAST_CHANNEL = 'human-jukebox-playback-state'
+const MIRROR_PLAYBACK_STORAGE_KEY = PLAYBACK_STATE_STORAGE_KEY
+const MIRROR_PLAYBACK_BROADCAST_CHANNEL = PLAYBACK_STATE_BROADCAST_CHANNEL
 const MIRROR_SAFE_MARGINS_STORAGE_KEY = 'human-jukebox-mirror-safe-margins'
 const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
@@ -497,6 +499,25 @@ function MirrorPage() {
     let reconnectTimerId: number | null = null
     let reconnectAttempt = 0
 
+    const stopPlaybackHealthTimer = () => {
+      if (playbackHealthTimerId) {
+        window.clearInterval(playbackHealthTimerId)
+        playbackHealthTimerId = null
+      }
+    }
+
+    const startPlaybackHealthTimer = () => {
+      stopPlaybackHealthTimer()
+
+      playbackHealthTimerId = window.setInterval(() => {
+        if (document.hidden) {
+          return
+        }
+
+        void syncPlaybackState()
+      }, 15000)
+    }
+
     const clearReconnectTimer = () => {
       if (reconnectTimerId !== null) {
         window.clearTimeout(reconnectTimerId)
@@ -595,9 +616,15 @@ function MirrorPage() {
     }
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        recoverMirrorSync()
+      if (document.visibilityState === 'hidden') {
+        clearReconnectTimer()
+        disconnectSubscription()
+        stopPlaybackHealthTimer()
+        return
       }
+
+      recoverMirrorSync()
+      startPlaybackHealthTimer()
     }
 
     const onWindowFocus = () => {
@@ -656,18 +683,14 @@ function MirrorPage() {
       }
     }
 
-    playbackHealthTimerId = window.setInterval(() => {
-      void syncPlaybackState()
-    }, 15000)
+    startPlaybackHealthTimer()
     document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       isCurrent = false
       clearReconnectTimer()
       disconnectSubscription()
-      if (playbackHealthTimerId) {
-        window.clearInterval(playbackHealthTimerId)
-      }
+      stopPlaybackHealthTimer()
       window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
       window.removeEventListener('storage', onStoragePlaybackState)
       window.removeEventListener('focus', onWindowFocus)
@@ -945,6 +968,12 @@ function MirrorPage() {
     }
 
     const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        clearReconnectTimer()
+        disconnectSpotlightChannel()
+        return
+      }
+
       if (document.visibilityState === 'visible') {
         reconnectSpotlightChannel()
         void loadRecentImagePosts(false)
@@ -975,6 +1004,10 @@ function MirrorPage() {
     window.addEventListener('pageshow', onPageShow)
 
     const pollTimerId = window.setInterval(() => {
+      if (document.hidden) {
+        return
+      }
+
       if (isCurrent) {
         void loadRecentImagePosts(false)
       }

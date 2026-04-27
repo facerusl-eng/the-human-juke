@@ -9,13 +9,24 @@ import { getAudienceUrl } from '../lib/audienceUrl'
 import { registerBackgroundSync } from '../lib/backgroundSync'
 import { captureQueueSnapshot, getLatestQueueSnapshot } from '../lib/queueSnapshots'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
+import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
+const GIG_CONTROL_NOW_PLAYING_STORAGE_KEY = 'human-jukebox-gig-control-now-playing'
+const GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS = 12 * 60 * 60 * 1000
 const BACKGROUND_SYNC_TAG = 'jukebox-sync'
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle'
+
+type PersistedGigControlNowPlaying = {
+  eventId: string
+  currentSongId: string | null
+  isNowPlayingStarted: boolean
+  quoteIndex: number
+  updatedAt: number
+}
 
 function GigControlPage() {
   const navigate = useNavigate()
@@ -178,7 +189,20 @@ function GigControlPage() {
 
     worker.postMessage({ type: 'start' })
 
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        worker.postMessage({ type: 'stop' })
+        return
+      }
+
+      worker.postMessage({ type: 'start' })
+      void registerBackgroundSync(BACKGROUND_SYNC_TAG)
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
     return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       worker.postMessage({ type: 'stop' })
       worker.terminate()
       gigWorkerRef.current = null
@@ -377,6 +401,47 @@ function GigControlPage() {
     quoteIndexRef.current = nextQuoteIndex
     setBetweenSongQuoteIndex(nextQuoteIndex)
   }
+
+  useEffect(() => {
+    if (!event?.id || !nowPlaying?.id) {
+      return
+    }
+
+    const snapshot = readFromLocalStorage<PersistedGigControlNowPlaying | null>(
+      GIG_CONTROL_NOW_PLAYING_STORAGE_KEY,
+      null,
+    )
+
+    if (!snapshot || snapshot.eventId !== event.id || snapshot.currentSongId !== nowPlaying.id) {
+      return
+    }
+
+    const snapshotAge = Date.now() - (snapshot.updatedAt ?? 0)
+    if (!Number.isFinite(snapshotAge) || snapshotAge > GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS) {
+      return
+    }
+
+    const normalizedQuoteIndex = Number.isFinite(snapshot.quoteIndex)
+      ? snapshot.quoteIndex % BETWEEN_SONG_QUOTES.length
+      : 0
+
+    setQuoteIndex(normalizedQuoteIndex)
+    setIsNowPlayingStarted(Boolean(snapshot.isNowPlayingStarted))
+  }, [event?.id, nowPlaying?.id])
+
+  useEffect(() => {
+    if (!event?.id) {
+      return
+    }
+
+    saveToLocalStorage(GIG_CONTROL_NOW_PLAYING_STORAGE_KEY, {
+      eventId: event.id,
+      currentSongId: nowPlaying?.id ?? null,
+      isNowPlayingStarted,
+      quoteIndex: quoteIndexRef.current,
+      updatedAt: Date.now(),
+    } satisfies PersistedGigControlNowPlaying)
+  }, [event?.id, isNowPlayingStarted, nowPlaying?.id])
 
   const syncStartedState = useCallback(async (nextStarted: boolean, nextSongId?: string | null) => {
     const targetSongId = nextSongId ?? nowPlaying?.id ?? null

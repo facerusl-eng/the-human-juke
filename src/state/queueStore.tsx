@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { supabase } from '../lib/supabase'
-import { saveToLocalStorage } from '../lib/saveHandling'
+import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { useAuthStore } from './authStore'
 
@@ -110,6 +110,17 @@ const QueueContext = createContext<QueueContextValue | null>(null)
 const DEFAULT_DB_TIMEOUT_MS = 25_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
 const QUEUE_POLL_INTERVAL_MS = 5000
+const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
+const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
+
+type PersistedQueueSnapshot = {
+  event: EventState | null
+  hostEvents: HostEventSummary[]
+  songs: QueueSong[]
+  performedSongs: PerformedSong[]
+  nowPlayingSongId: string | null
+  updatedAt: number
+}
 
 function isFeedRoutePath() {
   if (typeof window === 'undefined') {
@@ -345,6 +356,37 @@ function QueueProvider({ children }: PropsWithChildren) {
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
 
+  useEffect(() => {
+    const snapshot = readFromLocalStorage<PersistedQueueSnapshot | null>(QUEUE_STATE_STORAGE_KEY, null)
+
+    if (!snapshot) {
+      return
+    }
+
+    const snapshotAge = Date.now() - (snapshot.updatedAt ?? 0)
+    if (!Number.isFinite(snapshotAge) || snapshotAge > QUEUE_STATE_MAX_AGE_MS) {
+      return
+    }
+
+    setEvent(snapshot.event ?? null)
+    setHostEvents(Array.isArray(snapshot.hostEvents) ? snapshot.hostEvents : [])
+    setSongs(Array.isArray(snapshot.songs) ? snapshot.songs : [])
+    setPerformedSongs(Array.isArray(snapshot.performedSongs) ? snapshot.performedSongs : [])
+    activeEventIdRef.current = snapshot.event?.id ?? null
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    saveToLocalStorage(QUEUE_STATE_STORAGE_KEY, {
+      event,
+      hostEvents,
+      songs,
+      performedSongs,
+      nowPlayingSongId: songs[0]?.id ?? null,
+      updatedAt: Date.now(),
+    } satisfies PersistedQueueSnapshot)
+  }, [event, hostEvents, performedSongs, songs])
+
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
       const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
@@ -458,7 +500,7 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     const scheduleChannelReconnect = () => {
-      if (!isCurrent || !activeChannelReconnectHandler || channelReconnectTimerId !== null) {
+      if (!isCurrent || document.hidden || !activeChannelReconnectHandler || channelReconnectTimerId !== null) {
         return
       }
 
@@ -580,7 +622,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (!isHostSession) {
             const connectAudienceLiveWatchChannel = () => {
-              if (!isCurrent) {
+              if (!isCurrent || document.hidden) {
                 return
               }
 
@@ -727,7 +769,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         const connectQueueLiveChannel = () => {
-          if (!isCurrent) {
+          if (!isCurrent || document.hidden) {
             return
           }
 
@@ -807,8 +849,42 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     void load()
 
+    const resumeRealtimeSync = () => {
+      if (!isCurrent || document.hidden) {
+        return
+      }
+
+      clearChannelReconnectTimer()
+      channelReconnectAttempt = 0
+      activeChannelReconnectHandler?.()
+
+      const currentEventId = activeEventIdRef.current
+      if (currentEventId) {
+        void fetchQueueSnapshotRef.current(currentEventId)
+      }
+    }
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        clearChannelReconnectTimer()
+        disconnectActiveChannel()
+        return
+      }
+
+      resumeRealtimeSync()
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('focus', resumeRealtimeSync)
+    window.addEventListener('online', resumeRealtimeSync)
+    window.addEventListener('pageshow', resumeRealtimeSync)
+
     return () => {
       isCurrent = false
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('focus', resumeRealtimeSync)
+      window.removeEventListener('online', resumeRealtimeSync)
+      window.removeEventListener('pageshow', resumeRealtimeSync)
       clearChannelReconnectTimer()
       activeChannelReconnectHandler = null
       disconnectActiveChannel()

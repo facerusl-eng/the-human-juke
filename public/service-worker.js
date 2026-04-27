@@ -1,4 +1,4 @@
-const STATIC_CACHE_NAME = 'human-jukebox-static-v1'
+const STATIC_CACHE_NAME = 'human-jukebox-static-v2'
 const SYNC_DB_NAME = 'human-jukebox-sync-db'
 const SYNC_DB_STORE = 'failed-requests'
 const SYNC_TAG = 'jukebox-sync'
@@ -27,10 +27,76 @@ self.addEventListener('activate', (event) => {
           .filter((cacheKey) => cacheKey !== STATIC_CACHE_NAME)
           .map((cacheKey) => caches.delete(cacheKey)),
       )
+
+      if (self.registration.navigationPreload) {
+        await self.registration.navigationPreload.enable()
+      }
+
       await self.clients.claim()
     }),
   )
 })
+
+function isSameOriginStaticAsset(requestUrl) {
+  return requestUrl.origin === self.location.origin && (
+    requestUrl.pathname.startsWith('/assets/')
+    || requestUrl.pathname.startsWith('/icons/')
+    || requestUrl.pathname.endsWith('.js')
+    || requestUrl.pathname.endsWith('.css')
+    || requestUrl.pathname.endsWith('.png')
+    || requestUrl.pathname.endsWith('.svg')
+    || requestUrl.pathname.endsWith('.jpg')
+    || requestUrl.pathname.endsWith('.jpeg')
+    || requestUrl.pathname.endsWith('.webp')
+  )
+}
+
+async function cacheFirstNavigation(event) {
+  const cache = await caches.open(STATIC_CACHE_NAME)
+  const cachedShell = await cache.match('/index.html')
+
+  const preloadResponse = await event.preloadResponse
+
+  if (preloadResponse) {
+    cache.put('/index.html', preloadResponse.clone())
+    return preloadResponse
+  }
+
+  if (cachedShell) {
+    return cachedShell
+  }
+
+  const networkShell = await fetch('/index.html', { cache: 'no-store' })
+  cache.put('/index.html', networkShell.clone())
+  return networkShell
+}
+
+async function staleWhileRevalidateAsset(request) {
+  const cache = await caches.open(STATIC_CACHE_NAME)
+  const cachedResponse = await cache.match(request)
+
+  const networkPromise = fetch(request)
+    .then((networkResponse) => {
+      if (networkResponse && networkResponse.ok) {
+        cache.put(request, networkResponse.clone())
+      }
+
+      return networkResponse
+    })
+    .catch(() => null)
+
+  if (cachedResponse) {
+    void networkPromise
+    return cachedResponse
+  }
+
+  const networkResponse = await networkPromise
+  if (networkResponse) {
+    return networkResponse
+  }
+
+  return caches.match('/index.html') || new Response('Offline', { status: 503 })
+}
 
 function openSyncDb() {
   return new Promise((resolve, reject) => {
@@ -150,30 +216,15 @@ self.addEventListener('sync', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const request = event.request
+  const requestUrl = new URL(request.url)
 
-  if (request.method === 'GET') {
-    event.respondWith(
-      caches.match(request).then(async (cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse
-        }
+  if (request.mode === 'navigate') {
+    event.respondWith(cacheFirstNavigation(event))
+    return
+  }
 
-        try {
-          const networkResponse = await fetch(request)
-          const requestUrl = new URL(request.url)
-
-          if (requestUrl.origin === self.location.origin) {
-            const cache = await caches.open(STATIC_CACHE_NAME)
-            cache.put(request, networkResponse.clone())
-          }
-
-          return networkResponse
-        } catch {
-          return caches.match('/index.html') || new Response('Offline', { status: 503 })
-        }
-      }),
-    )
-
+  if (request.method === 'GET' && isSameOriginStaticAsset(requestUrl)) {
+    event.respondWith(staleWhileRevalidateAsset(request))
     return
   }
 
