@@ -645,3 +645,24 @@ BEGIN
       WITH CHECK (true);
   END IF;
 END $$;
+
+-- ─── Queue reordering: add position column to queue_songs (April 2026) ──────
+ALTER TABLE public.queue_songs
+  ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0;
+
+-- Update existing songs to have sequential positions based on created_at
+UPDATE public.queue_songs qs
+SET position = (
+  SELECT COUNT(*)
+  FROM public.queue_songs qs2
+  WHERE qs2.event_id = qs.event_id
+    AND qs2.is_removed = false
+    AND (qs2.created_at < qs.created_at OR (qs2.created_at = qs.created_at AND qs2.id <= qs.id))
+) - 1
+WHERE is_removed = false;
+
+-- Drop and recreate the index to include position for faster sorting
+DROP INDEX IF EXISTS queue_songs_event_id_active_idx;
+CREATE INDEX IF NOT EXISTS queue_songs_event_id_position_idx
+  ON public.queue_songs (event_id, position)
+  WHERE is_removed = false;

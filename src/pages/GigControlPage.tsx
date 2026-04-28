@@ -40,6 +40,7 @@ function GigControlPage() {
     addSong,
     markPlayed,
     removeSong,
+    moveSong,
     setActiveEvent,
     toggleRoomOpen,
     toggleExplicitFilter,
@@ -992,6 +993,56 @@ function GigControlPage() {
                 </div>
                 <span className="votes">+{song.votes_count}</span>
                 <div className="queue-actions gig-control-row-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={songActionBusyId === song.id || index === 0}
+                    title="Move song up in queue"
+                    onClick={async () => {
+                      if (songActionBusyId === song.id) {
+                        return
+                      }
+
+                      setSongActionBusyId(song.id)
+
+                      try {
+                        await moveSong(song.id, 'up')
+                        await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+                      } catch (error) {
+                        console.warn('GigControlPage: move song up failed', error)
+                        setErrorText(error instanceof Error ? error.message : 'Failed to move song.')
+                      } finally {
+                        setSongActionBusyId(null)
+                      }
+                    }}
+                  >
+                    ↑ Move Up
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={songActionBusyId === song.id || index === upNext.length - 1}
+                    title="Move song down in queue"
+                    onClick={async () => {
+                      if (songActionBusyId === song.id) {
+                        return
+                      }
+
+                      setSongActionBusyId(song.id)
+
+                      try {
+                        await moveSong(song.id, 'down')
+                        await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+                      } catch (error) {
+                        console.warn('GigControlPage: move song down failed', error)
+                        setErrorText(error instanceof Error ? error.message : 'Failed to move song.')
+                      } finally {
+                        setSongActionBusyId(null)
+                      }
+                    }}
+                  >
+                    ↓ Move Down
+                  </button>
                   <button
                     type="button"
                     className="vote-button danger-button"

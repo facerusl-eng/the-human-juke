@@ -17,6 +17,7 @@ export type QueueSong = {
   cover_url: string | null
   library_song_id: string | null
   audience_sings: boolean
+  position?: number
 }
 
 export type PerformedSong = QueueSong & {
@@ -102,6 +103,7 @@ type QueueContextValue = {
   setShowInAudienceNoGig: (visible: boolean) => Promise<void>
   toggleVotingLock: (songId: string, nextValue: boolean) => Promise<void>
   removeSong: (songId: string) => Promise<void>
+  moveSong: (songId: string, direction: 'up' | 'down') => Promise<void>
   createEvent: (name: string, venue: string, options?: CreateEventOptions) => Promise<void>
   markPlayed: () => Promise<void>
 }
@@ -193,10 +195,6 @@ function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: str
       window.clearTimeout(timerId)
     }
   }) as Promise<T>
-}
-
-function sortByVotesDesc(songs: QueueSong[]) {
-  return [...songs].sort((songA, songB) => songB.votes_count - songA.votes_count)
 }
 
 function readRequestedEventIdFromUrl() {
@@ -428,11 +426,10 @@ function QueueProvider({ children }: PropsWithChildren) {
           loadEventSnapshot().then((data) => ({ data, error: null as null | unknown })),
           supabase
             .from('queue_songs')
-            .select('id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings')
+            .select('id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position')
             .eq('event_id', activeEventId)
             .eq('is_removed', false)
-            .order('votes_count', { ascending: false })
-            .order('created_at', { ascending: true }),
+            .order('position', { ascending: true }),
         ]),
         DEFAULT_DB_TIMEOUT_MS,
         'Loading the queue timed out. Please refresh and try again.',
@@ -465,7 +462,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
       coverImageUrl: ((eventData as Record<string, unknown>).cover_image_url as string | null) ?? null,
     })
-    setSongs(sortByVotesDesc((songsData ?? []) as QueueSong[]))
+    setSongs((songsData ?? []) as QueueSong[])
   }, [])
 
   const fetchQueueSnapshotRef = useRef(fetchQueueSnapshot)
@@ -1032,6 +1029,22 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
+        // Get the max position to calculate the next position for this song
+        const { data: maxPositionData, error: maxPositionError } = await supabase
+          .from('queue_songs')
+          .select('position')
+          .eq('event_id', targetEventId)
+          .eq('is_removed', false)
+          .order('position', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (maxPositionError) {
+          throw maxPositionError
+        }
+
+        const nextPosition = ((maxPositionData?.position as number | null) ?? -1) + 1
+
         const { error } = await supabase.from('queue_songs').insert({
           event_id: targetEventId,
           title: normalizedTitle,
@@ -1041,6 +1054,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           library_song_id: options?.librarySongId ?? null,
           audience_sings: options?.performerMode === 'audience',
           created_by: user.id,
+          position: nextPosition,
         })
 
         if (error) {
@@ -1484,6 +1498,48 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         if (error) {
           throw error
+        }
+
+        if (event?.id) {
+          await fetchQueueSnapshot(event.id)
+        }
+      },
+      moveSong: async (songId: string, direction: 'up' | 'down') => {
+        if (!event?.id) {
+          throw new Error('No active gig to reorder songs.')
+        }
+
+        const songIndex = songs.findIndex((song) => song.id === songId)
+        if (songIndex === -1) {
+          throw new Error('Song not found in queue.')
+        }
+
+        // Can't move first song up or last song down
+        if ((direction === 'up' && songIndex === 0) || (direction === 'down' && songIndex === songs.length - 1)) {
+          return
+        }
+
+        const targetIndex = direction === 'up' ? songIndex - 1 : songIndex + 1
+        const currentSong = songs[songIndex]
+        const targetSong = songs[targetIndex]
+
+        // Swap positions in the database
+        const { error: error1 } = await supabase
+          .from('queue_songs')
+          .update({ position: targetSong.position ?? targetIndex })
+          .eq('id', currentSong.id)
+
+        if (error1) {
+          throw error1
+        }
+
+        const { error: error2 } = await supabase
+          .from('queue_songs')
+          .update({ position: currentSong.position ?? songIndex })
+          .eq('id', targetSong.id)
+
+        if (error2) {
+          throw error2
         }
 
         if (event?.id) {
