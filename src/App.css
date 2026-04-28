@@ -6869,7 +6869,7 @@
   min-height: 0;
   height: 100%;
   padding: clamp(0.34rem, 0.58vw, 0.52rem);
-  padding-right: clamp(6.4rem, 9vw, 8.6rem);
+  padding-right: clamp(9.4rem, 12.5vw, 12.8rem);
 }
 
 .mirror-stage-live .mirror-secondary-grid {
@@ -6894,7 +6894,7 @@
 
 .mirror-shell-hide-controls .mirror-now-playing {
   padding: clamp(0.82rem, 1.12vw, 1.14rem);
-  padding-right: clamp(6.8rem, 9.5vw, 9rem);
+  padding-right: clamp(10rem, 13vw, 13.4rem);
 }
 
 .mirror-now-playing-track {
@@ -6917,9 +6917,9 @@
 }
 
 .mirror-now-playing-qr {
-  width: clamp(132px, 10.5vw, 192px);
-  height: clamp(132px, 10.5vw, 192px);
-  padding: clamp(0.26rem, 0.38vw, 0.36rem);
+  width: clamp(188px, 14vw, 280px);
+  height: clamp(188px, 14vw, 280px);
+  padding: clamp(0.32rem, 0.48vw, 0.5rem);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.72);
   box-shadow:
@@ -7154,12 +7154,12 @@
 
   .mirror-stage-live .mirror-now-playing,
   .mirror-shell-hide-controls .mirror-now-playing {
-    padding-right: clamp(5.4rem, 18vw, 7rem);
+    padding-right: clamp(6.8rem, 20vw, 8.4rem);
   }
 
   .mirror-now-playing-qr {
-    width: clamp(74px, 18vw, 96px);
-    height: clamp(74px, 18vw, 96px);
+    width: clamp(82px, 20vw, 110px);
+    height: clamp(82px, 20vw, 110px);
     top: 0.58rem;
     right: 0.58rem;
   }

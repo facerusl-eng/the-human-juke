@@ -311,7 +311,7 @@ function MirrorPage() {
   const audienceUrl = useMemo(() => {
     try {
       const audienceUrlResolver = getAudienceUrl as (...args: unknown[]) => string
-      return audienceUrlResolver(eventId, { compact: true })
+      return audienceUrlResolver(eventId, { compact: true, includeVersion: false })
     } catch (error) {
       logCrashTelemetry({
         route: '/mirror',
@@ -324,7 +324,7 @@ function MirrorPage() {
       return '/audience'
     }
   }, [eventId])
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=H&margin=4&data=${encodeURIComponent(audienceUrl)}`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(audienceUrl)}`
   const playbackSong = playbackState?.currentSongId
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
