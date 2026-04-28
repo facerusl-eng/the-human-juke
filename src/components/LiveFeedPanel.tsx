@@ -797,9 +797,11 @@ function LiveFeedPanel({
               const canDelete = showModerationControls && (user?.id === post.user_id || isHost)
               const normalizedPostImageSource = normalizeImageSource(post.image_data_url)
               const hasImage = Boolean(normalizedPostImageSource)
+              const useMirrorPhotoLayout = isMirrorMode && hasImage
               const imageNode = normalizedPostImageSource ? (
                 <div className="live-feed-post-image-wrapper">
                   <img src={normalizedPostImageSource} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
+                  {useMirrorPhotoLayout ? <strong className="live-feed-post-image-author">{post.author_name}</strong> : null}
                 </div>
               ) : null
 
@@ -808,10 +810,12 @@ function LiveFeedPanel({
                   {isMirrorMode ? imageNode : null}
 
                   <div className="live-feed-post-head">
-                    <div>
-                      <strong>{post.author_name}</strong>
-                      <span>{formatPostTime(post.created_at)}</span>
-                    </div>
+                    {useMirrorPhotoLayout ? <span>{formatPostTime(post.created_at)}</span> : (
+                      <div>
+                        <strong>{post.author_name}</strong>
+                        <span>{formatPostTime(post.created_at)}</span>
+                      </div>
+                    )}
                     {canDelete ? (
                       <button type="button" className="ghost-button live-feed-delete" onClick={() => { void deletePost(post.id) }}>
                         Remove

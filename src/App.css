@@ -7072,29 +7072,36 @@
   text-shadow: none;
 }
 
-.live-feed-panel-mirror .live-feed-post-polaroid .live-feed-post-head {
-  position: relative;
+.live-feed-panel-mirror .live-feed-post-image-author {
+  position: absolute;
+  top: 0.34rem;
+  left: 0.34rem;
   z-index: 2;
-  width: fit-content;
-  margin-top: -2.1rem;
-  margin-left: 0.28rem;
+  max-width: calc(100% - 0.68rem);
   padding: 0.22rem 0.42rem;
   border-radius: 8px;
   background: rgba(247, 244, 234, 0.94);
   border: 1px solid rgba(223, 215, 198, 0.9);
   box-shadow: 0 6px 12px rgba(3, 8, 20, 0.18);
-  align-items: flex-start;
-}
-
-.live-feed-panel-mirror .live-feed-post-head strong {
   font-size: clamp(1rem, 1.24vw, 1.16rem);
   line-height: 1.1;
+  color: #151515;
+  text-shadow: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-feed-panel-mirror .live-feed-post-head {
+  margin-top: 0.1rem;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .live-feed-panel-mirror .live-feed-post-head span {
   font-size: clamp(0.74rem, 0.84vw, 0.82rem);
   line-height: 1.08;
-  margin-top: 0.04rem;
+  color: #544a3e;
 }
 
 .live-feed-panel-mirror .live-feed-post-message {
