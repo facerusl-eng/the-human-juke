@@ -83,9 +83,11 @@ export async function prepareFeedImage(file: File) {
     try {
       sourceDataUrl = await convertHeicToJpegDataUrl(file)
       console.log('prepareFeedImage: HEIC conversion success')
-    } catch {
+    } catch (error) {
       console.log('prepareFeedImage: HEIC conversion failed')
-      throw new Error('This phone photo format could not be converted. In Camera settings, choose Most Compatible (JPG), then try again.')
+      throw new Error('This phone photo format could not be converted. In Camera settings, choose Most Compatible (JPG), then try again.', {
+        cause: error,
+      })
     }
   }
 
@@ -98,10 +100,14 @@ export async function prepareFeedImage(file: File) {
   } catch (error) {
     console.log('prepareFeedImage: image load failed', { error: String(error) })
     if (isHeicLikeImage(file)) {
-      throw new Error('This phone photo format is not supported here yet. Save/export as JPG and try again.')
+      throw new Error('This phone photo format is not supported here yet. Save/export as JPG and try again.', {
+        cause: error,
+      })
     }
 
-    throw new Error('Unable to process the selected image. Try a different photo.')
+    throw new Error('Unable to process the selected image. Try a different photo.', {
+      cause: error,
+    })
   }
 
   const canvas = document.createElement('canvas')

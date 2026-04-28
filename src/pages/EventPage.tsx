@@ -125,6 +125,7 @@ async function fetchUpcomingEventRows() {
 const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 const LIVE_GIG_POLL_INTERVAL_MS = 12000
+const LIVE_GIG_API_POLLING_ENABLED = import.meta.env.VITE_ENABLE_LIVE_GIG_API?.trim() === '1'
 const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 
@@ -163,6 +164,21 @@ async function fetchJsonNoStore(path: string) {
 
 function isExpectedApiFallbackError(error: unknown) {
   return error instanceof Error && error.message.startsWith(EXPECTED_API_FALLBACK_ERROR_PREFIX)
+}
+
+function getExpectedApiFallbackStatusCode(error: unknown): number | null {
+  if (!(error instanceof Error)) {
+    return null
+  }
+
+  const statusMatch = error.message.match(/\((\d{3})\)$/)
+
+  if (!statusMatch?.[1]) {
+    return null
+  }
+
+  const parsedStatus = Number(statusMatch[1])
+  return Number.isFinite(parsedStatus) ? parsedStatus : null
 }
 
 function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlaybackState | null) {
@@ -375,6 +391,7 @@ function EventPage() {
   const eventSearchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
   const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
   const hasRequestedEventParam = Boolean(requestedEventId)
+  const liveGigApiUnavailableRef = useRef(false)
 
   useEffect(() => {
     votingSongIdsRef.current = votingSongIds
@@ -440,10 +457,18 @@ function EventPage() {
       return
     }
 
+    if (!LIVE_GIG_API_POLLING_ENABLED) {
+      return
+    }
+
     let isCurrent = true
     let pollTimerId: number | null = null
 
     const checkLiveGig = async () => {
+      if (liveGigApiUnavailableRef.current) {
+        return
+      }
+
       try {
         const payload = await fetchJsonNoStore('/api/live-gig')
         const liveGigId = getLiveGigIdFromApiPayload(payload)
@@ -468,6 +493,13 @@ function EventPage() {
         }
       } catch (error) {
         const expectedFallbackError = isExpectedApiFallbackError(error)
+        const fallbackStatusCode = getExpectedApiFallbackStatusCode(error)
+
+        if (expectedFallbackError && fallbackStatusCode === 404) {
+          // /api/live-gig is optional in some deployments; disable polling to avoid repeated 404 logs.
+          liveGigApiUnavailableRef.current = true
+          return
+        }
 
         if (!expectedFallbackError) {
           console.warn('EventPage: live gig API check failed', error)

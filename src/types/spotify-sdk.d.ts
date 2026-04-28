@@ -14,7 +14,7 @@ declare global {
 }
 
 type SpotifyPlayerInstance = {
-  addListener: (eventName: string, callback: (payload: any) => void) => void
+  addListener: (eventName: string, callback: (payload: unknown) => void) => void
   removeListener: (eventName: string) => void
   connect: () => Promise<boolean>
   disconnect: () => void

@@ -789,6 +789,7 @@ function GigControlPage() {
             </button>
           </div>
           {snapshotStatusText ? <p className="subcopy no-margin">{snapshotStatusText}</p> : null}
+          {workerHeartbeatText ? <p className="subcopy no-margin">{workerHeartbeatText}</p> : null}
         </article>
       </section>
 
@@ -1008,7 +1009,6 @@ function GigControlPage() {
                       } catch {
                         setErrorText('Failed to remove.')
                       } finally {
-                          {workerHeartbeatText ? <p className="subcopy no-margin">{workerHeartbeatText}</p> : null}
                         setSongActionBusyId(null)
                       }
                     }}
