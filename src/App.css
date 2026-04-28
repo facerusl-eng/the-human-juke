@@ -7033,6 +7033,28 @@
   transform: translate(-50%, -50%);
 }
 
+.live-feed-panel-mirror .live-feed-post-image-wrapper {
+  width: min(74%, 260px);
+  margin: 0.2rem auto 0;
+  padding-top: 0;
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(4, 12, 24, 0.45);
+}
+
+.live-feed-panel-mirror .live-feed-post-image-wrapper .live-feed-post-image {
+  position: static;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
+  object-fit: contain;
+  transform: none;
+}
+
 .live-feed-panel-mirror .live-feed-post-head strong {
   font-size: clamp(0.9rem, 1.06vw, 1rem);
 }
