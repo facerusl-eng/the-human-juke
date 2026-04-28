@@ -82,7 +82,9 @@ type FullscreenDocument = Document & {
 }
 
 type FullscreenElement = HTMLElement & {
+  msRequestFullscreen?: () => Promise<void> | void
   webkitRequestFullscreen?: () => Promise<void> | void
+  webkitRequestFullScreen?: () => Promise<void> | void
 }
 
 function getActiveFullscreenElement() {
@@ -91,19 +93,45 @@ function getActiveFullscreenElement() {
 }
 
 async function requestFullscreenSafe(targetElement: HTMLElement) {
-  const fullscreenTarget = targetElement as FullscreenElement
+  const fullscreenTargets = [
+    targetElement,
+    document.documentElement,
+    document.body,
+  ].filter((candidate): candidate is HTMLElement => Boolean(candidate))
 
-  if (typeof fullscreenTarget.requestFullscreen === 'function') {
-    await fullscreenTarget.requestFullscreen()
-    return
+  let lastError: unknown = null
+
+  for (const candidate of fullscreenTargets) {
+    const fullscreenTarget = candidate as FullscreenElement
+
+    try {
+      if (typeof fullscreenTarget.requestFullscreen === 'function') {
+        await fullscreenTarget.requestFullscreen({ navigationUI: 'hide' } as FullscreenOptions)
+        return
+      }
+
+      if (typeof fullscreenTarget.webkitRequestFullscreen === 'function') {
+        await fullscreenTarget.webkitRequestFullscreen()
+        return
+      }
+
+      if (typeof fullscreenTarget.webkitRequestFullScreen === 'function') {
+        await fullscreenTarget.webkitRequestFullScreen()
+        return
+      }
+
+      if (typeof fullscreenTarget.msRequestFullscreen === 'function') {
+        await fullscreenTarget.msRequestFullscreen()
+        return
+      }
+    } catch (error) {
+      lastError = error
+    }
   }
 
-  if (typeof fullscreenTarget.webkitRequestFullscreen === 'function') {
-    await fullscreenTarget.webkitRequestFullscreen()
-    return
-  }
-
-  throw new Error('Fullscreen API is unavailable in this browser.')
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Fullscreen API is unavailable in this browser.')
 }
 
 async function exitFullscreenSafe() {
@@ -198,6 +226,7 @@ function MirrorPage() {
   const spotlightQueueRef = useRef<SpotlightQueueItem[]>([])
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
+  const mirrorShellRef = useRef<HTMLDivElement | null>(null)
 
   const setMirrorWarningMessage = (message: string) => {
     if (mirrorWarningClearTimerRef.current !== null) {
@@ -337,10 +366,14 @@ function MirrorPage() {
     }
 
     syncFullscreenState()
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    document.addEventListener('webkitfullscreenchange', syncFullscreenState)
     window.addEventListener('fullscreenchange', syncFullscreenState)
     window.addEventListener('webkitfullscreenchange', syncFullscreenState)
 
     return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreenState)
+      document.removeEventListener('webkitfullscreenchange', syncFullscreenState)
       window.removeEventListener('fullscreenchange', syncFullscreenState)
       window.removeEventListener('webkitfullscreenchange', syncFullscreenState)
     }
@@ -356,11 +389,15 @@ function MirrorPage() {
     }
 
     syncPresentationState()
+    document.addEventListener('fullscreenchange', syncPresentationState)
+    document.addEventListener('webkitfullscreenchange', syncPresentationState)
     window.addEventListener('fullscreenchange', syncPresentationState)
     window.addEventListener('webkitfullscreenchange', syncPresentationState)
     window.addEventListener('resize', syncPresentationState)
 
     return () => {
+      document.removeEventListener('fullscreenchange', syncPresentationState)
+      document.removeEventListener('webkitfullscreenchange', syncPresentationState)
       window.removeEventListener('fullscreenchange', syncPresentationState)
       window.removeEventListener('webkitfullscreenchange', syncPresentationState)
       window.removeEventListener('resize', syncPresentationState)
@@ -1051,7 +1088,7 @@ function MirrorPage() {
   }
 
   return (
-    <div className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
+    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
       <header className="mirror-header">
         <div className="mirror-header-main">
           <p className="mirror-brand" aria-label="The Human Jukebox">
@@ -1085,7 +1122,7 @@ function MirrorPage() {
               onClick={async () => {
                 try {
                   if (!getActiveFullscreenElement()) {
-                    await requestFullscreenSafe(document.documentElement)
+                    await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
                   } else {
                     await exitFullscreenSafe()
                   }
