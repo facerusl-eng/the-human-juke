@@ -3738,16 +3738,16 @@
 .mirror-shell-density-medium {
   --mirror-brand-size: clamp(1rem, 2vw, 1.4rem);
   --mirror-event-size: clamp(0.9rem, 1.6vw, 1.1rem);
-  --mirror-title-size: clamp(1.8rem, 3.9vw, 3.8rem);
-  --mirror-artist-size: clamp(1rem, 1.7vw, 1.48rem);
+  --mirror-title-size: clamp(2.1rem, 4.6vw, 4.6rem);
+  --mirror-artist-size: clamp(1.14rem, 2.1vw, 1.76rem);
   --mirror-quote-size: clamp(1.6rem, min(4.4vw, 7.4vh), 4rem);
 }
 
 .mirror-shell-density-cinema {
   --mirror-brand-size: clamp(1.12rem, 2.3vw, 1.58rem);
   --mirror-event-size: clamp(1.04rem, 1.85vw, 1.28rem);
-  --mirror-title-size: clamp(2.2rem, 4.8vw, 4.9rem);
-  --mirror-artist-size: clamp(1.2rem, 2.05vw, 1.85rem);
+  --mirror-title-size: clamp(2.5rem, 5.4vw, 5.8rem);
+  --mirror-artist-size: clamp(1.3rem, 2.4vw, 2.2rem);
   --mirror-quote-size: clamp(2rem, min(5.6vw, 8.8vh), 5rem);
 }
 
@@ -3934,7 +3934,7 @@
 
 .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.58fr) minmax(0, 0.30fr) auto;
+  grid-template-rows: minmax(0, 0.66fr) minmax(0, 0.24fr) auto;
   align-items: stretch;
 }
 
@@ -3978,7 +3978,7 @@
 
 .mirror-shell-venue-club .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.56fr) minmax(0, 0.32fr) auto;
+  grid-template-rows: minmax(0, 0.64fr) minmax(0, 0.25fr) auto;
 }
 
 .mirror-shell-venue-club .mirror-secondary-grid {
@@ -3996,7 +3996,7 @@
 
 .mirror-shell-venue-lounge .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.58fr) minmax(0, 0.30fr) auto;
+  grid-template-rows: minmax(0, 0.66fr) minmax(0, 0.24fr) auto;
 }
 
 .mirror-shell-venue-lounge .mirror-secondary-grid {
@@ -4005,7 +4005,7 @@
 
 .mirror-shell-venue-festival .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 0.60fr) minmax(0, 0.28fr) auto;
+  grid-template-rows: minmax(0, 0.68fr) minmax(0, 0.22fr) auto;
 }
 
 .mirror-shell-venue-festival .mirror-secondary-grid {
@@ -4013,7 +4013,7 @@
 }
 
 .mirror-shell-venue-festival .mirror-now-playing-cover {
-  width: clamp(136px, 12.8vw, 242px);
+  width: clamp(164px, 17vw, 320px);
 }
 
 .mirror-shell-venue-festival .mirror-title {
@@ -4113,7 +4113,7 @@
 }
 
 .mirror-now-playing-cover {
-  width: clamp(116px, 13vw, 220px);
+  width: clamp(148px, 16vw, 290px);
   aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: 18px;
