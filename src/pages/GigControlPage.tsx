@@ -184,7 +184,9 @@ function GigControlPage() {
       }
 
       if (message?.type === 'sync-hint') {
-        void registerBackgroundSync(message.tag || BACKGROUND_SYNC_TAG)
+        registerBackgroundSync(message.tag || BACKGROUND_SYNC_TAG).catch((error) => {
+          console.warn('Failed to register background sync from worker hint', error)
+        })
       }
     })
 
@@ -197,7 +199,9 @@ function GigControlPage() {
       }
 
       worker.postMessage({ type: 'start' })
-      void registerBackgroundSync(BACKGROUND_SYNC_TAG)
+      registerBackgroundSync(BACKGROUND_SYNC_TAG).catch((error) => {
+        console.warn('Failed to register background sync on visibility change', error)
+      })
     }
 
     document.addEventListener('visibilitychange', onVisibilityChange)
@@ -249,7 +253,9 @@ function GigControlPage() {
     })
 
     setSnapshotStatusText(`Snapshot saved at ${new Date().toLocaleTimeString()}.`)
-    void registerBackgroundSync(BACKGROUND_SYNC_TAG)
+    registerBackgroundSync(BACKGROUND_SYNC_TAG).catch((error) => {
+      console.warn('Failed to register background sync after snapshot save', error)
+    })
   }
 
   const downloadLatestSnapshot = () => {
