@@ -1,6 +1,7 @@
 import {
   ensureSpotifySecretConfigured,
   exchangeCodeForTokens,
+  getSpotifyRedirectUri,
   getRequiredCode,
   setRefreshTokenCookie,
 } from './_shared.js'
@@ -18,7 +19,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const tokenPayload = await exchangeCodeForTokens(code)
+    const tokenPayload = await exchangeCodeForTokens(code, getSpotifyRedirectUri(req))
 
     if (typeof tokenPayload.refresh_token === 'string' && tokenPayload.refresh_token.length > 0) {
       setRefreshTokenCookie(res, tokenPayload.refresh_token)

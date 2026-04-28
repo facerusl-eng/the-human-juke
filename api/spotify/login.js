@@ -1,5 +1,5 @@
 import { getAuthorizeUrl } from './_shared.js'
 
-export default async function handler(_req, res) {
-  res.redirect(getAuthorizeUrl())
+export default async function handler(req, res) {
+  res.redirect(getAuthorizeUrl(req))
 }

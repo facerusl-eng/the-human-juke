@@ -2,7 +2,7 @@ const spotifyClientId = process.env.SPOTIFY_CLIENT_ID ?? '510534c3ee9046aba1b67c
 const spotifyClientSecret = process.env.SPOTIFY_CLIENT_SECRET ?? ''
 const spotifyRedirectUriOverride = process.env.SPOTIFY_REDIRECT_URI?.trim() ?? ''
 const spotifyRedirectUriDev = process.env.SPOTIFY_REDIRECT_URI_DEV ?? 'http://localhost:5173/callback'
-const spotifyRedirectUriProd = process.env.SPOTIFY_REDIRECT_URI_PROD ?? spotifyRedirectUriDev
+const spotifyRedirectUriProd = process.env.SPOTIFY_REDIRECT_URI_PROD?.trim() ?? ''
 const spotifyScopes = 'user-read-playback-state user-modify-playback-state streaming'
 const REFRESH_COOKIE_NAME = 'human_jukebox_spotify_refresh_token'
 
@@ -74,7 +74,7 @@ export function getRefreshTokenFromRequest(req) {
   return envToken.trim() || null
 }
 
-export function getSpotifyRedirectUri() {
+export function getSpotifyRedirectUri(req) {
   if (process.env.NODE_ENV !== 'production') {
     return spotifyRedirectUriDev
   }
@@ -83,11 +83,23 @@ export function getSpotifyRedirectUri() {
     return spotifyRedirectUriOverride
   }
 
-  return spotifyRedirectUriProd
+  if (spotifyRedirectUriProd) {
+    return spotifyRedirectUriProd
+  }
+
+  const host = req?.headers?.['x-forwarded-host'] ?? req?.headers?.host
+  const protocolHeader = req?.headers?.['x-forwarded-proto']
+  const protocol = typeof protocolHeader === 'string' && protocolHeader.length > 0 ? protocolHeader.split(',')[0] : 'https'
+
+  if (typeof host === 'string' && host.length > 0) {
+    return `${protocol}://${host}/callback`
+  }
+
+  return 'https://the-human-jukebox.org/callback'
 }
 
-export function getAuthorizeUrl() {
-  const redirectUri = getSpotifyRedirectUri()
+export function getAuthorizeUrl(req) {
+  const redirectUri = getSpotifyRedirectUri(req)
   const params = new URLSearchParams({
     client_id: spotifyClientId,
     response_type: 'code',
@@ -117,8 +129,7 @@ export function getRequiredCode(req) {
   return ''
 }
 
-export async function exchangeCodeForTokens(code) {
-  const redirectUri = getSpotifyRedirectUri()
+export async function exchangeCodeForTokens(code, redirectUri) {
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
