@@ -300,7 +300,7 @@ function AuthProvider({ children }: PropsWithChildren) {
   }, [user])
 
   const applySessionState = useCallback(
-    async (nextSession: Session | null) => {
+    (nextSession: Session | null) => {
       setSession(nextSession)
       setUser(nextSession?.user ?? null)
 
@@ -309,19 +309,32 @@ function AuthProvider({ children }: PropsWithChildren) {
       }
 
       if (nextSession?.user) {
-        try {
-          const loadedProfile = await getProfile(nextSession.user.id)
-          const nextProfile = await syncAllowedHostRole(nextSession.user, loadedProfile)
-          setProfile(nextProfile)
-        } catch (error) {
-          console.warn('authStore: failed to refresh profile for active session', error)
-          // Keep the current profile when profile reload fails.
-        }
+        setLoading(false)
+
+        // Do not block auth transitions on profile reads; these can hang on flaky networks.
+        void (async () => {
+          try {
+            const loadedProfile = await withTimeout(
+              getProfile(nextSession.user.id),
+              AUTH_REQUEST_TIMEOUT_MS,
+              'Profile loading timed out.',
+            )
+            const nextProfile = await withTimeout(
+              syncAllowedHostRole(nextSession.user, loadedProfile),
+              AUTH_REQUEST_TIMEOUT_MS,
+              'Host role sync timed out.',
+            )
+            setProfile(nextProfile)
+          } catch (error) {
+            console.warn('authStore: failed to refresh profile for active session', error)
+            // Keep the current profile when profile reload fails.
+          }
+        })()
       } else {
         setProfile(null)
+        setAuthError(null)
+        setLoading(false)
       }
-
-      setLoading(false)
     },
     [syncAllowedHostRole],
   )
@@ -519,7 +532,11 @@ function AuthProvider({ children }: PropsWithChildren) {
         } catch (error) {
           if (isTransientAuthError(error)) {
             try {
-              const { data: sessionData } = await supabase.auth.getSession()
+              const { data: sessionData } = await withTimeout(
+                supabase.auth.getSession(),
+                AUTH_REQUEST_TIMEOUT_MS,
+                'Session recovery timed out.',
+              )
 
               if (sessionData.session) {
                 await applySessionState(sessionData.session)
@@ -541,7 +558,11 @@ function AuthProvider({ children }: PropsWithChildren) {
           if (returnedSession) {
             await applySessionState(returnedSession)
           } else {
-            const { data: sessionData } = await supabase.auth.getSession()
+            const { data: sessionData } = await withTimeout(
+              supabase.auth.getSession(),
+              AUTH_REQUEST_TIMEOUT_MS,
+              'Session sync timed out.',
+            )
             await applySessionState(sessionData.session ?? null)
           }
 

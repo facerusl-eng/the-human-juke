@@ -59,6 +59,21 @@ function ShellLayout() {
   }, [location.pathname])
 
   useEffect(() => {
+    if (!authActionBusy) {
+      return
+    }
+
+    const busyTimeoutId = window.setTimeout(() => {
+      setAuthActionBusy(null)
+      setErrorText('Auth request timed out. Please try again.')
+    }, 30000)
+
+    return () => {
+      window.clearTimeout(busyTimeoutId)
+    }
+  }, [authActionBusy])
+
+  useEffect(() => {
     const onRuntimeNotice = (event: Event) => {
       const customEvent = event as CustomEvent<string>
       if (typeof customEvent.detail === 'string' && customEvent.detail.trim()) {
