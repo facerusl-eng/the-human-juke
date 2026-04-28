@@ -797,9 +797,16 @@ function LiveFeedPanel({
               const canDelete = showModerationControls && (user?.id === post.user_id || isHost)
               const normalizedPostImageSource = normalizeImageSource(post.image_data_url)
               const hasImage = Boolean(normalizedPostImageSource)
+              const imageNode = normalizedPostImageSource ? (
+                <div className="live-feed-post-image-wrapper">
+                  <img src={normalizedPostImageSource} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
+                </div>
+              ) : null
 
               return (
                 <article key={post.id} className={`live-feed-post ${hasImage ? 'live-feed-post-polaroid' : ''}`} role="listitem">
+                  {isMirrorMode ? imageNode : null}
+
                   <div className="live-feed-post-head">
                     <div>
                       <strong>{post.author_name}</strong>
@@ -813,11 +820,7 @@ function LiveFeedPanel({
                   </div>
 
                   {post.message ? <p className="live-feed-post-message">{post.message}</p> : null}
-                  {normalizedPostImageSource ? (
-                    <div className="live-feed-post-image-wrapper">
-                      <img src={normalizedPostImageSource} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
-                    </div>
-                  ) : null}
+                  {!isMirrorMode ? imageNode : null}
                 </article>
               )
             })
