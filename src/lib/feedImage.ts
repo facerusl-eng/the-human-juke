@@ -123,42 +123,30 @@ function compressToDataUrl(options: {
 }
 
 export async function prepareFeedImage(file: File) {
-  console.log('prepareFeedImage: started', { name: file.name, size: file.size, type: file.type })
-
   if (file.size === 0) {
-    console.log('prepareFeedImage: file is empty')
     throw new Error('Please choose an image file.')
   }
 
   if (file.size > MAX_SOURCE_IMAGE_BYTES) {
-    console.log('prepareFeedImage: file too large', { size: file.size, max: MAX_SOURCE_IMAGE_BYTES })
     throw new Error('Image is very large. Choose a photo under 20 MB.')
   }
 
   let sourceDataUrl = await readFileAsDataUrl(file)
-  console.log('prepareFeedImage: file read complete', { dataUrlLength: sourceDataUrl.length })
 
   if (isHeicLikeImage(file)) {
-    console.log('prepareFeedImage: detected HEIC/HEIF, converting...')
     try {
       sourceDataUrl = await convertHeicToJpegDataUrl(file)
-      console.log('prepareFeedImage: HEIC conversion success')
     } catch {
       // Some iOS/Safari combinations fail HEIC conversion; continue with original capture.
-      console.log('prepareFeedImage: HEIC conversion failed, using original data URL fallback')
     }
   }
 
   let image: HTMLImageElement
 
   try {
-    console.log('prepareFeedImage: loading image from data URL...')
     image = await loadImage(sourceDataUrl)
-    console.log('prepareFeedImage: image loaded', { width: image.width, height: image.height })
   } catch (error) {
-    console.log('prepareFeedImage: image load failed', { error: String(error) })
     if (sourceDataUrl.length <= MAX_DATA_URL_LENGTH) {
-      console.log('prepareFeedImage: returning source data URL fallback', { dataUrlLength: sourceDataUrl.length })
       return sourceDataUrl
     }
 
@@ -175,11 +163,9 @@ export async function prepareFeedImage(file: File) {
   const context = canvas.getContext('2d')
 
   if (!context) {
-    console.log('prepareFeedImage: canvas context creation failed')
     throw new Error('Unable to prepare the selected image.')
   }
 
-  console.log('prepareFeedImage: compression pass 1 starting')
   const firstPassResult = compressToDataUrl({
     image,
     canvas,
@@ -191,14 +177,9 @@ export async function prepareFeedImage(file: File) {
   })
 
   if (firstPassResult) {
-    console.log('prepareFeedImage: compression pass 1 successful', { dataUrlLength: firstPassResult.length })
     return firstPassResult
   }
 
-  console.log('prepareFeedImage: compression pass 2 starting', {
-    fallbackDimension: FALLBACK_IMAGE_DIMENSION,
-    fallbackQuality: FALLBACK_OUTPUT_QUALITY,
-  })
   const secondPassResult = compressToDataUrl({
     image,
     canvas,
@@ -210,14 +191,9 @@ export async function prepareFeedImage(file: File) {
   })
 
   if (secondPassResult) {
-    console.log('prepareFeedImage: compression pass 2 successful', { dataUrlLength: secondPassResult.length })
     return secondPassResult
   }
 
-  console.log('prepareFeedImage: compression pass 3 starting', {
-    emergencyDimension: EMERGENCY_IMAGE_DIMENSION,
-    emergencyQuality: EMERGENCY_OUTPUT_QUALITY,
-  })
   const thirdPassResult = compressToDataUrl({
     image,
     canvas,
@@ -230,15 +206,10 @@ export async function prepareFeedImage(file: File) {
   })
 
   if (thirdPassResult) {
-    console.log('prepareFeedImage: compression pass 3 successful', { dataUrlLength: thirdPassResult.length })
     return thirdPassResult
   }
 
   // Last resort: create a tiny square thumbnail rather than blocking upload completely.
-  console.log('prepareFeedImage: last-resort compression starting', {
-    lastResortDimension: LAST_RESORT_IMAGE_DIMENSION,
-    lastResortQuality: LAST_RESORT_OUTPUT_QUALITY,
-  })
   const lastResortResult = compressToDataUrl({
     image,
     canvas,
@@ -251,10 +222,8 @@ export async function prepareFeedImage(file: File) {
   })
 
   if (lastResortResult) {
-    console.log('prepareFeedImage: last-resort compression successful', { dataUrlLength: lastResortResult.length })
     return lastResortResult
   }
 
-  console.log('prepareFeedImage: compression failed - image too large even after aggressive compression')
   throw new Error('Unable to prepare this photo on this device. Please try again with a different photo.')
 }

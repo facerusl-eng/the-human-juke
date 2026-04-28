@@ -407,15 +407,11 @@ function LiveFeedPanel({
   }, [event?.id])
 
   const processSelectedImage = async (file: File, inputElement: HTMLInputElement) => {
-    console.log('LiveFeedPanel.processSelectedImage', { fileName: file.name, fileSize: file.size, fileType: file.type })
-
     setErrorText(null)
     setSelectedImageName(file.name || 'Camera photo')
     setImageStatusText('Photo selected. Preparing...')
-    console.log('LiveFeedPanel.processSelectedImage: image name and status set, starting preparation')
 
     if (file.size === 0) {
-      console.log('LiveFeedPanel.processSelectedImage: file is empty')
       setImageDataUrl(null)
       setImagePreviewUrl(null)
       setSelectedImageName(null)
@@ -453,13 +449,10 @@ function LiveFeedPanel({
     setIsPreparingImage(true)
 
     try {
-      console.log('LiveFeedPanel.processSelectedImage: calling prepareFeedImage')
       const preparedImage = await prepareFeedImage(file)
-      console.log('LiveFeedPanel.processSelectedImage: image prepared successfully')
       setImageDataUrl(preparedImage)
       setImageStatusText('Photo ready.')
     } catch (error) {
-      console.log('LiveFeedPanel.processSelectedImage: prepareFeedImage failed', { error: String(error) })
       setImageDataUrl(null)
       setImagePreviewUrl(null)
       setSelectedImageName(null)
@@ -483,7 +476,6 @@ function LiveFeedPanel({
             return
           }
 
-          console.log('LiveFeedPanel.onImageSelected: no file selected')
           setImageStatusText('No photo selected yet.')
           setIsPreparingImage(false)
           return
