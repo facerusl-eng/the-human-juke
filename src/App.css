@@ -6939,7 +6939,7 @@
 
 .mirror-up-next,
 .live-feed-panel-mirror {
-  padding: clamp(0.16rem, 0.32vw, 0.24rem);
+  padding: clamp(0.26rem, 0.46vw, 0.38rem);
 }
 
 .mirror-up-next {
@@ -6950,7 +6950,12 @@
 }
 
 .mirror-up-next-label {
-  font-size: clamp(1rem, 1.28vw, 1.2rem);
+  font-size: clamp(1.12rem, 1.44vw, 1.36rem);
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+  color: #bfe9ff;
+  text-shadow: 0 0 12px rgba(93, 215, 255, 0.34);
+  margin: 0 0 0.18rem;
 }
 
 .live-feed-panel-mirror {
