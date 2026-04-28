@@ -2,9 +2,19 @@ const MAX_IMAGE_DIMENSION = 800
 const OUTPUT_QUALITY = 0.70
 const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024
 // Keep base64 payload well under Supabase PostgREST's ~1 MB request limit
-const MAX_DATA_URL_LENGTH = 500_000
-const MIN_IMAGE_SCALE = 0.35
-const MIN_OUTPUT_QUALITY = 0.45
+const MAX_DATA_URL_LENGTH = 850_000
+const MIN_IMAGE_SCALE = 0.08
+const MIN_OUTPUT_QUALITY = 0.20
+const FALLBACK_IMAGE_DIMENSION = 480
+const FALLBACK_OUTPUT_QUALITY = 0.28
+const FALLBACK_MIN_IMAGE_SCALE = 0.12
+const FALLBACK_MIN_OUTPUT_QUALITY = 0.16
+const EMERGENCY_IMAGE_DIMENSION = 320
+const EMERGENCY_OUTPUT_QUALITY = 0.18
+const EMERGENCY_MIN_IMAGE_SCALE = 0.2
+const EMERGENCY_MIN_OUTPUT_QUALITY = 0.1
+const LAST_RESORT_IMAGE_DIMENSION = 160
+const LAST_RESORT_OUTPUT_QUALITY = 0.08
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -62,6 +72,56 @@ async function convertHeicToJpegDataUrl(file: File) {
   return readBlobAsDataUrl(normalizedBlob)
 }
 
+function compressToDataUrl(options: {
+  image: HTMLImageElement
+  canvas: HTMLCanvasElement
+  context: CanvasRenderingContext2D
+  maxDimension: number
+  startQuality: number
+  minQuality: number
+  minScale: number
+  cropSquare?: boolean
+}) {
+  const { image, canvas, context, maxDimension, startQuality, minQuality, minScale, cropSquare = false } = options
+  let scale = Math.min(1, maxDimension / Math.max(image.width, image.height))
+  let quality = startQuality
+  const sourceSize = Math.min(image.width, image.height)
+  const sourceOffsetX = Math.floor((image.width - sourceSize) / 2)
+  const sourceOffsetY = Math.floor((image.height - sourceSize) / 2)
+
+  while (scale >= minScale) {
+    const baseWidth = cropSquare ? sourceSize : image.width
+    const baseHeight = cropSquare ? sourceSize : image.height
+    const width = Math.max(1, Math.round(baseWidth * scale))
+    const height = Math.max(1, Math.round(baseHeight * scale))
+
+    canvas.width = width
+    canvas.height = height
+    context.clearRect(0, 0, width, height)
+
+    if (cropSquare) {
+      context.drawImage(image, sourceOffsetX, sourceOffsetY, sourceSize, sourceSize, 0, 0, width, height)
+    } else {
+      context.drawImage(image, 0, 0, width, height)
+    }
+
+    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality)
+
+    if (compressedDataUrl.length <= MAX_DATA_URL_LENGTH) {
+      return compressedDataUrl
+    }
+
+    if (quality > minQuality) {
+      quality = Math.max(minQuality, quality - 0.08)
+      continue
+    }
+
+    scale *= 0.85
+  }
+
+  return null
+}
+
 export async function prepareFeedImage(file: File) {
   console.log('prepareFeedImage: started', { name: file.name, size: file.size, type: file.type })
 
@@ -83,11 +143,9 @@ export async function prepareFeedImage(file: File) {
     try {
       sourceDataUrl = await convertHeicToJpegDataUrl(file)
       console.log('prepareFeedImage: HEIC conversion success')
-    } catch (error) {
-      console.log('prepareFeedImage: HEIC conversion failed')
-      throw new Error('This phone photo format could not be converted. In Camera settings, choose Most Compatible (JPG), then try again.', {
-        cause: error,
-      })
+    } catch {
+      // Some iOS/Safari combinations fail HEIC conversion; continue with original capture.
+      console.log('prepareFeedImage: HEIC conversion failed, using original data URL fallback')
     }
   }
 
@@ -99,15 +157,18 @@ export async function prepareFeedImage(file: File) {
     console.log('prepareFeedImage: image loaded', { width: image.width, height: image.height })
   } catch (error) {
     console.log('prepareFeedImage: image load failed', { error: String(error) })
+    if (sourceDataUrl.length <= MAX_DATA_URL_LENGTH) {
+      console.log('prepareFeedImage: returning source data URL fallback', { dataUrlLength: sourceDataUrl.length })
+      return sourceDataUrl
+    }
+
     if (isHeicLikeImage(file)) {
-      throw new Error('This phone photo format is not supported here yet. Save/export as JPG and try again.', {
+      throw new Error('iPhone photo could not be processed. In Settings > Camera > Formats, choose Most Compatible, then try again.', {
         cause: error,
       })
     }
 
-    throw new Error('Unable to process the selected image. Try a different photo.', {
-      cause: error,
-    })
+    throw new Error('Unable to process the selected image. Try a different photo.', { cause: error })
   }
 
   const canvas = document.createElement('canvas')
@@ -118,34 +179,82 @@ export async function prepareFeedImage(file: File) {
     throw new Error('Unable to prepare the selected image.')
   }
 
-  let scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height))
-  let quality = OUTPUT_QUALITY
-  console.log('prepareFeedImage: compression loop starting', { initialScale: scale })
+  console.log('prepareFeedImage: compression pass 1 starting')
+  const firstPassResult = compressToDataUrl({
+    image,
+    canvas,
+    context,
+    maxDimension: MAX_IMAGE_DIMENSION,
+    startQuality: OUTPUT_QUALITY,
+    minQuality: MIN_OUTPUT_QUALITY,
+    minScale: MIN_IMAGE_SCALE,
+  })
 
-  while (scale >= MIN_IMAGE_SCALE) {
-    const width = Math.max(1, Math.round(image.width * scale))
-    const height = Math.max(1, Math.round(image.height * scale))
+  if (firstPassResult) {
+    console.log('prepareFeedImage: compression pass 1 successful', { dataUrlLength: firstPassResult.length })
+    return firstPassResult
+  }
 
-    canvas.width = width
-    canvas.height = height
-    context.clearRect(0, 0, width, height)
-    context.drawImage(image, 0, 0, width, height)
+  console.log('prepareFeedImage: compression pass 2 starting', {
+    fallbackDimension: FALLBACK_IMAGE_DIMENSION,
+    fallbackQuality: FALLBACK_OUTPUT_QUALITY,
+  })
+  const secondPassResult = compressToDataUrl({
+    image,
+    canvas,
+    context,
+    maxDimension: FALLBACK_IMAGE_DIMENSION,
+    startQuality: FALLBACK_OUTPUT_QUALITY,
+    minQuality: FALLBACK_MIN_OUTPUT_QUALITY,
+    minScale: FALLBACK_MIN_IMAGE_SCALE,
+  })
 
-    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality)
+  if (secondPassResult) {
+    console.log('prepareFeedImage: compression pass 2 successful', { dataUrlLength: secondPassResult.length })
+    return secondPassResult
+  }
 
-    if (compressedDataUrl.length <= MAX_DATA_URL_LENGTH) {
-      console.log('prepareFeedImage: compression successful', { finalScale: scale, finalQuality: quality, dataUrlLength: compressedDataUrl.length })
-      return compressedDataUrl
-    }
+  console.log('prepareFeedImage: compression pass 3 starting', {
+    emergencyDimension: EMERGENCY_IMAGE_DIMENSION,
+    emergencyQuality: EMERGENCY_OUTPUT_QUALITY,
+  })
+  const thirdPassResult = compressToDataUrl({
+    image,
+    canvas,
+    context,
+    maxDimension: EMERGENCY_IMAGE_DIMENSION,
+    startQuality: EMERGENCY_OUTPUT_QUALITY,
+    minQuality: EMERGENCY_MIN_OUTPUT_QUALITY,
+    minScale: EMERGENCY_MIN_IMAGE_SCALE,
+    cropSquare: true,
+  })
 
-    if (quality > MIN_OUTPUT_QUALITY) {
-      quality = Math.max(MIN_OUTPUT_QUALITY, quality - 0.08)
-      continue
-    }
+  if (thirdPassResult) {
+    console.log('prepareFeedImage: compression pass 3 successful', { dataUrlLength: thirdPassResult.length })
+    return thirdPassResult
+  }
 
-    scale *= 0.85
+  // Last resort: create a tiny square thumbnail rather than blocking upload completely.
+  console.log('prepareFeedImage: last-resort compression starting', {
+    lastResortDimension: LAST_RESORT_IMAGE_DIMENSION,
+    lastResortQuality: LAST_RESORT_OUTPUT_QUALITY,
+  })
+  const lastResortResult = compressToDataUrl({
+    image,
+    canvas,
+    context,
+    maxDimension: LAST_RESORT_IMAGE_DIMENSION,
+    startQuality: LAST_RESORT_OUTPUT_QUALITY,
+    minQuality: LAST_RESORT_OUTPUT_QUALITY,
+    minScale: 1,
+    cropSquare: true,
+  })
+
+  if (lastResortResult) {
+    console.log('prepareFeedImage: last-resort compression successful', { dataUrlLength: lastResortResult.length })
+    return lastResortResult
   }
 
   console.log('prepareFeedImage: compression failed - image too large even after aggressive compression')
-  throw new Error('Image is too large after compression. Choose a smaller photo.')
+  throw new Error('Unable to prepare this photo on this device. Please try again with a different photo.')
 }

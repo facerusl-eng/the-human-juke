@@ -135,6 +135,7 @@ function LiveFeedPanel({
   const reloadTimerIdRef = useRef<number | null>(null)
   const suppressReconnectWarningUntilRef = useRef(0)
   const previewObjectUrlRef = useRef<string | null>(null)
+  const lastHandledFileSignatureRef = useRef<string | null>(null)
   const { user, isHost } = useAuthStore()
   const { event } = useQueueStore()
   const [posts, setPosts] = useState<FeedPost[]>([])
@@ -405,31 +406,23 @@ function LiveFeedPanel({
     }
   }, [event?.id])
 
-  const onImageSelected = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
-    const file = changeEvent.target.files?.[0]
-    console.log('LiveFeedPanel.onImageSelected', { fileName: file?.name, fileSize: file?.size, fileType: file?.type })
-
-    if (!file) {
-      console.log('LiveFeedPanel.onImageSelected: no file selected')
-      setImageStatusText('No photo selected yet.')
-      setIsPreparingImage(false)
-      return
-    }
+  const processSelectedImage = async (file: File, inputElement: HTMLInputElement) => {
+    console.log('LiveFeedPanel.processSelectedImage', { fileName: file.name, fileSize: file.size, fileType: file.type })
 
     setErrorText(null)
     setSelectedImageName(file.name || 'Camera photo')
     setImageStatusText('Photo selected. Preparing...')
-    console.log('LiveFeedPanel.onImageSelected: image name and status set, starting preparation')
+    console.log('LiveFeedPanel.processSelectedImage: image name and status set, starting preparation')
 
     if (file.size === 0) {
-      console.log('LiveFeedPanel.onImageSelected: file is empty')
+      console.log('LiveFeedPanel.processSelectedImage: file is empty')
       setImageDataUrl(null)
       setImagePreviewUrl(null)
       setSelectedImageName(null)
       setImageStatusText(null)
       setIsPreparingImage(false)
       setErrorText('Camera did not return a usable photo. Please try again or choose from gallery.')
-      changeEvent.target.value = ''
+      inputElement.value = ''
       return
     }
 
@@ -440,7 +433,7 @@ function LiveFeedPanel({
       setImageStatusText(null)
       setIsPreparingImage(false)
       setErrorText('Unsupported image format. Please choose JPG, PNG, WEBP, GIF, BMP, or HEIC/HEIF.')
-      changeEvent.target.value = ''
+      inputElement.value = ''
       return
     }
 
@@ -460,13 +453,13 @@ function LiveFeedPanel({
     setIsPreparingImage(true)
 
     try {
-      console.log('LiveFeedPanel.onImageSelected: calling prepareFeedImage')
+      console.log('LiveFeedPanel.processSelectedImage: calling prepareFeedImage')
       const preparedImage = await prepareFeedImage(file)
-      console.log('LiveFeedPanel.onImageSelected: image prepared successfully')
+      console.log('LiveFeedPanel.processSelectedImage: image prepared successfully')
       setImageDataUrl(preparedImage)
       setImageStatusText('Photo ready.')
     } catch (error) {
-      console.log('LiveFeedPanel.onImageSelected: prepareFeedImage failed', { error: String(error) })
+      console.log('LiveFeedPanel.processSelectedImage: prepareFeedImage failed', { error: String(error) })
       setImageDataUrl(null)
       setImagePreviewUrl(null)
       setSelectedImageName(null)
@@ -474,8 +467,40 @@ function LiveFeedPanel({
       setErrorText(error instanceof Error ? error.message : 'Unable to use that photo.')
     } finally {
       setIsPreparingImage(false)
-      changeEvent.target.value = ''
+      inputElement.value = ''
     }
+  }
+
+  const onImageSelected = (changeEvent: ChangeEvent<HTMLInputElement>) => {
+    const inputElement = changeEvent.currentTarget
+    const tryHandleSelection = (delayMs = 0) => {
+      window.setTimeout(() => {
+        const file = inputElement.files?.[0]
+
+        if (!file) {
+          if (delayMs === 0) {
+            tryHandleSelection(180)
+            return
+          }
+
+          console.log('LiveFeedPanel.onImageSelected: no file selected')
+          setImageStatusText('No photo selected yet.')
+          setIsPreparingImage(false)
+          return
+        }
+
+        const fileSignature = `${file.name}|${file.size}|${file.lastModified}`
+
+        if (lastHandledFileSignatureRef.current === fileSignature) {
+          return
+        }
+
+        lastHandledFileSignatureRef.current = fileSignature
+        void processSelectedImage(file, inputElement)
+      }, delayMs)
+    }
+
+    tryHandleSelection(0)
   }
 
   const clearSelectedImage = () => {
@@ -489,6 +514,7 @@ function LiveFeedPanel({
     setSelectedImageName(null)
     setImageStatusText(null)
     setIsPreparingImage(false)
+    lastHandledFileSignatureRef.current = null
     if (cameraInputRef.current) {
       cameraInputRef.current.value = ''
     }
@@ -496,16 +522,6 @@ function LiveFeedPanel({
     if (galleryInputRef.current) {
       galleryInputRef.current.value = ''
     }
-  }
-
-  const openCameraPicker = () => {
-    suppressReconnectWarning()
-    cameraInputRef.current?.click()
-  }
-
-  const openGalleryPicker = () => {
-    suppressReconnectWarning()
-    galleryInputRef.current?.click()
   }
 
   const resolvePostingUser = async (): Promise<User> => {
@@ -710,8 +726,13 @@ function LiveFeedPanel({
               accept="image/*"
               className="live-feed-file-input"
               aria-label="Take a crowd feed photo"
-              onClick={suppressReconnectWarning}
+              onClick={(event) => {
+                suppressReconnectWarning()
+                event.currentTarget.value = ''
+                event.currentTarget.setAttribute('capture', 'environment')
+              }}
               onChange={onImageSelected}
+              onInput={(event) => { void onImageSelected(event as unknown as ChangeEvent<HTMLInputElement>) }}
             />
             <input
               id={`feed-image-gallery-${mode}`}
@@ -720,23 +741,27 @@ function LiveFeedPanel({
               accept="image/*"
               className="live-feed-file-input"
               aria-label="Choose a crowd feed photo"
-              onClick={suppressReconnectWarning}
+              onClick={(event) => {
+                suppressReconnectWarning()
+                event.currentTarget.value = ''
+                event.currentTarget.removeAttribute('capture')
+              }}
               onChange={onImageSelected}
             />
-            <button
-              type="button"
+            <label
+              htmlFor={`feed-image-camera-${mode}`}
               className="secondary-button"
-              onClick={openCameraPicker}
+              onClick={suppressReconnectWarning}
             >
               Take Photo
-            </button>
-            <button
-              type="button"
+            </label>
+            <label
+              htmlFor={`feed-image-gallery-${mode}`}
               className="ghost-button"
-              onClick={openGalleryPicker}
+              onClick={suppressReconnectWarning}
             >
               Choose Photo
-            </button>
+            </label>
             {selectedImageName ? <span className="live-feed-image-name">{selectedImageName}</span> : null}
             {imageStatusText ? <span className="live-feed-helper-text">{imageStatusText}</span> : null}
             {previewImageSrc ? (
