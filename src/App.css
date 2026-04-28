@@ -6861,7 +6861,7 @@
 
 .mirror-stage-live {
   grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 0.22fr) minmax(0, 0.78fr) !important;
+  grid-template-rows: minmax(0, 0.26fr) minmax(0, 0.74fr) !important;
   min-height: min(90vh, calc(100vh - 6.5rem));
 }
 
@@ -6885,7 +6885,7 @@
 }
 
 .mirror-shell-hide-controls .mirror-stage-live {
-  grid-template-rows: minmax(0, 0.16fr) minmax(0, 0.84fr) !important;
+  grid-template-rows: minmax(0, 0.19fr) minmax(0, 0.81fr) !important;
 }
 
 .mirror-shell-hide-controls .mirror-stage-live .mirror-secondary-grid {
@@ -7082,7 +7082,7 @@
 
 @media (max-width: 1180px) {
   .mirror-stage-live {
-    grid-template-rows: minmax(0, 0.2fr) minmax(0, 0.8fr) !important;
+    grid-template-rows: minmax(0, 0.24fr) minmax(0, 0.76fr) !important;
   }
 
   .mirror-stage-live .mirror-secondary-grid {
