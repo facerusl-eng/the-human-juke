@@ -5,8 +5,12 @@ import { useAuthStore } from '../state/authStore'
 const HOST_GATE_LOADING_TIMEOUT_MS = 7000
 
 function RequireHost({ children }: PropsWithChildren) {
-  const { user, isHost, loading, authError } = useAuthStore()
+  const { user, isHost, loading, authError, signInHost } = useAuthStore()
   const [showLoadingFallback, setShowLoadingFallback] = useState(false)
+  const [hostEmail, setHostEmail] = useState('')
+  const [hostPassword, setHostPassword] = useState('')
+  const [isSigningIn, setIsSigningIn] = useState(false)
+  const [signInError, setSignInError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!loading) {
@@ -74,13 +78,68 @@ function RequireHost({ children }: PropsWithChildren) {
     return <>{children}</>
   }
 
+  const handleHostSignIn = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSignInError(null)
+    setIsSigningIn(true)
+
+    try {
+      await signInHost(hostEmail, hostPassword)
+      setHostEmail('')
+      setHostPassword('')
+    } catch (error) {
+      setSignInError(error instanceof Error ? error.message : 'Failed to sign in. Please try again.')
+    } finally {
+      setIsSigningIn(false)
+    }
+  }
+
   return (
     <section className="queue-panel host-gate">
       <h2>Host Account Required</h2>
       <p className="subcopy">
-        This account does not have admin access. Sign out and sign in with the host
-        email/password to access admin controls.
+        This account does not have admin access. Sign in below with your host email and password.
       </p>
+      
+      <form onSubmit={handleHostSignIn} className="admin-mobile-action-grid">
+        <div className="form-group">
+          <label htmlFor="host-email">Host Email</label>
+          <input
+            id="host-email"
+            type="email"
+            value={hostEmail}
+            onChange={(e) => setHostEmail(e.target.value)}
+            placeholder="your@host.email"
+            disabled={isSigningIn}
+            required
+          />
+        </div>
+        
+        <div className="form-group">
+          <label htmlFor="host-password">Password</label>
+          <input
+            id="host-password"
+            type="password"
+            value={hostPassword}
+            onChange={(e) => setHostPassword(e.target.value)}
+            placeholder="••••••••"
+            disabled={isSigningIn}
+            required
+          />
+        </div>
+
+        {signInError && (
+          <p className="error-text">{signInError}</p>
+        )}
+
+        <button
+          type="submit"
+          className="primary-button"
+          disabled={isSigningIn || !hostEmail || !hostPassword}
+        >
+          {isSigningIn ? 'Signing in...' : 'Sign in as Host'}
+        </button>
+      </form>
     </section>
   )
 }
