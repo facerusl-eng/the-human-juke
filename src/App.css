@@ -7038,8 +7038,9 @@
   margin: 0.2rem auto 0;
   padding-top: 0;
   aspect-ratio: 4 / 3;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   border-radius: 12px;
   background: rgba(4, 12, 24, 0.45);
 }
@@ -7052,6 +7053,7 @@
   max-height: none;
   aspect-ratio: auto;
   object-fit: contain;
+  object-position: center top;
   transform: none;
 }
 
