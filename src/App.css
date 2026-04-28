@@ -7034,7 +7034,7 @@
 }
 
 .live-feed-panel-mirror .live-feed-post-image-wrapper {
-  width: min(40%, 260px);
+  width: min(46%, 300px);
   margin: 0.2rem auto 0;
   padding-top: 0;
   aspect-ratio: 4 / 3;
