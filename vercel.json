@@ -73,7 +73,7 @@
   ],
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/|assets/|icons/|.*\\..*).*)",
       "destination": "/index.html"
     }
   ]

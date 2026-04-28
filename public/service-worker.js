@@ -51,24 +51,30 @@ function isSameOriginStaticAsset(requestUrl) {
   )
 }
 
-async function cacheFirstNavigation(event) {
+async function networkFirstNavigation(event) {
   const cache = await caches.open(STATIC_CACHE_NAME)
-  const cachedShell = await cache.match('/index.html')
 
-  const preloadResponse = await event.preloadResponse
+  try {
+    const preloadResponse = await event.preloadResponse
 
-  if (preloadResponse) {
-    cache.put('/index.html', preloadResponse.clone())
-    return preloadResponse
+    if (preloadResponse) {
+      cache.put('/index.html', preloadResponse.clone())
+      return preloadResponse
+    }
+
+    const networkShell = await fetch('/index.html', { cache: 'no-store' })
+    if (networkShell?.ok) {
+      cache.put('/index.html', networkShell.clone())
+    }
+    return networkShell
+  } catch {
+    const cachedShell = await cache.match('/index.html')
+    if (cachedShell) {
+      return cachedShell
+    }
+
+    return new Response('Offline', { status: 503 })
   }
-
-  if (cachedShell) {
-    return cachedShell
-  }
-
-  const networkShell = await fetch('/index.html', { cache: 'no-store' })
-  cache.put('/index.html', networkShell.clone())
-  return networkShell
 }
 
 async function staleWhileRevalidateAsset(request) {
@@ -95,7 +101,11 @@ async function staleWhileRevalidateAsset(request) {
     return networkResponse
   }
 
-  return caches.match('/index.html') || new Response('Offline', { status: 503 })
+  if (cachedResponse) {
+    return cachedResponse
+  }
+
+  return new Response('Asset unavailable', { status: 504 })
 }
 
 function openSyncDb() {
@@ -219,7 +229,7 @@ self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(request.url)
 
   if (request.mode === 'navigate') {
-    event.respondWith(cacheFirstNavigation(event))
+    event.respondWith(networkFirstNavigation(event))
     return
   }
 
