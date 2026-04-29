@@ -88,6 +88,7 @@ function PromoteEventPage() {
   const headlineRef = useRef<HTMLDivElement | null>(null)
   const dragActiveRef = useRef(false)
   const photoObjectUrlRef = useRef<string | null>(null)
+  const photoDataUrlRef = useRef<string | null>(null)
   const initializingDraftRef = useRef(false)
   const [format, setFormat] = useState<PostFormat>('portrait')
   const [platform, setPlatform] = useState<SocialPlatform>('instagram')
@@ -351,6 +352,12 @@ function PromoteEventPage() {
     setPhotoUrl(objectUrl)
     setPhotoBrightness(null)
     setPhotoBusyness(null)
+
+    const reader = new FileReader()
+    reader.onload = (readerEvent) => {
+      photoDataUrlRef.current = typeof readerEvent.target?.result === 'string' ? readerEvent.target.result : null
+    }
+    reader.readAsDataURL(nextFile)
 
     void analyzeImageMetrics(objectUrl).then((metrics) => {
       setPhotoBrightness(metrics?.brightness ?? null)
@@ -648,6 +655,19 @@ function PromoteEventPage() {
 
     previewElement.classList.add('promote-exporting')
 
+    // Swap photo src to the base64 data URL so html-to-image can serialize it reliably
+    const photoImg = previewElement.querySelector<HTMLImageElement>('.promote-photo')
+    const originalPhotoSrc = photoImg?.getAttribute('src') ?? null
+    if (photoImg && photoDataUrlRef.current) {
+      photoImg.src = photoDataUrlRef.current
+      await photoImg.decode().catch(() => {})
+    }
+
+    // Inline the photo filter directly — html-to-image may not resolve CSS variables in filter
+    if (photoImg) {
+      photoImg.style.setProperty('filter', `brightness(${photoBrightnessAdj}) contrast(${photoContrast}) saturate(${photoSaturation})`)
+    }
+
     try {
       await waitForPreviewAssets(previewElement)
 
@@ -686,6 +706,12 @@ function PromoteEventPage() {
       }
     } finally {
       previewElement.classList.remove('promote-exporting')
+      if (photoImg) {
+        photoImg.style.removeProperty('filter')
+        if (originalPhotoSrc !== null) {
+          photoImg.src = originalPhotoSrc
+        }
+      }
       setExportingImage(false)
     }
   }
