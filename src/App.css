@@ -37,6 +37,77 @@
   flex-wrap: wrap;
 }
 
+.site-nav .nav-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.site-nav .nav-dropdown-trigger {
+  color: #d3e6ff;
+  text-decoration: none;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.42rem 0.82rem;
+  border-radius: 999px;
+  border: 1px solid rgba(111, 181, 255, 0.34);
+  background: rgba(8, 13, 33, 0.58);
+  transition: border-color 180ms ease, color 180ms ease, background-color 180ms ease;
+}
+
+.site-nav .nav-dropdown-trigger:hover {
+  color: #f7fbff;
+  border-color: rgba(93, 215, 255, 0.5);
+}
+
+.site-nav .nav-dropdown-trigger:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-color: rgba(93, 215, 255, 0.7);
+}
+
+.site-nav .nav-dropdown-trigger.active {
+  background: linear-gradient(120deg, rgba(74, 214, 255, 0.24) 0%, rgba(255, 79, 152, 0.2) 100%);
+  border-color: rgba(255, 79, 152, 0.62);
+  color: #f7fbff;
+}
+
+.site-nav .nav-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 13.5rem;
+  padding: 0.5rem;
+  border-radius: 14px;
+  border: 1px solid rgba(111, 181, 255, 0.38);
+  background: rgba(7, 13, 34, 0.95);
+  box-shadow: 0 14px 24px rgba(4, 8, 24, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+  z-index: 12;
+}
+
+.site-nav .nav-dropdown:hover .nav-dropdown-menu,
+.site-nav .nav-dropdown:focus-within .nav-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.site-nav .nav-dropdown-menu a {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: 10px;
+}
+
 .mobile-nav-toggle {
   display: none;
   border: 1px solid rgba(93, 215, 255, 0.4);
@@ -155,6 +226,29 @@
   background: linear-gradient(120deg, rgba(74, 214, 255, 0.24) 0%, rgba(255, 79, 152, 0.2) 100%);
   border-color: rgba(255, 79, 152, 0.62);
   color: #f7fbff;
+}
+
+@media (pointer: coarse), (max-width: 960px) {
+  .site-nav .nav-dropdown-menu {
+    position: static;
+    margin-top: 0.35rem;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
+    box-shadow: none;
+    min-width: 100%;
+  }
+
+  .site-nav .nav-dropdown {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .site-nav .nav-dropdown-trigger {
+    width: 100%;
+  }
 }
 
 .site-nav .top-nav-logo-link {

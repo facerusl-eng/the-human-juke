@@ -23,6 +23,7 @@ function ShellLayout() {
   const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
+  const isGigNavActive = /^\/admin\/(gigs|create-gig|gig-control|gig-settings)/.test(location.pathname)
   const showMobileMenu = !isAudienceMode
   const hasLiveGig = Boolean(event?.roomOpen)
   const canOpenFeed = isHost || (hasAudienceAccess && hasLiveGig)
@@ -187,10 +188,21 @@ function ShellLayout() {
               {isHost ? (
                 <>
                   <NavLink to="/admin" end>Dashboard</NavLink>
-                  <NavLink to="/admin/gigs">Gigs</NavLink>
-                  <NavLink to="/admin/create-gig">New Gig</NavLink>
-                  <NavLink to="/admin/gig-control">Gig Control</NavLink>
-                  <NavLink to="/admin/gig-settings">Gig Settings</NavLink>
+                  <div className="nav-dropdown gigs-nav-dropdown">
+                    <NavLink
+                      to="/admin/gigs"
+                      className={`nav-dropdown-trigger ${isGigNavActive ? 'active' : ''}`.trim()}
+                      aria-label="Open gig navigation"
+                    >
+                      Gigs
+                    </NavLink>
+                    <div className="nav-dropdown-menu" aria-label="Gig navigation menu">
+                      <NavLink to="/admin/gigs">All Gigs</NavLink>
+                      <NavLink to="/admin/create-gig">New Gig</NavLink>
+                      <NavLink to="/admin/gig-control">Gig Control</NavLink>
+                      <NavLink to="/admin/gig-settings">Gig Settings</NavLink>
+                    </div>
+                  </div>
                   <NavLink to="/admin/health-check">Health Check</NavLink>
                   <NavLink to="/admin/setlist-library">Setlist</NavLink>
                   <NavLink to="/admin/settings">Settings</NavLink>
