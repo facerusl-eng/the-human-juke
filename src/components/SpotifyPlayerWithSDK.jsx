@@ -370,11 +370,20 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
       await playerRef.current.togglePlay()
       setPlayerStatus('Toggled play/pause.')
     } catch (error) {
-      if (isNoListError(error) && playlistInput.trim()) {
-        await startPlaylistPlayback(playlistInput)
-        return
-      }
       if (isNoListError(error)) {
+        try {
+          const resumed = await resumePlayback()
+          if (resumed) {
+            setPlayerStatus('Spotify playback resumed from where it stopped.')
+            return
+          }
+        } catch {
+          // fall through to playlist start
+        }
+        if (playlistInput.trim()) {
+          await startPlaylistPlayback(playlistInput)
+          return
+        }
         setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press Play Playlist Between Songs first.')
         return
       }
@@ -410,6 +419,40 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
     } finally {
       setActionBusy(false)
     }
+  }
+
+  // Resumes the last active playback context on the device (no body = resume where stopped).
+  // Returns true if successful, false if there was nothing to resume.
+  const resumePlayback = async () => {
+    const playbackDeviceId = await resolvePlaybackDeviceId()
+
+    return withRefreshRetry(async (token) => {
+      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        // No body — tells Spotify to resume the current context/position
+      })
+
+      if (response.status === 401) {
+        throw new Error('Spotify access token expired.')
+      }
+
+      // 403 means "Player command failed: not found / no active context" — nothing to resume
+      if (response.status === 403 || response.status === 404) {
+        return false
+      }
+
+      if (!response.ok) {
+        const payload = await parseJson(response)
+        const message = payload?.error?.message || payload?.error_description || 'Resume playback failed.'
+        throw new Error(mapSpotifyApiError(message))
+      }
+
+      return true
+    })
   }
 
   const startPlayback = async (spotifyUri) => {
@@ -520,12 +563,21 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
             await playerRef.current.togglePlay()
             setPlayerStatus('Spotify playlist play/pause toggled from Gig Control.')
           } catch (toggleError) {
-            if (isNoListError(toggleError) && playlistInput.trim()) {
-              await startPlaylistPlayback(playlistInput)
-              setPlayerStatus('Started playlist (no track was loaded yet).')
-              return
-            }
             if (isNoListError(toggleError)) {
+              try {
+                const resumed = await resumePlayback()
+                if (resumed) {
+                  setPlayerStatus('Spotify playback resumed from where it stopped.')
+                  return
+                }
+              } catch {
+                // fall through to playlist start
+              }
+              if (playlistInput.trim()) {
+                await startPlaylistPlayback(playlistInput)
+                setPlayerStatus('Started playlist (no previous context to resume).')
+                return
+              }
               throw new Error('No track loaded yet. Set a Between Songs Playlist and press Play Playlist Between Songs first.')
             }
             throw toggleError
