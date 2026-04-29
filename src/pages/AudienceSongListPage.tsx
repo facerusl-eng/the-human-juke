@@ -320,6 +320,42 @@ function AudienceSongListPage() {
           )
         }
 
+        if (!playlistTypeById.size && event.hostId) {
+          const { data: hostPlaylistsWithType, error: hostPlaylistsWithTypeError } = await supabase
+            .from('playlists')
+            .select('id, name, playlist_type')
+            .eq('user_id', event.hostId)
+
+          if (hostPlaylistsWithTypeError && !isMissingPlaylistTypeColumnError(hostPlaylistsWithTypeError)) {
+            if (isCurrent) {
+              setErrorText(hostPlaylistsWithTypeError.message)
+            }
+            return
+          }
+
+          if (hostPlaylistsWithTypeError && isMissingPlaylistTypeColumnError(hostPlaylistsWithTypeError)) {
+            const { data: hostPlaylistsWithoutType, error: hostPlaylistsWithoutTypeError } = await supabase
+              .from('playlists')
+              .select('id, name')
+              .eq('user_id', event.hostId)
+
+            if (hostPlaylistsWithoutTypeError) {
+              if (isCurrent) {
+                setErrorText(hostPlaylistsWithoutTypeError.message)
+              }
+              return
+            }
+
+            for (const playlist of (hostPlaylistsWithoutType ?? []) as Array<{ id: string; name: string | null }>) {
+              playlistTypeById.set(playlist.id, inferPlaylistType(null, playlist.name))
+            }
+          } else {
+            for (const playlist of (hostPlaylistsWithType ?? []) as Array<{ id: string; name: string | null; playlist_type: string | null }>) {
+              playlistTypeById.set(playlist.id, inferPlaylistType(playlist.playlist_type, playlist.name))
+            }
+          }
+        }
+
         const playlistIds = [...playlistTypeById.keys()]
 
         if (!playlistIds.length) {
@@ -404,7 +440,7 @@ function AudienceSongListPage() {
     return () => {
       isCurrent = false
     }
-  }, [event?.id])
+  }, [event?.id, event?.hostId])
 
   useEffect(() => {
     const songsMissingArtwork = curatedSongs
