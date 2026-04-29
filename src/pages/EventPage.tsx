@@ -125,6 +125,7 @@ async function fetchUpcomingEventRows() {
 const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 const LIVE_GIG_POLL_INTERVAL_MS = 12000
+const PLAYBACK_SYNC_POLL_INTERVAL_MS = 10000
 const LIVE_GIG_API_POLLING_ENABLED = import.meta.env.VITE_ENABLE_LIVE_GIG_API?.trim() === '1'
 const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
@@ -919,8 +920,12 @@ function EventPage() {
 
     void syncPlaybackState()
     syncTimerId = window.setInterval(() => {
+      if (document.hidden) {
+        return
+      }
+
       void syncPlaybackState()
-    }, 1200)
+    }, PLAYBACK_SYNC_POLL_INTERVAL_MS)
     window.addEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
 
     return () => {
