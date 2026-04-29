@@ -156,9 +156,9 @@ function ShellLayout() {
   return (
     <main className={shellClassName}>
       {!isAudienceSongListMode ? <header className={topbarClassName}>
-        <p className="brand" aria-label="The Human Jukebox">
+        <NavLink to="/" className="brand" aria-label="Go to Home page">
           <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
-        </p>
+        </NavLink>
         <span className={`meta-badge connection-badge ${networkOnline ? 'connection-online' : 'connection-offline'}`}>
           {networkOnline ? 'Online' : 'Offline'}
         </span>
