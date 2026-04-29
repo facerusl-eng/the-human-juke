@@ -123,24 +123,34 @@
 }
 
 .promote-content {
-  position: relative;
+  position: absolute;
+  left: var(--headline-x, 50%);
+  top: var(--headline-y, 50%);
+  transform: translate(-50%, -50%);
   z-index: 1;
   display: grid;
   gap: 0.45rem;
+  width: min(88%, 430px);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  text-shadow: 0 2px 12px rgba(15, 23, 42, 0.55);
 }
 
 .promote-content-top {
-  align-self: start;
-  margin-top: 0.75rem;
+  --headline-y: 24%;
 }
 
 .promote-content-center {
-  align-self: center;
+  --headline-y: 50%;
 }
 
 .promote-content-bottom {
-  align-self: end;
-  margin-bottom: 0.6rem;
+  --headline-y: 74%;
+}
+
+.promote-content-dragging {
+  cursor: grabbing;
 }
 
 .promote-overline {

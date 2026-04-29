@@ -1,10 +1,15 @@
-import { useMemo, useRef, useState } from 'react'
-import type { ChangeEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { toJpeg, toPng } from 'html-to-image'
 
 type PostFormat = 'square' | 'portrait' | 'story'
 type ThemeKey = 'sunset' | 'midnight' | 'studio'
 type HeadlinePosition = 'top' | 'center' | 'bottom'
+
+type HeadlineAnchor = {
+  x: number
+  y: number
+}
 
 type Theme = {
   key: ThemeKey
@@ -40,9 +45,13 @@ const THEME_CLASS_MAP: Record<ThemeKey, string> = {
 
 function PromoteEventPage() {
   const previewRef = useRef<HTMLElement | null>(null)
+  const headlineRef = useRef<HTMLDivElement | null>(null)
+  const dragActiveRef = useRef(false)
   const [format, setFormat] = useState<PostFormat>('portrait')
   const [theme, setTheme] = useState<ThemeKey>('sunset')
   const [headlinePosition, setHeadlinePosition] = useState<HeadlinePosition>('center')
+  const [headlineAnchor, setHeadlineAnchor] = useState<HeadlineAnchor>({ x: 50, y: 50 })
+  const [headlineDragging, setHeadlineDragging] = useState(false)
   const [title, setTitle] = useState('Live Music, Made Interactive')
   const [subtitle, setSubtitle] = useState('Audience requests + live voting + host control')
   const [eventName, setEventName] = useState('The Human Jukebox Experience')
@@ -79,6 +88,87 @@ function PromoteEventPage() {
   const copyCaption = async () => {
     await navigator.clipboard.writeText(captionPreview)
   }
+
+  useEffect(() => {
+    if (!headlineRef.current) {
+      return
+    }
+
+    headlineRef.current.style.setProperty('--headline-x', `${headlineAnchor.x}%`)
+    headlineRef.current.style.setProperty('--headline-y', `${headlineAnchor.y}%`)
+  }, [headlineAnchor])
+
+  const clampPercentage = (value: number, min = 8, max = 92) => Math.min(max, Math.max(min, value))
+
+  const updateHeadlineAnchorFromPointer = (clientX: number, clientY: number) => {
+    const canvas = previewRef.current
+
+    if (!canvas) {
+      return
+    }
+
+    const canvasRect = canvas.getBoundingClientRect()
+    if (canvasRect.width <= 0 || canvasRect.height <= 0) {
+      return
+    }
+
+    const nextX = clampPercentage(((clientX - canvasRect.left) / canvasRect.width) * 100)
+    const nextY = clampPercentage(((clientY - canvasRect.top) / canvasRect.height) * 100, 12, 84)
+    setHeadlineAnchor({ x: nextX, y: nextY })
+  }
+
+  const stopHeadlineDrag = () => {
+    dragActiveRef.current = false
+    setHeadlineDragging(false)
+    window.removeEventListener('pointermove', onHeadlinePointerMove)
+    window.removeEventListener('pointerup', stopHeadlineDrag)
+    window.removeEventListener('pointercancel', stopHeadlineDrag)
+  }
+
+  const onHeadlinePointerMove = (pointerEvent: PointerEvent) => {
+    if (!dragActiveRef.current) {
+      return
+    }
+
+    updateHeadlineAnchorFromPointer(pointerEvent.clientX, pointerEvent.clientY)
+  }
+
+  const startHeadlineDrag = (pointerEvent: ReactPointerEvent<HTMLDivElement>) => {
+    if (pointerEvent.button !== 0) {
+      return
+    }
+
+    pointerEvent.preventDefault()
+    dragActiveRef.current = true
+    setHeadlineDragging(true)
+    updateHeadlineAnchorFromPointer(pointerEvent.clientX, pointerEvent.clientY)
+
+    window.addEventListener('pointermove', onHeadlinePointerMove)
+    window.addEventListener('pointerup', stopHeadlineDrag)
+    window.addEventListener('pointercancel', stopHeadlineDrag)
+  }
+
+  const handleHeadlinePositionPreset = (nextPosition: HeadlinePosition) => {
+    setHeadlinePosition(nextPosition)
+
+    if (nextPosition === 'top') {
+      setHeadlineAnchor({ x: 50, y: 24 })
+      return
+    }
+
+    if (nextPosition === 'bottom') {
+      setHeadlineAnchor({ x: 50, y: 74 })
+      return
+    }
+
+    setHeadlineAnchor({ x: 50, y: 50 })
+  }
+
+  useEffect(() => {
+    return () => {
+      stopHeadlineDrag()
+    }
+  }, [])
 
   const exportImage = async (type: 'png' | 'jpg') => {
     if (!previewRef.current || exportingImage) {
@@ -164,7 +254,7 @@ function PromoteEventPage() {
 
           <label className="promote-field">
             <span>Headline Position</span>
-            <select value={headlinePosition} onChange={(event) => setHeadlinePosition(event.target.value as HeadlinePosition)}>
+            <select value={headlinePosition} onChange={(event) => handleHeadlinePositionPreset(event.target.value as HeadlinePosition)}>
               <option value="top">Top</option>
               <option value="center">Center</option>
               <option value="bottom">Bottom</option>
@@ -243,7 +333,12 @@ function PromoteEventPage() {
             The Human Jukebox
           </div>
 
-          <div className={`promote-content promote-content-${headlinePosition}`}>
+          <div
+            ref={headlineRef}
+            className={`promote-content promote-content-${headlinePosition} ${headlineDragging ? 'promote-content-dragging' : ''}`}
+            onPointerDown={startHeadlineDrag}
+            role="presentation"
+          >
             <p className="promote-overline">{eventDate}</p>
             <h3>{title}</h3>
             <p className="promote-subtitle">{subtitle}</p>
