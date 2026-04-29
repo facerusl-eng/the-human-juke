@@ -69,6 +69,7 @@ function PromoteEventPage() {
   const [exportingImage, setExportingImage] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [audienceVisibilitySaving, setAudienceVisibilitySaving] = useState(false)
+  const [audienceVisibilitySaved, setAudienceVisibilitySaved] = useState(false)
   const [audienceVisibilityError, setAudienceVisibilityError] = useState<string | null>(null)
 
   const activeTheme = useMemo(
@@ -213,6 +214,20 @@ function PromoteEventPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!audienceVisibilitySaved) {
+      return
+    }
+
+    const timerId = window.setTimeout(() => {
+      setAudienceVisibilitySaved(false)
+    }, 1800)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [audienceVisibilitySaved])
+
   const waitForPreviewAssets = async (previewElement: HTMLElement) => {
     if ('fonts' in document && document.fonts?.ready) {
       await document.fonts.ready
@@ -323,10 +338,12 @@ function PromoteEventPage() {
     }
 
     setAudienceVisibilityError(null)
+    setAudienceVisibilitySaved(false)
     setAudienceVisibilitySaving(true)
 
     try {
       await setEventAudienceNoGigVisibility(event.id, !event.showInAudienceNoGig)
+      setAudienceVisibilitySaved(true)
     } catch (error) {
       setAudienceVisibilityError(error instanceof Error ? error.message : 'Failed to update no-live audience visibility.')
     } finally {
@@ -416,7 +433,10 @@ function PromoteEventPage() {
           </label>
 
           <div className="promote-field promote-field-wide">
-            <span>No-Live Audience Option</span>
+            <span>
+              No-Live Audience Option
+              {audienceVisibilitySaved ? <span className="meta-badge">Saved</span> : null}
+            </span>
             <button
               type="button"
               className="secondary-button"
