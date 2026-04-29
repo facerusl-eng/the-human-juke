@@ -2986,7 +2986,7 @@
 
 .gig-control-qr-frame {
   width: 100%;
-  max-width: 260px;
+  max-width: 240px;
   aspect-ratio: 1 / 1;
   justify-self: center;
   border-radius: 14px;
