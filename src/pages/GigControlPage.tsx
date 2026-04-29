@@ -40,7 +40,7 @@ function GigControlPage() {
     addSong,
     markPlayed,
     removeSong,
-    moveSong,
+    reorderSong,
     setActiveEvent,
     toggleRoomOpen,
     toggleExplicitFilter,
@@ -51,6 +51,8 @@ function GigControlPage() {
   const [isNowPlayingStarted, setIsNowPlayingStarted] = useState(false)
   const [spaceActionBusy, setSpaceActionBusy] = useState(false)
   const [songActionBusyId, setSongActionBusyId] = useState<string | null>(null)
+  const [draggedSongId, setDraggedSongId] = useState<string | null>(null)
+  const [dragOverSongId, setDragOverSongId] = useState<string | null>(null)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const [snapshotStatusText, setSnapshotStatusText] = useState<string | null>(null)
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
@@ -95,6 +97,35 @@ function GigControlPage() {
   const joinUrl = getAudienceUrl(event?.id)
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
+
+  const handleQueueDrop = useCallback(async (targetSongId: string) => {
+    if (!draggedSongId || draggedSongId === targetSongId || songActionBusyId) {
+      return
+    }
+
+    const sourceIndex = upNext.findIndex((song) => song.id === draggedSongId)
+    const targetIndex = upNext.findIndex((song) => song.id === targetSongId)
+
+    if (sourceIndex === -1 || targetIndex === -1) {
+      setDraggedSongId(null)
+      setDragOverSongId(null)
+      return
+    }
+
+    setSongActionBusyId(draggedSongId)
+
+    try {
+      await reorderSong(draggedSongId, targetIndex)
+      await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+    } catch (error) {
+      console.warn('GigControlPage: drag reorder failed', error)
+      setErrorText(error instanceof Error ? error.message : 'Failed to reorder queue.')
+    } finally {
+      setSongActionBusyId(null)
+      setDraggedSongId(null)
+      setDragOverSongId(null)
+    }
+  }, [draggedSongId, reorderSong, songActionBusyId, upNext])
 
   const sendSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
     if (!spotifyAutoTransportEnabled) {
@@ -980,9 +1011,52 @@ function GigControlPage() {
         {upNext.length === 0 ? (
           <p className="subcopy queue-empty-note">No more songs in queue.</p>
         ) : (
-          <ol className="queue-list gig-control-queue">
+          <>
+            <p className="subcopy queue-reorder-note">Drag songs to reorder the queue.</p>
+            <ol className="queue-list gig-control-queue">
             {upNext.map((song, index) => (
-              <li key={song.id} className="gig-control-row">
+              <li
+                key={song.id}
+                className={`gig-control-row${draggedSongId === song.id ? ' is-dragging' : ''}${dragOverSongId === song.id && draggedSongId !== song.id ? ' is-drop-target' : ''}`}
+                onDragOver={(event) => {
+                  event.preventDefault()
+                  if (!songActionBusyId) {
+                    setDragOverSongId(song.id)
+                  }
+                }}
+                onDragLeave={() => {
+                  if (dragOverSongId === song.id) {
+                    setDragOverSongId(null)
+                  }
+                }}
+                onDrop={async (event) => {
+                  event.preventDefault()
+                  await handleQueueDrop(song.id)
+                }}
+              >
+                <span
+                  className="queue-drag-handle"
+                  draggable={!songActionBusyId}
+                  title="Drag to reorder"
+                  onDragStart={(event) => {
+                    if (songActionBusyId) {
+                      event.preventDefault()
+                      return
+                    }
+
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', song.id)
+                    setDraggedSongId(song.id)
+                    setDragOverSongId(song.id)
+                  }}
+                  onDragEnd={() => {
+                    setDraggedSongId(null)
+                    setDragOverSongId(null)
+                  }}
+                  aria-label="Drag handle"
+                >
+                  ⋮⋮
+                </span>
                 <span className="queue-pos">{index + upNextStartPosition}</span>
                 <div className="gig-song-info">
                   {song.cover_url ? (
@@ -999,56 +1073,6 @@ function GigControlPage() {
                 </div>
                 <span className="votes">+{song.votes_count}</span>
                 <div className="queue-actions gig-control-row-actions">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={songActionBusyId === song.id || index === 0}
-                    title="Move song up in queue"
-                    onClick={async () => {
-                      if (songActionBusyId === song.id) {
-                        return
-                      }
-
-                      setSongActionBusyId(song.id)
-
-                      try {
-                        await moveSong(song.id, 'up')
-                        await registerBackgroundSync(BACKGROUND_SYNC_TAG)
-                      } catch (error) {
-                        console.warn('GigControlPage: move song up failed', error)
-                        setErrorText(error instanceof Error ? error.message : 'Failed to move song.')
-                      } finally {
-                        setSongActionBusyId(null)
-                      }
-                    }}
-                  >
-                    ↑ Move Up
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={songActionBusyId === song.id || index === upNext.length - 1}
-                    title="Move song down in queue"
-                    onClick={async () => {
-                      if (songActionBusyId === song.id) {
-                        return
-                      }
-
-                      setSongActionBusyId(song.id)
-
-                      try {
-                        await moveSong(song.id, 'down')
-                        await registerBackgroundSync(BACKGROUND_SYNC_TAG)
-                      } catch (error) {
-                        console.warn('GigControlPage: move song down failed', error)
-                        setErrorText(error instanceof Error ? error.message : 'Failed to move song.')
-                      } finally {
-                        setSongActionBusyId(null)
-                      }
-                    }}
-                  >
-                    ↓ Move Down
-                  </button>
                   <button
                     type="button"
                     className="vote-button danger-button"
@@ -1075,7 +1099,8 @@ function GigControlPage() {
                 </div>
               </li>
             ))}
-          </ol>
+            </ol>
+          </>
         )}
       </section>
 

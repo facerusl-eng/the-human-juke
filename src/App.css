@@ -3243,6 +3243,38 @@
   background:
     linear-gradient(140deg, rgba(14, 19, 40, 0.86), rgba(22, 28, 56, 0.88));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+.gig-control-queue .gig-control-row.is-dragging {
+  opacity: 0.5;
+}
+
+.gig-control-queue .gig-control-row.is-drop-target {
+  border-color: rgba(93, 215, 255, 0.86);
+  box-shadow:
+    0 0 0 1px rgba(93, 215, 255, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.queue-drag-handle {
+  user-select: none;
+  cursor: grab;
+  color: #8ea6d1;
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 0.12rem 0.25rem;
+  border-radius: 6px;
+  border: 1px solid rgba(93, 215, 255, 0.24);
+  background: rgba(7, 12, 28, 0.35);
+}
+
+.queue-drag-handle:active {
+  cursor: grabbing;
+}
+
+.queue-reorder-note {
+  margin: 0 0 0.5rem;
 }
 
 .queue-pos {

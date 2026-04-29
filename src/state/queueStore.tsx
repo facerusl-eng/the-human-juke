@@ -104,6 +104,7 @@ type QueueContextValue = {
   toggleVotingLock: (songId: string, nextValue: boolean) => Promise<void>
   removeSong: (songId: string) => Promise<void>
   moveSong: (songId: string, direction: 'up' | 'down') => Promise<void>
+  reorderSong: (songId: string, targetIndex: number) => Promise<void>
   createEvent: (name: string, venue: string, options?: CreateEventOptions) => Promise<void>
   markPlayed: () => Promise<void>
 }
@@ -1545,6 +1546,50 @@ function QueueProvider({ children }: PropsWithChildren) {
         if (event?.id) {
           await fetchQueueSnapshot(event.id)
         }
+      },
+      reorderSong: async (songId: string, targetIndex: number) => {
+        if (!event?.id) {
+          throw new Error('No active gig to reorder songs.')
+        }
+
+        const sourceIndex = songs.findIndex((song) => song.id === songId)
+        if (sourceIndex === -1) {
+          throw new Error('Song not found in queue.')
+        }
+
+        const clampedTargetIndex = Math.max(0, Math.min(targetIndex, songs.length - 1))
+        if (sourceIndex === clampedTargetIndex) {
+          return
+        }
+
+        const reorderedSongs = [...songs]
+        const [draggedSong] = reorderedSongs.splice(sourceIndex, 1)
+
+        if (!draggedSong) {
+          return
+        }
+
+        reorderedSongs.splice(clampedTargetIndex, 0, draggedSong)
+
+        await Promise.all(
+          reorderedSongs.map(async (song, index) => {
+            const currentPosition = song.position ?? index
+            if (currentPosition === index) {
+              return
+            }
+
+            const { error } = await supabase
+              .from('queue_songs')
+              .update({ position: index })
+              .eq('id', song.id)
+
+            if (error) {
+              throw error
+            }
+          }),
+        )
+
+        await fetchQueueSnapshot(event.id)
       },
       createEvent: async (name: string, venue: string, options?: CreateEventOptions) => {
         if (!user) {
