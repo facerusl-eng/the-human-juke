@@ -81,6 +81,7 @@ function GigControlPage() {
   })
 
   const quoteIndexRef = useRef(0)
+  const lastSpaceActionAtRef = useRef(0)
   const previousSongIdRef = useRef<string | null>(null)
   const previousRoomOpenRef = useRef<boolean | null>(null)
   const playbackActionLockRef = useRef(false)
@@ -519,7 +520,7 @@ function GigControlPage() {
       })
     } catch (error) {
       console.warn('GigControlPage: playback sync write failed', error)
-      throw error
+      // Do not block local playback controls if cross-screen sync is temporarily unavailable.
     }
   }, [event, nowPlaying?.id, resolveCoverUrlForSong])
 
@@ -612,6 +613,10 @@ function GigControlPage() {
         return
       }
 
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return
+      }
+
       if (event.repeat) {
         event.preventDefault()
         return
@@ -623,13 +628,23 @@ function GigControlPage() {
         tag === 'INPUT' ||
         tag === 'TEXTAREA' ||
         tag === 'SELECT' ||
-        activeElement?.isContentEditable
+        tag === 'BUTTON' ||
+        tag === 'A' ||
+        activeElement?.isContentEditable ||
+        activeElement?.getAttribute('role') === 'button'
+
+      const now = Date.now()
+      if (now - lastSpaceActionAtRef.current < 350) {
+        event.preventDefault()
+        return
+      }
 
       if (isTypingTarget || !nowPlaying || playbackActionLockRef.current || spaceActionBusy) {
         return
       }
 
       event.preventDefault()
+      lastSpaceActionAtRef.current = now
 
       try {
         await runQueueTogglePlayShortcut()
