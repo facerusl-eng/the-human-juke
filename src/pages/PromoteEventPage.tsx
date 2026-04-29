@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import html2canvas from 'html2canvas'
+import { toJpeg, toPng } from 'html-to-image'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { useQueueStore } from '../state/queueStore'
 
@@ -613,9 +614,9 @@ function PromoteEventPage() {
           return
         }
 
-        await new Promise<void>((resolve, reject) => {
+        await new Promise<void>((resolve) => {
           imageElement.onload = () => resolve()
-          imageElement.onerror = () => reject(new Error('Could not load preview image'))
+          imageElement.onerror = () => resolve()
         })
       }),
     )
@@ -646,6 +647,13 @@ function PromoteEventPage() {
       window.setTimeout(() => {
         URL.revokeObjectURL(objectUrl)
       }, 2000)
+    }
+
+    const downloadDataUrl = (dataUrl: string) => {
+      const downloadLink = document.createElement('a')
+      downloadLink.download = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.${type}`
+      downloadLink.href = dataUrl
+      downloadLink.click()
     }
 
     const canvasToBlob = (canvas: HTMLCanvasElement, mimeType: string, quality?: number) => {
@@ -753,8 +761,32 @@ function PromoteEventPage() {
         }
       }
     } catch (error) {
-      console.warn(`PromoteEventPage: export failed`, error)
-      setExportError('Could not export image. Please try a different photo file and retry.')
+      console.warn('PromoteEventPage: html2canvas export failed, trying html-to-image fallback', error)
+
+      try {
+        const pixelRatio = Math.min(3, Math.max(2, window.devicePixelRatio || 2))
+
+        const fallbackDataUrl = type === 'png'
+          ? await toPng(previewElement, {
+            cacheBust: true,
+            pixelRatio,
+            canvasWidth: targetDimensions.width,
+            canvasHeight: targetDimensions.height,
+          })
+          : await toJpeg(previewElement, {
+            cacheBust: true,
+            pixelRatio,
+            quality: 0.95,
+            backgroundColor: '#0b1025',
+            canvasWidth: targetDimensions.width,
+            canvasHeight: targetDimensions.height,
+          })
+
+        downloadDataUrl(fallbackDataUrl)
+      } catch (fallbackError) {
+        console.warn('PromoteEventPage: html-to-image fallback failed', fallbackError)
+        setExportError('Could not export image. Please try a different photo file and retry.')
+      }
     } finally {
       previewElement.classList.remove('promote-exporting')
       if (photoImg) {
