@@ -40,6 +40,7 @@ function GigControlPage() {
     addSong,
     markPlayed,
     removeSong,
+    moveSong,
     reorderSong,
     setActiveEvent,
     toggleRoomOpen,
@@ -53,6 +54,7 @@ function GigControlPage() {
   const [songActionBusyId, setSongActionBusyId] = useState<string | null>(null)
   const [draggedSongId, setDraggedSongId] = useState<string | null>(null)
   const [dragOverSongId, setDragOverSongId] = useState<string | null>(null)
+  const [isTouchInput, setIsTouchInput] = useState(false)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const [snapshotStatusText, setSnapshotStatusText] = useState<string | null>(null)
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
@@ -98,6 +100,24 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+
+    const mediaQuery = window.matchMedia('(pointer: coarse)')
+    setIsTouchInput(mediaQuery.matches)
+
+    const onChange = (event: MediaQueryListEvent) => {
+      setIsTouchInput(event.matches)
+    }
+
+    mediaQuery.addEventListener('change', onChange)
+    return () => {
+      mediaQuery.removeEventListener('change', onChange)
+    }
+  }, [])
+
   const handleQueueDrop = useCallback(async (targetSongId: string) => {
     if (!draggedSongId || draggedSongId === targetSongId || songActionBusyId) {
       return
@@ -115,7 +135,8 @@ function GigControlPage() {
     setSongActionBusyId(draggedSongId)
 
     try {
-      await reorderSong(draggedSongId, targetIndex)
+      const queueStartIndex = isNowPlayingStarted ? 1 : 0
+      await reorderSong(draggedSongId, targetIndex + queueStartIndex)
       await registerBackgroundSync(BACKGROUND_SYNC_TAG)
     } catch (error) {
       console.warn('GigControlPage: drag reorder failed', error)
@@ -125,7 +146,7 @@ function GigControlPage() {
       setDraggedSongId(null)
       setDragOverSongId(null)
     }
-  }, [draggedSongId, reorderSong, songActionBusyId, upNext])
+  }, [draggedSongId, isNowPlayingStarted, reorderSong, songActionBusyId, upNext])
 
   const sendSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
     if (!spotifyAutoTransportEnabled) {
@@ -1012,7 +1033,9 @@ function GigControlPage() {
           <p className="subcopy queue-empty-note">No more songs in queue.</p>
         ) : (
           <>
-            <p className="subcopy queue-reorder-note">Drag songs to reorder the queue.</p>
+            <p className="subcopy queue-reorder-note">
+              {isTouchInput ? 'Use Move Up / Move Down to reorder.' : 'Drag songs to reorder the queue.'}
+            </p>
             <ol className="queue-list gig-control-queue">
             {upNext.map((song, index) => (
               <li
@@ -1036,10 +1059,10 @@ function GigControlPage() {
               >
                 <span
                   className="queue-drag-handle"
-                  draggable={!songActionBusyId}
+                  draggable={!songActionBusyId && !isTouchInput}
                   title="Drag to reorder"
                   onDragStart={(event) => {
-                    if (songActionBusyId) {
+                    if (songActionBusyId || isTouchInput) {
                       event.preventDefault()
                       return
                     }
@@ -1073,6 +1096,58 @@ function GigControlPage() {
                 </div>
                 <span className="votes">+{song.votes_count}</span>
                 <div className="queue-actions gig-control-row-actions">
+                  {isTouchInput ? (
+                    <>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={songActionBusyId === song.id || index === 0}
+                        onClick={async () => {
+                          if (songActionBusyId) {
+                            return
+                          }
+
+                          setSongActionBusyId(song.id)
+
+                          try {
+                            await moveSong(song.id, 'up')
+                            await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+                          } catch (error) {
+                            console.warn('GigControlPage: move song up failed', error)
+                            setErrorText(error instanceof Error ? error.message : 'Failed to move song.')
+                          } finally {
+                            setSongActionBusyId(null)
+                          }
+                        }}
+                      >
+                        ↑ Move Up
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={songActionBusyId === song.id || index === upNext.length - 1}
+                        onClick={async () => {
+                          if (songActionBusyId) {
+                            return
+                          }
+
+                          setSongActionBusyId(song.id)
+
+                          try {
+                            await moveSong(song.id, 'down')
+                            await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+                          } catch (error) {
+                            console.warn('GigControlPage: move song down failed', error)
+                            setErrorText(error instanceof Error ? error.message : 'Failed to move song.')
+                          } finally {
+                            setSongActionBusyId(null)
+                          }
+                        }}
+                      >
+                        ↓ Move Down
+                      </button>
+                    </>
+                  ) : null}
                   <button
                     type="button"
                     className="vote-button danger-button"
