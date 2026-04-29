@@ -133,6 +133,7 @@
   width: min(88%, 430px);
   cursor: grab;
   touch-action: none;
+  -webkit-user-select: none;
   user-select: none;
   text-shadow: 0 2px 12px rgba(15, 23, 42, 0.55);
 }
