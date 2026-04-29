@@ -586,14 +586,33 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         }
 
         if (transportCommand.mode === 'play') {
-          if (playlistInput.trim()) {
-            await startPlaylistPlayback(playlistInput)
-          } else {
+          try {
             await syncTogglePlayState(true)
-            setPlayerStatus('Between-song Spotify playback started from Gig Control.')
-          }
+            setPlayerStatus('Between-song Spotify playback resumed from Gig Control.')
+            return
+          } catch (playError) {
+            if (!isNoListError(playError)) {
+              throw playError
+            }
 
-          return
+            try {
+              const resumed = await resumePlayback()
+              if (resumed) {
+                setPlayerStatus('Between-song Spotify playback resumed from last position.')
+                return
+              }
+            } catch {
+              // Fall through to playlist start when there is no resumable context.
+            }
+
+            if (playlistInput.trim()) {
+              await startPlaylistPlayback(playlistInput)
+              setPlayerStatus('Started between-song playlist (no paused context was available).')
+              return
+            }
+
+            throw new Error('No paused Spotify context found. Set a Between Songs Playlist first.')
+          }
         }
 
         await syncTogglePlayState(false)
