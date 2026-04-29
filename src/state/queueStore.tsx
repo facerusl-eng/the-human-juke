@@ -112,8 +112,10 @@ type QueueContextValue = {
 const QueueContext = createContext<QueueContextValue | null>(null)
 const DEFAULT_DB_TIMEOUT_MS = 25_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
-const HOST_QUEUE_POLL_INTERVAL_MS = 5000
+const HOST_QUEUE_POLL_INTERVAL_MS = 15_000
+const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 30_000
 const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 30000
+const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
 const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
 const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
 
@@ -132,6 +134,14 @@ function isFeedRoutePath() {
   }
 
   return window.location.pathname.startsWith('/feed')
+}
+
+function isAdminGigsRoutePath() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.pathname.startsWith('/admin/gigs')
 }
 
 function isAuthLockContentionError(error: unknown) {
@@ -229,6 +239,34 @@ function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: str
       window.clearTimeout(timerId)
     }
   }) as Promise<T>
+}
+
+function isTransientLoadError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  return /timed out|statement timeout|connection pool|pgrst003|failed to fetch|networkerror|network error/i.test(message)
+}
+
+async function withTransientRetry<T>(operation: () => Promise<T>, attempts = TRANSIENT_LOAD_RETRY_ATTEMPTS) {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error
+      const isLastAttempt = attempt >= attempts - 1
+
+      if (!isTransientLoadError(error) || isLastAttempt) {
+        throw error
+      }
+
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 350 * (attempt + 1))
+      })
+    }
+  }
+
+  throw lastError
 }
 
 function readRequestedEventIdFromUrl() {
@@ -736,7 +774,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         if (isHostSession) {
-          const nextHostEvents = await fetchHostEvents(user.id)
+          const nextHostEvents = await withTransientRetry(() => fetchHostEvents(user.id))
 
           if (isCurrent) {
             setHostEvents(nextHostEvents)
@@ -850,7 +888,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         try {
-          await fetchQueueSnapshot(resolvedEventId)
+          await withTransientRetry(() => fetchQueueSnapshot(resolvedEventId), 2)
         } catch (error) {
           const canFallbackToLatestActive = !isHostSession
 
@@ -871,7 +909,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             await syncAudienceActiveEventId(resolvedEventId)
           }
 
-          await fetchQueueSnapshot(resolvedEventId)
+          await withTransientRetry(() => fetchQueueSnapshot(resolvedEventId), 2)
         }
 
         if (!isCurrent) {
@@ -918,7 +956,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               }
             }
 
-            await fetchQueueSnapshot(resolvedEventId)
+            await withTransientRetry(() => fetchQueueSnapshot(resolvedEventId), 2)
           } catch (error) {
             console.warn('queueStore: transient snapshot refresh failure', error)
             // Keep the last known snapshot when transient network errors occur.
@@ -989,6 +1027,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         activeChannelReconnectHandler = connectQueueLiveChannel
         connectQueueLiveChannel()
 
+        const pollIntervalMs = isHostSession
+          ? (isAdminGigsRoutePath() ? HOST_GIGS_ROUTE_POLL_INTERVAL_MS : HOST_QUEUE_POLL_INTERVAL_MS)
+          : AUDIENCE_QUEUE_POLL_INTERVAL_MS
+
         audiencePollTimerId = window.setInterval(() => {
           if (document.hidden) {
             return
@@ -997,7 +1039,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           if (isCurrent) {
             void refreshSnapshot()
           }
-        }, isHostSession ? HOST_QUEUE_POLL_INTERVAL_MS : AUDIENCE_QUEUE_POLL_INTERVAL_MS)
+        }, pollIntervalMs)
       } catch (error) {
         console.warn('queueStore: initial queue load failed', error)
         // Keep previous state so transient failures do not blank the UI.
