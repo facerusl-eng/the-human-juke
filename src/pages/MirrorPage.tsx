@@ -1231,7 +1231,7 @@ function MirrorPage() {
                     {upNext.map((song, index) => (
                       <li key={song.id} className="mirror-queue-item">
                         <span className="mirror-queue-pos">{index + 2}</span>
-                        {!shouldCompactQueue && song.cover_url && !failedCoverUrls[song.cover_url] ? (
+                        {song.cover_url && !failedCoverUrls[song.cover_url] ? (
                           <img
                             src={song.cover_url}
                             alt={`Cover art for ${song.title}`}
