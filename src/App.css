@@ -47,6 +47,15 @@
   display: inline-flex;
 }
 
+.site-nav .nav-dropdown::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 100%;
+  height: 0.45rem;
+}
+
 .site-nav .nav-dropdown-trigger {
   color: #d3e6ff;
   text-decoration: none;
@@ -80,7 +89,7 @@
 
 .site-nav .nav-dropdown-menu {
   position: absolute;
-  top: calc(100% + 0.3rem);
+  top: calc(100% - 1px);
   left: 0;
   display: flex;
   flex-direction: column;
@@ -234,6 +243,10 @@
 }
 
 @media (pointer: coarse), (max-width: 960px) {
+  .site-nav .nav-dropdown::after {
+    content: none;
+  }
+
   .site-nav .nav-dropdown-menu {
     position: static;
     margin-top: 0.35rem;
