@@ -174,6 +174,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
   const [spotifyUriInput, setSpotifyUriInput] = useState('')
   const [playlistInput, setPlaylistInput] = useState('')
   const [actionBusy, setActionBusy] = useState(false)
+  const [transportStatusText, setTransportStatusText] = useState(null)
   const disconnectHint = !deviceId ? getSpotifyDisconnectHint(playerStatus) : null
 
   accessTokenRef.current = accessToken
@@ -681,10 +682,12 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
     const processTransportQueue = async () => {
       if (transportInFlightRef.current) {
         pendingTransportCommandRef.current = transportCommand
+        setTransportStatusText('Spotify command queued...')
         return
       }
 
       transportInFlightRef.current = true
+      setTransportStatusText('Spotify command running...')
 
       try {
         let commandToRun = transportCommand
@@ -706,6 +709,11 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         }
       } finally {
         transportInFlightRef.current = false
+        if (pendingTransportCommandRef.current) {
+          setTransportStatusText('Spotify command queued...')
+        } else {
+          setTransportStatusText(null)
+        }
       }
     }
 
@@ -724,6 +732,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
       </p>
       <p className="subcopy">Device ID: {deviceId ?? 'Waiting for ready event...'}</p>
       <p className="subcopy">{playerStatus}</p>
+      {transportStatusText ? <p className="meta-badge" role="status" aria-live="polite">{transportStatusText}</p> : null}
       {disconnectHint ? <p className="subcopy">Disconnect reason: {disconnectHint}</p> : null}
 
       <div className="hero-actions">
