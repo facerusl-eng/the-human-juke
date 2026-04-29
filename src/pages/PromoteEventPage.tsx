@@ -48,6 +48,7 @@ function PromoteEventPage() {
   const previewRef = useRef<HTMLElement | null>(null)
   const headlineRef = useRef<HTMLDivElement | null>(null)
   const dragActiveRef = useRef(false)
+  const photoObjectUrlRef = useRef<string | null>(null)
   const [format, setFormat] = useState<PostFormat>('portrait')
   const [theme, setTheme] = useState<ThemeKey>('sunset')
   const [headlinePosition, setHeadlinePosition] = useState<HeadlinePosition>('center')
@@ -78,7 +79,23 @@ function PromoteEventPage() {
       return
     }
 
+    const fileName = nextFile.name.toLowerCase()
+    const fileType = nextFile.type.toLowerCase()
+    const unsupportedImage = fileType.includes('heic') || fileType.includes('heif') || fileName.endsWith('.heic') || fileName.endsWith('.heif')
+
+    if (unsupportedImage) {
+      setExportError('This photo format is not supported by your browser. Please use JPG or PNG.')
+      return
+    }
+
+    setExportError(null)
+
+    if (photoObjectUrlRef.current) {
+      URL.revokeObjectURL(photoObjectUrlRef.current)
+    }
+
     const objectUrl = URL.createObjectURL(nextFile)
+    photoObjectUrlRef.current = objectUrl
     setPhotoUrl(objectUrl)
   }
 
@@ -168,13 +185,45 @@ function PromoteEventPage() {
   useEffect(() => {
     return () => {
       stopHeadlineDrag()
+
+      if (photoObjectUrlRef.current) {
+        URL.revokeObjectURL(photoObjectUrlRef.current)
+        photoObjectUrlRef.current = null
+      }
     }
   }, [])
+
+  const waitForPreviewAssets = async (previewElement: HTMLElement) => {
+    if ('fonts' in document && document.fonts?.ready) {
+      await document.fonts.ready
+    }
+
+    const previewImages = Array.from(previewElement.querySelectorAll('img'))
+    await Promise.all(
+      previewImages.map(async (imageElement) => {
+        if (imageElement.complete && imageElement.naturalWidth > 0) {
+          return
+        }
+
+        if (typeof imageElement.decode === 'function') {
+          await imageElement.decode()
+          return
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          imageElement.onload = () => resolve()
+          imageElement.onerror = () => reject(new Error('Could not load preview image'))
+        })
+      }),
+    )
+  }
 
   const exportImage = async (type: 'png' | 'jpg') => {
     if (!previewRef.current || exportingImage) {
       return
     }
+
+    const previewElement = previewRef.current
 
     setExportError(null)
     setExportingImage(true)
@@ -208,8 +257,10 @@ function PromoteEventPage() {
     }
 
     try {
+      await waitForPreviewAssets(previewElement)
+
       const dataUrl = type === 'png'
-        ? await toPng(previewRef.current, exportOptions)
+        ? await toPng(previewElement, exportOptions)
         : await toJpeg(previewRef.current, {
           ...exportOptions,
           quality: 0.92,
@@ -219,7 +270,9 @@ function PromoteEventPage() {
       console.warn(`PromoteEventPage: primary ${type.toUpperCase()} export failed, trying fallback`, error)
 
       try {
-        const fallbackCanvas = await html2canvas(previewRef.current, {
+        await waitForPreviewAssets(previewElement)
+
+        const fallbackCanvas = await html2canvas(previewElement, {
           useCORS: true,
           allowTaint: true,
           backgroundColor: null,
