@@ -2975,6 +2975,8 @@
 
 .gig-control-qr-card {
   justify-items: stretch;
+  align-content: start;
+  gap: 0.58rem;
   padding: 1rem;
 }
 
@@ -2986,7 +2988,7 @@
 
 .gig-control-qr-frame {
   width: 100%;
-  max-width: 240px;
+  max-width: 220px;
   aspect-ratio: 1 / 1;
   justify-self: center;
   border-radius: 14px;
@@ -3012,6 +3014,25 @@
   display: block;
   margin: 0 auto;
   box-sizing: border-box;
+}
+
+.gig-control-qr-card .hero-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.55rem;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.gig-control-qr-card .secondary-button,
+.gig-control-qr-card .ghost-button,
+.gig-control-qr-card .primary-button {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  padding-inline: 0.72rem;
 }
 
 .gig-mirror-preview-card {
