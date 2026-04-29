@@ -612,30 +612,41 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const [{ data: eventData, error: eventError }, { data: songsData, error: songsError }] =
-      await withTimeout(
-        Promise.all([
-          loadEventSnapshot().then((data) => ({ data, error: null as null | unknown })),
-          supabase
-            .from('queue_songs')
-            .select('id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position')
-            .eq('event_id', activeEventId)
-            .eq('is_removed', false)
-            .order('position', { ascending: true }),
-        ]),
+    const eventData = await withTimeout(
+      loadEventSnapshot(),
+      DEFAULT_DB_TIMEOUT_MS,
+      'Loading the live gig timed out. Please refresh and try again.',
+    )
+
+    let queueSongs: QueueSong[] = []
+    let queueLoaded = false
+
+    try {
+      const { data: songsData, error: songsError } = await withTimeout(
+        supabase
+          .from('queue_songs')
+          .select('id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position')
+          .eq('event_id', activeEventId)
+          .eq('is_removed', false)
+          .order('position', { ascending: true }),
         DEFAULT_DB_TIMEOUT_MS,
         'Loading the queue timed out. Please refresh and try again.',
       )
 
-    if (eventError) {
-      throw eventError
+      if (songsError) {
+        throw songsError
+      }
+
+      queueSongs = ((songsData ?? []) as QueueSong[])
+      queueLoaded = true
+    } catch (error) {
+      if (!isTransientLoadError(error)) {
+        throw error
+      }
+
+      console.warn('queueStore: queue songs unavailable, keeping live event shell active', error)
     }
 
-    if (songsError) {
-      throw songsError
-    }
-
-    const queueSongs = ((songsData ?? []) as QueueSong[])
     const missingCoverLibrarySongIds = [...new Set(
       queueSongs
         .filter((song) => !song.cover_url && song.library_song_id)
@@ -681,16 +692,20 @@ function QueueProvider({ children }: PropsWithChildren) {
       showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
       coverImageUrl: ((eventData as Record<string, unknown>).cover_image_url as string | null) ?? null,
     })
-    setSongs(queueSongs.map((song) => {
-      if (song.cover_url || !song.library_song_id) {
-        return song
-      }
+    if (queueLoaded) {
+      setSongs(queueSongs.map((song) => {
+        if (song.cover_url || !song.library_song_id) {
+          return song
+        }
 
-      return {
-        ...song,
-        cover_url: coverUrlByLibrarySongId.get(song.library_song_id) ?? null,
-      }
-    }))
+        return {
+          ...song,
+          cover_url: coverUrlByLibrarySongId.get(song.library_song_id) ?? null,
+        }
+      }))
+    } else {
+      setSongs((currentSongs) => (activeEventIdRef.current === activeEventId ? currentSongs : []))
+    }
   }, [])
 
   const fetchQueueSnapshotRef = useRef(fetchQueueSnapshot)
