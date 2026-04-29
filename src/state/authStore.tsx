@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase'
 const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
 const AUTH_REQUEST_TIMEOUT_MS = 12_000
 const AUTH_TRANSIENT_RETRY_COUNT = 2
+const AUTH_PROFILE_REQUEST_TIMEOUT_MS = 20_000
+const AUTH_PROFILE_RETRY_COUNT = 3
 const AUTH_HOST_SIGN_IN_TIMEOUT_MS = 25_000
 const AUTH_HOST_SIGN_IN_RETRY_COUNT = 3
 const AUTH_SESSION_STORAGE_KEY = 'human-jukebox-auth-session-snapshot'
@@ -295,7 +297,10 @@ function AuthProvider({ children }: PropsWithChildren) {
       return
     }
 
-    const nextProfile = await getProfile(user.id)
+    const nextProfile = await retryTransientAuthOperation(
+      () => withTimeout(getProfile(user.id), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Profile loading timed out.'),
+      AUTH_PROFILE_RETRY_COUNT,
+    )
     setProfile(nextProfile)
   }, [user])
 
@@ -314,15 +319,21 @@ function AuthProvider({ children }: PropsWithChildren) {
         // Do not block auth transitions on profile reads; these can hang on flaky networks.
         void (async () => {
           try {
-            const loadedProfile = await withTimeout(
-              getProfile(nextSession.user.id),
-              AUTH_REQUEST_TIMEOUT_MS,
-              'Profile loading timed out.',
+            const loadedProfile = await retryTransientAuthOperation(
+              () => withTimeout(
+                getProfile(nextSession.user.id),
+                AUTH_PROFILE_REQUEST_TIMEOUT_MS,
+                'Profile loading timed out.',
+              ),
+              AUTH_PROFILE_RETRY_COUNT,
             )
-            const nextProfile = await withTimeout(
-              syncAllowedHostRole(nextSession.user, loadedProfile),
-              AUTH_REQUEST_TIMEOUT_MS,
-              'Host role sync timed out.',
+            const nextProfile = await retryTransientAuthOperation(
+              () => withTimeout(
+                syncAllowedHostRole(nextSession.user, loadedProfile),
+                AUTH_PROFILE_REQUEST_TIMEOUT_MS,
+                'Host role sync timed out.',
+              ),
+              AUTH_PROFILE_RETRY_COUNT,
             )
             setProfile(nextProfile)
           } catch (error) {
