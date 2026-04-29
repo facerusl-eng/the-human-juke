@@ -780,7 +780,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             setHostEvents(nextHostEvents)
           }
 
-          targetEventId = eventId
+          targetEventId = nextHostEvents.find((nextEvent) => nextEvent.id === eventId)?.id
             ?? nextHostEvents.find((nextEvent) => nextEvent.isActive)?.id
             ?? nextHostEvents[0]?.id
             ?? null
@@ -929,6 +929,31 @@ function QueueProvider({ children }: PropsWithChildren) {
           snapshotInFlight = true
 
           try {
+            if (isHostSession) {
+              const refreshedHostEvents = await withTransientRetry(() => fetchHostEvents(user.id), 2)
+
+              if (isCurrent) {
+                setHostEvents(refreshedHostEvents)
+              }
+
+              if (!refreshedHostEvents.some((hostEvent) => hostEvent.id === resolvedEventId)) {
+                const fallbackHostEventId = refreshedHostEvents.find((hostEvent) => hostEvent.isActive)?.id
+                  ?? refreshedHostEvents[0]?.id
+                  ?? null
+
+                if (!fallbackHostEventId) {
+                  setEvent(null)
+                  setSongs([])
+                  setPerformedSongs([])
+                  activeEventIdRef.current = null
+                  return
+                }
+
+                resolvedEventId = fallbackHostEventId
+                activeEventIdRef.current = fallbackHostEventId
+              }
+            }
+
             const requestedEventIdFromUrl = readRequestedEventIdFromUrl()
 
             if (!isHostSession && requestedEventIdFromUrl && requestedEventIdFromUrl !== resolvedEventId) {
