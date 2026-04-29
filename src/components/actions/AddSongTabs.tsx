@@ -29,6 +29,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
   const [loadingCustomSongs, setLoadingCustomSongs] = useState(false)
   const [customSongsError, setCustomSongsError] = useState<string | null>(null)
   const [addingSongId, setAddingSongId] = useState<string | null>(null)
+  const [addingRandomCount, setAddingRandomCount] = useState<number | null>(null)
   const [toastState, setToastState] = useState<ToastState>(null)
 
   const canUseCustomSongs = useMemo(() => Boolean(userId), [userId])
@@ -150,6 +151,65 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
     }
   }
 
+  const addRandomPlaylistSongsToQueue = async (candidateSongs: PlaylistSong[], requestedCount: number) => {
+    if (addingSongId || addingRandomCount) {
+      return
+    }
+
+    const preferredPool = candidateSongs.filter((song) => !queuedLibrarySongIds.has(song.id))
+    const sourcePool = preferredPool.length > 0 ? preferredPool : candidateSongs
+
+    if (sourcePool.length === 0) {
+      showToast('No songs available to add.', 'error')
+      return
+    }
+
+    const randomizedSongs = [...sourcePool]
+
+    for (let index = randomizedSongs.length - 1; index > 0; index -= 1) {
+      const randomIndex = Math.floor(Math.random() * (index + 1))
+      const currentSong = randomizedSongs[index]
+      randomizedSongs[index] = randomizedSongs[randomIndex]
+      randomizedSongs[randomIndex] = currentSong
+    }
+
+    const songsToAdd = randomizedSongs.slice(0, Math.min(requestedCount, randomizedSongs.length))
+
+    setAddingRandomCount(requestedCount)
+
+    let addedCount = 0
+    let firstErrorMessage: string | null = null
+
+    for (const song of songsToAdd) {
+      try {
+        await addSong(song.title, song.artist, song.is_explicit, {
+          librarySongId: song.id,
+          coverUrl: song.cover_url,
+          performerMode: 'performer',
+          bypassEventRules: true,
+        })
+        addedCount += 1
+      } catch (error) {
+        if (!firstErrorMessage) {
+          firstErrorMessage = error instanceof Error ? error.message : 'Could not add some random songs to queue.'
+        }
+      }
+    }
+
+    if (addedCount > 0) {
+      const trimmedNote = songsToAdd.length < requestedCount ? ` (only ${songsToAdd.length} available)` : ''
+      showToast(`${addedCount} random song${addedCount === 1 ? '' : 's'} added to queue${trimmedNote}.`, 'success')
+    }
+
+    if (addedCount === 0) {
+      showToast(firstErrorMessage ?? 'Could not add random songs to queue.', 'error')
+    } else if (firstErrorMessage) {
+      showToast(`Added ${addedCount} songs, but some could not be added.`, 'error')
+    }
+
+    setAddingRandomCount(null)
+  }
+
   const pushSavedSong = (song: CustomSong) => {
     setCustomSongs((currentSongs) => [song, ...currentSongs])
   }
@@ -184,7 +244,9 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
           eventId={eventId}
           queuedLibrarySongIds={queuedLibrarySongIds}
           addingSongId={addingSongId}
+          addingRandomCount={addingRandomCount}
           onAddSong={addPlaylistSongToQueue}
+          onAddRandomSongs={addRandomPlaylistSongsToQueue}
         />
       ) : (
         <section className="gig-add-song-tab-content" aria-label="Custom song">

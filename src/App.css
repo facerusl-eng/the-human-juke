@@ -3732,6 +3732,54 @@
   cursor: pointer;
 }
 
+.gig-song-picker-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.gig-song-picker-random-wrap {
+  position: relative;
+}
+
+.gig-random-pick-button {
+  min-width: 2.6rem;
+  min-height: 2.2rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 1rem;
+}
+
+.gig-random-pick-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 12;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 10.5rem;
+  padding: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid rgba(120, 156, 202, 0.42);
+  background: rgba(8, 14, 30, 0.96);
+  box-shadow: 0 14px 28px rgba(7, 11, 24, 0.42);
+}
+
+.gig-random-pick-option {
+  border: 1px solid rgba(120, 156, 202, 0.26);
+  border-radius: 8px;
+  background: rgba(15, 24, 46, 0.62);
+  color: #f7fbff;
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+}
+
+.gig-random-pick-option:hover {
+  border-color: rgba(93, 215, 255, 0.72);
+  background: rgba(25, 36, 66, 0.82);
+}
+
 .gig-song-picker-trigger:disabled {
   opacity: 0.7;
   cursor: not-allowed;

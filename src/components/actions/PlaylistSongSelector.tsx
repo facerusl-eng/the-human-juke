@@ -13,7 +13,9 @@ type PlaylistSongSelectorProps = {
   eventId: string
   queuedLibrarySongIds: Set<string>
   addingSongId: string | null
+  addingRandomCount: number | null
   onAddSong: (song: PlaylistSong) => Promise<void>
+  onAddRandomSongs: (candidateSongs: PlaylistSong[], requestedCount: number) => Promise<void>
 }
 
 function normalizeCoverUrl(coverUrl: string | null | undefined) {
@@ -30,11 +32,12 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
   return trimmedCoverUrl.replace(/^http:\/\//i, 'https://')
 }
 
-function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onAddSong }: PlaylistSongSelectorProps) {
+function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, addingRandomCount, onAddSong, onAddRandomSongs }: PlaylistSongSelectorProps) {
   const [playlistName, setPlaylistName] = useState('Selected Playlist')
   const [songs, setSongs] = useState<PlaylistSong[]>([])
   const [selectedSongId, setSelectedSongId] = useState('')
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false)
+  const [isRandomMenuOpen, setIsRandomMenuOpen] = useState(false)
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const songPickerRef = useRef<HTMLDivElement | null>(null)
@@ -174,6 +177,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
 
       if (!songPickerRef.current.contains(event.target as Node)) {
         setIsSongPickerOpen(false)
+        setIsRandomMenuOpen(false)
       }
     }
 
@@ -188,14 +192,56 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
       <p className="subcopy no-margin">Showing songs from: <strong>{playlistName}</strong></p>
 
       <div className="field-row no-margin-bottom" ref={songPickerRef}>
-        <label htmlFor="gig-control-playlist-song-picker">Choose song from playlist</label>
+        <div className="gig-song-picker-label-row">
+          <label htmlFor="gig-control-playlist-song-picker">Choose song from playlist</label>
+          <div className="gig-song-picker-random-wrap">
+            <button
+              type="button"
+              className="secondary-button gig-random-pick-button"
+              disabled={loadingSongs || availableSongs.length === 0 || Boolean(addingSongId) || Boolean(addingRandomCount)}
+              onClick={() => {
+                setIsRandomMenuOpen((open) => !open)
+                setIsSongPickerOpen(false)
+              }}
+              aria-label="Randomly add songs"
+              title="Randomly add songs"
+            >
+              {addingRandomCount ? `Adding ${addingRandomCount}...` : '🎲'}
+            </button>
+            {isRandomMenuOpen ? (
+              <div className="gig-random-pick-menu" aria-label="Random add options">
+                <button
+                  type="button"
+                  className="gig-random-pick-option"
+                  onClick={() => {
+                    setIsRandomMenuOpen(false)
+                    void onAddRandomSongs(availableSongs, 10)
+                  }}
+                >
+                  Add random 10
+                </button>
+                <button
+                  type="button"
+                  className="gig-random-pick-option"
+                  onClick={() => {
+                    setIsRandomMenuOpen(false)
+                    void onAddRandomSongs(availableSongs, 20)
+                  }}
+                >
+                  Add random 20
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
         <button
           id="gig-control-playlist-song-picker"
           type="button"
           className="gig-song-picker-trigger"
-          disabled={loadingSongs || availableSongs.length === 0}
+          disabled={loadingSongs || availableSongs.length === 0 || Boolean(addingRandomCount)}
           onClick={() => {
             setIsSongPickerOpen((open) => !open)
+            setIsRandomMenuOpen(false)
           }}
         >
           {selectedSong ? (
