@@ -307,24 +307,24 @@
 /* Text frames */
 .promote-frame-light .promote-content,
 .promote-frame-light .promote-footer {
-  background: rgba(0, 0, 0, 0.62);
+  background: rgba(0, 0, 0, 0.76);
   -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
   padding: clamp(0.45rem, 1.35%, 0.85rem);
   border-radius: clamp(0.4rem, 1%, 0.8rem);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.55);
 }
 
 .promote-frame-dark .promote-content,
 .promote-frame-dark .promote-footer {
-  background: rgba(0, 0, 0, 0.78);
+  background: rgba(0, 0, 0, 0.88);
   -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
   padding: clamp(0.45rem, 1.35%, 0.85rem);
   border-radius: clamp(0.4rem, 1%, 0.8rem);
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 16px 30px rgba(2, 6, 23, 0.62);
 }
 
 .promote-frame-light .promote-overline,
@@ -335,7 +335,8 @@
 .promote-frame-light .promote-event-meta,
 .promote-frame-light .promote-cta {
   color: #f8fafc;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.8);
+  -webkit-text-stroke: 0.35px rgba(0, 0, 0, 0.55);
 }
 
 .promote-frame-dark .promote-overline,
@@ -346,6 +347,8 @@
 .promote-frame-dark .promote-event-meta,
 .promote-frame-dark .promote-cta {
   color: #f8fafc;
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.85);
+  -webkit-text-stroke: 0.35px rgba(0, 0, 0, 0.6);
 }
 
 @media (max-width: 1000px) {
