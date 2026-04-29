@@ -45,21 +45,23 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
       setErrorText(null)
 
       try {
-        const { data: eventPlaylistRow, error: eventPlaylistError } = await supabase
+        const { data: eventPlaylists, error: eventPlaylistError } = await supabase
           .from('event_playlists')
           .select('playlist_id')
           .eq('event_id', eventId)
           .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle()
 
         if (eventPlaylistError) {
           throw eventPlaylistError
         }
 
-        const selectedPlaylistId = eventPlaylistRow?.playlist_id as string | null
+        const selectedPlaylistIds = [...new Set(
+          ((eventPlaylists ?? []) as Array<{ playlist_id?: string | null }>)
+            .map((row) => row.playlist_id)
+            .filter((playlistId): playlistId is string => Boolean(playlistId)),
+        )]
 
-        if (!selectedPlaylistId) {
+        if (selectedPlaylistIds.length === 0) {
           if (isCurrent) {
             setPlaylistName('No playlist selected')
             setSongs([])
@@ -67,11 +69,10 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
           return
         }
 
-        const { data: playlistRow, error: playlistError } = await supabase
+        const { data: playlistRows, error: playlistError } = await supabase
           .from('playlists')
           .select('name')
-          .eq('id', selectedPlaylistId)
-          .maybeSingle()
+          .in('id', selectedPlaylistIds)
 
         if (playlistError) {
           throw playlistError
@@ -80,7 +81,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
         const { data: playlistSongs, error: playlistSongsError } = await supabase
           .from('playlist_songs')
           .select('position, library_songs!inner(id, title, artist, cover_url, is_explicit)')
-          .eq('playlist_id', selectedPlaylistId)
+          .in('playlist_id', selectedPlaylistIds)
           .order('position', { ascending: true })
           .order('created_at', { ascending: true })
 
@@ -110,7 +111,18 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
           })
         }
 
-        setPlaylistName((playlistRow?.name as string | null)?.trim() || 'Selected Playlist')
+        const normalizedPlaylistNames = ((playlistRows ?? []) as Array<{ name?: string | null }>)
+          .map((row) => row.name?.trim())
+          .filter((name): name is string => Boolean(name))
+
+        if (normalizedPlaylistNames.length === 1) {
+          setPlaylistName(normalizedPlaylistNames[0])
+        } else if (normalizedPlaylistNames.length > 1) {
+          setPlaylistName(`${normalizedPlaylistNames.length} playlists selected`)
+        } else {
+          setPlaylistName('Selected Playlist')
+        }
+
         setSongs([...dedupedSongs.values()])
       } catch (error) {
         console.warn('PlaylistSongSelector: failed to load selected playlist songs', error)
@@ -132,9 +144,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
     }
   }, [eventId])
 
-  const availableSongs = useMemo(() => (
-    songs.filter((song) => !queuedLibrarySongIds.has(song.id))
-  ), [songs, queuedLibrarySongIds])
+  const availableSongs = useMemo(() => songs, [songs])
 
   useEffect(() => {
     if (availableSongs.length === 0) {
@@ -171,7 +181,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
           ) : (
             availableSongs.map((song) => (
               <option key={song.id} value={song.id}>
-                {`${song.title} - ${song.artist}${song.is_explicit ? ' (Explicit)' : ''}`}
+                {`${song.title} - ${song.artist}${song.is_explicit ? ' (Explicit)' : ''}${queuedLibrarySongIds.has(song.id) ? ' (Already queued)' : ''}`}
               </option>
             ))
           )}
@@ -211,7 +221,15 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
       ) : null}
 
       {!loadingSongs && !selectedSong && !errorText ? (
-        <p className="subcopy no-margin-bottom">All songs from this playlist are already in queue.</p>
+        <p className="subcopy no-margin-bottom">No songs found in the selected playlist setup.</p>
+      ) : null}
+
+      {!loadingSongs && selectedSong ? (
+        <p className="subcopy no-margin-bottom">
+          {queuedLibrarySongIds.has(selectedSong.id)
+            ? 'This song is already in queue. Adding again will create another queue entry.'
+            : 'Ready to add this song to queue.'}
+        </p>
       ) : null}
     </section>
   )
