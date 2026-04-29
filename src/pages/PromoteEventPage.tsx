@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { toPng } from 'html-to-image'
 
 type PostFormat = 'square' | 'portrait' | 'story'
 type ThemeKey = 'sunset' | 'midnight' | 'studio'
@@ -37,6 +38,7 @@ const THEME_CLASS_MAP: Record<ThemeKey, string> = {
 }
 
 function PromoteEventPage() {
+  const previewRef = useRef<HTMLElement | null>(null)
   const [format, setFormat] = useState<PostFormat>('portrait')
   const [theme, setTheme] = useState<ThemeKey>('sunset')
   const [title, setTitle] = useState('Live Music, Made Interactive')
@@ -49,6 +51,8 @@ function PromoteEventPage() {
     'Turn your audience into active participants with real-time song requests and voting.',
   )
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [exportingImage, setExportingImage] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const activeTheme = useMemo(
     () => THEMES.find((item) => item.key === theme) ?? THEMES[0],
@@ -72,6 +76,49 @@ function PromoteEventPage() {
 
   const copyCaption = async () => {
     await navigator.clipboard.writeText(captionPreview)
+  }
+
+  const exportPng = async () => {
+    if (!previewRef.current || exportingImage) {
+      return
+    }
+
+    setExportError(null)
+    setExportingImage(true)
+
+    const dimensionsByFormat: Record<PostFormat, { width: number; height: number }> = {
+      square: { width: 1080, height: 1080 },
+      portrait: { width: 1080, height: 1350 },
+      story: { width: 1080, height: 1920 },
+    }
+
+    const targetDimensions = dimensionsByFormat[format]
+
+    try {
+      const dataUrl = await toPng(previewRef.current, {
+        cacheBust: true,
+        pixelRatio: 1,
+        skipAutoScale: true,
+        canvasWidth: targetDimensions.width,
+        canvasHeight: targetDimensions.height,
+      })
+
+      const sanitizedEventName = eventName
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'promote-event'
+
+      const downloadLink = document.createElement('a')
+      downloadLink.download = `${sanitizedEventName}-${format}.png`
+      downloadLink.href = dataUrl
+      downloadLink.click()
+    } catch (error) {
+      console.warn('PromoteEventPage: PNG export failed', error)
+      setExportError('Could not export image. Please try another photo or theme.')
+    } finally {
+      setExportingImage(false)
+    }
   }
 
   return (
@@ -147,9 +194,15 @@ function PromoteEventPage() {
           </label>
         </div>
 
-        <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
-          Copy Caption Text
-        </button>
+        <div className="promote-action-row">
+          <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
+            Copy Caption Text
+          </button>
+          <button type="button" className="primary-button" onClick={() => void exportPng()} disabled={exportingImage}>
+            {exportingImage ? 'Exporting PNG...' : 'Export PNG'}
+          </button>
+        </div>
+        {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
       </section>
 
       <section className="queue-panel promote-preview-panel" aria-label="Promotional preview">
@@ -159,6 +212,7 @@ function PromoteEventPage() {
         </div>
 
         <article
+          ref={previewRef}
           className={`promote-canvas ${FORMAT_CLASS_MAP[format]} ${THEME_CLASS_MAP[activeTheme.key]}`}
         >
           {photoUrl ? <img src={photoUrl} alt="Promo background" className="promote-photo" /> : null}

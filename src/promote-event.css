@@ -43,6 +43,12 @@
   grid-column: span 2;
 }
 
+.promote-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
 .promote-canvas {
   position: relative;
   width: min(100%, 520px);
