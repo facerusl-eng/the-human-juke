@@ -11,7 +11,7 @@ type ThemeKey = 'none' | 'sunset' | 'midnight' | 'studio'
 type HeadlinePosition = 'top' | 'center' | 'bottom'
 type TextShadow = 'none' | 'light' | 'strong'
 type FontChoice = 'default' | 'serif' | 'slab' | 'mono'
-type TextFrame = 'none' | 'light' | 'dark'
+type TextFrame = 'none' | 'light' | 'dark' | 'auto'
 
 type HeadlineAnchor = {
   x: number
@@ -115,7 +115,8 @@ function PromoteEventPage() {
   const [textBold, setTextBold] = useState(false)
   const [textShadow, setTextShadow] = useState<TextShadow>('light')
   const [fontChoice, setFontChoice] = useState<FontChoice>('default')
-  const [textFrame, setTextFrame] = useState<TextFrame>('none')
+  const [textFrame, setTextFrame] = useState<TextFrame>('auto')
+  const [photoBrightness, setPhotoBrightness] = useState<number | null>(null)
 
   const filteredHostEvents = useMemo(() => {
     const normalizedQuery = eventFilterQuery.trim().toLowerCase()
@@ -206,7 +207,7 @@ function PromoteEventPage() {
         setTextBold(draft.textBold ?? false)
         setTextShadow(draft.textShadow ?? 'light')
         setFontChoice(draft.fontChoice ?? 'default')
-        setTextFrame(draft.textFrame ?? 'none')
+        setTextFrame(draft.textFrame ?? 'auto')
         return
       }
 
@@ -222,6 +223,58 @@ function PromoteEventPage() {
     }
   }, [selectedEventId, selectedHostEvent?.name, selectedHostEvent?.venue])
 
+  const analyzeImageBrightness = async (imageUrl: string) => {
+    try {
+      const image = new Image()
+
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () => reject(new Error('Could not load image for brightness analysis.'))
+        image.src = imageUrl
+      })
+
+      const sampleMaxDimension = 120
+      const largestDimension = Math.max(image.naturalWidth, image.naturalHeight)
+      const scale = largestDimension > sampleMaxDimension ? sampleMaxDimension / largestDimension : 1
+      const sampleWidth = Math.max(1, Math.round(image.naturalWidth * scale))
+      const sampleHeight = Math.max(1, Math.round(image.naturalHeight * scale))
+
+      const sampleCanvas = document.createElement('canvas')
+      sampleCanvas.width = sampleWidth
+      sampleCanvas.height = sampleHeight
+
+      const context = sampleCanvas.getContext('2d')
+
+      if (!context) {
+        return null
+      }
+
+      context.drawImage(image, 0, 0, sampleWidth, sampleHeight)
+      const { data } = context.getImageData(0, 0, sampleWidth, sampleHeight)
+
+      let luminanceTotal = 0
+      let sampleCount = 0
+      const stride = 12
+
+      for (let index = 0; index < data.length; index += 4 * stride) {
+        const red = data[index] / 255
+        const green = data[index + 1] / 255
+        const blue = data[index + 2] / 255
+        const luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+        luminanceTotal += luminance
+        sampleCount += 1
+      }
+
+      if (!sampleCount) {
+        return null
+      }
+
+      return luminanceTotal / sampleCount
+    } catch {
+      return null
+    }
+  }
+
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0]
 
@@ -235,6 +288,7 @@ function PromoteEventPage() {
 
     if (unsupportedImage) {
       setExportError('This photo format is not supported by your browser. Please use JPG or PNG.')
+      setPhotoBrightness(null)
       return
     }
 
@@ -247,7 +301,24 @@ function PromoteEventPage() {
     const objectUrl = URL.createObjectURL(nextFile)
     photoObjectUrlRef.current = objectUrl
     setPhotoUrl(objectUrl)
+    setPhotoBrightness(null)
+
+    void analyzeImageBrightness(objectUrl).then((brightness) => {
+      setPhotoBrightness(brightness)
+    })
   }
+
+  const resolvedTextFrame = useMemo<'none' | 'light' | 'dark'>(() => {
+    if (textFrame === 'none' || textFrame === 'light' || textFrame === 'dark') {
+      return textFrame
+    }
+
+    if (photoBrightness === null) {
+      return 'dark'
+    }
+
+    return photoBrightness >= 0.58 ? 'dark' : 'light'
+  }, [photoBrightness, textFrame])
 
   const captionPreview = useMemo(() => {
     return `${eventName}\n${description}\n${ctaText}`
@@ -715,6 +786,7 @@ function PromoteEventPage() {
           <label className="promote-field">
             <span>Text Frame</span>
             <select value={textFrame} onChange={(event) => setTextFrame(event.target.value as TextFrame)}>
+              <option value="auto">Auto (Smart Contrast)</option>
               <option value="none">None</option>
               <option value="light">Light Background</option>
               <option value="dark">Dark Background</option>
@@ -854,7 +926,7 @@ function PromoteEventPage() {
 
           <div
             ref={headlineRef}
-            className={`promote-content promote-content-${headlinePosition} ${headlineDragging ? 'promote-content-dragging' : ''} promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${textFrame}`}
+            className={`promote-content promote-content-${headlinePosition} ${headlineDragging ? 'promote-content-dragging' : ''} promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${resolvedTextFrame}`}
             onPointerDown={startHeadlineDrag}
             role="presentation"
           >
@@ -864,7 +936,7 @@ function PromoteEventPage() {
             <p className="promote-description">{description}</p>
           </div>
 
-          <div className={`promote-footer promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${textFrame}`}>
+          <div className={`promote-footer promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${resolvedTextFrame}`}>
             <div>
               <p className="promote-event-name">{eventName}</p>
               <p className="promote-event-meta">{venue}</p>
