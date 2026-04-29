@@ -3072,6 +3072,31 @@
   color: #b8d2ff;
 }
 
+.gig-audience-count-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: rgba(93, 215, 255, 0.85);
+}
+
+.gig-audience-count-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #4aff9a;
+  box-shadow: 0 0 6px #4aff9a;
+  flex-shrink: 0;
+  animation: audience-dot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes audience-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 .gig-playback-note {
   max-width: 64ch;
   margin-top: 0.35rem;

@@ -584,6 +584,29 @@ function EventPage() {
     }
   }, [])
 
+  // Broadcast presence to the host dashboard while audience member is active
+  useEffect(() => {
+    const eventId = event?.id
+
+    if (!eventId || !audienceName || !roomOpen) {
+      return
+    }
+
+    const channel = supabase.channel(`audience-presence:${eventId}`, {
+      config: { presence: { key: audienceName } },
+    })
+
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({ name: audienceName, joinedAt: Date.now() })
+      }
+    })
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [event?.id, audienceName, roomOpen])
+
   useEffect(() => {
     let isCurrent = true
 

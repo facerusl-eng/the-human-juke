@@ -10,6 +10,7 @@ import { registerBackgroundSync } from '../lib/backgroundSync'
 import { captureQueueSnapshot, getLatestQueueSnapshot } from '../lib/queueSnapshots'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
+import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 
@@ -62,6 +63,7 @@ function GigControlPage() {
   const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
   const [spotifyAutoTransportEnabled, setSpotifyAutoTransportEnabled] = useState(true)
   const [workerHeartbeatText, setWorkerHeartbeatText] = useState<string | null>(null)
+  const [activeAudienceCount, setActiveAudienceCount] = useState<number | null>(null)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -381,6 +383,29 @@ function GigControlPage() {
       }
     })()
   }, [event, setShowInAudienceNoGig])
+
+  // Subscribe to audience presence channel to count active audience members
+  useEffect(() => {
+    const eventId = event?.id
+
+    if (!eventId) {
+      setActiveAudienceCount(null)
+      return
+    }
+
+    const channel = supabase.channel(`audience-presence:${eventId}`)
+
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState()
+      setActiveAudienceCount(Object.keys(state).length)
+    })
+
+    channel.subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [event?.id])
 
   const resolveCoverUrlForSong = useCallback((songId: string | null) => {
     if (!songId) {
@@ -789,6 +814,14 @@ function GigControlPage() {
             <h1>{event.name}</h1>
             {event.venue ? <p className="subcopy no-margin">{event.venue}</p> : null}
             {event.subtitle ? <p className="subcopy gig-event-subtitle">{event.subtitle}</p> : null}
+            <p className="gig-audience-count-badge" aria-live="polite">
+              <span className="gig-audience-count-dot" aria-hidden="true" />
+              {activeAudienceCount === null
+                ? 'Audience online: connecting…'
+                : activeAudienceCount === 0
+                ? 'No audience members online yet'
+                : `${activeAudienceCount} audience member${activeAudienceCount === 1 ? '' : 's'} online`}
+            </p>
             <p className="subcopy gig-playback-note">
               Admin playback control is driven from this screen. Press Space to start the current song, then press
               Space again to move into the next quote transition. This applies to the full live queue for this gig,
