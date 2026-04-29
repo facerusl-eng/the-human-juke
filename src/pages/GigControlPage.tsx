@@ -616,7 +616,8 @@ function GigControlPage() {
   }, [runPlaybackAction, sendSpotifyTransportCommand, syncStartedState])
 
   const runQueueTogglePlayShortcut = useCallback(async () => {
-    if (!nowPlaying || playbackActionLockRef.current || spaceActionBusy) {
+    // Rely on the ref-based lock only — spaceActionBusy state can lag by one render
+    if (!nowPlaying || playbackActionLockRef.current) {
       return
     }
 
@@ -632,7 +633,7 @@ function GigControlPage() {
     if (finishedSong) {
       sendSpotifyTransportCommand('play')
     }
-  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, sendSpotifyTransportCommand, spaceActionBusy, startCurrentSong])
+  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, sendSpotifyTransportCommand, startCurrentSong])
 
   useEffect(() => {
     nowPlayingRef.current = nowPlaying
@@ -641,6 +642,12 @@ function GigControlPage() {
   useEffect(() => {
     spaceActionBusyRef.current = spaceActionBusy
   }, [spaceActionBusy])
+
+  // Stable ref to the shortcut so the keydown listener never needs re-registering
+  const runQueueTogglePlayShortcutRef = useRef(runQueueTogglePlayShortcut)
+  useEffect(() => {
+    runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
+  }, [runQueueTogglePlayShortcut])
 
   useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
@@ -661,10 +668,24 @@ function GigControlPage() {
         return
       }
 
+      // Block if a playback action is already running (use ref — always current, no stale closure)
+      if (playbackActionLockRef.current || spaceActionBusyRef.current) {
+        event.preventDefault()
+        return
+      }
+
       const target = event.target as HTMLElement | null
       const activeElement = document.activeElement as HTMLElement | null
       const interactiveTarget = target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="button"], [role="textbox"], [data-spacebar-ignore="true"]')
       const isTypingTarget = Boolean(interactiveTarget || activeElement?.isContentEditable)
+
+      if (isTypingTarget) {
+        return
+      }
+
+      if (!nowPlayingRef.current) {
+        return
+      }
 
       const now = Date.now()
       if (now - lastSpaceActionAtRef.current < 500) {
@@ -672,24 +693,22 @@ function GigControlPage() {
         return
       }
 
-      if (isTypingTarget || !nowPlayingRef.current || playbackActionLockRef.current || spaceActionBusyRef.current) {
-        return
-      }
-
       event.preventDefault()
       lastSpaceActionAtRef.current = now
 
       try {
-        await runQueueTogglePlayShortcut()
+        await runQueueTogglePlayShortcutRef.current()
       } catch (error) {
         console.warn('GigControlPage: spacebar playback action failed', error)
         setErrorText('Playback control failed. Please try again.')
       }
     }
 
+    // Registered once — never torn down and re-added, eliminating the brief gap
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [runQueueTogglePlayShortcut])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const headerActions: ActionButtonConfig[] = [
     {
