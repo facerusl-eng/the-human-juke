@@ -41,7 +41,12 @@ type ImportedSongDraft = {
   isExplicit: boolean
 }
 
+type ImportedSongWithArtwork = ImportedSongDraft & {
+  coverUrl: string | null
+}
+
 const MAX_COVER_IMAGE_BYTES = 3 * 1024 * 1024
+const IMPORT_ARTWORK_CONCURRENCY = 4
 
 function isMissingPlaylistTypeColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
@@ -263,6 +268,41 @@ function dedupeSongs(songs: ImportedSongDraft[]) {
     seen.add(key)
     return true
   })
+}
+
+async function resolveArtworkForImportedSongs(songs: ImportedSongDraft[]): Promise<ImportedSongWithArtwork[]> {
+  const songsWithArtwork: ImportedSongWithArtwork[] = songs.map((song) => ({
+    ...song,
+    coverUrl: null,
+  }))
+
+  let nextSongIndex = 0
+
+  // Keep a small concurrency window to avoid hammering the artwork provider.
+  const workers = Array.from({ length: Math.min(IMPORT_ARTWORK_CONCURRENCY, songsWithArtwork.length) }, async () => {
+    while (nextSongIndex < songsWithArtwork.length) {
+      const currentIndex = nextSongIndex
+      nextSongIndex += 1
+      const currentSong = songsWithArtwork[currentIndex]
+
+      try {
+        const coverUrl = await fetchSongArtwork(currentSong.title, currentSong.artist)
+        songsWithArtwork[currentIndex] = {
+          ...currentSong,
+          coverUrl,
+        }
+      } catch {
+        songsWithArtwork[currentIndex] = {
+          ...currentSong,
+          coverUrl: null,
+        }
+      }
+    }
+  })
+
+  await Promise.all(workers)
+
+  return songsWithArtwork
 }
 
 function SetlistLibraryPage() {
@@ -969,14 +1009,17 @@ function SetlistLibraryPage() {
         throw new Error('No songs found in this file. Use lines like "Song - Artist" or a CSV with title/artist columns.')
       }
 
+      const songsWithArtwork = await resolveArtworkForImportedSongs(parsedSongs)
+
       const { data: insertedSongs, error: insertedSongsError } = await supabase
         .from('library_songs')
         .insert(
-          parsedSongs.map((song) => ({
+          songsWithArtwork.map((song) => ({
             user_id: userId,
             title: song.title,
             artist: song.artist,
             is_explicit: song.isExplicit,
+            cover_url: song.coverUrl,
           })),
         )
         .select('id, title, artist, cover_url, is_explicit, created_at')
@@ -1014,7 +1057,11 @@ function SetlistLibraryPage() {
         [selectedPlaylistId]: (currentCounts[selectedPlaylistId] ?? 0) + nextSongsToAdd.length,
       }))
       setTotalSongCount((currentCount) => currentCount + nextSongsToAdd.length)
-      setSuccessText(`Imported ${nextSongsToAdd.length} song${nextSongsToAdd.length === 1 ? '' : 's'} from ${selectedFile.name}.`)
+      const importedWithArtworkCount = songsWithArtwork.filter((song) => Boolean(song.coverUrl)).length
+      setSuccessText(
+        `Imported ${nextSongsToAdd.length} song${nextSongsToAdd.length === 1 ? '' : 's'} from ${selectedFile.name}. `
+        + `Found cover art for ${importedWithArtworkCount}.`,
+      )
     } catch (error) {
       if (isMountedRef.current) {
         setErrorText(error instanceof Error ? error.message : 'Unable to import songs from this file.')
