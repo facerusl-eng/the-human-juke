@@ -380,9 +380,21 @@ function EventPage() {
   const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
   const displaySong = isNowPlayingStarted ? activeSong : nowPlaying
   const displaySongCoverUrl = displaySong?.cover_url ?? playbackState?.currentSongCoverUrl ?? null
-  const upNext = isNowPlayingStarted
-    ? songs.filter((song) => song.id !== activeSong?.id)
-    : songs.slice(1)
+  const upNext = useMemo(() => {
+    const candidateSongs = isNowPlayingStarted
+      ? songs.filter((song) => song.id !== activeSong?.id)
+      : songs.slice(1)
+
+    return [...candidateSongs].sort((songA, songB) => {
+      if (songB.votes_count !== songA.votes_count) {
+        return songB.votes_count - songA.votes_count
+      }
+
+      const positionA = typeof songA.position === 'number' ? songA.position : Number.MAX_SAFE_INTEGER
+      const positionB = typeof songB.position === 'number' ? songB.position : Number.MAX_SAFE_INTEGER
+      return positionA - positionB
+    })
+  }, [songs, isNowPlayingStarted, activeSong?.id])
   const isBetweenSongs = playbackState && !playbackState.isStarted
   const betweenSongQuote = isBetweenSongs
     ? BETWEEN_SONG_QUOTES[(playbackState?.quoteIndex ?? 0) % BETWEEN_SONG_QUOTES.length]
