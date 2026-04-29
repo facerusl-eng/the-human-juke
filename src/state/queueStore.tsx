@@ -1483,7 +1483,11 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw error
         }
 
-        const normalizedPlaylistIds = [...new Set(updates.selectedPlaylistIds)]
+        const normalizedPlaylistIds = [...new Set(
+          updates.selectedPlaylistIds
+            .map((playlistId) => (typeof playlistId === 'string' ? playlistId.trim() : ''))
+            .filter((playlistId) => playlistId.length > 0),
+        )]
 
         const { error: clearPlaylistsError } = await withTimeout(
           withAuthLockRetry(() =>

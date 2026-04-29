@@ -347,6 +347,25 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     })
   }
 
+  const updatePlaylistSelection = (playlistId: string, isSelected: boolean) => {
+    setState((current) => {
+      const nextSelectedPlaylistIds = isSelected
+        ? [...new Set([...current.selectedPlaylistIds, playlistId])]
+        : current.selectedPlaylistIds.filter((id) => id !== playlistId)
+
+      const nextState = {
+        ...current,
+        selectedPlaylistIds: nextSelectedPlaylistIds,
+      }
+
+      scheduleAutosave(async () => {
+        void performSave(nextState)
+      })
+
+      return nextState
+    })
+  }
+
   const pushUndoState = () => {
     setUndoStack((current) => [...current.slice(-MAX_UNDO_STATES + 1), { ...state, timestamp: Date.now() }])
     setRedoStack([])
@@ -843,11 +862,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                           checked={isSelected}
                           onChange={(e) => {
                             pushUndoState()
-                            updateState({
-                              selectedPlaylistIds: e.target.checked
-                                ? [...state.selectedPlaylistIds, playlist.id]
-                                : state.selectedPlaylistIds.filter((id) => id !== playlist.id),
-                            })
+                            updatePlaylistSelection(playlist.id, e.target.checked)
                           }}
                         />
                         <div className="playlist-info">
