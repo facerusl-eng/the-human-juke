@@ -3538,8 +3538,24 @@
   min-width: 0;
 }
 
+.gig-control-queue .gig-song-info .song {
+  font-size: clamp(1.05rem, 1.7vw, 1.45rem);
+  line-height: 1.14;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.gig-control-queue .gig-song-info .artist {
+  font-size: clamp(0.8rem, 1.1vw, 0.96rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 .gig-control-queue .votes {
   margin-left: auto;
+  font-size: clamp(0.98rem, 1.3vw, 1.18rem);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .explicit-tag {
