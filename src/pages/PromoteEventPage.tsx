@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
+import html2canvas from 'html2canvas'
 import { toJpeg, toPng } from 'html-to-image'
 
 type PostFormat = 'square' | 'portrait' | 'story'
@@ -185,36 +186,59 @@ function PromoteEventPage() {
     }
 
     const targetDimensions = dimensionsByFormat[format]
+    const sanitizedEventName = eventName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'promote-event'
+
+    const downloadDataUrl = (dataUrl: string) => {
+      const downloadLink = document.createElement('a')
+      downloadLink.download = `${sanitizedEventName}-${format}.${type}`
+      downloadLink.href = dataUrl
+      downloadLink.click()
+    }
+
+    const exportOptions = {
+      cacheBust: true,
+      pixelRatio: 1,
+      skipAutoScale: true,
+      canvasWidth: targetDimensions.width,
+      canvasHeight: targetDimensions.height,
+    }
 
     try {
-      const exportOptions = {
-        cacheBust: true,
-        pixelRatio: 1,
-        skipAutoScale: true,
-        canvasWidth: targetDimensions.width,
-        canvasHeight: targetDimensions.height,
-      }
-
       const dataUrl = type === 'png'
         ? await toPng(previewRef.current, exportOptions)
         : await toJpeg(previewRef.current, {
           ...exportOptions,
           quality: 0.92,
         })
-
-      const sanitizedEventName = eventName
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'promote-event'
-
-      const downloadLink = document.createElement('a')
-      downloadLink.download = `${sanitizedEventName}-${format}.${type}`
-      downloadLink.href = dataUrl
-      downloadLink.click()
+      downloadDataUrl(dataUrl)
     } catch (error) {
-      console.warn(`PromoteEventPage: ${type.toUpperCase()} export failed`, error)
-      setExportError('Could not export image. Please try another photo or theme.')
+      console.warn(`PromoteEventPage: primary ${type.toUpperCase()} export failed, trying fallback`, error)
+
+      try {
+        const fallbackCanvas = await html2canvas(previewRef.current, {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null,
+          scale: 1,
+          width: targetDimensions.width,
+          height: targetDimensions.height,
+          windowWidth: targetDimensions.width,
+          windowHeight: targetDimensions.height,
+        })
+
+        const fallbackDataUrl = type === 'png'
+          ? fallbackCanvas.toDataURL('image/png')
+          : fallbackCanvas.toDataURL('image/jpeg', 0.92)
+
+        downloadDataUrl(fallbackDataUrl)
+      } catch (fallbackError) {
+        console.warn(`PromoteEventPage: fallback ${type.toUpperCase()} export failed`, fallbackError)
+        setExportError('Could not export image. Please try a different photo file and retry.')
+      }
     } finally {
       setExportingImage(false)
     }
