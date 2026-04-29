@@ -11,6 +11,7 @@ type ThemeKey = 'none' | 'sunset' | 'midnight' | 'studio'
 type HeadlinePosition = 'top' | 'center' | 'bottom'
 type TextShadow = 'none' | 'light' | 'strong'
 type FontChoice = 'default' | 'serif' | 'slab' | 'mono'
+type TextFrame = 'none' | 'light' | 'dark'
 
 type HeadlineAnchor = {
   x: number
@@ -39,6 +40,7 @@ type PromotionDraft = {
   textBold: boolean
   textShadow: TextShadow
   fontChoice: FontChoice
+  textFrame: TextFrame
 }
 
 const PROMOTION_DRAFT_STORAGE_KEY_PREFIX = 'human-jukebox-promo-draft:'
@@ -113,6 +115,7 @@ function PromoteEventPage() {
   const [textBold, setTextBold] = useState(false)
   const [textShadow, setTextShadow] = useState<TextShadow>('light')
   const [fontChoice, setFontChoice] = useState<FontChoice>('default')
+  const [textFrame, setTextFrame] = useState<TextFrame>('none')
 
   const filteredHostEvents = useMemo(() => {
     const normalizedQuery = eventFilterQuery.trim().toLowerCase()
@@ -203,6 +206,7 @@ function PromoteEventPage() {
         setTextBold(draft.textBold ?? false)
         setTextShadow(draft.textShadow ?? 'light')
         setFontChoice(draft.fontChoice ?? 'default')
+        setTextFrame(draft.textFrame ?? 'none')
         return
       }
 
@@ -555,6 +559,7 @@ function PromoteEventPage() {
       textBold,
       textShadow,
       fontChoice,
+      textFrame,
     }
 
     try {
@@ -707,6 +712,15 @@ function PromoteEventPage() {
             </div>
           </label>
 
+          <label className="promote-field">
+            <span>Text Frame</span>
+            <select value={textFrame} onChange={(event) => setTextFrame(event.target.value as TextFrame)}>
+              <option value="none">None</option>
+              <option value="light">Light Background</option>
+              <option value="dark">Dark Background</option>
+            </select>
+          </label>
+
           <label className="promote-field promote-field-wide">
             <span>Upload Photo</span>
             <input type="file" accept="image/*" onChange={handleImageUpload} />
@@ -840,7 +854,7 @@ function PromoteEventPage() {
 
           <div
             ref={headlineRef}
-            className={`promote-content promote-content-${headlinePosition} ${headlineDragging ? 'promote-content-dragging' : ''} promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow}`}
+            className={`promote-content promote-content-${headlinePosition} ${headlineDragging ? 'promote-content-dragging' : ''} promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${textFrame}`}
             onPointerDown={startHeadlineDrag}
             role="presentation"
           >
@@ -850,7 +864,7 @@ function PromoteEventPage() {
             <p className="promote-description">{description}</p>
           </div>
 
-          <div className={`promote-footer promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow}`}>
+          <div className={`promote-footer promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${textFrame}`}>
             <div>
               <p className="promote-event-name">{eventName}</p>
               <p className="promote-event-meta">{venue}</p>

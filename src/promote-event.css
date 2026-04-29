@@ -304,6 +304,25 @@
   text-shadow: 0 4px 16px rgba(15, 23, 42, 0.9), 0 2px 4px rgba(0, 0, 0, 0.6);
 }
 
+/* Text frames */
+.promote-frame-light .promote-content,
+.promote-frame-light .promote-footer {
+  background: rgba(248, 250, 252, 0.15);
+  backdrop-filter: blur(8px);
+  padding: clamp(0.4rem, 1.2%, 0.8rem);
+  border-radius: clamp(0.4rem, 1%, 0.8rem);
+  border: 1px solid rgba(248, 250, 252, 0.25);
+}
+
+.promote-frame-dark .promote-content,
+.promote-frame-dark .promote-footer {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  padding: clamp(0.4rem, 1.2%, 0.8rem);
+  border-radius: clamp(0.4rem, 1%, 0.8rem);
+  border: 1px solid rgba(15, 23, 42, 0.5);
+}
+
 @media (max-width: 1000px) {
   .promote-control-grid {
     grid-template-columns: 1fr;
