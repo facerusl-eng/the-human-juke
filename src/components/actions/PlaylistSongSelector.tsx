@@ -31,13 +31,11 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
 }
 
 function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onAddSong }: PlaylistSongSelectorProps) {
-  const SONGS_PER_PAGE = 5
   const [playlistName, setPlaylistName] = useState('Selected Playlist')
   const [songs, setSongs] = useState<PlaylistSong[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedSongId, setSelectedSongId] = useState('')
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState(0)
 
   useEffect(() => {
     let isCurrent = true
@@ -134,28 +132,25 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
     }
   }, [eventId])
 
-  const filteredSongs = useMemo(() => {
-    const normalizedSearchQuery = searchQuery.trim().toLowerCase()
-    const nonQueuedSongs = songs.filter((song) => !queuedLibrarySongIds.has(song.id))
-
-    if (!normalizedSearchQuery) {
-      return nonQueuedSongs
-    }
-
-    return nonQueuedSongs.filter((song) => (
-      `${song.title} ${song.artist}`.toLowerCase().includes(normalizedSearchQuery)
-    ))
-  }, [songs, searchQuery, queuedLibrarySongIds])
+  const availableSongs = useMemo(() => (
+    songs.filter((song) => !queuedLibrarySongIds.has(song.id))
+  ), [songs, queuedLibrarySongIds])
 
   useEffect(() => {
-    setCurrentPage(0)
-  }, [searchQuery, eventId])
+    if (availableSongs.length === 0) {
+      setSelectedSongId('')
+      return
+    }
 
-  const totalPages = Math.max(1, Math.ceil(filteredSongs.length / SONGS_PER_PAGE))
-  const safeCurrentPage = Math.min(currentPage, totalPages - 1)
-  const pagedSongs = filteredSongs.slice(
-    safeCurrentPage * SONGS_PER_PAGE,
-    safeCurrentPage * SONGS_PER_PAGE + SONGS_PER_PAGE,
+    const stillAvailable = availableSongs.some((song) => song.id === selectedSongId)
+    if (!stillAvailable) {
+      setSelectedSongId(availableSongs[0].id)
+    }
+  }, [availableSongs, selectedSongId])
+
+  const selectedSong = useMemo(
+    () => availableSongs.find((song) => song.id === selectedSongId) ?? null,
+    [availableSongs, selectedSongId],
   )
 
   return (
@@ -163,80 +158,60 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
       <p className="subcopy no-margin">Showing songs from: <strong>{playlistName}</strong></p>
 
       <div className="field-row no-margin-bottom">
-        <label htmlFor="gig-control-playlist-song-search">Search playlist songs</label>
-        <input
-          id="gig-control-playlist-song-search"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search title or artist"
-        />
+        <label htmlFor="gig-control-playlist-song-select">Choose song from playlist</label>
+        <select
+          id="gig-control-playlist-song-select"
+          value={selectedSongId}
+          onChange={(event) => setSelectedSongId(event.target.value)}
+          className="gig-switcher-select"
+          disabled={loadingSongs || availableSongs.length === 0}
+        >
+          {availableSongs.length === 0 ? (
+            <option value="">No songs available to add</option>
+          ) : (
+            availableSongs.map((song) => (
+              <option key={song.id} value={song.id}>
+                {`${song.title} - ${song.artist}${song.is_explicit ? ' (Explicit)' : ''}`}
+              </option>
+            ))
+          )}
+        </select>
       </div>
 
       {loadingSongs ? <p className="meta-badge" role="status" aria-live="polite">Loading playlist songs...</p> : null}
       {errorText ? <p className="error-text" role="alert">{errorText}</p> : null}
 
-      {!loadingSongs && filteredSongs.length > 0 ? (
-        <div className="hero-actions no-margin-bottom" aria-label="Playlist song list pagination">
+      {!loadingSongs && selectedSong ? (
+        <article className="gig-add-song-item" aria-label="Selected playlist song">
+          <div className="gig-add-song-main">
+            {selectedSong.cover_url ? (
+              <img src={selectedSong.cover_url} alt={`Cover art for ${selectedSong.title}`} className="song-cover" />
+            ) : (
+              <span className="song-cover song-cover-fallback" aria-hidden="true">♪</span>
+            )}
+            <div>
+              <p className="song">{selectedSong.title}</p>
+              <p className="artist">
+                {selectedSong.artist}
+                {selectedSong.is_explicit ? <span className="explicit-tag"> · E</span> : null}
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             className="secondary-button"
-            onClick={() => {
-              setCurrentPage((page) => Math.max(0, page - 1))
+            onClick={async () => {
+              await onAddSong(selectedSong)
             }}
-            disabled={safeCurrentPage === 0}
+            disabled={addingSongId === selectedSong.id}
           >
-            Previous 5
+            {addingSongId === selectedSong.id ? 'Adding...' : 'Add to Queue'}
           </button>
-          <span className="meta-badge">
-            Page {safeCurrentPage + 1} of {totalPages}
-          </span>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              setCurrentPage((page) => Math.min(totalPages - 1, page + 1))
-            }}
-            disabled={safeCurrentPage >= totalPages - 1}
-          >
-            Next 5
-          </button>
-        </div>
+        </article>
       ) : null}
 
-      {!loadingSongs ? (
-        <ul className="gig-add-song-list" aria-label="Songs in selected playlist">
-          {pagedSongs.map((song) => (
-            <li key={song.id} className="gig-add-song-item">
-              <div className="gig-add-song-main">
-                {song.cover_url ? (
-                  <img src={song.cover_url} alt={`Cover art for ${song.title}`} className="song-cover" />
-                ) : (
-                  <span className="song-cover song-cover-fallback" aria-hidden="true">♪</span>
-                )}
-                <div>
-                  <p className="song">{song.title}</p>
-                  <p className="artist">
-                    {song.artist}
-                    {song.is_explicit ? <span className="explicit-tag"> · E</span> : null}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={async () => {
-                  await onAddSong(song)
-                }}
-                disabled={addingSongId === song.id}
-              >
-                {addingSongId === song.id ? 'Adding...' : 'Add to Queue'}
-              </button>
-            </li>
-          ))}
-          {pagedSongs.length === 0 ? (
-            <li className="subcopy no-margin-bottom">No songs match this playlist search.</li>
-          ) : null}
-        </ul>
+      {!loadingSongs && !selectedSong && !errorText ? (
+        <p className="subcopy no-margin-bottom">All songs from this playlist are already in queue.</p>
       ) : null}
     </section>
   )
