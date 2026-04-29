@@ -640,13 +640,13 @@ function PromoteEventPage() {
 
     const exportOptions = {
       cacheBust: true,
-      pixelRatio: 2,
+      pixelRatio: targetDimensions.width / previewElement.clientWidth,
       skipAutoScale: true,
       width: previewElement.clientWidth,
       height: previewElement.clientHeight,
-      canvasWidth: targetDimensions.width,
-      canvasHeight: targetDimensions.height,
     }
+
+    previewElement.classList.add('promote-exporting')
 
     try {
       await waitForPreviewAssets(previewElement)
@@ -668,7 +668,7 @@ function PromoteEventPage() {
           useCORS: true,
           allowTaint: true,
           backgroundColor: null,
-          scale: Math.max(targetDimensions.width / previewElement.clientWidth, 1),
+          scale: targetDimensions.width / previewElement.clientWidth,
           width: previewElement.clientWidth,
           height: previewElement.clientHeight,
           windowWidth: previewElement.clientWidth,
@@ -685,6 +685,7 @@ function PromoteEventPage() {
         setExportError('Could not export image. Please try a different photo file and retry.')
       }
     } finally {
+      previewElement.classList.remove('promote-exporting')
       setExportingImage(false)
     }
   }

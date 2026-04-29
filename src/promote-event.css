@@ -373,6 +373,15 @@
   -webkit-text-stroke: 0.35px rgba(0, 0, 0, 0.6);
 }
 
+/* Suppress backdrop-filter during image export (not supported by html-to-image) */
+.promote-exporting .promote-frame-light .promote-content,
+.promote-exporting .promote-frame-light .promote-footer,
+.promote-exporting .promote-frame-dark .promote-content,
+.promote-exporting .promote-frame-dark .promote-footer {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 @media (max-width: 1000px) {
   .promote-control-grid {
     grid-template-columns: 1fr;
