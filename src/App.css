@@ -3717,6 +3717,85 @@
   min-width: 8.1rem;
 }
 
+.gig-song-picker-trigger {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.56rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 156, 202, 0.42);
+  background: rgba(15, 24, 46, 0.64);
+  color: #f7fbff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gig-song-picker-trigger:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.gig-song-picker-text {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.gig-song-picker-text > span:first-child {
+  color: #f7fbff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gig-song-picker-caret {
+  color: #9bc2f4;
+}
+
+.gig-song-picker-empty {
+  color: #bdd4f7;
+}
+
+.gig-song-picker-cover {
+  width: 2rem;
+  height: 2rem;
+}
+
+.gig-song-picker-list {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0.3rem;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 156, 202, 0.42);
+  background: rgba(8, 14, 30, 0.95);
+  max-height: 17rem;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.gig-song-picker-option {
+  width: 100%;
+  border: 1px solid rgba(120, 156, 202, 0.22);
+  border-radius: 10px;
+  background: rgba(15, 24, 46, 0.52);
+  color: #f7fbff;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.42rem 0.5rem;
+  cursor: pointer;
+}
+
+.gig-song-picker-option:hover,
+.gig-song-picker-option.is-selected {
+  border-color: rgba(93, 215, 255, 0.72);
+  background: rgba(25, 36, 66, 0.82);
+}
+
 .gig-custom-song-form {
   margin-bottom: 0;
 }

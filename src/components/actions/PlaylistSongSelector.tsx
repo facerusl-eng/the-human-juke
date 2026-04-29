@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
 export type PlaylistSong = {
@@ -34,8 +34,10 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
   const [playlistName, setPlaylistName] = useState('Selected Playlist')
   const [songs, setSongs] = useState<PlaylistSong[]>([])
   const [selectedSongId, setSelectedSongId] = useState('')
+  const [isSongPickerOpen, setIsSongPickerOpen] = useState(false)
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const songPickerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let isCurrent = true
@@ -149,6 +151,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
   useEffect(() => {
     if (availableSongs.length === 0) {
       setSelectedSongId('')
+      setIsSongPickerOpen(false)
       return
     }
 
@@ -163,29 +166,92 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
     [availableSongs, selectedSongId],
   )
 
+  useEffect(() => {
+    const handleDocumentPointerDown = (event: MouseEvent) => {
+      if (!songPickerRef.current) {
+        return
+      }
+
+      if (!songPickerRef.current.contains(event.target as Node)) {
+        setIsSongPickerOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleDocumentPointerDown)
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentPointerDown)
+    }
+  }, [])
+
   return (
     <section className="gig-add-song-tab-content" aria-label="Playlist songs">
       <p className="subcopy no-margin">Showing songs from: <strong>{playlistName}</strong></p>
 
-      <div className="field-row no-margin-bottom">
-        <label htmlFor="gig-control-playlist-song-select">Choose song from playlist</label>
-        <select
-          id="gig-control-playlist-song-select"
-          value={selectedSongId}
-          onChange={(event) => setSelectedSongId(event.target.value)}
-          className="gig-switcher-select"
+      <div className="field-row no-margin-bottom" ref={songPickerRef}>
+        <label htmlFor="gig-control-playlist-song-picker">Choose song from playlist</label>
+        <button
+          id="gig-control-playlist-song-picker"
+          type="button"
+          className="gig-song-picker-trigger"
+          aria-haspopup="listbox"
+          aria-expanded={isSongPickerOpen}
+          aria-controls="gig-control-playlist-song-picker-list"
           disabled={loadingSongs || availableSongs.length === 0}
+          onClick={() => {
+            setIsSongPickerOpen((open) => !open)
+          }}
         >
-          {availableSongs.length === 0 ? (
-            <option value="">No songs available to add</option>
+          {selectedSong ? (
+            <>
+              {selectedSong.cover_url ? (
+                <img src={selectedSong.cover_url} alt="" className="song-cover gig-song-picker-cover" aria-hidden="true" />
+              ) : (
+                <span className="song-cover song-cover-fallback gig-song-picker-cover" aria-hidden="true">♪</span>
+              )}
+              <span className="gig-song-picker-text">
+                <span>{selectedSong.title}</span>
+                <span className="artist">
+                  {selectedSong.artist}
+                  {selectedSong.is_explicit ? <span className="explicit-tag"> · E</span> : null}
+                </span>
+              </span>
+            </>
           ) : (
-            availableSongs.map((song) => (
-              <option key={song.id} value={song.id}>
-                {`${song.title} - ${song.artist}${song.is_explicit ? ' (Explicit)' : ''}${queuedLibrarySongIds.has(song.id) ? ' (Already queued)' : ''}`}
-              </option>
-            ))
+            <span className="gig-song-picker-empty">No songs available to add</span>
           )}
-        </select>
+          <span className="gig-song-picker-caret" aria-hidden="true">▾</span>
+        </button>
+
+        {isSongPickerOpen && availableSongs.length > 0 ? (
+          <ul id="gig-control-playlist-song-picker-list" className="gig-song-picker-list" role="listbox" aria-label="Playlist songs">
+            {availableSongs.map((song) => (
+              <li key={song.id} role="option" aria-selected={selectedSongId === song.id}>
+                <button
+                  type="button"
+                  className={`gig-song-picker-option${selectedSongId === song.id ? ' is-selected' : ''}`}
+                  onClick={() => {
+                    setSelectedSongId(song.id)
+                    setIsSongPickerOpen(false)
+                  }}
+                >
+                  {song.cover_url ? (
+                    <img src={song.cover_url} alt="" className="song-cover gig-song-picker-cover" aria-hidden="true" />
+                  ) : (
+                    <span className="song-cover song-cover-fallback gig-song-picker-cover" aria-hidden="true">♪</span>
+                  )}
+                  <span className="gig-song-picker-text">
+                    <span>{song.title}</span>
+                    <span className="artist">
+                      {song.artist}
+                      {song.is_explicit ? <span className="explicit-tag"> · E</span> : null}
+                    </span>
+                  </span>
+                  {queuedLibrarySongIds.has(song.id) ? <span className="meta-badge">Queued</span> : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
 
       {loadingSongs ? <p className="meta-badge" role="status" aria-live="polite">Loading playlist songs...</p> : null}
