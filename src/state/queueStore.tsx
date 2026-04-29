@@ -340,7 +340,7 @@ async function fetchHostEvents(hostId: string) {
 }
 
 async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
-  let allPlaylists: Array<{ id: string; name: string; created_at: string; playlist_type: 'human_jukebox' | 'karaoke' }> = []
+  const allPlaylists: Array<{ id: string; name: string; created_at: string; playlist_type: 'human_jukebox' | 'karaoke' }> = []
 
   const { data: hostPlaylistsWithType, error: hostPlaylistsWithTypeError } = await withTimeout(
     withAuthLockRetry(() =>
@@ -375,25 +375,23 @@ async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
       throw new Error(hostPlaylistsWithoutTypeError.message)
     }
 
-    allPlaylists = ((hostPlaylistsWithoutType ?? []) as Array<{ id: string; name: string; created_at: string }>).map((playlist) => ({
+    allPlaylists.push(...((hostPlaylistsWithoutType ?? []) as Array<{ id: string; name: string; created_at: string }>).map((playlist) => ({
       ...playlist,
       playlist_type: inferPlaylistType(null, playlist.name),
-    }))
+    })))
   } else {
-    allPlaylists = ((hostPlaylistsWithType ?? []) as Array<{ id: string; name: string; created_at: string; playlist_type?: string | null }>).map((playlist) => ({
+    allPlaylists.push(...((hostPlaylistsWithType ?? []) as Array<{ id: string; name: string; created_at: string; playlist_type?: string | null }>).map((playlist) => ({
       id: playlist.id,
       name: playlist.name,
       created_at: playlist.created_at,
       playlist_type: inferPlaylistType(playlist.playlist_type, playlist.name),
-    }))
+    })))
   }
 
   let defaultPlaylistId = allPlaylists[0]?.id ?? null
   let karaokePlaylistId = allPlaylists.find((playlist) => playlist.playlist_type === 'karaoke')?.id ?? null
 
   if (!defaultPlaylistId) {
-    let createdDefaultPlaylistId: string | null = null
-
     const { data: createdDefaultWithType, error: createdDefaultWithTypeError } = await withTimeout(
       withAuthLockRetry(() =>
         supabase
@@ -436,21 +434,17 @@ async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
         throw new Error(createdDefaultWithoutTypeError?.message ?? 'Unable to create your default playlist.')
       }
 
-      createdDefaultPlaylistId = createdDefaultWithoutType.id
+      defaultPlaylistId = createdDefaultWithoutType.id
     } else {
-      createdDefaultPlaylistId = createdDefaultWithType?.id ?? null
+      defaultPlaylistId = createdDefaultWithType?.id ?? null
     }
 
-    if (!createdDefaultPlaylistId) {
+    if (!defaultPlaylistId) {
       throw new Error('Unable to create your default playlist.')
     }
-
-    defaultPlaylistId = createdDefaultPlaylistId
   }
 
   if (!karaokePlaylistId) {
-    let createdKaraokePlaylistId: string | null = null
-
     const { data: createdKaraokeWithType, error: createdKaraokeWithTypeError } = await withTimeout(
       withAuthLockRetry(() =>
         supabase
@@ -493,16 +487,14 @@ async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
         throw new Error(createdKaraokeWithoutTypeError?.message ?? 'Unable to create the karaoke playlist.')
       }
 
-      createdKaraokePlaylistId = createdKaraokeWithoutType.id
+      karaokePlaylistId = createdKaraokeWithoutType.id
     } else {
-      createdKaraokePlaylistId = createdKaraokeWithType?.id ?? null
+      karaokePlaylistId = createdKaraokeWithType?.id ?? null
     }
 
-    if (!createdKaraokePlaylistId) {
+    if (!karaokePlaylistId) {
       throw new Error('Unable to create the karaoke playlist.')
     }
-
-    karaokePlaylistId = createdKaraokePlaylistId
   }
 
   return {

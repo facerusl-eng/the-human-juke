@@ -707,7 +707,6 @@ function GigControlPage() {
     // Registered once — never torn down and re-added, eliminating the brief gap
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const headerActions: ActionButtonConfig[] = [
