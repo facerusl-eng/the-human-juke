@@ -320,6 +320,18 @@ function PromoteEventPage() {
     return photoBrightness >= 0.58 ? 'dark' : 'light'
   }, [photoBrightness, textFrame])
 
+  const autoFrameHint = useMemo(() => {
+    if (textFrame !== 'auto') {
+      return null
+    }
+
+    if (photoBrightness === null) {
+      return 'Auto picks Dark Background until a photo is uploaded.'
+    }
+
+    return `Auto picked: ${resolvedTextFrame === 'dark' ? 'Dark Background' : 'Light Background'}`
+  }, [photoBrightness, resolvedTextFrame, textFrame])
+
   const captionPreview = useMemo(() => {
     return `${eventName}\n${description}\n${ctaText}`
   }, [ctaText, description, eventName])
@@ -791,6 +803,7 @@ function PromoteEventPage() {
               <option value="light">Light Background</option>
               <option value="dark">Dark Background</option>
             </select>
+            {autoFrameHint ? <p className="field-hint">{autoFrameHint}</p> : null}
           </label>
 
           <label className="promote-field promote-field-wide">
