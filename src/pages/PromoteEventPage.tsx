@@ -696,12 +696,15 @@ function PromoteEventPage() {
 
           <label className="promote-field">
             <span>Text Style</span>
-            <input
-              type="checkbox"
-              checked={textBold}
-              onChange={(event) => setTextBold(event.target.checked)}
-            />
-            <span style={{ marginLeft: '0.5rem' }}>Bold</span>
+            <div className="promote-checkbox-group">
+              <input
+                type="checkbox"
+                id="bold-toggle"
+                checked={textBold}
+                onChange={(event) => setTextBold(event.target.checked)}
+              />
+              <label htmlFor="bold-toggle">Bold</label>
+            </div>
           </label>
 
           <label className="promote-field promote-field-wide">

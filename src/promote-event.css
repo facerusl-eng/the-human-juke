@@ -55,6 +55,25 @@
   margin-bottom: 0.35rem;
 }
 
+.promote-checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.promote-checkbox-group input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+  accent-color: rgba(93, 215, 255, 0.8);
+}
+
+.promote-checkbox-group label {
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
 .promote-field-wide {
   grid-column: span 2;
 }
