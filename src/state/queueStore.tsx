@@ -145,6 +145,14 @@ function isAdminGigsRoutePath() {
   return window.location.pathname.startsWith('/admin/gigs')
 }
 
+function isAudienceRoutePath() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.pathname.startsWith('/audience')
+}
+
 function isAuthLockContentionError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
   return /lock broken|steal option|navigatorlockacquiretimeouterror|auth-token/i.test(message)
@@ -515,6 +523,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
+  const routePathname = typeof window === 'undefined' ? '' : window.location.pathname
 
   useEffect(() => {
     const snapshot = readFromLocalStorage<PersistedQueueSnapshot | null>(QUEUE_STATE_STORAGE_KEY, null)
@@ -731,9 +740,10 @@ function QueueProvider({ children }: PropsWithChildren) {
       try {
         let targetEventId: string | null = null
         const requestedEventId = readRequestedEventIdFromUrl()
+        const runAsHostSession = isHostSession && !isAudienceRoutePath()
 
         const syncAudienceActiveEventId = async (nextEventId: string) => {
-          if (isHostSession) {
+          if (runAsHostSession) {
             return
           }
 
@@ -766,7 +776,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           })
         }
 
-        if (isHostSession) {
+        if (runAsHostSession) {
           const nextHostEvents = await withTransientRetry(() => fetchHostEvents(user.id))
 
           if (isCurrent) {
@@ -784,7 +794,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         const requestAudienceReload = () => {
-          if (!isCurrent || isHostSession) {
+          if (!isCurrent || runAsHostSession) {
             return
           }
 
@@ -792,7 +802,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         const maybeReloadAudienceWhenLiveReturns = async () => {
-          if (isHostSession) {
+          if (runAsHostSession) {
             return
           }
 
@@ -815,7 +825,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             setPerformedSongs([])
           }
 
-          if (!isHostSession) {
+          if (!runAsHostSession) {
             const connectAudienceLiveWatchChannel = () => {
               if (!isCurrent || document.hidden) {
                 return
@@ -869,7 +879,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
-        if (!isHostSession) {
+        if (!runAsHostSession) {
           await syncAudienceActiveEventId(targetEventId)
         }
 
@@ -883,7 +893,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         try {
           await withTransientRetry(() => fetchQueueSnapshot(resolvedEventId), 2)
         } catch (error) {
-          const canFallbackToLatestActive = !isHostSession
+          const canFallbackToLatestActive = !runAsHostSession
 
           if (!canFallbackToLatestActive) {
             console.warn('queueStore: failed to load requested event snapshot', error)
@@ -898,7 +908,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           resolvedEventId = latestActiveEventId
 
-          if (!isHostSession) {
+          if (!runAsHostSession) {
             await syncAudienceActiveEventId(resolvedEventId)
           }
 
@@ -922,7 +932,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           snapshotInFlight = true
 
           try {
-            if (isHostSession) {
+            if (runAsHostSession) {
               const refreshedHostEvents = await withTransientRetry(() => fetchHostEvents(user.id), 2)
 
               if (isCurrent) {
@@ -949,13 +959,13 @@ function QueueProvider({ children }: PropsWithChildren) {
 
             const requestedEventIdFromUrl = readRequestedEventIdFromUrl()
 
-            if (!isHostSession && requestedEventIdFromUrl && requestedEventIdFromUrl !== resolvedEventId) {
+            if (!runAsHostSession && requestedEventIdFromUrl && requestedEventIdFromUrl !== resolvedEventId) {
               activeEventIdRef.current = requestedEventIdFromUrl
               requestAudienceReload()
               return
             }
 
-            if (!isHostSession && !requestedEventIdFromUrl) {
+            if (!runAsHostSession && !requestedEventIdFromUrl) {
               const latestActiveEventId = await fetchLatestActiveEventId()
 
               if (!latestActiveEventId) {
@@ -1045,7 +1055,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         activeChannelReconnectHandler = connectQueueLiveChannel
         connectQueueLiveChannel()
 
-        const pollIntervalMs = isHostSession
+        const pollIntervalMs = runAsHostSession
           ? (isAdminGigsRoutePath() ? HOST_GIGS_ROUTE_POLL_INTERVAL_MS : HOST_QUEUE_POLL_INTERVAL_MS)
           : AUDIENCE_QUEUE_POLL_INTERVAL_MS
 
@@ -1116,7 +1126,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         window.clearInterval(audiencePollTimerId)
       }
     }
-  }, [user, eventId, isHostSession, audienceRefreshTick, refreshProfile, fetchQueueSnapshot])
+  }, [user, eventId, isHostSession, routePathname, audienceRefreshTick, refreshProfile, fetchQueueSnapshot])
 
   useEffect(() => {
     const refreshOnForeground = () => {
@@ -1641,16 +1651,48 @@ function QueueProvider({ children }: PropsWithChildren) {
         await fetchQueueSnapshot(event.id)
       },
       upvoteSong: async (songId: string) => {
-        if (!user) {
-          return
+        if (!songId) {
+          throw new Error('Invalid song selection. Please try again.')
         }
 
-        const { error } = await supabase.from('votes').insert({
-          song_id: songId,
-          user_id: user.id,
-        })
+        const selectedSong = songs.find((song) => song.id === songId)
 
-        if (error && error.code !== '23505') {
+        if (selectedSong?.voting_locked) {
+          throw new Error('Voting is currently locked for this song.')
+        }
+
+        let voterId = user?.id ?? null
+
+        if (!voterId) {
+          const { data: authUserData, error: authUserError } = await withTimeout(
+            withAuthLockRetry(() => supabase.auth.getUser(), 2),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while reconnecting your audience session. Please try again.',
+          )
+
+          if (authUserError || !authUserData.user?.id) {
+            throw new Error('Your audience session is reconnecting. Please try voting again in a moment.')
+          }
+
+          voterId = authUserData.user.id
+        }
+
+        const { error } = await withTimeout(
+          withAuthLockRetry(() =>
+            supabase.from('votes').insert({
+              song_id: songId,
+              user_id: voterId,
+            }),
+          ),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Timed out while submitting your vote. Please try again.',
+        )
+
+        if (error?.code === '23505') {
+          throw new Error('You have already voted for this song.')
+        }
+
+        if (error) {
           throw error
         }
 
