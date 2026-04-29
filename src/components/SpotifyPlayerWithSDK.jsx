@@ -2,6 +2,46 @@ import { useEffect, useRef, useState } from 'react'
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js'
 const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
+const SPOTIFY_DEVICE_ID_STORAGE_KEY = 'human-jukebox-spotify-device-id'
+const SPOTIFY_PLAYER_SINGLETON_KEY = '__humanJukeboxSpotifyPlayerSingleton'
+
+function getStoredSpotifyDeviceId() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const storedDeviceId = window.localStorage.getItem(SPOTIFY_DEVICE_ID_STORAGE_KEY)
+  return storedDeviceId && storedDeviceId.trim() ? storedDeviceId : null
+}
+
+function storeSpotifyDeviceId(deviceId) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if (!deviceId) {
+    window.localStorage.removeItem(SPOTIFY_DEVICE_ID_STORAGE_KEY)
+    return
+  }
+
+  window.localStorage.setItem(SPOTIFY_DEVICE_ID_STORAGE_KEY, deviceId)
+}
+
+function getSpotifyPlayerSingleton() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  return window[SPOTIFY_PLAYER_SINGLETON_KEY] ?? null
+}
+
+function setSpotifyPlayerSingleton(player) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window[SPOTIFY_PLAYER_SINGLETON_KEY] = player
+}
 
 function ensureSpotifyScript() {
   if (typeof window === 'undefined') {
@@ -224,6 +264,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
 
   useEffect(() => {
     let cancelled = false
+    let player = null
+
+    const cleanupListeners = []
 
     const initialize = async () => {
       try {
@@ -235,20 +278,35 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
 
         setIsSdkReady(true)
 
-        const player = new window.Spotify.Player({
-          name: 'Human Jukebox Gig Control',
-          getOAuthToken: (cb) => {
-            cb(accessTokenRef.current)
-          },
-          volume: 0.6,
-        })
+        player = getSpotifyPlayerSingleton()
+
+        if (!player) {
+          player = new window.Spotify.Player({
+            name: 'Human Jukebox Gig Control',
+            getOAuthToken: (cb) => {
+              cb(accessTokenRef.current)
+            },
+            volume: 0.6,
+          })
+          setSpotifyPlayerSingleton(player)
+        }
+
+        const rememberedDeviceId = getStoredSpotifyDeviceId()
+        if (rememberedDeviceId) {
+          setDeviceId(rememberedDeviceId)
+          setPlayerStatus('Reusing Spotify device session in background.')
+        }
 
         const onReady = ({ device_id: readyDeviceId }) => {
           setDeviceId(readyDeviceId)
+          storeSpotifyDeviceId(readyDeviceId)
           setPlayerStatus('Spotify device is ready.')
         }
 
         const onNotReady = ({ device_id: offlineDeviceId }) => {
+          if (offlineDeviceId) {
+            storeSpotifyDeviceId(null)
+          }
           setPlayerStatus(`Spotify device went offline: ${offlineDeviceId}`)
         }
 
@@ -283,6 +341,15 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
           setPlayerStatus(`Playback error: ${message}`)
         })
 
+        cleanupListeners.push(() => {
+          player.removeListener('ready', onReady)
+          player.removeListener('not_ready', onNotReady)
+          player.removeListener('initialization_error')
+          player.removeListener('authentication_error')
+          player.removeListener('account_error')
+          player.removeListener('playback_error')
+        })
+
         await player.connect()
         playerRef.current = player
       } catch (error) {
@@ -294,20 +361,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
 
     return () => {
       cancelled = true
-
-      const currentPlayer = playerRef.current
-      if (currentPlayer) {
-        currentPlayer.removeListener('ready')
-        currentPlayer.removeListener('not_ready')
-        currentPlayer.removeListener('initialization_error')
-        currentPlayer.removeListener('authentication_error')
-        currentPlayer.removeListener('account_error')
-        currentPlayer.removeListener('playback_error')
-        currentPlayer.disconnect()
-      }
-
+      cleanupListeners.forEach((cleanup) => {
+        try {
+          cleanup()
+        } catch {
+          // Ignore listener cleanup errors.
+        }
+      })
       playerRef.current = null
-      setDeviceId(null)
     }
   }, [])
 
