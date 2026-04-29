@@ -148,7 +148,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     savedResetDelayMs: 2000,
   })
 
-  const audienceUrl = getAudienceUrl(event.id)
+  const audienceUrl = getAudienceUrl(event.id, { compact: true })
   const {
     copied: copiedAudienceLink,
     copyError,

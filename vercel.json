@@ -62,12 +62,12 @@
   "redirects": [
     {
       "source": "/j/:eventId",
-      "destination": "/join/index.html?event=:eventId",
+      "destination": "/api/join-meta?event=:eventId",
       "permanent": false
     },
     {
       "source": "/a/:eventId",
-      "destination": "/audience?event=:eventId",
+      "destination": "/api/join-meta?event=:eventId",
       "permanent": false
     }
   ],

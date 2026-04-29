@@ -101,7 +101,7 @@ function GigControlPage() {
         .filter((songId): songId is string => Boolean(songId)),
     )
   ), [songs])
-  const joinUrl = getAudienceUrl(event?.id)
+  const joinUrl = getAudienceUrl(event?.id, { compact: true })
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
 

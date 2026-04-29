@@ -207,7 +207,7 @@ function HealthCheckPage() {
 
         case 'shareLinks': {
           const eventId = event?.id ?? 'test'
-          const audienceUrl = getAudienceUrl(eventId)
+          const audienceUrl = getAudienceUrl(eventId, { compact: true })
           const mirrorUrl = `${window.location.origin}/mirror`
 
           if (!audienceUrl.startsWith('http') || !mirrorUrl.startsWith('http')) {
