@@ -82,6 +82,8 @@ function GigControlPage() {
 
   const quoteIndexRef = useRef(0)
   const lastSpaceActionAtRef = useRef(0)
+  const nowPlayingRef = useRef<typeof songs[number] | undefined>(undefined)
+  const spaceActionBusyRef = useRef(spaceActionBusy)
   const previousSongIdRef = useRef<string | null>(null)
   const previousRoomOpenRef = useRef<boolean | null>(null)
   const playbackActionLockRef = useRef(false)
@@ -608,8 +610,20 @@ function GigControlPage() {
   }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, sendSpotifyTransportCommand, spaceActionBusy, startCurrentSong])
 
   useEffect(() => {
+    nowPlayingRef.current = nowPlaying
+  }, [nowPlaying])
+
+  useEffect(() => {
+    spaceActionBusyRef.current = spaceActionBusy
+  }, [spaceActionBusy])
+
+  useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
-      if (event.key !== ' ' && event.code !== 'Space') {
+      if (!event.isTrusted || event.defaultPrevented) {
+        return
+      }
+
+      if (event.code !== 'Space') {
         return
       }
 
@@ -622,24 +636,18 @@ function GigControlPage() {
         return
       }
 
+      const target = event.target as HTMLElement | null
       const activeElement = document.activeElement as HTMLElement | null
-      const tag = activeElement?.tagName
-      const isTypingTarget =
-        tag === 'INPUT' ||
-        tag === 'TEXTAREA' ||
-        tag === 'SELECT' ||
-        tag === 'BUTTON' ||
-        tag === 'A' ||
-        activeElement?.isContentEditable ||
-        activeElement?.getAttribute('role') === 'button'
+      const interactiveTarget = target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="button"], [role="textbox"], [data-spacebar-ignore="true"]')
+      const isTypingTarget = Boolean(interactiveTarget || activeElement?.isContentEditable)
 
       const now = Date.now()
-      if (now - lastSpaceActionAtRef.current < 350) {
+      if (now - lastSpaceActionAtRef.current < 500) {
         event.preventDefault()
         return
       }
 
-      if (isTypingTarget || !nowPlaying || playbackActionLockRef.current || spaceActionBusy) {
+      if (isTypingTarget || !nowPlayingRef.current || playbackActionLockRef.current || spaceActionBusyRef.current) {
         return
       }
 
@@ -656,7 +664,7 @@ function GigControlPage() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [nowPlaying, runQueueTogglePlayShortcut, spaceActionBusy])
+  }, [runQueueTogglePlayShortcut])
 
   const headerActions: ActionButtonConfig[] = [
     {
