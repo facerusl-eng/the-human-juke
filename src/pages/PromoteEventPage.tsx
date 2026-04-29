@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import html2canvas from 'html2canvas'
 import { toJpeg, toPng } from 'html-to-image'
+import { getAudienceUrl } from '../lib/audienceUrl'
 import { useQueueStore } from '../state/queueStore'
 
 type PostFormat = 'square' | 'portrait' | 'story'
@@ -71,6 +72,8 @@ function PromoteEventPage() {
   const [audienceVisibilitySaving, setAudienceVisibilitySaving] = useState(false)
   const [audienceVisibilitySaved, setAudienceVisibilitySaved] = useState(false)
   const [audienceVisibilityError, setAudienceVisibilityError] = useState<string | null>(null)
+  const [facebookLinkCopied, setFacebookLinkCopied] = useState(false)
+  const [facebookShareError, setFacebookShareError] = useState<string | null>(null)
 
   const activeTheme = useMemo(
     () => THEMES.find((item) => item.key === theme) ?? THEMES[0],
@@ -123,6 +126,27 @@ function PromoteEventPage() {
   const captionPreview = useMemo(() => {
     return `${eventName}\n${description}\n${ctaText}`
   }, [ctaText, description, eventName])
+
+  const audienceShareUrl = useMemo(() => {
+    return getAudienceUrl(event?.id ?? null, { compact: true, includeVersion: true })
+  }, [event?.id])
+
+  const facebookShareUrl = useMemo(() => {
+    if (!audienceShareUrl) {
+      return ''
+    }
+
+    const shareUrl = new URL('https://www.facebook.com/sharer/sharer.php')
+    shareUrl.searchParams.set('u', audienceShareUrl)
+
+    const quoteText = `${eventName}\n${description}`.trim()
+
+    if (quoteText) {
+      shareUrl.searchParams.set('quote', quoteText)
+    }
+
+    return shareUrl.toString()
+  }, [audienceShareUrl, description, eventName])
 
   const copyCaption = async () => {
     await navigator.clipboard.writeText(captionPreview)
@@ -227,6 +251,20 @@ function PromoteEventPage() {
       window.clearTimeout(timerId)
     }
   }, [audienceVisibilitySaved])
+
+  useEffect(() => {
+    if (!facebookLinkCopied) {
+      return
+    }
+
+    const timerId = window.setTimeout(() => {
+      setFacebookLinkCopied(false)
+    }, 1800)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [facebookLinkCopied])
 
   const waitForPreviewAssets = async (previewElement: HTMLElement) => {
     if ('fonts' in document && document.fonts?.ready) {
@@ -351,6 +389,30 @@ function PromoteEventPage() {
     }
   }
 
+  const copyFacebookShareLink = async () => {
+    if (!facebookShareUrl) {
+      return
+    }
+
+    setFacebookShareError(null)
+
+    try {
+      await navigator.clipboard.writeText(facebookShareUrl)
+      setFacebookLinkCopied(true)
+    } catch {
+      setFacebookShareError('Could not copy Facebook link. Please copy it manually from your browser.')
+    }
+  }
+
+  const openFacebookShareDialog = () => {
+    if (!facebookShareUrl) {
+      return
+    }
+
+    setFacebookShareError(null)
+    window.open(facebookShareUrl, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <section className="promote-shell" aria-label="Promote event designer">
       <section className="queue-panel promote-controls-panel">
@@ -467,6 +529,24 @@ function PromoteEventPage() {
           <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
             Copy Caption Text
           </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              void copyFacebookShareLink()
+            }}
+            disabled={!facebookShareUrl}
+          >
+            {facebookLinkCopied ? 'Facebook Link Copied' : 'Copy Facebook Post Link'}
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={openFacebookShareDialog}
+            disabled={!facebookShareUrl}
+          >
+            Open Facebook Share
+          </button>
           <button type="button" className="primary-button" onClick={() => void exportImage('png')} disabled={exportingImage}>
             {exportingImage ? 'Exporting...' : 'Export PNG'}
           </button>
@@ -474,6 +554,7 @@ function PromoteEventPage() {
             {exportingImage ? 'Exporting...' : 'Export JPG'}
           </button>
         </div>
+        {facebookShareError ? <p className="error-text no-margin-bottom">{facebookShareError}</p> : null}
         {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
         {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
       </section>
