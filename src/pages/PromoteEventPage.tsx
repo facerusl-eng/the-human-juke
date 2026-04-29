@@ -43,6 +43,9 @@ type PromotionDraft = {
   textFrame: TextFrame
   framePadding: number
   textColor: string
+  photoContrast: number
+  photoBrightnessAdj: number
+  photoSaturation: number
 }
 
 const PROMOTION_DRAFT_STORAGE_KEY_PREFIX = 'human-jukebox-promo-draft:'
@@ -120,6 +123,9 @@ function PromoteEventPage() {
   const [textFrame, setTextFrame] = useState<TextFrame>('auto')
   const [framePadding, setFramePadding] = useState(0.65)
   const [textColor, setTextColor] = useState('#f8fafc')
+  const [photoContrast, setPhotoContrast] = useState(1.15)
+  const [photoBrightnessAdj, setPhotoBrightnessAdj] = useState(1.25)
+  const [photoSaturation, setPhotoSaturation] = useState(1.1)
   const [photoBrightness, setPhotoBrightness] = useState<number | null>(null)
   const [photoBusyness, setPhotoBusyness] = useState<number | null>(null)
 
@@ -215,6 +221,9 @@ function PromoteEventPage() {
         setTextFrame(draft.textFrame ?? 'auto')
         setFramePadding(typeof draft.framePadding === 'number' ? draft.framePadding : 0.65)
         setTextColor(draft.textColor ?? '#f8fafc')
+        setPhotoContrast(typeof draft.photoContrast === 'number' ? draft.photoContrast : 1.15)
+        setPhotoBrightnessAdj(typeof draft.photoBrightnessAdj === 'number' ? draft.photoBrightnessAdj : 1.25)
+        setPhotoSaturation(typeof draft.photoSaturation === 'number' ? draft.photoSaturation : 1.1)
         return
       }
 
@@ -450,6 +459,17 @@ function PromoteEventPage() {
 
     previewRef.current.style.setProperty('--promote-text-color', textColor)
   }, [textColor])
+
+  useEffect(() => {
+    if (!previewRef.current) {
+      return
+    }
+
+    previewRef.current.style.setProperty(
+      '--promote-photo-filter',
+      `brightness(${photoBrightnessAdj}) contrast(${photoContrast}) saturate(${photoSaturation})`,
+    )
+  }, [photoBrightnessAdj, photoContrast, photoSaturation])
 
   const clampPercentage = (value: number, min = 8, max = 92) => Math.min(max, Math.max(min, value))
 
@@ -718,6 +738,9 @@ function PromoteEventPage() {
       textFrame,
       framePadding,
       textColor,
+      photoContrast,
+      photoBrightnessAdj,
+      photoSaturation,
     }
 
     try {
@@ -909,6 +932,44 @@ function PromoteEventPage() {
             <span>Upload Photo</span>
             <input type="file" accept="image/*" onChange={handleImageUpload} />
           </label>
+
+          {photoUrl ? (
+            <>
+              <label className="promote-field">
+                <span>Photo Brightness ({Math.round(photoBrightnessAdj * 100)}%)</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2"
+                  step="0.05"
+                  value={photoBrightnessAdj}
+                  onChange={(event) => setPhotoBrightnessAdj(Number.parseFloat(event.target.value))}
+                />
+              </label>
+              <label className="promote-field">
+                <span>Photo Contrast ({Math.round(photoContrast * 100)}%)</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2"
+                  step="0.05"
+                  value={photoContrast}
+                  onChange={(event) => setPhotoContrast(Number.parseFloat(event.target.value))}
+                />
+              </label>
+              <label className="promote-field">
+                <span>Photo Saturation ({Math.round(photoSaturation * 100)}%)</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.05"
+                  value={photoSaturation}
+                  onChange={(event) => setPhotoSaturation(Number.parseFloat(event.target.value))}
+                />
+              </label>
+            </>
+          ) : null}
 
           <label className="promote-field promote-field-wide">
             <span>Headline</span>
