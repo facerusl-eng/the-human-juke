@@ -129,6 +129,20 @@
   gap: 0.45rem;
 }
 
+.promote-content-top {
+  align-self: start;
+  margin-top: 0.75rem;
+}
+
+.promote-content-center {
+  align-self: center;
+}
+
+.promote-content-bottom {
+  align-self: end;
+  margin-bottom: 0.6rem;
+}
+
 .promote-overline {
   margin: 0;
   font-size: 0.78rem;

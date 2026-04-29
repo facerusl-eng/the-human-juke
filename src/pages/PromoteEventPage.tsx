@@ -4,6 +4,7 @@ import { toJpeg, toPng } from 'html-to-image'
 
 type PostFormat = 'square' | 'portrait' | 'story'
 type ThemeKey = 'sunset' | 'midnight' | 'studio'
+type HeadlinePosition = 'top' | 'center' | 'bottom'
 
 type Theme = {
   key: ThemeKey
@@ -41,6 +42,7 @@ function PromoteEventPage() {
   const previewRef = useRef<HTMLElement | null>(null)
   const [format, setFormat] = useState<PostFormat>('portrait')
   const [theme, setTheme] = useState<ThemeKey>('sunset')
+  const [headlinePosition, setHeadlinePosition] = useState<HeadlinePosition>('center')
   const [title, setTitle] = useState('Live Music, Made Interactive')
   const [subtitle, setSubtitle] = useState('Audience requests + live voting + host control')
   const [eventName, setEventName] = useState('The Human Jukebox Experience')
@@ -160,6 +162,15 @@ function PromoteEventPage() {
             </select>
           </label>
 
+          <label className="promote-field">
+            <span>Headline Position</span>
+            <select value={headlinePosition} onChange={(event) => setHeadlinePosition(event.target.value as HeadlinePosition)}>
+              <option value="top">Top</option>
+              <option value="center">Center</option>
+              <option value="bottom">Bottom</option>
+            </select>
+          </label>
+
           <label className="promote-field promote-field-wide">
             <span>Upload Photo</span>
             <input type="file" accept="image/*" onChange={handleImageUpload} />
@@ -232,7 +243,7 @@ function PromoteEventPage() {
             The Human Jukebox
           </div>
 
-          <div className="promote-content">
+          <div className={`promote-content promote-content-${headlinePosition}`}>
             <p className="promote-overline">{eventDate}</p>
             <h3>{title}</h3>
             <p className="promote-subtitle">{subtitle}</p>
