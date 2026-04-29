@@ -6,6 +6,7 @@ import { getAudienceUrl } from '../lib/audienceUrl'
 import { useQueueStore } from '../state/queueStore'
 
 type PostFormat = 'square' | 'portrait' | 'story'
+type SocialPlatform = 'instagram' | 'facebook'
 type ThemeKey = 'none' | 'sunset' | 'midnight' | 'studio'
 type HeadlinePosition = 'top' | 'center' | 'bottom'
 
@@ -58,6 +59,7 @@ function PromoteEventPage() {
   const dragActiveRef = useRef(false)
   const photoObjectUrlRef = useRef<string | null>(null)
   const [format, setFormat] = useState<PostFormat>('portrait')
+  const [platform, setPlatform] = useState<SocialPlatform>('instagram')
   const [theme, setTheme] = useState<ThemeKey>('sunset')
   const [headlinePosition, setHeadlinePosition] = useState<HeadlinePosition>('center')
   const [headlineAnchor, setHeadlineAnchor] = useState<HeadlineAnchor>({ x: 50, y: 50 })
@@ -84,6 +86,23 @@ function PromoteEventPage() {
     () => THEMES.find((item) => item.key === theme) ?? THEMES[0],
     [theme],
   )
+
+  const targetDimensions = useMemo(() => {
+    const platformDimensions: Record<SocialPlatform, Record<PostFormat, { width: number; height: number }>> = {
+      instagram: {
+        square: { width: 1080, height: 1080 },
+        portrait: { width: 1080, height: 1350 },
+        story: { width: 1080, height: 1920 },
+      },
+      facebook: {
+        square: { width: 1200, height: 1200 },
+        portrait: { width: 1200, height: 1500 },
+        story: { width: 1080, height: 1920 },
+      },
+    }
+
+    return platformDimensions[platform][format]
+  }, [platform, format])
 
   useEffect(() => {
     if (!event) {
@@ -306,13 +325,6 @@ function PromoteEventPage() {
     setExportError(null)
     setExportingImage(true)
 
-    const dimensionsByFormat: Record<PostFormat, { width: number; height: number }> = {
-      square: { width: 1080, height: 1080 },
-      portrait: { width: 1080, height: 1350 },
-      story: { width: 1080, height: 1920 },
-    }
-
-    const targetDimensions = dimensionsByFormat[format]
     const sanitizedEventName = eventName
       .trim()
       .toLowerCase()
@@ -321,7 +333,7 @@ function PromoteEventPage() {
 
     const downloadDataUrl = (dataUrl: string) => {
       const downloadLink = document.createElement('a')
-      downloadLink.download = `${sanitizedEventName}-${format}.${type}`
+      downloadLink.download = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.${type}`
       downloadLink.href = dataUrl
       downloadLink.click()
     }
@@ -364,7 +376,7 @@ function PromoteEventPage() {
         ? await toPng(previewElement, exportOptions)
         : await toJpeg(previewRef.current, {
           ...exportOptions,
-          quality: 0.92,
+          quality: 0.95,
         })
       downloadDataUrl(dataUrl)
     } catch (error) {
@@ -386,7 +398,7 @@ function PromoteEventPage() {
 
         const fallbackDataUrl = type === 'png'
           ? fallbackCanvas.toDataURL('image/png')
-          : fallbackCanvas.toDataURL('image/jpeg', 0.92)
+          : fallbackCanvas.toDataURL('image/jpeg', 0.95)
 
         downloadDataUrl(fallbackDataUrl)
       } catch (fallbackError) {
@@ -463,6 +475,14 @@ function PromoteEventPage() {
               <option value="square">Instagram Square (1:1)</option>
               <option value="portrait">Feed Portrait (4:5)</option>
               <option value="story">Story/Reel Cover (9:16)</option>
+            </select>
+          </label>
+
+          <label className="promote-field">
+            <span>Platform</span>
+            <select value={platform} onChange={(event) => setPlatform(event.target.value as SocialPlatform)}>
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
             </select>
           </label>
 
@@ -580,10 +600,10 @@ function PromoteEventPage() {
             Open Facebook Share
           </button>
           <button type="button" className="primary-button" onClick={() => void exportImage('png')} disabled={exportingImage}>
-            {exportingImage ? 'Exporting...' : 'Export PNG'}
+            {exportingImage ? 'Exporting...' : `Export PNG (${targetDimensions.width}x${targetDimensions.height})`}
           </button>
           <button type="button" className="secondary-button" onClick={() => void exportImage('jpg')} disabled={exportingImage}>
-            {exportingImage ? 'Exporting...' : 'Export JPG'}
+            {exportingImage ? 'Exporting...' : `Export JPG (${targetDimensions.width}x${targetDimensions.height})`}
           </button>
         </div>
         {facebookShareError ? <p className="error-text no-margin-bottom">{facebookShareError}</p> : null}
