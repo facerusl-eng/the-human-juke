@@ -171,11 +171,7 @@
 
 .promote-content h3 {
   margin: 0;
-  font-size: clamp(
-    calc(1.4rem * var(--promote-text-scale)),
-    calc(4.2vw * var(--promote-text-scale)),
-    calc(2.1rem * var(--promote-text-scale))
-  );
+  font-size: calc(2.1rem * var(--promote-text-scale));
   line-height: 1.08;
 }
 
