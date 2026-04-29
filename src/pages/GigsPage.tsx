@@ -17,8 +17,9 @@ function formatGigDate(createdAt: string) {
 
 function GigsPage() {
   const navigate = useNavigate()
-  const { event, hostEvents, setActiveEvent, deleteEvent } = useQueueStore()
+  const { event, hostEvents, setActiveEvent, endGig, deleteEvent } = useQueueStore()
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
+  const [endingEventId, setEndingEventId] = useState<string | null>(null)
   const [errorText, setErrorText] = useState<string | null>(null)
   const gigActions = useGigActions({
     setActiveEvent,
@@ -55,6 +56,25 @@ function GigsPage() {
     }
   }
 
+  const endSavedGig = async (gigId: string, gigName: string) => {
+    const confirmed = window.confirm(`End "${gigName}" now? This will close audience access for this gig.`)
+
+    if (!confirmed) {
+      return
+    }
+
+    setErrorText(null)
+    setEndingEventId(gigId)
+
+    try {
+      await endGig(gigId)
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Failed to end gig. Please try again.')
+    } finally {
+      setEndingEventId(null)
+    }
+  }
+
   return (
     <section className="gigs-shell" aria-label="Gig management">
       <section className="hero-card gigs-hero-card">
@@ -87,7 +107,8 @@ function GigsPage() {
               const isCurrentGig = event?.id === hostEvent.id
               const isActivating = gigActions.activatingEventId === hostEvent.id
               const isDeleting = deletingEventId === hostEvent.id
-              const isBusy = isActivating || isDeleting
+              const isEnding = endingEventId === hostEvent.id
+              const isBusy = isActivating || isDeleting || isEnding
 
               return (
                 <li key={hostEvent.id} className="gig-management-entry">
@@ -126,6 +147,16 @@ function GigsPage() {
                       }}
                     >
                       {hostEvent.isActive ? 'Live Now' : isActivating ? 'Switching…' : 'Set Live Only'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={!hostEvent.isActive || isBusy}
+                      onClick={() => {
+                        void endSavedGig(hostEvent.id, hostEvent.name)
+                      }}
+                    >
+                      {!hostEvent.isActive ? 'Ended' : isEnding ? 'Ending…' : 'End Gig'}
                     </button>
                     <button
                       type="button"

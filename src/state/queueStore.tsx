@@ -95,6 +95,7 @@ type QueueContextValue = {
   loading: boolean
   addSong: (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => Promise<void>
   setActiveEvent: (nextEventId: string) => Promise<void>
+  endGig: (targetEventId: string) => Promise<void>
   deleteEvent: (targetEventId: string) => Promise<void>
   updateEventSettings: (updates: EventSettingsUpdates) => Promise<void>
   upvoteSong: (songId: string) => Promise<void>
@@ -1360,6 +1361,46 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         setHostEvents(nextHostEvents)
         setPerformedSongs([])
+      },
+      endGig: async (targetEventId: string) => {
+        if (!user || !isHostSession) {
+          throw new Error('Host account required to end a gig.')
+        }
+
+        const { error: endGigError } = await withTimeout(
+          withAuthLockRetry(() =>
+            supabase
+              .from('events')
+              .update({
+                is_active: false,
+                room_open: false,
+              })
+              .eq('id', targetEventId)
+              .eq('host_id', user.id),
+          ),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Timed out while ending gig. Please try again.',
+        )
+
+        if (endGigError) {
+          throw new Error(endGigError.message)
+        }
+
+        const nextHostEvents = await fetchHostEvents(user.id)
+        setHostEvents(nextHostEvents)
+
+        if (event?.id === targetEventId) {
+          setEvent((currentEvent) => {
+            if (!currentEvent || currentEvent.id !== targetEventId) {
+              return currentEvent
+            }
+
+            return {
+              ...currentEvent,
+              roomOpen: false,
+            }
+          })
+        }
       },
       deleteEvent: async (targetEventId: string) => {
         if (!user || !isHostSession) {
