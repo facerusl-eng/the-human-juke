@@ -764,6 +764,11 @@ function QueueProvider({ children }: PropsWithChildren) {
           )
 
           if (profileUpdateError) {
+            // Foreign key violation means the requested event ID no longer exists.
+            // Signal the caller to fall back to the latest active event instead.
+            if (profileUpdateError.code === '23503') {
+              throw Object.assign(new Error(profileUpdateError.message), { isForeignKeyViolation: true })
+            }
             throw new Error(profileUpdateError.message)
           }
 
@@ -881,10 +886,31 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         if (!runAsHostSession) {
-          await syncAudienceActiveEventId(targetEventId)
+          try {
+            await syncAudienceActiveEventId(targetEventId!)
+          } catch (syncError) {
+            // If the event ID is stale (FK violation), fall back to the current live event.
+            if (syncError instanceof Error && (syncError as Error & { isForeignKeyViolation?: boolean }).isForeignKeyViolation) {
+              console.warn('queueStore: requested event no longer exists, falling back to latest active event', syncError)
+              const latestActiveEventId = await fetchLatestActiveEventId()
+              if (!latestActiveEventId) {
+                activeEventIdRef.current = null
+                if (isCurrent) {
+                  setEvent(null)
+                  setSongs([])
+                  setPerformedSongs([])
+                }
+                return
+              }
+              targetEventId = latestActiveEventId
+              await syncAudienceActiveEventId(latestActiveEventId)
+            } else {
+              throw syncError
+            }
+          }
         }
 
-        let resolvedEventId = targetEventId
+        let resolvedEventId: string = targetEventId!
         activeEventIdRef.current = resolvedEventId
 
         if (isCurrent) {
