@@ -70,6 +70,12 @@
   --promote-accent: #ffd3a1;
 }
 
+.promote-theme-none {
+  background-image: none;
+  background-color: #0f172a;
+  --promote-accent: #94a3b8;
+}
+
 .promote-theme-midnight {
   background-image: linear-gradient(140deg, #111827 0%, #1e3a8a 55%, #2563eb 100%);
   --promote-accent: #93c5fd;

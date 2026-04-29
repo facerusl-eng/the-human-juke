@@ -6,7 +6,7 @@ import { getAudienceUrl } from '../lib/audienceUrl'
 import { useQueueStore } from '../state/queueStore'
 
 type PostFormat = 'square' | 'portrait' | 'story'
-type ThemeKey = 'sunset' | 'midnight' | 'studio'
+type ThemeKey = 'none' | 'sunset' | 'midnight' | 'studio'
 type HeadlinePosition = 'top' | 'center' | 'bottom'
 
 type HeadlineAnchor = {
@@ -20,6 +20,10 @@ type Theme = {
 }
 
 const THEMES: Theme[] = [
+  {
+    key: 'none',
+    name: 'No Theme',
+  },
   {
     key: 'sunset',
     name: 'Sunset Stage',
@@ -41,6 +45,7 @@ const FORMAT_CLASS_MAP: Record<PostFormat, string> = {
 }
 
 const THEME_CLASS_MAP: Record<ThemeKey, string> = {
+  none: 'promote-theme-none',
   sunset: 'promote-theme-sunset',
   midnight: 'promote-theme-midnight',
   studio: 'promote-theme-studio',
