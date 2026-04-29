@@ -27,7 +27,6 @@ type LiveFeedPanelProps = {
 
 const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '❤️']
 const AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
-const FEED_IMAGE_REVEAL_DELAY_MS = 7000
 const FEED_IMAGE_QUEUE_INTERVAL_MS = 30000
 const FEED_POLL_INTERVAL_MS = 5000
 const FEED_FETCH_DEBOUNCE_MS = 300
@@ -82,22 +81,7 @@ function formatPostTime(createdAt: string) {
   }).format(new Date(createdAt))
 }
 
-function isFeedPostVisible(post: FeedPost, now: number, mode: LiveFeedPanelProps['mode']) {
-  if (mode !== 'mirror') {
-    return true
-  }
-
-  if (!post.image_data_url) {
-    return true
-  }
-
-  return new Date(post.created_at).getTime() + FEED_IMAGE_REVEAL_DELAY_MS <= now
-}
-
-function resolveVisiblePosts(posts: FeedPost[], now: number, mode: LiveFeedPanelProps['mode']) {
-  if (mode !== 'mirror') {
-    return posts
-  }
+function resolveVisiblePosts(posts: FeedPost[], now: number) {
 
   const imagePostsOldestFirst = [...posts]
     .filter((post) => Boolean(normalizeImageSource(post.image_data_url)))
@@ -109,7 +93,7 @@ function resolveVisiblePosts(posts: FeedPost[], now: number, mode: LiveFeedPanel
   for (const imagePost of imagePostsOldestFirst) {
     const createdAtMs = new Date(imagePost.created_at).getTime()
     const safeCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : now
-    const baseUnlockAt = safeCreatedAtMs + FEED_IMAGE_REVEAL_DELAY_MS
+    const baseUnlockAt = safeCreatedAtMs + FEED_IMAGE_QUEUE_INTERVAL_MS
     const unlockAt = previousUnlockAt > 0
       ? Math.max(baseUnlockAt, previousUnlockAt + FEED_IMAGE_QUEUE_INTERVAL_MS)
       : baseUnlockAt
@@ -127,7 +111,7 @@ function resolveVisiblePosts(posts: FeedPost[], now: number, mode: LiveFeedPanel
 
     const unlockAt = unlockByImagePostId.get(post.id)
     if (!unlockAt) {
-      return isFeedPostVisible(post, now, mode)
+      return true
     }
 
     return unlockAt <= now
@@ -200,8 +184,8 @@ function LiveFeedPanel({
   const isMirrorMode = mode === 'mirror'
   const previewImageSrc = imagePreviewUrl ?? imageDataUrl
   const visiblePosts = useMemo(
-    () => resolveVisiblePosts(posts, feedNow, mode),
-    [feedNow, mode, posts],
+    () => resolveVisiblePosts(posts, feedNow),
+    [feedNow, posts],
   )
 
   const suppressReconnectWarning = () => {
@@ -222,11 +206,6 @@ function LiveFeedPanel({
   }, [authorName])
 
   useEffect(() => {
-    // feedNow is only used to gate image reveal in mirror mode
-    if (!isMirrorMode) {
-      return
-    }
-
     const timer = window.setInterval(() => {
       setFeedNow(Date.now())
     }, 1000)
@@ -234,7 +213,7 @@ function LiveFeedPanel({
     return () => {
       window.clearInterval(timer)
     }
-  }, [isMirrorMode])
+  }, [])
 
   useEffect(() => {
     return () => {
