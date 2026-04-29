@@ -82,7 +82,12 @@ function normalizePlaylistContextUri(input) {
     return trimmed
   }
 
-  const playlistUrlMatch = trimmed.match(/spotify\.com\/playlist\/([a-zA-Z0-9]+)/i)
+  const legacyUriMatch = trimmed.match(/spotify:user:[^:]+:playlist:([a-zA-Z0-9]+)/i)
+  if (legacyUriMatch?.[1]) {
+    return `spotify:playlist:${legacyUriMatch[1]}`
+  }
+
+  const playlistUrlMatch = trimmed.match(/spotify\.com\/(?:intl-[a-z]{2}\/)?playlist\/([a-zA-Z0-9]+)/i)
   if (playlistUrlMatch?.[1]) {
     return `spotify:playlist:${playlistUrlMatch[1]}`
   }
@@ -106,6 +111,24 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
   const [actionBusy, setActionBusy] = useState(false)
 
   accessTokenRef.current = accessToken
+
+  const mapSpotifyApiError = (message) => {
+    const normalized = String(message || '').toLowerCase()
+
+    if (normalized.includes('premium')) {
+      return 'Spotify Premium is required for remote playback controls.'
+    }
+
+    if (normalized.includes('no active device') || normalized.includes('not found')) {
+      return 'No available Spotify playback device found. Open Spotify on your phone/desktop and start playback once.'
+    }
+
+    if (normalized.includes('restricted')) {
+      return 'Spotify rejected that device. Try another active device in your Spotify app.'
+    }
+
+    return message
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -140,7 +163,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         player.addListener('ready', onReady)
         player.addListener('not_ready', onNotReady)
         player.addListener('initialization_error', ({ message }) => {
-          setPlayerStatus(`Initialization error: ${message}`)
+          setPlayerStatus(`Initialization error: ${message}. You can still play playlists on another active Spotify device.`)
         })
         player.addListener('authentication_error', ({ message }) => {
           setPlayerStatus(`Authentication error: ${message}`)
@@ -211,6 +234,42 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
     }
   }
 
+  const resolvePlaybackDeviceId = async () => {
+    if (deviceId) {
+      return deviceId
+    }
+
+    return withRefreshRetry(async (token) => {
+      const response = await fetch('https://api.spotify.com/v1/me/player/devices', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.status === 401) {
+        throw new Error('Spotify access token expired.')
+      }
+
+      if (!response.ok) {
+        const payload = await parseJson(response)
+        const message = payload?.error?.message || payload?.error_description || 'Failed to fetch Spotify devices.'
+        throw new Error(message)
+      }
+
+      const payload = await parseJson(response)
+      const devices = Array.isArray(payload?.devices) ? payload.devices : []
+      const activeDevice = devices.find((device) => device?.is_active && !device?.is_restricted)
+      const availableDevice = devices.find((device) => !device?.is_restricted)
+      const fallbackDeviceId = activeDevice?.id || availableDevice?.id || null
+
+      if (!fallbackDeviceId) {
+        throw new Error('No active device found')
+      }
+
+      return fallbackDeviceId
+    })
+  }
+
   const syncTogglePlayState = async (shouldPlay) => {
     if (!playerRef.current) {
       return
@@ -277,16 +336,18 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
   const startPlayback = async (spotifyUri) => {
     const normalizedTrackUri = normalizeTrackUri(spotifyUri)
 
-    if (!normalizedTrackUri || !deviceId) {
-      setPlayerStatus('Provide a Spotify URI and wait for device readiness.')
+    if (!normalizedTrackUri) {
+      setPlayerStatus('Provide a valid Spotify track URI, URL, or ID.')
       return
     }
 
     setActionBusy(true)
 
     try {
+      const playbackDeviceId = await resolvePlaybackDeviceId()
+
       await withRefreshRetry(async (token) => {
-        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
+        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -302,13 +363,13 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         if (!response.ok) {
           const payload = await parseJson(response)
           const message = payload?.error?.message || payload?.error_description || 'Start playback failed.'
-          throw new Error(message)
+          throw new Error(mapSpotifyApiError(message))
         }
       })
 
       setPlayerStatus(`Started playback for ${normalizedTrackUri}.`)
     } catch (error) {
-      setPlayerStatus(error instanceof Error ? error.message : 'Start playback failed.')
+      setPlayerStatus(error instanceof Error ? mapSpotifyApiError(error.message) : 'Start playback failed.')
     } finally {
       setActionBusy(false)
     }
@@ -317,16 +378,18 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
   const startPlaylistPlayback = async (playlistIdOrUri) => {
     const contextUri = normalizePlaylistContextUri(playlistIdOrUri)
 
-    if (!contextUri || !deviceId) {
-      setPlayerStatus('Provide a valid Spotify playlist ID/URI/URL and wait for device readiness.')
+    if (!contextUri) {
+      setPlayerStatus('Provide a valid Spotify playlist ID, URI, or URL.')
       return
     }
 
     setActionBusy(true)
 
     try {
+      const playbackDeviceId = await resolvePlaybackDeviceId()
+
       await withRefreshRetry(async (token) => {
-        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
+        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -342,13 +405,13 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         if (!response.ok) {
           const payload = await parseJson(response)
           const message = payload?.error?.message || payload?.error_description || 'Start playlist playback failed.'
-          throw new Error(message)
+          throw new Error(mapSpotifyApiError(message))
         }
       })
 
       setPlayerStatus(`Started playlist playback for ${contextUri}.`)
     } catch (error) {
-      setPlayerStatus(error instanceof Error ? error.message : 'Start playlist playback failed.')
+      setPlayerStatus(error instanceof Error ? mapSpotifyApiError(error.message) : 'Start playlist playback failed.')
     } finally {
       setActionBusy(false)
     }
@@ -436,7 +499,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         <button
           type="button"
           className="primary-button"
-          disabled={actionBusy || !deviceId}
+          disabled={actionBusy || !accessToken}
           onClick={async () => {
             await startPlayback(spotifyUriInput.trim())
           }}
@@ -458,7 +521,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         <button
           type="button"
           className="primary-button"
-          disabled={actionBusy || !deviceId}
+          disabled={actionBusy || !accessToken}
           onClick={async () => {
             await startPlaylistPlayback(playlistInput)
           }}
