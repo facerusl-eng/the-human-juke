@@ -41,6 +41,19 @@ function ShellLayout() {
     isMobileNavOpen ? 'site-nav-open' : '',
   ].filter(Boolean).join(' ')
 
+  const closeGigMenuAfterNavigation = () => {
+    setIsGigMenuOpen(false)
+
+    // Prevent :focus-within from keeping the dropdown expanded after click navigation.
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement
+
+      if (activeElement instanceof HTMLElement) {
+        activeElement.blur()
+      }
+    })
+  }
+
   useEffect(() => {
     const syncAudienceAccess = () => {
       setHasAudienceAccess(Boolean(readCommittedAudienceName()))
@@ -199,16 +212,15 @@ function ShellLayout() {
                       type="button"
                       className={`nav-dropdown-trigger ${isGigNavActive ? 'active' : ''}`.trim()}
                       aria-label="Open gig navigation"
-                      aria-expanded={isGigMenuOpen}
                       onClick={() => setIsGigMenuOpen((open) => !open)}
                     >
                       Gigs
                     </button>
                     <div className="nav-dropdown-menu" aria-label="Gig navigation menu">
-                      <NavLink to="/admin/gigs" onClick={() => setIsGigMenuOpen(false)}>All Gigs</NavLink>
-                      <NavLink to="/admin/create-gig" onClick={() => setIsGigMenuOpen(false)}>New Gig</NavLink>
-                      <NavLink to="/admin/gig-control" onClick={() => setIsGigMenuOpen(false)}>Gig Control</NavLink>
-                      <NavLink to="/admin/gig-settings" onClick={() => setIsGigMenuOpen(false)}>Gig Settings</NavLink>
+                      <NavLink to="/admin/gigs" onClick={closeGigMenuAfterNavigation}>All Gigs</NavLink>
+                      <NavLink to="/admin/create-gig" onClick={closeGigMenuAfterNavigation}>New Gig</NavLink>
+                      <NavLink to="/admin/gig-control" onClick={closeGigMenuAfterNavigation}>Gig Control</NavLink>
+                      <NavLink to="/admin/gig-settings" onClick={closeGigMenuAfterNavigation}>Gig Settings</NavLink>
                     </div>
                   </div>
                   <NavLink to="/admin/health-check">Health Check</NavLink>
