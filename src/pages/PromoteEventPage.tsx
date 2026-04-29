@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import html2canvas from 'html2canvas'
 import { toJpeg, toPng } from 'html-to-image'
+import { useQueueStore } from '../state/queueStore'
 
 type PostFormat = 'square' | 'portrait' | 'story'
 type ThemeKey = 'sunset' | 'midnight' | 'studio'
@@ -45,6 +46,7 @@ const THEME_CLASS_MAP: Record<ThemeKey, string> = {
 }
 
 function PromoteEventPage() {
+  const { event, setEventAudienceNoGigVisibility } = useQueueStore()
   const previewRef = useRef<HTMLElement | null>(null)
   const headlineRef = useRef<HTMLDivElement | null>(null)
   const dragActiveRef = useRef(false)
@@ -66,11 +68,29 @@ function PromoteEventPage() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [exportingImage, setExportingImage] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [audienceVisibilitySaving, setAudienceVisibilitySaving] = useState(false)
+  const [audienceVisibilityError, setAudienceVisibilityError] = useState<string | null>(null)
 
   const activeTheme = useMemo(
     () => THEMES.find((item) => item.key === theme) ?? THEMES[0],
     [theme],
   )
+
+  useEffect(() => {
+    if (!event) {
+      return
+    }
+
+    setEventName(event.name)
+    setVenue(event.venue ?? '')
+
+    if (event.gigDate) {
+      const formattedDate = event.gigStartTime
+        ? `${event.gigDate} · ${event.gigStartTime}`
+        : event.gigDate
+      setEventDate(formattedDate)
+    }
+  }, [event?.id, event?.name, event?.venue, event?.gigDate, event?.gigStartTime])
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0]
@@ -297,6 +317,23 @@ function PromoteEventPage() {
     }
   }
 
+  const toggleAudienceNoLiveVisibility = async () => {
+    if (!event || audienceVisibilitySaving) {
+      return
+    }
+
+    setAudienceVisibilityError(null)
+    setAudienceVisibilitySaving(true)
+
+    try {
+      await setEventAudienceNoGigVisibility(event.id, !event.showInAudienceNoGig)
+    } catch (error) {
+      setAudienceVisibilityError(error instanceof Error ? error.message : 'Failed to update no-live audience visibility.')
+    } finally {
+      setAudienceVisibilitySaving(false)
+    }
+  }
+
   return (
     <section className="promote-shell" aria-label="Promote event designer">
       <section className="queue-panel promote-controls-panel">
@@ -377,6 +414,33 @@ function PromoteEventPage() {
             <span>CTA</span>
             <input value={ctaText} onChange={(event) => setCtaText(event.target.value)} />
           </label>
+
+          <div className="promote-field promote-field-wide">
+            <span>No-Live Audience Option</span>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void toggleAudienceNoLiveVisibility()
+              }}
+              disabled={!event || audienceVisibilitySaving}
+            >
+              {!event
+                ? 'No Active Event Selected'
+                : audienceVisibilitySaving
+                ? 'Saving...'
+                : event.showInAudienceNoGig
+                ? 'Hide This Event When No Gig Is Live'
+                : 'Show This Event When No Gig Is Live'}
+            </button>
+            <p className="field-hint">
+              {event
+                ? event.showInAudienceNoGig
+                  ? 'Audience fallback is enabled for this event.'
+                  : 'Audience fallback is disabled for this event.'
+                : 'Select an active event first to configure audience fallback visibility.'}
+            </p>
+          </div>
         </div>
 
         <div className="promote-action-row">
@@ -390,6 +454,7 @@ function PromoteEventPage() {
             {exportingImage ? 'Exporting...' : 'Export JPG'}
           </button>
         </div>
+        {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
         {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
       </section>
 
