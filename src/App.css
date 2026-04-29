@@ -524,16 +524,28 @@
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
-.home-action-tile-admin,
+.home-action-tile-admin {
+  background:
+    repeating-linear-gradient(90deg, rgba(130, 221, 255, 0.09) 0 2px, transparent 2px 16px),
+    radial-gradient(circle at 12% 18%, rgba(130, 221, 255, 0.22) 0%, transparent 36%),
+    radial-gradient(circle at 86% 82%, rgba(88, 153, 255, 0.18) 0%, transparent 42%),
+    linear-gradient(145deg, rgba(8, 20, 48, 0.88) 0%, rgba(10, 16, 36, 0.9) 100%);
+  border-color: rgba(117, 201, 255, 0.52);
+}
+
 .home-action-tile-audience {
-  background-image: url('./assets/hero.png');
+  background:
+    radial-gradient(circle at 14% 78%, rgba(255, 174, 77, 0.24) 0%, transparent 38%),
+    radial-gradient(circle at 82% 20%, rgba(255, 94, 170, 0.24) 0%, transparent 38%),
+    linear-gradient(150deg, rgba(49, 17, 52, 0.9) 0%, rgba(30, 10, 44, 0.92) 48%, rgba(20, 9, 36, 0.94) 100%);
+  border-color: rgba(255, 140, 194, 0.56);
 }
 
 .home-action-tile::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(8, 12, 28, 0.18) 10%, rgba(8, 12, 28, 0.88) 100%);
+  background: linear-gradient(180deg, rgba(8, 12, 28, 0.16) 10%, rgba(8, 12, 28, 0.84) 100%);
 }
 
 .home-action-tile-admin::after,
@@ -544,11 +556,11 @@
 }
 
 .home-action-tile-admin::after {
-  background: linear-gradient(125deg, rgba(74, 214, 255, 0.2), rgba(255, 79, 152, 0.12));
+  background: linear-gradient(120deg, rgba(84, 208, 255, 0.16), rgba(108, 125, 255, 0.14));
 }
 
 .home-action-tile-audience::after {
-  background: linear-gradient(125deg, rgba(255, 79, 152, 0.2), rgba(255, 151, 70, 0.14));
+  background: linear-gradient(120deg, rgba(255, 82, 156, 0.2), rgba(255, 171, 82, 0.16));
 }
 
 .home-action-tile:hover {
