@@ -474,14 +474,15 @@ function AudienceSongListPage() {
         performerMode: effectiveMode,
       })
 
-      navigate(`/audience${location.search || ''}`, {
-        replace: true,
-        state: {
-          requestConfirmation: effectiveMode === 'audience'
-            ? 'Request added. Karaoke mode selected.'
-            : 'Request added to the queue.',
-        },
-      })
+      const targetAudienceUrl = `/audience${location.search || ''}`
+
+      // Use a full navigation to avoid stale lazy-chunk errors after rapid deploys.
+      if (typeof window !== 'undefined') {
+        window.location.assign(targetAudienceUrl)
+        return
+      }
+
+      navigate(targetAudienceUrl, { replace: true })
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Unable to add this request right now.')
       setSubmittingMode(null)
