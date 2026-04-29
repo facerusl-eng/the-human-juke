@@ -80,6 +80,49 @@ CREATE POLICY feed_posts_event_insert ON public.feed_posts
         )
     )
   );
+
+-- Allow active hosts to sync mirror playback state even if events.host_id differs
+DROP POLICY IF EXISTS "Only host can insert playback state" ON public.playback_state;
+DROP POLICY IF EXISTS "Only host can update playback state" ON public.playback_state;
+
+CREATE POLICY "Hosts can insert playback state" ON public.playback_state
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = playback_state.event_id
+        AND (
+          e.host_id = auth.uid()
+          OR is_host_for_event(playback_state.event_id)
+        )
+    )
+  );
+
+CREATE POLICY "Hosts can update playback state" ON public.playback_state
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = playback_state.event_id
+        AND (
+          e.host_id = auth.uid()
+          OR is_host_for_event(playback_state.event_id)
+        )
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = playback_state.event_id
+        AND (
+          e.host_id = auth.uid()
+          OR is_host_for_event(playback_state.event_id)
+        )
+    )
+  );
 -- Run this in the Supabase SQL Editor
 -- Dashboard → SQL Editor → paste and run
 
