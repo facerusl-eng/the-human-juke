@@ -637,11 +637,47 @@ function PromoteEventPage() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'promote-event'
 
-    const downloadDataUrl = (dataUrl: string) => {
+    const downloadBlob = (blob: Blob) => {
+      const objectUrl = URL.createObjectURL(blob)
       const downloadLink = document.createElement('a')
       downloadLink.download = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.${type}`
-      downloadLink.href = dataUrl
+      downloadLink.href = objectUrl
       downloadLink.click()
+      window.setTimeout(() => {
+        URL.revokeObjectURL(objectUrl)
+      }, 2000)
+    }
+
+    const canvasToBlob = (canvas: HTMLCanvasElement, mimeType: string, quality?: number) => {
+      return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob)
+            return
+          }
+
+          reject(new Error(`Failed to encode ${mimeType} blob`))
+        }, mimeType, quality)
+      })
+    }
+
+    const flattenCanvasForJpeg = (sourceCanvas: HTMLCanvasElement) => {
+      const flattenedCanvas = document.createElement('canvas')
+      flattenedCanvas.width = sourceCanvas.width
+      flattenedCanvas.height = sourceCanvas.height
+
+      const context = flattenedCanvas.getContext('2d')
+
+      if (!context) {
+        throw new Error('Could not initialize JPEG export canvas')
+      }
+
+      // JPEG does not support alpha; flatten transparent pixels against a dark backdrop.
+      context.fillStyle = '#0b1025'
+      context.fillRect(0, 0, flattenedCanvas.width, flattenedCanvas.height)
+      context.drawImage(sourceCanvas, 0, 0)
+
+      return flattenedCanvas
     }
 
     // Inline computed styles on every element so clamp(), calc(), and CSS variables
@@ -687,9 +723,9 @@ function PromoteEventPage() {
       await waitForPreviewAssets(previewElement)
 
       const exportCanvas = await html2canvas(previewElement, {
-        useCORS: false,
-        allowTaint: true,
-        backgroundColor: null,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: type === 'jpg' ? '#0b1025' : null,
         scale: targetDimensions.width / previewElement.clientWidth,
         width: previewElement.clientWidth,
         height: previewElement.clientHeight,
@@ -699,11 +735,23 @@ function PromoteEventPage() {
         logging: false,
       })
 
-      const dataUrl = type === 'png'
-        ? exportCanvas.toDataURL('image/png')
-        : exportCanvas.toDataURL('image/jpeg', 0.95)
-
-      downloadDataUrl(dataUrl)
+      if (type === 'png') {
+        const pngBlob = await canvasToBlob(exportCanvas, 'image/png')
+        downloadBlob(pngBlob)
+      } else {
+        try {
+          const jpegCanvas = flattenCanvasForJpeg(exportCanvas)
+          const jpegBlob = await canvasToBlob(jpegCanvas, 'image/jpeg', 0.95)
+          downloadBlob(jpegBlob)
+        } catch {
+          // Fallback for browsers with fragile JPEG encoding support.
+          const jpegDataUrl = exportCanvas.toDataURL('image/jpeg', 0.95)
+          const downloadLink = document.createElement('a')
+          downloadLink.download = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.jpg`
+          downloadLink.href = jpegDataUrl
+          downloadLink.click()
+        }
+      }
     } catch (error) {
       console.warn(`PromoteEventPage: export failed`, error)
       setExportError('Could not export image. Please try a different photo file and retry.')
