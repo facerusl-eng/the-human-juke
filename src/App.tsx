@@ -15,20 +15,60 @@ import AudienceSongListPage from './pages/AudienceSongListPage'
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
 
-const AdminPage = lazy(() => import('./pages/AdminPage'))
-const CreateGigPage = lazy(() => import('./pages/CreateGigPage'))
-const CrashTelemetryPage = lazy(() => import('./pages/CrashTelemetryPage'))
-const FeedPage = lazy(() => import('./pages/FeedPage'))
-const GigControlPage = lazy(() => import('./pages/GigControlPage'))
-const GigSettingsPage = lazy(() => import('./pages/GigSettingsPage'))
-const GigsPage = lazy(() => import('./pages/GigsPage'))
-const HealthCheckPage = lazy(() => import('./pages/HealthCheckPage'))
-const HomePage = lazy(() => import('./pages/HomePage'))
-const MirrorPage = lazy(() => import('./pages/MirrorPage'))
-const SetlistLibraryPage = lazy(() => import('./pages/SetlistLibraryPage'))
-const PromoteEventPage = lazy(() => import('./pages/PromoteEventPage'))
-const SettingsPage = lazy(() => import('./pages/SettingsPage'))
-const SpotifyCallbackPage = lazy(() => import('./pages/SpotifyCallbackPage'))
+const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
+
+function isChunkLoadFailure(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  return /chunk|loading css chunk|failed to fetch dynamically imported module|importing a module script failed/i.test(message)
+}
+
+async function importWithChunkReloadRecovery<T>(loader: () => Promise<T>) {
+  try {
+    const module = await loader()
+
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY)
+    }
+
+    return module
+  } catch (error) {
+    if (!isChunkLoadFailure(error) || typeof window === 'undefined') {
+      throw error
+    }
+
+    const alreadyRetried = window.sessionStorage.getItem(CHUNK_RELOAD_STORAGE_KEY) === '1'
+
+    if (!alreadyRetried) {
+      window.sessionStorage.setItem(CHUNK_RELOAD_STORAGE_KEY, '1')
+      window.location.reload()
+      return new Promise<T>(() => {
+        // Keep suspense pending while the page reloads.
+      })
+    }
+
+    window.sessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY)
+    throw error
+  }
+}
+
+function lazyWithChunkReload<T extends { default: React.ComponentType<unknown> }>(loader: () => Promise<T>) {
+  return lazy(() => importWithChunkReloadRecovery(loader))
+}
+
+const AdminPage = lazyWithChunkReload(() => import('./pages/AdminPage'))
+const CreateGigPage = lazyWithChunkReload(() => import('./pages/CreateGigPage'))
+const CrashTelemetryPage = lazyWithChunkReload(() => import('./pages/CrashTelemetryPage'))
+const FeedPage = lazyWithChunkReload(() => import('./pages/FeedPage'))
+const GigControlPage = lazyWithChunkReload(() => import('./pages/GigControlPage'))
+const GigSettingsPage = lazyWithChunkReload(() => import('./pages/GigSettingsPage'))
+const GigsPage = lazyWithChunkReload(() => import('./pages/GigsPage'))
+const HealthCheckPage = lazyWithChunkReload(() => import('./pages/HealthCheckPage'))
+const HomePage = lazyWithChunkReload(() => import('./pages/HomePage'))
+const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
+const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
+const PromoteEventPage = lazyWithChunkReload(() => import('./pages/PromoteEventPage'))
+const SettingsPage = lazyWithChunkReload(() => import('./pages/SettingsPage'))
+const SpotifyCallbackPage = lazyWithChunkReload(() => import('./pages/SpotifyCallbackPage'))
 
 function RouteLoading() {
   return (
