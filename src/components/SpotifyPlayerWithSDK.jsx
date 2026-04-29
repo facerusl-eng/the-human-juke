@@ -100,6 +100,41 @@ function normalizePlaylistContextUri(input) {
   return ''
 }
 
+function getSpotifyDisconnectHint(message) {
+  const normalized = String(message || '').toLowerCase()
+
+  if (!normalized) {
+    return null
+  }
+
+  if (
+    normalized.includes('keysystem') ||
+    normalized.includes('eme') ||
+    normalized.includes('protected content') ||
+    normalized.includes('drm')
+  ) {
+    return 'This browser session cannot run Spotify DRM playback (EME/Widevine). Use Chrome or Edge with protected content enabled, then reconnect Spotify.'
+  }
+
+  if (normalized.includes('token') || normalized.includes('authentication')) {
+    return 'Spotify auth/session issue. Reconnect Spotify and keep this tab signed in as Admin.'
+  }
+
+  if (normalized.includes('premium')) {
+    return 'Spotify Premium is required for remote playback controls.'
+  }
+
+  if (normalized.includes('no active device') || normalized.includes('not found') || normalized.includes('restricted')) {
+    return 'No usable Spotify Connect device found. Open Spotify on phone/desktop, start a song there once, then retry.'
+  }
+
+  if (normalized.includes('initialization error')) {
+    return 'Spotify SDK failed to initialize in this environment. Reconnect Spotify or switch browser/device.'
+  }
+
+  return null
+}
+
 function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand }) {
   const playerRef = useRef(null)
   const accessTokenRef = useRef(accessToken)
@@ -110,6 +145,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
   const [spotifyUriInput, setSpotifyUriInput] = useState('')
   const [playlistInput, setPlaylistInput] = useState('')
   const [actionBusy, setActionBusy] = useState(false)
+  const disconnectHint = !deviceId ? getSpotifyDisconnectHint(playerStatus) : null
 
   accessTokenRef.current = accessToken
 
@@ -189,7 +225,8 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         player.addListener('ready', onReady)
         player.addListener('not_ready', onNotReady)
         player.addListener('initialization_error', ({ message }) => {
-          setPlayerStatus(`Initialization error: ${message}. You can still play playlists on another active Spotify device.`)
+          const normalizedMessage = String(message || '')
+          setPlayerStatus(`Initialization error: ${normalizedMessage}. You can still play playlists on another active Spotify device.`)
         })
         player.addListener('authentication_error', ({ message }) => {
           setPlayerStatus(`Authentication error: ${message}`)
@@ -499,6 +536,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
       </p>
       <p className="subcopy">Device ID: {deviceId ?? 'Waiting for ready event...'}</p>
       <p className="subcopy">{playerStatus}</p>
+      {disconnectHint ? <p className="subcopy">Disconnect reason: {disconnectHint}</p> : null}
 
       <div className="hero-actions">
         <button type="button" className="secondary-button" disabled={actionBusy || !canControlPlayback} onClick={togglePlay}>
