@@ -425,34 +425,13 @@ function PromoteEventPage() {
       cacheBust: true,
       pixelRatio: 2,
       skipAutoScale: true,
-      width: targetDimensions.width,
-      height: targetDimensions.height,
+      width: previewElement.clientWidth,
+      height: previewElement.clientHeight,
       canvasWidth: targetDimensions.width,
       canvasHeight: targetDimensions.height,
-      style: {
-        width: `${targetDimensions.width}px`,
-        height: `${targetDimensions.height}px`,
-        maxWidth: 'none',
-      },
     }
-
-    const originalInlineStyles = {
-      width: previewElement.style.width,
-      height: previewElement.style.height,
-      maxWidth: previewElement.style.maxWidth,
-      aspectRatio: previewElement.style.aspectRatio,
-    }
-
-    previewElement.style.width = `${targetDimensions.width}px`
-    previewElement.style.height = `${targetDimensions.height}px`
-    previewElement.style.maxWidth = 'none'
-    previewElement.style.aspectRatio = 'unset'
 
     try {
-      await new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => resolve())
-      })
-
       await waitForPreviewAssets(previewElement)
 
       const dataUrl = type === 'png'
@@ -472,11 +451,11 @@ function PromoteEventPage() {
           useCORS: true,
           allowTaint: true,
           backgroundColor: null,
-          scale: 2,
-          width: targetDimensions.width,
-          height: targetDimensions.height,
-          windowWidth: targetDimensions.width,
-          windowHeight: targetDimensions.height,
+          scale: Math.max(targetDimensions.width / previewElement.clientWidth, 1),
+          width: previewElement.clientWidth,
+          height: previewElement.clientHeight,
+          windowWidth: previewElement.clientWidth,
+          windowHeight: previewElement.clientHeight,
         })
 
         const fallbackDataUrl = type === 'png'
@@ -489,10 +468,6 @@ function PromoteEventPage() {
         setExportError('Could not export image. Please try a different photo file and retry.')
       }
     } finally {
-      previewElement.style.width = originalInlineStyles.width
-      previewElement.style.height = originalInlineStyles.height
-      previewElement.style.maxWidth = originalInlineStyles.maxWidth
-      previewElement.style.aspectRatio = originalInlineStyles.aspectRatio
       setExportingImage(false)
     }
   }
