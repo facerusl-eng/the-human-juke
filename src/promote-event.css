@@ -99,6 +99,7 @@
   border: 1px solid rgba(148, 163, 184, 0.35);
   box-shadow: 0 24px 50px rgba(2, 6, 23, 0.45);
   --promote-text-scale: 1;
+  --promote-text-color: #f8fafc;
   font-size: clamp(14px, 2.5vw, 18px);
 }
 
@@ -283,6 +284,17 @@
   font-weight: 700;
 }
 
+/* Text color (no-frame mode uses canvas default) */
+.promote-overline,
+.promote-content h3,
+.promote-subtitle,
+.promote-description,
+.promote-event-name,
+.promote-event-meta,
+.promote-cta {
+  color: var(--promote-text-color, #f8fafc);
+}
+
 /* Text shadows */
 .promote-shadow-light .promote-overline,
 .promote-shadow-light .promote-content h3,
@@ -292,6 +304,16 @@
 .promote-shadow-light .promote-event-meta,
 .promote-shadow-light .promote-cta {
   text-shadow: 0 2px 8px rgba(15, 23, 42, 0.6);
+}
+
+.promote-shadow-medium .promote-overline,
+.promote-shadow-medium .promote-content h3,
+.promote-shadow-medium .promote-subtitle,
+.promote-shadow-medium .promote-description,
+.promote-shadow-medium .promote-event-name,
+.promote-shadow-medium .promote-event-meta,
+.promote-shadow-medium .promote-cta {
+  text-shadow: 0 3px 12px rgba(15, 23, 42, 0.75), 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .promote-shadow-strong .promote-overline,
@@ -310,7 +332,7 @@
   background: rgba(0, 0, 0, 0.76);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  padding: clamp(0.45rem, 1.35%, 0.85rem);
+  padding: var(--promote-frame-padding, 0.65rem);
   border-radius: clamp(0.4rem, 1%, 0.8rem);
   border: 1px solid rgba(255, 255, 255, 0.42);
   box-shadow: 0 14px 28px rgba(2, 6, 23, 0.55);
@@ -321,7 +343,7 @@
   background: rgba(0, 0, 0, 0.88);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  padding: clamp(0.45rem, 1.35%, 0.85rem);
+  padding: var(--promote-frame-padding, 0.65rem);
   border-radius: clamp(0.4rem, 1%, 0.8rem);
   border: 1px solid rgba(255, 255, 255, 0.28);
   box-shadow: 0 16px 30px rgba(2, 6, 23, 0.62);
@@ -334,7 +356,7 @@
 .promote-frame-light .promote-event-name,
 .promote-frame-light .promote-event-meta,
 .promote-frame-light .promote-cta {
-  color: #f8fafc;
+  color: var(--promote-text-color, #f8fafc);
   text-shadow: 0 3px 10px rgba(0, 0, 0, 0.8);
   -webkit-text-stroke: 0.35px rgba(0, 0, 0, 0.55);
 }
@@ -346,7 +368,7 @@
 .promote-frame-dark .promote-event-name,
 .promote-frame-dark .promote-event-meta,
 .promote-frame-dark .promote-cta {
-  color: #f8fafc;
+  color: var(--promote-text-color, #f8fafc);
   text-shadow: 0 3px 10px rgba(0, 0, 0, 0.85);
   -webkit-text-stroke: 0.35px rgba(0, 0, 0, 0.6);
 }

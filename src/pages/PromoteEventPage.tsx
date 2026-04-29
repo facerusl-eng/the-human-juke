@@ -9,7 +9,7 @@ type PostFormat = 'square' | 'portrait' | 'story'
 type SocialPlatform = 'instagram' | 'facebook'
 type ThemeKey = 'none' | 'sunset' | 'midnight' | 'studio'
 type HeadlinePosition = 'top' | 'center' | 'bottom'
-type TextShadow = 'none' | 'light' | 'strong'
+type TextShadow = 'none' | 'light' | 'medium' | 'strong'
 type FontChoice = 'default' | 'serif' | 'slab' | 'mono'
 type TextFrame = 'none' | 'light' | 'dark' | 'auto'
 
@@ -41,6 +41,8 @@ type PromotionDraft = {
   textShadow: TextShadow
   fontChoice: FontChoice
   textFrame: TextFrame
+  framePadding: number
+  textColor: string
 }
 
 const PROMOTION_DRAFT_STORAGE_KEY_PREFIX = 'human-jukebox-promo-draft:'
@@ -116,6 +118,8 @@ function PromoteEventPage() {
   const [textShadow, setTextShadow] = useState<TextShadow>('light')
   const [fontChoice, setFontChoice] = useState<FontChoice>('default')
   const [textFrame, setTextFrame] = useState<TextFrame>('auto')
+  const [framePadding, setFramePadding] = useState(0.65)
+  const [textColor, setTextColor] = useState('#f8fafc')
   const [photoBrightness, setPhotoBrightness] = useState<number | null>(null)
   const [photoBusyness, setPhotoBusyness] = useState<number | null>(null)
 
@@ -209,6 +213,8 @@ function PromoteEventPage() {
         setTextShadow(draft.textShadow ?? 'light')
         setFontChoice(draft.fontChoice ?? 'default')
         setTextFrame(draft.textFrame ?? 'auto')
+        setFramePadding(typeof draft.framePadding === 'number' ? draft.framePadding : 0.65)
+        setTextColor(draft.textColor ?? '#f8fafc')
         return
       }
 
@@ -428,6 +434,22 @@ function PromoteEventPage() {
 
     previewRef.current.style.setProperty('--promote-text-scale', String(textScale))
   }, [textScale])
+
+  useEffect(() => {
+    if (!previewRef.current) {
+      return
+    }
+
+    previewRef.current.style.setProperty('--promote-frame-padding', `${framePadding}rem`)
+  }, [framePadding])
+
+  useEffect(() => {
+    if (!previewRef.current) {
+      return
+    }
+
+    previewRef.current.style.setProperty('--promote-text-color', textColor)
+  }, [textColor])
 
   const clampPercentage = (value: number, min = 8, max = 92) => Math.min(max, Math.max(min, value))
 
@@ -694,6 +716,8 @@ function PromoteEventPage() {
       textShadow,
       fontChoice,
       textFrame,
+      framePadding,
+      textColor,
     }
 
     try {
@@ -829,6 +853,7 @@ function PromoteEventPage() {
             <select value={textShadow} onChange={(event) => setTextShadow(event.target.value as TextShadow)}>
               <option value="none">None</option>
               <option value="light">Light</option>
+              <option value="medium">Medium</option>
               <option value="strong">Strong</option>
             </select>
           </label>
@@ -855,6 +880,29 @@ function PromoteEventPage() {
               <option value="dark">Dark Background</option>
             </select>
             {autoFrameHint ? <p className="field-hint">{autoFrameHint}</p> : null}
+          </label>
+
+          {textFrame !== 'none' ? (
+            <label className="promote-field">
+              <span>Frame Padding ({Math.round((framePadding / 1.8) * 100)}%)</span>
+              <input
+                type="range"
+                min="0"
+                max="1.8"
+                step="0.05"
+                value={framePadding}
+                onChange={(event) => setFramePadding(Number.parseFloat(event.target.value))}
+              />
+            </label>
+          ) : null}
+
+          <label className="promote-field">
+            <span>Text Color</span>
+            <input
+              type="color"
+              value={textColor}
+              onChange={(event) => setTextColor(event.target.value)}
+            />
           </label>
 
           <label className="promote-field promote-field-wide">
