@@ -53,6 +53,23 @@ async function parseJson(response) {
   return response.json().catch(() => ({}))
 }
 
+function waitMs(durationMs) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, durationMs)
+  })
+}
+
+function shouldRetrySpotifyResponse(response) {
+  if (!response) {
+    return false
+  }
+
+  return response.status === 429
+    || response.status === 502
+    || response.status === 503
+    || response.status === 504
+}
+
 function normalizeTrackUri(input) {
   const trimmed = input.trim()
 
@@ -147,6 +164,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
   const playerRef = useRef(null)
   const accessTokenRef = useRef(accessToken)
   const lastStartedPlaylistContextRef = useRef('')
+  const transportInFlightRef = useRef(false)
+  const pendingTransportCommandRef = useRef(null)
+  const lastProcessedTransportNonceRef = useRef(0)
 
   const [isSdkReady, setIsSdkReady] = useState(false)
   const [deviceId, setDeviceId] = useState(null)
@@ -306,17 +326,34 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
     }
   }
 
+  const requestWithSpotifyRetry = async (requestFactory) => {
+    let response = await requestFactory()
+
+    if (shouldRetrySpotifyResponse(response)) {
+      const retryAfterHeader = response.headers.get('retry-after')
+      const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : 0
+      const retryDelayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? Math.min(retryAfterSeconds * 1000, 2000)
+        : 350
+
+      await waitMs(retryDelayMs)
+      response = await requestFactory()
+    }
+
+    return response
+  }
+
   const resolvePlaybackDeviceId = async () => {
     if (deviceId) {
       return deviceId
     }
 
     return withRefreshRetry(async (token) => {
-      const response = await fetch('https://api.spotify.com/v1/me/player/devices', {
+      const response = await requestWithSpotifyRetry(() => fetch('https://api.spotify.com/v1/me/player/devices', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
+      }))
 
       if (response.status === 401) {
         throw new Error('Spotify access token expired.')
@@ -428,14 +465,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
     const playbackDeviceId = await resolvePlaybackDeviceId()
 
     return withRefreshRetry(async (token) => {
-      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
+      const response = await requestWithSpotifyRetry(() => fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         // No body — tells Spotify to resume the current context/position
-      })
+      }))
 
       if (response.status === 401) {
         throw new Error('Spotify access token expired.')
@@ -470,14 +507,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
       const playbackDeviceId = await resolvePlaybackDeviceId()
 
       await withRefreshRetry(async (token) => {
-        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
+        const response = await requestWithSpotifyRetry(() => fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ uris: [normalizedTrackUri] }),
-        })
+        }))
 
         if (response.status === 401) {
           throw new Error('Spotify access token expired.')
@@ -512,14 +549,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
       const playbackDeviceId = await resolvePlaybackDeviceId()
 
       await withRefreshRetry(async (token) => {
-        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
+        const response = await requestWithSpotifyRetry(() => fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ context_uri: contextUri }),
-        })
+        }))
 
         if (response.status === 401) {
           throw new Error('Spotify access token expired.')
@@ -546,9 +583,13 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
       return
     }
 
-    void (async () => {
+    const executeTransportCommand = async (nextTransportCommand) => {
+      if (!nextTransportCommand || !playerRef.current) {
+        return
+      }
+
       try {
-        if (transportCommand.mode === 'toggle') {
+        if (nextTransportCommand.mode === 'toggle') {
           const currentState = await playerRef.current.getCurrentState?.()
 
           if (!currentState && playlistInput.trim()) {
@@ -587,7 +628,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
           return
         }
 
-        if (transportCommand.mode === 'play') {
+        if (nextTransportCommand.mode === 'play') {
           const normalizedConfiguredPlaylist = normalizePlaylistContextUri(playlistInput)
 
           // If the configured playlist changed, force playback to start from the new playlist
@@ -635,7 +676,40 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
       } catch (error) {
         setPlayerStatus(error instanceof Error ? error.message : 'Spotify transport command failed.')
       }
-    })()
+    }
+
+    const processTransportQueue = async () => {
+      if (transportInFlightRef.current) {
+        pendingTransportCommandRef.current = transportCommand
+        return
+      }
+
+      transportInFlightRef.current = true
+
+      try {
+        let commandToRun = transportCommand
+
+        while (commandToRun) {
+          if ((commandToRun?.nonce ?? 0) <= lastProcessedTransportNonceRef.current) {
+            const pendingCommand = pendingTransportCommandRef.current
+            pendingTransportCommandRef.current = null
+            commandToRun = pendingCommand
+            continue
+          }
+
+          await executeTransportCommand(commandToRun)
+          lastProcessedTransportNonceRef.current = commandToRun.nonce ?? Date.now()
+
+          const pendingCommand = pendingTransportCommandRef.current
+          pendingTransportCommandRef.current = null
+          commandToRun = pendingCommand
+        }
+      } finally {
+        transportInFlightRef.current = false
+      }
+    }
+
+    void processTransportQueue()
   }, [deviceId, playlistInput, transportCommand])
 
   return (
