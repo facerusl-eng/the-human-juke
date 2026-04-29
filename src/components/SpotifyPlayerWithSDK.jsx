@@ -100,6 +100,10 @@ function normalizePlaylistContextUri(input) {
   return ''
 }
 
+function isNoListError(error) {
+  return String(error?.message || error || '').toLowerCase().includes('no list')
+}
+
 function getSpotifyDisconnectHint(message) {
   const normalized = String(message || '').toLowerCase()
 
@@ -130,6 +134,10 @@ function getSpotifyDisconnectHint(message) {
 
   if (normalized.includes('initialization error')) {
     return 'Spotify SDK failed to initialize in this environment. Reconnect Spotify or switch browser/device.'
+  }
+
+  if (normalized.includes('no list') || normalized.includes('no list was loaded')) {
+    return 'No track is loaded in the player yet. Set a Between Songs Playlist below and press "Play Playlist Between Songs" once to load it, then Toggle Play will work.'
   }
 
   return null
@@ -362,6 +370,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
       await playerRef.current.togglePlay()
       setPlayerStatus('Toggled play/pause.')
     } catch (error) {
+      if (isNoListError(error) && playlistInput.trim()) {
+        await startPlaylistPlayback(playlistInput)
+        return
+      }
+      if (isNoListError(error)) {
+        setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press Play Playlist Between Songs first.')
+        return
+      }
       setPlayerStatus(error instanceof Error ? error.message : 'Toggle play failed.')
     } finally {
       setActionBusy(false)
@@ -500,8 +516,20 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
             throw new Error('Set a Between Songs Playlist first, then use Toggle Spotify Playlist.')
           }
 
-          await playerRef.current.togglePlay()
-          setPlayerStatus('Spotify playlist play/pause toggled from Gig Control.')
+          try {
+            await playerRef.current.togglePlay()
+            setPlayerStatus('Spotify playlist play/pause toggled from Gig Control.')
+          } catch (toggleError) {
+            if (isNoListError(toggleError) && playlistInput.trim()) {
+              await startPlaylistPlayback(playlistInput)
+              setPlayerStatus('Started playlist (no track was loaded yet).')
+              return
+            }
+            if (isNoListError(toggleError)) {
+              throw new Error('No track loaded yet. Set a Between Songs Playlist and press Play Playlist Between Songs first.')
+            }
+            throw toggleError
+          }
           return
         }
 
