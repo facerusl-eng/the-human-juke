@@ -795,8 +795,11 @@ function QueueProvider({ children }: PropsWithChildren) {
             ?? null
         } else {
           // Audience default behavior: prefer explicit event in URL.
-          // Otherwise, only auto-attach to currently live gigs (room open).
-          targetEventId = requestedEventId ?? await fetchLatestActiveEventId()
+          // Otherwise, prefer the profile's active event to avoid extra live lookup timeouts,
+          // then auto-attach to currently live gigs (room open).
+          targetEventId = requestedEventId
+            ?? eventId
+            ?? await fetchLatestActiveEventId()
         }
 
         const requestAudienceReload = () => {
