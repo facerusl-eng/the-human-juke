@@ -843,7 +843,9 @@ function GigControlPage() {
 
         <article className="qr-card gig-control-qr-card" aria-label="Audience join tools">
           <p className="gig-control-card-label">Audience Join QR</p>
-          <img src={qrUrl} alt="QR code for audience join page" className="qr-image" />
+          <div className="gig-control-qr-frame">
+            <img src={qrUrl} alt="QR code for audience join page" className="qr-image" />
+          </div>
           <p className="subcopy">Show this on your mirror screen so guests can scan and join.</p>
           <button
             type="button"

@@ -2974,7 +2974,7 @@
 }
 
 .gig-control-qr-card {
-  justify-items: start;
+  justify-items: stretch;
   padding: 1rem;
 }
 
@@ -2984,8 +2984,24 @@
   color: #b8d2ff;
 }
 
+.gig-control-qr-frame {
+  width: min(100%, 250px);
+  aspect-ratio: 1 / 1;
+  justify-self: center;
+  border-radius: 14px;
+  border: 1px solid rgba(93, 215, 255, 0.28);
+  background: rgba(8, 13, 30, 0.56);
+  padding: 0.5rem;
+  display: grid;
+  place-items: center;
+}
+
 .gig-control-qr-card .qr-image {
-  width: min(180px, 100%);
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+  padding: 0.4rem;
 }
 
 .gig-mirror-preview-card {
