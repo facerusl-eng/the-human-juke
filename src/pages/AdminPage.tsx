@@ -253,6 +253,9 @@ function AdminDashboardContent({
   const openAudienceFeed = useCallback(() => {
     navigate('/feed')
   }, [navigate])
+  const openPromoteEvent = useCallback(() => {
+    window.open('https://github.com/facerusl-eng/the-human-juke/blob/main/docs/LAUNCH_WEEK_CALENDAR_DA_EN.md', '_blank', 'noopener,noreferrer')
+  }, [])
 
   useEffect(() => {
     if (!loading) {
@@ -467,6 +470,11 @@ function AdminDashboardContent({
       id: 'open-audience-feed',
       label: 'Open Audience Feed',
       onClick: openAudienceFeed,
+    },
+    {
+      id: 'open-promote-event',
+      label: 'Promote Event',
+      onClick: openPromoteEvent,
     },
   ]
   const retryDashboardActions: ActionButtonConfig[] = [
