@@ -16,7 +16,10 @@ import { useQueueStore } from '../state/queueStore'
 type HostPlaylist = {
   id: string
   name: string
+  playlist_type: 'human_jukebox' | 'karaoke'
 }
+
+type PlaylistType = 'human_jukebox' | 'karaoke'
 
 type PlaylistArtworkSong = {
   id: string
@@ -94,6 +97,38 @@ function arePlaylistSelectionsEqual(left: string[], right: string[]) {
   }
 
   return normalizedLeft.every((playlistId, index) => playlistId === normalizedRight[index])
+}
+
+function isMissingPlaylistTypeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('playlist_type')
+}
+
+function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined): PlaylistType {
+  if (rawType === 'karaoke') {
+    return 'karaoke'
+  }
+
+  if ((playlistName ?? '').toLowerCase().includes('karaoke')) {
+    return 'karaoke'
+  }
+
+  return 'human_jukebox'
 }
 
 function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: GigSettingsFormProps) {
@@ -177,33 +212,57 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       setErrorText(null)
 
       try {
-        const [playlistsResult, selectedResult] = await Promise.all([
-          supabase
+        let loadedPlaylists: HostPlaylist[] = []
+
+        const { data: playlistsWithType, error: playlistsWithTypeError } = await supabase
+          .from('playlists')
+          .select('id, name, playlist_type')
+          .eq('user_id', user.id)
+          .order('name', { ascending: true })
+
+        if (playlistsWithTypeError && !isMissingPlaylistTypeColumnError(playlistsWithTypeError)) {
+          throw playlistsWithTypeError
+        }
+
+        if (playlistsWithTypeError && isMissingPlaylistTypeColumnError(playlistsWithTypeError)) {
+          const { data: playlistsWithoutType, error: playlistsWithoutTypeError } = await supabase
             .from('playlists')
             .select('id, name')
             .eq('user_id', user.id)
-            .order('name', { ascending: true }),
-          supabase
-            .from('event_playlists')
-            .select('playlist_id')
-            .eq('event_id', event.id),
-        ])
+            .order('name', { ascending: true })
 
-        if (playlistsResult.error) {
-          throw playlistsResult.error
+          if (playlistsWithoutTypeError) {
+            throw playlistsWithoutTypeError
+          }
+
+          loadedPlaylists = ((playlistsWithoutType ?? []) as Array<{ id: string; name: string }>).map((playlist) => ({
+            ...playlist,
+            playlist_type: inferPlaylistType(null, playlist.name),
+          }))
+        } else {
+          loadedPlaylists = ((playlistsWithType ?? []) as Array<{ id: string; name: string; playlist_type?: string | null }>).map((playlist) => ({
+            id: playlist.id,
+            name: playlist.name,
+            playlist_type: inferPlaylistType(playlist.playlist_type, playlist.name),
+          }))
         }
 
-        if (selectedResult.error) {
-          throw selectedResult.error
+        const { data: selectedPlaylists, error: selectedResultError } = await supabase
+          .from('event_playlists')
+          .select('playlist_id')
+          .eq('event_id', event.id)
+
+        if (selectedResultError) {
+          throw selectedResultError
         }
 
         if (!isCurrent) {
           return
         }
 
-        const loadedSelectedPlaylistIds = (selectedResult.data ?? []).map((row) => row.playlist_id as string)
+        const loadedSelectedPlaylistIds = (selectedPlaylists ?? []).map((row) => row.playlist_id as string)
 
-        setPlaylists((playlistsResult.data ?? []) as HostPlaylist[])
+        setPlaylists(loadedPlaylists)
         setInitialSelectedPlaylistIds(normalizePlaylistIds(loadedSelectedPlaylistIds))
         setState((current) => ({
           ...current,
@@ -793,6 +852,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                         />
                         <div className="playlist-info">
                           <strong>{playlist.name}</strong>
+                          <span className="subcopy">{playlist.playlist_type === 'karaoke' ? 'Karaoke setlist' : 'Human Jukebox setlist'}</span>
                         </div>
                       </label>
                     )

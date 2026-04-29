@@ -159,6 +159,38 @@ function isMissingCoverImageColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes('cover_image_url')
 }
 
+function isMissingPlaylistTypeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('playlist_type')
+}
+
+function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined): 'human_jukebox' | 'karaoke' {
+  if (rawType === 'karaoke') {
+    return 'karaoke'
+  }
+
+  if ((playlistName ?? '').toLowerCase().includes('karaoke')) {
+    return 'karaoke'
+  }
+
+  return 'human_jukebox'
+}
+
 async function withAuthLockRetry<T>(operation: () => PromiseLike<T>, maxAttempts = 5) {
   let lastError: unknown = null
 
@@ -269,11 +301,13 @@ async function fetchHostEvents(hostId: string) {
 }
 
 async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
-  const { data: hostPlaylists, error: hostPlaylistsError } = await withTimeout(
+  let allPlaylists: Array<{ id: string; name: string; created_at: string; playlist_type: 'human_jukebox' | 'karaoke' }> = []
+
+  const { data: hostPlaylistsWithType, error: hostPlaylistsWithTypeError } = await withTimeout(
     withAuthLockRetry(() =>
       supabase
         .from('playlists')
-        .select('id, name, created_at')
+        .select('id, name, created_at, playlist_type')
         .eq('user_id', hostId)
         .order('created_at', { ascending: true }),
     ),
@@ -281,16 +315,47 @@ async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
     'Timed out while loading your playlists. Please try again.',
   )
 
-  if (hostPlaylistsError) {
-    throw new Error(hostPlaylistsError.message)
+  if (hostPlaylistsWithTypeError && !isMissingPlaylistTypeColumnError(hostPlaylistsWithTypeError)) {
+    throw new Error(hostPlaylistsWithTypeError.message)
   }
 
-  const allPlaylists = (hostPlaylists ?? []) as Array<{ id: string; name: string; created_at: string }>
+  if (hostPlaylistsWithTypeError && isMissingPlaylistTypeColumnError(hostPlaylistsWithTypeError)) {
+    const { data: hostPlaylistsWithoutType, error: hostPlaylistsWithoutTypeError } = await withTimeout(
+      withAuthLockRetry(() =>
+        supabase
+          .from('playlists')
+          .select('id, name, created_at')
+          .eq('user_id', hostId)
+          .order('created_at', { ascending: true }),
+      ),
+      DEFAULT_DB_TIMEOUT_MS,
+      'Timed out while loading your playlists. Please try again.',
+    )
+
+    if (hostPlaylistsWithoutTypeError) {
+      throw new Error(hostPlaylistsWithoutTypeError.message)
+    }
+
+    allPlaylists = ((hostPlaylistsWithoutType ?? []) as Array<{ id: string; name: string; created_at: string }>).map((playlist) => ({
+      ...playlist,
+      playlist_type: inferPlaylistType(null, playlist.name),
+    }))
+  } else {
+    allPlaylists = ((hostPlaylistsWithType ?? []) as Array<{ id: string; name: string; created_at: string; playlist_type?: string | null }>).map((playlist) => ({
+      id: playlist.id,
+      name: playlist.name,
+      created_at: playlist.created_at,
+      playlist_type: inferPlaylistType(playlist.playlist_type, playlist.name),
+    }))
+  }
+
   let defaultPlaylistId = allPlaylists[0]?.id ?? null
-  let karaokePlaylistId = allPlaylists.find((playlist) => /karaoke/i.test(playlist.name))?.id ?? null
+  let karaokePlaylistId = allPlaylists.find((playlist) => playlist.playlist_type === 'karaoke')?.id ?? null
 
   if (!defaultPlaylistId) {
-    const { data: createdDefaultPlaylist, error: createdDefaultPlaylistError } = await withTimeout(
+    let createdDefaultPlaylistId: string | null = null
+
+    const { data: createdDefaultWithType, error: createdDefaultWithTypeError } = await withTimeout(
       withAuthLockRetry(() =>
         supabase
           .from('playlists')
@@ -298,6 +363,7 @@ async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
             user_id: hostId,
             name: eventName ? `${eventName} Setlist` : 'Main Setlist',
             description: 'Main setlist for live requests.',
+            playlist_type: 'human_jukebox',
           })
           .select('id')
           .single(),
@@ -306,15 +372,47 @@ async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
       'Timed out while creating your default playlist. Please try again.',
     )
 
-    if (createdDefaultPlaylistError || !createdDefaultPlaylist?.id) {
-      throw new Error(createdDefaultPlaylistError?.message ?? 'Unable to create your default playlist.')
+    if (createdDefaultWithTypeError && !isMissingPlaylistTypeColumnError(createdDefaultWithTypeError)) {
+      throw new Error(createdDefaultWithTypeError.message)
     }
 
-    defaultPlaylistId = createdDefaultPlaylist.id
+    if (createdDefaultWithTypeError && isMissingPlaylistTypeColumnError(createdDefaultWithTypeError)) {
+      const { data: createdDefaultWithoutType, error: createdDefaultWithoutTypeError } = await withTimeout(
+        withAuthLockRetry(() =>
+          supabase
+            .from('playlists')
+            .insert({
+              user_id: hostId,
+              name: eventName ? `${eventName} Setlist` : 'Main Setlist',
+              description: 'Main setlist for live requests.',
+            })
+            .select('id')
+            .single(),
+        ),
+        DEFAULT_DB_TIMEOUT_MS,
+        'Timed out while creating your default playlist. Please try again.',
+      )
+
+      if (createdDefaultWithoutTypeError || !createdDefaultWithoutType?.id) {
+        throw new Error(createdDefaultWithoutTypeError?.message ?? 'Unable to create your default playlist.')
+      }
+
+      createdDefaultPlaylistId = createdDefaultWithoutType.id
+    } else {
+      createdDefaultPlaylistId = createdDefaultWithType?.id ?? null
+    }
+
+    if (!createdDefaultPlaylistId) {
+      throw new Error('Unable to create your default playlist.')
+    }
+
+    defaultPlaylistId = createdDefaultPlaylistId
   }
 
   if (!karaokePlaylistId) {
-    const { data: createdKaraokePlaylist, error: createdKaraokePlaylistError } = await withTimeout(
+    let createdKaraokePlaylistId: string | null = null
+
+    const { data: createdKaraokeWithType, error: createdKaraokeWithTypeError } = await withTimeout(
       withAuthLockRetry(() =>
         supabase
           .from('playlists')
@@ -322,6 +420,7 @@ async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
             user_id: hostId,
             name: 'Karaoke Only',
             description: 'Songs reserved for audience karaoke requests.',
+            playlist_type: 'karaoke',
           })
           .select('id')
           .single(),
@@ -330,11 +429,41 @@ async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
       'Timed out while creating the karaoke playlist. Please try again.',
     )
 
-    if (createdKaraokePlaylistError || !createdKaraokePlaylist?.id) {
-      throw new Error(createdKaraokePlaylistError?.message ?? 'Unable to create the karaoke playlist.')
+    if (createdKaraokeWithTypeError && !isMissingPlaylistTypeColumnError(createdKaraokeWithTypeError)) {
+      throw new Error(createdKaraokeWithTypeError.message)
     }
 
-    karaokePlaylistId = createdKaraokePlaylist.id
+    if (createdKaraokeWithTypeError && isMissingPlaylistTypeColumnError(createdKaraokeWithTypeError)) {
+      const { data: createdKaraokeWithoutType, error: createdKaraokeWithoutTypeError } = await withTimeout(
+        withAuthLockRetry(() =>
+          supabase
+            .from('playlists')
+            .insert({
+              user_id: hostId,
+              name: 'Karaoke Only',
+              description: 'Songs reserved for audience karaoke requests.',
+            })
+            .select('id')
+            .single(),
+        ),
+        DEFAULT_DB_TIMEOUT_MS,
+        'Timed out while creating the karaoke playlist. Please try again.',
+      )
+
+      if (createdKaraokeWithoutTypeError || !createdKaraokeWithoutType?.id) {
+        throw new Error(createdKaraokeWithoutTypeError?.message ?? 'Unable to create the karaoke playlist.')
+      }
+
+      createdKaraokePlaylistId = createdKaraokeWithoutType.id
+    } else {
+      createdKaraokePlaylistId = createdKaraokeWithType?.id ?? null
+    }
+
+    if (!createdKaraokePlaylistId) {
+      throw new Error('Unable to create the karaoke playlist.')
+    }
+
+    karaokePlaylistId = createdKaraokePlaylistId
   }
 
   return {

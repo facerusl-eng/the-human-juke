@@ -11,7 +11,10 @@ type Playlist = {
   name: string
   description: string | null
   created_at: string
+  playlist_type: 'human_jukebox' | 'karaoke'
 }
+
+type PlaylistType = 'human_jukebox' | 'karaoke'
 
 type PlaylistSongRecord = {
   id: string
@@ -39,6 +42,38 @@ type ImportedSongDraft = {
 }
 
 const MAX_COVER_IMAGE_BYTES = 3 * 1024 * 1024
+
+function isMissingPlaylistTypeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('playlist_type')
+}
+
+function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined): PlaylistType {
+  if (rawType === 'karaoke') {
+    return 'karaoke'
+  }
+
+  if ((playlistName ?? '').toLowerCase().includes('karaoke')) {
+    return 'karaoke'
+  }
+
+  return 'human_jukebox'
+}
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -243,6 +278,7 @@ function SetlistLibraryPage() {
   const [searchText, setSearchText] = useState('')
   const [playlistName, setPlaylistName] = useState('')
   const [playlistDescription, setPlaylistDescription] = useState('')
+  const [playlistType, setPlaylistType] = useState<PlaylistType>('human_jukebox')
   const [draftPlaylistName, setDraftPlaylistName] = useState('')
   const [songTitle, setSongTitle] = useState('')
   const [artistName, setArtistName] = useState('')
@@ -376,12 +412,41 @@ function SetlistLibraryPage() {
           }
         }
 
-        const [playlistsResult, playlistCountsResult, totalSongsResult] = await Promise.all([
-          supabase
+        let playlistRows: Playlist[] = []
+
+        const { data: playlistsWithType, error: playlistsWithTypeError } = await supabase
+          .from('playlists')
+          .select('id, name, description, created_at, playlist_type')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: true })
+
+        if (playlistsWithTypeError && !isMissingPlaylistTypeColumnError(playlistsWithTypeError)) {
+          throw playlistsWithTypeError
+        }
+
+        if (playlistsWithTypeError && isMissingPlaylistTypeColumnError(playlistsWithTypeError)) {
+          const { data: playlistsWithoutType, error: playlistsWithoutTypeError } = await supabase
             .from('playlists')
             .select('id, name, description, created_at')
             .eq('user_id', userId)
-            .order('created_at', { ascending: true }),
+            .order('created_at', { ascending: true })
+
+          if (playlistsWithoutTypeError) {
+            throw playlistsWithoutTypeError
+          }
+
+          playlistRows = ((playlistsWithoutType ?? []) as Array<Omit<Playlist, 'playlist_type'>>).map((playlist) => ({
+            ...playlist,
+            playlist_type: inferPlaylistType(null, playlist.name),
+          }))
+        } else {
+          playlistRows = ((playlistsWithType ?? []) as Array<Omit<Playlist, 'playlist_type'> & { playlist_type?: string | null }>).map((playlist) => ({
+            ...playlist,
+            playlist_type: inferPlaylistType(playlist.playlist_type, playlist.name),
+          }))
+        }
+
+        const [playlistCountsResult, totalSongsResult] = await Promise.all([
           supabase
             .from('playlist_songs')
             .select('playlist_id'),
@@ -390,10 +455,6 @@ function SetlistLibraryPage() {
             .select('id', { count: 'exact' })
             .eq('user_id', userId),
         ])
-
-        if (playlistsResult.error) {
-          throw playlistsResult.error
-        }
 
         if (playlistCountsResult.error) {
           throw playlistCountsResult.error
@@ -407,7 +468,7 @@ function SetlistLibraryPage() {
           return
         }
 
-        const nextPlaylists = (playlistsResult.data ?? []) as Playlist[]
+        const nextPlaylists = playlistRows
         const nextPlaylistCounts = ((playlistCountsResult.data ?? []) as CountRow[]).reduce<Record<string, number>>(
           (countMap, row) => {
             countMap[row.playlist_id] = (countMap[row.playlist_id] ?? 0) + 1
@@ -558,26 +619,60 @@ function SetlistLibraryPage() {
     setSuccessText(null)
 
     try {
-      const { data, error } = await supabase
+      let createdPlaylist: Playlist | null = null
+
+      const { data: createdWithType, error: createdWithTypeError } = await supabase
         .from('playlists')
         .insert({
           user_id: userId,
           name: playlistName.trim(),
           description: playlistDescription.trim() || null,
+          playlist_type: playlistType,
         })
-        .select('id, name, description, created_at')
+        .select('id, name, description, created_at, playlist_type')
         .single()
 
-      if (error) {
-        throw error
+      if (createdWithTypeError && !isMissingPlaylistTypeColumnError(createdWithTypeError)) {
+        throw createdWithTypeError
       }
 
-      setPlaylists((currentPlaylists) => [...currentPlaylists, data as Playlist])
-      setPlaylistCounts((currentCounts) => ({ ...currentCounts, [data.id]: 0 }))
-      setSelectedPlaylistId(data.id)
-      setDraftPlaylistName(data.name)
+      if (createdWithTypeError && isMissingPlaylistTypeColumnError(createdWithTypeError)) {
+        const { data: createdWithoutType, error: createdWithoutTypeError } = await supabase
+          .from('playlists')
+          .insert({
+            user_id: userId,
+            name: playlistName.trim(),
+            description: playlistDescription.trim() || null,
+          })
+          .select('id, name, description, created_at')
+          .single()
+
+        if (createdWithoutTypeError) {
+          throw createdWithoutTypeError
+        }
+
+        createdPlaylist = {
+          ...(createdWithoutType as Omit<Playlist, 'playlist_type'>),
+          playlist_type: inferPlaylistType(null, createdWithoutType?.name),
+        }
+      } else {
+        createdPlaylist = {
+          ...(createdWithType as Omit<Playlist, 'playlist_type'> & { playlist_type?: string | null }),
+          playlist_type: inferPlaylistType(createdWithType?.playlist_type, createdWithType?.name),
+        }
+      }
+
+      if (!createdPlaylist) {
+        throw new Error('Unable to create playlist.')
+      }
+
+      setPlaylists((currentPlaylists) => [...currentPlaylists, createdPlaylist])
+      setPlaylistCounts((currentCounts) => ({ ...currentCounts, [createdPlaylist.id]: 0 }))
+      setSelectedPlaylistId(createdPlaylist.id)
+      setDraftPlaylistName(createdPlaylist.name)
       setPlaylistName('')
       setPlaylistDescription('')
+      setPlaylistType('human_jukebox')
       setSuccessText('Playlist created.')
     } catch (error) {
       console.warn('SetlistLibraryPage: failed to create playlist', error)
@@ -975,6 +1070,14 @@ function SetlistLibraryPage() {
               value={playlistName}
               onChange={(event) => setPlaylistName(event.target.value)}
             />
+            <select
+              aria-label="Playlist type"
+              value={playlistType}
+              onChange={(event) => setPlaylistType(event.target.value as PlaylistType)}
+            >
+              <option value="human_jukebox">Human Jukebox Setlist</option>
+              <option value="karaoke">Karaoke Setlist</option>
+            </select>
             <textarea
               placeholder="Optional description"
               value={playlistDescription}
@@ -1002,6 +1105,7 @@ function SetlistLibraryPage() {
                 <p className="subcopy no-margin-bottom">{playlist.description ?? 'No description yet.'}</p>
                 <div className="setlist-playlist-meta">
                   <span className="meta-badge">{playlistCounts[playlist.id] ?? 0} songs</span>
+                  <span className="meta-badge">{playlist.playlist_type === 'karaoke' ? 'Karaoke' : 'Human Jukebox'}</span>
                   {playlist.id === selectedPlaylistId ? <span className="meta-badge">Selected</span> : null}
                 </div>
               </button>

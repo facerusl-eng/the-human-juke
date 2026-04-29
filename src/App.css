@@ -6931,6 +6931,21 @@
   gap: 0.45rem;
 }
 
+.audience-song-list-section {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.audience-song-list-section .panel-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.audience-song-list-section-karaoke {
+  border-top: 1px solid rgba(93, 215, 255, 0.2);
+  padding-top: 0.6rem;
+}
+
 .audience-song-list-item {
   display: grid;
   gap: 0.28rem;

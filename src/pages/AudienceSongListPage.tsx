@@ -12,9 +12,85 @@ type CuratedSong = {
   artist: string
   cover_url: string | null
   is_explicit: boolean
+  fromKaraokeSetlist: boolean
 }
 
 type PerformerMode = 'performer' | 'audience'
+type PlaylistType = 'human_jukebox' | 'karaoke'
+
+type EventPlaylistRow = {
+  playlist_id: string
+  playlists: {
+    id: string
+    name: string
+    playlist_type: string | null
+  } | {
+    id: string
+    name: string
+    playlist_type: string | null
+  }[] | null
+}
+
+function isMissingPlaylistTypeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('playlist_type')
+}
+
+function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined): PlaylistType {
+  if (rawType === 'karaoke') {
+    return 'karaoke'
+  }
+
+  if ((playlistName ?? '').toLowerCase().includes('karaoke')) {
+    return 'karaoke'
+  }
+
+  return 'human_jukebox'
+}
+
+function sortSongs(left: CuratedSong, right: CuratedSong) {
+  const leftHasCover = Boolean(left.cover_url && left.cover_url.trim())
+  const rightHasCover = Boolean(right.cover_url && right.cover_url.trim())
+
+  if (leftHasCover !== rightHasCover) {
+    return leftHasCover ? -1 : 1
+  }
+
+  return left.title.localeCompare(right.title)
+}
+
+function buildSongRows(songs: CuratedSong[]) {
+  return songs.map((song, index) => {
+    const title = normalizeDisplayText(song.title, 'Untitled Song')
+    const artist = normalizeDisplayText(song.artist, 'Unknown Artist')
+    const songKey = title.charAt(0).toUpperCase() || '#'
+    const previousSong = songs[index - 1]
+    const previousTitle = previousSong ? normalizeDisplayText(previousSong.title, 'Untitled Song') : ''
+    const previousSongKey = previousTitle.charAt(0).toUpperCase() || '#'
+
+    return {
+      song,
+      title,
+      artist,
+      sectionLabel: index === 0 || songKey !== previousSongKey ? songKey : null,
+    }
+  })
+}
 
 function normalizeCoverUrl(coverUrl: string | null | undefined) {
   if (!coverUrl) {
@@ -75,23 +151,16 @@ function AudienceSongListPage() {
     ))
   }, [curatedSongs, normalizedSearchQuery, queuedLibrarySongIds])
 
-  const groupedSongs = useMemo(() => (
-    availableSongs.map((song, index) => {
-      const title = normalizeDisplayText(song.title, 'Untitled Song')
-      const artist = normalizeDisplayText(song.artist, 'Unknown Artist')
-      const songKey = title.charAt(0).toUpperCase() || '#'
-      const previousSong = availableSongs[index - 1]
-      const previousTitle = previousSong ? normalizeDisplayText(previousSong.title, 'Untitled Song') : ''
-      const previousSongKey = previousTitle.charAt(0).toUpperCase() || '#'
-
-      return {
-        song,
-        title,
-        artist,
-        sectionLabel: index === 0 || songKey !== previousSongKey ? songKey : null,
-      }
-    })
-  ), [availableSongs])
+  const humanJukeboxSongs = useMemo(
+    () => availableSongs.filter((song) => !song.fromKaraokeSetlist),
+    [availableSongs],
+  )
+  const karaokeSongs = useMemo(
+    () => availableSongs.filter((song) => song.fromKaraokeSetlist),
+    [availableSongs],
+  )
+  const humanJukeboxRows = useMemo(() => buildSongRows(humanJukeboxSongs), [humanJukeboxSongs])
+  const karaokeRows = useMemo(() => buildSongRows(karaokeSongs), [karaokeSongs])
 
   useEffect(() => {
     if (!selectedSong || typeof document === 'undefined') {
@@ -166,7 +235,8 @@ function AudienceSongListPage() {
           return
         }
 
-        const nextSongsSource = (coveredFallbackSongs ?? []) as CuratedSong[]
+        const nextSongsSource = ((coveredFallbackSongs ?? []) as Omit<CuratedSong, 'fromKaraokeSetlist'>[])
+          .map((song) => ({ ...song, fromKaraokeSetlist: false }))
 
         if (nextSongsSource.length === 0) {
           const { data: fallbackSongs, error: fallbackSongsError } = await supabase
@@ -183,16 +253,16 @@ function AudienceSongListPage() {
           }
 
           if (isCurrent) {
-            const nextSongs = ((fallbackSongs ?? []) as CuratedSong[])
-              .sort((left, right) => left.title.localeCompare(right.title))
+            const nextSongs = ((fallbackSongs ?? []) as Omit<CuratedSong, 'fromKaraokeSetlist'>[])
+              .map((song) => ({ ...song, fromKaraokeSetlist: false }))
+              .sort(sortSongs)
             setCuratedSongs(nextSongs)
           }
           return
         }
 
         if (isCurrent) {
-          const nextSongs = nextSongsSource
-            .sort((left, right) => left.title.localeCompare(right.title))
+          const nextSongs = nextSongsSource.sort(sortSongs)
           setCuratedSongs(nextSongs)
         }
       }
@@ -203,19 +273,54 @@ function AudienceSongListPage() {
           return
         }
 
-        const { data: eventPlaylists, error: eventPlaylistsError } = await supabase
+        let eventPlaylistsRows: EventPlaylistRow[] = []
+
+        const { data: eventPlaylistsWithType, error: eventPlaylistsWithTypeError } = await supabase
           .from('event_playlists')
-          .select('playlist_id')
+          .select('playlist_id, playlists!inner(id, name, playlist_type)')
           .eq('event_id', event.id)
 
-        if (eventPlaylistsError) {
+        if (eventPlaylistsWithTypeError && !isMissingPlaylistTypeColumnError(eventPlaylistsWithTypeError)) {
           if (isCurrent) {
-            setErrorText(eventPlaylistsError.message)
+            setErrorText(eventPlaylistsWithTypeError.message)
           }
           return
         }
 
-        const playlistIds = (eventPlaylists ?? []).map((row) => row.playlist_id as string)
+        if (eventPlaylistsWithTypeError && isMissingPlaylistTypeColumnError(eventPlaylistsWithTypeError)) {
+          const { data: fallbackEventPlaylists, error: fallbackEventPlaylistsError } = await supabase
+            .from('event_playlists')
+            .select('playlist_id, playlists!inner(id, name)')
+            .eq('event_id', event.id)
+
+          if (fallbackEventPlaylistsError) {
+            if (isCurrent) {
+              setErrorText(fallbackEventPlaylistsError.message)
+            }
+            return
+          }
+
+          eventPlaylistsRows = (fallbackEventPlaylists ?? []) as EventPlaylistRow[]
+        } else {
+          eventPlaylistsRows = (eventPlaylistsWithType ?? []) as EventPlaylistRow[]
+        }
+
+        const playlistTypeById = new Map<string, PlaylistType>()
+
+        for (const row of eventPlaylistsRows) {
+          const playlistData = Array.isArray(row.playlists) ? row.playlists[0] : row.playlists
+
+          if (!playlistData) {
+            continue
+          }
+
+          playlistTypeById.set(
+            row.playlist_id,
+            inferPlaylistType(playlistData.playlist_type, playlistData.name),
+          )
+        }
+
+        const playlistIds = [...playlistTypeById.keys()]
 
         if (!playlistIds.length) {
           await loadFallbackSongs()
@@ -224,7 +329,7 @@ function AudienceSongListPage() {
 
         const { data: playlistSongs, error: playlistSongsError } = await supabase
           .from('playlist_songs')
-          .select('song_id')
+          .select('playlist_id, song_id')
           .in('playlist_id', playlistIds)
 
         if (playlistSongsError) {
@@ -234,11 +339,22 @@ function AudienceSongListPage() {
           return
         }
 
-        const songIds = [...new Set((playlistSongs ?? [])
-          .map((row) => (row as { song_id?: string | null }).song_id)
-          .filter((songId): songId is string => Boolean(songId)))]
+        const karaokeSongIds = new Set<string>()
+        const songIds = new Set<string>()
 
-        if (!songIds.length) {
+        for (const row of (playlistSongs ?? []) as Array<{ playlist_id?: string | null; song_id?: string | null }>) {
+          if (!row.song_id) {
+            continue
+          }
+
+          songIds.add(row.song_id)
+
+          if (row.playlist_id && playlistTypeById.get(row.playlist_id) === 'karaoke') {
+            karaokeSongIds.add(row.song_id)
+          }
+        }
+
+        if (!songIds.size) {
           await loadFallbackSongs()
           return
         }
@@ -246,7 +362,7 @@ function AudienceSongListPage() {
         const { data: librarySongs, error: librarySongsError } = await supabase
           .from('library_songs')
           .select('id, title, artist, cover_url, is_explicit')
-          .in('id', songIds)
+          .in('id', [...songIds])
 
         if (librarySongsError) {
           if (isCurrent) {
@@ -258,23 +374,16 @@ function AudienceSongListPage() {
         if (isCurrent) {
           const dedupedSongs = new Map<string, CuratedSong>()
 
-          for (const song of (librarySongs ?? []) as CuratedSong[]) {
+          for (const song of (librarySongs ?? []) as Omit<CuratedSong, 'fromKaraokeSetlist'>[]) {
             if (!dedupedSongs.has(song.id)) {
-              dedupedSongs.set(song.id, song)
+              dedupedSongs.set(song.id, {
+                ...song,
+                fromKaraokeSetlist: karaokeSongIds.has(song.id),
+              })
             }
           }
 
-          const nextSongs = [...dedupedSongs.values()]
-            .sort((left, right) => {
-              const leftHasCover = Boolean(left.cover_url && left.cover_url.trim())
-              const rightHasCover = Boolean(right.cover_url && right.cover_url.trim())
-
-              if (leftHasCover !== rightHasCover) {
-                return leftHasCover ? -1 : 1
-              }
-
-              return left.title.localeCompare(right.title)
-            })
+          const nextSongs = [...dedupedSongs.values()].sort(sortSongs)
 
           setCuratedSongs(nextSongs)
         }
@@ -353,20 +462,22 @@ function AudienceSongListPage() {
       return
     }
 
-    setSubmittingMode(mode)
+    const effectiveMode: PerformerMode = selectedSong.fromKaraokeSetlist ? 'audience' : mode
+
+    setSubmittingMode(effectiveMode)
     setErrorText(null)
 
     try {
       await addSong(selectedSong.title, selectedSong.artist, selectedSong.is_explicit, {
         coverUrl: selectedSong.cover_url,
         librarySongId: selectedSong.id,
-        performerMode: mode,
+        performerMode: effectiveMode,
       })
 
       navigate(`/audience${location.search || ''}`, {
         replace: true,
         state: {
-          requestConfirmation: mode === 'audience'
+          requestConfirmation: effectiveMode === 'audience'
             ? 'Request added. Karaoke mode selected.'
             : 'Request added to the queue.',
         },
@@ -414,39 +525,86 @@ function AudienceSongListPage() {
       {!loadingSongs ? (
         <div className="audience-song-list-scroll">
           <p className="curated-picker-results" aria-live="polite">
-            {groupedSongs.length} song{groupedSongs.length === 1 ? '' : 's'} available
+            {availableSongs.length} song{availableSongs.length === 1 ? '' : 's'} available
           </p>
-          <ul className="audience-song-list-grid" aria-label="Song choices">
-            {groupedSongs.map(({ song, title, artist, sectionLabel }) => (
-              <li key={song.id} className="audience-song-list-item">
-                {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
-                <button
-                  type="button"
-                  className="audience-song-list-card"
-                  onClick={() => {
-                    setSelectedSong(song)
-                    setErrorText(null)
-                  }}
-                >
-                  {song.cover_url ? (
-                    <img
-                      src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
-                      alt={`Cover art for ${title}`}
-                      className="audience-song-list-cover"
-                    />
-                  ) : (
-                    <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
-                  )}
-                  <span className="audience-song-list-copy">
-                    <span className="audience-song-list-title">{title}</span>
-                    <span className="audience-song-list-artist">{artist}</span>
-                    {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {!groupedSongs.length ? (
+          <div className="audience-song-list-section">
+            <div className="panel-head">
+              <h2>Human Jukebox Setlist</h2>
+              <span className="meta-badge">{humanJukeboxRows.length}</span>
+            </div>
+            <ul className="audience-song-list-grid" aria-label="Human jukebox songs">
+              {humanJukeboxRows.map(({ song, title, artist, sectionLabel }) => (
+                <li key={song.id} className="audience-song-list-item">
+                  {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
+                  <button
+                    type="button"
+                    className="audience-song-list-card"
+                    onClick={() => {
+                      setSelectedSong(song)
+                      setErrorText(null)
+                    }}
+                  >
+                    {song.cover_url ? (
+                      <img
+                        src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
+                        alt={`Cover art for ${title}`}
+                        className="audience-song-list-cover"
+                      />
+                    ) : (
+                      <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
+                    )}
+                    <span className="audience-song-list-copy">
+                      <span className="audience-song-list-title">{title}</span>
+                      <span className="audience-song-list-artist">{artist}</span>
+                      {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {!humanJukeboxRows.length ? <p className="subcopy">No Human Jukebox songs available right now.</p> : null}
+          </div>
+
+          <div className="audience-song-list-section audience-song-list-section-karaoke">
+            <div className="panel-head">
+              <h2>Karaoke Setlist</h2>
+              <span className="meta-badge">{karaokeRows.length}</span>
+            </div>
+            <ul className="audience-song-list-grid" aria-label="Karaoke songs">
+              {karaokeRows.map(({ song, title, artist, sectionLabel }) => (
+                <li key={song.id} className="audience-song-list-item">
+                  {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
+                  <button
+                    type="button"
+                    className="audience-song-list-card"
+                    onClick={() => {
+                      setSelectedSong(song)
+                      setErrorText(null)
+                    }}
+                  >
+                    {song.cover_url ? (
+                      <img
+                        src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
+                        alt={`Cover art for ${title}`}
+                        className="audience-song-list-cover"
+                      />
+                    ) : (
+                      <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
+                    )}
+                    <span className="audience-song-list-copy">
+                      <span className="audience-song-list-title">{title}</span>
+                      <span className="audience-song-list-artist">{artist}</span>
+                      <span className="karaoke-tag">Karaoke</span>
+                      {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {!karaokeRows.length ? <p className="subcopy">No Karaoke songs available right now.</p> : null}
+          </div>
+
+          {!availableSongs.length ? (
             <p className="meta-badge audience-policy-badge">
               {curatedSongs.length ? 'All matching songs are already in queue.' : 'No songs are assigned to this gig yet.'}
             </p>
@@ -471,26 +629,41 @@ function AudienceSongListPage() {
             <h2>{normalizeDisplayText(selectedSong.title, 'Untitled Song')}</h2>
             <p className="subcopy">{normalizeDisplayText(selectedSong.artist, 'Unknown Artist')}</p>
             <div className="audience-song-choice-actions">
-              <button
-                type="button"
-                className="primary-button audience-song-choice-button"
-                disabled={Boolean(submittingMode)}
-                onClick={() => {
-                  void submitSongRequest('performer')
-                }}
-              >
-                {submittingMode === 'performer' ? 'Adding...' : `${performerDisplayName} sings the song`}
-              </button>
-              <button
-                type="button"
-                className="secondary-button audience-song-choice-button"
-                disabled={Boolean(submittingMode)}
-                onClick={() => {
-                  void submitSongRequest('audience')
-                }}
-              >
-                {submittingMode === 'audience' ? 'Adding...' : 'I want to sing the song'}
-              </button>
+              {selectedSong.fromKaraokeSetlist ? (
+                <button
+                  type="button"
+                  className="secondary-button audience-song-choice-button"
+                  disabled={Boolean(submittingMode)}
+                  onClick={() => {
+                    void submitSongRequest('audience')
+                  }}
+                >
+                  {submittingMode === 'audience' ? 'Adding...' : 'Add Karaoke Request (I sing this one)'}
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="primary-button audience-song-choice-button"
+                    disabled={Boolean(submittingMode)}
+                    onClick={() => {
+                      void submitSongRequest('performer')
+                    }}
+                  >
+                    {submittingMode === 'performer' ? 'Adding...' : `${performerDisplayName} sings the song`}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-button audience-song-choice-button"
+                    disabled={Boolean(submittingMode)}
+                    onClick={() => {
+                      void submitSongRequest('audience')
+                    }}
+                  >
+                    {submittingMode === 'audience' ? 'Adding...' : 'I want to sing the song'}
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 className="tertiary-button audience-song-choice-button"

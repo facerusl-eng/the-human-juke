@@ -198,6 +198,27 @@ CREATE TABLE IF NOT EXISTS public.playlists (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE public.playlists
+  ADD COLUMN IF NOT EXISTS playlist_type TEXT NOT NULL DEFAULT 'human_jukebox';
+
+UPDATE public.playlists
+SET playlist_type = 'karaoke'
+WHERE playlist_type = 'human_jukebox'
+  AND name ILIKE '%karaoke%';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'playlists_playlist_type_check'
+  ) THEN
+    ALTER TABLE public.playlists
+      ADD CONSTRAINT playlists_playlist_type_check
+      CHECK (playlist_type IN ('human_jukebox', 'karaoke'));
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.library_songs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
