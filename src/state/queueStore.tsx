@@ -112,7 +112,8 @@ type QueueContextValue = {
 const QueueContext = createContext<QueueContextValue | null>(null)
 const DEFAULT_DB_TIMEOUT_MS = 25_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
-const QUEUE_POLL_INTERVAL_MS = 5000
+const HOST_QUEUE_POLL_INTERVAL_MS = 5000
+const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 30000
 const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
 const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
 
@@ -628,7 +629,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               disconnectActiveChannel()
 
               activeChannel = supabase
-                .channel(`audience-live-watch-${Date.now()}`)
+                .channel('audience-live-watch')
                 .on(
                   'postgres_changes',
                   {
@@ -666,7 +667,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               }
 
               void maybeReloadAudienceWhenLiveReturns()
-            }, QUEUE_POLL_INTERVAL_MS)
+            }, AUDIENCE_QUEUE_POLL_INTERVAL_MS)
           }
 
           return
@@ -831,7 +832,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           if (isCurrent) {
             void refreshSnapshot()
           }
-        }, QUEUE_POLL_INTERVAL_MS)
+        }, isHostSession ? HOST_QUEUE_POLL_INTERVAL_MS : AUDIENCE_QUEUE_POLL_INTERVAL_MS)
       } catch (error) {
         console.warn('queueStore: initial queue load failed', error)
         // Keep previous state so transient failures do not blank the UI.

@@ -761,7 +761,7 @@ function EventPage() {
     void loadUpcomingEvents()
 
     channel = supabase
-      .channel(`audience-upcoming-events-${Date.now()}`)
+      .channel('audience-upcoming-events')
       .on(
         'postgres_changes',
         {
