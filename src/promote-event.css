@@ -230,6 +230,61 @@
   opacity: 0.95;
 }
 
+/* Font families */
+.promote-font-serif {
+  --promote-font-family: Georgia, serif;
+}
+
+.promote-font-slab {
+  --promote-font-family: 'Courier New', Courier, monospace;
+}
+
+.promote-font-mono {
+  --promote-font-family: 'Monaco', monospace;
+}
+
+.promote-font-default,
+.promote-canvas {
+  --promote-font-family: inherit;
+}
+
+.promote-content,
+.promote-footer {
+  font-family: var(--promote-font-family);
+}
+
+/* Bold text */
+.promote-text-bold .promote-overline,
+.promote-text-bold .promote-content h3,
+.promote-text-bold .promote-subtitle,
+.promote-text-bold .promote-description,
+.promote-text-bold .promote-event-name,
+.promote-text-bold .promote-event-meta,
+.promote-text-bold .promote-cta {
+  font-weight: 700;
+}
+
+/* Text shadows */
+.promote-shadow-light .promote-overline,
+.promote-shadow-light .promote-content h3,
+.promote-shadow-light .promote-subtitle,
+.promote-shadow-light .promote-description,
+.promote-shadow-light .promote-event-name,
+.promote-shadow-light .promote-event-meta,
+.promote-shadow-light .promote-cta {
+  text-shadow: 0 2px 8px rgba(15, 23, 42, 0.6);
+}
+
+.promote-shadow-strong .promote-overline,
+.promote-shadow-strong .promote-content h3,
+.promote-shadow-strong .promote-subtitle,
+.promote-shadow-strong .promote-description,
+.promote-shadow-strong .promote-event-name,
+.promote-shadow-strong .promote-event-meta,
+.promote-shadow-strong .promote-cta {
+  text-shadow: 0 4px 16px rgba(15, 23, 42, 0.9), 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
 @media (max-width: 1000px) {
   .promote-control-grid {
     grid-template-columns: 1fr;

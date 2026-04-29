@@ -9,6 +9,8 @@ type PostFormat = 'square' | 'portrait' | 'story'
 type SocialPlatform = 'instagram' | 'facebook'
 type ThemeKey = 'none' | 'sunset' | 'midnight' | 'studio'
 type HeadlinePosition = 'top' | 'center' | 'bottom'
+type TextShadow = 'none' | 'light' | 'strong'
+type FontChoice = 'default' | 'serif' | 'slab' | 'mono'
 
 type HeadlineAnchor = {
   x: number
@@ -34,6 +36,9 @@ type PromotionDraft = {
   headlinePosition: HeadlinePosition
   headlineAnchor: HeadlineAnchor
   textScale: number
+  textBold: boolean
+  textShadow: TextShadow
+  fontChoice: FontChoice
 }
 
 const PROMOTION_DRAFT_STORAGE_KEY_PREFIX = 'human-jukebox-promo-draft:'
@@ -105,6 +110,9 @@ function PromoteEventPage() {
   const [eventFilterQuery, setEventFilterQuery] = useState('')
   const [promotionSaved, setPromotionSaved] = useState(false)
   const [promotionSaveError, setPromotionSaveError] = useState<string | null>(null)
+  const [textBold, setTextBold] = useState(false)
+  const [textShadow, setTextShadow] = useState<TextShadow>('light')
+  const [fontChoice, setFontChoice] = useState<FontChoice>('default')
 
   const filteredHostEvents = useMemo(() => {
     const normalizedQuery = eventFilterQuery.trim().toLowerCase()
@@ -192,6 +200,9 @@ function PromoteEventPage() {
         setHeadlinePosition(draft.headlinePosition ?? 'center')
         setHeadlineAnchor(draft.headlineAnchor ?? { x: 50, y: 50 })
         setTextScale(typeof draft.textScale === 'number' ? draft.textScale : 1)
+        setTextBold(draft.textBold ?? false)
+        setTextShadow(draft.textShadow ?? 'light')
+        setFontChoice(draft.fontChoice ?? 'default')
         return
       }
 
@@ -541,6 +552,9 @@ function PromoteEventPage() {
       headlinePosition,
       headlineAnchor,
       textScale,
+      textBold,
+      textShadow,
+      fontChoice,
     }
 
     try {
@@ -659,6 +673,35 @@ function PromoteEventPage() {
                 setTextScale(Number.parseFloat(event.target.value))
               }}
             />
+          </label>
+
+          <label className="promote-field">
+            <span>Font</span>
+            <select value={fontChoice} onChange={(event) => setFontChoice(event.target.value as FontChoice)}>
+              <option value="default">Modern Sans</option>
+              <option value="serif">Serif</option>
+              <option value="slab">Slab Serif</option>
+              <option value="mono">Monospace</option>
+            </select>
+          </label>
+
+          <label className="promote-field">
+            <span>Text Shadow</span>
+            <select value={textShadow} onChange={(event) => setTextShadow(event.target.value as TextShadow)}>
+              <option value="none">None</option>
+              <option value="light">Light</option>
+              <option value="strong">Strong</option>
+            </select>
+          </label>
+
+          <label className="promote-field">
+            <span>Text Style</span>
+            <input
+              type="checkbox"
+              checked={textBold}
+              onChange={(event) => setTextBold(event.target.checked)}
+            />
+            <span style={{ marginLeft: '0.5rem' }}>Bold</span>
           </label>
 
           <label className="promote-field promote-field-wide">
@@ -794,7 +837,7 @@ function PromoteEventPage() {
 
           <div
             ref={headlineRef}
-            className={`promote-content promote-content-${headlinePosition} ${headlineDragging ? 'promote-content-dragging' : ''}`}
+            className={`promote-content promote-content-${headlinePosition} ${headlineDragging ? 'promote-content-dragging' : ''} promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow}`}
             onPointerDown={startHeadlineDrag}
             role="presentation"
           >
@@ -804,7 +847,7 @@ function PromoteEventPage() {
             <p className="promote-description">{description}</p>
           </div>
 
-          <div className="promote-footer">
+          <div className={`promote-footer promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow}`}>
             <div>
               <p className="promote-event-name">{eventName}</p>
               <p className="promote-event-meta">{venue}</p>
