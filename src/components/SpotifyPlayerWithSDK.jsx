@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js'
+const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
 
 function ensureSpotifyScript() {
   if (typeof window === 'undefined') {
@@ -129,6 +130,31 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
 
     return message
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const storedPlaylistInput = window.localStorage.getItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY)
+    if (storedPlaylistInput) {
+      setPlaylistInput(storedPlaylistInput)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const normalizedValue = playlistInput.trim()
+    if (!normalizedValue) {
+      window.localStorage.removeItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY)
+      return
+    }
+
+    window.localStorage.setItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY, normalizedValue)
+  }, [playlistInput])
 
   useEffect(() => {
     let cancelled = false
