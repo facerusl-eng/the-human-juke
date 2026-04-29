@@ -193,9 +193,6 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
           id="gig-control-playlist-song-picker"
           type="button"
           className="gig-song-picker-trigger"
-          aria-haspopup="listbox"
-          aria-expanded={isSongPickerOpen}
-          aria-controls="gig-control-playlist-song-picker-list"
           disabled={loadingSongs || availableSongs.length === 0}
           onClick={() => {
             setIsSongPickerOpen((open) => !open)
@@ -223,9 +220,9 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
         </button>
 
         {isSongPickerOpen && availableSongs.length > 0 ? (
-          <ul id="gig-control-playlist-song-picker-list" className="gig-song-picker-list" role="listbox" aria-label="Playlist songs">
+          <div id="gig-control-playlist-song-picker-list" className="gig-song-picker-list" aria-label="Playlist songs">
             {availableSongs.map((song) => (
-              <li key={song.id} role="option" aria-selected={selectedSongId === song.id}>
+              <div key={song.id}>
                 <button
                   type="button"
                   className={`gig-song-picker-option${selectedSongId === song.id ? ' is-selected' : ''}`}
@@ -248,9 +245,9 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, onA
                   </span>
                   {queuedLibrarySongIds.has(song.id) ? <span className="meta-badge">Queued</span> : null}
                 </button>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         ) : null}
       </div>
 
