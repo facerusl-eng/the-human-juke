@@ -1064,8 +1064,8 @@ function EventPage() {
       <section className="audience-entry-shell" aria-label="Audience waiting room">
         <article className="queue-panel audience-entry-card">
           <p className="eyebrow audience-entry-eyebrow">Hi {audienceName}</p>
-          <h1>Welcome to the show!</h1>
-          <p className="subcopy audience-entry-copy">No pressure - just enjoy yourself and blame the rest on the music.</p>
+          <h1>Welcome to the show, you lovely lot!</h1>
+          <p className="subcopy audience-entry-copy">Settle in, look confident, and blame any chaos on artistic direction.</p>
           {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
           <p className="meta-badge audience-soon-badge">Event starting soon</p>
           {hasRequestedEventParam ? (
@@ -1176,8 +1176,8 @@ function EventPage() {
                 <img src={normalizeCoverUrl(displaySongCoverUrl) ?? displaySongCoverUrl} alt={`Cover art for ${displaySong?.title ?? 'current song'}`} className="song-cover song-cover-large" />
               ) : null}
               <div>
-                <h2>{displaySong?.title ?? 'Queue is warming up'}</h2>
-                <p className="artist">{displaySong?.artist ?? 'Open Song List to add a request.'}</p>
+                <h2>{displaySong?.title ?? 'Queue is having a polite think'}</h2>
+                <p className="artist">{displaySong?.artist ?? 'Open Song List and request one before someone picks Wonderwall.'}</p>
               </div>
             </div>
           )}

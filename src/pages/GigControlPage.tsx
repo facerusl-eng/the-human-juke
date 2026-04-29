@@ -873,8 +873,8 @@ function GigControlPage() {
                     />
                   ) : null}
                   <div>
-                    <p className="gig-mirror-preview-song">{nowPlaying?.title ?? 'Waiting for requests...'}</p>
-                    <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'No song in queue'}</p>
+                    <p className="gig-mirror-preview-song">{nowPlaying?.title ?? 'Waiting for requests from brave volunteers...'}</p>
+                    <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'Queue currently calm, suspiciously so'}</p>
                   </div>
                 </div>
               </>
@@ -1094,7 +1094,7 @@ function GigControlPage() {
           ) : (
             <>
               <h2>Queue is empty</h2>
-              <p className="artist">Waiting for requests from the audience.</p>
+              <p className="artist">Waiting for requests from the audience, ideally with excellent taste and mild chaos.</p>
             </>
           )}
         </article>

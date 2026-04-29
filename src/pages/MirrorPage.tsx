@@ -1174,8 +1174,8 @@ function MirrorPage() {
       <main className={`mirror-stage ${isLive ? 'mirror-stage-live' : ''}`}>
         {!isLive ? (
           <section className="mirror-pre-show" aria-label="Pre-show welcome">
-            <h1 className="mirror-pre-show-title">Welcome to the show!</h1>
-            <p className="mirror-pre-show-subtitle">No pressure — just enjoy yourself and blame the rest on the music.</p>
+            <h1 className="mirror-pre-show-title">Welcome to the show, legends and troublemakers!</h1>
+            <p className="mirror-pre-show-subtitle">Make yourselves comfy; tonight runs on requests, applause, and questionable decisions.</p>
             <div className="mirror-qr-block">
               <img src={qrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
               <div className="mirror-qr-copy">
@@ -1212,8 +1212,8 @@ function MirrorPage() {
                       />
                     ) : null}
                     <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests...')}</h1>
-                      <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be the first to request a song!')}</p>
+                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
+                      <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
                       {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                     </div>
                   </div>
