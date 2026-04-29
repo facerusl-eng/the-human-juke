@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import html2canvas from 'html2canvas'
-import { toJpeg, toPng } from 'html-to-image'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { useQueueStore } from '../state/queueStore'
 
@@ -645,17 +644,33 @@ function PromoteEventPage() {
       downloadLink.click()
     }
 
-    const exportOptions = {
-      cacheBust: true,
-      pixelRatio: targetDimensions.width / previewElement.clientWidth,
-      skipAutoScale: true,
-      width: previewElement.clientWidth,
-      height: previewElement.clientHeight,
-    }
+    // Inline computed styles on every element so clamp(), calc(), and CSS variables
+    // are resolved to concrete pixel values before html2canvas captures the DOM.
+    const PROPS_TO_INLINE = [
+      'color', 'background-color', 'background-image',
+      'font-size', 'font-family', 'font-weight', 'font-style', 'line-height', 'letter-spacing',
+      'text-shadow', 'text-transform', 'opacity',
+      '-webkit-text-stroke-width', '-webkit-text-stroke-color',
+      'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+      'border-top-left-radius', 'border-top-right-radius', 'border-bottom-right-radius', 'border-bottom-left-radius',
+      'border-width', 'border-style', 'border-color',
+      'box-shadow', 'gap', 'row-gap', 'column-gap',
+    ] as const
+
+    const allElements = [previewElement, ...Array.from(previewElement.querySelectorAll('*'))] as HTMLElement[]
+    const styleBackups = allElements.map((el) => el.getAttribute('style'))
+
+    allElements.forEach((el) => {
+      const cs = window.getComputedStyle(el)
+      PROPS_TO_INLINE.forEach((prop) => {
+        const val = cs.getPropertyValue(prop)
+        if (val) el.style.setProperty(prop, val)
+      })
+    })
 
     previewElement.classList.add('promote-exporting')
 
-    // Swap photo src to the base64 data URL so html-to-image can serialize it reliably
+    // Swap photo src to the base64 data URL so html2canvas can draw it without re-fetching
     const photoImg = previewElement.querySelector<HTMLImageElement>('.promote-photo')
     const originalPhotoSrc = photoImg?.getAttribute('src') ?? null
     if (photoImg && photoDataUrlRef.current) {
@@ -663,7 +678,7 @@ function PromoteEventPage() {
       await photoImg.decode().catch(() => {})
     }
 
-    // Inline the photo filter directly — html-to-image may not resolve CSS variables in filter
+    // Inline the photo filter so html2canvas picks it up
     if (photoImg) {
       photoImg.style.setProperty('filter', `brightness(${photoBrightnessAdj}) contrast(${photoContrast}) saturate(${photoSaturation})`)
     }
@@ -671,39 +686,27 @@ function PromoteEventPage() {
     try {
       await waitForPreviewAssets(previewElement)
 
+      const exportCanvas = await html2canvas(previewElement, {
+        useCORS: false,
+        allowTaint: true,
+        backgroundColor: null,
+        scale: targetDimensions.width / previewElement.clientWidth,
+        width: previewElement.clientWidth,
+        height: previewElement.clientHeight,
+        windowWidth: previewElement.clientWidth,
+        windowHeight: previewElement.clientHeight,
+        imageTimeout: 0,
+        logging: false,
+      })
+
       const dataUrl = type === 'png'
-        ? await toPng(previewElement, exportOptions)
-        : await toJpeg(previewRef.current, {
-          ...exportOptions,
-          quality: 0.95,
-        })
+        ? exportCanvas.toDataURL('image/png')
+        : exportCanvas.toDataURL('image/jpeg', 0.95)
+
       downloadDataUrl(dataUrl)
     } catch (error) {
-      console.warn(`PromoteEventPage: primary ${type.toUpperCase()} export failed, trying fallback`, error)
-
-      try {
-        await waitForPreviewAssets(previewElement)
-
-        const fallbackCanvas = await html2canvas(previewElement, {
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: null,
-          scale: targetDimensions.width / previewElement.clientWidth,
-          width: previewElement.clientWidth,
-          height: previewElement.clientHeight,
-          windowWidth: previewElement.clientWidth,
-          windowHeight: previewElement.clientHeight,
-        })
-
-        const fallbackDataUrl = type === 'png'
-          ? fallbackCanvas.toDataURL('image/png')
-          : fallbackCanvas.toDataURL('image/jpeg', 0.95)
-
-        downloadDataUrl(fallbackDataUrl)
-      } catch (fallbackError) {
-        console.warn(`PromoteEventPage: fallback ${type.toUpperCase()} export failed`, fallbackError)
-        setExportError('Could not export image. Please try a different photo file and retry.')
-      }
+      console.warn(`PromoteEventPage: export failed`, error)
+      setExportError('Could not export image. Please try a different photo file and retry.')
     } finally {
       previewElement.classList.remove('promote-exporting')
       if (photoImg) {
@@ -712,6 +715,14 @@ function PromoteEventPage() {
           photoImg.src = originalPhotoSrc
         }
       }
+      allElements.forEach((el, i) => {
+        const backup = styleBackups[i]
+        if (backup === null) {
+          el.removeAttribute('style')
+        } else {
+          el.setAttribute('style', backup)
+        }
+      })
       setExportingImage(false)
     }
   }
