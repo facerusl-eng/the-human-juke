@@ -654,13 +654,23 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         if (nextTransportCommand.mode === 'toggle') {
           const currentState = await playerRef.current.getCurrentState?.()
 
-          if (!currentState && playlistInput.trim()) {
-            await startPlaylistPlayback(playlistInput)
-            setPlayerStatus('Spotify playlist playback started from Gig Control toggle shortcut.')
-            return
-          }
+          if (!currentState) {
+            try {
+              const resumed = await resumePlayback()
+              if (resumed) {
+                setPlayerStatus('Spotify playback resumed from where it stopped.')
+                return
+              }
+            } catch {
+              // Fall through to playlist start when there is no resumable context.
+            }
 
-          if (!currentState && !playlistInput.trim()) {
+            if (playlistInput.trim()) {
+              await startPlaylistPlayback(playlistInput)
+              setPlayerStatus('Spotify playlist playback started from Gig Control toggle shortcut.')
+              return
+            }
+
             throw new Error('Set a Between Songs Playlist first, then use Toggle Spotify Playlist.')
           }
 
