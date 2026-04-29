@@ -20,6 +20,7 @@ function ShellLayout() {
   const [authActionBusy, setAuthActionBusy] = useState<null | 'sign-in' | 'sign-out'>(null)
   const [hasAudienceAccess, setHasAudienceAccess] = useState(() => Boolean(readCommittedAudienceName()))
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const [isGigMenuOpen, setIsGigMenuOpen] = useState(false)
   const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
@@ -57,6 +58,7 @@ function ShellLayout() {
 
   useEffect(() => {
     setIsMobileNavOpen(false)
+    setIsGigMenuOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -188,19 +190,25 @@ function ShellLayout() {
               {isHost ? (
                 <>
                   <NavLink to="/admin" end>Dashboard</NavLink>
-                  <div className="nav-dropdown gigs-nav-dropdown">
-                    <NavLink
-                      to="/admin/gigs"
+                  <div
+                    className={`nav-dropdown gigs-nav-dropdown ${isGigMenuOpen ? 'nav-dropdown-open' : ''}`.trim()}
+                    onMouseEnter={() => setIsGigMenuOpen(true)}
+                    onMouseLeave={() => setIsGigMenuOpen(false)}
+                  >
+                    <button
+                      type="button"
                       className={`nav-dropdown-trigger ${isGigNavActive ? 'active' : ''}`.trim()}
                       aria-label="Open gig navigation"
+                      aria-expanded={isGigMenuOpen}
+                      onClick={() => setIsGigMenuOpen((open) => !open)}
                     >
                       Gigs
-                    </NavLink>
+                    </button>
                     <div className="nav-dropdown-menu" aria-label="Gig navigation menu">
-                      <NavLink to="/admin/gigs">All Gigs</NavLink>
-                      <NavLink to="/admin/create-gig">New Gig</NavLink>
-                      <NavLink to="/admin/gig-control">Gig Control</NavLink>
-                      <NavLink to="/admin/gig-settings">Gig Settings</NavLink>
+                      <NavLink to="/admin/gigs" onClick={() => setIsGigMenuOpen(false)}>All Gigs</NavLink>
+                      <NavLink to="/admin/create-gig" onClick={() => setIsGigMenuOpen(false)}>New Gig</NavLink>
+                      <NavLink to="/admin/gig-control" onClick={() => setIsGigMenuOpen(false)}>Gig Control</NavLink>
+                      <NavLink to="/admin/gig-settings" onClick={() => setIsGigMenuOpen(false)}>Gig Settings</NavLink>
                     </div>
                   </div>
                   <NavLink to="/admin/health-check">Health Check</NavLink>

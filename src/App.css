@@ -59,6 +59,8 @@
 .site-nav .nav-dropdown-trigger {
   color: #d3e6ff;
   text-decoration: none;
+  font: inherit;
+  cursor: pointer;
   min-height: 2.75rem;
   display: inline-flex;
   align-items: center;
@@ -109,6 +111,7 @@
 }
 
 .site-nav .nav-dropdown:hover .nav-dropdown-menu,
+.site-nav .nav-dropdown.nav-dropdown-open .nav-dropdown-menu,
 .site-nav .nav-dropdown:focus-within .nav-dropdown-menu {
   opacity: 1;
   visibility: visible;
@@ -250,9 +253,9 @@
   .site-nav .nav-dropdown-menu {
     position: static;
     margin-top: 0.35rem;
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
     transform: none;
     box-shadow: none;
     min-width: 100%;
