@@ -28,7 +28,7 @@ type LiveFeedPanelProps = {
 const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '❤️']
 const AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
 const FEED_IMAGE_REVEAL_DELAY_MS = 7000
-const FEED_IMAGE_POST_COOLDOWN_MS = 30000
+const FEED_IMAGE_QUEUE_INTERVAL_MS = 30000
 const FEED_POLL_INTERVAL_MS = 5000
 const FEED_FETCH_DEBOUNCE_MS = 300
 const FEED_MAX_POSTS = 40
@@ -94,6 +94,46 @@ function isFeedPostVisible(post: FeedPost, now: number, mode: LiveFeedPanelProps
   return new Date(post.created_at).getTime() + FEED_IMAGE_REVEAL_DELAY_MS <= now
 }
 
+function resolveVisiblePosts(posts: FeedPost[], now: number, mode: LiveFeedPanelProps['mode']) {
+  if (mode !== 'mirror') {
+    return posts
+  }
+
+  const imagePostsOldestFirst = [...posts]
+    .filter((post) => Boolean(normalizeImageSource(post.image_data_url)))
+    .sort((left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime())
+
+  const unlockByImagePostId = new Map<string, number>()
+  let previousUnlockAt = 0
+
+  for (const imagePost of imagePostsOldestFirst) {
+    const createdAtMs = new Date(imagePost.created_at).getTime()
+    const safeCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : now
+    const baseUnlockAt = safeCreatedAtMs + FEED_IMAGE_REVEAL_DELAY_MS
+    const unlockAt = previousUnlockAt > 0
+      ? Math.max(baseUnlockAt, previousUnlockAt + FEED_IMAGE_QUEUE_INTERVAL_MS)
+      : baseUnlockAt
+
+    unlockByImagePostId.set(imagePost.id, unlockAt)
+    previousUnlockAt = unlockAt
+  }
+
+  return posts.filter((post) => {
+    const normalizedImageSource = normalizeImageSource(post.image_data_url)
+
+    if (!normalizedImageSource) {
+      return true
+    }
+
+    const unlockAt = unlockByImagePostId.get(post.id)
+    if (!unlockAt) {
+      return isFeedPostVisible(post, now, mode)
+    }
+
+    return unlockAt <= now
+  })
+}
+
 function hasSupportedImageExtension(fileName: string) {
   const normalizedName = fileName.trim().toLowerCase()
   return SUPPORTED_IMAGE_EXTENSIONS.some((extension) => normalizedName.endsWith(extension))
@@ -151,8 +191,6 @@ function LiveFeedPanel({
   const [selectedImageName, setSelectedImageName] = useState<string | null>(null)
   const [imageStatusText, setImageStatusText] = useState<string | null>(null)
   const [feedNow, setFeedNow] = useState(() => Date.now())
-  const [imagePostCooldownEndsAt, setImagePostCooldownEndsAt] = useState<number | null>(null)
-  const [cooldownNow, setCooldownNow] = useState(() => Date.now())
   const suggestedAuthorName = useMemo(
     () => getSuggestedAuthorName(user?.email, isHost),
     [isHost, user?.email],
@@ -162,13 +200,9 @@ function LiveFeedPanel({
   const isMirrorMode = mode === 'mirror'
   const previewImageSrc = imagePreviewUrl ?? imageDataUrl
   const visiblePosts = useMemo(
-    () => posts.filter((post) => isFeedPostVisible(post, feedNow, mode)),
+    () => resolveVisiblePosts(posts, feedNow, mode),
     [feedNow, mode, posts],
   )
-  const imagePostCooldownRemainingMs = imagePostCooldownEndsAt
-    ? Math.max(0, imagePostCooldownEndsAt - cooldownNow)
-    : 0
-  const imagePostCooldownSeconds = Math.ceil(imagePostCooldownRemainingMs / 1000)
 
   const suppressReconnectWarning = () => {
     suppressReconnectWarningUntilRef.current = Date.now() + FEED_PICKER_RECONNECT_SUPPRESS_MS
@@ -210,30 +244,6 @@ function LiveFeedPanel({
       }
     }
   }, [])
-
-  useEffect(() => {
-    if (!imagePostCooldownEndsAt) {
-      return
-    }
-
-    if (imagePostCooldownEndsAt <= Date.now()) {
-      setImagePostCooldownEndsAt(null)
-      return
-    }
-
-    const timerId = window.setInterval(() => {
-      const now = Date.now()
-      setCooldownNow(now)
-
-      if (imagePostCooldownEndsAt <= now) {
-        setImagePostCooldownEndsAt(null)
-      }
-    }, 400)
-
-    return () => {
-      window.clearInterval(timerId)
-    }
-  }, [imagePostCooldownEndsAt])
 
   useEffect(() => {
     let isCurrent = true
@@ -600,35 +610,6 @@ function LiveFeedPanel({
       const normalizedAuthorName = normalizeAuthorName(resolvedAuthorName, suggestedAuthorName)
       let postingUser = await resolvePostingUser()
 
-      if (imageDataUrl) {
-        const { data: latestImagePost, error: latestImagePostError } = await supabase
-          .from('feed_posts')
-          .select('created_at')
-          .eq('event_id', event.id)
-          .eq('user_id', postingUser.id)
-          .not('image_data_url', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (latestImagePostError) {
-          throw latestImagePostError
-        }
-
-        const latestImagePostAt = latestImagePost?.created_at
-          ? new Date(latestImagePost.created_at).getTime()
-          : null
-
-        if (latestImagePostAt) {
-          const cooldownRemainingMs = Math.max(0, (latestImagePostAt + FEED_IMAGE_POST_COOLDOWN_MS) - Date.now())
-
-          if (cooldownRemainingMs > 0) {
-            setImagePostCooldownEndsAt(Date.now() + cooldownRemainingMs)
-            throw new Error(`Please wait ${Math.ceil(cooldownRemainingMs / 1000)} seconds before posting another photo.`)
-          }
-        }
-      }
-
       const insertPost = async (postingUserId: string) => {
         const { data, error } = await supabase
           .from('feed_posts')
@@ -693,10 +674,6 @@ function LiveFeedPanel({
       setMessage('')
       setImageStatusText(null)
       clearSelectedImage()
-
-      if (insertedPost?.image_data_url) {
-        setImagePostCooldownEndsAt(Date.now() + FEED_IMAGE_POST_COOLDOWN_MS)
-      }
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Unable to post to the live feed.')
     } finally {
@@ -820,11 +797,6 @@ function LiveFeedPanel({
             </label>
             {selectedImageName ? <span className="live-feed-image-name">{selectedImageName}</span> : null}
             {imageStatusText ? <span className="live-feed-helper-text">{imageStatusText}</span> : null}
-            {imageDataUrl && imagePostCooldownSeconds > 0 ? (
-              <span className="live-feed-helper-text" role="status" aria-live="polite">
-                Next photo can be posted in {imagePostCooldownSeconds}s.
-              </span>
-            ) : null}
             {previewImageSrc ? (
               <button type="button" className="ghost-button" onClick={clearSelectedImage}>
                 Remove Image
@@ -846,7 +818,7 @@ function LiveFeedPanel({
             <button
               type="submit"
               className="primary-button"
-              disabled={busy || !event || (Boolean(imageDataUrl) && imagePostCooldownSeconds > 0)}
+              disabled={busy || !event}
             >
               {busy ? 'Posting...' : 'Post to Feed'}
             </button>
