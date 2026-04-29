@@ -146,6 +146,7 @@ function getSpotifyDisconnectHint(message) {
 function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand }) {
   const playerRef = useRef(null)
   const accessTokenRef = useRef(accessToken)
+  const lastStartedPlaylistContextRef = useRef('')
 
   const [isSdkReady, setIsSdkReady] = useState(false)
   const [deviceId, setDeviceId] = useState(null)
@@ -531,6 +532,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         }
       })
 
+      lastStartedPlaylistContextRef.current = contextUri
       setPlayerStatus(`Started playlist playback for ${contextUri}.`)
     } catch (error) {
       setPlayerStatus(error instanceof Error ? mapSpotifyApiError(error.message) : 'Start playlist playback failed.')
@@ -586,6 +588,19 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         }
 
         if (transportCommand.mode === 'play') {
+          const normalizedConfiguredPlaylist = normalizePlaylistContextUri(playlistInput)
+
+          // If the configured playlist changed, force playback to start from the new playlist
+          // instead of resuming an older paused context.
+          if (
+            normalizedConfiguredPlaylist
+            && normalizedConfiguredPlaylist !== lastStartedPlaylistContextRef.current
+          ) {
+            await startPlaylistPlayback(playlistInput)
+            setPlayerStatus('Started the newly selected between-song playlist.')
+            return
+          }
+
           try {
             await syncTogglePlayState(true)
             setPlayerStatus('Between-song Spotify playback resumed from Gig Control.')
