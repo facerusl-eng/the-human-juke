@@ -9,14 +9,14 @@ import AppCrashBoundary from './components/AppCrashBoundary'
 import RequireHost from './components/RequireHost'
 import ShellLayout from './components/ShellLayout'
 import { logCrashTelemetry } from './lib/crashTelemetry'
+import EventPage from './pages/EventPage'
+import AudienceSongListPage from './pages/AudienceSongListPage'
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
 
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const CreateGigPage = lazy(() => import('./pages/CreateGigPage'))
 const CrashTelemetryPage = lazy(() => import('./pages/CrashTelemetryPage'))
-const EventPage = lazy(() => import('./pages/EventPage'))
-const AudienceSongListPage = lazy(() => import('./pages/AudienceSongListPage'))
 const FeedPage = lazy(() => import('./pages/FeedPage'))
 const GigControlPage = lazy(() => import('./pages/GigControlPage'))
 const GigSettingsPage = lazy(() => import('./pages/GigSettingsPage'))
