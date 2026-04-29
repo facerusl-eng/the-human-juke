@@ -102,6 +102,7 @@ type QueueContextValue = {
   toggleRoomOpen: () => Promise<void>
   toggleExplicitFilter: () => Promise<void>
   setShowInAudienceNoGig: (visible: boolean) => Promise<void>
+  setEventAudienceNoGigVisibility: (targetEventId: string, visible: boolean) => Promise<void>
   toggleVotingLock: (songId: string, nextValue: boolean) => Promise<void>
   removeSong: (songId: string) => Promise<void>
   moveSong: (songId: string, direction: 'up' | 'down') => Promise<void>
@@ -1403,6 +1404,57 @@ function QueueProvider({ children }: PropsWithChildren) {
             }
           })
         }
+      },
+      setEventAudienceNoGigVisibility: async (targetEventId: string, visible: boolean) => {
+        if (!user || !isHostSession) {
+          throw new Error('Host account required to update audience fallback visibility.')
+        }
+
+        const normalizedEventId = targetEventId.trim()
+
+        if (!normalizedEventId) {
+          throw new Error('Missing event id for audience fallback visibility update.')
+        }
+
+        const { error } = await withTimeout(
+          withAuthLockRetry(() =>
+            supabase
+              .from('events')
+              .update({
+                show_in_audience_no_gig: visible,
+              })
+              .eq('id', normalizedEventId)
+              .eq('host_id', user.id),
+          ),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Timed out while saving no-live audience visibility. Please try again.',
+        )
+
+        if (error) {
+          throw new Error(error.message)
+        }
+
+        setHostEvents((currentHostEvents) => currentHostEvents.map((hostEvent) => {
+          if (hostEvent.id !== normalizedEventId) {
+            return hostEvent
+          }
+
+          return {
+            ...hostEvent,
+            showInAudienceNoGig: visible,
+          }
+        }))
+
+        setEvent((currentEvent) => {
+          if (!currentEvent || currentEvent.id !== normalizedEventId) {
+            return currentEvent
+          }
+
+          return {
+            ...currentEvent,
+            showInAudienceNoGig: visible,
+          }
+        })
       },
       deleteEvent: async (targetEventId: string) => {
         if (!user || !isHostSession) {

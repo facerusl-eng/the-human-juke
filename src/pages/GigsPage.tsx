@@ -17,9 +17,10 @@ function formatGigDate(createdAt: string) {
 
 function GigsPage() {
   const navigate = useNavigate()
-  const { event, hostEvents, setActiveEvent, endGig, deleteEvent } = useQueueStore()
+  const { event, hostEvents, setActiveEvent, endGig, deleteEvent, setEventAudienceNoGigVisibility } = useQueueStore()
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
   const [endingEventId, setEndingEventId] = useState<string | null>(null)
+  const [togglingAudienceFallbackEventId, setTogglingAudienceFallbackEventId] = useState<string | null>(null)
   const [errorText, setErrorText] = useState<string | null>(null)
   const gigActions = useGigActions({
     setActiveEvent,
@@ -75,6 +76,19 @@ function GigsPage() {
     }
   }
 
+  const toggleAudienceFallbackVisibility = async (gigId: string, visible: boolean) => {
+    setErrorText(null)
+    setTogglingAudienceFallbackEventId(gigId)
+
+    try {
+      await setEventAudienceNoGigVisibility(gigId, visible)
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Failed to update audience no-live visibility. Please try again.')
+    } finally {
+      setTogglingAudienceFallbackEventId(null)
+    }
+  }
+
   return (
     <section className="gigs-shell" aria-label="Gig management">
       <section className="hero-card gigs-hero-card">
@@ -108,7 +122,8 @@ function GigsPage() {
               const isActivating = gigActions.activatingEventId === hostEvent.id
               const isDeleting = deletingEventId === hostEvent.id
               const isEnding = endingEventId === hostEvent.id
-              const isBusy = isActivating || isDeleting || isEnding
+              const isUpdatingNoLiveVisibility = togglingAudienceFallbackEventId === hostEvent.id
+              const isBusy = isActivating || isDeleting || isEnding || isUpdatingNoLiveVisibility
 
               return (
                 <li key={hostEvent.id} className="gig-management-entry">
@@ -116,6 +131,7 @@ function GigsPage() {
                     <div className="gig-management-title-row">
                       <p className="gig-management-title">{hostEvent.name}</p>
                       {hostEvent.isActive ? <span className="meta-badge">Live for audience</span> : null}
+                      {hostEvent.showInAudienceNoGig ? <span className="meta-badge">Shown when no live gig</span> : null}
                       {isCurrentGig ? <span className="meta-badge">Open in control panel</span> : null}
                     </div>
                     <p className="gig-management-meta">{hostEvent.venue ?? 'No venue set'}</p>
@@ -157,6 +173,20 @@ function GigsPage() {
                       }}
                     >
                       {!hostEvent.isActive ? 'Ended' : isEnding ? 'Ending…' : 'End Gig'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={isBusy}
+                      onClick={() => {
+                        void toggleAudienceFallbackVisibility(hostEvent.id, !hostEvent.showInAudienceNoGig)
+                      }}
+                    >
+                      {isUpdatingNoLiveVisibility
+                        ? 'Saving…'
+                        : hostEvent.showInAudienceNoGig
+                        ? 'Hide from No-Live Page'
+                        : 'Show on No-Live Page'}
                     </button>
                     <button
                       type="button"
