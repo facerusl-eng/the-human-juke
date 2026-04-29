@@ -989,8 +989,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.2rem;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(93, 215, 255, 0.55) rgba(10, 16, 32, 0.35);
 }
 
 .curated-picker-scroll-region::-webkit-scrollbar {
@@ -1697,7 +1695,7 @@
   max-width: 22ch;
   color: #f7fbff;
   line-height: 0.98;
-  text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 .audience-join-link {
@@ -2255,7 +2253,6 @@
   max-height: min(54vh, 480px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
   padding-right: 0.35rem;
 }
 
@@ -2960,6 +2957,7 @@
     box-shadow:
       0 12px 32px rgba(4, 8, 24, 0.46),
       0 0 14px rgba(93, 215, 255, 0.16);
+    -webkit-backdrop-filter: blur(7px);
     backdrop-filter: blur(7px);
   }
 
@@ -3300,7 +3298,7 @@
   font-size: 1.25rem;
   line-height: 1.2;
   color: #f7fbff;
-  text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 .gig-mirror-preview-now-playing-row {
@@ -3500,6 +3498,7 @@
 }
 
 .queue-drag-handle {
+  -webkit-user-select: none;
   user-select: none;
   cursor: grab;
   color: #8ea6d1;
@@ -4317,9 +4316,8 @@
   border-radius: 8px;
   padding: clamp(0.18rem, 0.32vw, 0.28rem);
   background: #f7fbff;
-  image-rendering: pixelated;
   image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
+  image-rendering: pixelated;
   box-shadow:
     0 5px 10px rgba(4, 8, 22, 0.22),
     0 0 8px rgba(93, 215, 255, 0.06);
@@ -4500,9 +4498,8 @@
   border-radius: 10px;
   padding: clamp(0.18rem, 0.3vw, 0.24rem);
   background: #ffffff;
-  image-rendering: pixelated;
   image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
+  image-rendering: pixelated;
   border: 1px solid rgba(255, 255, 255, 0.44);
   box-shadow:
     0 12px 24px rgba(4, 8, 22, 0.28),
@@ -4617,9 +4614,8 @@
   border-radius: 14px;
   background: #ffffff;
   padding: clamp(0.34rem, 0.96vw, 0.56rem);
-  image-rendering: pixelated;
   image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
+  image-rendering: pixelated;
   border: 1px solid rgba(255, 255, 255, 0.42);
   box-shadow:
     0 22px 40px rgba(4, 8, 22, 0.36),
@@ -6696,7 +6692,6 @@
   border: 1px solid rgba(93, 215, 255, 0.22);
   padding: 0.44rem;
   background: rgba(7, 13, 30, 0.56);
-  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scroll-behavior: smooth;
 }
@@ -6967,7 +6962,6 @@
   padding: 0.55rem;
   display: grid;
   gap: 0.48rem;
-  -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
 
@@ -7047,7 +7041,6 @@
   padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
   overflow-y: auto;
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
 .audience-song-choice-sheet {
