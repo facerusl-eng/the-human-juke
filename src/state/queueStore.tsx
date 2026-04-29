@@ -199,6 +199,26 @@ function isMissingPlaylistTypeColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes('playlist_type')
 }
 
+function isMissingCreateGigRpcError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return code === 'PGRST202' || code === '42883' || text.includes('create_host_gig')
+}
+
 function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined): 'human_jukebox' | 'karaoke' {
   if (rawType === 'karaoke') {
     return 'karaoke'
@@ -2007,6 +2027,99 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         const authenticatedUserId = authUserData.user.id
+
+        const createdAtIso = new Date().toISOString()
+
+        const optimisticEventState: EventState = {
+          id: '',
+          hostId: authenticatedUserId,
+          name: normalizedName,
+          venue: venue || null,
+          gigDate: options?.gigDate ?? null,
+          gigStartTime: options?.gigStartTime ?? null,
+          gigEndTime: options?.gigEndTime ?? null,
+          subtitle: null,
+          requestInstructions: null,
+          playlistOnlyRequests: true,
+          mirrorPhotoSpotlightEnabled: true,
+          allowDuplicateRequests: true,
+          maxActiveRequestsPerUser: null,
+          roomOpen: false,
+          explicitFilterEnabled: true,
+          showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
+          coverImageUrl: options?.coverImageUrl ?? null,
+        }
+
+        try {
+          const { data: rpcData, error: rpcError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase.rpc('create_host_gig', {
+                p_name: normalizedName,
+                p_venue: venue || null,
+                p_gig_date: options?.gigDate ?? null,
+                p_gig_start_time: options?.gigStartTime ?? null,
+                p_gig_end_time: options?.gigEndTime ?? null,
+                p_show_in_audience_no_gig: options?.showInAudienceNoGig ?? false,
+                p_cover_image_url: options?.coverImageUrl ?? null,
+              }),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while creating gig. Please try again.',
+          )
+
+          if (rpcError && !isMissingCreateGigRpcError(rpcError)) {
+            throw new Error(rpcError.message)
+          }
+
+          if (rpcError && isMissingCreateGigRpcError(rpcError)) {
+            throw rpcError
+          }
+
+          const createdGig = Array.isArray(rpcData) ? rpcData[0] : rpcData
+          const createdGigId = typeof createdGig?.id === 'string' ? createdGig.id : null
+          const activated = Boolean(createdGig?.activated)
+
+          if (!createdGigId) {
+            throw new Error('Unable to create gig.')
+          }
+
+          const nextEventState = {
+            ...optimisticEventState,
+            id: createdGigId,
+          }
+
+          setEvent(nextEventState)
+          setHostEvents((currentHostEvents) => {
+            const nextSummary: HostEventSummary = {
+              id: createdGigId,
+              name: normalizedName,
+              venue: venue || null,
+              isActive: activated,
+              showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
+              createdAt: createdAtIso,
+            }
+
+            const withoutCreatedGig = currentHostEvents.filter((currentEvent) => currentEvent.id !== createdGigId)
+            const normalizedExistingEvents = activated
+              ? withoutCreatedGig.map((currentEvent) => ({
+                  ...currentEvent,
+                  isActive: false,
+                }))
+              : withoutCreatedGig
+
+            return [nextSummary, ...normalizedExistingEvents]
+          })
+
+          void withAuthLockRetry(() => refreshProfile(), 2).catch((error) => {
+            console.warn('queueStore: profile refresh failed after rpc gig creation', error)
+          })
+
+          return
+        } catch (rpcFallbackError) {
+          if (!isMissingCreateGigRpcError(rpcFallbackError)) {
+            throw rpcFallbackError
+          }
+        }
 
         const newEventPayload = {
           host_id: authenticatedUserId,

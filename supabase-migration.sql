@@ -730,3 +730,134 @@ DROP INDEX IF EXISTS queue_songs_event_id_active_idx;
 CREATE INDEX IF NOT EXISTS queue_songs_event_id_position_idx
   ON public.queue_songs (event_id, position)
   WHERE is_removed = false;
+
+-- ─── Atomic host gig creation RPC (April 2026) ─────────────────────────────
+CREATE OR REPLACE FUNCTION public.create_host_gig(
+  p_name text,
+  p_venue text DEFAULT NULL,
+  p_gig_date date DEFAULT NULL,
+  p_gig_start_time time DEFAULT NULL,
+  p_gig_end_time time DEFAULT NULL,
+  p_show_in_audience_no_gig boolean DEFAULT false,
+  p_cover_image_url text DEFAULT NULL
+)
+RETURNS TABLE(id uuid, activated boolean)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_host_id uuid := auth.uid();
+  v_event_id uuid;
+  v_default_playlist_id uuid;
+  v_karaoke_playlist_id uuid;
+  v_has_active_gig boolean;
+BEGIN
+  IF v_host_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  IF coalesce(trim(p_name), '') = '' THEN
+    RAISE EXCEPTION 'Gig name is required';
+  END IF;
+
+  INSERT INTO public.events (
+    host_id,
+    name,
+    venue,
+    is_active,
+    playlist_only_requests,
+    room_open,
+    explicit_filter_enabled,
+    gig_date,
+    gig_start_time,
+    gig_end_time,
+    show_in_audience_no_gig,
+    cover_image_url
+  )
+  VALUES (
+    v_host_id,
+    trim(p_name),
+    nullif(trim(coalesce(p_venue, '')), ''),
+    false,
+    true,
+    false,
+    true,
+    p_gig_date,
+    p_gig_start_time,
+    p_gig_end_time,
+    coalesce(p_show_in_audience_no_gig, false),
+    p_cover_image_url
+  )
+  RETURNING events.id INTO v_event_id;
+
+  SELECT playlists.id
+  INTO v_default_playlist_id
+  FROM public.playlists
+  WHERE playlists.user_id = v_host_id
+  ORDER BY playlists.created_at ASC
+  LIMIT 1;
+
+  IF v_default_playlist_id IS NULL THEN
+    INSERT INTO public.playlists (user_id, name, description, playlist_type)
+    VALUES (
+      v_host_id,
+      concat(trim(p_name), ' Setlist'),
+      'Main setlist for live requests.',
+      'human_jukebox'
+    )
+    RETURNING playlists.id INTO v_default_playlist_id;
+  END IF;
+
+  SELECT playlists.id
+  INTO v_karaoke_playlist_id
+  FROM public.playlists
+  WHERE playlists.user_id = v_host_id
+    AND playlists.playlist_type = 'karaoke'
+  ORDER BY playlists.created_at ASC
+  LIMIT 1;
+
+  IF v_karaoke_playlist_id IS NULL THEN
+    INSERT INTO public.playlists (user_id, name, description, playlist_type)
+    VALUES (
+      v_host_id,
+      'Karaoke Only',
+      'Songs reserved for audience karaoke requests.',
+      'karaoke'
+    )
+    RETURNING playlists.id INTO v_karaoke_playlist_id;
+  END IF;
+
+  INSERT INTO public.event_playlists (event_id, playlist_id)
+  VALUES (v_event_id, v_default_playlist_id)
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO public.event_playlists (event_id, playlist_id)
+  VALUES (v_event_id, v_karaoke_playlist_id)
+  ON CONFLICT DO NOTHING;
+
+  UPDATE public.profiles
+  SET active_event_id = v_event_id
+  WHERE user_id = v_host_id;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.events
+    WHERE host_id = v_host_id
+      AND is_active = true
+      AND id <> v_event_id
+  ) INTO v_has_active_gig;
+
+  IF NOT v_has_active_gig THEN
+    UPDATE public.events
+    SET is_active = true
+    WHERE id = v_event_id;
+  END IF;
+
+  id := v_event_id;
+  activated := NOT v_has_active_gig;
+  RETURN NEXT;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.create_host_gig(text, text, date, time, time, boolean, text) TO authenticated;
