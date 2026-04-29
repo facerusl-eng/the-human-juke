@@ -15,6 +15,8 @@
 }
 
 .topbar {
+  position: relative;
+  z-index: 40;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -31,6 +33,8 @@
 }
 
 .site-nav {
+  position: relative;
+  z-index: 41;
   display: flex;
   gap: 0.45rem;
   align-items: center;
@@ -39,6 +43,7 @@
 
 .site-nav .nav-dropdown {
   position: relative;
+  z-index: 42;
   display: inline-flex;
 }
 
@@ -91,7 +96,7 @@
   pointer-events: none;
   transform: translateY(-4px);
   transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
-  z-index: 12;
+  z-index: 90;
 }
 
 .site-nav .nav-dropdown:hover .nav-dropdown-menu,
