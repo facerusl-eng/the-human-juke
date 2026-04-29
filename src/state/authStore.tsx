@@ -375,7 +375,7 @@ function AuthProvider({ children }: PropsWithChildren) {
       if (isMounted) {
         setLoading(false)
       }
-    }, 4000)
+    }, 1800)
 
     void supabase.auth
       .getSession()

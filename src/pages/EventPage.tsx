@@ -436,7 +436,7 @@ function EventPage() {
     const timerId = window.setTimeout(() => {
       setAudienceLoadingFallbackActive(true)
       setUpcomingEventsNotice('Loading is taking longer than expected. Showing upcoming events while we reconnect...')
-    }, 3500)
+    }, 1600)
 
     return () => {
       window.clearTimeout(timerId)
@@ -655,10 +655,9 @@ function EventPage() {
       return
     }
 
-    if (authLoading) {
+    if (authLoading && !user) {
       setUpcomingEventsLoading(true)
       setUpcomingEventsNotice('Finishing sign-in before loading upcoming gigs...')
-      return
     }
 
     let isCurrent = true
