@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
-import { toPng } from 'html-to-image'
+import { toJpeg, toPng } from 'html-to-image'
 
 type PostFormat = 'square' | 'portrait' | 'story'
 type ThemeKey = 'sunset' | 'midnight' | 'studio'
@@ -78,7 +78,7 @@ function PromoteEventPage() {
     await navigator.clipboard.writeText(captionPreview)
   }
 
-  const exportPng = async () => {
+  const exportImage = async (type: 'png' | 'jpg') => {
     if (!previewRef.current || exportingImage) {
       return
     }
@@ -95,13 +95,20 @@ function PromoteEventPage() {
     const targetDimensions = dimensionsByFormat[format]
 
     try {
-      const dataUrl = await toPng(previewRef.current, {
+      const exportOptions = {
         cacheBust: true,
         pixelRatio: 1,
         skipAutoScale: true,
         canvasWidth: targetDimensions.width,
         canvasHeight: targetDimensions.height,
-      })
+      }
+
+      const dataUrl = type === 'png'
+        ? await toPng(previewRef.current, exportOptions)
+        : await toJpeg(previewRef.current, {
+          ...exportOptions,
+          quality: 0.92,
+        })
 
       const sanitizedEventName = eventName
         .trim()
@@ -110,11 +117,11 @@ function PromoteEventPage() {
         .replace(/^-+|-+$/g, '') || 'promote-event'
 
       const downloadLink = document.createElement('a')
-      downloadLink.download = `${sanitizedEventName}-${format}.png`
+      downloadLink.download = `${sanitizedEventName}-${format}.${type}`
       downloadLink.href = dataUrl
       downloadLink.click()
     } catch (error) {
-      console.warn('PromoteEventPage: PNG export failed', error)
+      console.warn(`PromoteEventPage: ${type.toUpperCase()} export failed`, error)
       setExportError('Could not export image. Please try another photo or theme.')
     } finally {
       setExportingImage(false)
@@ -198,8 +205,11 @@ function PromoteEventPage() {
           <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
             Copy Caption Text
           </button>
-          <button type="button" className="primary-button" onClick={() => void exportPng()} disabled={exportingImage}>
-            {exportingImage ? 'Exporting PNG...' : 'Export PNG'}
+          <button type="button" className="primary-button" onClick={() => void exportImage('png')} disabled={exportingImage}>
+            {exportingImage ? 'Exporting...' : 'Export PNG'}
+          </button>
+          <button type="button" className="secondary-button" onClick={() => void exportImage('jpg')} disabled={exportingImage}>
+            {exportingImage ? 'Exporting...' : 'Export JPG'}
           </button>
         </div>
         {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
