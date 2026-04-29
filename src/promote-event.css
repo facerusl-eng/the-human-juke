@@ -63,6 +63,7 @@
   padding: 1rem;
   border: 1px solid rgba(148, 163, 184, 0.35);
   box-shadow: 0 24px 50px rgba(2, 6, 23, 0.45);
+  --promote-text-scale: 1;
 }
 
 .promote-theme-sunset {
@@ -162,7 +163,7 @@
 
 .promote-overline {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--promote-text-scale));
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.92;
@@ -170,14 +171,18 @@
 
 .promote-content h3 {
   margin: 0;
-  font-size: clamp(1.4rem, 4.2vw, 2.1rem);
+  font-size: clamp(
+    calc(1.4rem * var(--promote-text-scale)),
+    calc(4.2vw * var(--promote-text-scale)),
+    calc(2.1rem * var(--promote-text-scale))
+  );
   line-height: 1.08;
 }
 
 .promote-subtitle,
 .promote-description {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--promote-text-scale));
   line-height: 1.35;
 }
 
@@ -207,7 +212,7 @@
 
 .promote-event-meta,
 .promote-cta {
-  font-size: 0.86rem;
+  font-size: calc(0.86rem * var(--promote-text-scale));
   opacity: 0.95;
 }
 

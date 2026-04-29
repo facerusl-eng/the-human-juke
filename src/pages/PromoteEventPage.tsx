@@ -33,6 +33,7 @@ type PromotionDraft = {
   theme: ThemeKey
   headlinePosition: HeadlinePosition
   headlineAnchor: HeadlineAnchor
+  textScale: number
 }
 
 const PROMOTION_DRAFT_STORAGE_KEY_PREFIX = 'human-jukebox-promo-draft:'
@@ -82,6 +83,7 @@ function PromoteEventPage() {
   const [headlinePosition, setHeadlinePosition] = useState<HeadlinePosition>('center')
   const [headlineAnchor, setHeadlineAnchor] = useState<HeadlineAnchor>({ x: 50, y: 50 })
   const [headlineDragging, setHeadlineDragging] = useState(false)
+  const [textScale, setTextScale] = useState(1)
   const [title, setTitle] = useState('Live Music, Made Interactive')
   const [subtitle, setSubtitle] = useState('Audience requests + live voting + host control')
   const [eventName, setEventName] = useState('The Human Jukebox Experience')
@@ -174,6 +176,7 @@ function PromoteEventPage() {
         setTheme(draft.theme ?? 'sunset')
         setHeadlinePosition(draft.headlinePosition ?? 'center')
         setHeadlineAnchor(draft.headlineAnchor ?? { x: 50, y: 50 })
+        setTextScale(typeof draft.textScale === 'number' ? draft.textScale : 1)
         return
       }
 
@@ -253,6 +256,14 @@ function PromoteEventPage() {
     headlineRef.current.style.setProperty('--headline-x', `${headlineAnchor.x}%`)
     headlineRef.current.style.setProperty('--headline-y', `${headlineAnchor.y}%`)
   }, [headlineAnchor])
+
+  useEffect(() => {
+    if (!previewRef.current) {
+      return
+    }
+
+    previewRef.current.style.setProperty('--promote-text-scale', String(textScale))
+  }, [textScale])
 
   const clampPercentage = (value: number, min = 8, max = 92) => Math.min(max, Math.max(min, value))
 
@@ -514,6 +525,7 @@ function PromoteEventPage() {
       theme,
       headlinePosition,
       headlineAnchor,
+      textScale,
     }
 
     try {
@@ -613,6 +625,20 @@ function PromoteEventPage() {
               <option value="center">Center</option>
               <option value="bottom">Bottom</option>
             </select>
+          </label>
+
+          <label className="promote-field">
+            <span>Text Size ({Math.round(textScale * 100)}%)</span>
+            <input
+              type="range"
+              min="0.8"
+              max="1.4"
+              step="0.05"
+              value={textScale}
+              onChange={(event) => {
+                setTextScale(Number.parseFloat(event.target.value))
+              }}
+            />
           </label>
 
           <label className="promote-field promote-field-wide">
