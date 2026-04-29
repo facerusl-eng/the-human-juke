@@ -21,6 +21,7 @@ function ShellLayout() {
   const [hasAudienceAccess, setHasAudienceAccess] = useState(() => Boolean(readCommittedAudienceName()))
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [isGigMenuOpen, setIsGigMenuOpen] = useState(false)
+  const [isGigMenuForceClosed, setIsGigMenuForceClosed] = useState(false)
   const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
@@ -43,6 +44,7 @@ function ShellLayout() {
 
   const closeGigMenuAfterNavigation = () => {
     setIsGigMenuOpen(false)
+    setIsGigMenuForceClosed(true)
 
     // Prevent :focus-within from keeping the dropdown expanded after click navigation.
     window.requestAnimationFrame(() => {
@@ -72,6 +74,7 @@ function ShellLayout() {
   useEffect(() => {
     setIsMobileNavOpen(false)
     setIsGigMenuOpen(false)
+    setIsGigMenuForceClosed(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -204,15 +207,32 @@ function ShellLayout() {
                 <>
                   <NavLink to="/admin" end>Dashboard</NavLink>
                   <div
-                    className={`nav-dropdown gigs-nav-dropdown ${isGigMenuOpen ? 'nav-dropdown-open' : ''}`.trim()}
-                    onMouseEnter={() => setIsGigMenuOpen(true)}
-                    onMouseLeave={() => setIsGigMenuOpen(false)}
+                    className={[
+                      'nav-dropdown',
+                      'gigs-nav-dropdown',
+                      isGigMenuOpen ? 'nav-dropdown-open' : '',
+                      isGigMenuForceClosed ? 'nav-dropdown-force-closed' : '',
+                    ].filter(Boolean).join(' ')}
+                    onMouseEnter={() => {
+                      if (isGigMenuForceClosed) {
+                        return
+                      }
+
+                      setIsGigMenuOpen(true)
+                    }}
+                    onMouseLeave={() => {
+                      setIsGigMenuOpen(false)
+                      setIsGigMenuForceClosed(false)
+                    }}
                   >
                     <button
                       type="button"
                       className={`nav-dropdown-trigger ${isGigNavActive ? 'active' : ''}`.trim()}
                       aria-label="Open gig navigation"
-                      onClick={() => setIsGigMenuOpen((open) => !open)}
+                      onClick={() => {
+                        setIsGigMenuForceClosed(false)
+                        setIsGigMenuOpen((open) => !open)
+                      }}
                     >
                       Gigs
                     </button>
