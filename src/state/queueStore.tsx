@@ -574,6 +574,33 @@ function QueueProvider({ children }: PropsWithChildren) {
       throw songsError
     }
 
+    const queueSongs = ((songsData ?? []) as QueueSong[])
+    const missingCoverLibrarySongIds = [...new Set(
+      queueSongs
+        .filter((song) => !song.cover_url && song.library_song_id)
+        .map((song) => song.library_song_id)
+        .filter((songId): songId is string => Boolean(songId)),
+    )]
+
+    let coverUrlByLibrarySongId = new Map<string, string>()
+
+    if (missingCoverLibrarySongIds.length > 0) {
+      const { data: librarySongsWithCovers, error: librarySongsWithCoversError } = await supabase
+        .from('library_songs')
+        .select('id, cover_url')
+        .in('id', missingCoverLibrarySongIds)
+
+      if (librarySongsWithCoversError) {
+        console.warn('queueStore: failed to backfill queue cover art from library songs', librarySongsWithCoversError)
+      } else {
+        coverUrlByLibrarySongId = new Map(
+          ((librarySongsWithCovers ?? []) as Array<{ id?: string | null; cover_url?: string | null }>)
+            .filter((song) => Boolean(song.id && song.cover_url))
+            .map((song) => [song.id as string, song.cover_url as string]),
+        )
+      }
+    }
+
     setEvent({
       id: String((eventData as Record<string, unknown>).id ?? ''),
       hostId: (eventData as Record<string, unknown>).host_id as string | null ?? null,
@@ -593,7 +620,16 @@ function QueueProvider({ children }: PropsWithChildren) {
       showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
       coverImageUrl: ((eventData as Record<string, unknown>).cover_image_url as string | null) ?? null,
     })
-    setSongs((songsData ?? []) as QueueSong[])
+    setSongs(queueSongs.map((song) => {
+      if (song.cover_url || !song.library_song_id) {
+        return song
+      }
+
+      return {
+        ...song,
+        cover_url: coverUrlByLibrarySongId.get(song.library_song_id) ?? null,
+      }
+    }))
   }, [])
 
   const fetchQueueSnapshotRef = useRef(fetchQueueSnapshot)
