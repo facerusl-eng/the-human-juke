@@ -117,6 +117,7 @@ function PromoteEventPage() {
   const [fontChoice, setFontChoice] = useState<FontChoice>('default')
   const [textFrame, setTextFrame] = useState<TextFrame>('auto')
   const [photoBrightness, setPhotoBrightness] = useState<number | null>(null)
+  const [photoBusyness, setPhotoBusyness] = useState<number | null>(null)
 
   const filteredHostEvents = useMemo(() => {
     const normalizedQuery = eventFilterQuery.trim().toLowerCase()
@@ -223,7 +224,7 @@ function PromoteEventPage() {
     }
   }, [selectedEventId, selectedHostEvent?.name, selectedHostEvent?.venue])
 
-  const analyzeImageBrightness = async (imageUrl: string) => {
+  const analyzeImageMetrics = async (imageUrl: string) => {
     try {
       const image = new Image()
 
@@ -252,24 +253,55 @@ function PromoteEventPage() {
       context.drawImage(image, 0, 0, sampleWidth, sampleHeight)
       const { data } = context.getImageData(0, 0, sampleWidth, sampleHeight)
 
+      const luminanceValues = new Array<number>(sampleWidth * sampleHeight)
       let luminanceTotal = 0
-      let sampleCount = 0
-      const stride = 12
 
-      for (let index = 0; index < data.length; index += 4 * stride) {
-        const red = data[index] / 255
-        const green = data[index + 1] / 255
-        const blue = data[index + 2] / 255
-        const luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
-        luminanceTotal += luminance
-        sampleCount += 1
+      for (let y = 0; y < sampleHeight; y += 1) {
+        for (let x = 0; x < sampleWidth; x += 1) {
+          const pixelIndex = (y * sampleWidth + x)
+          const dataIndex = pixelIndex * 4
+          const red = data[dataIndex] / 255
+          const green = data[dataIndex + 1] / 255
+          const blue = data[dataIndex + 2] / 255
+          const luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+          luminanceValues[pixelIndex] = luminance
+          luminanceTotal += luminance
+        }
       }
 
-      if (!sampleCount) {
+      const sampleCount = luminanceValues.length
+
+      if (!sampleCount || sampleWidth < 2 || sampleHeight < 2) {
         return null
       }
 
-      return luminanceTotal / sampleCount
+      let luminanceDiffTotal = 0
+      let diffCount = 0
+
+      for (let y = 0; y < sampleHeight; y += 1) {
+        for (let x = 0; x < sampleWidth; x += 1) {
+          const index = y * sampleWidth + x
+          const current = luminanceValues[index]
+
+          if (x + 1 < sampleWidth) {
+            luminanceDiffTotal += Math.abs(current - luminanceValues[index + 1])
+            diffCount += 1
+          }
+
+          if (y + 1 < sampleHeight) {
+            luminanceDiffTotal += Math.abs(current - luminanceValues[index + sampleWidth])
+            diffCount += 1
+          }
+        }
+      }
+
+      const brightness = luminanceTotal / sampleCount
+      const busyness = diffCount ? luminanceDiffTotal / diffCount : 0
+
+      return {
+        brightness,
+        busyness,
+      }
     } catch {
       return null
     }
@@ -289,6 +321,7 @@ function PromoteEventPage() {
     if (unsupportedImage) {
       setExportError('This photo format is not supported by your browser. Please use JPG or PNG.')
       setPhotoBrightness(null)
+      setPhotoBusyness(null)
       return
     }
 
@@ -302,9 +335,11 @@ function PromoteEventPage() {
     photoObjectUrlRef.current = objectUrl
     setPhotoUrl(objectUrl)
     setPhotoBrightness(null)
+    setPhotoBusyness(null)
 
-    void analyzeImageBrightness(objectUrl).then((brightness) => {
-      setPhotoBrightness(brightness)
+    void analyzeImageMetrics(objectUrl).then((metrics) => {
+      setPhotoBrightness(metrics?.brightness ?? null)
+      setPhotoBusyness(metrics?.busyness ?? null)
     })
   }
 
@@ -317,8 +352,16 @@ function PromoteEventPage() {
       return 'dark'
     }
 
-    return photoBrightness >= 0.58 ? 'dark' : 'light'
-  }, [photoBrightness, textFrame])
+    if (photoBrightness >= 0.52) {
+      return 'dark'
+    }
+
+    if ((photoBusyness ?? 0) >= 0.16) {
+      return 'dark'
+    }
+
+    return 'light'
+  }, [photoBrightness, photoBusyness, textFrame])
 
   const autoFrameHint = useMemo(() => {
     if (textFrame !== 'auto') {
@@ -329,8 +372,16 @@ function PromoteEventPage() {
       return 'Auto picks Dark Background until a photo is uploaded.'
     }
 
-    return `Auto picked: ${resolvedTextFrame === 'dark' ? 'Dark Background' : 'Light Background'}`
-  }, [photoBrightness, resolvedTextFrame, textFrame])
+    const reason = resolvedTextFrame === 'dark'
+      ? (photoBrightness >= 0.52
+        ? 'bright photo'
+        : (photoBusyness ?? 0) >= 0.16
+          ? 'busy photo'
+          : 'safety default')
+      : 'low brightness and low visual noise'
+
+    return `Auto picked: ${resolvedTextFrame === 'dark' ? 'Dark Background' : 'Light Background'} (${reason})`
+  }, [photoBrightness, photoBusyness, resolvedTextFrame, textFrame])
 
   const captionPreview = useMemo(() => {
     return `${eventName}\n${description}\n${ctaText}`
