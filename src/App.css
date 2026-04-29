@@ -7553,6 +7553,62 @@
   font-size: clamp(0.82rem, 0.96vw, 0.94rem);
 }
 
+.live-feed-panel-mirror .live-feed-post-mirror-text {
+  min-height: clamp(104px, 16vh, 210px);
+  padding: clamp(0.62rem, 1vw, 1rem);
+  border-radius: 16px;
+  border: 1px solid rgba(93, 215, 255, 0.28);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(93, 215, 255, 0.16) 0%, transparent 42%),
+    linear-gradient(145deg, rgba(13, 22, 44, 0.84) 0%, rgba(10, 18, 36, 0.9) 100%);
+  box-shadow:
+    0 14px 28px rgba(3, 8, 20, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  gap: clamp(0.24rem, 0.45vw, 0.42rem);
+}
+
+.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head {
+  margin-top: 0;
+  width: 100%;
+  justify-content: center;
+}
+
+.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head div {
+  display: grid;
+  justify-items: center;
+  gap: 0.12rem;
+}
+
+.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head strong {
+  font-family: var(--font-head);
+  font-size: clamp(0.98rem, 1.24vw, 1.24rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9bdcff;
+}
+
+.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head span {
+  font-size: clamp(0.7rem, 0.8vw, 0.78rem);
+  color: rgba(199, 223, 255, 0.78);
+}
+
+.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-message {
+  margin: 0;
+  max-width: min(100%, 30ch);
+  font-family: var(--font-head);
+  font-size: clamp(1.35rem, 2.2vw, 2.35rem);
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+  color: #f8fbff;
+  text-shadow:
+    0 0 18px rgba(93, 215, 255, 0.24),
+    0 0 34px rgba(93, 215, 255, 0.14);
+}
+
 @media (max-width: 1180px) {
   .mirror-stage-live {
     grid-template-rows: minmax(0, 0.34fr) minmax(0, 0.66fr) !important;

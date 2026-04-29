@@ -785,7 +785,7 @@ function LiveFeedPanel({
       {loading ? <p className="subcopy no-margin">Loading the live feed...</p> : null}
 
       {!loading ? (
-        <div className="live-feed-list" role="list">
+        <div className="live-feed-list">
           {visiblePosts.length === 0 ? (
             <p className="subcopy no-margin">
               {isMirrorMode
@@ -798,6 +798,7 @@ function LiveFeedPanel({
               const normalizedPostImageSource = normalizeImageSource(post.image_data_url)
               const hasImage = Boolean(normalizedPostImageSource)
               const useMirrorPhotoLayout = isMirrorMode && hasImage
+              const isMirrorTextPost = isMirrorMode && !hasImage && Boolean(post.message?.trim())
               const imageNode = normalizedPostImageSource ? (
                 <div className="live-feed-post-image-wrapper">
                   <img src={normalizedPostImageSource} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
@@ -806,7 +807,10 @@ function LiveFeedPanel({
               ) : null
 
               return (
-                <article key={post.id} className={`live-feed-post ${hasImage ? 'live-feed-post-polaroid' : ''}`} role="listitem">
+                <article
+                  key={post.id}
+                  className={`live-feed-post ${hasImage ? 'live-feed-post-polaroid' : ''} ${isMirrorTextPost ? 'live-feed-post-mirror-text' : ''}`.trim()}
+                >
                   {isMirrorMode ? imageNode : null}
 
                   <div className="live-feed-post-head">
