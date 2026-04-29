@@ -102,8 +102,23 @@ function PromoteEventPage() {
   const [facebookLinkCopied, setFacebookLinkCopied] = useState(false)
   const [facebookShareError, setFacebookShareError] = useState<string | null>(null)
   const [selectedPromotionEventId, setSelectedPromotionEventId] = useState('')
+  const [eventFilterQuery, setEventFilterQuery] = useState('')
   const [promotionSaved, setPromotionSaved] = useState(false)
   const [promotionSaveError, setPromotionSaveError] = useState<string | null>(null)
+
+  const filteredHostEvents = useMemo(() => {
+    const normalizedQuery = eventFilterQuery.trim().toLowerCase()
+
+    if (!normalizedQuery) {
+      return hostEvents
+    }
+
+    return hostEvents.filter((hostEvent) => {
+      const name = hostEvent.name.toLowerCase()
+      const venue = (hostEvent.venue ?? '').toLowerCase()
+      return name.includes(normalizedQuery) || venue.includes(normalizedQuery)
+    })
+  }, [hostEvents, eventFilterQuery])
 
   const selectedHostEvent = useMemo(() => {
     const normalizedEventId = selectedPromotionEventId.trim()
@@ -574,6 +589,11 @@ function PromoteEventPage() {
         <div className="promote-control-grid">
           <label className="promote-field">
             <span>Event</span>
+            <input
+              value={eventFilterQuery}
+              onChange={(changeEvent) => setEventFilterQuery(changeEvent.target.value)}
+              placeholder="Filter events by name or venue"
+            />
             <select
               value={selectedEventId}
               onChange={(changeEvent) => {
@@ -581,8 +601,8 @@ function PromoteEventPage() {
                 setSelectedPromotionEventId(changeEvent.target.value)
               }}
             >
-              {!hostEvents.length ? <option value="">No events found</option> : null}
-              {hostEvents.map((hostEvent) => (
+              {!filteredHostEvents.length ? <option value="">No matching events</option> : null}
+              {filteredHostEvents.map((hostEvent) => (
                 <option key={hostEvent.id} value={hostEvent.id}>
                   {hostEvent.name}{hostEvent.venue ? ` - ${hostEvent.venue}` : ''}
                 </option>
