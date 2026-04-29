@@ -20,6 +20,23 @@ type Theme = {
   name: string
 }
 
+type PromotionDraft = {
+  title: string
+  subtitle: string
+  eventName: string
+  venue: string
+  eventDate: string
+  ctaText: string
+  description: string
+  format: PostFormat
+  platform: SocialPlatform
+  theme: ThemeKey
+  headlinePosition: HeadlinePosition
+  headlineAnchor: HeadlineAnchor
+}
+
+const PROMOTION_DRAFT_STORAGE_KEY_PREFIX = 'human-jukebox-promo-draft:'
+
 const THEMES: Theme[] = [
   {
     key: 'none',
@@ -53,11 +70,12 @@ const THEME_CLASS_MAP: Record<ThemeKey, string> = {
 }
 
 function PromoteEventPage() {
-  const { event, setEventAudienceNoGigVisibility } = useQueueStore()
+  const { event, hostEvents, setEventAudienceNoGigVisibility } = useQueueStore()
   const previewRef = useRef<HTMLElement | null>(null)
   const headlineRef = useRef<HTMLDivElement | null>(null)
   const dragActiveRef = useRef(false)
   const photoObjectUrlRef = useRef<string | null>(null)
+  const initializingDraftRef = useRef(false)
   const [format, setFormat] = useState<PostFormat>('portrait')
   const [platform, setPlatform] = useState<SocialPlatform>('instagram')
   const [theme, setTheme] = useState<ThemeKey>('sunset')
@@ -81,6 +99,25 @@ function PromoteEventPage() {
   const [audienceVisibilityError, setAudienceVisibilityError] = useState<string | null>(null)
   const [facebookLinkCopied, setFacebookLinkCopied] = useState(false)
   const [facebookShareError, setFacebookShareError] = useState<string | null>(null)
+  const [selectedPromotionEventId, setSelectedPromotionEventId] = useState('')
+  const [promotionSaved, setPromotionSaved] = useState(false)
+  const [promotionSaveError, setPromotionSaveError] = useState<string | null>(null)
+
+  const selectedHostEvent = useMemo(() => {
+    const normalizedEventId = selectedPromotionEventId.trim()
+
+    if (normalizedEventId) {
+      const matchedEvent = hostEvents.find((hostEvent) => hostEvent.id === normalizedEventId)
+
+      if (matchedEvent) {
+        return matchedEvent
+      }
+    }
+
+    return hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null
+  }, [hostEvents, selectedPromotionEventId, event?.id])
+
+  const selectedEventId = selectedHostEvent?.id ?? event?.id ?? ''
 
   const activeTheme = useMemo(
     () => THEMES.find((item) => item.key === theme) ?? THEMES[0],
@@ -105,20 +142,52 @@ function PromoteEventPage() {
   }, [platform, format])
 
   useEffect(() => {
-    if (!event) {
+    if (!selectedPromotionEventId && event?.id) {
+      setSelectedPromotionEventId(event.id)
+    }
+  }, [selectedPromotionEventId, event?.id])
+
+  useEffect(() => {
+    if (!selectedEventId) {
       return
     }
 
-    setEventName(event.name)
-    setVenue(event.venue ?? '')
+    const storageKey = `${PROMOTION_DRAFT_STORAGE_KEY_PREFIX}${selectedEventId}`
+    const savedDraftText = window.localStorage.getItem(storageKey)
+    const defaultEventDate = 'Saturday · 20:00'
 
-    if (event.gigDate) {
-      const formattedDate = event.gigStartTime
-        ? `${event.gigDate} · ${event.gigStartTime}`
-        : event.gigDate
-      setEventDate(formattedDate)
+    setPromotionSaveError(null)
+    initializingDraftRef.current = true
+
+    try {
+      if (savedDraftText) {
+        const draft = JSON.parse(savedDraftText) as Partial<PromotionDraft>
+        setTitle(draft.title ?? 'Live Music, Made Interactive')
+        setSubtitle(draft.subtitle ?? 'Audience requests + live voting + host control')
+        setEventName(draft.eventName ?? selectedHostEvent?.name ?? 'The Human Jukebox Experience')
+        setVenue(draft.venue ?? selectedHostEvent?.venue ?? '')
+        setEventDate(draft.eventDate ?? defaultEventDate)
+        setCtaText(draft.ctaText ?? 'Join the show at the-human-jukebox.org')
+        setDescription(draft.description ?? 'Turn your audience into active participants with real-time song requests and voting.')
+        setFormat(draft.format ?? 'portrait')
+        setPlatform(draft.platform ?? 'instagram')
+        setTheme(draft.theme ?? 'sunset')
+        setHeadlinePosition(draft.headlinePosition ?? 'center')
+        setHeadlineAnchor(draft.headlineAnchor ?? { x: 50, y: 50 })
+        return
+      }
+
+      setEventName(selectedHostEvent?.name ?? 'The Human Jukebox Experience')
+      setVenue(selectedHostEvent?.venue ?? '')
+      setEventDate(defaultEventDate)
+    } catch {
+      setPromotionSaveError('Could not load saved promotion for this event.')
+    } finally {
+      window.setTimeout(() => {
+        initializingDraftRef.current = false
+      }, 0)
     }
-  }, [event?.id, event?.name, event?.venue, event?.gigDate, event?.gigStartTime])
+  }, [selectedEventId, selectedHostEvent?.name, selectedHostEvent?.venue])
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0]
@@ -152,8 +221,8 @@ function PromoteEventPage() {
   }, [ctaText, description, eventName])
 
   const audienceShareUrl = useMemo(() => {
-    return getAudienceUrl(event?.id ?? null, { compact: true, includeVersion: true })
-  }, [event?.id])
+    return getAudienceUrl(selectedEventId || null, { compact: true, includeVersion: true })
+  }, [selectedEventId])
 
   const facebookShareUrl = useMemo(() => {
     if (!audienceShareUrl) {
@@ -290,6 +359,20 @@ function PromoteEventPage() {
     }
   }, [facebookLinkCopied])
 
+  useEffect(() => {
+    if (!promotionSaved) {
+      return
+    }
+
+    const timerId = window.setTimeout(() => {
+      setPromotionSaved(false)
+    }, 1800)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [promotionSaved])
+
   const waitForPreviewAssets = async (previewElement: HTMLElement) => {
     if ('fonts' in document && document.fonts?.ready) {
       await document.fonts.ready
@@ -415,7 +498,7 @@ function PromoteEventPage() {
   }
 
   const toggleAudienceNoLiveVisibility = async () => {
-    if (!event || audienceVisibilitySaving) {
+    if (!selectedEventId || audienceVisibilitySaving) {
       return
     }
 
@@ -424,12 +507,45 @@ function PromoteEventPage() {
     setAudienceVisibilitySaving(true)
 
     try {
-      await setEventAudienceNoGigVisibility(event.id, !event.showInAudienceNoGig)
+      await setEventAudienceNoGigVisibility(selectedEventId, !(selectedHostEvent?.showInAudienceNoGig ?? false))
       setAudienceVisibilitySaved(true)
     } catch (error) {
       setAudienceVisibilityError(error instanceof Error ? error.message : 'Failed to update no-live audience visibility.')
     } finally {
       setAudienceVisibilitySaving(false)
+    }
+  }
+
+  const savePromotionDraft = () => {
+    if (!selectedEventId || initializingDraftRef.current) {
+      setPromotionSaveError('Select an event before saving a promotion.')
+      return
+    }
+
+    setPromotionSaveError(null)
+    setPromotionSaved(false)
+
+    const storageKey = `${PROMOTION_DRAFT_STORAGE_KEY_PREFIX}${selectedEventId}`
+    const draft: PromotionDraft = {
+      title,
+      subtitle,
+      eventName,
+      venue,
+      eventDate,
+      ctaText,
+      description,
+      format,
+      platform,
+      theme,
+      headlinePosition,
+      headlineAnchor,
+    }
+
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(draft))
+      setPromotionSaved(true)
+    } catch {
+      setPromotionSaveError('Could not save promotion draft. Please try again.')
     }
   }
 
@@ -469,6 +585,24 @@ function PromoteEventPage() {
         </p>
 
         <div className="promote-control-grid">
+          <label className="promote-field">
+            <span>Event</span>
+            <select
+              value={selectedEventId}
+              onChange={(changeEvent) => {
+                setPromotionSaveError(null)
+                setSelectedPromotionEventId(changeEvent.target.value)
+              }}
+            >
+              {!hostEvents.length ? <option value="">No events found</option> : null}
+              {hostEvents.map((hostEvent) => (
+                <option key={hostEvent.id} value={hostEvent.id}>
+                  {hostEvent.name}{hostEvent.venue ? ` - ${hostEvent.venue}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="promote-field">
             <span>Format</span>
             <select value={format} onChange={(event) => setFormat(event.target.value as PostFormat)}>
@@ -557,19 +691,19 @@ function PromoteEventPage() {
               onClick={() => {
                 void toggleAudienceNoLiveVisibility()
               }}
-              disabled={!event || audienceVisibilitySaving}
+              disabled={!selectedEventId || audienceVisibilitySaving}
             >
-              {!event
+              {!selectedEventId
                 ? 'No Active Event Selected'
                 : audienceVisibilitySaving
                 ? 'Saving...'
-                : event.showInAudienceNoGig
+                : selectedHostEvent?.showInAudienceNoGig
                 ? 'Hide This Event When No Gig Is Live'
                 : 'Show This Event When No Gig Is Live'}
             </button>
             <p className="field-hint">
-              {event
-                ? event.showInAudienceNoGig
+              {selectedEventId
+                ? selectedHostEvent?.showInAudienceNoGig
                   ? 'Audience fallback is enabled for this event.'
                   : 'Audience fallback is disabled for this event.'
                 : 'Select an active event first to configure audience fallback visibility.'}
@@ -580,6 +714,14 @@ function PromoteEventPage() {
         <div className="promote-action-row">
           <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
             Copy Caption Text
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={savePromotionDraft}
+            disabled={!selectedEventId || initializingDraftRef.current}
+          >
+            {promotionSaved ? 'Promotion Saved' : 'Save Promotion Draft'}
           </button>
           <button
             type="button"
@@ -606,6 +748,7 @@ function PromoteEventPage() {
             {exportingImage ? 'Exporting...' : `Export JPG (${targetDimensions.width}x${targetDimensions.height})`}
           </button>
         </div>
+        {promotionSaveError ? <p className="error-text no-margin-bottom">{promotionSaveError}</p> : null}
         {facebookShareError ? <p className="error-text no-margin-bottom">{facebookShareError}</p> : null}
         {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
         {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
