@@ -3,6 +3,7 @@ import './App.css'
 import './setlist-library.css'
 import './gig-settings.css'
 import './admin-settings.css'
+import './promote-event.css'
 import { Suspense, lazy, useEffect } from 'react'
 import { Navigate, createBrowserRouter, isRouteErrorResponse, useNavigate, useRouteError, useParams } from 'react-router-dom'
 import AppCrashBoundary from './components/AppCrashBoundary'
@@ -25,6 +26,7 @@ const HealthCheckPage = lazy(() => import('./pages/HealthCheckPage'))
 const HomePage = lazy(() => import('./pages/HomePage'))
 const MirrorPage = lazy(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazy(() => import('./pages/SetlistLibraryPage'))
+const PromoteEventPage = lazy(() => import('./pages/PromoteEventPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const SpotifyCallbackPage = lazy(() => import('./pages/SpotifyCallbackPage'))
 
@@ -253,6 +255,17 @@ const router = createBrowserRouter([
             'Admin',
             <RequireHost>
               <SetlistLibraryPage />
+            </RequireHost>,
+          ),
+        ),
+      },
+      {
+        path: 'admin/promote-event',
+        element: withSuspense(
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <PromoteEventPage />
             </RequireHost>,
           ),
         ),

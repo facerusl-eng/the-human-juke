@@ -254,8 +254,8 @@ function AdminDashboardContent({
     navigate('/feed')
   }, [navigate])
   const openPromoteEvent = useCallback(() => {
-    window.open('https://github.com/facerusl-eng/the-human-juke/blob/main/docs/LAUNCH_WEEK_CALENDAR_DA_EN.md', '_blank', 'noopener,noreferrer')
-  }, [])
+    navigate('/admin/promote-event')
+  }, [navigate])
 
   useEffect(() => {
     if (!loading) {
