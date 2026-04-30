@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import html2canvas from 'html2canvas'
 import { getAudienceUrl } from '../lib/audienceUrl'
+import { prepareFeedImage } from '../lib/feedImage'
 import { useQueueStore } from '../state/queueStore'
 
 type PostFormat = 'square' | 'portrait' | 'story'
@@ -322,46 +323,37 @@ function PromoteEventPage() {
     }
   }
 
-  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0]
+    event.target.value = ''
 
     if (!nextFile) {
       return
     }
 
-    const fileName = nextFile.name.toLowerCase()
-    const fileType = nextFile.type.toLowerCase()
-    const unsupportedImage = fileType.includes('heic') || fileType.includes('heif') || fileName.endsWith('.heic') || fileName.endsWith('.heif')
-
-    if (unsupportedImage) {
-      setExportError('This photo format is not supported by your browser. Please use JPG or PNG.')
-      setPhotoBrightness(null)
-      setPhotoBusyness(null)
-      return
-    }
-
     setExportError(null)
-
-    if (photoObjectUrlRef.current) {
-      URL.revokeObjectURL(photoObjectUrlRef.current)
-    }
-
-    const objectUrl = URL.createObjectURL(nextFile)
-    photoObjectUrlRef.current = objectUrl
-    setPhotoUrl(objectUrl)
     setPhotoBrightness(null)
     setPhotoBusyness(null)
 
-    const reader = new FileReader()
-    reader.onload = (readerEvent) => {
-      photoDataUrlRef.current = typeof readerEvent.target?.result === 'string' ? readerEvent.target.result : null
+    if (photoObjectUrlRef.current) {
+      URL.revokeObjectURL(photoObjectUrlRef.current)
+      photoObjectUrlRef.current = null
     }
-    reader.readAsDataURL(nextFile)
 
-    void analyzeImageMetrics(objectUrl).then((metrics) => {
+    try {
+      const preparedPhotoDataUrl = await prepareFeedImage(nextFile)
+
+      photoDataUrlRef.current = preparedPhotoDataUrl
+      setPhotoUrl(preparedPhotoDataUrl)
+
+      const metrics = await analyzeImageMetrics(preparedPhotoDataUrl)
       setPhotoBrightness(metrics?.brightness ?? null)
       setPhotoBusyness(metrics?.busyness ?? null)
-    })
+    } catch (error) {
+      photoDataUrlRef.current = null
+      setPhotoUrl(null)
+      setExportError(error instanceof Error ? error.message : 'Could not prepare that photo. Please try a different file.')
+    }
   }
 
   const resolvedTextFrame = useMemo<'none' | 'light' | 'dark'>(() => {
