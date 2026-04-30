@@ -7011,6 +7011,51 @@
   padding-top: 0.6rem;
 }
 
+.audience-setlist-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
+.audience-setlist-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 14px;
+  border: 1px solid rgba(93, 215, 255, 0.3);
+  background: rgba(8, 14, 34, 0.7);
+  color: rgba(180, 210, 255, 0.75);
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.audience-setlist-tab-active {
+  background: rgba(93, 215, 255, 0.18);
+  border-color: rgba(93, 215, 255, 0.7);
+  color: #e8f7ff;
+}
+
+.audience-setlist-tab-count {
+  background: rgba(93, 215, 255, 0.22);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.audience-setlist-tab-active .audience-setlist-tab-count {
+  background: rgba(93, 215, 255, 0.4);
+}
+
+.audience-song-list-card-karaoke {
+  border-color: rgba(180, 130, 255, 0.45);
+  background: linear-gradient(145deg, rgba(14, 10, 38, 0.92) 0%, rgba(24, 14, 50, 0.94) 100%);
+}
+
 .audience-song-list-item {
   display: grid;
   gap: 0.28rem;
