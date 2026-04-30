@@ -1,4 +1,4 @@
-const STATIC_CACHE_NAME = 'human-jukebox-static-v5'
+const STATIC_CACHE_NAME = 'human-jukebox-static-v6'
 const SYNC_DB_NAME = 'human-jukebox-sync-db'
 const SYNC_DB_STORE = 'failed-requests'
 const SYNC_TAG = 'jukebox-sync'
