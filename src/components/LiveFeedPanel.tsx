@@ -184,8 +184,8 @@ function LiveFeedPanel({
   const isMirrorMode = mode === 'mirror'
   const previewImageSrc = imagePreviewUrl ?? imageDataUrl
   const visiblePosts = useMemo(
-    () => resolveVisiblePosts(posts, feedNow),
-    [feedNow, posts],
+    () => (isMirrorMode ? resolveVisiblePosts(posts, feedNow) : posts),
+    [feedNow, isMirrorMode, posts],
   )
 
   const suppressReconnectWarning = () => {
@@ -206,6 +206,10 @@ function LiveFeedPanel({
   }, [authorName])
 
   useEffect(() => {
+    if (!isMirrorMode) {
+      return
+    }
+
     const timer = window.setInterval(() => {
       setFeedNow(Date.now())
     }, 1000)
@@ -213,7 +217,7 @@ function LiveFeedPanel({
     return () => {
       window.clearInterval(timer)
     }
-  }, [])
+  }, [isMirrorMode])
 
   useEffect(() => {
     return () => {

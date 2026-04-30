@@ -5363,6 +5363,10 @@
   flex-wrap: wrap;
 }
 
+.live-feed-actions .primary-button {
+  min-width: 10.5rem;
+}
+
 .live-feed-file-input {
   position: absolute;
   width: 1px;
