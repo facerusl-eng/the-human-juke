@@ -139,7 +139,7 @@ async function cleanupLegacyServiceWorkers() {
       }),
     )
 
-    if ('caches' in window) {
+    if (unregisteredAny && 'caches' in window) {
       try {
         const cacheKeys = await caches.keys()
         await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)))
@@ -309,10 +309,31 @@ function installGlobalRuntimeHooks() {
   })
 }
 
-setupBuildUpdateRefresh()
+function scheduleNonCriticalStartupTasks() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const run = () => {
+    setupBuildUpdateRefresh()
+    void cleanupLegacyServiceWorkers()
+    void registerProductionServiceWorker()
+  }
+
+  if ('requestIdleCallback' in window) {
+    ;(window as Window & {
+      requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+    }).requestIdleCallback(() => {
+      run()
+    }, { timeout: 3000 })
+    return
+  }
+
+  globalThis.setTimeout(run, 1200)
+}
+
 installGlobalRuntimeHooks()
-void cleanupLegacyServiceWorkers()
-void registerProductionServiceWorker()
+scheduleNonCriticalStartupTasks()
 
 const rootElement = document.getElementById('root')
 
