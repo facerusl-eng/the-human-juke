@@ -495,8 +495,10 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
     const currentState = await playerRef.current.getCurrentState?.()
 
     if (!currentState) {
+      // No track loaded in the SDK player — calling togglePlay() here would throw
+      // "no list was loaded". Throw so callers fall through to REST API recovery.
       if (shouldPlay) {
-        await playerRef.current.togglePlay()
+        throw new Error('Cannot perform operation; no list was loaded.')
       }
       return
     }
@@ -513,6 +515,26 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
 
     setActionBusy(true)
     try {
+      // Check state first — if nothing is loaded, go straight to REST recovery
+      // instead of calling togglePlay() which would trigger a no-list SDK error.
+      const currentState = await playerRef.current.getCurrentState?.()
+      if (!currentState) {
+        try {
+          const resumed = await resumePlayback()
+          if (resumed) {
+            setPlayerStatus('Spotify playback resumed from where it stopped.')
+            return
+          }
+        } catch {
+          // fall through to playlist start
+        }
+        if (playlistInput.trim()) {
+          await startPlaylistPlayback(playlistInput)
+          return
+        }
+        setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press Play Playlist Between Songs first.')
+        return
+      }
       await playerRef.current.togglePlay()
       setPlayerStatus('Toggled play/pause.')
     } catch (error) {
