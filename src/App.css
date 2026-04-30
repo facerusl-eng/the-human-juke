@@ -6977,63 +6977,76 @@
 }
 
 .audience-playlist-choice {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.1rem 1rem;
+  position: relative;
+  display: block;
+  width: 100%;
   border-radius: 18px;
-  border: 1.5px solid rgba(93, 215, 255, 0.3);
-  background: rgba(8, 14, 34, 0.72);
-  color: inherit;
-  text-align: left;
+  border: none;
+  overflow: hidden;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s, box-shadow 0.12s;
+  aspect-ratio: 16 / 7;
+  background: #0a1228;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 .audience-playlist-choice:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .audience-playlist-choice-jukebox {
-  border-color: rgba(93, 215, 255, 0.45);
-  background: linear-gradient(135deg, rgba(8, 14, 34, 0.85) 0%, rgba(14, 28, 58, 0.9) 100%);
+  box-shadow: 0 4px 24px rgba(93, 215, 255, 0.18);
 }
 
 .audience-playlist-choice-karaoke {
-  border-color: rgba(180, 130, 255, 0.45);
-  background: linear-gradient(135deg, rgba(14, 8, 34, 0.85) 0%, rgba(28, 14, 52, 0.9) 100%);
+  box-shadow: 0 4px 24px rgba(180, 130, 255, 0.18);
 }
 
-.audience-playlist-choice-logo {
-  width: 3.2rem;
-  height: 3.2rem;
-  border-radius: 14px;
-  flex-shrink: 0;
-  display: block;
+.audience-playlist-choice-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  object-position: center;
+  object-position: center top;
+  display: block;
 }
 
-.audience-playlist-choice-body {
-  display: grid;
-  gap: 0.2rem;
+.audience-playlist-choice-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1rem 1.1rem 0.9rem;
+  background: linear-gradient(to top, rgba(4, 7, 20, 0.88) 0%, rgba(4, 7, 20, 0.35) 55%, transparent 100%);
 }
 
-.audience-playlist-choice-body strong {
-  font-size: 1.05rem;
-  color: #e8f7ff;
+.audience-playlist-choice-title {
+  font-size: 1.35rem;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.06em;
+  color: #fff;
+  line-height: 1.1;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7);
 }
 
-.audience-playlist-choice-body span {
-  font-size: 0.83rem;
-  color: rgba(180, 210, 255, 0.75);
+.audience-playlist-choice-sub {
+  font-size: 0.82rem;
+  color: rgba(220, 235, 255, 0.82);
+  margin-top: 0.15rem;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
 }
 
 .audience-playlist-choice-count {
-  font-size: 0.8rem;
-  color: rgba(180, 210, 255, 0.6);
+  font-size: 0.75rem;
+  color: rgba(180, 210, 255, 0.7);
+  margin-top: 0.3rem;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
   white-space: nowrap;
 }
 
@@ -7169,44 +7182,22 @@
     height: 60px;
   }
 
-  .audience-playlist-choice {
-    gap: 0.75rem;
-    padding: 0.9rem 0.85rem;
-  }
-
-  .audience-playlist-choice-logo {
-    width: 2.8rem;
-    height: 2.8rem;
-    border-radius: 12px;
-  }
-
-  .audience-playlist-choice-body strong {
-    font-size: 1rem;
+  .audience-playlist-choice-title {
+    font-size: 1.2rem;
   }
 }
 
 @media (max-width: 390px) {
-  .audience-playlist-choice {
-    gap: 0.6rem;
-    padding: 0.8rem 0.75rem;
+  .audience-playlist-choice-overlay {
+    padding: 0.75rem 0.85rem 0.7rem;
   }
 
-  .audience-playlist-choice-logo {
-    width: 2.4rem;
-    height: 2.4rem;
-    border-radius: 10px;
+  .audience-playlist-choice-title {
+    font-size: 1.1rem;
   }
 
-  .audience-playlist-choice-body strong {
-    font-size: 0.95rem;
-  }
-
-  .audience-playlist-choice-body span {
-    font-size: 0.78rem;
-  }
-
-  .audience-playlist-choice-count {
-    font-size: 0.75rem;
+  .audience-playlist-choice-sub {
+    font-size: 0.76rem;
   }
 }
 

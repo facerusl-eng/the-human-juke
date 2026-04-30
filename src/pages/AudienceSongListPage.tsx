@@ -583,24 +583,24 @@ function AudienceSongListPage() {
             className="audience-playlist-choice audience-playlist-choice-jukebox"
             onClick={() => setActiveSetlist('human_jukebox')}
           >
-            <img src="/images/playlist-human-jukebox.jpg" alt="" className="audience-playlist-choice-logo" aria-hidden="true" />
-            <span className="audience-playlist-choice-body">
-              <strong>Human Jukebox</strong>
-              <span>The host plays — you pick the song</span>
-            </span>
-            <span className="audience-playlist-choice-count">{humanJukeboxRows.length} songs</span>
+            <img src="/images/playlist-human-jukebox.jpg" alt="Human Jukebox playlist cover" className="audience-playlist-choice-cover" />
+            <div className="audience-playlist-choice-overlay">
+              <strong className="audience-playlist-choice-title">Human Jukebox</strong>
+              <span className="audience-playlist-choice-sub">The host plays — you pick the song</span>
+              <span className="audience-playlist-choice-count">{humanJukeboxRows.length} songs</span>
+            </div>
           </button>
           <button
             type="button"
             className="audience-playlist-choice audience-playlist-choice-karaoke"
             onClick={() => setActiveSetlist('karaoke')}
           >
-            <img src="/images/playlist-karaoke.jpg" alt="" className="audience-playlist-choice-logo" aria-hidden="true" />
-            <span className="audience-playlist-choice-body">
-              <strong>Karaoke</strong>
-              <span>You get up and sing it yourself</span>
-            </span>
-            <span className="audience-playlist-choice-count">{karaokeRows.length} songs</span>
+            <img src="/images/playlist-karaoke.jpg" alt="Karaoke playlist cover" className="audience-playlist-choice-cover" />
+            <div className="audience-playlist-choice-overlay">
+              <strong className="audience-playlist-choice-title">Karaoke</strong>
+              <span className="audience-playlist-choice-sub">You get up and sing it yourself</span>
+              <span className="audience-playlist-choice-count">{karaokeRows.length} songs</span>
+            </div>
           </button>
         </div>
       ) : null}
