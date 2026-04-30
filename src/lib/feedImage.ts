@@ -15,6 +15,10 @@ const EMERGENCY_MIN_IMAGE_SCALE = 0.2
 const EMERGENCY_MIN_OUTPUT_QUALITY = 0.1
 const LAST_RESORT_IMAGE_DIMENSION = 160
 const LAST_RESORT_OUTPUT_QUALITY = 0.08
+const POST_RETRY_IMAGE_DIMENSION = 480
+const POST_RETRY_OUTPUT_QUALITY = 0.42
+const POST_RETRY_MIN_IMAGE_SCALE = 0.18
+const POST_RETRY_MIN_OUTPUT_QUALITY = 0.14
 
 function readBlobAsDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
@@ -149,6 +153,58 @@ function compressToDataUrl(options: {
   }
 
   return null
+}
+
+export async function shrinkPreparedFeedImage(dataUrl: string) {
+  const trimmedDataUrl = dataUrl.trim()
+
+  if (!trimmedDataUrl) {
+    throw new Error('Unable to prepare this photo on this device. Please try again with a different photo.')
+  }
+
+  const image = await loadImage(trimmedDataUrl)
+  const raster: RasterSource = {
+    source: image,
+    width: image.naturalWidth || image.width,
+    height: image.naturalHeight || image.height,
+  }
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    throw new Error('Unable to prepare the selected image.')
+  }
+
+  const retryPassResult = compressToDataUrl({
+    raster,
+    canvas,
+    context,
+    maxDimension: POST_RETRY_IMAGE_DIMENSION,
+    startQuality: POST_RETRY_OUTPUT_QUALITY,
+    minQuality: POST_RETRY_MIN_OUTPUT_QUALITY,
+    minScale: POST_RETRY_MIN_IMAGE_SCALE,
+  })
+
+  if (retryPassResult) {
+    return retryPassResult
+  }
+
+  const lastResortResult = compressToDataUrl({
+    raster,
+    canvas,
+    context,
+    maxDimension: LAST_RESORT_IMAGE_DIMENSION,
+    startQuality: LAST_RESORT_OUTPUT_QUALITY,
+    minQuality: LAST_RESORT_OUTPUT_QUALITY,
+    minScale: 1,
+    cropSquare: true,
+  })
+
+  if (lastResortResult) {
+    return lastResortResult
+  }
+
+  throw new Error('Unable to prepare this photo on this device. Please try again with a different photo.')
 }
 
 export async function prepareFeedImage(file: File) {

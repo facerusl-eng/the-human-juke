@@ -3,7 +3,7 @@ import type { ChangeEvent, FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { prepareFeedImage } from '../lib/feedImage'
+import { prepareFeedImage, shrinkPreparedFeedImage } from '../lib/feedImage'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
@@ -60,6 +60,19 @@ function isAuthRecoverableInsertError(error: unknown) {
     || message.includes('not authenticated')
     || message.includes('row-level security')
     || message.includes('permission denied')
+}
+
+function isPotentialImagePayloadError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+
+  return message.includes('payload')
+    || message.includes('too large')
+    || message.includes('413')
+    || message.includes('request entity')
+    || message.includes('body exceeded')
+    || message.includes('content length')
+    || message.includes('networkerror')
+    || message.includes('failed to fetch')
 }
 
 function getSuggestedAuthorName(email: string | undefined, isHost: boolean) {
@@ -593,7 +606,7 @@ function LiveFeedPanel({
       const normalizedAuthorName = normalizeAuthorName(resolvedAuthorName, suggestedAuthorName)
       let postingUser = await resolvePostingUser()
 
-      const insertPost = async (postingUserId: string) => {
+      const insertPost = async (postingUserId: string, imagePayload: string | null = imageDataUrl) => {
         const { data, error } = await supabase
           .from('feed_posts')
           .insert({
@@ -601,7 +614,7 @@ function LiveFeedPanel({
             user_id: postingUserId,
             author_name: normalizedAuthorName,
             message: trimmedMessage,
-            image_data_url: imageDataUrl,
+            image_data_url: imagePayload,
           })
           .select('id, event_id, user_id, author_name, message, image_data_url, created_at')
           .single()
@@ -614,34 +627,47 @@ function LiveFeedPanel({
       }
 
       let insertedPost: FeedPost | null = null
+      let imagePayload = imageDataUrl
 
       try {
-        insertedPost = await insertPost(postingUser.id)
+        insertedPost = await insertPost(postingUser.id, imagePayload)
       } catch (error) {
-        if (!isAuthRecoverableInsertError(error)) {
-          throw error
-        }
+        if (isAuthRecoverableInsertError(error)) {
+          const { data: sessionData } = await supabase.auth.getSession()
 
-        const { data: sessionData } = await supabase.auth.getSession()
+          if (sessionData.session) {
+            const { error: refreshError } = await supabase.auth.refreshSession()
 
-        if (sessionData.session) {
-          const { error: refreshError } = await supabase.auth.refreshSession()
+            if (refreshError) {
+              throw error
+            }
+          } else if (postingUser.is_anonymous) {
+            const { error: signInError } = await supabase.auth.signInAnonymously()
 
-          if (refreshError) {
+            if (signInError) {
+              throw error
+            }
+          } else {
             throw error
           }
-        } else if (postingUser.is_anonymous) {
-          const { error: signInError } = await supabase.auth.signInAnonymously()
 
-          if (signInError) {
+          postingUser = await resolvePostingUser()
+          insertedPost = await insertPost(postingUser.id, imagePayload)
+        } else if (imagePayload && isPotentialImagePayloadError(error)) {
+          setImageStatusText('Photo is being optimized for posting...')
+          const smallerImagePayload = await shrinkPreparedFeedImage(imagePayload)
+
+          if (!smallerImagePayload || smallerImagePayload === imagePayload) {
             throw error
           }
+
+          imagePayload = smallerImagePayload
+          setImageDataUrl(smallerImagePayload)
+          setImageStatusText('Photo ready.')
+          insertedPost = await insertPost(postingUser.id, imagePayload)
         } else {
           throw error
         }
-
-        postingUser = await resolvePostingUser()
-        insertedPost = await insertPost(postingUser.id)
       }
 
       if (insertedPost) {
