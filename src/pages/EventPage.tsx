@@ -648,15 +648,18 @@ function EventPage() {
       try {
         const hostId = event?.hostId
 
-        const baseQuery = supabase
+        if (!hostId) {
+          if (isCurrent) {
+            setHostProfile(null)
+          }
+          return
+        }
+
+        const { data, error } = await supabase
           .from('profiles')
           .select('display_name, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email')
-
-        const query = hostId
-          ? baseQuery.eq('user_id', hostId).maybeSingle()
-          : baseQuery.eq('role', 'host').limit(1).maybeSingle()
-
-        const { data, error } = await query
+          .eq('user_id', hostId)
+          .maybeSingle()
 
         if (error) {
           throw error
