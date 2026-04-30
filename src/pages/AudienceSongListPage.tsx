@@ -126,7 +126,7 @@ function AudienceSongListPage() {
   const [errorText, setErrorText] = useState<string | null>(null)
   const [selectedSong, setSelectedSong] = useState<CuratedSong | null>(null)
   const [submittingMode, setSubmittingMode] = useState<PerformerMode | null>(null)
-  const [activeSetlist, setActiveSetlist] = useState<'human_jukebox' | 'karaoke'>('human_jukebox')
+  const [activeSetlist, setActiveSetlist] = useState<'human_jukebox' | 'karaoke' | null>(null)
 
   const audienceName = readCommittedAudienceName()
   const performerDisplayName = 'Performer'
@@ -526,6 +526,10 @@ function AudienceSongListPage() {
     }
   }
 
+  // Derived: whether we need the playlist picker step
+  const showPlaylistPicker = !loadingSongs && karaokeRows.length > 0 && activeSetlist === null
+  const activeRows = activeSetlist === 'karaoke' ? karaokeRows : humanJukeboxRows
+
   return (
     <section className="audience-song-list-shell" aria-label="Song list page">
       <header className="audience-song-list-header">
@@ -533,65 +537,134 @@ function AudienceSongListPage() {
           type="button"
           className="secondary-button audience-song-list-back"
           onClick={() => {
-            navigate(`/audience${location.search || ''}`, { replace: true })
+            // If the user picked a playlist and karaoke is available, go back to picker
+            if (activeSetlist !== null && karaokeRows.length > 0) {
+              setActiveSetlist(null)
+              setSongSearchQuery('')
+            } else {
+              navigate(`/audience${location.search || ''}`, { replace: true })
+            }
           }}
         >
-          Back
+          ← Back
         </button>
         <div className="audience-song-list-header-copy">
           <p className="eyebrow">Song List</p>
-          <h1>Pick a song</h1>
-          <p className="subcopy">Hi {audienceName || 'Guest'} - scroll and choose your next request.</p>
+          <h1>{activeSetlist === 'karaoke' ? 'Karaoke' : activeSetlist === 'human_jukebox' ? 'Human Jukebox' : 'Pick a song'}</h1>
+          <p className="subcopy">Hi {audienceName || 'Guest'} — {activeSetlist === null && karaokeRows.length > 0 ? 'choose a playlist first.' : 'scroll and choose your request.'}</p>
         </div>
       </header>
-
-      <section className="audience-song-list-search">
-        <label htmlFor="audience-song-list-search-input">Search songs</label>
-        <input
-          id="audience-song-list-search-input"
-          value={songSearchQuery}
-          onChange={(event) => setSongSearchQuery(event.target.value)}
-          placeholder="Search by song title or artist"
-        />
-      </section>
-
-      {event?.requestInstructions ? <p className="subcopy audience-song-list-note">{event.requestInstructions}</p> : null}
 
       {loadingSongs ? <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">Loading songs...</p> : null}
       {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
 
-      {karaokeRows.length > 0 ? (
-        <div className="audience-setlist-tabs" role="tablist" aria-label="Setlist tabs">
+      {/* ── Playlist picker ── */}
+      {showPlaylistPicker ? (
+        <div className="audience-playlist-picker">
+          {event?.requestInstructions ? <p className="subcopy audience-song-list-note">{event.requestInstructions}</p> : null}
           <button
             type="button"
-            role="tab"
-            aria-selected={activeSetlist === 'human_jukebox'}
-            className={`audience-setlist-tab${activeSetlist === 'human_jukebox' ? ' audience-setlist-tab-active' : ''}`}
+            className="audience-playlist-choice audience-playlist-choice-jukebox"
             onClick={() => setActiveSetlist('human_jukebox')}
           >
-            🎵 Human Jukebox
-            <span className="audience-setlist-tab-count">{humanJukeboxRows.length}</span>
+            <img src="/icons/icon-512.svg" alt="" className="audience-playlist-choice-logo" aria-hidden="true" />
+            <span className="audience-playlist-choice-body">
+              <strong>Human Jukebox</strong>
+              <span>The host plays — you pick the song</span>
+            </span>
+            <span className="audience-playlist-choice-count">{humanJukeboxRows.length} songs</span>
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={activeSetlist === 'karaoke'}
-            className={`audience-setlist-tab${activeSetlist === 'karaoke' ? ' audience-setlist-tab-active' : ''}`}
+            className="audience-playlist-choice audience-playlist-choice-karaoke"
             onClick={() => setActiveSetlist('karaoke')}
           >
-            🎤 Karaoke
-            <span className="audience-setlist-tab-count">{karaokeRows.length}</span>
+            <img src="/icons/icon-karaoke.svg" alt="" className="audience-playlist-choice-logo" aria-hidden="true" />
+            <span className="audience-playlist-choice-body">
+              <strong>Karaoke</strong>
+              <span>You get up and sing it yourself</span>
+            </span>
+            <span className="audience-playlist-choice-count">{karaokeRows.length} songs</span>
           </button>
         </div>
       ) : null}
 
-      {!loadingSongs ? (
-        <div className="audience-song-list-scroll">
-          <p className="curated-picker-results" aria-live="polite">
-            {(activeSetlist === 'karaoke' && karaokeRows.length > 0 ? karaokeRows : humanJukeboxRows).length} song{(activeSetlist === 'karaoke' && karaokeRows.length > 0 ? karaokeRows : humanJukeboxRows).length === 1 ? '' : 's'} available
-          </p>
+      {/* ── Song list ── */}
+      {!loadingSongs && activeSetlist !== null ? (
+        <>
+          <section className="audience-song-list-search">
+            <label htmlFor="audience-song-list-search-input">Search songs</label>
+            <input
+              id="audience-song-list-search-input"
+              value={songSearchQuery}
+              onChange={(event) => setSongSearchQuery(event.target.value)}
+              placeholder="Search by song title or artist"
+            />
+          </section>
 
-          {(activeSetlist === 'human_jukebox' || karaokeRows.length === 0) ? (
+          <div className="audience-song-list-scroll">
+            <p className="curated-picker-results" aria-live="polite">
+              {activeRows.length} song{activeRows.length === 1 ? '' : 's'} available
+            </p>
+            <div className="audience-song-list-section">
+              <ul className="audience-song-list-grid" aria-label={activeSetlist === 'karaoke' ? 'Karaoke songs' : 'Human jukebox songs'}>
+                {activeRows.map(({ song, title, artist, sectionLabel }) => (
+                  <li key={song.id} className="audience-song-list-item">
+                    {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
+                    <button
+                      type="button"
+                      className={`audience-song-list-card${activeSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}`}
+                      onClick={() => {
+                        setSelectedSong(song)
+                        setErrorText(null)
+                      }}
+                    >
+                      {song.cover_url ? (
+                        <img
+                          src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
+                          alt={`Cover art for ${title}`}
+                          className="audience-song-list-cover"
+                        />
+                      ) : (
+                        <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
+                      )}
+                      <span className="audience-song-list-copy">
+                        <span className="audience-song-list-title">{title}</span>
+                        <span className="audience-song-list-artist">{artist}</span>
+                        {activeSetlist === 'karaoke' ? <span className="karaoke-tag">I sing</span> : null}
+                        {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {!activeRows.length ? (
+                <p className="subcopy">
+                  {curatedSongs.length ? 'All matching songs are already in queue.' : 'No songs are assigned to this gig yet.'}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {/* No-karaoke fallback: show songs directly */}
+      {!loadingSongs && karaokeRows.length === 0 ? (
+        <>
+          <section className="audience-song-list-search">
+            <label htmlFor="audience-song-list-search-input">Search songs</label>
+            <input
+              id="audience-song-list-search-input"
+              value={songSearchQuery}
+              onChange={(event) => setSongSearchQuery(event.target.value)}
+              placeholder="Search by song title or artist"
+            />
+          </section>
+          {event?.requestInstructions ? <p className="subcopy audience-song-list-note">{event.requestInstructions}</p> : null}
+          <div className="audience-song-list-scroll">
+            <p className="curated-picker-results" aria-live="polite">
+              {humanJukeboxRows.length} song{humanJukeboxRows.length === 1 ? '' : 's'} available
+            </p>
             <div className="audience-song-list-section">
               <ul className="audience-song-list-grid" aria-label="Human jukebox songs">
                 {humanJukeboxRows.map(({ song, title, artist, sectionLabel }) => (
@@ -623,52 +696,10 @@ function AudienceSongListPage() {
                   </li>
                 ))}
               </ul>
-              {!humanJukeboxRows.length ? <p className="subcopy">No Human Jukebox songs available right now.</p> : null}
+              {!humanJukeboxRows.length ? <p className="subcopy">No songs available right now.</p> : null}
             </div>
-          ) : null}
-
-          {(activeSetlist === 'karaoke' && karaokeRows.length > 0) ? (
-            <div className="audience-song-list-section">
-              <ul className="audience-song-list-grid" aria-label="Karaoke songs">
-                {karaokeRows.map(({ song, title, artist, sectionLabel }) => (
-                  <li key={song.id} className="audience-song-list-item">
-                    {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
-                    <button
-                      type="button"
-                      className="audience-song-list-card audience-song-list-card-karaoke"
-                      onClick={() => {
-                        setSelectedSong(song)
-                        setErrorText(null)
-                      }}
-                    >
-                      {song.cover_url ? (
-                        <img
-                          src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
-                          alt={`Cover art for ${title}`}
-                          className="audience-song-list-cover"
-                        />
-                      ) : (
-                        <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
-                      )}
-                      <span className="audience-song-list-copy">
-                        <span className="audience-song-list-title">{title}</span>
-                        <span className="audience-song-list-artist">{artist}</span>
-                        <span className="karaoke-tag">Karaoke — I sing</span>
-                        {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {!availableSongs.length ? (
-            <p className="meta-badge audience-policy-badge">
-              {curatedSongs.length ? 'All matching songs are already in queue.' : 'No songs are assigned to this gig yet.'}
-            </p>
-          ) : null}
-        </div>
+          </div>
+        </>
       ) : null}
 
       {selectedSong ? (

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Karaoke icon">
+  <rect width="512" height="512" rx="84" fill="#000000"/>
+  <!-- Mic capsule -->
+  <rect x="210" y="104" width="92" height="148" rx="46" fill="#111111" stroke="#f4d35e" stroke-width="22"/>
+  <!-- Mic stand arm -->
+  <path d="M148 272 Q148 372 256 372 Q364 372 364 272" fill="none" stroke="#f4d35e" stroke-width="22" stroke-linecap="round"/>
+  <!-- Stand post -->
+  <line x1="256" y1="372" x2="256" y2="432" stroke="#f4d35e" stroke-width="22" stroke-linecap="round"/>
+  <!-- Base -->
+  <line x1="200" y1="432" x2="312" y2="432" stroke="#f4d35e" stroke-width="22" stroke-linecap="round"/>
+  <!-- Music note dots -->
+  <circle cx="350" cy="148" r="18" fill="#f4d35e"/>
+  <circle cx="396" cy="116" r="14" fill="#f4d35e"/>
+  <line x1="368" y1="148" x2="368" y2="108" stroke="#f4d35e" stroke-width="14" stroke-linecap="round"/>
+  <line x1="368" y1="108" x2="410" y2="116" stroke="#f4d35e" stroke-width="14" stroke-linecap="round"/>
+  <line x1="410" y1="116" x2="410" y2="76" stroke="#f4d35e" stroke-width="14" stroke-linecap="round"/>
+</svg>
