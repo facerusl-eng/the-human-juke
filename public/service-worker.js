@@ -1,4 +1,4 @@
-const STATIC_CACHE_NAME = 'human-jukebox-static-v2'
+const STATIC_CACHE_NAME = 'human-jukebox-static-v3'
 const SYNC_DB_NAME = 'human-jukebox-sync-db'
 const SYNC_DB_STORE = 'failed-requests'
 const SYNC_TAG = 'jukebox-sync'
@@ -49,6 +49,12 @@ function isSameOriginStaticAsset(requestUrl) {
     || requestUrl.pathname.endsWith('.jpeg')
     || requestUrl.pathname.endsWith('.webp')
   )
+}
+
+function isAppCodeAsset(requestUrl) {
+  return requestUrl.pathname.startsWith('/assets/')
+    || requestUrl.pathname.endsWith('.js')
+    || requestUrl.pathname.endsWith('.css')
 }
 
 async function networkFirstNavigation(event) {
@@ -106,6 +112,25 @@ async function staleWhileRevalidateAsset(request) {
   }
 
   return new Response('Asset unavailable', { status: 504 })
+}
+
+async function networkFirstAsset(request) {
+  const cache = await caches.open(STATIC_CACHE_NAME)
+
+  try {
+    const networkResponse = await fetch(request, { cache: 'no-store' })
+    if (networkResponse?.ok) {
+      cache.put(request, networkResponse.clone())
+    }
+    return networkResponse
+  } catch {
+    const cachedResponse = await cache.match(request)
+    if (cachedResponse) {
+      return cachedResponse
+    }
+
+    return new Response('Asset unavailable', { status: 504 })
+  }
 }
 
 function openSyncDb() {
@@ -234,7 +259,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.method === 'GET' && isSameOriginStaticAsset(requestUrl)) {
-    event.respondWith(staleWhileRevalidateAsset(request))
+    event.respondWith(
+      isAppCodeAsset(requestUrl)
+        ? networkFirstAsset(request)
+        : staleWhileRevalidateAsset(request),
+    )
     return
   }
 
