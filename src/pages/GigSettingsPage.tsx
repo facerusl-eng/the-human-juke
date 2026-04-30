@@ -28,6 +28,12 @@ type PlaylistArtworkSong = {
   cover_url: string | null
 }
 
+type PlaylistOption = {
+  id: string
+  label: string
+  helper: string
+}
+
 type PlaylistArtworkRow = {
   library_songs: PlaylistArtworkSong | PlaylistArtworkSong[] | null
 }
@@ -129,6 +135,35 @@ function inferPlaylistType(rawType: string | null | undefined, playlistName: str
   }
 
   return 'human_jukebox'
+}
+
+function getPlaylistThemeLabel(playlistType: PlaylistType) {
+  return playlistType === 'karaoke' ? 'Karaoke' : 'Human Jukebox'
+}
+
+function getPlaylistThemeDescription(playlistType: PlaylistType) {
+  return playlistType === 'karaoke'
+    ? 'Audience sing-along requests with a karaoke tag in the live queue.'
+    : 'The main request setlist for the regular Human Jukebox flow.'
+}
+
+function buildPlaylistOptions(playlists: HostPlaylist[], playlistType: PlaylistType): PlaylistOption[] {
+  const typedPlaylists = playlists.filter((playlist) => playlist.playlist_type === playlistType)
+
+  return [
+    {
+      id: '',
+      label: playlistType === 'karaoke' ? 'No karaoke setlist attached' : 'No Human Jukebox setlist selected',
+      helper: playlistType === 'karaoke'
+        ? 'Leave karaoke optional for this gig.'
+        : 'Pick one main setlist for regular requests.',
+    },
+    ...typedPlaylists.map((playlist) => ({
+      id: playlist.id,
+      label: playlist.name,
+      helper: getPlaylistThemeDescription(playlistType),
+    })),
+  ]
 }
 
 function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: GigSettingsFormProps) {
@@ -347,25 +382,6 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     })
   }
 
-  const updatePlaylistSelection = (playlistId: string, isSelected: boolean) => {
-    setState((current) => {
-      const nextSelectedPlaylistIds = isSelected
-        ? [...new Set([...current.selectedPlaylistIds, playlistId])]
-        : current.selectedPlaylistIds.filter((id) => id !== playlistId)
-
-      const nextState = {
-        ...current,
-        selectedPlaylistIds: nextSelectedPlaylistIds,
-      }
-
-      scheduleAutosave(async () => {
-        void performSave(nextState)
-      })
-
-      return nextState
-    })
-  }
-
   const pushUndoState = () => {
     setUndoStack((current) => [...current.slice(-MAX_UNDO_STATES + 1), { ...state, timestamp: Date.now() }])
     setRedoStack([])
@@ -561,6 +577,41 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       setErrorText(copyError)
     }
   }, [copyError])
+
+  const selectedHumanJukeboxPlaylistId = state.selectedPlaylistIds.find((playlistId) => (
+    playlists.find((playlist) => playlist.id === playlistId)?.playlist_type === 'human_jukebox'
+  )) ?? ''
+
+  const selectedKaraokePlaylistId = state.selectedPlaylistIds.find((playlistId) => (
+    playlists.find((playlist) => playlist.id === playlistId)?.playlist_type === 'karaoke'
+  )) ?? ''
+
+  const humanJukeboxOptions = buildPlaylistOptions(playlists, 'human_jukebox')
+  const karaokeOptions = buildPlaylistOptions(playlists, 'karaoke')
+
+  const setSelectedPlaylistForType = (playlistType: PlaylistType, playlistId: string) => {
+    setState((current) => {
+      const retainedPlaylistIds = current.selectedPlaylistIds.filter((id) => {
+        const matchingPlaylist = playlists.find((playlist) => playlist.id === id)
+        return matchingPlaylist?.playlist_type !== playlistType
+      })
+
+      const nextSelectedPlaylistIds = playlistId
+        ? [...retainedPlaylistIds, playlistId]
+        : retainedPlaylistIds
+
+      const nextState = {
+        ...current,
+        selectedPlaylistIds: nextSelectedPlaylistIds,
+      }
+
+      scheduleAutosave(async () => {
+        void performSave(nextState)
+      })
+
+      return nextState
+    })
+  }
 
   const isModified = state.gigName !== event.name
     || state.venue !== (event.venue ?? '')
@@ -845,33 +896,92 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             ) : (
               <>
                 <div className="playlist-count">
-                  <span className="meta-badge">{state.selectedPlaylistIds.length} selected</span>
+                  <span className="meta-badge">{state.selectedPlaylistIds.length} active setlist{state.selectedPlaylistIds.length === 1 ? '' : 's'}</span>
                 </div>
-                <div className="playlist-grid">
-                  {playlists.map((playlist) => {
-                    const isSelected = state.selectedPlaylistIds.includes(playlist.id)
-                    return (
-                      <label
-                        key={playlist.id}
-                        className={`playlist-card ${isSelected ? 'selected' : ''}`}
-                        htmlFor={`playlist-${playlist.id}`}
-                      >
-                        <input
-                          id={`playlist-${playlist.id}`}
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            pushUndoState()
-                            updatePlaylistSelection(playlist.id, e.target.checked)
-                          }}
-                        />
-                        <div className="playlist-info">
-                          <strong>{playlist.name}</strong>
-                          <span className="subcopy">{playlist.playlist_type === 'karaoke' ? 'Karaoke setlist' : 'Human Jukebox setlist'}</span>
-                        </div>
-                      </label>
-                    )
-                  })}
+                <div className="playlist-type-groups">
+                  <section className="playlist-type-group" aria-label="Human Jukebox playlist selection">
+                    <div className="playlist-type-group-header">
+                      <div>
+                        <p className="eyebrow">Primary setlist</p>
+                        <h3>Human Jukebox</h3>
+                        <p className="subcopy">Choose the main request playlist guests see first.</p>
+                      </div>
+                    </div>
+                    <div className="playlist-grid">
+                      {humanJukeboxOptions.map((option) => {
+                        const isSelected = selectedHumanJukeboxPlaylistId === option.id
+
+                        return (
+                          <label
+                            key={`human-jukebox-${option.id || 'none'}`}
+                            className={`playlist-card playlist-card-${option.id ? 'active' : 'empty'} playlist-card-human-jukebox ${isSelected ? 'selected' : ''}`}
+                            htmlFor={`human-jukebox-playlist-${option.id || 'none'}`}
+                          >
+                            <input
+                              id={`human-jukebox-playlist-${option.id || 'none'}`}
+                              type="radio"
+                              name="human-jukebox-playlist"
+                              checked={isSelected}
+                              onChange={() => {
+                                pushUndoState()
+                                setSelectedPlaylistForType('human_jukebox', option.id)
+                              }}
+                            />
+                            <div className="playlist-card-art" aria-hidden="true">
+                              <span className="playlist-card-art-badge">{option.id ? 'Main' : 'Off'}</span>
+                              <strong>Human Jukebox</strong>
+                            </div>
+                            <div className="playlist-info">
+                              <strong>{option.label}</strong>
+                              <span className="subcopy">{option.helper}</span>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="playlist-type-group" aria-label="Karaoke playlist selection">
+                    <div className="playlist-type-group-header">
+                      <div>
+                        <p className="eyebrow">Optional second lane</p>
+                        <h3>Karaoke</h3>
+                        <p className="subcopy">Choose a separate karaoke-only playlist. Songs from it keep the Karaoke tag in queue.</p>
+                      </div>
+                    </div>
+                    <div className="playlist-grid">
+                      {karaokeOptions.map((option) => {
+                        const isSelected = selectedKaraokePlaylistId === option.id
+
+                        return (
+                          <label
+                            key={`karaoke-${option.id || 'none'}`}
+                            className={`playlist-card playlist-card-${option.id ? 'active' : 'empty'} playlist-card-karaoke ${isSelected ? 'selected' : ''}`}
+                            htmlFor={`karaoke-playlist-${option.id || 'none'}`}
+                          >
+                            <input
+                              id={`karaoke-playlist-${option.id || 'none'}`}
+                              type="radio"
+                              name="karaoke-playlist"
+                              checked={isSelected}
+                              onChange={() => {
+                                pushUndoState()
+                                setSelectedPlaylistForType('karaoke', option.id)
+                              }}
+                            />
+                            <div className="playlist-card-art" aria-hidden="true">
+                              <span className="playlist-card-art-badge">{option.id ? 'Sing' : 'Off'}</span>
+                              <strong>{getPlaylistThemeLabel('karaoke')}</strong>
+                            </div>
+                            <div className="playlist-info">
+                              <strong>{option.label}</strong>
+                              <span className="subcopy">{option.helper}</span>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </section>
                 </div>
               </>
             )}

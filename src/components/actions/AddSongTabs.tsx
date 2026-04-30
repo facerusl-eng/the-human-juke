@@ -24,7 +24,7 @@ type ToastState = {
 } | null
 
 function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSongTabsProps) {
-  const [activeTab, setActiveTab] = useState<'playlist' | 'custom'>('playlist')
+  const [activeTab, setActiveTab] = useState<'human_jukebox' | 'karaoke' | 'custom'>('human_jukebox')
   const [customSongs, setCustomSongs] = useState<CustomSong[]>([])
   const [loadingCustomSongs, setLoadingCustomSongs] = useState(false)
   const [customSongsError, setCustomSongsError] = useState<string | null>(null)
@@ -119,7 +119,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
       await addSong(song.title, song.artist, song.is_explicit, {
         librarySongId: song.id,
         coverUrl: song.cover_url,
-        performerMode: 'performer',
+        performerMode: song.playlist_type === 'karaoke' ? 'audience' : 'performer',
         bypassEventRules: true,
       })
       showToast(`${song.title} added to queue.`, 'success')
@@ -185,7 +185,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
         await addSong(song.title, song.artist, song.is_explicit, {
           librarySongId: song.id,
           coverUrl: song.cover_url,
-          performerMode: 'performer',
+          performerMode: song.playlist_type === 'karaoke' ? 'audience' : 'performer',
           bypassEventRules: true,
         })
         addedCount += 1
@@ -219,10 +219,17 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
       <div className="gig-add-song-tab-switcher" aria-label="Song source tabs">
         <button
           type="button"
-          className={`secondary-button gig-add-song-tab-button${activeTab === 'playlist' ? ' is-active' : ''}`}
-          onClick={() => setActiveTab('playlist')}
+          className={`secondary-button gig-add-song-tab-button${activeTab === 'human_jukebox' ? ' is-active' : ''}`}
+          onClick={() => setActiveTab('human_jukebox')}
         >
-          Playlist Songs
+          Human Jukebox
+        </button>
+        <button
+          type="button"
+          className={`secondary-button gig-add-song-tab-button${activeTab === 'karaoke' ? ' is-active' : ''}`}
+          onClick={() => setActiveTab('karaoke')}
+        >
+          Karaoke
         </button>
         <button
           type="button"
@@ -239,9 +246,20 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
         </p>
       ) : null}
 
-      {activeTab === 'playlist' ? (
+      {activeTab === 'human_jukebox' ? (
         <PlaylistSongSelector
           eventId={eventId}
+          playlistTypeFilter="human_jukebox"
+          queuedLibrarySongIds={queuedLibrarySongIds}
+          addingSongId={addingSongId}
+          addingRandomCount={addingRandomCount}
+          onAddSong={addPlaylistSongToQueue}
+          onAddRandomSongs={addRandomPlaylistSongsToQueue}
+        />
+      ) : activeTab === 'karaoke' ? (
+        <PlaylistSongSelector
+          eventId={eventId}
+          playlistTypeFilter="karaoke"
           queuedLibrarySongIds={queuedLibrarySongIds}
           addingSongId={addingSongId}
           addingRandomCount={addingRandomCount}

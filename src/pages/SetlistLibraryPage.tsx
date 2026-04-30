@@ -1148,6 +1148,10 @@ function SetlistLibraryPage() {
                 }}
               >
                 <p className="eyebrow">Playlist</p>
+                <div className={`setlist-playlist-art setlist-playlist-art-${playlist.playlist_type === 'karaoke' ? 'karaoke' : 'human-jukebox'}`} aria-hidden="true">
+                  <span className="setlist-playlist-art-badge">{playlist.playlist_type === 'karaoke' ? 'Sing along' : 'Main floor'}</span>
+                  <strong>{playlist.playlist_type === 'karaoke' ? 'Karaoke Setlist' : 'Human Jukebox Setlist'}</strong>
+                </div>
                 <h3>{playlist.name}</h3>
                 <p className="subcopy no-margin-bottom">{playlist.description ?? 'No description yet.'}</p>
                 <div className="setlist-playlist-meta">

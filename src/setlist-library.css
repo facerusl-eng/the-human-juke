@@ -104,6 +104,56 @@
   flex-direction: column;
 }
 
+.setlist-playlist-art {
+  position: relative;
+  min-height: 6.75rem;
+  margin-bottom: 0.9rem;
+  padding: 1rem;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  color: #f7fbff;
+}
+
+.setlist-playlist-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.22), transparent 35%),
+    linear-gradient(145deg, transparent 10%, rgba(255, 255, 255, 0.08) 10%, rgba(255, 255, 255, 0.08) 14%, transparent 14%, transparent 41%, rgba(255, 255, 255, 0.08) 41%, rgba(255, 255, 255, 0.08) 45%, transparent 45%);
+}
+
+.setlist-playlist-art > * {
+  position: relative;
+  z-index: 1;
+}
+
+.setlist-playlist-art-human-jukebox {
+  background:
+    radial-gradient(circle at top right, rgba(93, 215, 255, 0.34), transparent 34%),
+    linear-gradient(135deg, rgba(18, 38, 91, 0.98), rgba(7, 16, 35, 0.88));
+}
+
+.setlist-playlist-art-karaoke {
+  background:
+    radial-gradient(circle at top right, rgba(255, 113, 180, 0.35), transparent 34%),
+    linear-gradient(135deg, rgba(104, 17, 70, 0.98), rgba(31, 10, 43, 0.88));
+}
+
+.setlist-playlist-art-badge {
+  align-self: flex-start;
+  margin-bottom: 0.45rem;
+  padding: 0.24rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+}
+
 .setlist-playlist-card:hover,
 .setlist-playlist-card.is-selected {
   border-color: #5dd7ff;

@@ -312,6 +312,25 @@
   align-items: center;
 }
 
+.playlist-type-groups {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.playlist-type-group {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.playlist-type-group-header h3 {
+  margin: 0;
+  color: #f7fbff;
+}
+
+.playlist-type-group-header .subcopy {
+  margin: 0.3rem 0 0;
+}
+
 .playlist-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -320,7 +339,8 @@
 
 .playlist-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.75rem;
   padding: 1rem;
   background: rgba(13, 22, 48, 0.5);
@@ -349,6 +369,75 @@
   accent-color: #5dd7ff;
 }
 
+.playlist-card input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  cursor: pointer;
+  accent-color: #5dd7ff;
+}
+
+.playlist-card-art {
+  position: relative;
+  min-height: 6.5rem;
+  border-radius: 12px;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  color: #f7fbff;
+  background: linear-gradient(135deg, rgba(15, 31, 67, 0.92), rgba(9, 17, 36, 0.7));
+}
+
+.playlist-card-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.24), transparent 34%),
+    linear-gradient(145deg, transparent 15%, rgba(255, 255, 255, 0.08) 15%, rgba(255, 255, 255, 0.08) 18%, transparent 18%, transparent 42%, rgba(255, 255, 255, 0.08) 42%, rgba(255, 255, 255, 0.08) 45%, transparent 45%);
+  opacity: 0.9;
+}
+
+.playlist-card-art strong,
+.playlist-card-art-badge {
+  position: relative;
+  z-index: 1;
+}
+
+.playlist-card-art strong {
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+
+.playlist-card-art-badge {
+  align-self: flex-start;
+  margin-bottom: 0.45rem;
+  padding: 0.24rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.playlist-card-human-jukebox .playlist-card-art {
+  background:
+    radial-gradient(circle at top right, rgba(93, 215, 255, 0.3), transparent 32%),
+    linear-gradient(135deg, rgba(19, 38, 86, 0.96), rgba(8, 16, 36, 0.86));
+}
+
+.playlist-card-karaoke .playlist-card-art {
+  background:
+    radial-gradient(circle at top right, rgba(255, 113, 180, 0.34), transparent 32%),
+    linear-gradient(135deg, rgba(94, 15, 62, 0.96), rgba(23, 9, 38, 0.86));
+}
+
+.playlist-card-empty .playlist-card-art {
+  opacity: 0.7;
+}
+
 .playlist-info {
   flex: 1;
   min-width: 0;
@@ -359,6 +448,10 @@
   color: #f7fbff;
   font-weight: 600;
   word-break: break-word;
+}
+
+.playlist-info .subcopy {
+  margin: 0.2rem 0 0;
 }
 
 /* Access Section */

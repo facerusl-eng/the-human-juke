@@ -7,15 +7,53 @@ export type PlaylistSong = {
   artist: string
   cover_url: string | null
   is_explicit: boolean
+  playlist_type: 'human_jukebox' | 'karaoke'
 }
 
 type PlaylistSongSelectorProps = {
   eventId: string
+  playlistTypeFilter: 'human_jukebox' | 'karaoke'
   queuedLibrarySongIds: Set<string>
   addingSongId: string | null
   addingRandomCount: number | null
   onAddSong: (song: PlaylistSong) => Promise<void>
   onAddRandomSongs: (candidateSongs: PlaylistSong[], requestedCount: number) => Promise<void>
+}
+
+type PlaylistSongRow = {
+  library_songs: {
+    id: string
+    title: string
+    artist: string
+    cover_url: string | null
+    is_explicit: boolean
+  } | Array<{
+    id: string
+    title: string
+    artist: string
+    cover_url: string | null
+    is_explicit: boolean
+  }> | null
+}
+
+function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined) {
+  if (rawType === 'karaoke') {
+    return 'karaoke'
+  }
+
+  if ((playlistName ?? '').toLowerCase().includes('karaoke')) {
+    return 'karaoke'
+  }
+
+  return 'human_jukebox'
+}
+
+function getEmptyPlaylistLabel(playlistTypeFilter: 'human_jukebox' | 'karaoke') {
+  return playlistTypeFilter === 'karaoke' ? 'No karaoke playlist selected' : 'No Human Jukebox playlist selected'
+}
+
+function getPlaylistFallbackLabel(playlistTypeFilter: 'human_jukebox' | 'karaoke') {
+  return playlistTypeFilter === 'karaoke' ? 'Karaoke Setlist' : 'Human Jukebox Setlist'
 }
 
 function normalizeCoverUrl(coverUrl: string | null | undefined) {
@@ -32,8 +70,8 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
   return trimmedCoverUrl.replace(/^http:\/\//i, 'https://')
 }
 
-function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, addingRandomCount, onAddSong, onAddRandomSongs }: PlaylistSongSelectorProps) {
-  const [playlistName, setPlaylistName] = useState('Selected Playlist')
+function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongIds, addingSongId, addingRandomCount, onAddSong, onAddRandomSongs }: PlaylistSongSelectorProps) {
+  const [playlistName, setPlaylistName] = useState(getPlaylistFallbackLabel(playlistTypeFilter))
   const [songs, setSongs] = useState<PlaylistSong[]>([])
   const [selectedSongId, setSelectedSongId] = useState('')
   const [isSongPickerOpen, setIsSongPickerOpen] = useState(false)
@@ -52,7 +90,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, add
       try {
         const { data: eventPlaylists, error: eventPlaylistError } = await supabase
           .from('event_playlists')
-          .select('playlist_id')
+          .select('playlist_id, playlists!inner(id, name, playlist_type)')
           .eq('event_id', eventId)
           .order('created_at', { ascending: true })
 
@@ -60,28 +98,37 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, add
           throw eventPlaylistError
         }
 
+        const filteredEventPlaylists = ((eventPlaylists ?? []) as Array<{
+          playlist_id?: string | null
+          playlists?: { id: string; name: string; playlist_type?: string | null } | Array<{ id: string; name: string; playlist_type?: string | null }> | null
+        }>)
+          .filter((row) => {
+            const playlistData = Array.isArray(row.playlists) ? row.playlists[0] : row.playlists
+
+            if (!playlistData) {
+              return false
+            }
+
+            return inferPlaylistType(playlistData.playlist_type, playlistData.name) === playlistTypeFilter
+          })
+
         const selectedPlaylistIds = [...new Set(
-          ((eventPlaylists ?? []) as Array<{ playlist_id?: string | null }>)
+          filteredEventPlaylists
             .map((row) => row.playlist_id)
             .filter((playlistId): playlistId is string => Boolean(playlistId)),
         )]
 
         if (selectedPlaylistIds.length === 0) {
           if (isCurrent) {
-            setPlaylistName('No playlist selected')
+            setPlaylistName(getEmptyPlaylistLabel(playlistTypeFilter))
             setSongs([])
           }
           return
         }
 
-        const { data: playlistRows, error: playlistError } = await supabase
-          .from('playlists')
-          .select('name')
-          .in('id', selectedPlaylistIds)
-
-        if (playlistError) {
-          throw playlistError
-        }
+        const playlistRows = filteredEventPlaylists
+          .map((row) => Array.isArray(row.playlists) ? row.playlists[0] : row.playlists)
+          .filter((playlist): playlist is { id: string; name: string; playlist_type?: string | null } => Boolean(playlist))
 
         const { data: playlistSongs, error: playlistSongsError } = await supabase
           .from('playlist_songs')
@@ -100,7 +147,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, add
 
         const dedupedSongs = new Map<string, PlaylistSong>()
 
-        for (const row of (playlistSongs ?? []) as Array<{ library_songs: PlaylistSong | PlaylistSong[] | null }>) {
+        for (const row of (playlistSongs ?? []) as PlaylistSongRow[]) {
           const librarySong = Array.isArray(row.library_songs) ? row.library_songs[0] : row.library_songs
 
           if (!librarySong || dedupedSongs.has(librarySong.id)) {
@@ -113,10 +160,11 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, add
             artist: librarySong.artist,
             cover_url: normalizeCoverUrl(librarySong.cover_url),
             is_explicit: librarySong.is_explicit,
+            playlist_type: playlistTypeFilter,
           })
         }
 
-        const normalizedPlaylistNames = ((playlistRows ?? []) as Array<{ name?: string | null }>)
+        const normalizedPlaylistNames = playlistRows
           .map((row) => row.name?.trim())
           .filter((name): name is string => Boolean(name))
 
@@ -147,7 +195,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, add
     return () => {
       isCurrent = false
     }
-  }, [eventId])
+  }, [eventId, playlistTypeFilter])
 
   const availableSongs = useMemo(() => songs, [songs])
 
@@ -330,7 +378,7 @@ function PlaylistSongSelector({ eventId, queuedLibrarySongIds, addingSongId, add
       ) : null}
 
       {!loadingSongs && !selectedSong && !errorText ? (
-        <p className="subcopy no-margin-bottom">No songs found in the selected playlist setup.</p>
+        <p className="subcopy no-margin-bottom">No songs found in the selected {playlistTypeFilter === 'karaoke' ? 'karaoke' : 'Human Jukebox'} playlist.</p>
       ) : null}
 
       {!loadingSongs && selectedSong ? (
