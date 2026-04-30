@@ -7012,6 +7012,8 @@
   border-radius: 14px;
   flex-shrink: 0;
   display: block;
+  object-fit: cover;
+  object-position: center;
 }
 
 .audience-playlist-choice-body {

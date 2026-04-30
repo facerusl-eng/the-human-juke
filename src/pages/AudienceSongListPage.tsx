@@ -583,7 +583,7 @@ function AudienceSongListPage() {
             className="audience-playlist-choice audience-playlist-choice-jukebox"
             onClick={() => setActiveSetlist('human_jukebox')}
           >
-            <img src="/icons/icon-512.svg" alt="" className="audience-playlist-choice-logo" aria-hidden="true" />
+            <img src="/images/playlist-human-jukebox.jpg" alt="" className="audience-playlist-choice-logo" aria-hidden="true" />
             <span className="audience-playlist-choice-body">
               <strong>Human Jukebox</strong>
               <span>The host plays — you pick the song</span>
@@ -595,7 +595,7 @@ function AudienceSongListPage() {
             className="audience-playlist-choice audience-playlist-choice-karaoke"
             onClick={() => setActiveSetlist('karaoke')}
           >
-            <img src="/icons/icon-karaoke.svg" alt="" className="audience-playlist-choice-logo" aria-hidden="true" />
+            <img src="/images/playlist-karaoke.jpg" alt="" className="audience-playlist-choice-logo" aria-hidden="true" />
             <span className="audience-playlist-choice-body">
               <strong>Karaoke</strong>
               <span>You get up and sing it yourself</span>
