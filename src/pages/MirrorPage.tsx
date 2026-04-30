@@ -1224,7 +1224,6 @@ function MirrorPage() {
               <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
               {isBetweenSongs ? (
                 <>
-                  <div className="mirror-interstitial-sweep" aria-hidden="true" />
                   <p className="mirror-between-songs-quote">{betweenSongQuote}</p>
                 </>
               ) : (

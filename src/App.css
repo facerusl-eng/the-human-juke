@@ -7520,6 +7520,9 @@
   height: 100%;
   gap: 0.22rem;
   margin: 0;
+  display: grid;
+  justify-items: center;
+  align-content: start;
   padding-right: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -7529,7 +7532,7 @@
   padding: 0.26rem 0.3rem;
   gap: 0.22rem;
   max-width: none;
-  margin-right: 0;
+  margin: 0;
 }
 
 .live-feed-panel-mirror .live-feed-post-polaroid {
@@ -7541,6 +7544,11 @@
   border: none;
   box-shadow: none;
   gap: 0.14rem;
+}
+
+.live-feed-panel-mirror .live-feed-post-mirror-text {
+  width: min(70%, 432px);
+  margin: 0.18rem auto 0.42rem;
 }
 
 .live-feed-panel-mirror .live-feed-post-image {
