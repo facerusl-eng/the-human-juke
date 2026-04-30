@@ -16,15 +16,6 @@ const EMERGENCY_MIN_OUTPUT_QUALITY = 0.1
 const LAST_RESORT_IMAGE_DIMENSION = 160
 const LAST_RESORT_OUTPUT_QUALITY = 0.08
 
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
-    reader.onerror = () => reject(new Error('Unable to read the selected image.'))
-    reader.readAsDataURL(file)
-  })
-}
-
 function readBlobAsDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
@@ -43,6 +34,13 @@ function loadImage(source: string) {
   })
 }
 
+type RasterSource = {
+  source: CanvasImageSource
+  width: number
+  height: number
+  close?: () => void
+}
+
 function isHeicLikeImage(file: File) {
   const type = file.type.toLowerCase()
   const name = file.name.toLowerCase()
@@ -53,7 +51,7 @@ function isHeicLikeImage(file: File) {
     || name.endsWith('.heif')
 }
 
-async function convertHeicToJpegDataUrl(file: File) {
+async function convertHeicToJpegBlob(file: File) {
   const converterModule = await import('heic2any')
   const converter = converterModule.default
 
@@ -69,11 +67,42 @@ async function convertHeicToJpegDataUrl(file: File) {
     throw new Error('Unable to process this HEIC photo.')
   }
 
-  return readBlobAsDataUrl(normalizedBlob)
+  return normalizedBlob
+}
+
+async function loadRasterSourceFromBlob(blob: Blob) {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const imageBitmap = await createImageBitmap(blob)
+
+      return {
+        source: imageBitmap,
+        width: imageBitmap.width,
+        height: imageBitmap.height,
+        close: () => imageBitmap.close(),
+      } satisfies RasterSource
+    } catch {
+      // Fall through to object URL/image decoding.
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(blob)
+
+  try {
+    const image = await loadImage(objectUrl)
+
+    return {
+      source: image,
+      width: image.naturalWidth || image.width,
+      height: image.naturalHeight || image.height,
+    } satisfies RasterSource
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
 }
 
 function compressToDataUrl(options: {
-  image: HTMLImageElement
+  raster: RasterSource
   canvas: HTMLCanvasElement
   context: CanvasRenderingContext2D
   maxDimension: number
@@ -82,16 +111,16 @@ function compressToDataUrl(options: {
   minScale: number
   cropSquare?: boolean
 }) {
-  const { image, canvas, context, maxDimension, startQuality, minQuality, minScale, cropSquare = false } = options
-  let scale = Math.min(1, maxDimension / Math.max(image.width, image.height))
+  const { raster, canvas, context, maxDimension, startQuality, minQuality, minScale, cropSquare = false } = options
+  let scale = Math.min(1, maxDimension / Math.max(raster.width, raster.height))
   let quality = startQuality
-  const sourceSize = Math.min(image.width, image.height)
-  const sourceOffsetX = Math.floor((image.width - sourceSize) / 2)
-  const sourceOffsetY = Math.floor((image.height - sourceSize) / 2)
+  const sourceSize = Math.min(raster.width, raster.height)
+  const sourceOffsetX = Math.floor((raster.width - sourceSize) / 2)
+  const sourceOffsetY = Math.floor((raster.height - sourceSize) / 2)
 
   while (scale >= minScale) {
-    const baseWidth = cropSquare ? sourceSize : image.width
-    const baseHeight = cropSquare ? sourceSize : image.height
+    const baseWidth = cropSquare ? sourceSize : raster.width
+    const baseHeight = cropSquare ? sourceSize : raster.height
     const width = Math.max(1, Math.round(baseWidth * scale))
     const height = Math.max(1, Math.round(baseHeight * scale))
 
@@ -100,9 +129,9 @@ function compressToDataUrl(options: {
     context.clearRect(0, 0, width, height)
 
     if (cropSquare) {
-      context.drawImage(image, sourceOffsetX, sourceOffsetY, sourceSize, sourceSize, 0, 0, width, height)
+      context.drawImage(raster.source, sourceOffsetX, sourceOffsetY, sourceSize, sourceSize, 0, 0, width, height)
     } else {
-      context.drawImage(image, 0, 0, width, height)
+      context.drawImage(raster.source, 0, 0, width, height)
     }
 
     const compressedDataUrl = canvas.toDataURL('image/jpeg', quality)
@@ -131,32 +160,50 @@ export async function prepareFeedImage(file: File) {
     throw new Error('Image is very large. Choose a photo under 20 MB.')
   }
 
-  let sourceDataUrl = await readFileAsDataUrl(file)
+  let normalizedBlob: Blob = file
+  let sourceDataUrl = ''
 
   if (isHeicLikeImage(file)) {
     try {
-      sourceDataUrl = await convertHeicToJpegDataUrl(file)
+      normalizedBlob = await convertHeicToJpegBlob(file)
     } catch {
       // Some iOS/Safari combinations fail HEIC conversion; continue with original capture.
     }
   }
 
-  let image: HTMLImageElement
+  let raster: RasterSource | null = null
 
   try {
-    image = await loadImage(sourceDataUrl)
+    raster = await loadRasterSourceFromBlob(normalizedBlob)
   } catch (error) {
-    if (sourceDataUrl.length <= MAX_DATA_URL_LENGTH) {
+    sourceDataUrl = await readBlobAsDataUrl(normalizedBlob)
+
+    try {
+      const image = await loadImage(sourceDataUrl)
+      raster = {
+        source: image,
+        width: image.naturalWidth || image.width,
+        height: image.naturalHeight || image.height,
+      }
+    } catch {
+      raster = null
+    }
+
+    if (raster) {
+      // Recovered through data URL decoding.
+    } else if (sourceDataUrl.length <= MAX_DATA_URL_LENGTH) {
       return sourceDataUrl
     }
 
-    if (isHeicLikeImage(file)) {
+    if (raster) {
+      // Continue to compression below.
+    } else if (isHeicLikeImage(file)) {
       throw new Error('iPhone photo could not be processed. In Settings > Camera > Formats, choose Most Compatible, then try again.', {
         cause: error,
       })
+    } else {
+      throw new Error('Unable to process the selected image. Try a different photo.', { cause: error })
     }
-
-    throw new Error('Unable to process the selected image. Try a different photo.', { cause: error })
   }
 
   const canvas = document.createElement('canvas')
@@ -166,63 +213,70 @@ export async function prepareFeedImage(file: File) {
     throw new Error('Unable to prepare the selected image.')
   }
 
-  const firstPassResult = compressToDataUrl({
-    image,
-    canvas,
-    context,
-    maxDimension: MAX_IMAGE_DIMENSION,
-    startQuality: OUTPUT_QUALITY,
-    minQuality: MIN_OUTPUT_QUALITY,
-    minScale: MIN_IMAGE_SCALE,
-  })
-
-  if (firstPassResult) {
-    return firstPassResult
+  if (!raster) {
+    throw new Error('Unable to prepare this photo on this device. Please try again with a different photo.')
   }
 
-  const secondPassResult = compressToDataUrl({
-    image,
-    canvas,
-    context,
-    maxDimension: FALLBACK_IMAGE_DIMENSION,
-    startQuality: FALLBACK_OUTPUT_QUALITY,
-    minQuality: FALLBACK_MIN_OUTPUT_QUALITY,
-    minScale: FALLBACK_MIN_IMAGE_SCALE,
-  })
+  try {
+    const firstPassResult = compressToDataUrl({
+      raster,
+      canvas,
+      context,
+      maxDimension: MAX_IMAGE_DIMENSION,
+      startQuality: OUTPUT_QUALITY,
+      minQuality: MIN_OUTPUT_QUALITY,
+      minScale: MIN_IMAGE_SCALE,
+    })
 
-  if (secondPassResult) {
-    return secondPassResult
-  }
+    if (firstPassResult) {
+      return firstPassResult
+    }
 
-  const thirdPassResult = compressToDataUrl({
-    image,
-    canvas,
-    context,
-    maxDimension: EMERGENCY_IMAGE_DIMENSION,
-    startQuality: EMERGENCY_OUTPUT_QUALITY,
-    minQuality: EMERGENCY_MIN_OUTPUT_QUALITY,
-    minScale: EMERGENCY_MIN_IMAGE_SCALE,
-    cropSquare: true,
-  })
+    const secondPassResult = compressToDataUrl({
+      raster,
+      canvas,
+      context,
+      maxDimension: FALLBACK_IMAGE_DIMENSION,
+      startQuality: FALLBACK_OUTPUT_QUALITY,
+      minQuality: FALLBACK_MIN_OUTPUT_QUALITY,
+      minScale: FALLBACK_MIN_IMAGE_SCALE,
+    })
 
-  if (thirdPassResult) {
-    return thirdPassResult
-  }
+    if (secondPassResult) {
+      return secondPassResult
+    }
 
-  // Last resort: create a tiny square thumbnail rather than blocking upload completely.
-  const lastResortResult = compressToDataUrl({
-    image,
-    canvas,
-    context,
-    maxDimension: LAST_RESORT_IMAGE_DIMENSION,
-    startQuality: LAST_RESORT_OUTPUT_QUALITY,
-    minQuality: LAST_RESORT_OUTPUT_QUALITY,
-    minScale: 1,
-    cropSquare: true,
-  })
+    const thirdPassResult = compressToDataUrl({
+      raster,
+      canvas,
+      context,
+      maxDimension: EMERGENCY_IMAGE_DIMENSION,
+      startQuality: EMERGENCY_OUTPUT_QUALITY,
+      minQuality: EMERGENCY_MIN_OUTPUT_QUALITY,
+      minScale: EMERGENCY_MIN_IMAGE_SCALE,
+      cropSquare: true,
+    })
 
-  if (lastResortResult) {
-    return lastResortResult
+    if (thirdPassResult) {
+      return thirdPassResult
+    }
+
+    const lastResortResult = compressToDataUrl({
+      raster,
+      canvas,
+      context,
+      maxDimension: LAST_RESORT_IMAGE_DIMENSION,
+      startQuality: LAST_RESORT_OUTPUT_QUALITY,
+      minQuality: LAST_RESORT_OUTPUT_QUALITY,
+      minScale: 1,
+      cropSquare: true,
+    })
+
+    if (lastResortResult) {
+      return lastResortResult
+    }
+  } finally {
+    raster.close?.()
   }
 
   throw new Error('Unable to prepare this photo on this device. Please try again with a different photo.')
