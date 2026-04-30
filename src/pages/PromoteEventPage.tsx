@@ -925,14 +925,40 @@ function PromoteEventPage() {
       ctx.restore() // end clip
 
       // ── encode & download ─────────────────────────────────────────────────
-      const dataUrl = type === 'png'
-        ? canvas.toDataURL('image/png')
-        : canvas.toDataURL('image/jpeg', 0.92)
+      const mimeType = type === 'png' ? 'image/png' : 'image/jpeg'
+      const quality  = type === 'png' ? undefined : 0.92
+      const fileName = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.${type}`
 
-      const link = document.createElement('a')
-      link.download = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.${type}`
-      link.href = dataUrl
-      link.click()
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, mimeType, quality)
+      })
+
+      if (!blob) throw new Error('Canvas could not produce an image blob.')
+
+      // Web Share API – best on mobile (iOS shows native Save to Photos sheet)
+      const file = new File([blob], fileName, { type: mimeType })
+      if (
+        typeof navigator.share === 'function' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({ files: [file], title: fileName })
+        return
+      }
+
+      // Desktop / Android fallback – object URL download
+      const objectUrl = URL.createObjectURL(blob)
+      try {
+        const link = document.createElement('a')
+        link.download = fileName
+        link.href = objectUrl
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } finally {
+        // Delay revoke so the browser has time to start the download
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000)
+      }
     } catch (error) {
       console.warn('PromoteEventPage: canvas export failed', error)
       setExportError('Could not export image. Please try again.')
