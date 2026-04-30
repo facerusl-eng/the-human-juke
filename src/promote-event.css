@@ -84,6 +84,105 @@
   gap: 0.6rem;
 }
 
+/* ── Export panel ─────────────────────────────────────────────────────────── */
+.promote-export-panel {
+  display: grid;
+  gap: 1.4rem;
+}
+
+.promote-export-group {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.promote-export-group-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.7);
+  margin: 0;
+}
+
+.promote-export-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.promote-export-btn {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1.5px solid rgba(93, 215, 255, 0.35);
+  background: rgba(8, 14, 34, 0.8);
+  color: #e8f7ff;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.promote-export-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.promote-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.promote-export-btn-png {
+  border-color: rgba(93, 215, 255, 0.5);
+  background: linear-gradient(135deg, rgba(8, 14, 34, 0.9) 0%, rgba(14, 32, 68, 0.95) 100%);
+}
+
+.promote-export-btn-jpg {
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.promote-export-btn-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.promote-export-btn-body {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.promote-export-btn-body strong {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.promote-export-btn-body span {
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.promote-export-status {
+  font-size: 0.82rem;
+  color: rgba(93, 215, 255, 0.8);
+  margin: 0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.promote-export-share-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .promote-canvas {
   position: relative;
   width: min(100%, 520px);

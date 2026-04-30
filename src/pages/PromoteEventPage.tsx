@@ -1289,47 +1289,86 @@ function PromoteEventPage() {
           </div>
         </div>
 
-        <div className="promote-action-row">
-          <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
-            Copy Caption Text
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={savePromotionDraft}
-            disabled={!selectedEventId || initializingDraftRef.current}
-          >
-            {promotionSaved ? 'Promotion Saved' : 'Save Promotion Draft'}
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              void copyFacebookShareLink()
-            }}
-            disabled={!facebookShareUrl}
-          >
-            {facebookLinkCopied ? 'Facebook Link Copied' : 'Copy Facebook Post Link'}
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={openFacebookShareDialog}
-            disabled={!facebookShareUrl}
-          >
-            Open Facebook Share
-          </button>
-          <button type="button" className="primary-button" onClick={() => void exportImage('png')} disabled={exportingImage}>
-            {exportingImage ? 'Exporting...' : `Export PNG (${targetDimensions.width}x${targetDimensions.height})`}
-          </button>
-          <button type="button" className="secondary-button" onClick={() => void exportImage('jpg')} disabled={exportingImage}>
-            {exportingImage ? 'Exporting...' : `Export JPG (${targetDimensions.width}x${targetDimensions.height})`}
-          </button>
+        <div className="promote-export-panel">
+
+          {/* ── Download image ── */}
+          <div className="promote-export-group">
+            <p className="promote-export-group-label">Download Image</p>
+            <div className="promote-export-buttons">
+              <button
+                type="button"
+                className="promote-export-btn promote-export-btn-png"
+                onClick={() => void exportImage('png')}
+                disabled={exportingImage}
+              >
+                <span className="promote-export-btn-icon">⬇</span>
+                <span className="promote-export-btn-body">
+                  <strong>PNG</strong>
+                  <span>Best quality · {targetDimensions.width}×{targetDimensions.height}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="promote-export-btn promote-export-btn-jpg"
+                onClick={() => void exportImage('jpg')}
+                disabled={exportingImage}
+              >
+                <span className="promote-export-btn-icon">⬇</span>
+                <span className="promote-export-btn-body">
+                  <strong>JPG</strong>
+                  <span>Smaller file · {targetDimensions.width}×{targetDimensions.height}</span>
+                </span>
+              </button>
+            </div>
+            {exportingImage ? <p className="promote-export-status">Generating image…</p> : null}
+            {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
+          </div>
+
+          {/* ── Share ── */}
+          <div className="promote-export-group">
+            <p className="promote-export-group-label">Share</p>
+            <div className="promote-export-share-row">
+              <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
+                📋 Copy Caption
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => { void copyFacebookShareLink() }}
+                disabled={!facebookShareUrl}
+              >
+                {facebookLinkCopied ? '✓ Copied Link' : '🔗 Copy Facebook Link'}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={openFacebookShareDialog}
+                disabled={!facebookShareUrl}
+              >
+                ↗ Open Facebook Share
+              </button>
+            </div>
+            {facebookShareError ? <p className="error-text no-margin-bottom">{facebookShareError}</p> : null}
+          </div>
+
+          {/* ── Event visibility & draft ── */}
+          <div className="promote-export-group">
+            <p className="promote-export-group-label">Settings</p>
+            <div className="promote-export-share-row">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={savePromotionDraft}
+                disabled={!selectedEventId || initializingDraftRef.current}
+              >
+                {promotionSaved ? '✓ Draft Saved' : '💾 Save Draft'}
+              </button>
+            </div>
+            {promotionSaveError ? <p className="error-text no-margin-bottom">{promotionSaveError}</p> : null}
+            {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
+          </div>
+
         </div>
-        {promotionSaveError ? <p className="error-text no-margin-bottom">{promotionSaveError}</p> : null}
-        {facebookShareError ? <p className="error-text no-margin-bottom">{facebookShareError}</p> : null}
-        {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
-        {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
       </section>
 
       <section className="queue-panel promote-preview-panel" aria-label="Promotional preview">
