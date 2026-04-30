@@ -7490,7 +7490,15 @@
   display: grid;
   justify-items: center;
   align-content: start;
+  border: 1px solid rgba(93, 215, 255, 0.2);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 86% 8%, rgba(255, 79, 152, 0.12) 0%, transparent 34%),
+    linear-gradient(145deg, rgba(12, 19, 42, 0.84) 0%, rgba(14, 22, 48, 0.86) 100%);
   padding-right: 0;
+  padding-left: 0.12rem;
+  padding-top: 0.12rem;
+  padding-bottom: 0.12rem;
   overflow-y: auto;
   overflow-x: hidden;
 }
