@@ -684,7 +684,13 @@ function LiveFeedPanel({
       setImageStatusText(null)
       clearSelectedImage()
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Unable to post to the live feed.')
+      const errorMessage = error instanceof Error
+        ? error.message
+        : (typeof error === 'object' && error !== null && 'message' in error)
+          ? `${(error as { message: unknown }).message}`
+          : 'Unable to post to the live feed.'
+      console.error('LiveFeedPanel: post failed', error)
+      setErrorText(errorMessage || 'Unable to post to the live feed.')
     } finally {
       setBusy(false)
     }
@@ -770,12 +776,12 @@ function LiveFeedPanel({
               ref={cameraInputRef}
               type="file"
               accept="image/*"
+              capture="environment"
               className="live-feed-file-input"
               aria-label="Take a crowd feed photo"
               onClick={(event) => {
                 suppressReconnectWarning()
                 event.currentTarget.value = ''
-                event.currentTarget.setAttribute('capture', 'environment')
               }}
               onChange={onImageSelected}
               onInput={(event) => { void onImageSelected(event as unknown as ChangeEvent<HTMLInputElement>) }}
