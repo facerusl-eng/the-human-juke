@@ -1,4 +1,4 @@
-const STATIC_CACHE_NAME = 'human-jukebox-static-v4'
+const STATIC_CACHE_NAME = 'human-jukebox-static-v5'
 const SYNC_DB_NAME = 'human-jukebox-sync-db'
 const SYNC_DB_STORE = 'failed-requests'
 const SYNC_TAG = 'jukebox-sync'
@@ -70,14 +70,13 @@ async function networkFirstNavigation(event) {
     return networkShell
   })().catch(() => null)
 
-  if (cachedShell) {
-    event.waitUntil(networkPromise)
-    return cachedShell
-  }
-
   const networkShell = await networkPromise
   if (networkShell) {
     return networkShell
+  }
+
+  if (cachedShell) {
+    return cachedShell
   }
 
   return new Response('Offline', { status: 503 })
