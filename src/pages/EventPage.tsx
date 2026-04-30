@@ -481,6 +481,7 @@ function EventPage() {
     }
 
     if (!LIVE_GIG_API_POLLING_ENABLED) {
+      setHasCompletedInitialLiveGigProbe(true)
       return
     }
 
