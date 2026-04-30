@@ -5419,6 +5419,7 @@
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   align-items: start;
+  justify-items: center;
   gap: clamp(0.32rem, 0.62vw, 0.56rem);
   padding: clamp(0.54rem, 0.8vw, 0.78rem);
   border-radius: 20px;
@@ -5431,28 +5432,24 @@
 .live-feed-panel-mirror .live-feed-head {
   grid-column: 1;
   grid-row: 1;
+  width: min(100%, 560px);
+  justify-self: center;
   padding-right: 0;
 }
 
 .live-feed-panel-mirror .live-feed-list {
   grid-column: 1;
   grid-row: 2;
-  width: 500px;
+  width: min(100%, 560px);
   max-height: none;
-  height: 1000px;
-  justify-self: stretch;
+  height: 100%;
+  justify-self: center;
   align-self: stretch;
   min-height: 0;
   gap: 0.8rem;
   padding-right: 0.06rem;
   padding-bottom: 0.2rem;
 }
-
-  .mirror-shell-venue-club .live-feed-panel-mirror .live-feed-list,
-  .mirror-shell-venue-lounge .live-feed-panel-mirror .live-feed-list {
-    width: 800px;
-    height: 1400px;
-  }
 
 .live-feed-panel-mirror .live-feed-post {
   background: linear-gradient(135deg, rgba(93, 215, 255, 0.18) 0%, rgba(93, 215, 255, 0.12) 100%);
@@ -7464,10 +7461,10 @@
 }
 
 .live-feed-panel-mirror .live-feed-list {
-  width: 100%;
+  width: min(100%, 560px);
   height: 100%;
   gap: 0.22rem;
-  margin: 0;
+  margin: 0 auto;
   display: grid;
   justify-items: center;
   align-content: start;
