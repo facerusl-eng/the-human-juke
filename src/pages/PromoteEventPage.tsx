@@ -108,6 +108,7 @@ function PromoteEventPage() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [exportingImage, setExportingImage] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [exportStatus, setExportStatus] = useState<string | null>(null)
   const [audienceVisibilitySaving, setAudienceVisibilitySaving] = useState(false)
   const [audienceVisibilitySaved, setAudienceVisibilitySaved] = useState(false)
   const [audienceVisibilityError, setAudienceVisibilityError] = useState<string | null>(null)
@@ -593,6 +594,7 @@ function PromoteEventPage() {
     }
 
     setExportError(null)
+    setExportStatus(null)
     setExportingImage(true)
 
     const sanitizedEventName = eventName
@@ -929,16 +931,27 @@ function PromoteEventPage() {
       const quality  = type === 'png' ? undefined : 0.92
       const fileName = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.${type}`
 
+      // Helper: decode a data URL to Blob without fetch() which can be unreliable for large payloads.
+      const dataUrlToBlob = (dataUrl: string): Blob => {
+        const [header, base64] = dataUrl.split(',')
+        const mimeMatch = header.match(/:(.*?);/)
+        const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream'
+        const binary = atob(base64)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        return new Blob([bytes], { type: mime })
+      }
+
       let blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob(resolve, mimeType, quality)
       })
 
-      // Fallback for browsers that occasionally return null from toBlob on large canvases.
+      // Fallback for browsers that return null from toBlob (use manual base64 decode, not fetch).
       if (!blob) {
         const dataUrl = type === 'png'
           ? canvas.toDataURL('image/png')
           : canvas.toDataURL('image/jpeg', 0.92)
-        blob = await fetch(dataUrl).then((response) => response.blob())
+        blob = dataUrlToBlob(dataUrl)
       }
 
       if (!blob) {
@@ -959,6 +972,27 @@ function PromoteEventPage() {
       }
 
       // Desktop / Android fallback – object URL download
+      // Desktop: try File System Access API first (most reliable — opens native Save dialog).
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{ description: 'Image', accept: { [mimeType]: [`.${type}`] } }],
+          })
+          const writable = await handle.createWritable()
+          await writable.write(blob)
+          await writable.close()
+          setExportStatus('Image saved successfully.')
+          window.setTimeout(() => setExportStatus(null), 4000)
+          return
+        } catch (fsErr: unknown) {
+          // User cancelled the picker — abort silently.
+          if (fsErr instanceof DOMException && fsErr.name === 'AbortError') return
+          // Any other FS error — fall through to anchor download.
+          console.warn('PromoteEventPage: showSaveFilePicker failed, falling back', fsErr)
+        }
+      }
+
       const objectUrl = URL.createObjectURL(blob)
       try {
         const link = document.createElement('a')
@@ -968,6 +1002,8 @@ function PromoteEventPage() {
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        setExportStatus('Download started — check your Downloads folder or browser bar.')
+        window.setTimeout(() => setExportStatus(null), 6000)
 
         // Safety net for browsers without download attribute support.
         if (!('download' in HTMLAnchorElement.prototype)) {
@@ -979,7 +1015,7 @@ function PromoteEventPage() {
       }
     } catch (error) {
       console.warn('PromoteEventPage: canvas export failed', error)
-      setExportError(error instanceof Error ? error.message : 'Could not export image. Please try again.')
+      setExportError(error instanceof Error ? `Export failed: ${error.message}` : 'Could not export image — please try again.')
     } finally {
       setExportingImage(false)
     }
@@ -1365,6 +1401,7 @@ function PromoteEventPage() {
               </button>
             </div>
             {exportingImage ? <p className="promote-export-status">Generating image…</p> : null}
+            {exportStatus && !exportingImage ? <p className="promote-export-status">{exportStatus}</p> : null}
             {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
           </div>
 
