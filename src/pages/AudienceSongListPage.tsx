@@ -121,6 +121,7 @@ function AudienceSongListPage() {
   } = useQueueStore()
 
   const [curatedSongs, setCuratedSongs] = useState<CuratedSong[]>([])
+  const [hasKaraokePlaylist, setHasKaraokePlaylist] = useState(false)
   const [songSearchQuery, setSongSearchQuery] = useState('')
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -423,6 +424,7 @@ function AudienceSongListPage() {
           const nextSongs = [...dedupedSongs.values()].sort(sortSongs)
 
           setCuratedSongs(nextSongs)
+          setHasKaraokePlaylist(karaokeSongIds.size > 0)
         }
       } catch (error) {
         console.warn('AudienceSongListPage: failed to load songs', error)
@@ -527,7 +529,7 @@ function AudienceSongListPage() {
   }
 
   // Derived: whether we need the playlist picker step
-  const showPlaylistPicker = !loadingSongs && karaokeRows.length > 0 && activeSetlist === null
+  const showPlaylistPicker = !loadingSongs && hasKaraokePlaylist && activeSetlist === null
   const activeRows = activeSetlist === 'karaoke' ? karaokeRows : humanJukeboxRows
 
   return (
@@ -538,7 +540,7 @@ function AudienceSongListPage() {
           className="secondary-button audience-song-list-back"
           onClick={() => {
             // If the user picked a playlist and karaoke is available, go back to picker
-            if (activeSetlist !== null && karaokeRows.length > 0) {
+            if (activeSetlist !== null && hasKaraokePlaylist) {
               setActiveSetlist(null)
               setSongSearchQuery('')
             } else {
@@ -551,7 +553,7 @@ function AudienceSongListPage() {
         <div className="audience-song-list-header-copy">
           <p className="eyebrow">Song List</p>
           <h1>{activeSetlist === 'karaoke' ? 'Karaoke' : activeSetlist === 'human_jukebox' ? 'Human Jukebox' : 'Pick a song'}</h1>
-          <p className="subcopy">Hi {audienceName || 'Guest'} — {activeSetlist === null && karaokeRows.length > 0 ? 'choose a playlist first.' : 'scroll and choose your request.'}</p>
+          <p className="subcopy">Hi {audienceName || 'Guest'} — {activeSetlist === null && hasKaraokePlaylist ? 'choose a playlist first.' : 'scroll and choose your request.'}</p>
         </div>
       </header>
 
@@ -649,7 +651,7 @@ function AudienceSongListPage() {
       ) : null}
 
       {/* No-karaoke fallback: show songs directly */}
-      {!loadingSongs && karaokeRows.length === 0 ? (
+      {!loadingSongs && !hasKaraokePlaylist ? (
         <>
           <section className="audience-song-list-search">
             <label htmlFor="audience-song-list-search-input">Search songs</label>
