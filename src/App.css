@@ -5509,6 +5509,7 @@
   padding: clamp(0.8rem, 1.2vw, 1.2rem);
   gap: 1rem;
   max-width: 88%;
+  margin-left: auto;
   margin-right: auto;
   box-shadow: 0 6px 16px rgba(93, 215, 255, 0.15);
 }
@@ -7639,7 +7640,7 @@
 }
 
 .live-feed-panel-mirror .live-feed-post-mirror-text {
-  min-height: clamp(104px, 16vh, 210px);
+  min-height: clamp(64px, 10vh, 140px);
   padding: clamp(0.62rem, 1vw, 1rem);
   border-radius: 16px;
   border: 1px solid rgba(93, 215, 255, 0.28);
@@ -7685,7 +7686,7 @@
   margin: 0;
   max-width: min(100%, 30ch);
   font-family: var(--font-head);
-  font-size: clamp(1.35rem, 2.2vw, 2.35rem);
+  font-size: clamp(1.05rem, 1.6vw, 1.7rem);
   line-height: 1.08;
   letter-spacing: 0.02em;
   color: #f8fbff;
