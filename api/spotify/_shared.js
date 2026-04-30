@@ -1,10 +1,26 @@
 const spotifyClientId = process.env.SPOTIFY_CLIENT_ID ?? '510534c3ee9046aba1b67cb526ef8b1c'
-const spotifyClientSecret = process.env.SPOTIFY_CLIENT_SECRET ?? ''
 const spotifyRedirectUriOverride = process.env.SPOTIFY_REDIRECT_URI?.trim() ?? ''
 const spotifyRedirectUriDev = process.env.SPOTIFY_REDIRECT_URI_DEV ?? 'http://localhost:5173/callback'
 const spotifyRedirectUriProd = process.env.SPOTIFY_REDIRECT_URI_PROD?.trim() ?? ''
 const spotifyScopes = 'user-read-playback-state user-modify-playback-state streaming'
 const REFRESH_COOKIE_NAME = 'human_jukebox_spotify_refresh_token'
+const spotifySecretKeyNames = ['SPOTIFY_CLIENT_SECRET', 'SPOTIFY_SECRET', 'SPOTIFYCLIENTSECRET']
+
+function getSpotifyClientSecret() {
+  for (const keyName of spotifySecretKeyNames) {
+    const candidate = process.env[keyName]
+
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim()
+
+      if (trimmed) {
+        return trimmed
+      }
+    }
+  }
+
+  return ''
+}
 
 function appendSetCookieHeader(res, cookieValue) {
   const existing = res.getHeader('Set-Cookie')
@@ -111,11 +127,13 @@ export function getAuthorizeUrl(req) {
 }
 
 export function ensureSpotifySecretConfigured(res) {
-  if (spotifyClientSecret) {
+  if (getSpotifyClientSecret()) {
     return true
   }
 
-  res.status(500).json({ error: 'SPOTIFY_CLIENT_SECRET is not configured.' })
+  res.status(500).json({
+    error: `Spotify client secret is missing. Configure one of: ${spotifySecretKeyNames.join(', ')}`,
+  })
   return false
 }
 
@@ -130,6 +148,7 @@ export function getRequiredCode(req) {
 }
 
 export async function exchangeCodeForTokens(code, redirectUri) {
+  const spotifyClientSecret = getSpotifyClientSecret()
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
@@ -160,6 +179,7 @@ export async function exchangeCodeForTokens(code, redirectUri) {
 }
 
 export async function refreshAccessToken(refreshToken) {
+  const spotifyClientSecret = getSpotifyClientSecret()
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
     refresh_token: refreshToken,

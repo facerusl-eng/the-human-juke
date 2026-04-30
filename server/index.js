@@ -5,7 +5,7 @@ const app = express()
 const port = Number(process.env.SPOTIFY_SERVER_PORT ?? 3001)
 
 const spotifyClientId = process.env.SPOTIFY_CLIENT_ID ?? '510534c3ee9046aba1b67cb526ef8b1c'
-const spotifyClientSecret = process.env.SPOTIFY_CLIENT_SECRET ?? ''
+const spotifySecretKeyNames = ['SPOTIFY_CLIENT_SECRET', 'SPOTIFY_SECRET', 'SPOTIFYCLIENTSECRET']
 const spotifyRedirectUriOverride = process.env.SPOTIFY_REDIRECT_URI?.trim() ?? ''
 const spotifyRedirectUriDev = process.env.SPOTIFY_REDIRECT_URI_DEV ?? 'http://localhost:5173/callback'
 const spotifyRedirectUriProd = process.env.SPOTIFY_REDIRECT_URI_PROD ?? spotifyRedirectUriDev
@@ -14,6 +14,22 @@ const spotifyScopes = 'user-read-playback-state user-modify-playback-state strea
 let latestRefreshToken = process.env.SPOTIFY_REFRESH_TOKEN ?? null
 
 app.use(express.json())
+
+function getSpotifyClientSecret() {
+  for (const keyName of spotifySecretKeyNames) {
+    const candidate = process.env[keyName]
+
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim()
+
+      if (trimmed) {
+        return trimmed
+      }
+    }
+  }
+
+  return ''
+}
 
 function getSpotifyRedirectUri() {
   if (process.env.NODE_ENV !== 'production') {
@@ -40,6 +56,7 @@ function getAuthorizeUrl() {
 }
 
 async function exchangeCodeForTokens(code) {
+  const spotifyClientSecret = getSpotifyClientSecret()
   const redirectUri = getSpotifyRedirectUri()
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
@@ -71,6 +88,7 @@ async function exchangeCodeForTokens(code) {
 }
 
 async function refreshAccessToken(refreshToken) {
+  const spotifyClientSecret = getSpotifyClientSecret()
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
@@ -104,6 +122,7 @@ app.get('/api/spotify/login', (_req, res) => {
 })
 
 app.get('/api/spotify/callback', async (req, res) => {
+  const spotifyClientSecret = getSpotifyClientSecret()
   const code = typeof req.query.code === 'string' ? req.query.code : ''
 
   if (!code) {
@@ -112,7 +131,9 @@ app.get('/api/spotify/callback', async (req, res) => {
   }
 
   if (!spotifyClientSecret) {
-    res.status(500).json({ error: 'SPOTIFY_CLIENT_SECRET is not configured.' })
+    res.status(500).json({
+      error: `Spotify client secret is missing. Configure one of: ${spotifySecretKeyNames.join(', ')}`,
+    })
     return
   }
 
@@ -137,8 +158,12 @@ app.get('/api/spotify/callback', async (req, res) => {
 })
 
 app.get('/api/spotify/token', async (_req, res) => {
+  const spotifyClientSecret = getSpotifyClientSecret()
+
   if (!spotifyClientSecret) {
-    res.status(500).json({ error: 'SPOTIFY_CLIENT_SECRET is not configured.' })
+    res.status(500).json({
+      error: `Spotify client secret is missing. Configure one of: ${spotifySecretKeyNames.join(', ')}`,
+    })
     return
   }
 
