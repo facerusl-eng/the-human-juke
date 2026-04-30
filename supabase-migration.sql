@@ -9,6 +9,13 @@ CREATE POLICY events_select_authenticated ON public.events
     OR host_id = auth.uid()
   );
 
+-- Enable Supabase Realtime on the events table so audience clients receive
+-- instant updates when room_open / is_active change (Go Live / Pause Live).
+-- Also enable for queue_songs so live queue votes propagate in real-time.
+-- Safe to run multiple times; ADD TABLE is idempotent in Postgres.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.events;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.queue_songs;
+
 DROP POLICY IF EXISTS queue_songs_select_event ON public.queue_songs;
 CREATE POLICY queue_songs_select_event ON public.queue_songs
   FOR SELECT TO authenticated

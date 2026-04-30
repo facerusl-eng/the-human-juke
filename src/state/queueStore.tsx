@@ -116,7 +116,10 @@ const DEFAULT_DB_TIMEOUT_MS = 25_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
 const HOST_QUEUE_POLL_INTERVAL_MS = 15_000
 const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 30_000
-const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 30000
+// How often the audience polls when connected to a live event (realtime handles most updates).
+const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 12_000
+// How often the audience checks for a new live gig when sitting on the no-gig screen.
+const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 8_000
 const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
 const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
 const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
@@ -917,7 +920,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               }
 
               void maybeReloadAudienceWhenLiveReturns()
-            }, AUDIENCE_QUEUE_POLL_INTERVAL_MS)
+            }, AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS)
           }
 
           return
