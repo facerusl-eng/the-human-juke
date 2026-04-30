@@ -234,8 +234,8 @@ function GigControlPage() {
       const message = event.data
 
       if (message?.type === 'tick') {
-        if ((message.tickCount ?? 0) % 10 === 0) {
-          setWorkerHeartbeatText(`Background worker active (${message.tickCount}s).`)
+        if ((message.tickCount ?? 0) >= 1) {
+          setWorkerHeartbeatText('Background worker active.')
         }
         return
       }
