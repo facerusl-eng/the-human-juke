@@ -27,7 +27,7 @@ type LiveFeedPanelProps = {
 
 const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '❤️']
 const AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
-const FEED_IMAGE_QUEUE_INTERVAL_MS = 8000
+const FEED_IMAGE_QUEUE_INTERVAL_MS = 7000
 const FEED_POLL_INTERVAL_MS = 5000
 const FEED_FETCH_DEBOUNCE_MS = 300
 const FEED_MAX_POSTS = 40
@@ -93,7 +93,7 @@ function resolveVisiblePosts(posts: FeedPost[], now: number) {
   for (const imagePost of imagePostsOldestFirst) {
     const createdAtMs = new Date(imagePost.created_at).getTime()
     const safeCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : now
-    const baseUnlockAt = safeCreatedAtMs + FEED_IMAGE_QUEUE_INTERVAL_MS
+    const baseUnlockAt = safeCreatedAtMs
     const unlockAt = previousUnlockAt > 0
       ? Math.max(baseUnlockAt, previousUnlockAt + FEED_IMAGE_QUEUE_INTERVAL_MS)
       : baseUnlockAt
