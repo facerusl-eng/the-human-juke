@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
-import html2canvas from 'html2canvas'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { prepareFeedImage } from '../lib/feedImage'
 import { useQueueStore } from '../state/queueStore'
@@ -588,37 +587,10 @@ function PromoteEventPage() {
     }
   }, [promotionSaved])
 
-  const waitForPreviewAssets = async (previewElement: HTMLElement) => {
-    if ('fonts' in document && document.fonts?.ready) {
-      await document.fonts.ready
-    }
-
-    const previewImages = Array.from(previewElement.querySelectorAll('img'))
-    await Promise.all(
-      previewImages.map(async (imageElement) => {
-        if (imageElement.complete && imageElement.naturalWidth > 0) {
-          return
-        }
-
-        if (typeof imageElement.decode === 'function') {
-          await imageElement.decode()
-          return
-        }
-
-        await new Promise<void>((resolve, reject) => {
-          imageElement.onload = () => resolve()
-          imageElement.onerror = () => reject(new Error('Could not load preview image'))
-        })
-      }),
-    )
-  }
-
   const exportImage = async (type: 'png' | 'jpg') => {
-    if (!previewRef.current || exportingImage) {
+    if (exportingImage) {
       return
     }
-
-    const previewElement = previewRef.current
 
     setExportError(null)
     setExportingImage(true)
@@ -629,144 +601,342 @@ function PromoteEventPage() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'promote-event'
 
-    const downloadDataUrl = (dataUrl: string) => {
-      const downloadLink = document.createElement('a')
-      downloadLink.download = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.${type}`
-      downloadLink.href = dataUrl
-      downloadLink.click()
-    }
-
-    const encodeCanvas = (canvas: HTMLCanvasElement) => {
-      return type === 'png'
-        ? canvas.toDataURL('image/png')
-        : canvas.toDataURL('image/jpeg', 0.95)
-    }
-
-    const buildExportCanvas = (captureCanvas: HTMLCanvasElement) => {
-      if (
-        captureCanvas.width === targetDimensions.width
-        && captureCanvas.height === targetDimensions.height
-      ) {
-        return captureCanvas
-      }
-
-      const outputCanvas = document.createElement('canvas')
-      outputCanvas.width = targetDimensions.width
-      outputCanvas.height = targetDimensions.height
-
-      const outputContext = outputCanvas.getContext('2d')
-
-      if (!outputContext) {
-        throw new Error('Could not prepare the exported image.')
-      }
-
-      outputContext.imageSmoothingEnabled = true
-      outputContext.imageSmoothingQuality = 'high'
-      outputContext.drawImage(captureCanvas, 0, 0, targetDimensions.width, targetDimensions.height)
-
-      return outputCanvas
-    }
-
-    const renderExportDataUrl = async () => {
-      const previewWidth = Math.max(1, previewElement.clientWidth)
-      const previewHeight = Math.max(1, previewElement.clientHeight)
-      const fullResolutionScale = targetDimensions.width / previewWidth
-      const captureScales = Array.from(new Set([
-        fullResolutionScale,
-        Math.min(fullResolutionScale, 2),
-        Math.min(fullResolutionScale, 1.5),
-        1,
-      ].filter((scale) => scale > 0)))
-
-      let lastError: unknown = null
-
-      for (const captureScale of captureScales) {
-        try {
-          const captureCanvas = await html2canvas(previewElement, {
-            useCORS: false,
-            allowTaint: true,
-            backgroundColor: null,
-            scale: captureScale,
-            width: previewWidth,
-            height: previewHeight,
-            windowWidth: previewWidth,
-            windowHeight: previewHeight,
-            imageTimeout: 0,
-            logging: false,
-          })
-
-          const exportCanvas = buildExportCanvas(captureCanvas)
-          return encodeCanvas(exportCanvas)
-        } catch (error) {
-          lastError = error
-        }
-      }
-
-      throw lastError ?? new Error('Could not export image.')
-    }
-
-    // Inline computed styles on every element so clamp(), calc(), and CSS variables
-    // are resolved to concrete pixel values before html2canvas captures the DOM.
-    const PROPS_TO_INLINE = [
-      'color', 'background-color', 'background-image',
-      'font-size', 'font-family', 'font-weight', 'font-style', 'line-height', 'letter-spacing',
-      'text-shadow', 'text-transform', 'opacity',
-      '-webkit-text-stroke-width', '-webkit-text-stroke-color',
-      'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
-      'border-top-left-radius', 'border-top-right-radius', 'border-bottom-right-radius', 'border-bottom-left-radius',
-      'border-width', 'border-style', 'border-color',
-      'box-shadow', 'gap', 'row-gap', 'column-gap',
-    ] as const
-
-    const allElements = [previewElement, ...Array.from(previewElement.querySelectorAll('*'))] as HTMLElement[]
-    const styleBackups = allElements.map((el) => el.getAttribute('style'))
-
-    allElements.forEach((el) => {
-      const cs = window.getComputedStyle(el)
-      PROPS_TO_INLINE.forEach((prop) => {
-        const val = cs.getPropertyValue(prop)
-        if (val) el.style.setProperty(prop, val)
-      })
-    })
-
-    previewElement.classList.add('promote-exporting')
-
-    // Swap photo src to the base64 data URL so html2canvas can draw it without re-fetching
-    const photoImg = previewElement.querySelector<HTMLImageElement>('.promote-photo')
-    const originalPhotoSrc = photoImg?.getAttribute('src') ?? null
-    if (photoImg && photoDataUrlRef.current) {
-      photoImg.src = photoDataUrlRef.current
-      await photoImg.decode().catch(() => {})
-    }
-
-    // Inline the photo filter so html2canvas picks it up
-    if (photoImg) {
-      photoImg.style.setProperty('filter', `brightness(${photoBrightnessAdj}) contrast(${photoContrast}) saturate(${photoSaturation})`)
-    }
-
     try {
-      await waitForPreviewAssets(previewElement)
-      const dataUrl = await renderExportDataUrl()
-      downloadDataUrl(dataUrl)
-    } catch (error) {
-      console.warn(`PromoteEventPage: export failed`, error)
-      setExportError('Could not export image. Please try a different photo file and retry.')
-    } finally {
-      previewElement.classList.remove('promote-exporting')
-      if (photoImg) {
-        photoImg.style.removeProperty('filter')
-        if (originalPhotoSrc !== null) {
-          photoImg.src = originalPhotoSrc
+      const W = targetDimensions.width
+      const H = targetDimensions.height
+      const PAD = Math.round(W * 0.045)
+      const RADIUS = Math.round(W * 0.04)
+
+      const canvas = document.createElement('canvas')
+      canvas.width = W
+      canvas.height = H
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Canvas not available on this device.')
+
+      // ── rounded clip ──────────────────────────────────────────────────────
+      ctx.beginPath()
+      ctx.moveTo(RADIUS, 0)
+      ctx.lineTo(W - RADIUS, 0)
+      ctx.quadraticCurveTo(W, 0, W, RADIUS)
+      ctx.lineTo(W, H - RADIUS)
+      ctx.quadraticCurveTo(W, H, W - RADIUS, H)
+      ctx.lineTo(RADIUS, H)
+      ctx.quadraticCurveTo(0, H, 0, H - RADIUS)
+      ctx.lineTo(0, RADIUS)
+      ctx.quadraticCurveTo(0, 0, RADIUS, 0)
+      ctx.closePath()
+      ctx.save()
+      ctx.clip()
+
+      // ── theme background ──────────────────────────────────────────────────
+      const themeGradients: Record<ThemeKey, [string, string, string, number][]> = {
+        none:     [['#0f172a', '#0f172a', '#0f172a', 0]],
+        sunset:   [['#3c1f1e', '#8d3f2f', '#f18c57', 140]],
+        midnight: [['#111827', '#1e3a8a', '#2563eb', 140]],
+        studio:   [['#1f2937', '#334155', '#06b6d4', 140]],
+      }
+      const tg = themeGradients[theme]
+      if (tg[0][0] === tg[0][1] && tg[0][1] === tg[0][2]) {
+        ctx.fillStyle = tg[0][0]
+        ctx.fillRect(0, 0, W, H)
+      } else {
+        const [c0, c1, c2, angleDeg] = tg[0]
+        const rad = (angleDeg * Math.PI) / 180
+        const gx1 = W / 2 - (Math.cos(rad) * W) / 2
+        const gy1 = H / 2 - (Math.sin(rad) * H) / 2
+        const gx2 = W / 2 + (Math.cos(rad) * W) / 2
+        const gy2 = H / 2 + (Math.sin(rad) * H) / 2
+        const bg = ctx.createLinearGradient(gx1, gy1, gx2, gy2)
+        bg.addColorStop(0, c0)
+        bg.addColorStop(0.45, c1)
+        bg.addColorStop(1, c2)
+        ctx.fillStyle = bg
+        ctx.fillRect(0, 0, W, H)
+      }
+
+      // ── photo ─────────────────────────────────────────────────────────────
+      if (photoDataUrlRef.current) {
+        const img = new Image()
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve()
+          img.onerror = () => resolve()   // continue even if photo fails
+          img.src = photoDataUrlRef.current!
+        })
+        if (img.naturalWidth > 0) {
+          // cover-fit
+          const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight)
+          const dw = img.naturalWidth * scale
+          const dh = img.naturalHeight * scale
+          const dx = (W - dw) / 2
+          const dy = (H - dh) / 2
+          ctx.save()
+          ctx.filter = `brightness(${photoBrightnessAdj}) contrast(${photoContrast}) saturate(${photoSaturation})`
+          ctx.drawImage(img, dx, dy, dw, dh)
+          ctx.filter = 'none'
+          ctx.restore()
         }
       }
-      allElements.forEach((el, i) => {
-        const backup = styleBackups[i]
-        if (backup === null) {
-          el.removeAttribute('style')
-        } else {
-          el.setAttribute('style', backup)
+
+      // ── dark overlay ──────────────────────────────────────────────────────
+      const overlay = ctx.createLinearGradient(0, 0, 0, H)
+      overlay.addColorStop(0, 'rgba(0,0,0,0)')
+      overlay.addColorStop(1, 'rgba(0,0,0,0.45)')
+      ctx.fillStyle = overlay
+      ctx.fillRect(0, 0, W, H)
+
+      // ── theme accent colour ───────────────────────────────────────────────
+      const accentMap: Record<ThemeKey, string> = {
+        none:     '#94a3b8',
+        sunset:   '#ffd3a1',
+        midnight: '#93c5fd',
+        studio:   '#a5f3fc',
+      }
+      const accent = accentMap[theme]
+
+      // ── font helpers ──────────────────────────────────────────────────────
+      const fontFamilyMap: Record<FontChoice, string> = {
+        default: 'system-ui, -apple-system, sans-serif',
+        serif:   'Georgia, serif',
+        slab:    '"Courier New", Courier, monospace',
+        mono:    'Monaco, monospace',
+      }
+      const ff = fontFamilyMap[fontChoice]
+      const fw = textBold ? '700' : '500'
+      const textColorResolved = textColor || '#f8fafc'
+
+      const shadowMap: Record<TextShadow, string | null> = {
+        none:   null,
+        light:  'rgba(15,23,42,0.6)',
+        medium: 'rgba(15,23,42,0.75)',
+        strong: 'rgba(0,0,0,0.9)',
+      }
+      const shadowColor = shadowMap[textShadow]
+      if (shadowColor) {
+        ctx.shadowColor = shadowColor
+        ctx.shadowBlur = textShadow === 'strong' ? 18 : textShadow === 'medium' ? 12 : 8
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = 2
+      }
+
+      const drawText = (
+        text: string,
+        x: number,
+        y: number,
+        fontSize: number,
+        maxWidth: number,
+        opts: { align?: CanvasTextAlign; color?: string; weight?: string } = {},
+      ) => {
+        if (!text) return
+        ctx.save()
+        ctx.font = `${opts.weight ?? fw} ${fontSize}px ${ff}`
+        ctx.fillStyle = opts.color ?? textColorResolved
+        ctx.textAlign = opts.align ?? 'left'
+        ctx.textBaseline = 'top'
+        // word-wrap
+        const words = text.split(' ')
+        let line = ''
+        let lineY = y
+        const lineH = fontSize * 1.25
+        for (const word of words) {
+          const test = line ? `${line} ${word}` : word
+          if (ctx.measureText(test).width > maxWidth && line) {
+            ctx.fillText(line, x, lineY, maxWidth)
+            line = word
+            lineY += lineH
+          } else {
+            line = test
+          }
         }
-      })
+        if (line) ctx.fillText(line, x, lineY, maxWidth)
+        ctx.restore()
+      }
+
+      // ── chip (top-left badge) ─────────────────────────────────────────────
+      const CHIP_FONT = Math.round(W * 0.028)
+      const CHIP_PX = Math.round(W * 0.022)
+      const CHIP_PY = Math.round(W * 0.014)
+      const chipLabel = 'The Human Jukebox'
+      ctx.save()
+      ctx.font = `500 ${CHIP_FONT}px ${ff}`
+      const chipW = ctx.measureText(chipLabel).width + CHIP_PX * 2
+      const chipH = CHIP_FONT + CHIP_PY * 2
+      const chipX = PAD
+      const chipY = PAD
+      ctx.strokeStyle = accent
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      const chipR = chipH / 2
+      ctx.moveTo(chipX + chipR, chipY)
+      ctx.lineTo(chipX + chipW - chipR, chipY)
+      ctx.quadraticCurveTo(chipX + chipW, chipY, chipX + chipW, chipY + chipR)
+      ctx.lineTo(chipX + chipW, chipY + chipH - chipR)
+      ctx.quadraticCurveTo(chipX + chipW, chipY + chipH, chipX + chipW - chipR, chipY + chipH)
+      ctx.lineTo(chipX + chipR, chipY + chipH)
+      ctx.quadraticCurveTo(chipX, chipY + chipH, chipX, chipY + chipH - chipR)
+      ctx.lineTo(chipX, chipY + chipR)
+      ctx.quadraticCurveTo(chipX, chipY, chipX + chipR, chipY)
+      ctx.closePath()
+      ctx.fillStyle = 'rgba(15,23,42,0.36)'
+      ctx.fill()
+      ctx.stroke()
+      ctx.restore()
+      ctx.save()
+      ctx.shadowColor = 'transparent'
+      ctx.shadowBlur = 0
+      ctx.font = `500 ${CHIP_FONT}px ${ff}`
+      ctx.fillStyle = '#f8fafc'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(chipLabel, chipX + CHIP_PX, chipY + chipH / 2)
+      ctx.restore()
+      if (shadowColor) {
+        ctx.shadowColor = shadowColor
+        ctx.shadowBlur = textShadow === 'strong' ? 18 : textShadow === 'medium' ? 12 : 8
+      }
+
+      // ── text frame helper ─────────────────────────────────────────────────
+      const CONTENT_W = W - PAD * 2
+      const drawFrame = (fx: number, fy: number, fw2: number, fh: number) => {
+        const tf = resolvedTextFrame
+        if (tf === 'none') return
+        ctx.save()
+        ctx.shadowColor = 'transparent'
+        ctx.shadowBlur = 0
+        const fr = Math.round(W * 0.025)
+        ctx.beginPath()
+        ctx.moveTo(fx + fr, fy)
+        ctx.lineTo(fx + fw2 - fr, fy)
+        ctx.quadraticCurveTo(fx + fw2, fy, fx + fw2, fy + fr)
+        ctx.lineTo(fx + fw2, fy + fh - fr)
+        ctx.quadraticCurveTo(fx + fw2, fy + fh, fx + fw2 - fr, fy + fh)
+        ctx.lineTo(fx + fr, fy + fh)
+        ctx.quadraticCurveTo(fx, fy + fh, fx, fy + fh - fr)
+        ctx.lineTo(fx, fy + fr)
+        ctx.quadraticCurveTo(fx, fy, fx + fr, fy)
+        ctx.closePath()
+        ctx.fillStyle = tf === 'light'
+          ? `rgba(255,255,255,${0.12 + framePadding * 0.12})`
+          : `rgba(0,0,0,${0.28 + framePadding * 0.18})`
+        ctx.fill()
+        ctx.restore()
+      }
+
+      // ── headline block ────────────────────────────────────────────────────
+      const OVERLINE_SIZE  = Math.round(W * 0.030 * textScale)
+      const TITLE_SIZE     = Math.round(W * 0.082 * textScale)
+      const SUBTITLE_SIZE  = Math.round(W * 0.037 * textScale)
+      const DESC_SIZE      = Math.round(W * 0.033 * textScale)
+      const LINE_GAP       = Math.round(W * 0.012)
+
+      const measureBlockHeight = () => {
+        let h = 0
+        if (eventDate) h += OVERLINE_SIZE * 1.25 + LINE_GAP
+        if (title)     h += TITLE_SIZE * 1.25 + LINE_GAP
+        if (subtitle)  h += SUBTITLE_SIZE * 1.25 + LINE_GAP
+        if (description) {
+          ctx.font = `${fw} ${DESC_SIZE}px ${ff}`
+          const words = description.split(' ')
+          let lines = 1, line = ''
+          for (const word of words) {
+            const test = line ? `${line} ${word}` : word
+            if (ctx.measureText(test).width > CONTENT_W && line) { lines++; line = word } else { line = test }
+          }
+          h += lines * DESC_SIZE * 1.25
+        }
+        return h
+      }
+
+      const blockH = measureBlockHeight()
+      const anchorYFrac = headlineAnchor.y / 100
+      const blockTopY = Math.round(H * anchorYFrac - blockH / 2)
+      const FRAME_PAD = Math.round(W * 0.025)
+
+      drawFrame(PAD - FRAME_PAD, blockTopY - FRAME_PAD, CONTENT_W + FRAME_PAD * 2, blockH + FRAME_PAD * 2)
+
+      let ty = blockTopY
+      if (eventDate) {
+        drawText(eventDate.toUpperCase(), PAD, ty, OVERLINE_SIZE, CONTENT_W)
+        ty += OVERLINE_SIZE * 1.25 + LINE_GAP
+      }
+      if (title) {
+        ctx.save()
+        ctx.font = `700 ${TITLE_SIZE}px ${ff}`
+        ctx.fillStyle = textColorResolved
+        ctx.textBaseline = 'top'
+        // word-wrap title
+        const words = title.split(' ')
+        let line = ''
+        const lineH = TITLE_SIZE * 1.15
+        for (const word of words) {
+          const test = line ? `${line} ${word}` : word
+          if (ctx.measureText(test).width > CONTENT_W && line) {
+            ctx.fillText(line, PAD, ty, CONTENT_W)
+            line = word; ty += lineH
+          } else { line = test }
+        }
+        if (line) { ctx.fillText(line, PAD, ty, CONTENT_W); ty += lineH }
+        ctx.restore()
+        ty += LINE_GAP
+      }
+      if (subtitle) {
+        drawText(subtitle, PAD, ty, SUBTITLE_SIZE, CONTENT_W)
+        ty += SUBTITLE_SIZE * 1.25 + LINE_GAP
+      }
+      if (description) {
+        drawText(description, PAD, ty, DESC_SIZE, CONTENT_W, { color: `${textColorResolved}ee` })
+      }
+
+      // ── footer ────────────────────────────────────────────────────────────
+      ctx.shadowColor = 'transparent'
+      ctx.shadowBlur = 0
+      const FOOT_NAME_SIZE = Math.round(W * 0.036 * textScale)
+      const FOOT_META_SIZE = Math.round(W * 0.030 * textScale)
+      const FOOT_H = FOOT_NAME_SIZE + FOOT_META_SIZE * 1.4 + Math.round(W * 0.02) + Math.round(W * 0.035)
+      const footerY = H - PAD - FOOT_H
+
+      // footer divider line
+      ctx.save()
+      ctx.strokeStyle = accent
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(PAD, footerY)
+      ctx.lineTo(W - PAD, footerY)
+      ctx.stroke()
+      ctx.restore()
+
+      const footTextY = footerY + Math.round(W * 0.018)
+      ctx.save()
+      ctx.shadowColor = 'transparent'
+      ctx.shadowBlur = 0
+      ctx.font = `700 ${FOOT_NAME_SIZE}px ${ff}`
+      ctx.fillStyle = textColorResolved
+      ctx.textBaseline = 'top'
+      if (eventName) ctx.fillText(eventName, PAD, footTextY, CONTENT_W * 0.65)
+      ctx.font = `${fw} ${FOOT_META_SIZE}px ${ff}`
+      ctx.fillStyle = `${textColorResolved}ee`
+      if (venue) ctx.fillText(venue, PAD, footTextY + FOOT_NAME_SIZE * 1.3, CONTENT_W * 0.65)
+      if (ctaText) {
+        ctx.textAlign = 'right'
+        ctx.font = `${fw} ${FOOT_META_SIZE}px ${ff}`
+        ctx.fillStyle = accent
+        ctx.fillText(ctaText, W - PAD, footTextY + FOOT_NAME_SIZE * 0.3, CONTENT_W * 0.45)
+      }
+      ctx.restore()
+
+      ctx.restore() // end clip
+
+      // ── encode & download ─────────────────────────────────────────────────
+      const dataUrl = type === 'png'
+        ? canvas.toDataURL('image/png')
+        : canvas.toDataURL('image/jpeg', 0.92)
+
+      const link = document.createElement('a')
+      link.download = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.${type}`
+      link.href = dataUrl
+      link.click()
+    } catch (error) {
+      console.warn('PromoteEventPage: canvas export failed', error)
+      setExportError('Could not export image. Please try again.')
+    } finally {
       setExportingImage(false)
     }
   }
