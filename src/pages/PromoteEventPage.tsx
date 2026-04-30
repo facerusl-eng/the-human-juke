@@ -935,9 +935,11 @@ function PromoteEventPage() {
 
       if (!blob) throw new Error('Canvas could not produce an image blob.')
 
-      // Web Share API – best on mobile (iOS shows native Save to Photos sheet)
+      // Use native share only on mobile; desktop/laptop should always download a file directly.
+      const isLikelyMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
       const file = new File([blob], fileName, { type: mimeType })
       if (
+        isLikelyMobile &&
         typeof navigator.share === 'function' &&
         typeof navigator.canShare === 'function' &&
         navigator.canShare({ files: [file] })
