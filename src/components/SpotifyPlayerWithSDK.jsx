@@ -4,6 +4,7 @@ const SDK_URL = 'https://sdk.scdn.co/spotify-player.js'
 const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
 const SPOTIFY_DEVICE_ID_STORAGE_KEY = 'human-jukebox-spotify-device-id'
 const SPOTIFY_PLAYER_SINGLETON_KEY = '__humanJukeboxSpotifyPlayerSingleton'
+const DEFAULT_BETWEEN_SONGS_PLAYLIST = 'spotify:playlist:4SarKcYGzetJ7AIlqVa1qj'
 
 function getStoredSpotifyDeviceId() {
   if (typeof window === 'undefined') {
@@ -215,7 +216,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
   const [deviceId, setDeviceId] = useState(null)
   const [playerStatus, setPlayerStatus] = useState('Spotify player is idle.')
   const [spotifyUriInput, setSpotifyUriInput] = useState('')
-  const [playlistInput, setPlaylistInput] = useState('')
+  const [playlistInput, setPlaylistInput] = useState(DEFAULT_BETWEEN_SONGS_PLAYLIST)
   const [actionBusy, setActionBusy] = useState(false)
   const [transportStatusText, setTransportStatusText] = useState(null)
   const disconnectHint = !deviceId ? getSpotifyDisconnectHint(playerStatus) : null
@@ -252,7 +253,10 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
     const storedPlaylistInput = window.localStorage.getItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY)
     if (storedPlaylistInput) {
       setPlaylistInput(storedPlaylistInput)
+      return
     }
+
+    setPlaylistInput(DEFAULT_BETWEEN_SONGS_PLAYLIST)
   }, [])
 
   useEffect(() => {
