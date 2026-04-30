@@ -484,7 +484,7 @@ function PromoteEventPage() {
     }
 
     const nextX = clampPercentage(((clientX - canvasRect.left) / canvasRect.width) * 100)
-    const nextY = clampPercentage(((clientY - canvasRect.top) / canvasRect.height) * 100, 12, 84)
+    const nextY = clampPercentage(((clientY - canvasRect.top) / canvasRect.height) * 100, 12, 73)
     setHeadlineAnchor({ x: nextX, y: nextY })
   }
 
@@ -528,7 +528,7 @@ function PromoteEventPage() {
     }
 
     if (nextPosition === 'bottom') {
-      setHeadlineAnchor({ x: 50, y: 74 })
+      setHeadlineAnchor({ x: 50, y: 64 })
       return
     }
 
