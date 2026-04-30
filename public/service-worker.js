@@ -1,4 +1,4 @@
-const STATIC_CACHE_NAME = 'human-jukebox-static-v3'
+const STATIC_CACHE_NAME = 'human-jukebox-static-v4'
 const SYNC_DB_NAME = 'human-jukebox-sync-db'
 const SYNC_DB_STORE = 'failed-requests'
 const SYNC_TAG = 'jukebox-sync'
@@ -51,36 +51,36 @@ function isSameOriginStaticAsset(requestUrl) {
   )
 }
 
-function isAppCodeAsset(requestUrl) {
-  return requestUrl.pathname.startsWith('/assets/')
-    || requestUrl.pathname.endsWith('.js')
-    || requestUrl.pathname.endsWith('.css')
-}
-
 async function networkFirstNavigation(event) {
   const cache = await caches.open(STATIC_CACHE_NAME)
+  const cachedShell = await cache.match('/index.html')
 
-  try {
+  const networkPromise = (async () => {
     const preloadResponse = await event.preloadResponse
 
     if (preloadResponse) {
-      cache.put('/index.html', preloadResponse.clone())
+      await cache.put('/index.html', preloadResponse.clone())
       return preloadResponse
     }
 
     const networkShell = await fetch('/index.html', { cache: 'no-store' })
     if (networkShell?.ok) {
-      cache.put('/index.html', networkShell.clone())
+      await cache.put('/index.html', networkShell.clone())
     }
     return networkShell
-  } catch {
-    const cachedShell = await cache.match('/index.html')
-    if (cachedShell) {
-      return cachedShell
-    }
+  })().catch(() => null)
 
-    return new Response('Offline', { status: 503 })
+  if (cachedShell) {
+    event.waitUntil(networkPromise)
+    return cachedShell
   }
+
+  const networkShell = await networkPromise
+  if (networkShell) {
+    return networkShell
+  }
+
+  return new Response('Offline', { status: 503 })
 }
 
 async function staleWhileRevalidateAsset(request) {
@@ -112,25 +112,6 @@ async function staleWhileRevalidateAsset(request) {
   }
 
   return new Response('Asset unavailable', { status: 504 })
-}
-
-async function networkFirstAsset(request) {
-  const cache = await caches.open(STATIC_CACHE_NAME)
-
-  try {
-    const networkResponse = await fetch(request, { cache: 'no-store' })
-    if (networkResponse?.ok) {
-      cache.put(request, networkResponse.clone())
-    }
-    return networkResponse
-  } catch {
-    const cachedResponse = await cache.match(request)
-    if (cachedResponse) {
-      return cachedResponse
-    }
-
-    return new Response('Asset unavailable', { status: 504 })
-  }
 }
 
 function openSyncDb() {
@@ -259,11 +240,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (request.method === 'GET' && isSameOriginStaticAsset(requestUrl)) {
-    event.respondWith(
-      isAppCodeAsset(requestUrl)
-        ? networkFirstAsset(request)
-        : staleWhileRevalidateAsset(request),
-    )
+    event.respondWith(staleWhileRevalidateAsset(request))
     return
   }
 

@@ -362,6 +362,7 @@ function EventPage() {
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [audienceLoadingFallbackActive, setAudienceLoadingFallbackActive] = useState(false)
   const [hasResolvedInitialAudienceLoad, setHasResolvedInitialAudienceLoad] = useState(false)
+  const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(false)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -405,6 +406,15 @@ function EventPage() {
   const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
   const hasRequestedEventParam = Boolean(requestedEventId)
   const liveGigApiUnavailableRef = useRef(false)
+
+  useEffect(() => {
+    if (hasRequestedEventParam) {
+      setHasCompletedInitialLiveGigProbe(true)
+      return
+    }
+
+    setHasCompletedInitialLiveGigProbe(false)
+  }, [hasRequestedEventParam])
 
   useEffect(() => {
     votingSongIdsRef.current = votingSongIds
@@ -479,6 +489,9 @@ function EventPage() {
 
     const checkLiveGig = async () => {
       if (liveGigApiUnavailableRef.current) {
+        if (isCurrent) {
+          setHasCompletedInitialLiveGigProbe(true)
+        }
         return
       }
 
@@ -498,12 +511,15 @@ function EventPage() {
           }
 
           setUpcomingEventsNotice('A live show just started. Connecting now...')
+          setHasCompletedInitialLiveGigProbe(true)
           return
         }
 
         if (requestedEventId) {
           navigate(`/audience?v=${audienceLinkVersionRef.current}`, { replace: true })
         }
+
+        setHasCompletedInitialLiveGigProbe(true)
       } catch (error) {
         const expectedFallbackError = isExpectedApiFallbackError(error)
         const fallbackStatusCode = getExpectedApiFallbackStatusCode(error)
@@ -511,6 +527,9 @@ function EventPage() {
         if (expectedFallbackError && fallbackStatusCode === 404) {
           // /api/live-gig is optional in some deployments; disable polling to avoid repeated 404 logs.
           liveGigApiUnavailableRef.current = true
+          if (isCurrent) {
+            setHasCompletedInitialLiveGigProbe(true)
+          }
           return
         }
 
@@ -520,6 +539,7 @@ function EventPage() {
 
         if (isCurrent && !event && !expectedFallbackError) {
           setUpcomingEventsNotice('Live status is reconnecting. Upcoming events are shown below.')
+          setHasCompletedInitialLiveGigProbe(true)
         }
       }
     }
@@ -1012,6 +1032,7 @@ function EventPage() {
     && !audienceLoadingFallbackActive
     && !hasResolvedInitialAudienceLoad
     && !event
+    && !hasCompletedInitialLiveGigProbe
     && upcomingEvents.length === 0
   ) {
     return (
@@ -1027,6 +1048,19 @@ function EventPage() {
   }
 
   if (!event) {
+    if (!hasRequestedEventParam && !hasCompletedInitialLiveGigProbe) {
+      return (
+        <section className="audience-entry-shell" aria-label="Audience loading">
+          <article className="queue-panel audience-entry-card">
+            <p className="eyebrow">Audience App</p>
+            <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
+            <div className="loading-skeleton loading-skeleton-line" aria-hidden="true"></div>
+            <div className="loading-skeleton loading-skeleton-line loading-skeleton-line-short" aria-hidden="true"></div>
+          </article>
+        </section>
+      )
+    }
+
     return (
       <AudienceNoGigState
         upcomingEvents={upcomingEvents}
