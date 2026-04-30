@@ -1220,7 +1220,7 @@ function MirrorPage() {
           </section>
         ) : (
           <>
-            <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isBetweenSongs ? 'mirror-now-playing-interstitial' : ''}`}>
+            <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''}`}>
               <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
               {isBetweenSongs ? (
                 <>

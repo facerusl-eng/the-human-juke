@@ -4475,26 +4475,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.mirror-now-playing-interstitial {
-  position: relative;
-  isolation: isolate;
-  align-content: center;
-  justify-items: center;
-  min-height: 0;
-  overflow: hidden;
-  padding: clamp(0.45rem, 0.9vw, 0.75rem);
-}
-
-.mirror-interstitial-sweep {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(115deg, transparent 0%, rgba(93, 215, 255, 0.2) 42%, rgba(255, 79, 152, 0.2) 56%, transparent 100%),
-    radial-gradient(circle at 18% 18%, rgba(93, 215, 255, 0.15) 0%, transparent 45%);
-  animation: mirror-interstitial-sweep 4200ms linear infinite;
-}
 
 .mirror-eyebrow {
   margin: 0;
@@ -5190,27 +5170,12 @@
     opacity: 0;
   }
 }
-
-@keyframes mirror-interstitial-sweep {
-  0% {
-    transform: translateX(-38%) skewX(-8deg);
-    opacity: 0.4;
-  }
-
-  50% {
-    opacity: 0.84;
-  }
-
-  100% {
-    transform: translateX(38%) skewX(-8deg);
-    opacity: 0.35;
-  }
-}
-
 @keyframes mirror-fallback-pulse {
   0% {
     opacity: 0;
   }
+
+
 
   30% {
     opacity: 1;
