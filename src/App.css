@@ -5447,8 +5447,18 @@
   align-self: stretch;
   min-height: 0;
   gap: 0.8rem;
-  padding-right: 0.06rem;
+  margin: 0 auto;
+  padding-right: 0;
   padding-bottom: 0.2rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.live-feed-panel-mirror .live-feed-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .live-feed-panel-mirror .live-feed-post {
@@ -7468,6 +7478,7 @@
   display: grid;
   justify-items: center;
   align-content: start;
+  justify-self: center;
   border: 1px solid rgba(93, 215, 255, 0.2);
   border-radius: 16px;
   background:
@@ -7480,6 +7491,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .live-feed-panel-mirror .live-feed-list::-webkit-scrollbar {
