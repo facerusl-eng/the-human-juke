@@ -275,6 +275,8 @@
   display: grid;
   gap: clamp(0.3rem, 1%, 0.6rem);
   width: min(88%, calc(100% - 2rem));
+  max-height: 60%;
+  overflow: hidden;
   cursor: grab;
   touch-action: none;
   -webkit-user-select: none;
@@ -321,11 +323,15 @@
 
 .promote-description {
   opacity: 0.92;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .promote-footer {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   margin-top: clamp(0.3rem, 1%, 0.6rem);
   padding-top: clamp(0.4rem, 1%, 0.8rem);
   border-top: 1px solid var(--promote-accent, #93c5fd);
