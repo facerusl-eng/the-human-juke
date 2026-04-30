@@ -110,7 +110,6 @@ export default async function handler(req, res) {
   const title = eventMeta?.name ? `${eventMeta.name} | Human Jukebox` : DEFAULT_TITLE
   const description = buildDescription(eventMeta)
   const shareUrl = eventId ? `${origin}/a/${encodeURIComponent(eventId)}` : `${origin}/audience`
-  const targetUrl = eventId ? `${origin}/audience?event=${encodeURIComponent(eventId)}` : `${origin}/audience`
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8')
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
