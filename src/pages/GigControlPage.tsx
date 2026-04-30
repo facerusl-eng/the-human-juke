@@ -746,7 +746,11 @@ function GigControlPage() {
       label: 'Open Mirror Screen',
       onClick: () => {
         const mirrorUrl = `${window.location.origin}/mirror`
-        window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
+        const popup = window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
+
+        if (!popup) {
+          window.location.assign(mirrorUrl)
+        }
       },
       variant: 'ghost',
     },
