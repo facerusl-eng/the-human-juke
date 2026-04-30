@@ -234,13 +234,14 @@ function AdminDashboardContent({
   }, [navigate])
   const openMirrorScreen = useCallback(() => {
     const mirrorUrl = `${window.location.origin}/mirror`
-    const popup = window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
-
-    if (!popup) {
-      setQuickActionError('Popup blocked – opening mirror in this tab. Press F11 for fullscreen.')
-      setTimeout(() => window.location.assign(mirrorUrl), 2000)
-    }
-  }, [setQuickActionError])
+    const a = document.createElement('a')
+    a.href = mirrorUrl
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }, [])
   const openSetlistLibrary = useCallback(() => {
     navigate('/admin/setlist-library')
   }, [navigate])
@@ -870,11 +871,13 @@ function AdminPage() {
         onRetry={runManualRetry}
         onOpenMirror={() => {
           const mirrorUrl = `${window.location.origin}/mirror`
-          const popup = window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
-
-          if (!popup) {
-            window.location.assign(mirrorUrl)
-          }
+          const a = document.createElement('a')
+          a.href = mirrorUrl
+          a.target = '_blank'
+          a.rel = 'noopener noreferrer'
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
         }}
         onOpenAudience={() => navigate('/audience')}
         onOpenGigControl={() => navigate('/admin/gig-control')}
