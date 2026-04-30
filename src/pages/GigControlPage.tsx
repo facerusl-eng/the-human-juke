@@ -6,6 +6,7 @@ import SpotifyPlayerWithSDK from '../components/SpotifyPlayerWithSDK.jsx'
 import { useClipboardCopy } from '../hooks/useClipboardCopy'
 import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
+import { openMirrorScreen } from '../lib/openMirrorScreen'
 import { registerBackgroundSync } from '../lib/backgroundSync'
 import { captureQueueSnapshot, getLatestQueueSnapshot } from '../lib/queueSnapshots'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
@@ -744,16 +745,7 @@ function GigControlPage() {
     {
       id: 'open-mirror-screen',
       label: 'Open Mirror Screen',
-      onClick: () => {
-        const mirrorUrl = `${window.location.origin}/mirror`
-        const a = document.createElement('a')
-        a.href = mirrorUrl
-        a.target = '_blank'
-        a.rel = 'noopener noreferrer'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-      },
+      onClick: () => openMirrorScreen(),
       variant: 'ghost',
     },
     {

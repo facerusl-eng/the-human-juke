@@ -40,6 +40,7 @@ const MIRROR_PLAYBACK_BROADCAST_CHANNEL = PLAYBACK_STATE_BROADCAST_CHANNEL
 const MIRROR_SAFE_MARGINS_STORAGE_KEY = 'human-jukebox-mirror-safe-margins'
 const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
+const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 
 type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
@@ -222,6 +223,7 @@ function MirrorPage() {
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
   const mirrorShellRef = useRef<HTMLDivElement | null>(null)
+  const autoFullscreenAttemptedRef = useRef(false)
 
   const setMirrorWarningMessage = (message: string) => {
     if (mirrorWarningClearTimerRef.current !== null) {
@@ -366,6 +368,24 @@ function MirrorPage() {
       window.removeEventListener('fullscreenchange', syncFullscreenState)
       window.removeEventListener('webkitfullscreenchange', syncFullscreenState)
     }
+  }, [])
+
+  useEffect(() => {
+    if (autoFullscreenAttemptedRef.current) {
+      return
+    }
+
+    const searchParams = new URLSearchParams(window.location.search)
+
+    if (searchParams.get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) !== '1') {
+      return
+    }
+
+    autoFullscreenAttemptedRef.current = true
+
+    void requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement).catch(() => {
+      // Best effort only. The launcher already opens a fill-screen popup as fallback.
+    })
   }, [])
 
   useEffect(() => {

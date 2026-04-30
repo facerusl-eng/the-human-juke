@@ -8,6 +8,7 @@ import { useAutosaveSaveLifecycle } from '../hooks/useAutosaveSaveLifecycle'
 import { useClipboardCopy } from '../hooks/useClipboardCopy'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { registerBackgroundSync } from '../lib/backgroundSync'
+import { openMirrorScreen } from '../lib/openMirrorScreen'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
@@ -625,16 +626,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     {
       id: 'open-mirror-screen',
       label: 'Mirror Screen',
-      onClick: () => {
-        const mirrorUrl = `${window.location.origin}/mirror`
-        const a = document.createElement('a')
-        a.href = mirrorUrl
-        a.target = '_blank'
-        a.rel = 'noopener noreferrer'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-      },
+      onClick: () => openMirrorScreen(),
       title: 'Open mirror screen in new window',
       variant: 'ghost',
     },

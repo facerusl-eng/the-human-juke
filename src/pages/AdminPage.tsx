@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
 import { useGigActions } from '../hooks/useGigActions'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
+import { openMirrorScreen as openMirrorScreenWindow } from '../lib/openMirrorScreen'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
@@ -233,14 +234,7 @@ function AdminDashboardContent({
     navigate('/audience')
   }, [navigate])
   const openMirrorScreen = useCallback(() => {
-    const mirrorUrl = `${window.location.origin}/mirror`
-    const a = document.createElement('a')
-    a.href = mirrorUrl
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    openMirrorScreenWindow()
   }, [])
   const openSetlistLibrary = useCallback(() => {
     navigate('/admin/setlist-library')
@@ -870,14 +864,7 @@ function AdminPage() {
         recoveryNotice={recoveryNotice}
         onRetry={runManualRetry}
         onOpenMirror={() => {
-          const mirrorUrl = `${window.location.origin}/mirror`
-          const a = document.createElement('a')
-          a.href = mirrorUrl
-          a.target = '_blank'
-          a.rel = 'noopener noreferrer'
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
+          openMirrorScreenWindow()
         }}
         onOpenAudience={() => navigate('/audience')}
         onOpenGigControl={() => navigate('/admin/gig-control')}
