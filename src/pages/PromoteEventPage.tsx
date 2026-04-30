@@ -929,11 +929,21 @@ function PromoteEventPage() {
       const quality  = type === 'png' ? undefined : 0.92
       const fileName = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}.${type}`
 
-      const blob = await new Promise<Blob | null>((resolve) => {
+      let blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob(resolve, mimeType, quality)
       })
 
-      if (!blob) throw new Error('Canvas could not produce an image blob.')
+      // Fallback for browsers that occasionally return null from toBlob on large canvases.
+      if (!blob) {
+        const dataUrl = type === 'png'
+          ? canvas.toDataURL('image/png')
+          : canvas.toDataURL('image/jpeg', 0.92)
+        blob = await fetch(dataUrl).then((response) => response.blob())
+      }
+
+      if (!blob) {
+        throw new Error('Canvas could not produce an image blob.')
+      }
 
       // Use native share only on mobile; desktop/laptop should always download a file directly.
       const isLikelyMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -954,16 +964,22 @@ function PromoteEventPage() {
         const link = document.createElement('a')
         link.download = fileName
         link.href = objectUrl
+        link.rel = 'noopener'
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+
+        // Safety net for browsers without download attribute support.
+        if (!('download' in HTMLAnchorElement.prototype)) {
+          window.open(objectUrl, '_blank', 'noopener,noreferrer')
+        }
       } finally {
         // Delay revoke so the browser has time to start the download
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000)
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000)
       }
     } catch (error) {
       console.warn('PromoteEventPage: canvas export failed', error)
-      setExportError('Could not export image. Please try again.')
+      setExportError(error instanceof Error ? error.message : 'Could not export image. Please try again.')
     } finally {
       setExportingImage(false)
     }
