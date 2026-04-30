@@ -6807,6 +6807,14 @@
     padding: 0.7rem;
   }
 
+  .feed-page-shell .live-feed-panel-page .live-feed-post {
+    max-width: 100%;
+  }
+
+  .feed-page-shell .live-feed-panel-page .live-feed-post-image-wrapper {
+    padding-top: 100%;
+  }
+
   .audience-shell-modern .curated-picker-rows .curated-pick-cover,
   .audience-shell-modern .curated-picker-rows .curated-pick-fallback {
     width: 64px;
