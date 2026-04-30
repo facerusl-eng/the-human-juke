@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { useAuthStore } from '../state/authStore'
 
-const HOST_GATE_LOADING_TIMEOUT_MS = 7000
+const HOST_GATE_LOADING_TIMEOUT_MS = 2500
 
 function RequireHost({ children }: PropsWithChildren) {
   const { user, isHost, loading, authError, signInHost } = useAuthStore()
