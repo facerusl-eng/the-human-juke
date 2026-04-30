@@ -3,7 +3,6 @@ import LiveFeedPanel from '../components/LiveFeedPanel'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 import {
-  BETWEEN_SONG_QUOTES,
   PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
   PLAYBACK_STATE_STORAGE_KEY,
@@ -213,16 +212,12 @@ function MirrorPage() {
   const [showSafeMargins, setShowSafeMargins] = useState(false)
   const [, setStorageError] = useState<string | null>(null)
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
-  const [fallbackBetweenSongs, setFallbackBetweenSongs] = useState(false)
-  const [fallbackQuoteIndex, setFallbackQuoteIndex] = useState(0)
   const [showShutterFallbackPulse, setShowShutterFallbackPulse] = useState(false)
   const [failedCoverUrls, setFailedCoverUrls] = useState<Record<string, true>>({})
   const spotlightTimerRef = useRef<number | null>(null)
-  const fallbackBetweenSongsTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
   const mirrorWarningLastShownAtRef = useRef<number>(0)
-  const previousSongIdRef = useRef<string | null>(null)
   const spotlightQueueRef = useRef<SpotlightQueueItem[]>([])
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
@@ -330,17 +325,11 @@ function MirrorPage() {
     : null
   const activeSong = playbackSong ?? nowPlaying
   const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
-  const hasPlaybackBetweenSongsState = Boolean(playbackState && !playbackState.isStarted && safeSongs.length > 0)
-  const isBetweenSongs = hasPlaybackBetweenSongsState || fallbackBetweenSongs
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
     ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, 5)
     : safeSongs.slice(0, 5)
   const hiddenQueueCount = Math.max(0, safeSongs.length - (isNowPlayingStarted ? 1 : 0) - upNext.length)
-  const betweenSongQuoteIndex = hasPlaybackBetweenSongsState
-    ? (playbackState?.quoteIndex ?? 0)
-    : fallbackQuoteIndex
-  const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex % BETWEEN_SONG_QUOTES.length]
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
@@ -771,9 +760,6 @@ function MirrorPage() {
       if (spotlightTimerRef.current) {
         window.clearTimeout(spotlightTimerRef.current)
       }
-      if (fallbackBetweenSongsTimerRef.current) {
-        window.clearTimeout(fallbackBetweenSongsTimerRef.current)
-      }
       if (shutterFallbackPulseTimerRef.current) {
         window.clearTimeout(shutterFallbackPulseTimerRef.current)
       }
@@ -781,49 +767,6 @@ function MirrorPage() {
       spotlightQueueRef.current = []
     }
   }, [])
-
-  useEffect(() => {
-    // When playback state says "between songs", trust that as the source of truth.
-    if (hasPlaybackBetweenSongsState) {
-      if (fallbackBetweenSongsTimerRef.current) {
-        window.clearTimeout(fallbackBetweenSongsTimerRef.current)
-        fallbackBetweenSongsTimerRef.current = null
-      }
-
-      setFallbackBetweenSongs(false)
-    }
-  }, [hasPlaybackBetweenSongsState])
-
-  useEffect(() => {
-    const nextSongId = songs[0]?.id ?? null
-
-    if (!nextSongId) {
-      previousSongIdRef.current = null
-      setFallbackBetweenSongs(false)
-      return
-    }
-
-    const previousSongId = previousSongIdRef.current
-    const hasSongTransition = Boolean(previousSongId && previousSongId !== nextSongId)
-
-    // Fallback for missed storage sync across tabs/devices: show an interstitial quote on song change.
-    if (hasSongTransition && !hasPlaybackBetweenSongsState) {
-      const nextQuoteIndex = ((playbackState?.quoteIndex ?? fallbackQuoteIndex) + 1) % BETWEEN_SONG_QUOTES.length
-      setFallbackQuoteIndex(nextQuoteIndex)
-      setFallbackBetweenSongs(true)
-
-      if (fallbackBetweenSongsTimerRef.current) {
-        window.clearTimeout(fallbackBetweenSongsTimerRef.current)
-      }
-
-      fallbackBetweenSongsTimerRef.current = window.setTimeout(() => {
-        setFallbackBetweenSongs(false)
-        fallbackBetweenSongsTimerRef.current = null
-      }, 5000)
-    }
-
-    previousSongIdRef.current = nextSongId
-  }, [fallbackQuoteIndex, hasPlaybackBetweenSongsState, playbackState?.quoteIndex, safeSongs, songs])
 
   useEffect(() => {
     if (!eventId || !showSpotlight) {
@@ -1222,30 +1165,22 @@ function MirrorPage() {
           <>
             <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''}`}>
               <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
-              {isBetweenSongs ? (
-                <>
-                  <p className="mirror-between-songs-quote">{betweenSongQuote}</p>
-                </>
-              ) : (
-                <>
-                  <p className="mirror-eyebrow">Now Playing</p>
-                  <div className="mirror-now-playing-track">
-                    {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
-                      <img
-                        src={activeSong.cover_url}
-                        alt={`Cover art for ${activeSong.title}`}
-                        className="mirror-now-playing-cover"
-                        onError={() => onCoverLoadError(activeSong.cover_url)}
-                      />
-                    ) : null}
-                    <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
-                      <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
-                      {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
-                    </div>
-                  </div>
-                </>
-              )}
+              <p className="mirror-eyebrow">Now Playing</p>
+              <div className="mirror-now-playing-track">
+                {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
+                  <img
+                    src={activeSong.cover_url}
+                    alt={`Cover art for ${activeSong.title}`}
+                    className="mirror-now-playing-cover"
+                    onError={() => onCoverLoadError(activeSong.cover_url)}
+                  />
+                ) : null}
+                <div className="mirror-now-playing-meta">
+                  <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
+                  <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
+                  {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
+                </div>
+              </div>
             </section>
 
             <section className={`mirror-secondary-grid ${shouldShowAdminElements ? '' : 'mirror-secondary-grid-feed-only'}`}>

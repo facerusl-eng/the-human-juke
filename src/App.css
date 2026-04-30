@@ -4564,24 +4564,6 @@
   overflow: hidden;
 }
 
-.mirror-between-songs-quote {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-  width: min(100%, 22ch);
-  max-width: 100%;
-  font-size: var(--mirror-quote-size);
-  line-height: 1.08;
-  text-align: center;
-  color: #f8fbff;
-  text-shadow:
-    0 0 28px rgba(93, 215, 255, 0.28),
-    0 0 54px rgba(93, 215, 255, 0.12);
-  overflow-wrap: break-word;
-  word-break: normal;
-  display: none;
-}
-
 .mirror-pre-show {
   width: min(980px, 100%);
   margin: 0 auto;
@@ -4860,7 +4842,6 @@
 
 .mirror-shell-high-contrast .mirror-title,
 .mirror-shell-high-contrast .mirror-pre-show-title,
-.mirror-shell-high-contrast .mirror-between-songs-quote,
 .mirror-shell-high-contrast .mirror-queue-title {
   color: #ffffff;
   text-shadow:
