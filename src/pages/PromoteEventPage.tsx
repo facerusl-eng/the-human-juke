@@ -636,6 +636,75 @@ function PromoteEventPage() {
       downloadLink.click()
     }
 
+    const encodeCanvas = (canvas: HTMLCanvasElement) => {
+      return type === 'png'
+        ? canvas.toDataURL('image/png')
+        : canvas.toDataURL('image/jpeg', 0.95)
+    }
+
+    const buildExportCanvas = (captureCanvas: HTMLCanvasElement) => {
+      if (
+        captureCanvas.width === targetDimensions.width
+        && captureCanvas.height === targetDimensions.height
+      ) {
+        return captureCanvas
+      }
+
+      const outputCanvas = document.createElement('canvas')
+      outputCanvas.width = targetDimensions.width
+      outputCanvas.height = targetDimensions.height
+
+      const outputContext = outputCanvas.getContext('2d')
+
+      if (!outputContext) {
+        throw new Error('Could not prepare the exported image.')
+      }
+
+      outputContext.imageSmoothingEnabled = true
+      outputContext.imageSmoothingQuality = 'high'
+      outputContext.drawImage(captureCanvas, 0, 0, targetDimensions.width, targetDimensions.height)
+
+      return outputCanvas
+    }
+
+    const renderExportDataUrl = async () => {
+      const previewWidth = Math.max(1, previewElement.clientWidth)
+      const previewHeight = Math.max(1, previewElement.clientHeight)
+      const fullResolutionScale = targetDimensions.width / previewWidth
+      const captureScales = Array.from(new Set([
+        fullResolutionScale,
+        Math.min(fullResolutionScale, 2),
+        Math.min(fullResolutionScale, 1.5),
+        1,
+      ].filter((scale) => scale > 0)))
+
+      let lastError: unknown = null
+
+      for (const captureScale of captureScales) {
+        try {
+          const captureCanvas = await html2canvas(previewElement, {
+            useCORS: false,
+            allowTaint: true,
+            backgroundColor: null,
+            scale: captureScale,
+            width: previewWidth,
+            height: previewHeight,
+            windowWidth: previewWidth,
+            windowHeight: previewHeight,
+            imageTimeout: 0,
+            logging: false,
+          })
+
+          const exportCanvas = buildExportCanvas(captureCanvas)
+          return encodeCanvas(exportCanvas)
+        } catch (error) {
+          lastError = error
+        }
+      }
+
+      throw lastError ?? new Error('Could not export image.')
+    }
+
     // Inline computed styles on every element so clamp(), calc(), and CSS variables
     // are resolved to concrete pixel values before html2canvas captures the DOM.
     const PROPS_TO_INLINE = [
@@ -677,24 +746,7 @@ function PromoteEventPage() {
 
     try {
       await waitForPreviewAssets(previewElement)
-
-      const exportCanvas = await html2canvas(previewElement, {
-        useCORS: false,
-        allowTaint: true,
-        backgroundColor: null,
-        scale: targetDimensions.width / previewElement.clientWidth,
-        width: previewElement.clientWidth,
-        height: previewElement.clientHeight,
-        windowWidth: previewElement.clientWidth,
-        windowHeight: previewElement.clientHeight,
-        imageTimeout: 0,
-        logging: false,
-      })
-
-      const dataUrl = type === 'png'
-        ? exportCanvas.toDataURL('image/png')
-        : exportCanvas.toDataURL('image/jpeg', 0.95)
-
+      const dataUrl = await renderExportDataUrl()
       downloadDataUrl(dataUrl)
     } catch (error) {
       console.warn(`PromoteEventPage: export failed`, error)
