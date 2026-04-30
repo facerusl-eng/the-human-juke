@@ -357,25 +357,34 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
 
             void (async () => {
               try {
-                const resumed = await resumePlayback()
+                // Step 1: try to resume the last paused context via REST API.
+                // Swallow any throw (e.g. no active device) and fall through to playlist.
+                let resumed = false
+                try {
+                  resumed = await resumePlayback()
+                } catch {
+                  // No resumable context — fall through to playlist start.
+                }
 
                 if (resumed) {
                   setPlayerStatus('Spotify playback resumed from where it stopped.')
                   return
                 }
 
+                // Step 2: try the configured between-songs playlist.
                 const configuredPlaylist = playlistInputRef.current.trim()
 
                 if (configuredPlaylist) {
                   await startPlaylistPlayback(configuredPlaylist)
-                  setPlayerStatus('Started between-song playlist automatically after no-list playback error.')
+                  setPlayerStatus('Started between-song playlist automatically.')
                   return
                 }
 
+                // Step 3: nothing we can do — guide the user.
                 setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
-              } catch (error) {
-                const resolvedMessage = error instanceof Error ? mapSpotifyApiError(error.message) : 'Spotify playback recovery failed.'
-                setPlayerStatus(`Playback error: ${resolvedMessage}`)
+              } catch {
+                // startPlaylistPlayback failed — don't surface a raw error; just guide the user.
+                setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
               } finally {
                 noListRecoveryInFlightRef.current = false
               }
