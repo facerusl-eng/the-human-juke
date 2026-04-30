@@ -203,8 +203,10 @@ function getSpotifyDisconnectHint(message) {
 function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand }) {
   const playerRef = useRef(null)
   const accessTokenRef = useRef(accessToken)
+  const playlistInputRef = useRef('')
   const lastStartedPlaylistContextRef = useRef('')
   const transportInFlightRef = useRef(false)
+  const noListRecoveryInFlightRef = useRef(false)
   const pendingTransportCommandRef = useRef(null)
   const lastProcessedTransportNonceRef = useRef(0)
 
@@ -234,6 +236,10 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
       return 'Spotify rejected that device. Try another active device in your Spotify app.'
     }
 
+    if (normalized.includes('no list') || normalized.includes('no list was loaded')) {
+      return 'No track is loaded in the player yet. Set a Between Songs Playlist below and press "Play Playlist Between Songs" once to load it, then Toggle Play will work.'
+    }
+
     return message
   }
 
@@ -260,6 +266,10 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
     }
 
     window.localStorage.setItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY, normalizedValue)
+  }, [playlistInput])
+
+  useEffect(() => {
+    playlistInputRef.current = playlistInput
   }, [playlistInput])
 
   useEffect(() => {
@@ -338,6 +348,42 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
           setPlayerStatus(`Account error: ${message}`)
         })
         player.addListener('playback_error', ({ message }) => {
+          if (isNoListError(message)) {
+            if (noListRecoveryInFlightRef.current) {
+              return
+            }
+
+            noListRecoveryInFlightRef.current = true
+
+            void (async () => {
+              try {
+                const resumed = await resumePlayback()
+
+                if (resumed) {
+                  setPlayerStatus('Spotify playback resumed from where it stopped.')
+                  return
+                }
+
+                const configuredPlaylist = playlistInputRef.current.trim()
+
+                if (configuredPlaylist) {
+                  await startPlaylistPlayback(configuredPlaylist)
+                  setPlayerStatus('Started between-song playlist automatically after no-list playback error.')
+                  return
+                }
+
+                setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
+              } catch (error) {
+                const resolvedMessage = error instanceof Error ? mapSpotifyApiError(error.message) : 'Spotify playback recovery failed.'
+                setPlayerStatus(`Playback error: ${resolvedMessage}`)
+              } finally {
+                noListRecoveryInFlightRef.current = false
+              }
+            })()
+
+            return
+          }
+
           setPlayerStatus(`Playback error: ${message}`)
         })
 
