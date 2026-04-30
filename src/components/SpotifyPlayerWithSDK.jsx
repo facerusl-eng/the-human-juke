@@ -158,7 +158,8 @@ function normalizePlaylistContextUri(input) {
 }
 
 function isNoListError(error) {
-  return String(error?.message || error || '').toLowerCase().includes('no list')
+  const normalized = String(error?.message || error || '').toLowerCase()
+  return normalized.includes('no list') || normalized.includes('cannot perform operation')
 }
 
 function getSpotifyDisconnectHint(message) {
@@ -393,7 +394,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
             return
           }
 
-          setPlayerStatus(`Playback error: ${message}`)
+          const mappedMessage = mapSpotifyApiError(message)
+
+          if (isNoListError(mappedMessage)) {
+            setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
+            return
+          }
+
+          setPlayerStatus(`Playback error: ${mappedMessage}`)
         })
 
         cleanupListeners.push(() => {
