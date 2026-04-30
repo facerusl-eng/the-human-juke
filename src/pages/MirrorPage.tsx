@@ -609,7 +609,35 @@ function MirrorPage() {
             table: 'playback_state',
             filter: `event_id=eq.${eventId}`,
           },
-          () => {
+          (payload: {
+            eventType?: 'INSERT' | 'UPDATE' | 'DELETE'
+            new?: {
+              current_song_id?: string | null
+              current_song_cover_url?: string | null
+              is_started?: boolean | null
+              quote_index?: number | null
+            } | null
+          }) => {
+            const nextRow = payload?.new
+
+            if (payload?.eventType === 'DELETE') {
+              void syncPlaybackState()
+              return
+            }
+
+            if (nextRow) {
+              setPlaybackState({
+                currentSongId: nextRow.current_song_id ?? null,
+                currentSongCoverUrl: nextRow.current_song_cover_url ?? null,
+                isStarted: Boolean(nextRow.is_started),
+                quoteIndex: Number.isFinite(nextRow.quote_index)
+                  ? (nextRow.quote_index as number)
+                  : 0,
+              })
+              clearMirrorWarningSmoothly()
+              return
+            }
+
             void syncPlaybackState()
           },
         )
