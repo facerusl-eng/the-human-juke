@@ -7482,6 +7482,12 @@
   padding-bottom: 0.12rem;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.live-feed-panel-mirror .live-feed-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .live-feed-panel-mirror .live-feed-post {

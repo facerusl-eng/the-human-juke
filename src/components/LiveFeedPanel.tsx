@@ -665,6 +665,10 @@ function LiveFeedPanel({
   }
 
   const deletePost = async (postId: string) => {
+    if (!isHost || !showModerationControls) {
+      return
+    }
+
     setErrorText(null)
 
     try {
@@ -822,7 +826,7 @@ function LiveFeedPanel({
             </p>
           ) : (
             visiblePosts.map((post) => {
-              const canDelete = showModerationControls && (user?.id === post.user_id || isHost)
+              const canDelete = showModerationControls && isHost
               const normalizedPostImageSource = normalizeImageSource(post.image_data_url)
               const hasImage = Boolean(normalizedPostImageSource)
               const useMirrorPhotoLayout = isMirrorMode && hasImage
