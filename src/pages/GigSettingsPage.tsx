@@ -565,7 +565,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       id: 'open-mirror-screen',
       label: 'Mirror Screen',
       onClick: () => {
-        window.open('/mirror', '_blank')
+        window.open('/mirror', '_blank', 'noopener,noreferrer')
       },
       title: 'Open mirror screen in new window',
       variant: 'ghost',

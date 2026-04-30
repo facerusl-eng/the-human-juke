@@ -233,7 +233,7 @@ function AdminDashboardContent({
     navigate('/audience')
   }, [navigate])
   const openMirrorScreen = useCallback(() => {
-    window.open('/mirror', '_blank')
+    window.open('/mirror', '_blank', 'noopener,noreferrer')
   }, [])
   const openSetlistLibrary = useCallback(() => {
     navigate('/admin/setlist-library')
@@ -862,7 +862,7 @@ function AdminPage() {
       <AdminSafeFallback
         recoveryNotice={recoveryNotice}
         onRetry={runManualRetry}
-        onOpenMirror={() => window.open('/mirror', '_blank')}
+        onOpenMirror={() => window.open('/mirror', '_blank', 'noopener,noreferrer')}
         onOpenAudience={() => navigate('/audience')}
         onOpenGigControl={() => navigate('/admin/gig-control')}
       />
