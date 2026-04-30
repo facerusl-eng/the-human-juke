@@ -564,30 +564,30 @@ function EventPage() {
   }, [navigate, requestedEventId, event])
 
   const socialLinks = useMemo(() => ([
-    { label: 'Instagram', url: hostProfile?.instagram_url },
-    { label: 'TikTok', url: hostProfile?.tiktok_url },
-    { label: 'YouTube', url: hostProfile?.youtube_url },
-    { label: 'Facebook', url: hostProfile?.facebook_url },
+    { label: 'Instagram', url: event?.instagramUrl || hostProfile?.instagram_url },
+    { label: 'TikTok', url: event?.tiktokUrl || hostProfile?.tiktok_url },
+    { label: 'YouTube', url: event?.youtubeUrl || hostProfile?.youtube_url },
+    { label: 'Facebook', url: event?.facebookUrl || hostProfile?.facebook_url },
   ]
     .map((link) => ({ ...link, url: normalizeExternalLink(link.url) }))
     .filter((link): link is { label: string; url: string } => Boolean(link.url))
     .concat(
-      hostProfile?.contact_email?.trim()
-        ? [{ label: '✉ Email', url: `mailto:${hostProfile.contact_email.trim()}` }]
+      (event?.contactEmail || hostProfile?.contact_email)?.trim()
+        ? [{ label: '✉ Email', url: `mailto:${(event?.contactEmail || hostProfile?.contact_email)?.trim()}` }]
         : []
     )
-  ), [hostProfile])
+  ), [event?.contactEmail, event?.facebookUrl, event?.instagramUrl, event?.tiktokUrl, event?.youtubeUrl, hostProfile])
 
-  const resolvedMobilepayLink = resolveMobilepayLink(hostProfile?.mobilpay_url)
+  const resolvedMobilepayLink = resolveMobilepayLink(event?.mobilpayUrl || hostProfile?.mobilpay_url)
   const allTipLinks = useMemo(() => {
     const links: { label: string; url: string }[] = []
     if (resolvedMobilepayLink) {
       links.push({ label: resolvedMobilepayLink.display, url: resolvedMobilepayLink.href })
     }
-    const paypal = normalizeExternalLink(hostProfile?.paypal_url)
+    const paypal = normalizeExternalLink(event?.paypalUrl || hostProfile?.paypal_url)
     if (paypal) links.push({ label: 'PayPal', url: paypal })
     return links
-  }, [resolvedMobilepayLink, hostProfile?.paypal_url])
+  }, [event?.paypalUrl, hostProfile?.paypal_url, resolvedMobilepayLink])
 
   useEffect(() => {
     const state = location.state as { requestConfirmation?: string } | null

@@ -39,6 +39,13 @@ type EventSettingsUpdates = {
   gigEndTime: string
   subtitle: string
   requestInstructions: string
+  instagramUrl: string
+  tiktokUrl: string
+  youtubeUrl: string
+  facebookUrl: string
+  paypalUrl: string
+  mobilpayUrl: string
+  contactEmail: string
   playlistOnlyRequests: boolean
   selectedPlaylistIds: string[]
   mirrorPhotoSpotlightEnabled: boolean
@@ -60,6 +67,13 @@ type EventState = {
   gigEndTime: string | null
   subtitle: string | null
   requestInstructions: string | null
+  instagramUrl: string | null
+  tiktokUrl: string | null
+  youtubeUrl: string | null
+  facebookUrl: string | null
+  paypalUrl: string | null
+  mobilpayUrl: string | null
+  contactEmail: string | null
   playlistOnlyRequests: boolean
   mirrorPhotoSpotlightEnabled: boolean
   allowDuplicateRequests: boolean
@@ -585,8 +599,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
-      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
-      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
+      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
+      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
 
       const { data, error } = await supabase
         .from('events')
@@ -689,6 +703,13 @@ function QueueProvider({ children }: PropsWithChildren) {
       gigEndTime: (eventData as Record<string, unknown>).gig_end_time as string | null ?? null,
       subtitle: (eventData as Record<string, unknown>).subtitle as string | null ?? null,
       requestInstructions: (eventData as Record<string, unknown>).request_instructions as string | null ?? null,
+      instagramUrl: (eventData as Record<string, unknown>).instagram_url as string | null ?? null,
+      tiktokUrl: (eventData as Record<string, unknown>).tiktok_url as string | null ?? null,
+      youtubeUrl: (eventData as Record<string, unknown>).youtube_url as string | null ?? null,
+      facebookUrl: (eventData as Record<string, unknown>).facebook_url as string | null ?? null,
+      paypalUrl: (eventData as Record<string, unknown>).paypal_url as string | null ?? null,
+      mobilpayUrl: (eventData as Record<string, unknown>).mobilpay_url as string | null ?? null,
+      contactEmail: (eventData as Record<string, unknown>).contact_email as string | null ?? null,
       playlistOnlyRequests: ((eventData as Record<string, unknown>).playlist_only_requests as boolean | null) ?? false,
       mirrorPhotoSpotlightEnabled: ((eventData as Record<string, unknown>).mirror_photo_spotlight_enabled as boolean | null) ?? true,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
@@ -1663,6 +1684,13 @@ function QueueProvider({ children }: PropsWithChildren) {
                 gig_end_time: updates.gigEndTime || null,
                 subtitle: updates.subtitle || null,
                 request_instructions: updates.requestInstructions || null,
+                instagram_url: updates.instagramUrl || null,
+                tiktok_url: updates.tiktokUrl || null,
+                youtube_url: updates.youtubeUrl || null,
+                facebook_url: updates.facebookUrl || null,
+                paypal_url: updates.paypalUrl || null,
+                mobilpay_url: updates.mobilpayUrl || null,
+                contact_email: updates.contactEmail || null,
                 playlist_only_requests: updates.playlistOnlyRequests,
                 mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
                 allow_duplicate_requests: updates.allowDuplicateRequests,
@@ -1691,6 +1719,13 @@ function QueueProvider({ children }: PropsWithChildren) {
                   gig_end_time: updates.gigEndTime || null,
                   subtitle: updates.subtitle || null,
                   request_instructions: updates.requestInstructions || null,
+                  instagram_url: updates.instagramUrl || null,
+                  tiktok_url: updates.tiktokUrl || null,
+                  youtube_url: updates.youtubeUrl || null,
+                  facebook_url: updates.facebookUrl || null,
+                  paypal_url: updates.paypalUrl || null,
+                  mobilpay_url: updates.mobilpayUrl || null,
+                  contact_email: updates.contactEmail || null,
                   playlist_only_requests: updates.playlistOnlyRequests,
                   mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
                   allow_duplicate_requests: updates.allowDuplicateRequests,
@@ -2061,6 +2096,13 @@ function QueueProvider({ children }: PropsWithChildren) {
           gigEndTime: options?.gigEndTime ?? null,
           subtitle: null,
           requestInstructions: null,
+          instagramUrl: null,
+          tiktokUrl: null,
+          youtubeUrl: null,
+          facebookUrl: null,
+          paypalUrl: null,
+          mobilpayUrl: null,
+          contactEmail: null,
           playlistOnlyRequests: true,
           mirrorPhotoSpotlightEnabled: true,
           allowDuplicateRequests: true,

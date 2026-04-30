@@ -46,6 +46,13 @@ type SettingsState = {
   gigEndTime: string
   subtitle: string
   requestInstructions: string
+  instagramUrl: string
+  tiktokUrl: string
+  youtubeUrl: string
+  facebookUrl: string
+  paypalUrl: string
+  mobilpayUrl: string
+  contactEmail: string
   playlistOnlyRequests: boolean
   mirrorPhotoSpotlightEnabled: boolean
   allowDuplicateRequests: boolean
@@ -178,6 +185,13 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     gigEndTime: event.gigEndTime ?? '',
     subtitle: event.subtitle ?? '',
     requestInstructions: event.requestInstructions ?? '',
+    instagramUrl: event.instagramUrl ?? '',
+    tiktokUrl: event.tiktokUrl ?? '',
+    youtubeUrl: event.youtubeUrl ?? '',
+    facebookUrl: event.facebookUrl ?? '',
+    paypalUrl: event.paypalUrl ?? '',
+    mobilpayUrl: event.mobilpayUrl ?? '',
+    contactEmail: event.contactEmail ?? '',
     playlistOnlyRequests: event.playlistOnlyRequests,
     mirrorPhotoSpotlightEnabled: event.mirrorPhotoSpotlightEnabled,
     allowDuplicateRequests: event.allowDuplicateRequests,
@@ -432,6 +446,13 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         gigEndTime: saveState.gigEndTime,
         subtitle: saveState.subtitle.trim(),
         requestInstructions: saveState.requestInstructions.trim(),
+        instagramUrl: saveState.instagramUrl.trim(),
+        tiktokUrl: saveState.tiktokUrl.trim(),
+        youtubeUrl: saveState.youtubeUrl.trim(),
+        facebookUrl: saveState.facebookUrl.trim(),
+        paypalUrl: saveState.paypalUrl.trim(),
+        mobilpayUrl: saveState.mobilpayUrl.trim(),
+        contactEmail: saveState.contactEmail.trim(),
         playlistOnlyRequests: saveState.playlistOnlyRequests,
         selectedPlaylistIds: saveState.selectedPlaylistIds,
         mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
@@ -627,6 +648,13 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.gigEndTime !== (event.gigEndTime ?? '')
     || state.subtitle !== (event.subtitle ?? '')
     || state.requestInstructions !== (event.requestInstructions ?? '')
+    || state.instagramUrl !== (event.instagramUrl ?? '')
+    || state.tiktokUrl !== (event.tiktokUrl ?? '')
+    || state.youtubeUrl !== (event.youtubeUrl ?? '')
+    || state.facebookUrl !== (event.facebookUrl ?? '')
+    || state.paypalUrl !== (event.paypalUrl ?? '')
+    || state.mobilpayUrl !== (event.mobilpayUrl ?? '')
+    || state.contactEmail !== (event.contactEmail ?? '')
     || state.playlistOnlyRequests !== event.playlistOnlyRequests
     || state.mirrorPhotoSpotlightEnabled !== event.mirrorPhotoSpotlightEnabled
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
@@ -1110,6 +1138,106 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                   </button>
                 </div>
               ) : null}
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-contact-email">Audience contact email</label>
+              <input
+                id="gig-contact-email"
+                type="email"
+                value={state.contactEmail}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ contactEmail: e.target.value })
+                }}
+                placeholder="booking@example.com"
+              />
+              <p className="field-hint">This gig-specific email overrides the host default on the audience page.</p>
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-instagram-url">Instagram URL</label>
+              <input
+                id="gig-instagram-url"
+                type="url"
+                value={state.instagramUrl}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ instagramUrl: e.target.value })
+                }}
+                placeholder="https://instagram.com/your-show"
+              />
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-tiktok-url">TikTok URL</label>
+              <input
+                id="gig-tiktok-url"
+                type="url"
+                value={state.tiktokUrl}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ tiktokUrl: e.target.value })
+                }}
+                placeholder="https://tiktok.com/@your-show"
+              />
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-youtube-url">YouTube URL</label>
+              <input
+                id="gig-youtube-url"
+                type="url"
+                value={state.youtubeUrl}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ youtubeUrl: e.target.value })
+                }}
+                placeholder="https://youtube.com/@your-show"
+              />
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-facebook-url">Facebook URL</label>
+              <input
+                id="gig-facebook-url"
+                type="url"
+                value={state.facebookUrl}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ facebookUrl: e.target.value })
+                }}
+                placeholder="https://facebook.com/your-show"
+              />
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-paypal-url">PayPal URL</label>
+              <input
+                id="gig-paypal-url"
+                type="url"
+                value={state.paypalUrl}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ paypalUrl: e.target.value })
+                }}
+                placeholder="https://paypal.me/your-show"
+              />
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-mobilpay-url">MobilePay</label>
+              <input
+                id="gig-mobilpay-url"
+                type="text"
+                value={state.mobilpayUrl}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mobilpayUrl: e.target.value })
+                }}
+                placeholder="+45 12 34 56 78 or MobilePay link"
+              />
+              <p className="field-hint">Accepts either a MobilePay phone number or a full link.</p>
             </div>
 
             <div className="status-grid">
