@@ -1,9 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="The Human Jukebox icon">
-  <rect width="512" height="512" rx="84" fill="#000000"/>
-  <circle cx="256" cy="256" r="150" fill="#111111" stroke="#f4d35e" stroke-width="22"/>
-  <circle cx="256" cy="256" r="38" fill="#f4d35e"/>
-  <path d="M256 104v76" stroke="#f4d35e" stroke-width="22" stroke-linecap="round"/>
-  <path d="M256 332v76" stroke="#f4d35e" stroke-width="22" stroke-linecap="round"/>
-  <path d="M104 256h76" stroke="#f4d35e" stroke-width="22" stroke-linecap="round"/>
-  <path d="M332 256h76" stroke="#f4d35e" stroke-width="22" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#080e22"/>
+      <stop offset="100%" stop-color="#0e1c3a"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5dd7ff"/>
+      <stop offset="100%" stop-color="#3ab8e8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Outer ring -->
+  <circle cx="256" cy="256" r="148" fill="none" stroke="url(#glow)" stroke-width="20" opacity="0.9"/>
+  <!-- Inner dot -->
+  <circle cx="256" cy="256" r="36" fill="url(#glow)"/>
+  <!-- Spoke top -->
+  <line x1="256" y1="108" x2="256" y2="186" stroke="#5dd7ff" stroke-width="20" stroke-linecap="round"/>
+  <!-- Spoke bottom -->
+  <line x1="256" y1="326" x2="256" y2="404" stroke="#5dd7ff" stroke-width="20" stroke-linecap="round"/>
+  <!-- Spoke left -->
+  <line x1="108" y1="256" x2="186" y2="256" stroke="#5dd7ff" stroke-width="20" stroke-linecap="round"/>
+  <!-- Spoke right -->
+  <line x1="326" y1="256" x2="404" y2="256" stroke="#5dd7ff" stroke-width="20" stroke-linecap="round"/>
 </svg>
