@@ -569,7 +569,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         const popup = window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
 
         if (!popup) {
-          window.location.assign(mirrorUrl)
+          setErrorText('Popup blocked – opening mirror in this tab. Press F11 for fullscreen.')
+          setTimeout(() => window.location.assign(mirrorUrl), 2000)
         }
       },
       title: 'Open mirror screen in new window',

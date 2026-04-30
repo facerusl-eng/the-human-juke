@@ -237,9 +237,10 @@ function AdminDashboardContent({
     const popup = window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
 
     if (!popup) {
-      window.location.assign(mirrorUrl)
+      setQuickActionError('Popup blocked – opening mirror in this tab. Press F11 for fullscreen.')
+      setTimeout(() => window.location.assign(mirrorUrl), 2000)
     }
-  }, [])
+  }, [setQuickActionError])
   const openSetlistLibrary = useCallback(() => {
     navigate('/admin/setlist-library')
   }, [navigate])
