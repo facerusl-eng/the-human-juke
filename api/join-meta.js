@@ -3,6 +3,15 @@ const LOGO_URL = `${APP_ORIGIN}/the-human-jukebox-logo.png`
 const DEFAULT_TITLE = 'Join The Human Jukebox'
 const DEFAULT_DESCRIPTION = 'Join the Human Jukebox - request songs and vote live with the audience.'
 
+// Known social-media and search crawlers that need OG meta tags.
+// Real browsers won't match any of these, so they get an instant redirect.
+const CRAWLER_UA_PATTERN = /facebookexternalhit|facebot|twitterbot|linkedinbot|whatsapp|telegram|slackbot|discordbot|googlebot|bingbot|yandex|applebot|duckduckbot|pinterestbot|vkshare|w3c_validator|preview/i
+
+function isCrawler(req) {
+  const ua = req?.headers?.['user-agent'] ?? ''
+  return CRAWLER_UA_PATTERN.test(ua)
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -85,6 +94,17 @@ function buildDescription(eventMeta) {
 export default async function handler(req, res) {
   const eventId = typeof req.query?.event === 'string' ? req.query.event.trim() : ''
   const origin = toAbsoluteOrigin(req)
+  const targetUrl = eventId ? `${origin}/audience?event=${encodeURIComponent(eventId)}` : `${origin}/audience`
+
+  // Real browsers get an immediate redirect — no loading screen, no delay.
+  // Only serve the OG meta HTML to social crawlers so link previews work.
+  if (!isCrawler(req)) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+    res.setHeader('Location', targetUrl)
+    res.status(302).end()
+    return
+  }
+
   const eventMeta = await fetchEventMeta(eventId)
 
   const title = eventMeta?.name ? `${eventMeta.name} | Human Jukebox` : DEFAULT_TITLE
@@ -114,10 +134,9 @@ export default async function handler(req, res) {
     <meta name="twitter:description" content="${escapeHtml(description)}" />
     <meta name="twitter:image" content="${escapeHtml(LOGO_URL)}" />
     <link rel="canonical" href="${escapeHtml(shareUrl)}" />
+    <meta http-equiv="refresh" content="0; url=${escapeHtml(targetUrl)}" />
     <script>
-      window.setTimeout(function () {
-        window.location.replace(${JSON.stringify(targetUrl)});
-      }, 300);
+      window.location.replace(${JSON.stringify(targetUrl)});
     </script>
   </head>
   <body>
