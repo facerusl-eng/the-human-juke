@@ -602,44 +602,45 @@ function AudienceSongListPage() {
             {!humanJukeboxRows.length ? <p className="subcopy">No Human Jukebox songs available right now.</p> : null}
           </div>
 
-          <div className="audience-song-list-section audience-song-list-section-karaoke">
-            <div className="panel-head">
-              <h2>Karaoke Setlist</h2>
-              <span className="meta-badge">{karaokeRows.length}</span>
+          {karaokeRows.length > 0 ? (
+            <div className="audience-song-list-section audience-song-list-section-karaoke">
+              <div className="panel-head">
+                <h2>Karaoke Setlist</h2>
+                <span className="meta-badge">{karaokeRows.length}</span>
+              </div>
+              <ul className="audience-song-list-grid" aria-label="Karaoke songs">
+                {karaokeRows.map(({ song, title, artist, sectionLabel }) => (
+                  <li key={song.id} className="audience-song-list-item">
+                    {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
+                    <button
+                      type="button"
+                      className="audience-song-list-card"
+                      onClick={() => {
+                        setSelectedSong(song)
+                        setErrorText(null)
+                      }}
+                    >
+                      {song.cover_url ? (
+                        <img
+                          src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
+                          alt={`Cover art for ${title}`}
+                          className="audience-song-list-cover"
+                        />
+                      ) : (
+                        <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
+                      )}
+                      <span className="audience-song-list-copy">
+                        <span className="audience-song-list-title">{title}</span>
+                        <span className="audience-song-list-artist">{artist}</span>
+                        <span className="karaoke-tag">Karaoke</span>
+                        {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="audience-song-list-grid" aria-label="Karaoke songs">
-              {karaokeRows.map(({ song, title, artist, sectionLabel }) => (
-                <li key={song.id} className="audience-song-list-item">
-                  {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
-                  <button
-                    type="button"
-                    className="audience-song-list-card"
-                    onClick={() => {
-                      setSelectedSong(song)
-                      setErrorText(null)
-                    }}
-                  >
-                    {song.cover_url ? (
-                      <img
-                        src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
-                        alt={`Cover art for ${title}`}
-                        className="audience-song-list-cover"
-                      />
-                    ) : (
-                      <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
-                    )}
-                    <span className="audience-song-list-copy">
-                      <span className="audience-song-list-title">{title}</span>
-                      <span className="audience-song-list-artist">{artist}</span>
-                      <span className="karaoke-tag">Karaoke</span>
-                      {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {!karaokeRows.length ? <p className="subcopy">No Karaoke songs available right now.</p> : null}
-          </div>
+          ) : null}
 
           {!availableSongs.length ? (
             <p className="meta-badge audience-policy-badge">
