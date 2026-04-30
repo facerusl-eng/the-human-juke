@@ -216,7 +216,10 @@ function isMissingCreateGigRpcError(error: unknown) {
     .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
     .join(' ')
 
-  return code === 'PGRST202' || code === '42883' || text.includes('create_host_gig')
+  return code === 'PGRST202'
+    || code === '42883'
+    || (code === '42702' && text.includes('column reference "id" is ambiguous'))
+    || text.includes('create_host_gig')
 }
 
 function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined): 'human_jukebox' | 'karaoke' {

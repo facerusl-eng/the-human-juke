@@ -845,13 +845,13 @@ BEGIN
     FROM public.events
     WHERE host_id = v_host_id
       AND is_active = true
-      AND id <> v_event_id
+      AND public.events.id <> v_event_id
   ) INTO v_has_active_gig;
 
   IF NOT v_has_active_gig THEN
     UPDATE public.events
     SET is_active = true
-    WHERE id = v_event_id;
+    WHERE public.events.id = v_event_id;
   END IF;
 
   id := v_event_id;
