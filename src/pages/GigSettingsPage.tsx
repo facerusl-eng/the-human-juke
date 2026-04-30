@@ -213,6 +213,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [loadingPlaylists, setLoadingPlaylists] = useState(true)
   const [busy, setBusy] = useState(false)
   const [processingCoverImage, setProcessingCoverImage] = useState(false)
+  const [fetchingLinksFromSettings, setFetchingLinksFromSettings] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
   const isMountedRef = useRef(true)
@@ -573,6 +574,45 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       markSaved(1500)
       setCopyError(null)
       setErrorText(null)
+    }
+  }
+
+  const fetchLinksFromSettings = async () => {
+    if (!user?.id || fetchingLinksFromSettings) {
+      return
+    }
+
+    setFetchingLinksFromSettings(true)
+    setErrorText(null)
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (error) {
+        throw error
+      }
+
+      pushUndoState()
+      updateState({
+        instagramUrl: data?.instagram_url ?? '',
+        tiktokUrl: data?.tiktok_url ?? '',
+        youtubeUrl: data?.youtube_url ?? '',
+        facebookUrl: data?.facebook_url ?? '',
+        paypalUrl: data?.paypal_url ?? '',
+        mobilpayUrl: data?.mobilpay_url ?? '',
+        contactEmail: data?.contact_email ?? '',
+      })
+    } catch (error) {
+      console.warn('GigSettingsPage: failed to fetch links from settings', error)
+      setErrorText(error instanceof Error ? error.message : 'Unable to fetch links from Settings.')
+    } finally {
+      if (isMountedRef.current) {
+        setFetchingLinksFromSettings(false)
+      }
     }
   }
 
@@ -1081,7 +1121,18 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               >
                 Open Audience View
               </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  void fetchLinksFromSettings()
+                }}
+                disabled={!user?.id || fetchingLinksFromSettings}
+              >
+                {fetchingLinksFromSettings ? 'Fetching...' : 'Fetch from Settings'}
+              </button>
             </div>
+            <p className="field-hint">Copies your saved social, email, and tip links from Settings into this gig.</p>
 
             <div className="toggle-group">
               <label className="gig-settings-toggle-card" htmlFor="gig-show-in-audience-no-gig">
