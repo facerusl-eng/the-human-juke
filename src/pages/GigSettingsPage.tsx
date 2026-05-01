@@ -948,6 +948,36 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               placeholder="Soul, funk, and crowd favorites"
             />
           </div>
+
+          <div className="field-row">
+            <label htmlFor="gig-cover-image">Gig Photo</label>
+            <input
+              id="gig-cover-image"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                void onSelectCoverImage(e)
+              }}
+              disabled={busy || processingCoverImage}
+            />
+            <p className="field-hint">Cover photo shown on the audience app and upcoming event card. Max 3 MB.</p>
+            {processingCoverImage ? <p className="field-hint">Processing image…</p> : null}
+            {state.coverImageUrl ? (
+              <div className="photo-preview">
+                <img src={state.coverImageUrl} alt="Gig photo preview" />
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    pushUndoState()
+                    updateState({ coverImageUrl: '' })
+                  }}
+                >
+                  Remove photo
+                </button>
+              </div>
+            ) : null}
+          </div>
         </SettingsSection>
 
         <SettingsSection
@@ -1321,37 +1351,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               />
               <p className="field-hint">Shown on this gig card in the Audience App when no gig is live.</p>
               {state.coverImageUrl ? (
-                <div className="photo-preview">
-                  <img src={state.coverImageUrl} alt="Gig cover preview" />
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => {
-                      pushUndoState()
-                      updateState({ coverImageUrl: '' })
-                    }}
-                  >
-                    Remove cover
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="field-row">
-              <label htmlFor="gig-contact-email">Audience contact email</label>
-              <input
-                id="gig-contact-email"
-                type="email"
-                value={state.contactEmail}
-                onChange={(e) => {
-                  pushUndoState()
-                  updateState({ contactEmail: e.target.value })
-                }}
-                placeholder="booking@example.com"
-              />
-              <p className="field-hint">This gig-specific email overrides the host default on the audience page.</p>
-            </div>
-
+                <div className="field-row">
+                  <label htmlFor="gig-contact-email">Audience contact email</label>
             <div className="toggle-group">
               <label className="gig-settings-toggle-card" htmlFor="gig-show-custom-button">
                 <input
