@@ -4739,15 +4739,17 @@
 }
 
 .mirror-song-fact {
-  margin: 0.26rem 0 0 0;
-  font-size: clamp(0.78rem, 1.2vw, 1rem);
+  margin: 0.16rem 0 0 0;
+  font-size: clamp(0.68rem, 0.95vw, 0.82rem);
   color: #d5e8ff;
-  font-weight: 500;
-  line-height: 1.25;
+  font-weight: 600;
+  line-height: 1.18;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
 }
 
 .mirror-picker-accent-1 { color: #7dd3fc; }

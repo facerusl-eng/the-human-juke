@@ -83,19 +83,47 @@ const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 
 type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
-type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'votes_count' | 'createdByName' | 'audience_sings' | 'position'>
+type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
+
+function countWords(text: string) {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .length
+}
+
+function countCharactersWithoutSpaces(text: string) {
+  return text.replace(/\s+/g, '').length
+}
+
+function buildInitials(text: string) {
+  const initials = text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((chunk) => chunk.charAt(0).toUpperCase())
+    .join('')
+
+  return initials || '?'
+}
+
+function containsFeatToken(text: string) {
+  return /\b(feat\.?|ft\.?)\b/i.test(text)
+}
 
 const SONG_INFO_BUILDERS = [
-  (song: NowPlayingInfoSong) => `Track spotlight: ${song.title} by ${song.artist}.`,
-  (song: NowPlayingInfoSong) => `${song.artist} are on now, and this one currently has +${song.votes_count} votes from the room.`,
-  (song: NowPlayingInfoSong) => `${song.createdByName ? `${song.createdByName} requested this one` : 'Someone in the crowd requested this one'} and it made the cut.`,
-  (song: NowPlayingInfoSong) => song.audience_sings
-    ? 'Karaoke mode is active for this track, mic confidence levels are rising.'
-    : 'DJ performance mode is active for this track, keep those requests coming.',
-  (song: NowPlayingInfoSong) => `Now spinning: ${song.title}. Queue energy says this was a very good decision.`,
-  (song: NowPlayingInfoSong) => song.position && song.position > 0
-    ? `This tune climbed in from queue slot ${song.position}.`
-    : 'This tune just took over the room right on cue.',
+  (song: NowPlayingInfoSong) => `Song fact: "${song.title}" has ${countWords(song.title)} word${countWords(song.title) === 1 ? '' : 's'} in the title.`,
+  (song: NowPlayingInfoSong) => `Song fact: "${song.title}" uses ${countCharactersWithoutSpaces(song.title)} characters (without spaces).`,
+  (song: NowPlayingInfoSong) => `Song fact: Artist name "${song.artist}" has ${countWords(song.artist)} word${countWords(song.artist) === 1 ? '' : 's'}.`,
+  (song: NowPlayingInfoSong) => `Song fact: Title initials are ${buildInitials(song.title)}.`,
+  (song: NowPlayingInfoSong) => containsFeatToken(song.title)
+    ? 'Song fact: This title includes a featured-artist tag (feat./ft.).'
+    : 'Song fact: This title does not include a featured-artist tag.',
+  (song: NowPlayingInfoSong) => song.is_explicit
+    ? 'Song fact: This track is marked explicit in the library.'
+    : 'Song fact: This track is marked clean in the library.',
 ]
 
 function resolveMirrorVenueMode(value: string | null | undefined): MirrorVenueMode | null {
@@ -687,10 +715,7 @@ function MirrorPage() {
     const songInfoContext: NowPlayingInfoSong = {
       title: activeSong.title,
       artist: activeSong.artist,
-      votes_count: activeSong.votes_count,
-      createdByName: activeSong.createdByName,
-      audience_sings: activeSong.audience_sings,
-      position: activeSong.position,
+      is_explicit: activeSong.is_explicit,
     }
 
     const rotateSongInfo = () => {
