@@ -378,7 +378,10 @@ function getMirrorCountdownTarget(gigDate: string | null | undefined, gigStartTi
     return null
   }
 
-  const normalizedTime = gigStartTime?.trim() ? `${gigStartTime.trim()}:00` : '19:00:00'
+  const rawTime = gigStartTime?.trim() ?? ''
+  // Postgres may return 'HH:MM:SS'; strip seconds so we don't double-append ':00'
+  const baseTime = rawTime.length > 5 && rawTime[2] === ':' && rawTime[5] === ':' ? rawTime.slice(0, 5) : rawTime
+  const normalizedTime = baseTime ? `${baseTime}:00` : '19:00:00'
   const scheduledStart = new Date(`${normalizedDate}T${normalizedTime}`)
 
   if (Number.isNaN(scheduledStart.getTime())) {
