@@ -4208,7 +4208,7 @@
 }
 
 .mirror-shell-hide-controls .mirror-stage-live {
-  grid-template-rows: minmax(0, 0.8fr) minmax(0, 0.12fr) auto;
+  grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.48fr) auto;
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-track {
