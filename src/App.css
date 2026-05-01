@@ -1558,6 +1558,42 @@
   padding: clamp(1.15rem, 4vw, 1.8rem);
 }
 
+.audience-no-gig-countdown {
+  display: grid;
+  gap: 0.35rem;
+  padding: clamp(0.9rem, 3vw, 1.2rem);
+  border-radius: 18px;
+  border: 1px solid rgba(93, 215, 255, 0.28);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(93, 215, 255, 0.14) 0%, transparent 52%),
+    linear-gradient(145deg, rgba(10, 18, 39, 0.9) 0%, rgba(12, 27, 44, 0.84) 100%);
+  text-align: center;
+}
+
+.audience-no-gig-countdown-label {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #9bdfff;
+}
+
+.audience-no-gig-countdown-value {
+  margin: 0;
+  font-size: clamp(1.8rem, 10vw, 2.8rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: #f8fcff;
+}
+
+.audience-no-gig-countdown-event {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(184, 210, 255, 0.72);
+}
+
 .audience-no-gig-copy {
   display: grid;
   gap: 0.45rem;

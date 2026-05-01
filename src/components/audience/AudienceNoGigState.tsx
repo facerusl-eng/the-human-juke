@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import type { AudienceLocale } from '../../lib/audienceIdentity'
 
 type AudienceUpcomingEvent = {
@@ -23,12 +24,38 @@ const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
   ],
 }
 
+/** Strip seconds from Postgres 'HH:MM:SS' so appending ':00' doesn't corrupt the datetime string */
+function normalizeTimeForDate(t: string | null): string | null {
+  if (!t) return null
+  const s = t.trim()
+  return s.length > 5 && s[2] === ':' && s[5] === ':' ? s.slice(0, 5) : s
+}
+
+function parseEventDate(gigDate: string | null, gigStartTime: string | null, fallbackHour = '18'): Date | null {
+  if (!gigDate) return null
+  const base = normalizeTimeForDate(gigStartTime)
+  const safeTime = base ? `${base}:00` : `${fallbackHour}:00:00`
+  const d = new Date(`${gigDate}T${safeTime}`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function formatCountdownLabel(ms: number): string {
+  const totalSeconds = Math.floor(Math.max(0, ms) / 1000)
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (days > 0) return `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | null, locale: AudienceLocale) {
   if (!gigDate) {
     return null
   }
 
-  const safeTime = gigStartTime ? `${gigStartTime}:00` : '18:00:00'
+  const base = normalizeTimeForDate(gigStartTime)
+  const safeTime = base ? `${base}:00` : '18:00:00'
   const parsedDate = new Date(`${gigDate}T${safeTime}`)
 
   if (Number.isNaN(parsedDate.getTime())) {
@@ -51,6 +78,26 @@ function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | 
   }).format(parsedDate)
 
   return `${dateLabel} · ${timeLabel}`
+}
+
+function useCountdownToEvent(upcomingEvents: AudienceUpcomingEvent[]) {
+  const [now, setNow] = useState(() => Date.now())
+
+  const target = upcomingEvents
+    .map((e) => ({ event: e, date: parseEventDate(e.gigDate, e.gigStartTime) }))
+    .filter((x): x is { event: AudienceUpcomingEvent; date: Date } => x.date !== null && x.date.getTime() > Date.now())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null
+
+  useEffect(() => {
+    if (!target) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [target?.event.id])
+
+  if (!target) return null
+  const remainingMs = target.date.getTime() - now
+  if (remainingMs <= 0) return null
+  return { event: target.event, remainingMs }
 }
 
 function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: string | null, locale: AudienceLocale) {
@@ -95,6 +142,8 @@ function AudienceNoGigState({
   getEventHref?: (eventId: string) => string
   locale?: AudienceLocale
 }) {
+  const countdown = useCountdownToEvent(upcomingEvents)
+
   const copy = locale === 'da'
     ? {
         eyebrow: 'Publikumsapp',
@@ -104,6 +153,8 @@ function AudienceNoGigState({
         upcomingCount: 'kommende',
         venueFallback: 'Sted annonceres senere',
         openEvent: 'Åbn eventside',
+        countdownLabel: 'Næste show starter om',
+        countdownFor: 'til',
       }
     : {
         eyebrow: 'Audience App',
@@ -113,18 +164,20 @@ function AudienceNoGigState({
         upcomingCount: 'upcoming',
         venueFallback: 'Venue to be announced',
         openEvent: 'Open event page',
-      }
-
-  return (
-    <section className="audience-entry-shell audience-no-gig-shell" aria-label="Audience app no live gig state">
-      <article className="queue-panel audience-entry-card audience-no-gig-card">
-        <div className="audience-no-gig-motion" aria-hidden="true">
-          <span></span>
-          <span></span>
+        countdownLabel: 'Next show starts in',
+        countdownFor: 'for',
           <span></span>
         </div>
         <p className="eyebrow audience-entry-eyebrow">{copy.eyebrow}</p>
         <h1>{copy.title}</h1>
+        {countdown ? (
+          <div className="audience-no-gig-countdown">
+            <p className="audience-no-gig-countdown-label">{copy.countdownLabel}</p>
+            <p className="audience-no-gig-countdown-value">{formatCountdownLabel(countdown.remainingMs)}</p>
+            <p className="audience-no-gig-countdown-event">{countdown.event.name}{countdown.event.venue ? ` · ${countdown.event.venue}` : ''}</p>
+          </div>
+        ) : null}
+
         <div className="audience-no-gig-copy">
           {NO_GIG_MESSAGES[locale].map((message) => (
             <p key={message} className="subcopy audience-entry-copy">
