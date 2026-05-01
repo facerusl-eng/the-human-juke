@@ -266,6 +266,18 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     }
   }, [])
 
+  // Reload playlists whenever the page regains visibility (e.g. user returns from Setlist Library)
+  const [playlistRefreshToken, setPlaylistRefreshToken] = useState(0)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setPlaylistRefreshToken((t) => t + 1)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
   // Load playlists
   useEffect(() => {
     if (!user?.id || !event?.id) {
@@ -352,7 +364,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     return () => {
       isCurrent = false
     }
-  }, [event.id, user?.id])
+  }, [event.id, user?.id, playlistRefreshToken])
 
   const ensurePlaylistArtwork = async (playlistIds: string[]) => {
     if (!playlistIds.length) {
