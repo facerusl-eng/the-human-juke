@@ -1205,15 +1205,25 @@ function EventPage() {
               />
             </div>
             <div className="field-row">
-              <label htmlFor="audience-language" className="audience-entry-label">{copy.languageLabel}</label>
-              <select
-                id="audience-language"
-                value={audienceLocale}
-                onChange={(event) => setAudienceLocale(event.target.value === 'da' ? 'da' : 'en')}
-              >
-                <option value="en">English</option>
-                <option value="da">Dansk</option>
-              </select>
+              <span id="audience-language" className="audience-entry-label">{copy.languageLabel}</span>
+              <div className="audience-language-picker" role="radiogroup" aria-labelledby="audience-language">
+                <button
+                  type="button"
+                  className={`audience-language-option audience-language-option-en${audienceLocale === 'en' ? ' audience-language-option-active' : ''}`}
+                  onClick={() => setAudienceLocale('en')}
+                >
+                  <span className="audience-language-option-flag" aria-hidden="true">🇬🇧</span>
+                  <span className="audience-language-option-text">English</span>
+                </button>
+                <button
+                  type="button"
+                  className={`audience-language-option audience-language-option-da${audienceLocale === 'da' ? ' audience-language-option-active' : ''}`}
+                  onClick={() => setAudienceLocale('da')}
+                >
+                  <span className="audience-language-option-flag" aria-hidden="true">🇩🇰</span>
+                  <span className="audience-language-option-text">Dansk</span>
+                </button>
+              </div>
             </div>
             {audienceNameError ? <p id="audience-name-error" className="error-text request-error-inline" role="alert">{audienceNameError}</p> : null}
             <button 
