@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
+import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 import {
@@ -245,9 +246,22 @@ function playShutterSound() {
 }
 
 function MirrorPage() {
-  const { event, songs, loading } = useQueueStore()
+  const { event, songs, loading, toggleRoomOpen } = useQueueStore()
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
+  const spacebarBusyRef = useRef(false)
+  const lastSpacebarActionAtRef = useRef(0)
+  const gigActions = useGigActions({
+    setActiveEvent: async () => {},
+    toggleRoomOpen,
+    toggleExplicitFilter: async () => {},
+    setErrorText: () => {},
+    errors: {
+      setActiveEvent: '',
+      toggleRoomOpen: 'Failed to toggle room.',
+      toggleExplicitFilter: '',
+    },
+  })
   const [flashActive, setFlashActive] = useState(false)
   const [queuedSpotlightCount, setQueuedSpotlightCount] = useState(0)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
@@ -500,6 +514,53 @@ function MirrorPage() {
     return () => {
       window.removeEventListener('storage', syncAudienceLocale)
     }
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.code !== 'Space') {
+        return
+      }
+
+      const target = keyEvent.target as HTMLElement | null
+      const activeElement = document.activeElement as HTMLElement | null
+      const interactiveTarget = target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="button"], [role="textbox"], [data-spacebar-ignore="true"]')
+      const isTypingTarget = Boolean(interactiveTarget || activeElement?.isContentEditable)
+
+      if (isTypingTarget) {
+        return
+      }
+
+      const now = Date.now()
+      if (now - lastSpacebarActionAtRef.current < 500) {
+        keyEvent.preventDefault()
+        return
+      }
+
+      if (spacebarBusyRef.current) {
+        keyEvent.preventDefault()
+        return
+      }
+
+      keyEvent.preventDefault()
+      lastSpacebarActionAtRef.current = now
+      spacebarBusyRef.current = true
+
+      const executeToggle = async () => {
+        try {
+          await gigActions.runToggleRoomOpen()
+        } catch (error) {
+          console.warn('MirrorPage: spacebar toggle room failed', error)
+        } finally {
+          spacebarBusyRef.current = false
+        }
+      }
+
+      void executeToggle()
+    }
+
+    window.addEventListener('keydown', onKeyDown as unknown as EventListener)
+    return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
   }, [])
 
   useEffect(() => {
@@ -1024,7 +1085,11 @@ function MirrorPage() {
       }
 
       if (error) {
-        setMirrorWarningMessage('Crowd spotlight sync is reconnecting.')
+        console.warn('MirrorPage: failed to load spotlight feed posts', error)
+        // Only show warning on initial seed load with no prior posts
+        if (seedOnly && seenSpotlightPostIdsRef.current.size === 0) {
+          setMirrorWarningMessage('Crowd spotlight sync is reconnecting.')
+        }
         return
       }
 
