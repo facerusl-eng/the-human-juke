@@ -129,6 +129,7 @@ function AudienceSongListPage() {
   const [selectedSong, setSelectedSong] = useState<CuratedSong | null>(null)
   const [submittingMode, setSubmittingMode] = useState<PerformerMode | null>(null)
   const [activeSetlist, setActiveSetlist] = useState<'human_jukebox' | 'karaoke' | null>(null)
+  const [karaokeConfirmPending, setKaraokeConfirmPending] = useState(false)
 
   const audienceName = readCommittedAudienceName()
   const audienceLocale = readCommittedAudienceLocale()
@@ -161,6 +162,10 @@ function AudienceSongListPage() {
         unknownArtist: 'Ukendt artist',
         adding: 'Tilføjer...',
         addKaraoke: 'Tilføj karaokeønske (jeg synger denne)',
+        karaokeConfirmHeading: 'Vent lidt, rockstjerne.',
+        karaokeConfirmBody: 'Hvis du fortsætter, melder du dig frivilligt — ja, dig personligt — til at gå op på scenen og synge denne sang foran alle. Værten vil kalde dit navn. Folk vil kigge. Der er ingen vej tilbage. Det bliver helt fantastisk (eller i det mindste uforglemmelig).',
+        karaokeConfirmGo: 'Ja, jeg gør det altså!',
+        karaokeConfirmAbort: 'Nej nej nej, ikke alligevel.',
         performerSings: 'Performeren synger sangen',
         iWantToSing: 'Jeg vil synge sangen',
         cancel: 'Annuller',
@@ -194,6 +199,10 @@ function AudienceSongListPage() {
         unknownArtist: 'Unknown Artist',
         adding: 'Adding...',
         addKaraoke: 'Add Karaoke Request (I sing this one)',
+        karaokeConfirmHeading: 'Steady on, rockstar.',
+        karaokeConfirmBody: 'By proceeding, you are volunteering yourself — yes, you, personally — to walk onto that stage and sing this song in front of everyone here. The host will call your name. People will look at you. There is absolutely no backing out. It is going to be legendary (or at the very least, deeply memorable).',
+        karaokeConfirmGo: 'Right, I\'m absolutely doing this.',
+        karaokeConfirmAbort: 'On reflection, perhaps not.',
         performerSings: `${performerDisplayName} sings the song`,
         iWantToSing: 'I want to sing the song',
         cancel: 'Cancel',
@@ -702,6 +711,7 @@ function AudienceSongListPage() {
                       className={`audience-song-list-card${effectiveSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}`}
                       onClick={() => {
                         setSelectedSong(song)
+                        setKaraokeConfirmPending(false)
                         setErrorText(null)
                       }}
                     >
@@ -743,10 +753,36 @@ function AudienceSongListPage() {
           onClick={(event) => {
             if (event.target === event.currentTarget && !submittingMode) {
               setSelectedSong(null)
+              setKaraokeConfirmPending(false)
             }
           }}
         >
           <div className="audience-song-choice-sheet">
+            {karaokeConfirmPending ? (
+              <>
+                <p className="eyebrow karaoke-confirm-heading">🎤 {copy.karaokeConfirmHeading}</p>
+                <p className="subcopy karaoke-confirm-body">{copy.karaokeConfirmBody}</p>
+                <div className="audience-song-choice-actions karaoke-confirm-actions">
+                  <button
+                    type="button"
+                    className="primary-button audience-song-choice-button"
+                    disabled={Boolean(submittingMode)}
+                    onClick={() => { void submitSongRequest('audience') }}
+                  >
+                    {submittingMode === 'audience' ? copy.adding : copy.karaokeConfirmGo}
+                  </button>
+                  <button
+                    type="button"
+                    className="tertiary-button audience-song-choice-button"
+                    disabled={Boolean(submittingMode)}
+                    onClick={() => setKaraokeConfirmPending(false)}
+                  >
+                    {copy.karaokeConfirmAbort}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
             <p className="eyebrow">{copy.selected}</p>
             <h2>{normalizeDisplayText(selectedSong.title, copy.untitledSong)}</h2>
             <p className="subcopy">{normalizeDisplayText(selectedSong.artist, copy.unknownArtist)}</p>
@@ -756,11 +792,9 @@ function AudienceSongListPage() {
                   type="button"
                   className="secondary-button audience-song-choice-button"
                   disabled={Boolean(submittingMode)}
-                  onClick={() => {
-                    void submitSongRequest('audience')
-                  }}
+                  onClick={() => setKaraokeConfirmPending(true)}
                 >
-                  {submittingMode === 'audience' ? copy.adding : copy.addKaraoke}
+                  {copy.addKaraoke}
                 </button>
               ) : (
                 <>
@@ -795,6 +829,8 @@ function AudienceSongListPage() {
                 {copy.cancel}
               </button>
             </div>
+              </>
+            )}
           </div>
         </aside>
       ) : null}

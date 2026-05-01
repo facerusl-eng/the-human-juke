@@ -8220,6 +8220,19 @@
   gap: 0.5rem;
 }
 
+.karaoke-confirm-heading {
+  color: var(--accent, #f59e0b);
+}
+
+.karaoke-confirm-body {
+  margin-top: 0.5rem;
+  line-height: 1.55;
+}
+
+.karaoke-confirm-actions {
+  margin-top: 1.25rem;
+}
+
 .audience-song-choice-button {
   min-height: 3rem;
 }
