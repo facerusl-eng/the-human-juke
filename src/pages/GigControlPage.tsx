@@ -105,6 +105,7 @@ function GigControlPage() {
   const joinUrl = getAudienceUrl(event?.id, { compact: true })
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
+  const signedInEmail = user?.email?.trim() ?? ''
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -783,10 +784,23 @@ function GigControlPage() {
         <section className="hero-card admin-card">
           <p className="eyebrow">No active gig</p>
           <h1>No Gig Running</h1>
-          <p className="subcopy">Create a gig first to start accepting requests.</p>
+          <p className="subcopy">
+            {hostEvents.length === 0
+              ? 'No gigs were found for the currently signed-in host account.'
+              : 'Could not load a live gig for this account right now.'}
+          </p>
+          {signedInEmail ? (
+            <p className="meta-badge" aria-live="polite">Signed in as {signedInEmail}</p>
+          ) : null}
+          <p className="subcopy">
+            If this is the wrong account, sign out and sign in with the host account that created your gigs.
+          </p>
           <div className="hero-actions">
             <button type="button" className="primary-button" onClick={() => navigate('/admin/create-gig')}>
               Create Gig
+            </button>
+            <button type="button" className="secondary-button" onClick={() => navigate('/admin')}>
+              Go to Admin Sign In
             </button>
           </div>
         </section>
