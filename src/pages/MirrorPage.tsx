@@ -1677,13 +1677,32 @@ function MirrorPage() {
 
       const orderedPosts = [...data].reverse()
 
-      for (const nextPost of orderedPosts) {
-        if (!nextPost.id) {
-          continue
+      if (seedOnly) {
+        // Show one latest crowd photo immediately so spotlight is visibly active after toggling on/opening mirror.
+        const latestImagePost = [...orderedPosts]
+          .reverse()
+          .find((post) => Boolean(post.id && post.image_data_url))
+
+        if (latestImagePost?.id && latestImagePost.image_data_url) {
+          enqueueSpotlight({
+            id: latestImagePost.id,
+            eventId,
+            imageDataUrl: latestImagePost.image_data_url,
+            authorName: latestImagePost.author_name?.trim() || 'Guest',
+          })
         }
 
-        if (seedOnly) {
-          seenSpotlightPostIdsRef.current.add(nextPost.id)
+        for (const nextPost of orderedPosts) {
+          if (nextPost.id) {
+            seenSpotlightPostIdsRef.current.add(nextPost.id)
+          }
+        }
+
+        return
+      }
+
+      for (const nextPost of orderedPosts) {
+        if (!nextPost.id) {
           continue
         }
 
