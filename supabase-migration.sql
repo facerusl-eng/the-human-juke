@@ -615,8 +615,11 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS gig_start_time TIME,
   ADD COLUMN IF NOT EXISTS gig_end_time TIME;
 
--- ─── Tip thank-you messages on events (May 2026) ──────────────────────────────
+-- ─── Custom button + Tip thank-you messages on events (May 2026) ──────────────
 ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS show_custom_button BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS custom_button_label TEXT,
+  ADD COLUMN IF NOT EXISTS custom_button_link TEXT,
   ADD COLUMN IF NOT EXISTS tip_thank_you_message_da TEXT,
   ADD COLUMN IF NOT EXISTS tip_thank_you_message_en TEXT;
 
