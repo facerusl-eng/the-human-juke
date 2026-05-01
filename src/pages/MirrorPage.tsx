@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
-import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 import {
@@ -9,6 +8,7 @@ import {
   PLAYBACK_STATE_EVENT,
   PLAYBACK_STATE_STORAGE_KEY,
   readSharedPlaybackState,
+  writeSharedPlaybackState,
   type SharedPlaybackState,
   BETWEEN_SONG_QUOTES,
 } from '../lib/playbackState'
@@ -265,23 +265,12 @@ function playShutterSound() {
 }
 
 function MirrorPage() {
-  const { event, songs, loading, toggleRoomOpen } = useQueueStore()
+  const { event, songs, loading, markPlayed } = useQueueStore()
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [karaokeCheer, setKaraokeCheer] = useState<string | null>(null)
   const spacebarBusyRef = useRef(false)
   const lastSpacebarActionAtRef = useRef(0)
-  const gigActions = useGigActions({
-    setActiveEvent: async () => {},
-    toggleRoomOpen,
-    toggleExplicitFilter: async () => {},
-    setErrorText: () => {},
-    errors: {
-      setActiveEvent: '',
-      toggleRoomOpen: 'Failed to toggle room.',
-      toggleExplicitFilter: '',
-    },
-  })
   const [flashActive, setFlashActive] = useState(false)
   const [queuedSpotlightCount, setQueuedSpotlightCount] = useState(0)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
@@ -299,8 +288,10 @@ function MirrorPage() {
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const quoteIndexRef = useRef(0)
-  const isLiveRef = useRef(false)
-  const runToggleRoomOpenRef = useRef(gigActions.runToggleRoomOpen)
+  const nowPlayingRef = useRef<typeof songs[number] | undefined>(undefined)
+  const songsRef = useRef(songs)
+  const eventIdRef = useRef<string | null>(null)
+  const isNowPlayingStartedRef = useRef(false)
   const spotlightTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
@@ -466,12 +457,20 @@ function MirrorPage() {
   }
 
   useEffect(() => {
-    isLiveRef.current = isLive
-  }, [isLive])
+    nowPlayingRef.current = nowPlaying
+  }, [nowPlaying])
 
   useEffect(() => {
-    runToggleRoomOpenRef.current = gigActions.runToggleRoomOpen
-  }, [gigActions.runToggleRoomOpen])
+    songsRef.current = songs
+  }, [songs])
+
+  useEffect(() => {
+    eventIdRef.current = eventId
+  }, [eventId])
+
+  useEffect(() => {
+    isNowPlayingStartedRef.current = isNowPlayingStarted
+  }, [isNowPlayingStarted])
 
   useEffect(() => {
     const syncFullscreenState = () => {
@@ -562,6 +561,16 @@ function MirrorPage() {
   }
 
   useEffect(() => {
+    const normalizedQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
+      ? (playbackState?.quoteIndex as number) % BETWEEN_SONG_QUOTES.length
+      : 0
+
+    if (normalizedQuoteIndex !== quoteIndexRef.current) {
+      setQuoteIndex(normalizedQuoteIndex)
+    }
+  }, [playbackState?.quoteIndex])
+
+  useEffect(() => {
     const onKeyDown = (keyEvent: KeyboardEvent) => {
       if (keyEvent.code !== 'Space') {
         return
@@ -593,15 +602,51 @@ function MirrorPage() {
 
       const executeToggle = async () => {
         try {
-          const wasLive = isLiveRef.current
-          await runToggleRoomOpenRef.current()
-          // If we were live and are now paused, increment the quote
-          if (wasLive) {
-            const nextQuoteIndex = (quoteIndexRef.current + 1) % BETWEEN_SONG_QUOTES.length
-            setQuoteIndex(nextQuoteIndex)
+          const activeEventId = eventIdRef.current
+          const currentNowPlaying = nowPlayingRef.current
+          const currentSongs = songsRef.current
+
+          if (!activeEventId || !currentNowPlaying) {
+            return
+          }
+
+          if (!isNowPlayingStartedRef.current) {
+            await writeSharedPlaybackState(activeEventId, {
+              currentSongId: currentNowPlaying.id,
+              currentSongCoverUrl: currentNowPlaying.cover_url ?? null,
+              isStarted: true,
+              quoteIndex: quoteIndexRef.current,
+            })
+            return
+          }
+
+          const previousQuoteIndex = quoteIndexRef.current
+          const nextQuoteIndex = (previousQuoteIndex + 1) % BETWEEN_SONG_QUOTES.length
+          const nextSong = currentSongs[1] ?? null
+
+          setQuoteIndex(nextQuoteIndex)
+
+          await writeSharedPlaybackState(activeEventId, {
+            currentSongId: nextSong?.id ?? null,
+            currentSongCoverUrl: nextSong?.cover_url ?? null,
+            isStarted: false,
+            quoteIndex: nextQuoteIndex,
+          })
+
+          try {
+            await markPlayed()
+          } catch (error) {
+            setQuoteIndex(previousQuoteIndex)
+            await writeSharedPlaybackState(activeEventId, {
+              currentSongId: currentNowPlaying.id,
+              currentSongCoverUrl: currentNowPlaying.cover_url ?? null,
+              isStarted: true,
+              quoteIndex: previousQuoteIndex,
+            })
+            throw error
           }
         } catch (error) {
-          console.warn('MirrorPage: spacebar toggle room failed', error)
+          console.warn('MirrorPage: spacebar playback action failed', error)
         } finally {
           spacebarBusyRef.current = false
         }
@@ -1414,7 +1459,7 @@ function MirrorPage() {
               <p>3. Add song requests and vote your favorites up.</p>
             </div>
           </section>
-        ) : !isLive && nowPlaying ? (
+        ) : nowPlaying && !isNowPlayingStarted ? (
           <section className="mirror-between-songs" aria-label="Between songs">
             <p className="mirror-between-songs-hint">The show is temporarily paused.</p>
             <p className="mirror-between-songs-quote">{BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]}</p>
