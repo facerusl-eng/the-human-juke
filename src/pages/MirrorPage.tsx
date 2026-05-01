@@ -469,6 +469,7 @@ function MirrorPage() {
     () => new URLSearchParams(window.location.search).get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) === '1',
   )
   const [highContrastMode, setHighContrastMode] = useState(false)
+  const [castClarityMode, setCastClarityMode] = useState(false)
   const [densityMode, setDensityMode] = useState<MirrorDensityMode>('medium')
   const [venueMode, setVenueMode] = useState<MirrorVenueMode>('lounge')
   const [showSafeMargins, setShowSafeMargins] = useState(false)
@@ -1196,8 +1197,11 @@ function MirrorPage() {
       ?? searchParams.get('vm')?.trim().toLowerCase()
     const safeMarginsParam = searchParams.get('safeMargins')?.trim().toLowerCase()
       ?? searchParams.get('safe')?.trim().toLowerCase()
+    const castParam = searchParams.get('cast')?.trim().toLowerCase()
+      ?? searchParams.get('quality')?.trim().toLowerCase()
 
     const hasContrastQuery = contrastParam === '1' || contrastParam === 'high' || contrastParam === 'true'
+    const hasCastClarityQuery = castParam === '1' || castParam === 'true' || castParam === 'cast' || castParam === 'clarity'
     const persistedContrastPreference = readTextFromLocalStorage(MIRROR_HIGH_CONTRAST_STORAGE_KEY) === '1'
     const hasSafeMarginsQuery = safeMarginsParam === '1' || safeMarginsParam === 'on' || safeMarginsParam === 'true'
     const persistedSafeMarginsPreference = readTextFromLocalStorage(MIRROR_SAFE_MARGINS_STORAGE_KEY) === '1'
@@ -1208,6 +1212,7 @@ function MirrorPage() {
       : 'medium'
 
     setHighContrastMode(hasContrastQuery || persistedContrastPreference)
+    setCastClarityMode(hasCastClarityQuery)
     setDensityMode(resolvedDensityMode)
     setVenueMode(resolvedVenueMode)
     setShowSafeMargins(hasSafeMarginsQuery || persistedSafeMarginsPreference)
@@ -1820,7 +1825,7 @@ function MirrorPage() {
   }
 
   return (
-    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
+    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
       {showFullscreenPrompt && !isFullscreen && (
         <button
           type="button"

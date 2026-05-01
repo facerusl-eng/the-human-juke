@@ -9926,6 +9926,36 @@
   z-index: 1;
 }
 
+.mirror-shell-cast-clarity::before,
+.mirror-shell-cast-clarity::after,
+.mirror-shell-cast-clarity .mirror-stage::before {
+  display: none;
+}
+
+.mirror-shell-cast-clarity .mirror-header,
+.mirror-shell-cast-clarity .mirror-now-playing,
+.mirror-shell-cast-clarity .mirror-now-playing-frame,
+.mirror-shell-cast-clarity .mirror-song-fact-box,
+.mirror-shell-cast-clarity .mirror-up-next,
+.mirror-shell-cast-clarity .mirror-queue-item,
+.mirror-shell-cast-clarity .live-feed-panel-mirror {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.mirror-shell-cast-clarity .mirror-song-fact,
+.mirror-shell-cast-clarity .mirror-song-fact-box,
+.mirror-shell-cast-clarity .mirror-karaoke-cheer {
+  animation: none;
+}
+
+.mirror-shell-cast-clarity .mirror-title,
+.mirror-shell-cast-clarity .mirror-artist,
+.mirror-shell-cast-clarity .mirror-song-fact {
+  text-shadow: none;
+}
+
 .mirror-now-playing-qr {
   display: none;
 }
