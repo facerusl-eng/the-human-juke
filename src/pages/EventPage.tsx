@@ -363,6 +363,8 @@ function EventPage() {
   const [votingSongIds, setVotingSongIds] = useState<Record<string, boolean>>({})
   const [votePulseTicks, setVotePulseTicks] = useState<Record<string, number>>({})
   const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
+  const [showTipThankYou, setShowTipThankYou] = useState(false)
+  const tipThankYouTimerRef = useRef<number | null>(null)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>([])
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false)
@@ -457,6 +459,7 @@ function EventPage() {
         noSongsPlayed: 'Ingen sange spillet endnu.',
         performerLinks: 'Artistlinks',
         tipJarCopy: 'Hvis den sidste sang fik dig til at synge, så giv artisten en skilling. Klapsalver er søde, men huslejen larmer mere.',
+        tipThankYou: event?.tipThankYouMessageDA?.trim() || 'Tusind tak for din støtte — det betyder meget. — Harald',
         enterName: 'Skriv dit navn for at fortsætte.',
         keepNameShort: `Hold dit navn under ${MAX_AUDIENCE_NAME_LENGTH} tegn.`,
         removeUnsupported: 'Fjern ugyldige tegn fra dit navn.',
@@ -505,6 +508,7 @@ function EventPage() {
         noSongsPlayed: 'No songs played yet.',
         performerLinks: 'Performer links',
         tipJarCopy: 'If that last song made you sing like nobody\'s watching (they were), toss the artist a tip. Applause is cute, rent is louder. 🎤✨',
+        tipThankYou: event?.tipThankYouMessageEN?.trim() || 'Thank you so much for your support — it means a lot. — Harald',
         enterName: 'Please enter your name to continue.',
         keepNameShort: `Please keep your name under ${MAX_AUDIENCE_NAME_LENGTH} characters.`,
         removeUnsupported: 'Please remove unsupported characters from your name.',
@@ -531,6 +535,26 @@ function EventPage() {
         confirmationTimerRef.current = null
       }
     }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (tipThankYouTimerRef.current !== null) {
+        window.clearTimeout(tipThankYouTimerRef.current)
+        tipThankYouTimerRef.current = null
+      }
+    }
+  }, [])
+
+  const handleTipClick = useCallback(() => {
+    if (tipThankYouTimerRef.current !== null) {
+      window.clearTimeout(tipThankYouTimerRef.current)
+    }
+    setShowTipThankYou(true)
+    tipThankYouTimerRef.current = window.setTimeout(() => {
+      setShowTipThankYou(false)
+      tipThankYouTimerRef.current = null
+    }, 4000)
   }, [])
 
   const handleVoteSong = useCallback(async (songId: string) => {
@@ -1463,7 +1487,7 @@ function EventPage() {
                 </div>
                 <div className="tip-jar-showcase" aria-label="Tip links">
                   {primaryTipLink ? (
-                    <a className="tip-jar-link" href={primaryTipLink.url} target="_blank" rel="noreferrer">
+                    <a className="tip-jar-link" href={primaryTipLink.url} target="_blank" rel="noreferrer" onClick={handleTipClick}>
                       <span className="tip-jar-glass" aria-hidden="true">
                         <span className="tip-jar-lid" />
                         <span className="tip-jar-symbol">£</span>
@@ -1478,12 +1502,19 @@ function EventPage() {
                     <ul className="link-list tip-jar-secondary-links">
                       {secondaryTipLinks.map((link) => (
                         <li key={link.label}>
-                          <a className="link-chip tip-chip" href={link.url} target="_blank" rel="noreferrer">
+                          <a className="link-chip tip-chip" href={link.url} target="_blank" rel="noreferrer" onClick={handleTipClick}>
                             {link.label}
                           </a>
                         </li>
                       ))}
                     </ul>
+                  ) : null}
+
+                  {showTipThankYou ? (
+                    <div className="tip-thankyou-overlay" role="status" aria-live="polite">
+                      <span className="tip-thankyou-icon" aria-hidden="true">🫙✨</span>
+                      <p className="tip-thankyou-message">{copy.tipThankYou}</p>
+                    </div>
                   ) : null}
                 </div>
               </>

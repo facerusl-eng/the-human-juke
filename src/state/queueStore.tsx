@@ -62,6 +62,8 @@ type EventSettingsUpdates = {
   showCustomButton: boolean
   customButtonLabel: string | null
   customButtonLink: string | null
+  tipThankYouMessageDA: string | null
+  tipThankYouMessageEN: string | null
 }
 
 type EventState = {
@@ -94,6 +96,8 @@ type EventState = {
   showCustomButton: boolean
   customButtonLabel: string | null
   customButtonLink: string | null
+  tipThankYouMessageDA: string | null
+  tipThankYouMessageEN: string | null
 }
 
 type CreateEventOptions = {
@@ -892,6 +896,8 @@ function QueueProvider({ children }: PropsWithChildren) {
       showCustomButton: ((eventData as Record<string, unknown>).show_custom_button as boolean | null) ?? false,
       customButtonLabel: ((eventData as Record<string, unknown>).custom_button_label as string | null) ?? null,
       customButtonLink: ((eventData as Record<string, unknown>).custom_button_link as string | null) ?? null,
+      tipThankYouMessageDA: ((eventData as Record<string, unknown>).tip_thank_you_message_da as string | null) ?? null,
+      tipThankYouMessageEN: ((eventData as Record<string, unknown>).tip_thank_you_message_en as string | null) ?? null,
     })
     if (queueLoaded) {
       setSongs(queueSongs.map((song) => {
@@ -1925,6 +1931,8 @@ function QueueProvider({ children }: PropsWithChildren) {
                 show_custom_button: updates.showCustomButton,
                 custom_button_label: updates.customButtonLabel || null,
                 custom_button_link: updates.customButtonLink || null,
+                tip_thank_you_message_da: updates.tipThankYouMessageDA || null,
+                tip_thank_you_message_en: updates.tipThankYouMessageEN || null,
               })
               .eq('id', event.id),
           ),
@@ -2343,6 +2351,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           showCustomButton: false,
           customButtonLabel: null,
           customButtonLink: null,
+          tipThankYouMessageDA: null,
+          tipThankYouMessageEN: null,
         }
 
         try {

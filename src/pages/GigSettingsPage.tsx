@@ -68,6 +68,8 @@ type SettingsState = {
   showCustomButton: boolean
   customButtonLabel: string
   customButtonLink: string
+  tipThankYouMessageDA: string
+  tipThankYouMessageEN: string
 }
 
 type UndoRedoState = SettingsState & { timestamp: number }
@@ -212,6 +214,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     showCustomButton: event.showCustomButton ?? false,
     customButtonLabel: event.customButtonLabel ?? '',
     customButtonLink: event.customButtonLink ?? '',
+    tipThankYouMessageDA: event.tipThankYouMessageDA ?? '',
+    tipThankYouMessageEN: event.tipThankYouMessageEN ?? '',
   })
   const [initialSelectedPlaylistIds, setInitialSelectedPlaylistIds] = useState<string[]>([])
 
@@ -481,6 +485,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         showCustomButton: saveState.showCustomButton,
         customButtonLabel: saveState.customButtonLabel.trim() || null,
         customButtonLink: saveState.customButtonLink.trim() || null,
+        tipThankYouMessageDA: saveState.tipThankYouMessageDA.trim() || null,
+        tipThankYouMessageEN: saveState.tipThankYouMessageEN.trim() || null,
       })
 
       await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
@@ -771,6 +777,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.showCustomButton !== (event.showCustomButton ?? false)
     || state.customButtonLabel !== (event.customButtonLabel ?? '')
     || state.customButtonLink !== (event.customButtonLink ?? '')
+    || state.tipThankYouMessageDA !== (event.tipThankYouMessageDA ?? '')
+    || state.tipThankYouMessageEN !== (event.tipThankYouMessageEN ?? '')
 
   return (
     <>
@@ -1451,6 +1459,36 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 placeholder="+45 12 34 56 78 or MobilePay link"
               />
               <p className="field-hint">Accepts either a MobilePay phone number or a full link.</p>
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-tip-thankyou-da">Tip thank-you message (Danish)</label>
+              <input
+                id="gig-tip-thankyou-da"
+                type="text"
+                value={state.tipThankYouMessageDA}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ tipThankYouMessageDA: e.target.value })
+                }}
+                placeholder="Tusind tak for din støtte — det betyder meget. — Harald"
+              />
+              <p className="field-hint">Shown to Danish-language audience members after they click the tip jar. Leave blank for the default message.</p>
+            </div>
+
+            <div className="field-row">
+              <label htmlFor="gig-tip-thankyou-en">Tip thank-you message (English)</label>
+              <input
+                id="gig-tip-thankyou-en"
+                type="text"
+                value={state.tipThankYouMessageEN}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ tipThankYouMessageEN: e.target.value })
+                }}
+                placeholder="Thank you so much for your support — it means a lot. — Harald"
+              />
+              <p className="field-hint">Shown to English-language audience members after they click the tip jar. Leave blank for the default message.</p>
             </div>
 
             <div className="status-grid">
