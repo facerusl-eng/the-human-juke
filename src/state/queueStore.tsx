@@ -703,8 +703,8 @@ function QueueProvider({ children }: PropsWithChildren) {
     let queueLoaded = false
 
     try {
-      const songsSelectWithProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, profiles!queue_songs_created_by_fkey(display_name)'
-      const songsSelectWithoutProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position'
+      const songsSelectWithProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by, profiles!queue_songs_created_by_fkey(display_name)'
+      const songsSelectWithoutProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by'
 
       let songsData: Array<Record<string, unknown>> | null = null
 
@@ -744,9 +744,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         songsData = (songsWithProfiles ?? []) as Array<Record<string, unknown>>
       }
 
-      queueSongs = (songsData ?? []).map((song) => {
+      const mappedQueueSongs = (songsData ?? []).map((song) => {
         const normalizedSong = song as Record<string, unknown>
         const profile = normalizedSong.profiles as { display_name?: string | null } | null | undefined
+        const creatorId = typeof normalizedSong.created_by === 'string' ? normalizedSong.created_by : null
 
         return {
           id: String(normalizedSong.id ?? ''),
@@ -762,8 +763,59 @@ function QueueProvider({ children }: PropsWithChildren) {
           audience_sings: Boolean(normalizedSong.audience_sings),
           position: typeof normalizedSong.position === 'number' ? normalizedSong.position : undefined,
           createdByName: profile?.display_name ?? null,
-        } satisfies QueueSong
+          creatorId,
+        }
       })
+
+      const missingCreatorIds = [...new Set(
+        mappedQueueSongs
+          .filter((song) => !song.createdByName && song.creatorId)
+          .map((song) => song.creatorId)
+          .filter((creatorId): creatorId is string => Boolean(creatorId)),
+      )]
+
+      let creatorNameById = new Map<string, string>()
+
+      if (missingCreatorIds.length > 0) {
+        try {
+          const { data: creatorProfiles, error: creatorProfilesError } = await withTimeout(
+            supabase
+              .from('profiles')
+              .select('user_id, display_name')
+              .in('user_id', missingCreatorIds),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Loading queue picker names timed out. Please refresh and try again.',
+          )
+
+          if (creatorProfilesError) {
+            throw creatorProfilesError
+          }
+
+          creatorNameById = new Map(
+            ((creatorProfiles ?? []) as Array<{ user_id?: string | null; display_name?: string | null }>)
+              .filter((profile) => Boolean(profile.user_id && profile.display_name))
+              .map((profile) => [profile.user_id as string, profile.display_name as string]),
+          )
+        } catch (error) {
+          console.warn('queueStore: failed to backfill queue picker names from profiles', error)
+        }
+      }
+
+      queueSongs = mappedQueueSongs.map((song) => ({
+        id: song.id,
+        event_id: song.event_id,
+        title: song.title,
+        artist: song.artist,
+        votes_count: song.votes_count,
+        is_explicit: song.is_explicit,
+        voting_locked: song.voting_locked,
+        is_removed: song.is_removed,
+        cover_url: song.cover_url,
+        library_song_id: song.library_song_id,
+        audience_sings: song.audience_sings,
+        position: song.position,
+        createdByName: song.createdByName ?? (song.creatorId ? creatorNameById.get(song.creatorId) ?? null : null),
+      }))
       queueLoaded = true
     } catch (error) {
       if (!isTransientLoadError(error)) {
