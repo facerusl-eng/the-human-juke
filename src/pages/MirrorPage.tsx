@@ -1936,7 +1936,7 @@ function MirrorPage() {
           </section>
         ) : (
           <>
-            <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''}`}>
+            <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
               <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
               {!isNowPlayingStarted && nowPlaying ? (
                 <div className="mirror-between-songs" aria-label="Between songs">
