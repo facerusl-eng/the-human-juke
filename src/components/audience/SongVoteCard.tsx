@@ -56,6 +56,9 @@ function SongVoteCard({
               {song.is_explicit ? ' - Explicit' : ''}
               {song.voting_locked ? ' - Voting Locked' : ''}
             </p>
+            {song.createdByName ? (
+              <p className="audience-song-chosen-by">♡ {song.createdByName}</p>
+            ) : null}
           </div>
         </div>
       </div>

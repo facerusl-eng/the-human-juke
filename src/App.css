@@ -8220,6 +8220,13 @@
   font-size: 0.92rem;
 }
 
+.audience-song-chosen-by {
+  font-size: 0.8rem;
+  color: #a0c4ff;
+  margin: 0.15rem 0 0;
+  opacity: 0.85;
+}
+
 .audience-song-choice-overlay {
   position: fixed;
   inset: 0;
