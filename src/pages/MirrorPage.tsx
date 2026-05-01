@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { getAudienceUrl } from '../lib/audienceUrl'
@@ -924,6 +924,58 @@ function MirrorPage() {
     setBetweenSongQuoteIndex(nextQuoteIndex)
   }
 
+  const runQueueTogglePlayShortcut = useCallback(async () => {
+    // Mirror the Gig Control playback transition behavior so both screens remain in sync.
+    const activeEventId = eventIdRef.current
+    const currentNowPlaying = nowPlayingRef.current
+    const currentSongs = songsRef.current
+
+    if (!activeEventId || !currentNowPlaying) {
+      return
+    }
+
+    if (!isNowPlayingStartedRef.current) {
+      await writeSharedPlaybackState(activeEventId, {
+        currentSongId: currentNowPlaying.id,
+        currentSongCoverUrl: currentNowPlaying.cover_url ?? null,
+        isStarted: true,
+        quoteIndex: quoteIndexRef.current,
+      })
+      return
+    }
+
+    const previousQuoteIndex = quoteIndexRef.current
+    const nextQuoteIndex = (previousQuoteIndex + 1) % BETWEEN_SONG_QUOTES.length
+    const nextSong = currentSongs[1] ?? null
+
+    setQuoteIndex(nextQuoteIndex)
+
+    await writeSharedPlaybackState(activeEventId, {
+      currentSongId: nextSong?.id ?? null,
+      currentSongCoverUrl: nextSong?.cover_url ?? null,
+      isStarted: false,
+      quoteIndex: nextQuoteIndex,
+    })
+
+    try {
+      await markPlayed()
+    } catch (error) {
+      setQuoteIndex(previousQuoteIndex)
+      await writeSharedPlaybackState(activeEventId, {
+        currentSongId: currentNowPlaying.id,
+        currentSongCoverUrl: currentNowPlaying.cover_url ?? null,
+        isStarted: true,
+        quoteIndex: previousQuoteIndex,
+      })
+      throw error
+    }
+  }, [markPlayed])
+
+  const runQueueTogglePlayShortcutRef = useRef(runQueueTogglePlayShortcut)
+  useEffect(() => {
+    runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
+  }, [runQueueTogglePlayShortcut])
+
   useEffect(() => {
     const normalizedQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
       ? (playbackState?.quoteIndex as number) % BETWEEN_SONG_QUOTES.length
@@ -936,7 +988,20 @@ function MirrorPage() {
 
   useEffect(() => {
     const onKeyDown = (keyEvent: KeyboardEvent) => {
+      if (!keyEvent.isTrusted || keyEvent.defaultPrevented) {
+        return
+      }
+
       if (keyEvent.code !== 'Space') {
+        return
+      }
+
+      if (keyEvent.altKey || keyEvent.ctrlKey || keyEvent.metaKey || keyEvent.shiftKey) {
+        return
+      }
+
+      if (keyEvent.repeat) {
+        keyEvent.preventDefault()
         return
       }
 
@@ -960,55 +1025,17 @@ function MirrorPage() {
         return
       }
 
+      if (!nowPlayingRef.current) {
+        return
+      }
+
       keyEvent.preventDefault()
       lastSpacebarActionAtRef.current = now
       spacebarBusyRef.current = true
 
       const executeToggle = async () => {
         try {
-          const activeEventId = eventIdRef.current
-          const currentNowPlaying = nowPlayingRef.current
-          const currentSongs = songsRef.current
-
-          if (!activeEventId || !currentNowPlaying) {
-            return
-          }
-
-          if (!isNowPlayingStartedRef.current) {
-            await writeSharedPlaybackState(activeEventId, {
-              currentSongId: currentNowPlaying.id,
-              currentSongCoverUrl: currentNowPlaying.cover_url ?? null,
-              isStarted: true,
-              quoteIndex: quoteIndexRef.current,
-            })
-            return
-          }
-
-          const previousQuoteIndex = quoteIndexRef.current
-          const nextQuoteIndex = (previousQuoteIndex + 1) % BETWEEN_SONG_QUOTES.length
-          const nextSong = currentSongs[1] ?? null
-
-          setQuoteIndex(nextQuoteIndex)
-
-          await writeSharedPlaybackState(activeEventId, {
-            currentSongId: nextSong?.id ?? null,
-            currentSongCoverUrl: nextSong?.cover_url ?? null,
-            isStarted: false,
-            quoteIndex: nextQuoteIndex,
-          })
-
-          try {
-            await markPlayed()
-          } catch (error) {
-            setQuoteIndex(previousQuoteIndex)
-            await writeSharedPlaybackState(activeEventId, {
-              currentSongId: currentNowPlaying.id,
-              currentSongCoverUrl: currentNowPlaying.cover_url ?? null,
-              isStarted: true,
-              quoteIndex: previousQuoteIndex,
-            })
-            throw error
-          }
+          await runQueueTogglePlayShortcutRef.current()
         } catch (error) {
           console.warn('MirrorPage: spacebar playback action failed', error)
         } finally {
