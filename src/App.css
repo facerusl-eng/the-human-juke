@@ -9694,15 +9694,16 @@
 }
 
 .mirror-now-playing-qr-slot .mirror-now-playing-qr {
+  display: block;
   position: static;
+  top: auto;
+  right: auto;
   width: clamp(80px, 9vw, 140px);
   height: clamp(80px, 9vw, 140px);
   border-radius: 10px;
   background: #ffffff;
   padding: 4px;
   image-rendering: pixelated;
-  top: auto;
-  right: auto;
 }
 
 .mirror-qr-cta {
