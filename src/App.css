@@ -10299,13 +10299,13 @@
 
 /* Between-songs state */
 .mirror-between-song-quote {
-  font-size: clamp(1.1rem, 2vw, 1.8rem);
+  font-size: clamp(1.6rem, 3vw, 2.8rem);
   font-style: italic;
   font-weight: 500;
   color: rgba(247, 251, 255, 0.72);
   text-align: left;
   max-width: min(72ch, 100%);
-  line-height: 1.45;
+  line-height: 1.38;
   margin: 0 0 clamp(6px, 0.8vw, 12px);
 }
 
