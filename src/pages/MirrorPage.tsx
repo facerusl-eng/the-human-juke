@@ -194,20 +194,14 @@ function pickKaraokeCheer(singerName: string) {
   return cheerBuilder(singerName)
 }
 
-function buildChosenByLine(name: string | null | undefined, seed: string) {
+function buildChosenByLine(name: string | null | undefined, phraseIndex: number) {
   const normalizedName = name?.trim()
 
   if (!normalizedName) {
     return null
   }
 
-  let seedValue = 0
-
-  for (let index = 0; index < seed.length; index += 1) {
-    seedValue = (seedValue * 31 + seed.charCodeAt(index)) >>> 0
-  }
-
-  const chosenByBuilder = CHOSEN_BY_BUILDERS[seedValue % CHOSEN_BY_BUILDERS.length]
+  const chosenByBuilder = CHOSEN_BY_BUILDERS[phraseIndex]
   return chosenByBuilder(normalizedName)
 }
 
@@ -329,6 +323,8 @@ function MirrorPage() {
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
   const mirrorShellRef = useRef<HTMLDivElement | null>(null)
   const autoFullscreenAttemptedRef = useRef(false)
+  const chosenByPhraseIndexBySongIdRef = useRef<Record<string, number>>({})
+  const lastChosenByPhraseIndexRef = useRef<number | null>(null)
 
   const setMirrorWarningMessage = (message: string) => {
     if (mirrorWarningClearTimerRef.current !== null) {
@@ -442,6 +438,52 @@ function MirrorPage() {
     : 0
   const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
     ?? 'Remain calm. The next song is loading.'
+
+  const getChosenByLine = (songId: string, name: string | null | undefined) => {
+    const normalizedName = name?.trim()
+
+    if (!normalizedName) {
+      return null
+    }
+
+    const phraseBuildersCount = CHOSEN_BY_BUILDERS.length
+
+    if (phraseBuildersCount <= 0) {
+      return `Chosen by ${normalizedName}`
+    }
+
+    const cachedPhraseIndex = chosenByPhraseIndexBySongIdRef.current[songId]
+    let phraseIndex = typeof cachedPhraseIndex === 'number' ? cachedPhraseIndex : -1
+
+    if (phraseIndex < 0 || phraseIndex >= phraseBuildersCount) {
+      if (phraseBuildersCount === 1) {
+        phraseIndex = 0
+      } else {
+        const lastPhraseIndex = lastChosenByPhraseIndexRef.current
+        phraseIndex = Math.floor(Math.random() * phraseBuildersCount)
+
+        if (phraseIndex === lastPhraseIndex) {
+          phraseIndex = (phraseIndex + 1 + Math.floor(Math.random() * (phraseBuildersCount - 1))) % phraseBuildersCount
+        }
+      }
+
+      chosenByPhraseIndexBySongIdRef.current[songId] = phraseIndex
+      lastChosenByPhraseIndexRef.current = phraseIndex
+    }
+
+    return buildChosenByLine(normalizedName, phraseIndex) ?? `Chosen by ${normalizedName}`
+  }
+
+  useEffect(() => {
+    const activeSongIds = new Set(safeSongs.map((song) => song.id))
+    const phraseCache = chosenByPhraseIndexBySongIdRef.current
+
+    Object.keys(phraseCache).forEach((songId) => {
+      if (!activeSongIds.has(songId)) {
+        delete phraseCache[songId]
+      }
+    })
+  }, [safeSongs])
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
@@ -1519,7 +1561,7 @@ function MirrorPage() {
                         <p className="mirror-picked-by">
                           {activeSong.audience_sings
                             ? `Picked by ${activeSong.createdByName}`
-                            : buildChosenByLine(activeSong.createdByName, activeSong.id) ?? `Chosen by ${activeSong.createdByName}`}
+                            : getChosenByLine(activeSong.id, activeSong.createdByName) ?? `Chosen by ${activeSong.createdByName}`}
                         </p>
                       ) : null}
                       {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
@@ -1554,7 +1596,7 @@ function MirrorPage() {
                           <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
                           <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
                           {song.createdByName ? (
-                            <span className="mirror-queue-picker">{buildChosenByLine(song.createdByName, song.id) ?? `Chosen by ${song.createdByName}`}</span>
+                            <span className="mirror-queue-picker">{getChosenByLine(song.id, song.createdByName) ?? `Chosen by ${song.createdByName}`}</span>
                           ) : null}
                           {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                         </div>
