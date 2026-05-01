@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import type { QueueSong } from '../../state/queueStore'
 
 type SongVoteCardProps = {
@@ -34,8 +34,49 @@ function SongVoteCard({
     void onVote(song.id)
   }, [onVote, song.id])
 
+  const [showInfo, setShowInfo] = useState(false)
+
   return (
     <li className={`audience-song-card ${moveTick > 0 ? 'song-card-move' : ''}`}>
+      {showInfo && (
+        <div
+          className="song-info-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Info for ${song.title}`}
+          onClick={() => setShowInfo(false)}
+        >
+          <div className="song-info-sheet" onClick={(e) => e.stopPropagation()}>
+            {song.cover_url ? (
+              <img
+                src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
+                alt={`Cover art for ${song.title}`}
+                className="song-info-cover"
+              />
+            ) : (
+              <span className="song-info-cover song-info-cover-fallback" aria-hidden="true">♪</span>
+            )}
+            <h3 className="song-info-title">{song.title}</h3>
+            <p className="song-info-artist">{song.artist}</p>
+            <div className="song-info-badges">
+              {song.audience_sings && <span className="song-info-badge song-info-badge-karaoke">🎤 Karaoke</span>}
+              {song.is_explicit && <span className="song-info-badge song-info-badge-explicit">🅴 Explicit</span>}
+              {song.voting_locked && <span className="song-info-badge song-info-badge-locked">🔒 Voting Locked</span>}
+            </div>
+            {song.createdByName && (
+              <p className="song-info-chosen-by">♡ Requested by {song.createdByName}</p>
+            )}
+            <p className="song-info-votes">{song.votes_count} {song.votes_count === 1 ? 'vote' : 'votes'}</p>
+            <button
+              type="button"
+              className="primary-button song-info-close"
+              onClick={() => setShowInfo(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
       <div className="audience-song-card-head">
         <span className="queue-rank-chip" aria-label={`Rank ${rank}`}>
           #{rank}
@@ -61,6 +102,14 @@ function SongVoteCard({
             ) : null}
           </div>
         </div>
+        <button
+          type="button"
+          className="song-info-trigger"
+          aria-label={`More info about ${song.title}`}
+          onClick={() => setShowInfo(true)}
+        >
+          ⓘ
+        </button>
       </div>
 
       <progress
