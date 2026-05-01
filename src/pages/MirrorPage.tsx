@@ -59,6 +59,17 @@ const CHOSEN_BY_BUILDERS = [
   (name: string) => `Chosen by ${name} - absolutely spot on, mate.`,
 ]
 
+const CHOSEN_BY_ACCENT_CLASSES = [
+  'mirror-picker-accent-1',
+  'mirror-picker-accent-2',
+  'mirror-picker-accent-3',
+  'mirror-picker-accent-4',
+  'mirror-picker-accent-5',
+  'mirror-picker-accent-6',
+  'mirror-picker-accent-7',
+  'mirror-picker-accent-8',
+]
+
 const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
@@ -473,6 +484,25 @@ function MirrorPage() {
 
     return buildChosenByLine(normalizedName, phraseIndex) ?? `Chosen by ${normalizedName}`
   }
+
+  const getChosenByAccentClass = (songId: string) => {
+    const phraseIndex = chosenByPhraseIndexBySongIdRef.current[songId]
+
+    if (typeof phraseIndex !== 'number' || phraseIndex < 0) {
+      return CHOSEN_BY_ACCENT_CLASSES[0]
+    }
+
+    return CHOSEN_BY_ACCENT_CLASSES[phraseIndex % CHOSEN_BY_ACCENT_CLASSES.length]
+  }
+
+  const activeSongChosenByLine = activeSong?.createdByName
+    ? (activeSong.audience_sings
+      ? `Picked by ${activeSong.createdByName}`
+      : getChosenByLine(activeSong.id, activeSong.createdByName) ?? `Chosen by ${activeSong.createdByName}`)
+    : null
+  const activeSongChosenByAccentClass = activeSong?.id
+    ? getChosenByAccentClass(activeSong.id)
+    : CHOSEN_BY_ACCENT_CLASSES[0]
 
   useEffect(() => {
     const activeSongIds = new Set(safeSongs.map((song) => song.id))
@@ -1557,11 +1587,9 @@ function MirrorPage() {
                     <div className="mirror-now-playing-meta">
                       <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
                       <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
-                      {activeSong?.createdByName ? (
-                        <p className="mirror-picked-by">
-                          {activeSong.audience_sings
-                            ? `Picked by ${activeSong.createdByName}`
-                            : getChosenByLine(activeSong.id, activeSong.createdByName) ?? `Chosen by ${activeSong.createdByName}`}
+                      {activeSongChosenByLine ? (
+                        <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
+                          {activeSongChosenByLine}
                         </p>
                       ) : null}
                       {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
@@ -1581,30 +1609,37 @@ function MirrorPage() {
                 <p className="mirror-up-next-label">Queue</p>
                 {upNext.length > 0 ? (
                   <ol className="mirror-queue">
-                    {upNext.map((song, index) => (
-                      <li key={song.id} className="mirror-queue-item">
-                        <span className="mirror-queue-pos">{index + 2}</span>
-                        {song.cover_url && !failedCoverUrls[song.cover_url] ? (
-                          <img
-                            src={song.cover_url}
-                            alt={`Cover art for ${song.title}`}
-                            className="mirror-queue-cover"
-                            onError={() => onCoverLoadError(song.cover_url)}
-                          />
-                        ) : null}
-                        <div className="mirror-queue-info">
-                          <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
-                          <span className="mirror-queue-artist">
-                            {normalizeMirrorText(song.artist, 'Unknown Artist')}
-                            {song.createdByName ? (
-                              <span className="mirror-queue-artist-picker">{` · ${getChosenByLine(song.id, song.createdByName) ?? `Chosen by ${song.createdByName}`}`}</span>
-                            ) : null}
-                          </span>
-                          {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
-                        </div>
-                        <span className="mirror-queue-votes">+{song.votes_count}</span>
-                      </li>
-                    ))}
+                    {upNext.map((song, index) => {
+                      const queueChosenByLine = song.createdByName
+                        ? (getChosenByLine(song.id, song.createdByName) ?? `Chosen by ${song.createdByName}`)
+                        : null
+                      const queueChosenByAccentClass = getChosenByAccentClass(song.id)
+
+                      return (
+                        <li key={song.id} className="mirror-queue-item">
+                          <span className="mirror-queue-pos">{index + 2}</span>
+                          {song.cover_url && !failedCoverUrls[song.cover_url] ? (
+                            <img
+                              src={song.cover_url}
+                              alt={`Cover art for ${song.title}`}
+                              className="mirror-queue-cover"
+                              onError={() => onCoverLoadError(song.cover_url)}
+                            />
+                          ) : null}
+                          <div className="mirror-queue-info">
+                            <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                            <span className="mirror-queue-artist">
+                              {normalizeMirrorText(song.artist, 'Unknown Artist')}
+                              {queueChosenByLine ? (
+                                <span className={`mirror-queue-artist-picker ${queueChosenByAccentClass}`}>{` · ${queueChosenByLine}`}</span>
+                              ) : null}
+                            </span>
+                            {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
+                          </div>
+                          <span className="mirror-queue-votes">+{song.votes_count}</span>
+                        </li>
+                      )
+                    })}
                   </ol>
                 ) : (
                   <p className="mirror-empty-note">No songs in the queue yet.</p>

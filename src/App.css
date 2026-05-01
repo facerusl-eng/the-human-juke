@@ -4738,6 +4738,15 @@
   opacity: 0.85;
 }
 
+.mirror-picker-accent-1 { color: #7dd3fc; }
+.mirror-picker-accent-2 { color: #93c5fd; }
+.mirror-picker-accent-3 { color: #a7f3d0; }
+.mirror-picker-accent-4 { color: #f9a8d4; }
+.mirror-picker-accent-5 { color: #fcd34d; }
+.mirror-picker-accent-6 { color: #c4b5fd; }
+.mirror-picker-accent-7 { color: #fdba74; }
+.mirror-picker-accent-8 { color: #67e8f9; }
+
 .mirror-karaoke-cheer {
   margin: 0.6rem 0 0 0;
   font-size: clamp(0.95rem, 1.8vw, 1.4rem);
@@ -4976,7 +4985,6 @@
   gap: 0.28rem;
 }
 
-.mirror-up-next-compact .mirror-queue-artist,
 .mirror-up-next-compact .mirror-karaoke-tag {
   display: none;
 }
@@ -4985,8 +4993,13 @@
   -webkit-line-clamp: 1;
 }
 
-.mirror-up-next-compact .mirror-queue-picker {
-  font-size: clamp(0.78rem, 1.1vw, 0.94rem);
+.mirror-up-next-compact .mirror-queue-artist {
+  font-size: clamp(0.78rem, 1.06vw, 0.94rem);
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .mirror-compact-note {
@@ -5063,6 +5076,7 @@
 .mirror-shell-high-contrast .mirror-join-strip-url,
 .mirror-shell-high-contrast .mirror-queue-artist,
 .mirror-shell-high-contrast .mirror-picked-by,
+.mirror-shell-high-contrast .mirror-queue-artist-picker,
 .mirror-shell-high-contrast .mirror-queue-picker,
 .mirror-shell-high-contrast .mirror-how-it-works p,
 .mirror-shell-high-contrast .mirror-footer p,
@@ -5076,6 +5090,17 @@
 .mirror-shell-high-contrast .mirror-karaoke-cheer {
   color: #ffeb5c;
   text-shadow: none;
+}
+
+.mirror-shell-high-contrast .mirror-picker-accent-1,
+.mirror-shell-high-contrast .mirror-picker-accent-2,
+.mirror-shell-high-contrast .mirror-picker-accent-3,
+.mirror-shell-high-contrast .mirror-picker-accent-4,
+.mirror-shell-high-contrast .mirror-picker-accent-5,
+.mirror-shell-high-contrast .mirror-picker-accent-6,
+.mirror-shell-high-contrast .mirror-picker-accent-7,
+.mirror-shell-high-contrast .mirror-picker-accent-8 {
+  color: #8ee7ff !important;
 }
 
 .mirror-shell-high-contrast .mirror-title,
