@@ -1470,7 +1470,6 @@ function MirrorPage() {
               <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
               {!isNowPlayingStarted && nowPlaying ? (
                 <div className="mirror-between-songs" aria-label="Between songs">
-                  <p className="mirror-between-songs-hint">The show is temporarily paused.</p>
                   <p className="mirror-between-songs-quote">{currentBetweenSongQuote}</p>
                 </div>
               ) : (
