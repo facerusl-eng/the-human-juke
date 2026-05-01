@@ -74,6 +74,7 @@ const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const SONG_INFO_ROTATE_INTERVAL_MS = 15000
 const SONG_FACT_MAX_LENGTH = 180
+const MIRROR_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-mirror-fun-facts-cache-v1'
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
 const MIRROR_PLAYBACK_STORAGE_KEY = PLAYBACK_STATE_STORAGE_KEY
 const MIRROR_PLAYBACK_BROADCAST_CHANNEL = PLAYBACK_STATE_BROADCAST_CHANNEL
@@ -85,6 +86,7 @@ const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
 type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
+type FunFactsCache = Record<string, string[]>
 
 function countWords(text: string) {
   return text
@@ -114,16 +116,6 @@ function containsFeatToken(text: string) {
   return /\b(feat\.?|ft\.?)\b/i.test(text)
 }
 
-function stripHtmlTags(value: string) {
-  return value
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
 function truncateFact(value: string, maxLength = SONG_FACT_MAX_LENGTH) {
   const normalizedValue = value.trim()
 
@@ -133,92 +125,121 @@ function truncateFact(value: string, maxLength = SONG_FACT_MAX_LENGTH) {
 
   return `${normalizedValue.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`
 }
-
-function sentenceCase(value: string) {
-  const trimmedValue = value.trim()
-
-  if (!trimmedValue) {
-    return trimmedValue
-  }
-
-  return `${trimmedValue.charAt(0).toUpperCase()}${trimmedValue.slice(1)}`
+function buildFunFactsCacheKey(title: string, artist: string) {
+  return `${title.trim().toLowerCase()}::${artist.trim().toLowerCase()}`
 }
 
-async function fetchWikipediaSummaryFact(searchTerm: string, signal: AbortSignal) {
-  const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&utf8=1&format=json&origin=*`
-  const searchResponse = await fetch(searchUrl, { signal })
+function extractInterestingSentences(extract: string) {
+  const sentenceMatches = extract.match(/[^.!?]+[.!?]+/g) ?? []
 
-  if (!searchResponse.ok) {
-    return null
-  }
+  const normalizedSentences = sentenceMatches
+    .map((sentence) => sentence.replace(/\s+/g, ' ').trim())
+    .filter((sentence) => sentence.length >= 40 && sentence.length <= SONG_FACT_MAX_LENGTH)
+    .filter((sentence) => !/^coordinates?:?/i.test(sentence))
 
-  const searchPayload = await searchResponse.json() as {
-    query?: { search?: Array<{ title?: string }> }
-  }
-  const pageTitle = searchPayload.query?.search?.[0]?.title?.trim()
-
-  if (!pageTitle) {
-    return null
-  }
-
-  const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`
-  const summaryResponse = await fetch(summaryUrl, { signal })
-
-  if (!summaryResponse.ok) {
-    return null
-  }
-
-  const summaryPayload = await summaryResponse.json() as {
-    extract?: string
-    description?: string
-    title?: string
-  }
-
-  const extract = summaryPayload.extract?.trim()
-
-  if (extract) {
-    return truncateFact(`Wiki fact: ${extract}`)
-  }
-
-  const description = summaryPayload.description?.trim()
-
-  if (description) {
-    return truncateFact(`Wiki fact: ${summaryPayload.title ?? pageTitle} - ${sentenceCase(description)}.`)
-  }
-
-  return null
+  const uniqueSentences = Array.from(new Set(normalizedSentences))
+  return uniqueSentences.slice(0, 10)
 }
 
-async function fetchWikiquoteFact(artistName: string, signal: AbortSignal) {
-  const parseUrl = `https://en.wikiquote.org/w/api.php?action=parse&page=${encodeURIComponent(artistName)}&prop=text&section=1&format=json&origin=*`
-  const parseResponse = await fetch(parseUrl, { signal })
+function normalizeFunFacts(facts: string[]) {
+  const normalizedFacts = facts
+    .map((fact) => truncateFact(fact))
+    .map((fact) => fact.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
 
-  if (!parseResponse.ok) {
-    return null
+  return Array.from(new Set(normalizedFacts))
+}
+
+async function fetchWikipediaSummarySentences(title: string, artist: string, signal: AbortSignal) {
+  const candidateTitles = [
+    `${title} (song)`,
+    title,
+    `${title} (${artist} song)`,
+    `${title} ${artist}`,
+  ]
+
+  for (const candidateTitle of candidateTitles) {
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(candidateTitle)}`
+
+    try {
+      const summaryResponse = await fetch(summaryUrl, { signal })
+
+      if (!summaryResponse.ok) {
+        continue
+      }
+
+      const summaryPayload = await summaryResponse.json() as {
+        extract?: string
+      }
+
+      const extract = summaryPayload.extract?.trim()
+
+      if (!extract) {
+        continue
+      }
+
+      const sentenceFacts = extractInterestingSentences(extract)
+
+      if (sentenceFacts.length > 0) {
+        return sentenceFacts
+      }
+    } catch {
+      // Try next title candidate.
+    }
   }
 
-  const parsePayload = await parseResponse.json() as {
-    parse?: { text?: { '*': string } }
+  return []
+}
+
+async function fetchMusicBrainzFallbackFacts(title: string, artist: string, signal: AbortSignal) {
+  const query = `recording:${JSON.stringify(title)} AND artist:${JSON.stringify(artist)}`
+  const searchUrl = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&limit=1`
+
+  try {
+    const response = await fetch(searchUrl, {
+      signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const payload = await response.json() as {
+      recordings?: Array<{
+        title?: string
+        score?: number
+        length?: number
+        'first-release-date'?: string
+        releases?: Array<{ title?: string }>
+        'artist-credit'?: Array<{ name?: string }>
+      }>
+    }
+
+    const recording = payload.recordings?.[0]
+
+    if (!recording) {
+      return []
+    }
+
+    const releaseTitle = recording.releases?.[0]?.title?.trim()
+    const firstReleaseDate = recording['first-release-date']?.trim()
+    const artistCredit = recording['artist-credit']?.map((credit) => credit.name?.trim()).filter(Boolean).join(', ')
+
+    const fallbackFacts = [
+      recording.score ? `MusicBrainz match confidence is ${recording.score}% for this track.` : null,
+      firstReleaseDate ? `MusicBrainz lists the first release date as ${firstReleaseDate}.` : null,
+      releaseTitle ? `This track appears on the release "${releaseTitle}" in MusicBrainz.` : null,
+      artistCredit ? `MusicBrainz artist credit: ${artistCredit}.` : null,
+      recording.length ? `MusicBrainz duration is about ${Math.round(recording.length / 1000)} seconds.` : null,
+    ].filter((fact): fact is string => Boolean(fact))
+
+    return fallbackFacts.slice(0, 5)
+  } catch {
+    return []
   }
-  const html = parsePayload.parse?.text?.['*']
-
-  if (!html) {
-    return null
-  }
-
-  const quoteMatch = html.match(/<li>(.*?)<\/li>/i)
-
-  if (!quoteMatch?.[1]) {
-    return null
-  }
-
-  const quoteText = stripHtmlTags(quoteMatch[1])
-
-  if (!quoteText) {
-    return null
-  }
-
-  return truncateFact(`Quote: ${quoteText}`)
 }
 
 const SONG_INFO_BUILDERS = [
@@ -453,8 +474,8 @@ function MirrorPage() {
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [karaokeCheer, setKaraokeCheer] = useState<string | null>(null)
-  const [nowPlayingSongInfo, setNowPlayingSongInfo] = useState<string | null>(null)
-  const [externalSongFacts, setExternalSongFacts] = useState<string[]>([])
+  const [funFacts, setFunFacts] = useState<string[]>([])
+  const [currentFactIndex, setCurrentFactIndex] = useState(0)
   const spacebarBusyRef = useRef(false)
   const lastSpacebarActionAtRef = useRef(0)
   const [flashActive, setFlashActive] = useState(false)
@@ -489,8 +510,8 @@ function MirrorPage() {
   const autoFullscreenAttemptedRef = useRef(false)
   const chosenByPhraseIndexBySongIdRef = useRef<Record<string, number>>({})
   const lastChosenByPhraseIndexRef = useRef<number | null>(null)
-  const lastSongInfoIndexRef = useRef<number | null>(null)
-  const externalSongFactsCacheRef = useRef<Record<string, string[]>>({})
+  const funFactsCacheRef = useRef<FunFactsCache>({})
+  const funFactsInFlightRef = useRef<Partial<Record<string, Promise<string[]>>>>({})
 
   const setMirrorWarningMessage = (message: string) => {
     if (mirrorWarningClearTimerRef.current !== null) {
@@ -817,107 +838,165 @@ function MirrorPage() {
   }, [activeSong?.id, activeSong?.audience_sings, activeSong?.createdByName, isLive])
 
   useEffect(() => {
-    if (!isNowPlayingStarted || !activeSong) {
-      setExternalSongFacts([])
+    if (typeof window === 'undefined') {
       return
     }
 
-    const cachedFacts = externalSongFactsCacheRef.current[activeSong.id]
+    const persistedCacheText = readTextFromLocalStorage(MIRROR_FUN_FACTS_CACHE_STORAGE_KEY)
 
-    if (cachedFacts) {
-      setExternalSongFacts(cachedFacts)
+    if (!persistedCacheText) {
+      return
+    }
+
+    try {
+      const persistedCache = JSON.parse(persistedCacheText) as FunFactsCache
+
+      if (persistedCache && typeof persistedCache === 'object') {
+        funFactsCacheRef.current = persistedCache
+      }
+    } catch {
+      // Corrupt cache should not block playback; overwrite on next write.
+    }
+  }, [])
+
+  const persistFunFactsCache = useCallback(() => {
+    const serializedCache = JSON.stringify(funFactsCacheRef.current)
+    const result = saveTextToLocalStorage(MIRROR_FUN_FACTS_CACHE_STORAGE_KEY, serializedCache)
+
+    if (!result.success) {
+      console.warn('MirrorPage: failed to persist fun facts cache', result.error)
+    }
+  }, [])
+
+  const ensureSongFunFacts = useCallback(async (song: QueueSong, signal: AbortSignal) => {
+    const cacheKey = buildFunFactsCacheKey(song.title, song.artist)
+    const existingFacts = funFactsCacheRef.current[cacheKey]
+
+    if (existingFacts?.length) {
+      return existingFacts
+    }
+
+    if (funFactsInFlightRef.current[cacheKey]) {
+      return funFactsInFlightRef.current[cacheKey]
+    }
+
+    const fetchPromise = (async () => {
+      const wikipediaFacts = await fetchWikipediaSummarySentences(song.title, song.artist, signal)
+      const fallbackFacts = wikipediaFacts.length >= 3
+        ? []
+        : await fetchMusicBrainzFallbackFacts(song.title, song.artist, signal)
+
+      const songInfoContext: NowPlayingInfoSong = {
+        title: song.title,
+        artist: song.artist,
+        is_explicit: song.is_explicit,
+      }
+      const localFacts = SONG_INFO_BUILDERS.map((songInfoBuilder) => songInfoBuilder(songInfoContext))
+
+      const mergedFacts = normalizeFunFacts([
+        ...wikipediaFacts,
+        ...fallbackFacts,
+        ...localFacts,
+      ]).slice(0, 10)
+
+      funFactsCacheRef.current[cacheKey] = mergedFacts
+      persistFunFactsCache()
+
+      return mergedFacts
+    })()
+
+    funFactsInFlightRef.current[cacheKey] = fetchPromise
+
+    try {
+      return await fetchPromise
+    } finally {
+      delete funFactsInFlightRef.current[cacheKey]
+    }
+  }, [persistFunFactsCache])
+
+  useEffect(() => {
+    const abortController = new AbortController()
+
+    const prefetchFacts = async () => {
+      for (const song of safeSongs) {
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        try {
+          await ensureSongFunFacts(song, abortController.signal)
+        } catch {
+          // Fact prefetch is best effort only.
+        }
+      }
+    }
+
+    void prefetchFacts()
+
+    return () => {
+      abortController.abort()
+    }
+  }, [ensureSongFunFacts, safeSongs])
+
+  useEffect(() => {
+    if (!isNowPlayingStarted || !activeSong) {
+      setFunFacts([])
+      setCurrentFactIndex(0)
       return
     }
 
     const abortController = new AbortController()
+    const cacheKey = buildFunFactsCacheKey(activeSong.title, activeSong.artist)
+    const cachedFacts = funFactsCacheRef.current[cacheKey]
 
-    const loadExternalSongFacts = async () => {
+    if (cachedFacts?.length) {
+      setFunFacts(cachedFacts)
+      setCurrentFactIndex(0)
+      return
+    }
+
+    const loadSongFunFacts = async () => {
       try {
-        const songSearchTerm = `${activeSong.title} ${activeSong.artist} song`
-
-        const [songSummaryFact, artistSummaryFact, artistQuoteFact] = await Promise.all([
-          fetchWikipediaSummaryFact(songSearchTerm, abortController.signal),
-          fetchWikipediaSummaryFact(activeSong.artist, abortController.signal),
-          fetchWikiquoteFact(activeSong.artist, abortController.signal),
-        ])
+        const fetchedFacts = await ensureSongFunFacts(activeSong, abortController.signal)
 
         if (abortController.signal.aborted) {
           return
         }
 
-        const normalizedFacts = [songSummaryFact, artistSummaryFact, artistQuoteFact]
-          .filter((fact): fact is string => Boolean(fact))
-
-        const uniqueFacts = Array.from(new Set(normalizedFacts))
-
-        externalSongFactsCacheRef.current[activeSong.id] = uniqueFacts
-        setExternalSongFacts(uniqueFacts)
+        setFunFacts(fetchedFacts)
+        setCurrentFactIndex(0)
       } catch (error) {
         if (abortController.signal.aborted) {
           return
         }
 
-        console.warn('MirrorPage: failed to fetch external song facts', error)
-        externalSongFactsCacheRef.current[activeSong.id] = []
-        setExternalSongFacts([])
+        console.warn('MirrorPage: failed to load song fun facts', error)
+        setFunFacts([])
+        setCurrentFactIndex(0)
       }
     }
 
-    void loadExternalSongFacts()
+    void loadSongFunFacts()
 
     return () => {
       abortController.abort()
     }
-  }, [isNowPlayingStarted, activeSong?.id, activeSong?.title, activeSong?.artist])
+  }, [activeSong, ensureSongFunFacts, isNowPlayingStarted])
 
   useEffect(() => {
-    if (!isNowPlayingStarted || !activeSong) {
-      setNowPlayingSongInfo(null)
-      lastSongInfoIndexRef.current = null
+    if (funFacts.length <= 1) {
+      setCurrentFactIndex(0)
       return
     }
 
-    const songInfoContext: NowPlayingInfoSong = {
-      title: activeSong.title,
-      artist: activeSong.artist,
-      is_explicit: activeSong.is_explicit,
-    }
-
-    const localFacts = SONG_INFO_BUILDERS.map((songInfoBuilder) => songInfoBuilder(songInfoContext))
-    const combinedFacts = [...externalSongFacts, ...localFacts]
-
-    const rotateSongInfo = () => {
-      const factsCount = combinedFacts.length
-
-      if (factsCount <= 0) {
-        setNowPlayingSongInfo(null)
-        return
-      }
-
-      let infoIndex = Math.floor(Math.random() * factsCount)
-
-      if (factsCount > 1 && infoIndex === lastSongInfoIndexRef.current) {
-        infoIndex = (infoIndex + 1 + Math.floor(Math.random() * (factsCount - 1))) % factsCount
-      }
-
-      lastSongInfoIndexRef.current = infoIndex
-      setNowPlayingSongInfo(combinedFacts[infoIndex])
-    }
-
-    rotateSongInfo()
-    const songInfoInterval = window.setInterval(rotateSongInfo, SONG_INFO_ROTATE_INTERVAL_MS)
+    const intervalId = window.setInterval(() => {
+      setCurrentFactIndex((currentIndex) => (currentIndex + 1) % funFacts.length)
+    }, SONG_INFO_ROTATE_INTERVAL_MS)
 
     return () => {
-      window.clearInterval(songInfoInterval)
+      window.clearInterval(intervalId)
     }
-  }, [
-    isNowPlayingStarted,
-    activeSong?.id,
-    activeSong?.title,
-    activeSong?.artist,
-    activeSong?.is_explicit,
-    externalSongFacts,
-  ])
+  }, [funFacts])
 
   const setQuoteIndex = (nextQuoteIndex: number) => {
     quoteIndexRef.current = nextQuoteIndex
@@ -1883,7 +1962,13 @@ function MirrorPage() {
                           {activeSongChosenByLine}
                         </p>
                       ) : null}
-                      {nowPlayingSongInfo ? <p className="mirror-song-fact">{nowPlayingSongInfo}</p> : null}
+                      {funFacts.length > 0 ? (
+                        <div className="mirror-song-fact-box" aria-live="polite">
+                          <p key={`${activeSong?.id ?? 'song'}-${currentFactIndex}`} className="mirror-song-fact">
+                            {funFacts[currentFactIndex % funFacts.length]}
+                          </p>
+                        </div>
+                      ) : null}
                       {activeSong?.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
                       {karaokeCheer ? (
                         <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
