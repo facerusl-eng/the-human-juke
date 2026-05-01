@@ -5464,8 +5464,8 @@
 /* ── QR image ─────────────────────────────────────────────────────────────── */
 
 .mirror-qr-image {
-  width: clamp(200px, 24vw, 360px);
-  height: clamp(200px, 24vw, 360px);
+  width: clamp(140px, min(24vw, 22dvh), 340px);
+  height: clamp(140px, min(24vw, 22dvh), 340px);
   border-radius: 14px;
   background: #ffffff;
   padding: clamp(0.34rem, 0.72vw, 0.56rem);
