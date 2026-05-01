@@ -24,6 +24,23 @@ const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
   ],
 }
 
+const NO_GIG_HOW_IT_WORKS_STEPS: Record<AudienceLocale, string[]> = {
+  en: [
+    'Tap Song List and choose Human Jukebox or Karaoke.',
+    'Add your request (karaoke asks for confirmation because you sing it).',
+    'Vote in Live Queue to push your favorites up.',
+    'Watch Now Playing and keep the energy going.',
+    'Use Social Links or Tip Jar to support the artist.',
+  ],
+  da: [
+    'Tryk på Sangliste og vælg Human Jukebox eller Karaoke.',
+    'Tilføj dit ønske (karaoke kræver bekræftelse, fordi du synger selv).',
+    'Stem i Livekø for at skubbe dine favoritter op.',
+    'Følg Spiller nu og hold energien i gang.',
+    'Brug Sociale links eller Drikkepenge for at støtte artisten.',
+  ],
+}
+
 /** Strip seconds from Postgres 'HH:MM:SS' so appending ':00' doesn't corrupt the datetime string */
 function normalizeTimeForDate(t: string | null): string | null {
   if (!t) return null
@@ -155,6 +172,7 @@ function AudienceNoGigState({
         openEvent: 'Åbn eventside',
         countdownLabel: 'Næste show starter om',
         countdownFor: 'til',
+        howItWorksTitle: 'Sådan virker det',
       }
     : {
         eyebrow: 'Audience App',
@@ -166,6 +184,7 @@ function AudienceNoGigState({
         openEvent: 'Open event page',
         countdownLabel: 'Next show starts in',
         countdownFor: 'for',
+        howItWorksTitle: 'How It Works',
       }
 
   return (
@@ -193,6 +212,15 @@ function AudienceNoGigState({
             </p>
           ))}
         </div>
+
+        <section className="audience-no-gig-how-it-works" aria-label={copy.howItWorksTitle}>
+          <h2>{copy.howItWorksTitle}</h2>
+          <ol>
+            {NO_GIG_HOW_IT_WORKS_STEPS[locale].map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </section>
 
         {loadingUpcomingEvents ? (
           <p className="meta-badge" role="status" aria-live="polite">{copy.loading}</p>
