@@ -2086,7 +2086,7 @@ function MirrorPage() {
         )}
       </main>
 
-      {!isLive && showSpotlight && activeSpotlight ? (
+      {showSpotlight && activeSpotlight ? (
         <aside className="mirror-photo-spotlight" aria-label="Live crowd photo spotlight">
           <figure className="mirror-polaroid" key={activeSpotlight.id}>
             <img src={activeSpotlight.imageDataUrl} alt={`Crowd photo by ${activeSpotlight.authorName}`} className="mirror-polaroid-photo" />
@@ -2103,8 +2103,8 @@ function MirrorPage() {
         </aside>
       ) : null}
 
-      {!isLive && showSpotlight && flashActive ? <div className="mirror-spotlight-flash" aria-hidden="true" /> : null}
-      {!isLive && showSpotlight && showShutterFallbackPulse ? <div className="mirror-spotlight-fallback-pulse" aria-hidden="true" /> : null}
+      {showSpotlight && flashActive ? <div className="mirror-spotlight-flash" aria-hidden="true" /> : null}
+      {showSpotlight && showShutterFallbackPulse ? <div className="mirror-spotlight-fallback-pulse" aria-hidden="true" /> : null}
       {!isLive && showSafeMargins && shouldShowAdminElements ? <div className="mirror-safe-margins-overlay" aria-hidden="true" /> : null}
     </div>
   )
