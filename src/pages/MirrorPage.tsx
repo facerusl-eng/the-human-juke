@@ -1459,37 +1459,41 @@ function MirrorPage() {
               <p>3. Add song requests and vote your favorites up.</p>
             </div>
           </section>
-        ) : nowPlaying && !isNowPlayingStarted ? (
-          <section className="mirror-between-songs" aria-label="Between songs">
-            <p className="mirror-between-songs-hint">The show is temporarily paused.</p>
-            <p className="mirror-between-songs-quote">{BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]}</p>
-          </section>
         ) : (
           <>
             <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''}`}>
               <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
-              <p className="mirror-eyebrow">Now Playing</p>
-              <div className="mirror-now-playing-track">
-                {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
-                  <img
-                    src={activeSong.cover_url}
-                    alt={`Cover art for ${activeSong.title}`}
-                    className="mirror-now-playing-cover"
-                    onError={() => onCoverLoadError(activeSong.cover_url)}
-                  />
-                ) : null}
-                <div className="mirror-now-playing-meta">
-                  <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
-                  <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
-                  {activeSong?.createdByName ? (
-                    <p className="mirror-picked-by">Picked by {activeSong.createdByName}</p>
-                  ) : null}
-                  {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
-                  {karaokeCheer ? (
-                    <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
-                  ) : null}
+              {!isNowPlayingStarted && nowPlaying ? (
+                <div className="mirror-between-songs" aria-label="Between songs">
+                  <p className="mirror-between-songs-hint">The show is temporarily paused.</p>
+                  <p className="mirror-between-songs-quote">{BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]}</p>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <p className="mirror-eyebrow">Now Playing</p>
+                  <div className="mirror-now-playing-track">
+                    {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
+                      <img
+                        src={activeSong.cover_url}
+                        alt={`Cover art for ${activeSong.title}`}
+                        className="mirror-now-playing-cover"
+                        onError={() => onCoverLoadError(activeSong.cover_url)}
+                      />
+                    ) : null}
+                    <div className="mirror-now-playing-meta">
+                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
+                      <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
+                      {activeSong?.createdByName ? (
+                        <p className="mirror-picked-by">Picked by {activeSong.createdByName}</p>
+                      ) : null}
+                      {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
+                      {karaokeCheer ? (
+                        <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </>
+              )}
             </section>
 
             <section className={`mirror-secondary-grid ${shouldShowAdminElements ? '' : 'mirror-secondary-grid-feed-only'}`}>
