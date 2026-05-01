@@ -166,6 +166,14 @@ function AudienceNoGigState({
         openEvent: 'Open event page',
         countdownLabel: 'Next show starts in',
         countdownFor: 'for',
+      }
+
+  return (
+    <section className="audience-entry-shell audience-no-gig-shell" aria-label="Audience app no live gig state">
+      <article className="queue-panel audience-entry-card audience-no-gig-card">
+        <div className="audience-no-gig-motion" aria-hidden="true">
+          <span></span>
+          <span></span>
           <span></span>
         </div>
         <p className="eyebrow audience-entry-eyebrow">{copy.eyebrow}</p>
