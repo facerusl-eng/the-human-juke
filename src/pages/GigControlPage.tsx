@@ -870,11 +870,13 @@ function GigControlPage() {
                 {event.roomOpen ? 'Live' : 'Paused'}
               </span>
             </div>
-            {nowPlaying && !isNowPlayingStarted ? (
-              <p className="gig-mirror-preview-quote">{betweenSongQuote}</p>
-            ) : (
-              <>
-                <p className="gig-mirror-preview-label">Now Playing</p>
+            <p className="gig-mirror-preview-label">Now Playing</p>
+            <div className="gig-mirror-preview-now-playing-stage">
+              {nowPlaying && !isNowPlayingStarted ? (
+                <div className="gig-mirror-preview-quote-shell">
+                  <p className="gig-mirror-preview-quote">{betweenSongQuote}</p>
+                </div>
+              ) : (
                 <div className="gig-mirror-preview-now-playing-row">
                   {nowPlaying?.cover_url ? (
                     <img
@@ -888,8 +890,8 @@ function GigControlPage() {
                     <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'Queue currently calm, suspiciously so'}</p>
                   </div>
                 </div>
-              </>
-            )}
+              )}
+            </div>
             <p className="gig-mirror-preview-label">Up Next</p>
             <ul className="gig-mirror-preview-list">
               {upNext.slice(0, 3).map((song) => {
