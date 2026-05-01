@@ -1402,52 +1402,67 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error('Host account required to set the active gig.')
         }
 
-        const { error: deactivateError } = await withTimeout(
-          withAuthLockRetry(() =>
-            supabase
-              .from('events')
-              .update({ is_active: false })
-              .eq('host_id', user.id)
-              .neq('id', nextEventId)
-              .eq('is_active', true),
-          ),
-          DEFAULT_DB_TIMEOUT_MS,
-          'Timed out while updating active gig. Please try again.',
-        )
+        try {
+          const { error: deactivateError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('events')
+                .update({ is_active: false })
+                .eq('host_id', user.id)
+                .neq('id', nextEventId)
+                .eq('is_active', true),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while updating active gig. Please try again.',
+          )
 
-        if (deactivateError) {
-          throw new Error(deactivateError.message)
+          if (deactivateError) {
+            throw new Error(`Failed to deactivate other gigs: ${deactivateError.message}`)
+          }
+        } catch (error) {
+          console.error('queueStore: setActiveEvent deactivate step failed', error)
+          throw error
         }
 
-        const { error: activateError } = await withTimeout(
-          withAuthLockRetry(() =>
-            supabase
-              .from('events')
-              .update({ is_active: true })
-              .eq('id', nextEventId)
-              .eq('host_id', user.id),
-          ),
-          DEFAULT_DB_TIMEOUT_MS,
-          'Timed out while updating active gig. Please try again.',
-        )
+        try {
+          const { error: activateError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('events')
+                .update({ is_active: true })
+                .eq('id', nextEventId)
+                .eq('host_id', user.id),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while updating active gig. Please try again.',
+          )
 
-        if (activateError) {
-          throw new Error(activateError.message)
+          if (activateError) {
+            throw new Error(`Failed to activate gig: ${activateError.message}`)
+          }
+        } catch (error) {
+          console.error('queueStore: setActiveEvent activate step failed', error)
+          throw error
         }
 
-        const { error: profileError } = await withTimeout(
-          withAuthLockRetry(() =>
-            supabase
-              .from('profiles')
-              .update({ active_event_id: nextEventId })
-              .eq('user_id', user.id),
-          ),
-          DEFAULT_DB_TIMEOUT_MS,
-          'Timed out while switching control to this gig. Please try again.',
-        )
+        try {
+          const { error: profileError } = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('profiles')
+                .update({ active_event_id: nextEventId })
+                .eq('user_id', user.id),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Timed out while switching control to this gig. Please try again.',
+          )
 
-        if (profileError) {
-          throw new Error(profileError.message)
+          if (profileError) {
+            throw new Error(`Failed to update profile: ${profileError.message}`)
+          }
+        } catch (error) {
+          console.error('queueStore: setActiveEvent profile update step failed', error)
+          throw error
         }
 
         try {
@@ -1457,13 +1472,18 @@ function QueueProvider({ children }: PropsWithChildren) {
           // The active gig change succeeded; profile refresh can recover on next load.
         }
 
-        const [nextHostEvents] = await Promise.all([
-          fetchHostEvents(user.id),
-          fetchQueueSnapshot(nextEventId),
-        ])
+        try {
+          const [nextHostEvents] = await Promise.all([
+            fetchHostEvents(user.id),
+            fetchQueueSnapshot(nextEventId),
+          ])
 
-        setHostEvents(nextHostEvents)
-        setPerformedSongs([])
+          setHostEvents(nextHostEvents)
+          setPerformedSongs([])
+        } catch (error) {
+          console.error('queueStore: setActiveEvent fetch step failed', error)
+          throw new Error(`Failed to refresh gig data: ${error instanceof Error ? error.message : String(error)}`)
+        }
       },
       endGig: async (targetEventId: string) => {
         if (!user || !isHostSession) {
