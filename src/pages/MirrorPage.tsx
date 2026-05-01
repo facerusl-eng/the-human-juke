@@ -409,6 +409,11 @@ function MirrorPage() {
     ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, 5)
     : safeSongs.slice(0, 5)
   const hiddenQueueCount = Math.max(0, safeSongs.length - (isNowPlayingStarted ? 1 : 0) - upNext.length)
+  const normalizedBetweenSongQuoteIndex = Number.isFinite(betweenSongQuoteIndex)
+    ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length
+    : 0
+  const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
+    ?? 'Remain calm. The next song is loading.'
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
@@ -1466,7 +1471,7 @@ function MirrorPage() {
               {!isNowPlayingStarted && nowPlaying ? (
                 <div className="mirror-between-songs" aria-label="Between songs">
                   <p className="mirror-between-songs-hint">The show is temporarily paused.</p>
-                  <p className="mirror-between-songs-quote">{BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]}</p>
+                  <p className="mirror-between-songs-quote">{currentBetweenSongQuote}</p>
                 </div>
               ) : (
                 <>
