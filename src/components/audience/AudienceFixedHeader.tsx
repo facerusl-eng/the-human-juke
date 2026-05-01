@@ -7,9 +7,10 @@ type AudienceFixedHeaderProps = {
   subtitle?: string | null
   logoSrc?: string | null
   locale?: AudienceLocale
+  onSignOut?: () => void
 }
 
-function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en' }: AudienceFixedHeaderProps) {
+function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en', onSignOut }: AudienceFixedHeaderProps) {
   const copy = locale === 'da'
     ? {
         headerLabel: 'Event header',
@@ -17,6 +18,7 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en' }: Au
         kicker: 'Live Event',
         backLabel: 'Tilbage til forsiden',
         backText: 'Tilbage',
+        signOutLabel: 'Log ud',
       }
     : {
         headerLabel: 'Event header',
@@ -24,6 +26,7 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en' }: Au
         kicker: 'Live Event',
         backLabel: 'Back to home',
         backText: 'Back',
+        signOutLabel: 'Sign Out',
       }
 
   return (
@@ -38,9 +41,22 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en' }: Au
           {subtitle ? <p className="audience-fixed-subtitle">{subtitle}</p> : null}
         </div>
       </div>
-      <Link to="/" className="tertiary-button audience-fixed-back" aria-label={copy.backLabel}>
-        {copy.backText}
-      </Link>
+      <div className="audience-fixed-actions">
+        {onSignOut ? (
+          <button
+            type="button"
+            className="tertiary-button"
+            onClick={onSignOut}
+            aria-label={copy.signOutLabel}
+            title={copy.signOutLabel}
+          >
+            {copy.signOutLabel}
+          </button>
+        ) : null}
+        <Link to="/" className="tertiary-button audience-fixed-back" aria-label={copy.backLabel}>
+          {copy.backText}
+        </Link>
+      </div>
     </header>
   )
 }

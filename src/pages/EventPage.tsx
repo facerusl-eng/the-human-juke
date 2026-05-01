@@ -10,6 +10,7 @@ import {
   commitAudienceIdentity,
   readCommittedAudienceLocale,
   readCommittedAudienceName,
+  clearAudienceIdentity,
   type AudienceLocale,
 } from '../lib/audienceIdentity'
 import {
@@ -1136,6 +1137,11 @@ function EventPage() {
     }
   }
 
+  const handleSignOut = useCallback(() => {
+    clearAudienceIdentity()
+    navigate('/', { replace: true })
+  }, [navigate])
+
   if (
     loading
     && !audienceLoadingFallbackActive
@@ -1271,6 +1277,7 @@ function EventPage() {
           subtitle={event?.subtitle ?? null}
           logoSrc="/the-human-jukebox-logo.svg"
           locale={audienceLocale}
+          onSignOut={handleSignOut}
         />
 
         <section className="queue-panel audience-start-actions-panel" aria-label="Audience actions">

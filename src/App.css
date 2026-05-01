@@ -1928,6 +1928,13 @@
   align-items: center;
 }
 
+.audience-fixed-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .audience-fixed-logo {
   width: 46px;
   height: 46px;

@@ -75,3 +75,15 @@ export function commitAudienceIdentity({
 
   window.dispatchEvent(new Event(AUDIENCE_NAME_COMMITTED_EVENT))
 }
+
+export function clearAudienceIdentity() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  localStorage.removeItem(AUDIENCE_NAME_STORAGE_KEY)
+  localStorage.removeItem(AUDIENCE_LOCALE_STORAGE_KEY)
+  localStorage.removeItem(FEED_AUTHOR_NAME_STORAGE_KEY)
+
+  window.dispatchEvent(new Event(AUDIENCE_NAME_COMMITTED_EVENT))
+}
