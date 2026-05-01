@@ -465,6 +465,9 @@ function MirrorPage() {
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [mirrorWarning, setMirrorWarning] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
+    () => new URLSearchParams(window.location.search).get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) === '1',
+  )
   const [highContrastMode, setHighContrastMode] = useState(false)
   const [densityMode, setDensityMode] = useState<MirrorDensityMode>('medium')
   const [venueMode, setVenueMode] = useState<MirrorVenueMode>('lounge')
@@ -772,9 +775,11 @@ function MirrorPage() {
 
     autoFullscreenAttemptedRef.current = true
 
-    void requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement).catch(() => {
-      // Best effort only. The launcher already opens a fill-screen popup as fallback.
-    })
+    void requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+      .then(() => { setShowFullscreenPrompt(false) })
+      .catch(() => {
+        // Browser blocked auto-fullscreen — prompt overlay stays visible so user can click.
+      })
   }, [])
 
   useEffect(() => {
@@ -1816,6 +1821,23 @@ function MirrorPage() {
 
   return (
     <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
+      {showFullscreenPrompt && !isFullscreen && (
+        <button
+          type="button"
+          className="mirror-fullscreen-prompt"
+          onClick={async () => {
+            try {
+              await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+              setShowFullscreenPrompt(false)
+            } catch {
+              setShowFullscreenPrompt(false)
+            }
+          }}
+        >
+          <span className="mirror-fullscreen-prompt-icon">⛶</span>
+          <span className="mirror-fullscreen-prompt-label">Tap to enter fullscreen</span>
+        </button>
+      )}
       <header className="mirror-header">
         <div className="mirror-header-main">
           <p className="mirror-brand" aria-label="The Human Jukebox">

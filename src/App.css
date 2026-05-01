@@ -4907,6 +4907,42 @@
   box-shadow: 0 12px 24px rgba(3, 8, 22, 0.32);
 }
 
+.mirror-fullscreen-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: rgba(3, 8, 22, 0.82);
+  backdrop-filter: blur(6px);
+  border: none;
+  cursor: pointer;
+  color: #dff3ff;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mirror-fullscreen-prompt:hover {
+  background: rgba(3, 8, 22, 0.72);
+}
+
+.mirror-fullscreen-prompt-icon {
+  font-size: clamp(3rem, 8vw, 6rem);
+  line-height: 1;
+  opacity: 0.9;
+}
+
+.mirror-fullscreen-prompt-label {
+  font-size: clamp(1.1rem, 2.5vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  opacity: 0.9;
+}
+
+
 .mirror-header-qr {
   display: inline-flex;
   align-items: center;
