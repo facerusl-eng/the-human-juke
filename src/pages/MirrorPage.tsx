@@ -35,19 +35,6 @@ const SPOTLIGHT_CAPTION_BUILDERS = [
   (authorName: string) => `${authorName} just gave tonight another highlight reel!`,
 ]
 
-const KARAOKE_CHEER_BUILDERS = [
-  (singerName: string) => `Right then, ${singerName} is about to give us a performance for the ages. Brace yourselves, legends.`,
-  (singerName: string) => `${singerName} has taken the microphone. The brave shall inherit the earth, as they say.`,
-  (singerName: string) => `Ladies and gents, please direct your attention to ${singerName}, who apparently has faith in themselves. Blimey.`,
-  (singerName: string) => `${singerName} is stepping up to the mic. This should be absolutely cracking.`,
-  (singerName: string) => `Hold onto your hats. ${singerName} is about to serenade us. Brilliant stuff.`,
-  (singerName: string) => `${singerName} has requested the honour of singing. What could possibly go wrong? Let's find out.`,
-  (singerName: string) => `Brilliant! ${singerName} is ready to give us a proper vocal showing. This is going to be something special.`,
-  (singerName: string) => `${singerName} has taken the gauntlet. We're in for a treat, folks.`,
-  (singerName: string) => `Blimey, ${singerName} is about to grace us with their vocal talents. This is going to be ace.`,
-  (singerName: string) => `${singerName} is having a go at the karaoke. Let's see what they're made of, shall we?`,
-]
-
 const CHOSEN_BY_BUILDERS = [
   (name: string) => `Chosen by ${name} - excellent taste, no notes.`,
   (name: string) => `Chosen by ${name} - a cracking pick, frankly.`,
@@ -373,11 +360,6 @@ function pickSpotlightCaption(authorName: string) {
   return captionBuilder(authorName)
 }
 
-function pickKaraokeCheer(singerName: string) {
-  const cheerBuilder = KARAOKE_CHEER_BUILDERS[Math.floor(Math.random() * KARAOKE_CHEER_BUILDERS.length)]
-  return cheerBuilder(singerName)
-}
-
 function buildChosenByLine(name: string | null | undefined, phraseIndex: number) {
   const normalizedName = name?.trim()
 
@@ -474,7 +456,6 @@ function MirrorPage() {
   const { event, songs, loading, markPlayed } = useQueueStore()
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
-  const [karaokeCheer, setKaraokeCheer] = useState<string | null>(null)
   const [funFacts, setFunFacts] = useState<string[]>([])
   const [currentFactIndex, setCurrentFactIndex] = useState(0)
   const spacebarBusyRef = useRef(false)
@@ -832,14 +813,6 @@ function MirrorPage() {
       window.removeEventListener('storage', syncAudienceLocale)
     }
   }, [])
-
-  useEffect(() => {
-    if (isLive && activeSong?.audience_sings && activeSong?.createdByName) {
-      setKaraokeCheer(pickKaraokeCheer(activeSong.createdByName))
-    } else {
-      setKaraokeCheer(null)
-    }
-  }, [activeSong?.id, activeSong?.audience_sings, activeSong?.createdByName, isLive])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1975,7 +1948,6 @@ function MirrorPage() {
         ) : (
           <>
             <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
-              <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
               <div className={`mirror-now-playing-frame ${isNowPlayingStarted && activeSong ? 'mirror-now-playing-frame-active' : 'mirror-now-playing-frame-idle'}`}>
                 {!isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-between-songs" aria-label="Between songs">
@@ -1985,10 +1957,8 @@ function MirrorPage() {
                   <>
                     <p className="mirror-eyebrow">Now Playing</p>
                     <div className="mirror-now-playing-track">
-                      <div className="mirror-now-playing-meta">
-                        <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests from bold citizens...')}</h1>
-                        <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune and set the tone.')}</p>
-                      </div>
+                      <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests from bold citizens...')}</h1>
+                      <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune and set the tone.')}</p>
                       <div className="mirror-now-playing-artwork-slot">
                         {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
                           <img
@@ -2003,6 +1973,11 @@ function MirrorPage() {
                           <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
                         )}
                       </div>
+                      {activeSongChosenByLine ? (
+                        <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
+                          {activeSongChosenByLine}
+                        </p>
+                      ) : null}
                       <div className="mirror-now-playing-facts" aria-live="polite">
                         <div className="mirror-song-fact-box" aria-live="polite">
                           <p key={`${activeSong.id}-${currentFactIndex}`} className="mirror-song-fact">
@@ -2010,15 +1985,6 @@ function MirrorPage() {
                           </p>
                         </div>
                       </div>
-                      {activeSongChosenByLine ? (
-                        <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
-                          {activeSongChosenByLine}
-                        </p>
-                      ) : null}
-                      {activeSong.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
-                      {karaokeCheer ? (
-                        <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
-                      ) : null}
                     </div>
                   </>
                 )}
