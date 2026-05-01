@@ -1525,7 +1525,7 @@ function EventPage() {
 
   const handleSignOut = useCallback(() => {
     clearAudienceIdentity()
-    navigate('/', { replace: true })
+    navigate('/audience', { replace: true })
   }, [navigate])
 
   if (
