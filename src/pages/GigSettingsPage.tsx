@@ -1339,20 +1339,20 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             </div>
 
             <div className="field-row">
-              <label htmlFor="gig-cover-image">Upcoming card cover image</label>
+              <label htmlFor="gig-contact-email">Audience contact email</label>
               <input
-                id="gig-cover-image"
-                type="file"
-                accept="image/*"
+                id="gig-contact-email"
+                type="email"
+                value={state.contactEmail}
                 onChange={(e) => {
-                  void onSelectCoverImage(e)
+                  pushUndoState()
+                  updateState({ contactEmail: e.target.value })
                 }}
-                disabled={busy || processingCoverImage}
+                placeholder="booking@example.com"
               />
-              <p className="field-hint">Shown on this gig card in the Audience App when no gig is live.</p>
-              {state.coverImageUrl ? (
-                <div className="field-row">
-                  <label htmlFor="gig-contact-email">Audience contact email</label>
+              <p className="field-hint">This gig-specific email overrides the host default on the audience page.</p>
+            </div>
+
             <div className="toggle-group">
               <label className="gig-settings-toggle-card" htmlFor="gig-show-custom-button">
                 <input
