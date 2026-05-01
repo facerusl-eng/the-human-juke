@@ -9765,3 +9765,107 @@
     font-size: clamp(0.95rem, 3.4vw, 1.2rem);
   }
 }
+
+/* Mirror live mode: exactly three frames (Now Playing, Live Feed, Song Queue). */
+.mirror-stage-live {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 0.56fr) minmax(0, 0.44fr);
+  gap: clamp(0.65rem, 1vw, 1rem);
+  min-height: 0;
+}
+
+.mirror-frame {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(93, 215, 255, 0.22);
+  background: linear-gradient(145deg, rgba(9, 16, 34, 0.88) 0%, rgba(13, 22, 44, 0.92) 100%);
+  box-shadow:
+    0 16px 32px rgba(4, 10, 24, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.mirror-frame-now-playing {
+  grid-row: 1;
+}
+
+.mirror-frames-lower {
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.9fr);
+  gap: clamp(0.65rem, 1vw, 1rem);
+  min-height: 0;
+}
+
+.mirror-live-feed-frame,
+.mirror-song-queue-frame {
+  min-height: 0;
+}
+
+.mirror-live-feed-frame .live-feed-panel-mirror {
+  height: 100%;
+  max-height: 100%;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: clamp(0.65rem, 1vw, 0.9rem);
+}
+
+.mirror-live-feed-frame .live-feed-panel-mirror .live-feed-list {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.mirror-song-queue-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  padding: clamp(0.65rem, 1vw, 0.9rem);
+  gap: clamp(0.5rem, 0.8vw, 0.7rem);
+}
+
+.mirror-song-queue-frame .mirror-queue {
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.mirror-now-playing {
+  overflow: hidden;
+}
+
+.mirror-now-playing-frame,
+.mirror-now-playing-track,
+.mirror-now-playing-facts,
+.mirror-song-fact-box {
+  max-width: 100%;
+}
+
+.mirror-now-playing-track {
+  justify-items: center;
+  text-align: center;
+}
+
+@media (max-width: 1024px) {
+  .mirror-frames-lower {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .mirror-stage-live {
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .mirror-frames-lower {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}

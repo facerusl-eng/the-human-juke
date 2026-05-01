@@ -1947,7 +1947,7 @@ function MirrorPage() {
           </section>
         ) : (
           <>
-            <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
+            <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
               <div className={`mirror-now-playing-frame ${isNowPlayingStarted && activeSong ? 'mirror-now-playing-frame-active' : 'mirror-now-playing-frame-idle'}`}>
                 {!isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-between-songs" aria-label="Between songs">
@@ -1991,10 +1991,12 @@ function MirrorPage() {
               </div>
             </section>
 
-            <section className={`mirror-secondary-grid ${shouldShowAdminElements ? '' : 'mirror-secondary-grid-feed-only'}`}>
-              <LiveFeedPanel mode="mirror" showComposer={false} title="Live Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
+            <section className="mirror-frames-lower" aria-label="Live feed and queue frames">
+              <section className="mirror-live-feed-frame mirror-frame" aria-label="Live feed frame">
+                <LiveFeedPanel mode="mirror" showComposer={false} title="Live Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
+              </section>
 
-              <section className={`mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`}>
+              <section className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`} aria-label="Song queue frame">
                 <p className="mirror-up-next-label">Queue</p>
                 {upNext.length > 0 ? (
                   <ol className="mirror-queue">
@@ -2040,7 +2042,7 @@ function MirrorPage() {
         )}
       </main>
 
-      {showSpotlight && activeSpotlight ? (
+      {!isLive && showSpotlight && activeSpotlight ? (
         <aside className="mirror-photo-spotlight" aria-label="Live crowd photo spotlight">
           <figure className="mirror-polaroid" key={activeSpotlight.id}>
             <img src={activeSpotlight.imageDataUrl} alt={`Crowd photo by ${activeSpotlight.authorName}`} className="mirror-polaroid-photo" />
@@ -2057,15 +2059,9 @@ function MirrorPage() {
         </aside>
       ) : null}
 
-      {showSpotlight && flashActive ? <div className="mirror-spotlight-flash" aria-hidden="true" /> : null}
-      {showSpotlight && showShutterFallbackPulse ? <div className="mirror-spotlight-fallback-pulse" aria-hidden="true" /> : null}
-      {showSafeMargins && shouldShowAdminElements ? <div className="mirror-safe-margins-overlay" aria-hidden="true" /> : null}
-
-      {isLive && event?.requestInstructions ? (
-        <footer className="mirror-footer">
-          <p className="mirror-request-note">{event.requestInstructions}</p>
-        </footer>
-      ) : null}
+      {!isLive && showSpotlight && flashActive ? <div className="mirror-spotlight-flash" aria-hidden="true" /> : null}
+      {!isLive && showSpotlight && showShutterFallbackPulse ? <div className="mirror-spotlight-fallback-pulse" aria-hidden="true" /> : null}
+      {!isLive && showSafeMargins && shouldShowAdminElements ? <div className="mirror-safe-margins-overlay" aria-hidden="true" /> : null}
     </div>
   )
 }
