@@ -9869,6 +9869,12 @@
 
 .mirror-shell {
   position: relative;
+  isolation: isolate;
+}
+
+.mirror-shell > * {
+  position: relative;
+  z-index: 1;
 }
 
 .mirror-shell::before {
@@ -9907,6 +9913,11 @@
 
 .mirror-stage {
   position: relative;
+}
+
+.mirror-stage > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Ensure frames sit above the orbs */
