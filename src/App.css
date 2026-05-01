@@ -4836,13 +4836,10 @@
 }
 
 .mirror-between-songs-quote {
-  margin: 0;
-  font-size: clamp(1.3rem, 3.2vw, 2.2rem);
-  line-height: 1.4;
-  color: #e8f2ff;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  margin: 0.2rem 0 0;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  color: #f7fbff;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
