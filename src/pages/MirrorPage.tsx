@@ -1893,12 +1893,10 @@ function MirrorPage() {
                           ) : null}
                           <div className="mirror-queue-info">
                             <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
-                            <span className="mirror-queue-artist">
-                              {normalizeMirrorText(song.artist, 'Unknown Artist')}
-                              {queueChosenByLine ? (
-                                <span className={`mirror-queue-artist-picker ${queueChosenByAccentClass}`}>{` · ${queueChosenByLine}`}</span>
-                              ) : null}
-                            </span>
+                            <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                            {queueChosenByLine ? (
+                              <span className={`mirror-queue-picker mirror-queue-artist-picker ${queueChosenByAccentClass}`}>{queueChosenByLine}</span>
+                            ) : null}
                             {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                           </div>
                           <span className="mirror-queue-votes">+{song.votes_count}</span>

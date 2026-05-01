@@ -4324,10 +4324,7 @@
 .mirror-shell-hide-controls .mirror-queue-artist {
   font-size: clamp(0.92rem, 1.3vw, 1.1rem);
   line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
   word-break: break-word;
   overflow-wrap: break-word;
   white-space: normal;
@@ -4335,12 +4332,12 @@
 }
 
 .mirror-shell-hide-controls .mirror-queue-picker {
-  font-size: clamp(0.78rem, 1vw, 0.94rem);
-  line-height: 1.15;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: clamp(0.82rem, 1.1vw, 1rem);
+  line-height: 1.2;
+  display: block;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .mirror-shell-hide-controls .mirror-queue-votes {
@@ -5114,10 +5111,17 @@
 .mirror-up-next-compact .mirror-queue-artist {
   font-size: clamp(0.78rem, 1.06vw, 0.94rem);
   line-height: 1.15;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.mirror-up-next-compact .mirror-queue-picker {
+  font-size: clamp(0.74rem, 1vw, 0.9rem);
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .mirror-compact-note {
@@ -5136,7 +5140,7 @@
   border-radius: 12px;
   padding: clamp(0.7rem, 1.2vw, 0.9rem);
   background: rgba(10, 15, 38, 0.6);
-  min-height: clamp(100px, 16vw, 160px);
+  min-height: clamp(140px, 16vw, 180px);
   flex-wrap: nowrap;
 }
 
@@ -5328,13 +5332,21 @@
   color: #ffd3da;
   font-size: clamp(0.72rem, 1.2vw, 0.95rem);
   font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1.1;
-  box-shadow: 0 0 12px rgba(255, 68, 95, 0.2);
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.mirror-up-next-compact .mirror-queue-picker {
+  font-size: clamp(0.74rem, 1vw, 0.9rem);
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .mirror-queue-artist {
+  height: auto;
   font-size: clamp(0.92rem, 1.55vw, 1.24rem);
   color: #8ea6d1;
   overflow-wrap: anywhere;
@@ -5346,18 +5358,17 @@
   color: #a8c5dd;
   font-style: italic;
   opacity: 0.8;
-  display: -webkit-box;
+  display: block;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 .mirror-queue-artist-picker {
   color: #a8c5dd;
   font-style: italic;
   opacity: 0.82;
-}
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .mirror-shell-hide-controls .mirror-queue-artist-picker {
@@ -5900,19 +5911,13 @@
 .live-feed-panel-mirror .live-feed-post-message {
   font-size: clamp(1.1rem, 1.48vw, 1.3rem);
 }
-
-@media (max-width: 1180px) {
+@media (max-width: 1279px) {
   .mirror-header {
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: block;
     gap: 0.75rem;
   }
 
   .mirror-header-qr {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-  }
-
-  .mirror-editor-controls {
     grid-column: 1 / -1;
     justify-content: flex-start;
   }
@@ -5977,18 +5982,17 @@
   }
 
   .mirror-header-qr-image {
-    width: clamp(170px, 10vw, 250px);
-    height: clamp(170px, 10vw, 250px);
-  }
-
-  .mirror-stage-live {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 0.62fr) minmax(0, 0.26fr) auto;
+    display: block;
   }
 
   .mirror-shell-venue-club .mirror-stage-live {
-    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 0.60fr) minmax(0, 0.28fr) auto;
+  }
+
+  .mirror-queue-artist-picker {
+    color: #a8c5dd;
+    font-style: italic;
+    opacity: 0.82;
   }
 
   .mirror-shell-venue-lounge .mirror-stage-live {
@@ -7861,7 +7865,7 @@
   gap: 0.24rem;
   min-height: 0;
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .mirror-up-next-label {
@@ -7882,12 +7886,12 @@
 
 .mirror-queue {
   gap: 0.2rem;
-  grid-template-rows: repeat(5, minmax(0, 1fr));
+  grid-template-rows: auto;
 }
 
 .mirror-queue-item {
-  min-height: 0;
-  height: 100%;
+  min-height: 140px;
+  height: auto;
   padding: 0.64rem 0.82rem;
   gap: 0.58rem;
   align-items: flex-start;
@@ -7896,18 +7900,18 @@
 .mirror-queue-info {
   flex: 1;
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   align-content: start;
   gap: 0.14rem;
 }
 
 .mirror-queue-picker {
-  line-height: 1.15;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.2;
+  display: block;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .mirror-queue-title {
@@ -7922,10 +7926,10 @@
 .mirror-queue-artist {
   font-size: clamp(0.94rem, 1.2vw, 1.16rem);
   line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .mirror-queue-votes {
