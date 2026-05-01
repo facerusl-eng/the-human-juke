@@ -179,6 +179,42 @@ function isAuthLockContentionError(error: unknown) {
   return /lock broken|steal option|navigatorlockacquiretimeouterror|auth-token/i.test(message)
 }
 
+function getReadableErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object') {
+    const normalizedError = error as {
+      code?: unknown
+      message?: unknown
+      details?: unknown
+      hint?: unknown
+      error?: unknown
+    }
+
+    const message = typeof normalizedError.message === 'string' ? normalizedError.message.trim() : ''
+    const details = typeof normalizedError.details === 'string' ? normalizedError.details.trim() : ''
+    const hint = typeof normalizedError.hint === 'string' ? normalizedError.hint.trim() : ''
+    const code = typeof normalizedError.code === 'string' ? normalizedError.code.trim() : ''
+    const nestedError = typeof normalizedError.error === 'string' ? normalizedError.error.trim() : ''
+
+    const combinedParts = [message, details, hint, nestedError].filter(Boolean)
+
+    if (combinedParts.length > 0) {
+      return code ? `${combinedParts.join(' | ')} (${code})` : combinedParts.join(' | ')
+    }
+
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return '[unserializable error object]'
+    }
+  }
+
+  return String(error)
+}
+
 function isMissingCoverImageColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -1545,7 +1581,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           setPerformedSongs([])
         } catch (error) {
           console.error('queueStore: setActiveEvent fetch step failed', error)
-          throw new Error(`Failed to refresh gig data: ${error instanceof Error ? error.message : String(error)}`)
+          throw new Error(`Failed to refresh gig data: ${getReadableErrorMessage(error)}`)
         }
       },
       endGig: async (targetEventId: string) => {
