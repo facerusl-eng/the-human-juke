@@ -4212,13 +4212,13 @@
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-track {
-  padding-right: clamp(98px, 8.2vw, 138px);
+  padding-right: clamp(126px, 10.4vw, 186px);
   gap: clamp(0.56rem, 0.9vw, 0.8rem);
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-qr {
-  width: clamp(86px, 7vw, 118px);
-  height: clamp(86px, 7vw, 118px);
+  width: clamp(116px, 9.4vw, 162px);
+  height: clamp(116px, 9.4vw, 162px);
 }
 
 .mirror-shell-hide-controls .mirror-now-playing {
