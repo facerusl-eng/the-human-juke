@@ -5815,7 +5815,6 @@
   padding-bottom: 0.2rem;
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
@@ -7902,7 +7901,6 @@
   padding-bottom: 0.12rem;
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: none;
   -ms-overflow-style: none;
 }
 

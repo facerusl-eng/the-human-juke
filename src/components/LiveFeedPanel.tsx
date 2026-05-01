@@ -776,12 +776,12 @@ function LiveFeedPanel({
               ref={cameraInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               className="live-feed-file-input"
               aria-label="Take a crowd feed photo"
               onClick={(event) => {
                 suppressReconnectWarning()
                 event.currentTarget.value = ''
+                event.currentTarget.setAttribute('capture', 'environment')
               }}
               onChange={onImageSelected}
               onInput={(event) => { void onImageSelected(event as unknown as ChangeEvent<HTMLInputElement>) }}
