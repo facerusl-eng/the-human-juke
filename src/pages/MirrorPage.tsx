@@ -1955,7 +1955,6 @@ function MirrorPage() {
                   </div>
                 ) : (
                   <>
-                    <p className="mirror-eyebrow">Now Playing</p>
                     <div className="mirror-now-playing-track">
                       <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests from bold citizens...')}</h1>
                       <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune and set the tone.')}</p>
