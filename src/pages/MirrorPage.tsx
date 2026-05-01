@@ -48,6 +48,17 @@ const KARAOKE_CHEER_BUILDERS = [
   (singerName: string) => `${singerName} is having a go at the karaoke. Let's see what they're made of, shall we?`,
 ]
 
+const CHOSEN_BY_BUILDERS = [
+  (name: string) => `Chosen by ${name} - excellent taste, no notes.`,
+  (name: string) => `Chosen by ${name} - a cracking pick, frankly.`,
+  (name: string) => `Chosen by ${name} - proper tune, that one.`,
+  (name: string) => `Chosen by ${name} - bold, brilliant, and slightly dangerous.`,
+  (name: string) => `Chosen by ${name} - the crowd approves with nods and pints.`,
+  (name: string) => `Chosen by ${name} - certified banger behaviour.`,
+  (name: string) => `Chosen by ${name} - top shelf decision-making.`,
+  (name: string) => `Chosen by ${name} - absolutely spot on, mate.`,
+]
+
 const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
@@ -183,14 +194,21 @@ function pickKaraokeCheer(singerName: string) {
   return cheerBuilder(singerName)
 }
 
-function formatChosenBySuffix(name: string | null | undefined) {
+function buildChosenByLine(name: string | null | undefined, seed: string) {
   const normalizedName = name?.trim()
 
   if (!normalizedName) {
-    return ''
+    return null
   }
 
-  return ` - chosen by ${normalizedName}, absolute legend.`
+  let seedValue = 0
+
+  for (let index = 0; index < seed.length; index += 1) {
+    seedValue = (seedValue * 31 + seed.charCodeAt(index)) >>> 0
+  }
+
+  const chosenByBuilder = CHOSEN_BY_BUILDERS[seedValue % CHOSEN_BY_BUILDERS.length]
+  return chosenByBuilder(normalizedName)
 }
 
 function getMirrorCountdownTarget(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
@@ -1495,10 +1513,15 @@ function MirrorPage() {
                       />
                     ) : null}
                     <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">
-                        {`${normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}${formatChosenBySuffix(activeSong?.createdByName ?? null)}`}
-                      </h1>
+                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
                       <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
+                      {activeSong?.createdByName ? (
+                        <p className="mirror-picked-by">
+                          {activeSong.audience_sings
+                            ? `Picked by ${activeSong.createdByName}`
+                            : buildChosenByLine(activeSong.createdByName, activeSong.id) ?? `Chosen by ${activeSong.createdByName}`}
+                        </p>
+                      ) : null}
                       {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                       {karaokeCheer ? (
                         <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
@@ -1528,8 +1551,11 @@ function MirrorPage() {
                           />
                         ) : null}
                         <div className="mirror-queue-info">
-                          <span className="mirror-queue-title">{`${normalizeMirrorText(song.title, 'Untitled Song')}${formatChosenBySuffix(song.createdByName)}`}</span>
+                          <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
                           <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                          {song.createdByName ? (
+                            <span className="mirror-queue-picker">{buildChosenByLine(song.createdByName, song.id) ?? `Chosen by ${song.createdByName}`}</span>
+                          ) : null}
                           {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                         </div>
                         <span className="mirror-queue-votes">+{song.votes_count}</span>
