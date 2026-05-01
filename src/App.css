@@ -1497,12 +1497,11 @@
 }
 
 .audience-language-option-en::before {
+  opacity: 0.5;
   background:
-    linear-gradient(90deg, transparent 42%, rgba(255, 255, 255, 0.9) 42%, rgba(255, 255, 255, 0.9) 58%, transparent 58%),
-    linear-gradient(transparent 38%, rgba(255, 255, 255, 0.9) 38%, rgba(255, 255, 255, 0.9) 62%, transparent 62%),
-    linear-gradient(90deg, transparent 46%, rgba(193, 18, 31, 0.95) 46%, rgba(193, 18, 31, 0.95) 54%, transparent 54%),
-    linear-gradient(transparent 44%, rgba(193, 18, 31, 0.95) 44%, rgba(193, 18, 31, 0.95) 56%, transparent 56%),
-    linear-gradient(135deg, rgba(16, 52, 166, 0.95) 0%, rgba(16, 52, 166, 0.8) 100%);
+    linear-gradient(90deg, transparent 42%, rgba(186, 12, 47, 0.98) 42%, rgba(186, 12, 47, 0.98) 58%, transparent 58%),
+    linear-gradient(transparent 34%, rgba(186, 12, 47, 0.98) 34%, rgba(186, 12, 47, 0.98) 66%, transparent 66%),
+    linear-gradient(135deg, rgba(248, 250, 255, 0.98) 0%, rgba(236, 241, 250, 0.98) 100%);
 }
 
 .audience-language-option-da::before {
