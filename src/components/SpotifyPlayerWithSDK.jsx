@@ -795,6 +795,8 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
           // If the configured playlist changed, force playback to start from the new playlist
           // instead of resuming an older paused context.
           if (
+            lastStartedPlaylistContextRef.current
+            &&
             normalizedConfiguredPlaylist
             && normalizedConfiguredPlaylist !== lastStartedPlaylistContextRef.current
           ) {
