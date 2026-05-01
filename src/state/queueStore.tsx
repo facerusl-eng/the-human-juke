@@ -18,6 +18,7 @@ export type QueueSong = {
   library_song_id: string | null
   audience_sings: boolean
   position?: number
+  createdByName: string | null
 }
 
 export type PerformedSong = QueueSong & {
@@ -647,7 +648,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       const { data: songsData, error: songsError } = await withTimeout(
         supabase
           .from('queue_songs')
-          .select('id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position')
+          .select('id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, profiles!queue_songs_created_by_fkey(display_name)')
           .eq('event_id', activeEventId)
           .eq('is_removed', false)
           .order('position', { ascending: true }),
@@ -659,7 +660,11 @@ function QueueProvider({ children }: PropsWithChildren) {
         throw songsError
       }
 
-      queueSongs = ((songsData ?? []) as QueueSong[])
+      queueSongs = ((songsData ?? []) as any[]).map((song: any) => ({
+        ...song,
+        createdByName: song.profiles?.display_name ?? null,
+        profiles: undefined,
+      })) as QueueSong[]
       queueLoaded = true
     } catch (error) {
       if (!isTransientLoadError(error)) {

@@ -34,6 +34,19 @@ const SPOTLIGHT_CAPTION_BUILDERS = [
   (authorName: string) => `${authorName} just gave tonight another highlight reel!`,
 ]
 
+const KARAOKE_CHEER_BUILDERS = [
+  (singerName: string) => `Right then, ${singerName} is about to give us a performance for the ages. Brace yourselves, legends.`,
+  (singerName: string) => `${singerName} has taken the microphone. The brave shall inherit the earth, as they say.`,
+  (singerName: string) => `Ladies and gents, please direct your attention to ${singerName}, who apparently has faith in themselves. Blimey.`,
+  (singerName: string) => `${singerName} is stepping up to the mic. This should be absolutely cracking.`,
+  (singerName: string) => `Hold onto your hats. ${singerName} is about to serenade us. Brilliant stuff.`,
+  (singerName: string) => `${singerName} has requested the honour of singing. What could possibly go wrong? Let's find out.`,
+  (singerName: string) => `Brilliant! ${singerName} is ready to give us a proper vocal showing. This is going to be something special.`,
+  (singerName: string) => `${singerName} has taken the gauntlet. We're in for a treat, folks.`,
+  (singerName: string) => `Blimey, ${singerName} is about to grace us with their vocal talents. This is going to be ace.`,
+  (singerName: string) => `${singerName} is having a go at the karaoke. Let's see what they're made of, shall we?`,
+]
+
 const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
@@ -164,6 +177,11 @@ function pickSpotlightCaption(authorName: string) {
   return captionBuilder(authorName)
 }
 
+function pickKaraokeCheer(singerName: string) {
+  const cheerBuilder = KARAOKE_CHEER_BUILDERS[Math.floor(Math.random() * KARAOKE_CHEER_BUILDERS.length)]
+  return cheerBuilder(singerName)
+}
+
 function getMirrorCountdownTarget(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
   const normalizedDate = gigDate?.trim()
 
@@ -249,6 +267,7 @@ function MirrorPage() {
   const { event, songs, loading, toggleRoomOpen } = useQueueStore()
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
+  const [karaokeCheer, setKaraokeCheer] = useState<string | null>(null)
   const spacebarBusyRef = useRef(false)
   const lastSpacebarActionAtRef = useRef(0)
   const gigActions = useGigActions({
@@ -515,6 +534,14 @@ function MirrorPage() {
       window.removeEventListener('storage', syncAudienceLocale)
     }
   }, [])
+
+  useEffect(() => {
+    if (isLive && activeSong?.audience_sings && activeSong?.createdByName) {
+      setKaraokeCheer(pickKaraokeCheer(activeSong.createdByName))
+    } else {
+      setKaraokeCheer(null)
+    }
+  }, [activeSong?.id, activeSong?.audience_sings, activeSong?.createdByName, isLive])
 
   useEffect(() => {
     const onKeyDown = (keyEvent: KeyboardEvent) => {
@@ -1380,7 +1407,13 @@ function MirrorPage() {
                 <div className="mirror-now-playing-meta">
                   <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
                   <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
+                  {activeSong?.createdByName ? (
+                    <p className="mirror-picked-by">Picked by {activeSong.createdByName}</p>
+                  ) : null}
                   {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
+                  {karaokeCheer ? (
+                    <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -1406,6 +1439,9 @@ function MirrorPage() {
                         <div className="mirror-queue-info">
                           <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
                           <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                          {song.createdByName ? (
+                            <span className="mirror-queue-picker">by {song.createdByName}</span>
+                          ) : null}
                           {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                         </div>
                         <span className="mirror-queue-votes">+{song.votes_count}</span>
