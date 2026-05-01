@@ -4211,6 +4211,10 @@
   grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.48fr) auto;
 }
 
+.mirror-shell-hide-controls .mirror-venue-logo-image {
+  width: clamp(100px, 12vw, 200px);
+}
+
 .mirror-shell-hide-controls .mirror-now-playing-track {
   padding-right: clamp(126px, 10.4vw, 186px);
   gap: clamp(0.56rem, 0.9vw, 0.8rem);
@@ -4438,6 +4442,20 @@
   max-width: 100%;
   height: auto;
   filter: drop-shadow(0 0 16px rgba(93, 215, 255, 0.18));
+}
+
+.mirror-venue-logo {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.mirror-venue-logo-image {
+  display: block;
+  width: clamp(120px, 14vw, 220px);
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 0 12px rgba(93, 215, 255, 0.14));
 }
 
 .mirror-event-name {

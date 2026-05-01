@@ -1715,6 +1715,11 @@ function MirrorPage() {
           <p className="mirror-brand" aria-label="The Human Jukebox">
             <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
           </p>
+          {event?.venueLogoUrl ? (
+            <p className="mirror-venue-logo" aria-label="Venue logo">
+              <img src={event.venueLogoUrl} alt={`${event.venue || 'Venue'} logo`} className="mirror-venue-logo-image" />
+            </p>
+          ) : null}
           {event ? (
             <div>
               <p className="mirror-event-name">

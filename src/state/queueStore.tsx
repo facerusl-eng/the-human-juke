@@ -58,6 +58,7 @@ type EventSettingsUpdates = {
   explicitFilterEnabled: boolean
   showInAudienceNoGig: boolean
   coverImageUrl: string | null
+  venueLogoUrl: string | null
 }
 
 type EventState = {
@@ -86,6 +87,7 @@ type EventState = {
   explicitFilterEnabled: boolean
   showInAudienceNoGig: boolean
   coverImageUrl: string | null
+  venueLogoUrl: string | null
 }
 
 type CreateEventOptions = {
@@ -661,8 +663,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
-      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
-      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
+      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url'
+      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url'
 
       const { data, error } = await supabase
         .from('events')
@@ -691,6 +693,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       return {
         ...(fallbackData as Record<string, unknown>),
         cover_image_url: null,
+        venue_logo_url: (fallbackData as Record<string, unknown>).venue_logo_url ?? null,
       }
     }
 
@@ -879,6 +882,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       explicitFilterEnabled: ((eventData as Record<string, unknown>).explicit_filter_enabled as boolean | null) ?? false,
       showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
       coverImageUrl: ((eventData as Record<string, unknown>).cover_image_url as string | null) ?? null,
+      venueLogoUrl: ((eventData as Record<string, unknown>).venue_logo_url as string | null) ?? null,
     })
     if (queueLoaded) {
       setSongs(queueSongs.map((song) => {
@@ -1908,6 +1912,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 explicit_filter_enabled: updates.explicitFilterEnabled,
                 show_in_audience_no_gig: updates.showInAudienceNoGig,
                 cover_image_url: updates.coverImageUrl,
+                venue_logo_url: updates.venueLogoUrl,
               })
               .eq('id', event.id),
           ),
@@ -2322,6 +2327,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           explicitFilterEnabled: true,
           showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
           coverImageUrl: options?.coverImageUrl ?? null,
+          venueLogoUrl: null,
         }
 
         try {

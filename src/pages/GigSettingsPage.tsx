@@ -64,6 +64,7 @@ type SettingsState = {
   explicitFilterEnabled: boolean
   showInAudienceNoGig: boolean
   coverImageUrl: string
+  venueLogoUrl: string
 }
 
 type UndoRedoState = SettingsState & { timestamp: number }
@@ -204,6 +205,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     explicitFilterEnabled: event.explicitFilterEnabled,
     showInAudienceNoGig: event.showInAudienceNoGig,
     coverImageUrl: event.coverImageUrl ?? '',
+    venueLogoUrl: event.venueLogoUrl ?? '',
   })
   const [initialSelectedPlaylistIds, setInitialSelectedPlaylistIds] = useState<string[]>([])
 
@@ -216,12 +218,14 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [loadingPlaylists, setLoadingPlaylists] = useState(true)
   const [busy, setBusy] = useState(false)
   const [processingCoverImage, setProcessingCoverImage] = useState(false)
+  const [processingVenueLogo, setProcessingVenueLogo] = useState(false)
   const [fetchingLinksFromSettings, setFetchingLinksFromSettings] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
   const isMountedRef = useRef(true)
   const manualSaveInFlightRef = useRef(false)
   const coverImageInFlightRef = useRef(false)
+  const venueLogoInFlightRef = useRef(false)
   const otherAudienceFallbackGigCount = hostEvents.filter(
     (hostEvent) => hostEvent.id !== event.id && hostEvent.showInAudienceNoGig,
   ).length
@@ -467,6 +471,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         explicitFilterEnabled: saveState.explicitFilterEnabled,
         showInAudienceNoGig: saveState.showInAudienceNoGig,
         coverImageUrl: saveState.coverImageUrl.trim() || null,
+        venueLogoUrl: saveState.venueLogoUrl.trim() || null,
       })
 
       await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
@@ -530,6 +535,60 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
       if (isMountedRef.current) {
         setProcessingCoverImage(false)
+      }
+    }
+  }
+
+  const onSelectVenueLogo = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
+    if (venueLogoInFlightRef.current) {
+      return
+    }
+
+    venueLogoInFlightRef.current = true
+    setProcessingVenueLogo(true)
+
+    const selectedFile = changeEvent.target.files?.[0]
+    changeEvent.target.value = ''
+
+    if (!selectedFile) {
+      venueLogoInFlightRef.current = false
+      if (isMountedRef.current) {
+        setProcessingVenueLogo(false)
+      }
+      return
+    }
+
+    if (!selectedFile.type.startsWith('image/')) {
+      setErrorText('Please choose an image file for the venue logo.')
+      return
+    }
+
+    if (selectedFile.size > MAX_GIG_COVER_IMAGE_BYTES) {
+      setErrorText('Venue logo is too large. Use an image up to 3 MB.')
+      return
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(selectedFile)
+
+      if (!isMountedRef.current) {
+        return
+      }
+
+      pushUndoState()
+      updateState({ venueLogoUrl: dataUrl })
+      setErrorText(null)
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return
+      }
+
+      setErrorText(error instanceof Error ? error.message : 'Unable to import that venue logo.')
+    } finally {
+      venueLogoInFlightRef.current = false
+
+      if (isMountedRef.current) {
+        setProcessingVenueLogo(false)
       }
     }
   }
@@ -699,6 +758,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || !arePlaylistSelectionsEqual(state.selectedPlaylistIds, initialSelectedPlaylistIds)
     || state.coverImageUrl !== (event.coverImageUrl ?? '')
     || state.showInAudienceNoGig !== event.showInAudienceNoGig
+    || state.venueLogoUrl !== (event.venueLogoUrl ?? '')
 
   return (
     <>
@@ -1099,6 +1159,35 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 <span>Show a live countdown on the mirror before the gig goes live</span>
               </div>
             </label>
+          </div>
+
+          <div className="field-row">
+            <label htmlFor="gig-venue-logo">Venue Logo (Optional)</label>
+            <input
+              id="gig-venue-logo"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                void onSelectVenueLogo(e)
+              }}
+              disabled={busy || processingVenueLogo}
+            />
+            <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name.</p>
+            {state.venueLogoUrl ? (
+              <div className="photo-preview">
+                <img src={state.venueLogoUrl} alt="Venue logo preview" />
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    pushUndoState()
+                    updateState({ venueLogoUrl: '' })
+                  }}
+                >
+                  Remove logo
+                </button>
+              </div>
+            ) : null}
           </div>
         </SettingsSection>
 
