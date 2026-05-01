@@ -9723,6 +9723,18 @@
   margin: 0;
 }
 
+.mirror-stage-live .mirror-title {
+  font-size: clamp(1.4rem, 2.8vw, 2.8rem);
+}
+
+.mirror-stage-live .mirror-artist {
+  font-size: clamp(0.85rem, 1.4vw, 1.35rem);
+}
+
+.mirror-stage-live .mirror-picked-by {
+  font-size: clamp(0.75rem, 1.1vw, 1.05rem);
+}
+
 .mirror-now-playing-artwork-slot {
   width: min(100%, 320px);
 }
