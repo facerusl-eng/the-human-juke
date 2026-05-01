@@ -4207,6 +4207,34 @@
   gap: clamp(0.28rem, 0.6vw, 0.64rem);
 }
 
+.mirror-shell-hide-controls .mirror-stage-live {
+  grid-template-rows: minmax(0, 0.77fr) minmax(0, 0.15fr) auto;
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-track {
+  padding-right: clamp(98px, 8.2vw, 138px);
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-qr {
+  width: clamp(86px, 7vw, 118px);
+  height: clamp(86px, 7vw, 118px);
+}
+
+.mirror-shell-hide-controls .mirror-title {
+  font-size: clamp(1.62rem, 3.9vw, 3.88rem);
+}
+
+.mirror-shell-hide-controls .mirror-artist {
+  -webkit-line-clamp: 1;
+}
+
+.mirror-shell-hide-controls .mirror-picked-by,
+.mirror-shell-hide-controls .mirror-song-fact {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .mirror-shell-hide-controls .mirror-secondary-grid {
   grid-template-columns: minmax(0, 1.32fr) minmax(280px, 0.68fr);
 }
