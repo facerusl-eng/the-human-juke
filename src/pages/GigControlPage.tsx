@@ -892,7 +892,10 @@ function GigControlPage() {
             )}
             <p className="gig-mirror-preview-label">Up Next</p>
             <ul className="gig-mirror-preview-list">
-              {upNext.slice(0, 3).map((song) => (
+              {upNext.slice(0, 3).map((song) => {
+                const chosenBy = song.createdByName?.trim() ?? ''
+
+                return (
                 <li key={song.id}>
                   <div className="gig-mirror-preview-list-main">
                     {song.cover_url ? (
@@ -902,11 +905,16 @@ function GigControlPage() {
                         className="gig-mirror-preview-list-cover"
                       />
                     ) : null}
-                    <span>{song.title}</span>
+                    <div className="gig-mirror-preview-list-copy">
+                      <span className="gig-mirror-preview-list-song">{song.title}</span>
+                      <span className="gig-mirror-preview-list-artist">{song.artist || 'Unknown Artist'}</span>
+                      {chosenBy ? <span className="gig-mirror-preview-list-chosen-by">Chosen by: {chosenBy}</span> : null}
+                    </div>
                   </div>
                   <span>+{song.votes_count}</span>
                 </li>
-              ))}
+                )
+              })}
               {upNext.length === 0 ? <li><span>No songs queued</span><span>+0</span></li> : null}
             </ul>
           </div>

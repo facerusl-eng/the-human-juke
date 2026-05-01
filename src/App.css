@@ -3439,7 +3439,7 @@
 .gig-mirror-preview-list li {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
   border: 1px solid rgba(126, 152, 186, 0.3);
   border-radius: 9px;
@@ -3447,19 +3447,47 @@
   background: rgba(14, 20, 38, 0.72);
   color: #d8eeff;
   font-size: 0.88rem;
+  min-height: 64px;
+  height: auto;
 }
 
 .gig-mirror-preview-list-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.45rem;
   min-width: 0;
+  flex: 1;
 }
 
-.gig-mirror-preview-list-main span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.gig-mirror-preview-list-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.gig-mirror-preview-list-song,
+.gig-mirror-preview-list-artist,
+.gig-mirror-preview-list-chosen-by {
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.gig-mirror-preview-list-song {
+  color: #f7fbff;
+  font-weight: 600;
+}
+
+.gig-mirror-preview-list-artist {
+  color: #b8d2ff;
+  font-size: 0.82rem;
+}
+
+.gig-mirror-preview-list-chosen-by {
+  color: rgba(184, 210, 255, 0.92);
+  font-size: 0.78rem;
 }
 
 .gig-mirror-preview-list-cover {
