@@ -9724,7 +9724,7 @@
 }
 
 .mirror-stage-live .mirror-title {
-  font-size: clamp(1.4rem, 2.8vw, 2.8rem);
+  font-size: clamp(1.1rem, 2vw, 2rem);
 }
 
 .mirror-stage-live .mirror-artist {
