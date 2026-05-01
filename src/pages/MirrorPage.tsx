@@ -1857,7 +1857,7 @@ function MirrorPage() {
                         </p>
                       ) : null}
                       {nowPlayingSongInfo ? <p className="mirror-song-fact">{nowPlayingSongInfo}</p> : null}
-                      {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
+                      {activeSong?.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
                       {karaokeCheer ? (
                         <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
                       ) : null}
@@ -1897,7 +1897,7 @@ function MirrorPage() {
                             {queueChosenByLine ? (
                               <span className={`mirror-queue-picker mirror-queue-artist-picker ${queueChosenByAccentClass}`}>{queueChosenByLine}</span>
                             ) : null}
-                            {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
+                            {song.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
                           </div>
                           <span className="mirror-queue-votes">+{song.votes_count}</span>
                         </li>

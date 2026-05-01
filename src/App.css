@@ -5337,6 +5337,35 @@
   word-break: break-word;
 }
 
+.karaoke-badge {
+  background: linear-gradient(135deg, #ff00cc, #9900ff);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  box-shadow: 0 0 12px rgba(255, 0, 200, 0.8);
+  animation: karaoke-badge-pulse 1.8s infinite ease-in-out;
+}
+
+@keyframes karaoke-badge-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(255, 0, 200, 0.6);
+  }
+
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 18px rgba(255, 0, 200, 1);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(255, 0, 200, 0.6);
+  }
+}
+
 .mirror-up-next-compact .mirror-queue-picker {
   font-size: clamp(0.74rem, 1vw, 0.9rem);
   line-height: 1.2;
