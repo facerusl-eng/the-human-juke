@@ -4285,7 +4285,7 @@
 }
 
 .mirror-shell-hide-controls .mirror-queue-item {
-  min-height: clamp(140px, 22vw, 200px);
+  min-height: clamp(160px, 25vw, 220px);
   padding: clamp(0.8rem, 1.4vw, 1.3rem);
   border-radius: 14px;
   display: flex;
@@ -4325,7 +4325,7 @@
   font-size: clamp(0.92rem, 1.3vw, 1.1rem);
   line-height: 1.2;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
