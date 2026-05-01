@@ -9852,9 +9852,38 @@
   text-align: center;
 }
 
-.mirror-now-playing-track-idle .mirror-title-idle,
-.mirror-now-playing-track-idle .mirror-artist-idle {
-  opacity: 0.35;
+/* Between-songs state */
+.mirror-between-song-quote {
+  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+  font-style: italic;
+  font-weight: 500;
+  color: rgba(247, 251, 255, 0.72);
+  text-align: center;
+  max-width: min(72ch, 100%);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.mirror-up-next-label-inline {
+  font-size: clamp(0.75rem, 1.2vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(93, 215, 255, 0.7);
+  margin: 0;
+}
+
+.mirror-title-next {
+  opacity: 0.9;
+}
+
+.mirror-artist-next {
+  opacity: 0.65;
+}
+
+.mirror-now-playing-cover-next {
+  width: clamp(90px, 10vw, 160px);
+  opacity: 0.85;
 }
 
 @media (max-width: 1024px) {

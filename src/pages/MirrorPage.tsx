@@ -475,6 +475,7 @@ function MirrorPage() {
   const [failedCoverUrls, setFailedCoverUrls] = useState<Record<string, true>>({})
   const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
+  const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const quoteIndexRef = useRef(0)
   const nowPlayingRef = useRef<typeof songs[number] | undefined>(undefined)
   const songsRef = useRef(songs)
@@ -602,6 +603,12 @@ function MirrorPage() {
     ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, maxUpNextSongs)
     : safeSongs.slice(0, maxUpNextSongs)
   const hiddenQueueCount = Math.max(0, safeSongs.length - (isNowPlayingStarted ? 1 : 0) - upNext.length)
+  const normalizedBetweenSongQuoteIndex = Number.isFinite(betweenSongQuoteIndex)
+    ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length
+    : 0
+  const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
+    ?? 'Remain calm. The next song is loading.'
+  const nextSong = !isNowPlayingStarted ? (safeSongs[0] ?? null) : null
   const currentSongFact = funFacts.length > 0
     ? funFacts[currentFactIndex % funFacts.length]
     : 'No fun facts available for this song yet.'
@@ -993,6 +1000,7 @@ function MirrorPage() {
 
   const setQuoteIndex = (nextQuoteIndex: number) => {
     quoteIndexRef.current = nextQuoteIndex
+    setBetweenSongQuoteIndex(nextQuoteIndex)
   }
 
   const runQueueTogglePlayShortcut = useCallback(async () => {
@@ -1944,11 +1952,35 @@ function MirrorPage() {
               <div className={`mirror-now-playing-frame ${isNowPlayingStarted && activeSong ? 'mirror-now-playing-frame-active' : 'mirror-now-playing-frame-idle'}`}>
                 {!isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
-                    <h1 className="mirror-title mirror-title-idle">Up next…</h1>
-                    <p className="mirror-artist mirror-artist-idle">Stand by</p>
-                    <div className="mirror-now-playing-artwork-slot">
-                      <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
-                    </div>
+                    <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
+                    {nextSong ? (
+                      <>
+                        <p className="mirror-up-next-label mirror-up-next-label-inline">Up next</p>
+                        <div className="mirror-now-playing-artwork-slot">
+                          {nextSong.cover_url && !failedCoverUrls[nextSong.cover_url] ? (
+                            <img
+                              src={nextSong.cover_url}
+                              alt={`Cover art for ${nextSong.title}`}
+                              className="mirror-now-playing-cover mirror-now-playing-cover-next"
+                              onError={() => onCoverLoadError(nextSong.cover_url)}
+                            />
+                          ) : (
+                            <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
+                          )}
+                        </div>
+                        <h1 className="mirror-title mirror-title-next">{normalizeMirrorText(nextSong.title, '?')}</h1>
+                        <p className="mirror-artist mirror-artist-next">{normalizeMirrorText(nextSong.artist, '')}</p>
+                        {nextSong.createdByName ? (
+                          <p className={`mirror-picked-by ${getChosenByAccentClass(nextSong.id)}`}>
+                            {getChosenByLine(nextSong.id, nextSong.createdByName) ?? `Chosen by ${nextSong.createdByName}`}
+                          </p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className="mirror-now-playing-artwork-slot">
+                        <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>
