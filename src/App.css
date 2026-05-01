@@ -4208,11 +4208,12 @@
 }
 
 .mirror-shell-hide-controls .mirror-stage-live {
-  grid-template-rows: minmax(0, 0.77fr) minmax(0, 0.15fr) auto;
+  grid-template-rows: minmax(0, 0.8fr) minmax(0, 0.12fr) auto;
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-track {
   padding-right: clamp(98px, 8.2vw, 138px);
+  gap: clamp(0.56rem, 0.9vw, 0.8rem);
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-qr {
@@ -4220,8 +4221,27 @@
   height: clamp(86px, 7vw, 118px);
 }
 
+.mirror-shell-hide-controls .mirror-now-playing {
+  padding: clamp(0.46rem, 0.72vw, 0.72rem);
+  gap: 0.32rem;
+}
+
+.mirror-shell-hide-controls .mirror-stage-live .mirror-now-playing {
+  align-content: start;
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-cover {
+  width: clamp(118px, 12.2vw, 220px);
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-meta {
+  gap: 0.18rem;
+}
+
 .mirror-shell-hide-controls .mirror-title {
   font-size: clamp(1.62rem, 3.9vw, 3.88rem);
+  line-height: 1.06;
+  -webkit-line-clamp: 1;
 }
 
 .mirror-shell-hide-controls .mirror-artist {
@@ -4230,9 +4250,20 @@
 
 .mirror-shell-hide-controls .mirror-picked-by,
 .mirror-shell-hide-controls .mirror-song-fact {
+  margin-top: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.mirror-shell-hide-controls .mirror-song-fact {
+  font-size: clamp(0.62rem, 0.82vw, 0.72rem);
+}
+
+.mirror-shell-hide-controls .mirror-karaoke-cheer {
+  margin-top: 0.18rem;
+  font-size: clamp(0.74rem, 1.2vw, 0.96rem);
+  -webkit-line-clamp: 2;
 }
 
 .mirror-shell-hide-controls .mirror-secondary-grid {
