@@ -704,8 +704,8 @@ function QueueProvider({ children }: PropsWithChildren) {
     let queueLoaded = false
 
     try {
-      const songsSelectWithProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by, profiles!queue_songs_created_by_fkey(display_name)'
-      const songsSelectWithoutProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by'
+      const songsSelectWithProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by, requester_name, profiles!queue_songs_created_by_fkey(display_name)'
+      const songsSelectWithoutProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by, requester_name'
 
       let songsData: Array<Record<string, unknown>> | null = null
 
@@ -749,6 +749,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         const normalizedSong = song as Record<string, unknown>
         const profile = normalizedSong.profiles as { display_name?: string | null } | null | undefined
         const creatorId = typeof normalizedSong.created_by === 'string' ? normalizedSong.created_by : null
+        const requesterName = typeof normalizedSong.requester_name === 'string' ? normalizedSong.requester_name.trim() : ''
 
         return {
           id: String(normalizedSong.id ?? ''),
@@ -763,7 +764,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           library_song_id: (normalizedSong.library_song_id as string | null) ?? null,
           audience_sings: Boolean(normalizedSong.audience_sings),
           position: typeof normalizedSong.position === 'number' ? normalizedSong.position : undefined,
-          createdByName: profile?.display_name ?? null,
+          createdByName: requesterName || profile?.display_name || null,
           creatorId,
         }
       })
@@ -1530,6 +1531,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         const nextPosition = ((maxPositionData?.position as number | null) ?? -1) + 1
+        const requesterName = readCommittedAudienceName().trim()
 
         // Keep audience profile display_name in sync with the chosen audience identity
         // so picker names can be resolved in queue/mirror views.
@@ -1561,6 +1563,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           library_song_id: options?.librarySongId ?? null,
           audience_sings: options?.performerMode === 'audience',
           created_by: user.id,
+          requester_name: requesterName || null,
           position: nextPosition,
         })
 
