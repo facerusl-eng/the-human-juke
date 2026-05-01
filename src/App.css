@@ -9643,6 +9643,83 @@
 
 /* Mirror now-playing cleanup: keep all song info inside one clean frame */
 
+/* Animated background orbs */
+@keyframes mirror-orb-drift-a {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(6vw, -4vh) scale(1.12); }
+  66%  { transform: translate(-4vw, 6vh) scale(0.92); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes mirror-orb-drift-b {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(-8vw, 5vh) scale(0.9); }
+  66%  { transform: translate(5vw, -7vh) scale(1.15); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes mirror-orb-drift-c {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(4vw, 8vh) scale(1.08); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+.mirror-shell::before,
+.mirror-shell::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.mirror-shell {
+  position: relative;
+}
+
+.mirror-shell::before {
+  width: clamp(300px, 40vw, 640px);
+  height: clamp(300px, 40vw, 640px);
+  top: -10%;
+  left: -8%;
+  background: radial-gradient(circle, rgba(93, 215, 255, 0.35) 0%, transparent 70%);
+  animation: mirror-orb-drift-a 18s ease-in-out infinite;
+}
+
+.mirror-shell::after {
+  width: clamp(260px, 36vw, 560px);
+  height: clamp(260px, 36vw, 560px);
+  bottom: -8%;
+  right: -6%;
+  background: radial-gradient(circle, rgba(255, 80, 160, 0.30) 0%, transparent 70%);
+  animation: mirror-orb-drift-b 22s ease-in-out infinite;
+}
+
+/* Third orb via a child element on mirror-stage */
+.mirror-stage::before {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: 0;
+  width: clamp(200px, 28vw, 440px);
+  height: clamp(200px, 28vw, 440px);
+  bottom: 15%;
+  left: 30%;
+  background: radial-gradient(circle, rgba(160, 80, 255, 0.25) 0%, transparent 70%);
+  animation: mirror-orb-drift-c 26s ease-in-out infinite;
+}
+
+.mirror-stage {
+  position: relative;
+}
+
+/* Ensure frames sit above the orbs */
+.mirror-frame {
+  position: relative;
+  z-index: 1;
+}
+
 .mirror-now-playing-qr {
   display: none;
 }
