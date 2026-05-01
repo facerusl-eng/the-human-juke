@@ -594,7 +594,7 @@ function MirrorPage() {
     : null
   const activeSong = playbackSong ?? nowPlaying
   const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
-  const maxUpNextSongs = hideControlsForAudience ? 4 : 5
+  const maxUpNextSongs = hideControlsForAudience ? 3 : 5
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
     ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, maxUpNextSongs)
