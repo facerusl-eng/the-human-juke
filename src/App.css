@@ -9698,11 +9698,11 @@
   position: static;
   top: auto;
   right: auto;
-  width: clamp(80px, 9vw, 140px);
-  height: clamp(80px, 9vw, 140px);
-  border-radius: 10px;
+  width: clamp(160px, 18vw, 260px);
+  height: clamp(160px, 18vw, 260px);
+  border-radius: 12px;
   background: #ffffff;
-  padding: 4px;
+  padding: 8px;
   image-rendering: pixelated;
 }
 
