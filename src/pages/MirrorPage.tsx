@@ -1962,8 +1962,9 @@ function MirrorPage() {
                 <div className="mirror-how-it-works" aria-label="How it works">
                   <p className="mirror-how-it-works-label">How It Works</p>
                   <p>1. Scan the QR code with your phone.</p>
-                  <p>2. Enter your name and join the room.</p>
-                  <p>3. Request songs and vote your favorites up.</p>
+                  <p>2. Enter your name and join the audience room.</p>
+                  <p>3. Open Song List and choose Human Jukebox or Karaoke.</p>
+                  <p>4. Add requests and vote in Live Queue to move songs up.</p>
                 </div>
               </div>
             </div>

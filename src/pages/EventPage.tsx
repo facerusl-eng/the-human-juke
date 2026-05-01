@@ -625,8 +625,9 @@ function EventPage() {
         hideHowItWorks: 'Skjul guide',
         howItWorksTitle: 'Sådan virker det',
         howItWorksSteps: [
-          'Tryk på Sangliste for at finde og tilføje dit ønske.',
-          'Stem i Live Queue for at skubbe dine favoritter op.',
+          'Tryk på Sangliste og vælg Human Jukebox eller Karaoke.',
+          'Tilføj dit ønske (karaoke kræver bekræftelse, fordi du synger selv).',
+          'Stem i Livekø for at skubbe dine favoritter op.',
           'Følg Spiller nu og hold energien i gang.',
           'Brug Sociale links eller Drikkepenge for at støtte artisten.',
         ],
@@ -674,7 +675,8 @@ function EventPage() {
         hideHowItWorks: 'Hide How It Works',
         howItWorksTitle: 'How It Works',
         howItWorksSteps: [
-          'Tap Song List to browse and add your request.',
+          'Tap Song List and choose Human Jukebox or Karaoke.',
+          'Add your request (karaoke asks for confirmation because you sing it).',
           'Vote in Live Queue to push your favorites up.',
           'Watch Now Playing and keep the energy going.',
           'Use Social Links or Tip Jar to support the artist.',
