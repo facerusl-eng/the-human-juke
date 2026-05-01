@@ -9653,7 +9653,7 @@
   justify-items: center;
   align-items: center;
   text-align: center;
-  gap: clamp(2.5rem, 3.1vw, 3.2rem);
+  gap: clamp(0.8rem, 1.4vw, 1.4rem);
   padding-right: 0;
 }
 
@@ -9838,6 +9838,18 @@
 
 .mirror-now-playing {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mirror-now-playing .mirror-now-playing-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .mirror-now-playing-frame,
@@ -9850,6 +9862,7 @@
 .mirror-now-playing-track {
   justify-items: center;
   text-align: center;
+  overflow: hidden;
 }
 
 /* Between-songs state */
