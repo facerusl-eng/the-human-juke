@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LiveFeedPanel from '../components/LiveFeedPanel'
+import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 import {
@@ -197,8 +198,8 @@ function formatMirrorCountdownLabel(remainingMs: number) {
   return segments.join(' ')
 }
 
-function formatMirrorCountdownStartTime(date: Date) {
-  return new Intl.DateTimeFormat(undefined, {
+function formatMirrorCountdownStartTime(date: Date, locale: AudienceLocale) {
+  return new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -260,6 +261,7 @@ function MirrorPage() {
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
   const [showShutterFallbackPulse, setShowShutterFallbackPulse] = useState(false)
   const [failedCoverUrls, setFailedCoverUrls] = useState<Record<string, true>>({})
+  const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
   const spotlightTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
@@ -382,16 +384,34 @@ function MirrorPage() {
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
   const shouldShowAdminElements = isHost
+  const countdownCopy = audienceLocale === 'da'
+    ? {
+        live: '● Live',
+        paused: '● Pause',
+        startingIn: 'Starter om',
+        scheduledStart: 'Planlagt start',
+        scheduledPrefix: 'Planlagt start:',
+      }
+    : {
+        live: '● Live',
+        paused: '● Paused',
+        startingIn: 'Starting In',
+        scheduledStart: 'Scheduled Start',
+        scheduledPrefix: 'Scheduled start:',
+      }
   const countdownTarget = useMemo(
     () => getMirrorCountdownTarget(event?.gigDate ?? null, event?.gigStartTime ?? null),
     [event?.gigDate, event?.gigStartTime],
   )
   const countdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : null
-  const showCountdown = !isLive && Boolean(countdownTarget) && Boolean(countdownRemainingMs && countdownRemainingMs > 0)
+  const showCountdown = !isLive
+    && (event?.mirrorCountdownEnabled ?? true)
+    && Boolean(countdownTarget)
+    && Boolean(countdownRemainingMs && countdownRemainingMs > 0)
   const countdownLabel = showCountdown && countdownRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownRemainingMs)
     : null
-  const countdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget) : null
+  const countdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget, audienceLocale) : null
 
   const onCoverLoadError = (coverUrl: string | null | undefined) => {
     if (!coverUrl) {
@@ -466,6 +486,19 @@ function MirrorPage() {
       window.removeEventListener('fullscreenchange', syncPresentationState)
       window.removeEventListener('webkitfullscreenchange', syncPresentationState)
       window.removeEventListener('resize', syncPresentationState)
+    }
+  }, [])
+
+  useEffect(() => {
+    const syncAudienceLocale = () => {
+      setAudienceLocale(readCommittedAudienceLocale())
+    }
+
+    syncAudienceLocale()
+    window.addEventListener('storage', syncAudienceLocale)
+
+    return () => {
+      window.removeEventListener('storage', syncAudienceLocale)
     }
   }, [])
 
@@ -1241,13 +1274,13 @@ function MirrorPage() {
             <p className="mirror-pre-show-subtitle">Make yourselves comfy; tonight runs on requests, applause, and questionable decisions.</p>
             {showCountdown ? (
               <div className="mirror-countdown-card" aria-label="Countdown to show start">
-                <p className="mirror-countdown-label">Starting In</p>
+                <p className="mirror-countdown-label">{countdownCopy.startingIn}</p>
                 <p className="mirror-countdown-value">{countdownLabel}</p>
-                {countdownStartLabel ? <p className="mirror-countdown-meta">Scheduled start: {countdownStartLabel}</p> : null}
+                {countdownStartLabel ? <p className="mirror-countdown-meta">{countdownCopy.scheduledPrefix} {countdownStartLabel}</p> : null}
               </div>
-            ) : countdownStartLabel ? (
+            ) : (event?.mirrorCountdownEnabled ?? true) && countdownStartLabel ? (
               <div className="mirror-countdown-card mirror-countdown-card-muted" aria-label="Scheduled show start">
-                <p className="mirror-countdown-label">Scheduled Start</p>
+                <p className="mirror-countdown-label">{countdownCopy.scheduledStart}</p>
                 <p className="mirror-countdown-value mirror-countdown-value-compact">{countdownStartLabel}</p>
               </div>
             ) : null}

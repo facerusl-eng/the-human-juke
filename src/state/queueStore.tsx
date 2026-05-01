@@ -49,6 +49,7 @@ type EventSettingsUpdates = {
   playlistOnlyRequests: boolean
   selectedPlaylistIds: string[]
   mirrorPhotoSpotlightEnabled: boolean
+  mirrorCountdownEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   roomOpen: boolean
@@ -76,6 +77,7 @@ type EventState = {
   contactEmail: string | null
   playlistOnlyRequests: boolean
   mirrorPhotoSpotlightEnabled: boolean
+  mirrorCountdownEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   roomOpen: boolean
@@ -599,8 +601,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
-      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
-      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
+      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url'
+      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
 
       const { data, error } = await supabase
         .from('events')
@@ -712,6 +714,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       contactEmail: (eventData as Record<string, unknown>).contact_email as string | null ?? null,
       playlistOnlyRequests: ((eventData as Record<string, unknown>).playlist_only_requests as boolean | null) ?? false,
       mirrorPhotoSpotlightEnabled: ((eventData as Record<string, unknown>).mirror_photo_spotlight_enabled as boolean | null) ?? true,
+      mirrorCountdownEnabled: ((eventData as Record<string, unknown>).mirror_countdown_enabled as boolean | null) ?? true,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
       roomOpen: ((eventData as Record<string, unknown>).room_open as boolean | null) ?? false,
@@ -1693,6 +1696,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 contact_email: updates.contactEmail || null,
                 playlist_only_requests: updates.playlistOnlyRequests,
                 mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
+                mirror_countdown_enabled: updates.mirrorCountdownEnabled,
                 allow_duplicate_requests: updates.allowDuplicateRequests,
                 max_active_requests_per_user: updates.maxActiveRequestsPerUser,
                 room_open: updates.roomOpen,
@@ -1728,6 +1732,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                   contact_email: updates.contactEmail || null,
                   playlist_only_requests: updates.playlistOnlyRequests,
                   mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
+                  mirror_countdown_enabled: updates.mirrorCountdownEnabled,
                   allow_duplicate_requests: updates.allowDuplicateRequests,
                   max_active_requests_per_user: updates.maxActiveRequestsPerUser,
                   room_open: updates.roomOpen,
@@ -2105,6 +2110,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           contactEmail: null,
           playlistOnlyRequests: true,
           mirrorPhotoSpotlightEnabled: true,
+          mirrorCountdownEnabled: true,
           allowDuplicateRequests: true,
           maxActiveRequestsPerUser: null,
           roomOpen: false,

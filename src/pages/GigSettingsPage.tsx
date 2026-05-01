@@ -56,6 +56,7 @@ type SettingsState = {
   contactEmail: string
   playlistOnlyRequests: boolean
   mirrorPhotoSpotlightEnabled: boolean
+  mirrorCountdownEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: string
   selectedPlaylistIds: string[]
@@ -195,6 +196,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     contactEmail: event.contactEmail ?? '',
     playlistOnlyRequests: event.playlistOnlyRequests,
     mirrorPhotoSpotlightEnabled: event.mirrorPhotoSpotlightEnabled,
+    mirrorCountdownEnabled: event.mirrorCountdownEnabled,
     allowDuplicateRequests: event.allowDuplicateRequests,
     maxActiveRequestsPerUser: event.maxActiveRequestsPerUser ? String(event.maxActiveRequestsPerUser) : '',
     selectedPlaylistIds: [],
@@ -458,6 +460,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         playlistOnlyRequests: saveState.playlistOnlyRequests,
         selectedPlaylistIds: saveState.selectedPlaylistIds,
         mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
+        mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
         allowDuplicateRequests: saveState.allowDuplicateRequests,
         maxActiveRequestsPerUser: parsedLimit,
         roomOpen: saveState.roomOpen,
@@ -689,6 +692,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.contactEmail !== (event.contactEmail ?? '')
     || state.playlistOnlyRequests !== event.playlistOnlyRequests
     || state.mirrorPhotoSpotlightEnabled !== event.mirrorPhotoSpotlightEnabled
+    || state.mirrorCountdownEnabled !== event.mirrorCountdownEnabled
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
     || state.roomOpen !== event.roomOpen
     || state.explicitFilterEnabled !== event.explicitFilterEnabled
@@ -1078,6 +1082,21 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               <div>
                 <strong>{state.mirrorPhotoSpotlightEnabled ? '✓ Photo Spotlight On' : '⊘ Photo Spotlight Off'}</strong>
                 <span>Show audience photos as large 7-second spotlight on mirror</span>
+              </div>
+            </label>
+            <label className="toggle-card" htmlFor="gig-mirror-countdown">
+              <input
+                id="gig-mirror-countdown"
+                type="checkbox"
+                checked={state.mirrorCountdownEnabled}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mirrorCountdownEnabled: e.target.checked })
+                }}
+              />
+              <div>
+                <strong>{state.mirrorCountdownEnabled ? '✓ Pre-Show Countdown On' : '⊘ Pre-Show Countdown Off'}</strong>
+                <span>Show a live countdown on the mirror before the gig goes live</span>
               </div>
             </label>
           </div>
