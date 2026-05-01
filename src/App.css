@@ -8251,22 +8251,42 @@
   margin: 0;
 }
 
+.audience-song-choice-cover {
+  display: block;
+  width: 100%;
+  max-width: 160px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin: 0 auto 0.4rem;
+  box-shadow: 0 8px 24px rgba(4, 7, 20, 0.5);
+}
+
 .audience-song-choice-actions {
   display: grid;
   gap: 0.5rem;
 }
 
-.karaoke-confirm-heading {
-  color: var(--accent, #f59e0b);
+.audience-song-choice-karaoke-eyebrow {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #ffe066;
+  text-shadow: 0 1px 8px rgba(255, 200, 0, 0.35);
+  margin: 0;
+  text-align: center;
 }
 
-.karaoke-confirm-body {
-  margin-top: 0.5rem;
-  line-height: 1.55;
+.audience-song-choice-karaoke-body {
+  font-size: 1rem;
+  line-height: 1.65;
+  color: #e8f2ff;
+  margin: 0.15rem 0 0;
+  text-align: center;
 }
 
 .karaoke-confirm-actions {
-  margin-top: 1.25rem;
+  margin-top: 1rem;
 }
 
 .audience-song-choice-button {

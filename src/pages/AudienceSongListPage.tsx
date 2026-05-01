@@ -760,8 +760,15 @@ function AudienceSongListPage() {
           <div className="audience-song-choice-sheet">
             {karaokeConfirmPending ? (
               <>
-                <p className="eyebrow karaoke-confirm-heading">🎤 {copy.karaokeConfirmHeading}</p>
-                <p className="subcopy karaoke-confirm-body">{copy.karaokeConfirmBody}</p>
+                {selectedSong.cover_url ? (
+                  <img
+                    src={normalizeCoverUrl(selectedSong.cover_url) ?? ''}
+                    alt={selectedSong.title}
+                    className="audience-song-choice-cover"
+                  />
+                ) : null}
+                <p className="audience-song-choice-karaoke-eyebrow">🎤 {copy.karaokeConfirmHeading}</p>
+                <p className="audience-song-choice-karaoke-body">{copy.karaokeConfirmBody}</p>
                 <div className="audience-song-choice-actions karaoke-confirm-actions">
                   <button
                     type="button"
@@ -783,6 +790,13 @@ function AudienceSongListPage() {
               </>
             ) : (
               <>
+            {selectedSong.cover_url ? (
+              <img
+                src={normalizeCoverUrl(selectedSong.cover_url) ?? ''}
+                alt={selectedSong.title}
+                className="audience-song-choice-cover"
+              />
+            ) : null}
             <p className="eyebrow">{copy.selected}</p>
             <h2>{normalizeDisplayText(selectedSong.title, copy.untitledSong)}</h2>
             <p className="subcopy">{normalizeDisplayText(selectedSong.artist, copy.unknownArtist)}</p>
