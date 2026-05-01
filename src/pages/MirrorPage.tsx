@@ -10,6 +10,7 @@ import {
   PLAYBACK_STATE_STORAGE_KEY,
   readSharedPlaybackState,
   type SharedPlaybackState,
+  BETWEEN_SONG_QUOTES,
 } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 import { useQueueStore } from '../state/queueStore'
@@ -296,6 +297,8 @@ function MirrorPage() {
   const [failedCoverUrls, setFailedCoverUrls] = useState<Record<string, true>>({})
   const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
+  const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
+  const quoteIndexRef = useRef(0)
   const spotlightTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
@@ -543,6 +546,11 @@ function MirrorPage() {
     }
   }, [activeSong?.id, activeSong?.audience_sings, activeSong?.createdByName, isLive])
 
+  const setQuoteIndex = (nextQuoteIndex: number) => {
+    quoteIndexRef.current = nextQuoteIndex
+    setBetweenSongQuoteIndex(nextQuoteIndex)
+  }
+
   useEffect(() => {
     const onKeyDown = (keyEvent: KeyboardEvent) => {
       if (keyEvent.code !== 'Space') {
@@ -575,7 +583,13 @@ function MirrorPage() {
 
       const executeToggle = async () => {
         try {
+          const wasLive = isLive
           await gigActions.runToggleRoomOpen()
+          // If we were live and are now paused, increment the quote
+          if (wasLive) {
+            const nextQuoteIndex = (quoteIndexRef.current + 1) % BETWEEN_SONG_QUOTES.length
+            setQuoteIndex(nextQuoteIndex)
+          }
         } catch (error) {
           console.warn('MirrorPage: spacebar toggle room failed', error)
         } finally {
@@ -1360,7 +1374,7 @@ function MirrorPage() {
       </header>
 
       <main className={`mirror-stage ${isLive ? 'mirror-stage-live' : ''}`}>
-        {!isLive ? (
+        {!isLive && !nowPlaying ? (
           <section className="mirror-pre-show" aria-label="Pre-show welcome">
             <h1 className="mirror-pre-show-title">Welcome to the show, legends and troublemakers!</h1>
             <p className="mirror-pre-show-subtitle">Make yourselves comfy; tonight runs on requests, applause, and questionable decisions.</p>
@@ -1389,6 +1403,11 @@ function MirrorPage() {
               <p>2. Enter your name and log in.</p>
               <p>3. Add song requests and vote your favorites up.</p>
             </div>
+          </section>
+        ) : !isLive && nowPlaying ? (
+          <section className="mirror-between-songs" aria-label="Between songs">
+            <p className="mirror-between-songs-hint">The show is temporarily paused.</p>
+            <p className="mirror-between-songs-quote">{BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]}</p>
           </section>
         ) : (
           <>
