@@ -183,6 +183,16 @@ function pickKaraokeCheer(singerName: string) {
   return cheerBuilder(singerName)
 }
 
+function formatChosenBySuffix(name: string | null | undefined) {
+  const normalizedName = name?.trim()
+
+  if (!normalizedName) {
+    return ''
+  }
+
+  return ` - chosen by ${normalizedName}, absolute legend.`
+}
+
 function getMirrorCountdownTarget(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
   const normalizedDate = gigDate?.trim()
 
@@ -1485,11 +1495,10 @@ function MirrorPage() {
                       />
                     ) : null}
                     <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
+                      <h1 className="mirror-title">
+                        {`${normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}${formatChosenBySuffix(activeSong?.createdByName ?? null)}`}
+                      </h1>
                       <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
-                      {activeSong?.createdByName ? (
-                        <p className="mirror-picked-by">Picked by {activeSong.createdByName}</p>
-                      ) : null}
                       {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                       {karaokeCheer ? (
                         <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
@@ -1519,11 +1528,8 @@ function MirrorPage() {
                           />
                         ) : null}
                         <div className="mirror-queue-info">
-                          <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                          <span className="mirror-queue-title">{`${normalizeMirrorText(song.title, 'Untitled Song')}${formatChosenBySuffix(song.createdByName)}`}</span>
                           <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
-                          {song.createdByName ? (
-                            <span className="mirror-queue-picker">by {song.createdByName}</span>
-                          ) : null}
                           {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                         </div>
                         <span className="mirror-queue-votes">+{song.votes_count}</span>
