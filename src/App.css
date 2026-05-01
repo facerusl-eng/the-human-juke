@@ -9754,30 +9754,30 @@
   .mirror-now-playing-karaoke-mark,
   .mirror-shell-hide-controls .mirror-now-playing-cover,
   .mirror-shell-hide-controls .mirror-now-playing-karaoke-mark {
-    width: clamp(120px, 11vw, 180px);
-    min-width: clamp(120px, 11vw, 180px);
-    min-height: clamp(120px, 11vw, 180px);
+    width: clamp(140px, 13vw, 210px);
+    min-width: clamp(140px, 13vw, 210px);
+    min-height: clamp(140px, 13vw, 210px);
   }
 
   .mirror-now-playing-qr-slot .mirror-now-playing-qr {
-    width: clamp(120px, 12vw, 180px);
-    height: clamp(120px, 12vw, 180px);
+    width: clamp(140px, 14vw, 210px);
+    height: clamp(140px, 14vw, 210px);
   }
 
   .mirror-stage-live .mirror-title {
-    font-size: clamp(1rem, 1.6vw, 1.6rem);
+    font-size: clamp(1.2rem, 1.9vw, 1.9rem);
   }
 
   .mirror-stage-live .mirror-artist {
-    font-size: clamp(0.8rem, 1.1vw, 1.15rem);
+    font-size: clamp(0.9rem, 1.3vw, 1.3rem);
   }
 
   .mirror-stage-live .mirror-picked-by {
-    font-size: clamp(0.7rem, 0.9vw, 0.95rem);
+    font-size: clamp(0.8rem, 1vw, 1.05rem);
   }
 
   .mirror-stage-live .mirror-now-playing-facts .mirror-song-fact {
-    font-size: clamp(0.8rem, 1.1vw, 1.1rem);
+    font-size: clamp(0.9rem, 1.3vw, 1.25rem);
   }
 }
 
