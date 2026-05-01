@@ -59,6 +59,9 @@ type EventSettingsUpdates = {
   showInAudienceNoGig: boolean
   coverImageUrl: string | null
   venueLogoUrl: string | null
+  showCustomButton: boolean
+  customButtonLabel: string | null
+  customButtonLink: string | null
 }
 
 type EventState = {
@@ -88,6 +91,9 @@ type EventState = {
   showInAudienceNoGig: boolean
   coverImageUrl: string | null
   venueLogoUrl: string | null
+  showCustomButton: boolean
+  customButtonLabel: string | null
+  customButtonLink: string | null
 }
 
 type CreateEventOptions = {
@@ -663,8 +669,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
-      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url'
-      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url'
+      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
+      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
 
       const { data, error } = await supabase
         .from('events')
@@ -883,6 +889,9 @@ function QueueProvider({ children }: PropsWithChildren) {
       showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
       coverImageUrl: ((eventData as Record<string, unknown>).cover_image_url as string | null) ?? null,
       venueLogoUrl: ((eventData as Record<string, unknown>).venue_logo_url as string | null) ?? null,
+      showCustomButton: ((eventData as Record<string, unknown>).show_custom_button as boolean | null) ?? false,
+      customButtonLabel: ((eventData as Record<string, unknown>).custom_button_label as string | null) ?? null,
+      customButtonLink: ((eventData as Record<string, unknown>).custom_button_link as string | null) ?? null,
     })
     if (queueLoaded) {
       setSongs(queueSongs.map((song) => {
@@ -1913,6 +1922,9 @@ function QueueProvider({ children }: PropsWithChildren) {
                 show_in_audience_no_gig: updates.showInAudienceNoGig,
                 cover_image_url: updates.coverImageUrl,
                 venue_logo_url: updates.venueLogoUrl,
+                show_custom_button: updates.showCustomButton,
+                custom_button_label: updates.customButtonLabel || null,
+                custom_button_link: updates.customButtonLink || null,
               })
               .eq('id', event.id),
           ),
@@ -2328,6 +2340,9 @@ function QueueProvider({ children }: PropsWithChildren) {
           showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
           coverImageUrl: options?.coverImageUrl ?? null,
           venueLogoUrl: null,
+          showCustomButton: false,
+          customButtonLabel: null,
+          customButtonLink: null,
         }
 
         try {

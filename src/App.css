@@ -7480,6 +7480,44 @@
   gap: 0.5rem;
 }
 
+.audience-custom-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.64rem 1.1rem;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 200, 80, 0.6);
+  background:
+    linear-gradient(135deg, rgba(255, 185, 30, 0.22) 0%, rgba(255, 140, 0, 0.14) 100%);
+  color: #fff9e6;
+  font-size: clamp(0.82rem, 2.2vw, 0.96rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  text-align: center;
+  line-height: 1.18;
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, transform 100ms ease;
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  word-break: break-word;
+  min-height: 2.75rem;
+}
+
+.audience-custom-button:hover,
+.audience-custom-button:focus-visible {
+  background:
+    linear-gradient(135deg, rgba(255, 185, 30, 0.36) 0%, rgba(255, 140, 0, 0.28) 100%);
+  border-color: rgba(255, 200, 80, 0.9);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.audience-custom-button:active {
+  transform: translateY(0);
+}
+
 .audience-how-it-works {
   border: 1px solid rgba(79, 70, 229, 0.38);
   border-radius: 14px;

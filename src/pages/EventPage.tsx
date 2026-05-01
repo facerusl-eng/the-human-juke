@@ -1300,6 +1300,16 @@ function EventPage() {
             >
               {copy.songList}
             </button>
+            {event?.showCustomButton && event.customButtonLabel?.trim() && event.customButtonLink?.trim() ? (
+              <a
+                href={event.customButtonLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="audience-custom-button"
+              >
+                {event.customButtonLabel}
+              </a>
+            ) : null}
             <button
               type="button"
               className="secondary-button"

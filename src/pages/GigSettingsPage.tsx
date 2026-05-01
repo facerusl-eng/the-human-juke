@@ -65,6 +65,9 @@ type SettingsState = {
   showInAudienceNoGig: boolean
   coverImageUrl: string
   venueLogoUrl: string
+  showCustomButton: boolean
+  customButtonLabel: string
+  customButtonLink: string
 }
 
 type UndoRedoState = SettingsState & { timestamp: number }
@@ -206,6 +209,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     showInAudienceNoGig: event.showInAudienceNoGig,
     coverImageUrl: event.coverImageUrl ?? '',
     venueLogoUrl: event.venueLogoUrl ?? '',
+    showCustomButton: event.showCustomButton ?? false,
+    customButtonLabel: event.customButtonLabel ?? '',
+    customButtonLink: event.customButtonLink ?? '',
   })
   const [initialSelectedPlaylistIds, setInitialSelectedPlaylistIds] = useState<string[]>([])
 
@@ -472,6 +478,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         showInAudienceNoGig: saveState.showInAudienceNoGig,
         coverImageUrl: saveState.coverImageUrl.trim() || null,
         venueLogoUrl: saveState.venueLogoUrl.trim() || null,
+        showCustomButton: saveState.showCustomButton,
+        customButtonLabel: saveState.customButtonLabel.trim() || null,
+        customButtonLink: saveState.customButtonLink.trim() || null,
       })
 
       await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
@@ -759,6 +768,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.coverImageUrl !== (event.coverImageUrl ?? '')
     || state.showInAudienceNoGig !== event.showInAudienceNoGig
     || state.venueLogoUrl !== (event.venueLogoUrl ?? '')
+    || state.showCustomButton !== (event.showCustomButton ?? false)
+    || state.customButtonLabel !== (event.customButtonLabel ?? '')
+    || state.customButtonLink !== (event.customButtonLink ?? '')
 
   return (
     <>
@@ -1304,6 +1316,56 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 placeholder="booking@example.com"
               />
               <p className="field-hint">This gig-specific email overrides the host default on the audience page.</p>
+            </div>
+
+            <div className="toggle-group">
+              <label className="gig-settings-toggle-card" htmlFor="gig-show-custom-button">
+                <input
+                  id="gig-show-custom-button"
+                  type="checkbox"
+                  checked={state.showCustomButton}
+                  onChange={(e) => {
+                    pushUndoState()
+                    updateState({ showCustomButton: e.target.checked })
+                  }}
+                />
+                <div>
+                  <strong>{state.showCustomButton ? '✓ Custom Button Enabled' : '⊘ Custom Button Off'}</strong>
+                  <span>Show a custom action button in the Audience App</span>
+                </div>
+              </label>
+              {state.showCustomButton ? (
+                <>
+                  <div className="field-row">
+                    <label htmlFor="gig-custom-button-label">Button label</label>
+                    <input
+                      id="gig-custom-button-label"
+                      type="text"
+                      value={state.customButtonLabel}
+                      onChange={(e) => {
+                        pushUndoState()
+                        updateState({ customButtonLabel: e.target.value })
+                      }}
+                      placeholder="e.g. Beer Menu, Wine List, Food Menu"
+                      maxLength={50}
+                    />
+                  </div>
+                  <div className="field-row">
+                    <label htmlFor="gig-custom-button-link">Button link (URL)</label>
+                    <input
+                      id="gig-custom-button-link"
+                      type="url"
+                      value={state.customButtonLink}
+                      onChange={(e) => {
+                        pushUndoState()
+                        updateState({ customButtonLink: e.target.value })
+                      }}
+                      placeholder="https://example.com/menu.pdf"
+                    />
+                    <p className="field-hint">Link to a PDF, webpage, image, or any URL you want to share with the audience.</p>
+                  </div>
+                </>
+              ) : null}
             </div>
 
             <div className="field-row">
