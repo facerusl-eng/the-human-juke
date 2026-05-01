@@ -1402,7 +1402,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error('Host account required to set the active gig.')
         }
 
-        await withTimeout(
+        const { error: deactivateError } = await withTimeout(
           withAuthLockRetry(() =>
             supabase
               .from('events')
@@ -1414,6 +1414,10 @@ function QueueProvider({ children }: PropsWithChildren) {
           DEFAULT_DB_TIMEOUT_MS,
           'Timed out while updating active gig. Please try again.',
         )
+
+        if (deactivateError) {
+          throw new Error(deactivateError.message)
+        }
 
         const { error: activateError } = await withTimeout(
           withAuthLockRetry(() =>
