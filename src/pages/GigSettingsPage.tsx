@@ -181,6 +181,13 @@ function buildPlaylistOptions(playlists: HostPlaylist[], playlistType: PlaylistT
   ]
 }
 
+function normalizeTimeValue(value: string | null | undefined): string {
+  // Postgres returns 'HH:MM:SS', but <input type="time"> works with 'HH:MM'.
+  // Strip the seconds so the comparison never shows a false dirty state.
+  const trimmed = (value ?? '').trim()
+  return trimmed.length > 5 && trimmed[2] === ':' && trimmed[5] === ':' ? trimmed.slice(0, 5) : trimmed
+}
+
 function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: GigSettingsFormProps) {
   const { user } = useAuthStore()
 
@@ -189,8 +196,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     gigName: event.name,
     venue: event.venue ?? '',
     gigDate: event.gigDate ?? '',
-    gigStartTime: event.gigStartTime ?? '',
-    gigEndTime: event.gigEndTime ?? '',
+    gigStartTime: normalizeTimeValue(event.gigStartTime),
+    gigEndTime: normalizeTimeValue(event.gigEndTime),
     subtitle: event.subtitle ?? '',
     requestInstructions: event.requestInstructions ?? '',
     instagramUrl: event.instagramUrl ?? '',
@@ -772,8 +779,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const isModified = state.gigName !== event.name
     || state.venue !== (event.venue ?? '')
     || state.gigDate !== (event.gigDate ?? '')
-    || state.gigStartTime !== (event.gigStartTime ?? '')
-    || state.gigEndTime !== (event.gigEndTime ?? '')
+    || state.gigStartTime !== normalizeTimeValue(event.gigStartTime)
+    || state.gigEndTime !== normalizeTimeValue(event.gigEndTime)
     || state.subtitle !== (event.subtitle ?? '')
     || state.requestInstructions !== (event.requestInstructions ?? '')
     || state.instagramUrl !== (event.instagramUrl ?? '')
