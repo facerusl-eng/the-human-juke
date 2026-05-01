@@ -9754,9 +9754,9 @@
   .mirror-now-playing-karaoke-mark,
   .mirror-shell-hide-controls .mirror-now-playing-cover,
   .mirror-shell-hide-controls .mirror-now-playing-karaoke-mark {
-    width: clamp(140px, 13vw, 210px);
-    min-width: clamp(140px, 13vw, 210px);
-    min-height: clamp(140px, 13vw, 210px);
+    width: clamp(120px, 10vw, 160px);
+    min-width: clamp(120px, 10vw, 160px);
+    min-height: clamp(120px, 10vw, 160px);
   }
 
   .mirror-now-playing-qr-slot .mirror-now-playing-qr {
