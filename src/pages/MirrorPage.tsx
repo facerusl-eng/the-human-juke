@@ -1863,7 +1863,7 @@ function MirrorPage() {
             </section>
 
             <section className={`mirror-secondary-grid ${shouldShowAdminElements ? '' : 'mirror-secondary-grid-feed-only'}`}>
-              <LiveFeedPanel mode="mirror" showComposer={false} title="Live Feed" showModerationControls={shouldShowAdminElements} />
+              <LiveFeedPanel mode="mirror" showComposer={false} title="Live Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
 
               <section className={`mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`}>
                 <p className="mirror-up-next-label">Queue</p>
