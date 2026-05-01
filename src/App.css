@@ -9748,6 +9748,39 @@
   font-size: clamp(0.75rem, 1.1vw, 1.05rem);
 }
 
+/* Large screens (fullscreen projector): cap element sizes so the row doesn't feel bloated */
+@media (min-width: 1400px) {
+  .mirror-now-playing-cover,
+  .mirror-now-playing-karaoke-mark,
+  .mirror-shell-hide-controls .mirror-now-playing-cover,
+  .mirror-shell-hide-controls .mirror-now-playing-karaoke-mark {
+    width: clamp(120px, 11vw, 180px);
+    min-width: clamp(120px, 11vw, 180px);
+    min-height: clamp(120px, 11vw, 180px);
+  }
+
+  .mirror-now-playing-qr-slot .mirror-now-playing-qr {
+    width: clamp(120px, 12vw, 180px);
+    height: clamp(120px, 12vw, 180px);
+  }
+
+  .mirror-stage-live .mirror-title {
+    font-size: clamp(1rem, 1.6vw, 1.6rem);
+  }
+
+  .mirror-stage-live .mirror-artist {
+    font-size: clamp(0.8rem, 1.1vw, 1.15rem);
+  }
+
+  .mirror-stage-live .mirror-picked-by {
+    font-size: clamp(0.7rem, 0.9vw, 0.95rem);
+  }
+
+  .mirror-stage-live .mirror-now-playing-facts .mirror-song-fact {
+    font-size: clamp(0.8rem, 1.1vw, 1.1rem);
+  }
+}
+
 .mirror-now-playing-artwork-slot {
   width: min(100%, 320px);
 }
