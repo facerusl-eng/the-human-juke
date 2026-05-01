@@ -1953,6 +1953,8 @@ function MirrorPage() {
                 ) : (
                   <>
                     <div className="mirror-now-playing-track">
+                      <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests from bold citizens...')}</h1>
+                      <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune and set the tone.')}</p>
                       <div className="mirror-now-playing-artwork-slot">
                         {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
                           <img
@@ -1966,10 +1968,6 @@ function MirrorPage() {
                         ) : (
                           <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
                         )}
-                      </div>
-                      <div className="mirror-now-playing-meta">
-                        <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests from bold citizens...')}</h1>
-                        <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune and set the tone.')}</p>
                       </div>
                       {activeSongChosenByLine ? (
                         <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
