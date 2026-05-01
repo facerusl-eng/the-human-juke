@@ -509,7 +509,12 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       await registerBackgroundSync('jukebox-sync')
     } catch (error) {
       console.warn('GigSettingsPage: failed to save settings', error)
-      setErrorText(error instanceof Error ? error.message : 'Unable to save gig settings.')
+      const message = error instanceof Error
+        ? error.message
+        : (typeof error === 'object' && error !== null && 'message' in error)
+          ? String((error as { message: unknown }).message)
+          : 'Unable to save gig settings.'
+      setErrorText(message)
       markError()
     }
   }
