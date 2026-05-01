@@ -1932,33 +1932,45 @@ function MirrorPage() {
       <main className={`mirror-stage ${isLive ? 'mirror-stage-live' : ''}`}>
         {!isLive && !nowPlaying ? (
           <section className="mirror-pre-show" aria-label="Pre-show welcome">
-            <h1 className="mirror-pre-show-title">Welcome to the show, legends and troublemakers!</h1>
-            <p className="mirror-pre-show-subtitle">Make yourselves comfy; tonight runs on requests, applause, and questionable decisions.</p>
-            {showCountdown ? (
-              <div className="mirror-countdown-card" aria-label="Countdown to show start">
-                <p className="mirror-countdown-label">{countdownCopy.startingIn}</p>
-                <p className="mirror-countdown-value">{countdownLabel}</p>
-                {countdownStartLabel ? <p className="mirror-countdown-meta">{countdownCopy.scheduledPrefix} {countdownStartLabel}</p> : null}
-              </div>
-            ) : (event?.mirrorCountdownEnabled ?? true) && countdownStartLabel ? (
-              <div className="mirror-countdown-card mirror-countdown-card-muted" aria-label="Scheduled show start">
-                <p className="mirror-countdown-label">{countdownCopy.scheduledStart}</p>
-                <p className="mirror-countdown-value mirror-countdown-value-compact">{countdownStartLabel}</p>
-              </div>
-            ) : null}
-            <div className="mirror-qr-block">
-              <img src={qrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
-              <div className="mirror-qr-copy">
+
+            {/* ── TOP: headline + status ── */}
+            <div className="mirror-pre-show-top">
+              <h1 className="mirror-pre-show-title">Welcome to the show,<br />legends and troublemakers!</h1>
+              <p className="mirror-pre-show-subtitle">Make yourselves comfy — tonight runs on requests, applause, and questionable decisions.</p>
+              {showCountdown ? (
+                <div className="mirror-countdown-card" aria-label="Countdown to show start">
+                  <p className="mirror-countdown-label">{countdownCopy.startingIn}</p>
+                  <p className="mirror-countdown-value">{countdownLabel}</p>
+                  {countdownStartLabel ? <p className="mirror-countdown-meta">{countdownCopy.scheduledPrefix} {countdownStartLabel}</p> : null}
+                </div>
+              ) : (event?.mirrorCountdownEnabled ?? true) && countdownStartLabel ? (
+                <div className="mirror-countdown-card mirror-countdown-card-muted" aria-label="Scheduled show start">
+                  <p className="mirror-countdown-label">{countdownCopy.scheduledStart}</p>
+                  <p className="mirror-countdown-value mirror-countdown-value-compact">{countdownStartLabel}</p>
+                </div>
+              ) : null}
+            </div>
+
+            {/* ── MIDDLE: QR (left) + How it works (right) ── */}
+            <div className="mirror-pre-show-middle">
+              <div className="mirror-pre-show-qr-col">
+                <img src={qrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
                 <p className="mirror-qr-label">Scan to join</p>
-                <p>Open the audience app at <strong>{audienceUrl}</strong></p>
+                <p className="mirror-qr-url">Open the audience app at <strong>{audienceUrl}</strong></p>
+              </div>
+              <div className="mirror-pre-show-steps-col">
+                <div className="mirror-how-it-works" aria-label="How it works">
+                  <p className="mirror-how-it-works-label">How It Works</p>
+                  <p>1. Scan the QR code with your phone.</p>
+                  <p>2. Enter your name and join the room.</p>
+                  <p>3. Request songs and vote your favorites up.</p>
+                </div>
               </div>
             </div>
-            <div className="mirror-how-it-works" aria-label="How it works">
-              <p className="mirror-how-it-works-label">How It Works</p>
-              <p>1. Scan the QR code.</p>
-              <p>2. Enter your name and log in.</p>
-              <p>3. Add song requests and vote your favorites up.</p>
-            </div>
+
+            {/* ── BOTTOM: reserved for future features ── */}
+            <div className="mirror-pre-show-bottom" />
+
           </section>
         ) : (
           <>
