@@ -864,61 +864,65 @@ function GigControlPage() {
         <article className="gig-mirror-preview-card" aria-label="Live mirror preview">
           <p className="gig-control-card-label">Live Mirror Preview</p>
           <div className="gig-mirror-preview-frame" role="img" aria-label="Mirror screen preview">
-            <div className="gig-mirror-preview-top">
-              <span className="gig-mirror-preview-brand">Human Jukebox</span>
-              <span className={`gig-mirror-preview-state ${event.roomOpen ? 'is-live' : 'is-paused'}`}>
-                {event.roomOpen ? 'Live' : 'Paused'}
-              </span>
-            </div>
-            <p className="gig-mirror-preview-label">Now Playing</p>
-            <div className="gig-mirror-preview-now-playing-stage">
-              {nowPlaying && !isNowPlayingStarted ? (
-                <div className="gig-mirror-preview-quote-shell">
-                  <p className="gig-mirror-preview-quote">{betweenSongQuote}</p>
+            <div className="gig-mirror-preview-scale-shell">
+              <div className="gig-mirror-preview-scale-canvas">
+                <div className="gig-mirror-preview-top">
+                  <span className="gig-mirror-preview-brand">Human Jukebox</span>
+                  <span className={`gig-mirror-preview-state ${event.roomOpen ? 'is-live' : 'is-paused'}`}>
+                    {event.roomOpen ? 'Live' : 'Paused'}
+                  </span>
                 </div>
-              ) : (
-                <div className="gig-mirror-preview-now-playing-row">
-                  {nowPlaying?.cover_url ? (
-                    <img
-                      src={nowPlaying.cover_url}
-                      alt={`Cover art for ${nowPlaying.title}`}
-                      className="gig-mirror-preview-now-playing-cover"
-                    />
-                  ) : null}
-                  <div>
-                    <p className="gig-mirror-preview-song">{nowPlaying?.title ?? 'Waiting for requests from brave volunteers...'}</p>
-                    <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'Queue currently calm, suspiciously so'}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-            <p className="gig-mirror-preview-label">Up Next</p>
-            <ul className="gig-mirror-preview-list">
-              {upNext.slice(0, 3).map((song) => {
-                const chosenBy = song.createdByName?.trim() ?? ''
-
-                return (
-                <li key={song.id}>
-                  <div className="gig-mirror-preview-list-main">
-                    {song.cover_url ? (
-                      <img
-                        src={song.cover_url}
-                        alt={`Cover art for ${song.title}`}
-                        className="gig-mirror-preview-list-cover"
-                      />
-                    ) : null}
-                    <div className="gig-mirror-preview-list-copy">
-                      <span className="gig-mirror-preview-list-song">{song.title}</span>
-                      <span className="gig-mirror-preview-list-artist">{song.artist || 'Unknown Artist'}</span>
-                      {chosenBy ? <span className="gig-mirror-preview-list-chosen-by">Chosen by: {chosenBy}</span> : null}
+                <p className="gig-mirror-preview-label">Now Playing</p>
+                <div className="gig-mirror-preview-now-playing-stage">
+                  {nowPlaying && !isNowPlayingStarted ? (
+                    <div className="gig-mirror-preview-quote-shell">
+                      <p className="gig-mirror-preview-quote">{betweenSongQuote}</p>
                     </div>
-                  </div>
-                  <span>+{song.votes_count}</span>
-                </li>
-                )
-              })}
-              {upNext.length === 0 ? <li><span>No songs queued</span><span>+0</span></li> : null}
-            </ul>
+                  ) : (
+                    <div className="gig-mirror-preview-now-playing-row">
+                      {nowPlaying?.cover_url ? (
+                        <img
+                          src={nowPlaying.cover_url}
+                          alt={`Cover art for ${nowPlaying.title}`}
+                          className="gig-mirror-preview-now-playing-cover"
+                        />
+                      ) : null}
+                      <div>
+                        <p className="gig-mirror-preview-song">{nowPlaying?.title ?? 'Waiting for requests from brave volunteers...'}</p>
+                        <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'Queue currently calm, suspiciously so'}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <p className="gig-mirror-preview-label">Up Next</p>
+                <ul className="gig-mirror-preview-list">
+                  {upNext.slice(0, 3).map((song) => {
+                    const chosenBy = song.createdByName?.trim() ?? ''
+
+                    return (
+                    <li key={song.id}>
+                      <div className="gig-mirror-preview-list-main">
+                        {song.cover_url ? (
+                          <img
+                            src={song.cover_url}
+                            alt={`Cover art for ${song.title}`}
+                            className="gig-mirror-preview-list-cover"
+                          />
+                        ) : null}
+                        <div className="gig-mirror-preview-list-copy">
+                          <span className="gig-mirror-preview-list-song">{song.title}</span>
+                          <span className="gig-mirror-preview-list-artist">{song.artist || 'Unknown Artist'}</span>
+                          {chosenBy ? <span className="gig-mirror-preview-list-chosen-by">Chosen by: {chosenBy}</span> : null}
+                        </div>
+                      </div>
+                      <span>+{song.votes_count}</span>
+                    </li>
+                    )
+                  })}
+                  {upNext.length === 0 ? <li><span>No songs queued</span><span>+0</span></li> : null}
+                </ul>
+              </div>
+            </div>
           </div>
         </article>
 
