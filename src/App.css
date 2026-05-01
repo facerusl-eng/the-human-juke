@@ -4952,12 +4952,20 @@
 }
 
 .mirror-up-next-compact .mirror-queue-info {
-  gap: 0.5rem;
+  gap: 0.28rem;
 }
 
 .mirror-up-next-compact .mirror-queue-artist,
 .mirror-up-next-compact .mirror-karaoke-tag {
   display: none;
+}
+
+.mirror-up-next-compact .mirror-queue-title {
+  -webkit-line-clamp: 1;
+}
+
+.mirror-up-next-compact .mirror-queue-picker {
+  font-size: clamp(0.78rem, 1.1vw, 0.94rem);
 }
 
 .mirror-compact-note {
@@ -5126,6 +5134,10 @@
   min-width: 0;
 }
 
+.mirror-queue-info > * {
+  min-width: 0;
+}
+
 .mirror-queue-title {
   font-size: clamp(1.08rem, 2.1vw, 1.62rem);
   font-weight: 700;
@@ -5163,6 +5175,11 @@
   color: #a8c5dd;
   font-style: italic;
   opacity: 0.8;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.2;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -7705,6 +7722,14 @@
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 0.14rem;
+}
+
+.mirror-queue-picker {
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .mirror-queue-title {
