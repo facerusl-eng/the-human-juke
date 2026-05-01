@@ -428,7 +428,12 @@ function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomi
     gigDate: (eventData.gig_date as string | null) ?? null,
     gigStartTime: (eventData.gig_start_time as string | null) ?? null,
     gigEndTime: (eventData.gig_end_time as string | null) ?? null,
-    coverImageUrl: normalizeCoverUrl((eventData.cover_image_url as string | null) ?? null),
+    coverImageUrl: normalizeCoverUrl(
+      (eventData.cover_image_url as string | null)
+      ?? (eventData.coverImageUrl as string | null)
+      ?? (eventData.cover_url as string | null)
+      ?? null,
+    ),
   }))
 }
 
