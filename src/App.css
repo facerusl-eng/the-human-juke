@@ -9684,6 +9684,34 @@
   max-width: 100%;
 }
 
+/* QR slot: rightmost, fixed width */
+.mirror-now-playing-qr-slot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.mirror-now-playing-qr {
+  width: clamp(80px, 9vw, 140px);
+  height: clamp(80px, 9vw, 140px);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 4px;
+  image-rendering: pixelated;
+}
+
+.mirror-qr-cta {
+  font-size: clamp(0.6rem, 0.9vw, 0.8rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(93, 215, 255, 0.7);
+  margin: 0;
+  text-align: center;
+}
+
 .mirror-title,
 .mirror-artist,
 .mirror-picked-by,

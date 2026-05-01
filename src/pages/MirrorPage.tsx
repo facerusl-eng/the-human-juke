@@ -1981,6 +1981,13 @@ function MirrorPage() {
                         </>
                       ) : null}
                     </div>
+                    {/* Far right: QR code */}
+                    {!hideControlsForAudience ? (
+                      <div className="mirror-now-playing-qr-slot">
+                        <img src={qrUrl} alt="Scan to join" className="mirror-now-playing-qr" />
+                        <p className="mirror-qr-cta">Scan to request</p>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="mirror-now-playing-track">
@@ -2017,6 +2024,13 @@ function MirrorPage() {
                         </p>
                       </div>
                     </div>
+                    {/* Far right: QR code */}
+                    {!hideControlsForAudience ? (
+                      <div className="mirror-now-playing-qr-slot">
+                        <img src={qrUrl} alt="Scan to join" className="mirror-now-playing-qr" />
+                        <p className="mirror-qr-cta">Scan to request</p>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>
