@@ -162,6 +162,51 @@ function pickSpotlightCaption(authorName: string) {
   return captionBuilder(authorName)
 }
 
+function getMirrorCountdownTarget(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
+  const normalizedDate = gigDate?.trim()
+
+  if (!normalizedDate) {
+    return null
+  }
+
+  const normalizedTime = gigStartTime?.trim() ? `${gigStartTime.trim()}:00` : '19:00:00'
+  const scheduledStart = new Date(`${normalizedDate}T${normalizedTime}`)
+
+  if (Number.isNaN(scheduledStart.getTime())) {
+    return null
+  }
+
+  return scheduledStart
+}
+
+function formatMirrorCountdownLabel(remainingMs: number) {
+  const safeRemainingMs = Math.max(0, remainingMs)
+  const totalSeconds = Math.floor(safeRemainingMs / 1000)
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  const segments = [
+    days > 0 ? `${days.toString().padStart(2, '0')}d` : null,
+    `${hours.toString().padStart(2, '0')}h`,
+    `${minutes.toString().padStart(2, '0')}m`,
+    `${seconds.toString().padStart(2, '0')}s`,
+  ].filter((segment): segment is string => Boolean(segment))
+
+  return segments.join(' ')
+}
+
+function formatMirrorCountdownStartTime(date: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
+}
+
 function playShutterSound() {
   try {
     const audioContext = new window.AudioContext()
@@ -215,6 +260,7 @@ function MirrorPage() {
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
   const [showShutterFallbackPulse, setShowShutterFallbackPulse] = useState(false)
   const [failedCoverUrls, setFailedCoverUrls] = useState<Record<string, true>>({})
+  const [countdownNow, setCountdownNow] = useState(() => Date.now())
   const spotlightTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
@@ -336,6 +382,16 @@ function MirrorPage() {
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
   const shouldShowAdminElements = isHost
+  const countdownTarget = useMemo(
+    () => getMirrorCountdownTarget(event?.gigDate ?? null, event?.gigStartTime ?? null),
+    [event?.gigDate, event?.gigStartTime],
+  )
+  const countdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : null
+  const showCountdown = !isLive && Boolean(countdownTarget) && Boolean(countdownRemainingMs && countdownRemainingMs > 0)
+  const countdownLabel = showCountdown && countdownRemainingMs !== null
+    ? formatMirrorCountdownLabel(countdownRemainingMs)
+    : null
+  const countdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget) : null
 
   const onCoverLoadError = (coverUrl: string | null | undefined) => {
     if (!coverUrl) {
@@ -412,6 +468,22 @@ function MirrorPage() {
       window.removeEventListener('resize', syncPresentationState)
     }
   }, [])
+
+  useEffect(() => {
+    if (isLive || !countdownTarget) {
+      return
+    }
+
+    setCountdownNow(Date.now())
+
+    const timerId = window.setInterval(() => {
+      setCountdownNow(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [countdownTarget, isLive])
 
   useEffect(() => {
     const onRuntimeError = (event: ErrorEvent) => {
@@ -1167,6 +1239,18 @@ function MirrorPage() {
           <section className="mirror-pre-show" aria-label="Pre-show welcome">
             <h1 className="mirror-pre-show-title">Welcome to the show, legends and troublemakers!</h1>
             <p className="mirror-pre-show-subtitle">Make yourselves comfy; tonight runs on requests, applause, and questionable decisions.</p>
+            {showCountdown ? (
+              <div className="mirror-countdown-card" aria-label="Countdown to show start">
+                <p className="mirror-countdown-label">Starting In</p>
+                <p className="mirror-countdown-value">{countdownLabel}</p>
+                {countdownStartLabel ? <p className="mirror-countdown-meta">Scheduled start: {countdownStartLabel}</p> : null}
+              </div>
+            ) : countdownStartLabel ? (
+              <div className="mirror-countdown-card mirror-countdown-card-muted" aria-label="Scheduled show start">
+                <p className="mirror-countdown-label">Scheduled Start</p>
+                <p className="mirror-countdown-value mirror-countdown-value-compact">{countdownStartLabel}</p>
+              </div>
+            ) : null}
             <div className="mirror-qr-block">
               <img src={qrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
               <div className="mirror-qr-copy">

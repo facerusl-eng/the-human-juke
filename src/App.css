@@ -4524,6 +4524,59 @@
   width: clamp(164px, 17vw, 320px);
 }
 
+.mirror-countdown-card {
+  display: grid;
+  gap: 0.45rem;
+  width: min(100%, 38rem);
+  padding: clamp(0.95rem, 1.5vw, 1.35rem);
+  border-radius: 22px;
+  border: 1px solid rgba(93, 215, 255, 0.28);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(93, 215, 255, 0.16) 0%, transparent 52%),
+    linear-gradient(145deg, rgba(10, 18, 39, 0.9) 0%, rgba(12, 27, 44, 0.84) 100%);
+  box-shadow:
+    0 20px 42px rgba(4, 10, 26, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.mirror-countdown-card-muted {
+  border-color: rgba(244, 162, 97, 0.24);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(244, 162, 97, 0.12) 0%, transparent 52%),
+    linear-gradient(145deg, rgba(17, 17, 31, 0.88) 0%, rgba(23, 22, 33, 0.86) 100%);
+}
+
+.mirror-countdown-label {
+  margin: 0;
+  font-size: clamp(0.78rem, 1.2vw, 0.94rem);
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #9bdfff;
+}
+
+.mirror-countdown-value {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4.6rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 0.96;
+  color: #f8fcff;
+  text-shadow: 0 0 22px rgba(93, 215, 255, 0.2);
+}
+
+.mirror-countdown-value-compact {
+  font-size: clamp(1.2rem, 2.8vw, 2rem);
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+}
+
+.mirror-countdown-meta {
+  margin: 0;
+  font-size: clamp(0.86rem, 1.35vw, 1.02rem);
+  color: rgba(223, 243, 255, 0.84);
+}
+
 .mirror-shell-venue-festival .mirror-title {
   letter-spacing: -0.026em;
 }
