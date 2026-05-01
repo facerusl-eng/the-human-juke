@@ -9852,6 +9852,11 @@
   text-align: center;
 }
 
+.mirror-now-playing-track-idle .mirror-title-idle,
+.mirror-now-playing-track-idle .mirror-artist-idle {
+  opacity: 0.35;
+}
+
 @media (max-width: 1024px) {
   .mirror-frames-lower {
     grid-template-columns: minmax(0, 1fr);
