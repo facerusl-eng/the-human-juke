@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import AudienceNoGigState, { type AudienceUpcomingEvent } from '../components/audience/AudienceNoGigState'
 import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
 import SongVoteCard from '../components/audience/SongVoteCard'
-import { useQueueStore } from '../state/queueStore'
+import { useQueueStore, type QueueSong } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
 import {
   commitAudienceIdentity,
@@ -21,6 +21,7 @@ import {
 } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
+import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
 
 type HostProfile = {
   display_name: string | null
@@ -135,6 +136,176 @@ const PLAYBACK_SYNC_POLL_INTERVAL_MS = 10000
 const LIVE_GIG_API_POLLING_ENABLED = import.meta.env.VITE_ENABLE_LIVE_GIG_API?.trim() === '1'
 const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
+const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
+const AUDIENCE_SONG_FACT_MAX_LENGTH = 180
+const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v1'
+const AUDIENCE_SONG_FACT_PLACEHOLDER = 'No fun facts available for this song yet.'
+
+type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
+type SongWithAudienceFacts = QueueSong & { audienceFunFacts?: string[] }
+type FunFactsCache = Record<string, string[]>
+
+function countWords(text: string) {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .length
+}
+
+function countCharactersWithoutSpaces(text: string) {
+  return text.replace(/\s+/g, '').length
+}
+
+function buildInitials(text: string) {
+  const initials = text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((chunk) => chunk.charAt(0).toUpperCase())
+    .join('')
+
+  return initials || '?'
+}
+
+function containsFeatToken(text: string) {
+  return /\b(feat\.?|ft\.?)\b/i.test(text)
+}
+
+function truncateFact(value: string, maxLength = AUDIENCE_SONG_FACT_MAX_LENGTH) {
+  const normalizedValue = value.trim()
+
+  if (normalizedValue.length <= maxLength) {
+    return normalizedValue
+  }
+
+  return `${normalizedValue.slice(0, Math.max(0, maxLength - 1)).trimEnd()}...`
+}
+
+function buildFunFactsCacheKey(title: string, artist: string) {
+  return `${title.trim().toLowerCase()}::${artist.trim().toLowerCase()}`
+}
+
+function extractInterestingSentences(extract: string) {
+  const sentenceMatches = extract.match(/[^.!?]+[.!?]+/g) ?? []
+
+  const normalizedSentences = sentenceMatches
+    .map((sentence) => sentence.replace(/\s+/g, ' ').trim())
+    .filter((sentence) => sentence.length >= 40 && sentence.length <= AUDIENCE_SONG_FACT_MAX_LENGTH)
+    .filter((sentence) => !/^coordinates?:?/i.test(sentence))
+
+  return Array.from(new Set(normalizedSentences)).slice(0, 10)
+}
+
+function normalizeFunFacts(facts: string[]) {
+  const normalizedFacts = facts
+    .map((fact) => truncateFact(fact))
+    .map((fact) => fact.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  return Array.from(new Set(normalizedFacts))
+}
+
+async function fetchWikipediaSummarySentences(title: string, artist: string, signal: AbortSignal) {
+  const candidateTitles = [
+    `${title} (song)`,
+    title,
+    `${title} (${artist} song)`,
+    `${title} ${artist}`,
+  ]
+
+  for (const candidateTitle of candidateTitles) {
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(candidateTitle)}`
+
+    try {
+      const summaryResponse = await fetch(summaryUrl, { signal })
+
+      if (!summaryResponse.ok) {
+        continue
+      }
+
+      const summaryPayload = await summaryResponse.json() as { extract?: string }
+      const extract = summaryPayload.extract?.trim()
+
+      if (!extract) {
+        continue
+      }
+
+      const sentenceFacts = extractInterestingSentences(extract)
+      if (sentenceFacts.length >= 3) {
+        return sentenceFacts
+      }
+    } catch {
+      // Try next title candidate.
+    }
+  }
+
+  return []
+}
+
+async function fetchMusicBrainzFallbackFacts(title: string, artist: string, signal: AbortSignal) {
+  const query = `recording:${JSON.stringify(title)} AND artist:${JSON.stringify(artist)}`
+  const searchUrl = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&limit=1`
+
+  try {
+    const response = await fetch(searchUrl, {
+      signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const payload = await response.json() as {
+      recordings?: Array<{
+        score?: number
+        length?: number
+        'first-release-date'?: string
+        releases?: Array<{ title?: string }>
+        'artist-credit'?: Array<{ name?: string }>
+      }>
+    }
+
+    const recording = payload.recordings?.[0]
+
+    if (!recording) {
+      return []
+    }
+
+    const releaseTitle = recording.releases?.[0]?.title?.trim()
+    const firstReleaseDate = recording['first-release-date']?.trim()
+    const artistCredit = recording['artist-credit']?.map((credit) => credit.name?.trim()).filter(Boolean).join(', ')
+
+    const fallbackFacts = [
+      recording.score ? `MusicBrainz match confidence is ${recording.score}% for this track.` : null,
+      firstReleaseDate ? `MusicBrainz lists the first release date as ${firstReleaseDate}.` : null,
+      releaseTitle ? `This track appears on the release "${releaseTitle}" in MusicBrainz.` : null,
+      artistCredit ? `MusicBrainz artist credit: ${artistCredit}.` : null,
+      recording.length ? `MusicBrainz duration is about ${Math.round(recording.length / 1000)} seconds.` : null,
+    ].filter((fact): fact is string => Boolean(fact))
+
+    return fallbackFacts.slice(0, 5)
+  } catch {
+    return []
+  }
+}
+
+const SONG_INFO_BUILDERS = [
+  (song: NowPlayingInfoSong) => `Song fact: "${song.title}" has ${countWords(song.title)} word${countWords(song.title) === 1 ? '' : 's'} in the title.`,
+  (song: NowPlayingInfoSong) => `Song fact: "${song.title}" uses ${countCharactersWithoutSpaces(song.title)} characters (without spaces).`,
+  (song: NowPlayingInfoSong) => `Song fact: Artist name "${song.artist}" has ${countWords(song.artist)} word${countWords(song.artist) === 1 ? '' : 's'}.`,
+  (song: NowPlayingInfoSong) => `Song fact: Title initials are ${buildInitials(song.title)}.`,
+  (song: NowPlayingInfoSong) => containsFeatToken(song.title)
+    ? 'Song fact: This title includes a featured-artist tag (feat./ft.).'
+    : 'Song fact: This title does not include a featured-artist tag.',
+  (song: NowPlayingInfoSong) => song.is_explicit
+    ? 'Song fact: This track is marked explicit in the library.'
+    : 'Song fact: This track is marked clean in the library.',
+]
 
 function makeCacheBustedUrl(path: string) {
   const requestUrl = new URL(path, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
@@ -364,6 +535,8 @@ function EventPage() {
   const [votePulseTicks, setVotePulseTicks] = useState<Record<string, number>>({})
   const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
   const [showTipThankYou, setShowTipThankYou] = useState(false)
+  const [songFunFacts, setSongFunFacts] = useState<string[]>([])
+  const [currentSongFactIndex, setCurrentSongFactIndex] = useState(0)
   const tipThankYouTimerRef = useRef<number | null>(null)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>([])
@@ -376,6 +549,8 @@ function EventPage() {
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
   const audienceLinkVersionRef = useRef(AUDIENCE_CACHE_VERSION)
+  const funFactsCacheRef = useRef<FunFactsCache>({})
+  const funFactsInFlightRef = useRef<Partial<Record<string, Promise<string[]>>>>({})
   const votingSongIdsRef = useRef<Record<string, boolean>>({})
   const confirmationTimerRef = useRef<number | null>(null)
 
@@ -390,6 +565,15 @@ function EventPage() {
   const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
   const displaySong = isNowPlayingStarted ? activeSong : nowPlaying
   const displaySongCoverUrl = displaySong?.cover_url ?? playbackState?.currentSongCoverUrl ?? null
+  const currentSongFact = songFunFacts.length > 0
+    ? songFunFacts[currentSongFactIndex % songFunFacts.length]
+    : AUDIENCE_SONG_FACT_PLACEHOLDER
+  const factEligibleSongs = useMemo(() => songs.filter((song) => (
+    song
+    && typeof song.id === 'string'
+    && typeof song.title === 'string'
+    && typeof song.artist === 'string'
+  )), [songs])
   const upNext = useMemo(() => {
     const candidateSongs = isNowPlayingStarted
       ? songs.filter((song) => song.id !== activeSong?.id)
@@ -545,6 +729,182 @@ function EventPage() {
       }
     }
   }, [])
+
+  const persistFunFactsCache = useCallback(() => {
+    const serializedCache = JSON.stringify(funFactsCacheRef.current)
+    const result = saveTextToLocalStorage(AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY, serializedCache)
+
+    if (!result.success) {
+      console.warn('EventPage: failed to persist song fun facts cache', result.error)
+    }
+  }, [])
+
+  const ensureSongFunFacts = useCallback(async (song: QueueSong, signal: AbortSignal) => {
+    const songWithAudienceFacts = song as SongWithAudienceFacts
+    const embeddedFacts = normalizeFunFacts(songWithAudienceFacts.audienceFunFacts ?? [])
+
+    if (embeddedFacts.length > 0) {
+      return embeddedFacts.slice(0, 10)
+    }
+
+    const cacheKey = buildFunFactsCacheKey(song.title, song.artist)
+    const existingFacts = funFactsCacheRef.current[cacheKey]
+
+    if (existingFacts?.length) {
+      songWithAudienceFacts.audienceFunFacts = existingFacts
+      return existingFacts
+    }
+
+    if (funFactsInFlightRef.current[cacheKey]) {
+      return funFactsInFlightRef.current[cacheKey] as Promise<string[]>
+    }
+
+    const fetchPromise = (async () => {
+      const wikipediaFacts = await fetchWikipediaSummarySentences(song.title, song.artist, signal)
+      const fallbackFacts = wikipediaFacts.length >= 3
+        ? []
+        : await fetchMusicBrainzFallbackFacts(song.title, song.artist, signal)
+
+      const songInfoContext: NowPlayingInfoSong = {
+        title: song.title,
+        artist: song.artist,
+        is_explicit: song.is_explicit,
+      }
+      const localFacts = SONG_INFO_BUILDERS.map((songInfoBuilder) => songInfoBuilder(songInfoContext))
+
+      const mergedFacts = normalizeFunFacts([
+        ...wikipediaFacts,
+        ...fallbackFacts,
+        ...localFacts,
+      ]).slice(0, 10)
+
+      funFactsCacheRef.current[cacheKey] = mergedFacts
+      songWithAudienceFacts.audienceFunFacts = mergedFacts
+      persistFunFactsCache()
+
+      return mergedFacts
+    })()
+
+    funFactsInFlightRef.current[cacheKey] = fetchPromise
+
+    try {
+      return await fetchPromise
+    } finally {
+      delete funFactsInFlightRef.current[cacheKey]
+    }
+  }, [persistFunFactsCache])
+
+  useEffect(() => {
+    const persistedCacheText = readTextFromLocalStorage(AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY)
+
+    if (!persistedCacheText) {
+      return
+    }
+
+    try {
+      const persistedCache = JSON.parse(persistedCacheText) as FunFactsCache
+
+      if (persistedCache && typeof persistedCache === 'object') {
+        funFactsCacheRef.current = persistedCache
+      }
+    } catch {
+      // Corrupt cache is ignored and replaced on next write.
+    }
+  }, [])
+
+  useEffect(() => {
+    const abortController = new AbortController()
+
+    const prefetchFacts = async () => {
+      for (const song of factEligibleSongs) {
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        try {
+          await ensureSongFunFacts(song, abortController.signal)
+        } catch {
+          // Prefetch is best effort only.
+        }
+      }
+    }
+
+    void prefetchFacts()
+
+    return () => {
+      abortController.abort()
+    }
+  }, [ensureSongFunFacts, factEligibleSongs])
+
+  useEffect(() => {
+    if (!displaySong || isBetweenSongs) {
+      setSongFunFacts([])
+      setCurrentSongFactIndex(0)
+      return
+    }
+
+    const abortController = new AbortController()
+    const songWithAudienceFacts = displaySong as SongWithAudienceFacts
+    const embeddedFacts = normalizeFunFacts(songWithAudienceFacts.audienceFunFacts ?? [])
+
+    if (embeddedFacts.length > 0) {
+      setSongFunFacts(embeddedFacts)
+      setCurrentSongFactIndex(0)
+      return
+    }
+
+    const cacheKey = buildFunFactsCacheKey(displaySong.title, displaySong.artist)
+    const cachedFacts = funFactsCacheRef.current[cacheKey]
+
+    if (cachedFacts?.length) {
+      songWithAudienceFacts.audienceFunFacts = cachedFacts
+      setSongFunFacts(cachedFacts)
+      setCurrentSongFactIndex(0)
+      return
+    }
+
+    const loadSongFunFacts = async () => {
+      try {
+        const fetchedFacts = await ensureSongFunFacts(displaySong, abortController.signal)
+
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        setSongFunFacts(fetchedFacts)
+        setCurrentSongFactIndex(0)
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        console.warn('EventPage: failed to load song fun facts', error)
+        setSongFunFacts([])
+        setCurrentSongFactIndex(0)
+      }
+    }
+
+    void loadSongFunFacts()
+
+    return () => {
+      abortController.abort()
+    }
+  }, [displaySong, ensureSongFunFacts, isBetweenSongs])
+
+  useEffect(() => {
+    if (songFunFacts.length <= 1) {
+      setCurrentSongFactIndex(0)
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setCurrentSongFactIndex((currentIndex) => (currentIndex + 1) % songFunFacts.length)
+    }, AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [songFunFacts])
 
   const handleTipClick = useCallback(() => {
     if (tipThankYouTimerRef.current !== null) {
@@ -1395,13 +1755,26 @@ function EventPage() {
               <p className="between-songs-quote">{betweenSongQuote}</p>
             </div>
           ) : (
-            <div className="now-playing-media">
-              {displaySongCoverUrl ? (
-                <img src={normalizeCoverUrl(displaySongCoverUrl) ?? displaySongCoverUrl} alt={`Cover art for ${displaySong?.title ?? 'current song'}`} className="song-cover song-cover-large" />
-              ) : null}
-              <div>
-                <h2>{displaySong?.title ?? copy.queueThinking}</h2>
-                <p className="artist">{displaySong?.artist ?? copy.requestPrompt}</p>
+            <div className="now-playing-media now-playing-media-stacked">
+              <h2>{displaySong?.title ?? copy.queueThinking}</h2>
+              <p className="artist now-playing-artist">{displaySong?.artist ?? copy.requestPrompt}</p>
+              <div className="now-playing-artwork-slot">
+                {displaySongCoverUrl ? (
+                  <img
+                    src={normalizeCoverUrl(displaySongCoverUrl) ?? displaySongCoverUrl}
+                    alt={`Cover art for ${displaySong?.title ?? 'current song'}`}
+                    className="song-cover song-cover-large"
+                  />
+                ) : (
+                  <span className="song-cover song-cover-large song-cover-fallback now-playing-cover-fallback" aria-hidden="true">
+                    {displaySong?.audience_sings ? '🎤' : '♪'}
+                  </span>
+                )}
+              </div>
+              <div className="now-playing-fact-box" aria-live="polite">
+                <p key={`${displaySong?.id ?? 'unknown'}-${currentSongFactIndex}`} className="now-playing-fact">
+                  {currentSongFact}
+                </p>
               </div>
             </div>
           )}

@@ -629,7 +629,7 @@ function MirrorPage() {
     ?? 'Remain calm. The next song is loading.'
   const currentSongFact = funFacts.length > 0
     ? funFacts[currentFactIndex % funFacts.length]
-    : null
+    : 'No fun facts available for this song yet.'
 
   const getChosenByLine = (songId: string, name: string | null | undefined) => {
     const normalizedName = name?.trim()
@@ -1985,32 +1985,40 @@ function MirrorPage() {
                   <>
                     <p className="mirror-eyebrow">Now Playing</p>
                     <div className="mirror-now-playing-track">
-                      {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
-                        <img
-                          src={activeSong.cover_url}
-                          alt={`Cover art for ${activeSong.title}`}
-                          className="mirror-now-playing-cover"
-                          onError={() => onCoverLoadError(activeSong.cover_url)}
-                        />
-                      ) : null}
                       <div className="mirror-now-playing-meta">
                         <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests from bold citizens...')}</h1>
                         <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune and set the tone.')}</p>
-                        {activeSongChosenByLine ? (
-                          <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
-                            {activeSongChosenByLine}
-                          </p>
-                        ) : null}
+                      </div>
+                      <div className="mirror-now-playing-artwork-slot">
+                        {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
+                          <img
+                            src={activeSong.cover_url}
+                            alt={`Cover art for ${activeSong.title}`}
+                            className="mirror-now-playing-cover"
+                            onError={() => onCoverLoadError(activeSong.cover_url)}
+                          />
+                        ) : activeSong.audience_sings ? (
+                          <span className="mirror-now-playing-karaoke-mark" aria-label="Karaoke request">Karaoke</span>
+                        ) : (
+                          <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
+                        )}
+                      </div>
+                      <div className="mirror-now-playing-facts" aria-live="polite">
                         <div className="mirror-song-fact-box" aria-live="polite">
                           <p key={`${activeSong.id}-${currentFactIndex}`} className="mirror-song-fact">
-                            {currentSongFact ?? currentBetweenSongQuote}
+                            {currentSongFact}
                           </p>
                         </div>
-                        {activeSong.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
-                        {karaokeCheer ? (
-                          <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
-                        ) : null}
                       </div>
+                      {activeSongChosenByLine ? (
+                        <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
+                          {activeSongChosenByLine}
+                        </p>
+                      ) : null}
+                      {activeSong.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
+                      {karaokeCheer ? (
+                        <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
+                      ) : null}
                     </div>
                   </>
                 )}
