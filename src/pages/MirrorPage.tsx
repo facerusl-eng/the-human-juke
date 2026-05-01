@@ -73,6 +73,7 @@ const CHOSEN_BY_ACCENT_CLASSES = [
 const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const SONG_INFO_ROTATE_INTERVAL_MS = 15000
+const SONG_FACT_MAX_LENGTH = 180
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
 const MIRROR_PLAYBACK_STORAGE_KEY = PLAYBACK_STATE_STORAGE_KEY
 const MIRROR_PLAYBACK_BROADCAST_CHANNEL = PLAYBACK_STATE_BROADCAST_CHANNEL
@@ -111,6 +112,113 @@ function buildInitials(text: string) {
 
 function containsFeatToken(text: string) {
   return /\b(feat\.?|ft\.?)\b/i.test(text)
+}
+
+function stripHtmlTags(value: string) {
+  return value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function truncateFact(value: string, maxLength = SONG_FACT_MAX_LENGTH) {
+  const normalizedValue = value.trim()
+
+  if (normalizedValue.length <= maxLength) {
+    return normalizedValue
+  }
+
+  return `${normalizedValue.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`
+}
+
+function sentenceCase(value: string) {
+  const trimmedValue = value.trim()
+
+  if (!trimmedValue) {
+    return trimmedValue
+  }
+
+  return `${trimmedValue.charAt(0).toUpperCase()}${trimmedValue.slice(1)}`
+}
+
+async function fetchWikipediaSummaryFact(searchTerm: string, signal: AbortSignal) {
+  const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&utf8=1&format=json&origin=*`
+  const searchResponse = await fetch(searchUrl, { signal })
+
+  if (!searchResponse.ok) {
+    return null
+  }
+
+  const searchPayload = await searchResponse.json() as {
+    query?: { search?: Array<{ title?: string }> }
+  }
+  const pageTitle = searchPayload.query?.search?.[0]?.title?.trim()
+
+  if (!pageTitle) {
+    return null
+  }
+
+  const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`
+  const summaryResponse = await fetch(summaryUrl, { signal })
+
+  if (!summaryResponse.ok) {
+    return null
+  }
+
+  const summaryPayload = await summaryResponse.json() as {
+    extract?: string
+    description?: string
+    title?: string
+  }
+
+  const extract = summaryPayload.extract?.trim()
+
+  if (extract) {
+    return truncateFact(`Wiki fact: ${extract}`)
+  }
+
+  const description = summaryPayload.description?.trim()
+
+  if (description) {
+    return truncateFact(`Wiki fact: ${summaryPayload.title ?? pageTitle} - ${sentenceCase(description)}.`)
+  }
+
+  return null
+}
+
+async function fetchWikiquoteFact(artistName: string, signal: AbortSignal) {
+  const parseUrl = `https://en.wikiquote.org/w/api.php?action=parse&page=${encodeURIComponent(artistName)}&prop=text&section=1&format=json&origin=*`
+  const parseResponse = await fetch(parseUrl, { signal })
+
+  if (!parseResponse.ok) {
+    return null
+  }
+
+  const parsePayload = await parseResponse.json() as {
+    parse?: { text?: { '*': string } }
+  }
+  const html = parsePayload.parse?.text?.['*']
+
+  if (!html) {
+    return null
+  }
+
+  const quoteMatch = html.match(/<li>(.*?)<\/li>/i)
+
+  if (!quoteMatch?.[1]) {
+    return null
+  }
+
+  const quoteText = stripHtmlTags(quoteMatch[1])
+
+  if (!quoteText) {
+    return null
+  }
+
+  return truncateFact(`Quote: ${quoteText}`)
 }
 
 const SONG_INFO_BUILDERS = [
@@ -346,6 +454,7 @@ function MirrorPage() {
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [karaokeCheer, setKaraokeCheer] = useState<string | null>(null)
   const [nowPlayingSongInfo, setNowPlayingSongInfo] = useState<string | null>(null)
+  const [externalSongFacts, setExternalSongFacts] = useState<string[]>([])
   const spacebarBusyRef = useRef(false)
   const lastSpacebarActionAtRef = useRef(0)
   const [flashActive, setFlashActive] = useState(false)
@@ -381,6 +490,7 @@ function MirrorPage() {
   const chosenByPhraseIndexBySongIdRef = useRef<Record<string, number>>({})
   const lastChosenByPhraseIndexRef = useRef<number | null>(null)
   const lastSongInfoIndexRef = useRef<number | null>(null)
+  const externalSongFactsCacheRef = useRef<Record<string, string[]>>({})
 
   const setMirrorWarningMessage = (message: string) => {
     if (mirrorWarningClearTimerRef.current !== null) {
@@ -707,6 +817,60 @@ function MirrorPage() {
 
   useEffect(() => {
     if (!isNowPlayingStarted || !activeSong) {
+      setExternalSongFacts([])
+      return
+    }
+
+    const cachedFacts = externalSongFactsCacheRef.current[activeSong.id]
+
+    if (cachedFacts) {
+      setExternalSongFacts(cachedFacts)
+      return
+    }
+
+    const abortController = new AbortController()
+
+    const loadExternalSongFacts = async () => {
+      try {
+        const songSearchTerm = `${activeSong.title} ${activeSong.artist} song`
+
+        const [songSummaryFact, artistSummaryFact, artistQuoteFact] = await Promise.all([
+          fetchWikipediaSummaryFact(songSearchTerm, abortController.signal),
+          fetchWikipediaSummaryFact(activeSong.artist, abortController.signal),
+          fetchWikiquoteFact(activeSong.artist, abortController.signal),
+        ])
+
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        const normalizedFacts = [songSummaryFact, artistSummaryFact, artistQuoteFact]
+          .filter((fact): fact is string => Boolean(fact))
+
+        const uniqueFacts = Array.from(new Set(normalizedFacts))
+
+        externalSongFactsCacheRef.current[activeSong.id] = uniqueFacts
+        setExternalSongFacts(uniqueFacts)
+      } catch (error) {
+        if (abortController.signal.aborted) {
+          return
+        }
+
+        console.warn('MirrorPage: failed to fetch external song facts', error)
+        externalSongFactsCacheRef.current[activeSong.id] = []
+        setExternalSongFacts([])
+      }
+    }
+
+    void loadExternalSongFacts()
+
+    return () => {
+      abortController.abort()
+    }
+  }, [isNowPlayingStarted, activeSong?.id, activeSong?.title, activeSong?.artist])
+
+  useEffect(() => {
+    if (!isNowPlayingStarted || !activeSong) {
       setNowPlayingSongInfo(null)
       lastSongInfoIndexRef.current = null
       return
@@ -718,22 +882,25 @@ function MirrorPage() {
       is_explicit: activeSong.is_explicit,
     }
 
-    const rotateSongInfo = () => {
-      const buildersCount = SONG_INFO_BUILDERS.length
+    const localFacts = SONG_INFO_BUILDERS.map((songInfoBuilder) => songInfoBuilder(songInfoContext))
+    const combinedFacts = [...externalSongFacts, ...localFacts]
 
-      if (buildersCount <= 0) {
+    const rotateSongInfo = () => {
+      const factsCount = combinedFacts.length
+
+      if (factsCount <= 0) {
         setNowPlayingSongInfo(null)
         return
       }
 
-      let infoIndex = Math.floor(Math.random() * buildersCount)
+      let infoIndex = Math.floor(Math.random() * factsCount)
 
-      if (buildersCount > 1 && infoIndex === lastSongInfoIndexRef.current) {
-        infoIndex = (infoIndex + 1 + Math.floor(Math.random() * (buildersCount - 1))) % buildersCount
+      if (factsCount > 1 && infoIndex === lastSongInfoIndexRef.current) {
+        infoIndex = (infoIndex + 1 + Math.floor(Math.random() * (factsCount - 1))) % factsCount
       }
 
       lastSongInfoIndexRef.current = infoIndex
-      setNowPlayingSongInfo(SONG_INFO_BUILDERS[infoIndex](songInfoContext))
+      setNowPlayingSongInfo(combinedFacts[infoIndex])
     }
 
     rotateSongInfo()
@@ -747,10 +914,8 @@ function MirrorPage() {
     activeSong?.id,
     activeSong?.title,
     activeSong?.artist,
-    activeSong?.votes_count,
-    activeSong?.createdByName,
-    activeSong?.audience_sings,
-    activeSong?.position,
+    activeSong?.is_explicit,
+    externalSongFacts,
   ])
 
   const setQuoteIndex = (nextQuoteIndex: number) => {
