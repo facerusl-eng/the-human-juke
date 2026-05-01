@@ -8495,6 +8495,61 @@
     font-size: clamp(0.94rem, 3.3vw, 1.16rem);
   }
 }
+
+@media (min-width: 1920px) and (max-width: 2559px) and (min-height: 1080px) {
+  .mirror-now-playing-frame,
+  .mirror-shell-hide-controls .mirror-now-playing-frame {
+    width: min(100%, 1520px);
+    padding-right: calc(clamp(1rem, 1.5vw, 1.5rem) + var(--mirror-now-playing-qr-safe-space));
+  }
+
+  .mirror-title {
+    font-size: clamp(2.8rem, 4.4vw, 4.9rem);
+    line-height: 1.02;
+  }
+
+  .mirror-artist {
+    font-size: clamp(1.3rem, 1.95vw, 1.9rem);
+  }
+
+  .mirror-song-fact-box {
+    width: min(100%, 1020px);
+    padding: clamp(1rem, 1.5vw, 1.5rem) clamp(1.3rem, 2.1vw, 2rem);
+  }
+
+  .mirror-song-fact {
+    font-size: clamp(2.15rem, 3.2vw, 2.8rem);
+    line-height: 1.24;
+  }
+}
+
+@media (min-width: 2560px) and (min-height: 1440px) {
+  .mirror-now-playing-frame,
+  .mirror-shell-hide-controls .mirror-now-playing-frame {
+    width: min(100%, 1720px);
+    padding-right: calc(clamp(1.1rem, 1.6vw, 1.9rem) + var(--mirror-now-playing-qr-safe-space));
+  }
+
+  .mirror-title {
+    font-size: clamp(3.6rem, 4.2vw, 6.1rem);
+    line-height: 1.01;
+  }
+
+  .mirror-artist {
+    font-size: clamp(1.7rem, 2vw, 2.5rem);
+  }
+
+  .mirror-song-fact-box {
+    width: min(100%, 1240px);
+    padding: clamp(1.3rem, 1.8vw, 2.2rem) clamp(1.7rem, 2.5vw, 2.9rem);
+  }
+
+  .mirror-song-fact {
+    font-size: clamp(2.6rem, 3.2vw, 3.4rem);
+    line-height: 1.22;
+  }
+}
+
 .setlist-kpis strong {
   font-family: var(--font-head);
   font-size: 1.5rem;
