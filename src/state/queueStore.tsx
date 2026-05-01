@@ -248,6 +248,27 @@ function isMissingCoverImageColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes('cover_image_url')
 }
 
+function isMissingTipThankYouMessageColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204')
+    && (text.includes('tip_thank_you_message_da') || text.includes('tip_thank_you_message_en'))
+}
+
 function isMissingPlaylistTypeColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -1899,76 +1920,66 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
+        const eventUpdatePayload: Record<string, unknown> = {
+          name: updates.name,
+          venue: updates.venue || null,
+          gig_date: updates.gigDate || null,
+          gig_start_time: updates.gigStartTime || null,
+          gig_end_time: updates.gigEndTime || null,
+          subtitle: updates.subtitle || null,
+          request_instructions: updates.requestInstructions || null,
+          instagram_url: updates.instagramUrl || null,
+          tiktok_url: updates.tiktokUrl || null,
+          youtube_url: updates.youtubeUrl || null,
+          facebook_url: updates.facebookUrl || null,
+          paypal_url: updates.paypalUrl || null,
+          mobilpay_url: updates.mobilpayUrl || null,
+          contact_email: updates.contactEmail || null,
+          playlist_only_requests: updates.playlistOnlyRequests,
+          mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
+          mirror_countdown_enabled: updates.mirrorCountdownEnabled,
+          allow_duplicate_requests: updates.allowDuplicateRequests,
+          max_active_requests_per_user: updates.maxActiveRequestsPerUser,
+          room_open: updates.roomOpen,
+          explicit_filter_enabled: updates.explicitFilterEnabled,
+          show_in_audience_no_gig: updates.showInAudienceNoGig,
+          cover_image_url: updates.coverImageUrl,
+          venue_logo_url: updates.venueLogoUrl,
+          show_custom_button: updates.showCustomButton,
+          custom_button_label: updates.customButtonLabel || null,
+          custom_button_link: updates.customButtonLink || null,
+          tip_thank_you_message_da: updates.tipThankYouMessageDA || null,
+          tip_thank_you_message_en: updates.tipThankYouMessageEN || null,
+        }
+
         const { error } = await withTimeout(
           withAuthLockRetry(() =>
             supabase
               .from('events')
-              .update({
-                name: updates.name,
-                venue: updates.venue || null,
-                gig_date: updates.gigDate || null,
-                gig_start_time: updates.gigStartTime || null,
-                gig_end_time: updates.gigEndTime || null,
-                subtitle: updates.subtitle || null,
-                request_instructions: updates.requestInstructions || null,
-                instagram_url: updates.instagramUrl || null,
-                tiktok_url: updates.tiktokUrl || null,
-                youtube_url: updates.youtubeUrl || null,
-                facebook_url: updates.facebookUrl || null,
-                paypal_url: updates.paypalUrl || null,
-                mobilpay_url: updates.mobilpayUrl || null,
-                contact_email: updates.contactEmail || null,
-                playlist_only_requests: updates.playlistOnlyRequests,
-                mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
-                mirror_countdown_enabled: updates.mirrorCountdownEnabled,
-                allow_duplicate_requests: updates.allowDuplicateRequests,
-                max_active_requests_per_user: updates.maxActiveRequestsPerUser,
-                room_open: updates.roomOpen,
-                explicit_filter_enabled: updates.explicitFilterEnabled,
-                show_in_audience_no_gig: updates.showInAudienceNoGig,
-                cover_image_url: updates.coverImageUrl,
-                venue_logo_url: updates.venueLogoUrl,
-                show_custom_button: updates.showCustomButton,
-                custom_button_label: updates.customButtonLabel || null,
-                custom_button_link: updates.customButtonLink || null,
-                tip_thank_you_message_da: updates.tipThankYouMessageDA || null,
-                tip_thank_you_message_en: updates.tipThankYouMessageEN || null,
-              })
+              .update(eventUpdatePayload)
               .eq('id', event.id),
           ),
           DEFAULT_DB_TIMEOUT_MS,
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error && isMissingCoverImageColumnError(error)) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error))) {
+          const fallbackPayload = { ...eventUpdatePayload }
+
+          if (isMissingCoverImageColumnError(error)) {
+            delete fallbackPayload.cover_image_url
+          }
+
+          if (isMissingTipThankYouMessageColumnError(error)) {
+            delete fallbackPayload.tip_thank_you_message_da
+            delete fallbackPayload.tip_thank_you_message_en
+          }
+
           const { error: fallbackError } = await withTimeout(
             withAuthLockRetry(() =>
               supabase
                 .from('events')
-                .update({
-                  name: updates.name,
-                  venue: updates.venue || null,
-                  gig_date: updates.gigDate || null,
-                  gig_start_time: updates.gigStartTime || null,
-                  gig_end_time: updates.gigEndTime || null,
-                  subtitle: updates.subtitle || null,
-                  request_instructions: updates.requestInstructions || null,
-                  instagram_url: updates.instagramUrl || null,
-                  tiktok_url: updates.tiktokUrl || null,
-                  youtube_url: updates.youtubeUrl || null,
-                  facebook_url: updates.facebookUrl || null,
-                  paypal_url: updates.paypalUrl || null,
-                  mobilpay_url: updates.mobilpayUrl || null,
-                  contact_email: updates.contactEmail || null,
-                  playlist_only_requests: updates.playlistOnlyRequests,
-                  mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
-                  mirror_countdown_enabled: updates.mirrorCountdownEnabled,
-                  allow_duplicate_requests: updates.allowDuplicateRequests,
-                  max_active_requests_per_user: updates.maxActiveRequestsPerUser,
-                  room_open: updates.roomOpen,
-                  explicit_filter_enabled: updates.explicitFilterEnabled,
-                  show_in_audience_no_gig: updates.showInAudienceNoGig,
-                })
+                .update(fallbackPayload)
                 .eq('id', event.id),
             ),
             DEFAULT_DB_TIMEOUT_MS,
