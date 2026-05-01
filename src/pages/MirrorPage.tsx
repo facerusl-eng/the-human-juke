@@ -1952,69 +1952,72 @@ function MirrorPage() {
               <div className={`mirror-now-playing-frame ${isNowPlayingStarted && activeSong ? 'mirror-now-playing-frame-active' : 'mirror-now-playing-frame-idle'}`}>
                 {!isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
-                    <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
-                    {nextSong ? (
-                      <>
-                        <p className="mirror-up-next-label mirror-up-next-label-inline">Up next</p>
-                        <div className="mirror-now-playing-artwork-slot">
-                          {nextSong.cover_url && !failedCoverUrls[nextSong.cover_url] ? (
-                            <img
-                              src={nextSong.cover_url}
-                              alt={`Cover art for ${nextSong.title}`}
-                              className="mirror-now-playing-cover mirror-now-playing-cover-next"
-                              onError={() => onCoverLoadError(nextSong.cover_url)}
-                            />
-                          ) : (
-                            <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
-                          )}
-                        </div>
-                        <h1 className="mirror-title mirror-title-next">{normalizeMirrorText(nextSong.title, '?')}</h1>
-                        <p className="mirror-artist mirror-artist-next">{normalizeMirrorText(nextSong.artist, '')}</p>
-                        {nextSong.createdByName ? (
-                          <p className={`mirror-picked-by ${getChosenByAccentClass(nextSong.id)}`}>
-                            {getChosenByLine(nextSong.id, nextSong.createdByName) ?? `Chosen by ${nextSong.createdByName}`}
-                          </p>
-                        ) : null}
-                      </>
-                    ) : (
-                      <div className="mirror-now-playing-artwork-slot">
+                    {/* Left: artwork of next song */}
+                    <div className="mirror-now-playing-artwork-slot">
+                      {nextSong?.cover_url && !failedCoverUrls[nextSong.cover_url] ? (
+                        <img
+                          src={nextSong.cover_url}
+                          alt={`Cover art for ${nextSong.title}`}
+                          className="mirror-now-playing-cover mirror-now-playing-cover-next"
+                          onError={() => onCoverLoadError(nextSong.cover_url)}
+                        />
+                      ) : (
                         <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    {/* Middle: quote + up-next song info */}
+                    <div className="mirror-now-playing-meta">
+                      <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
+                      {nextSong ? (
+                        <>
+                          <p className="mirror-up-next-label mirror-up-next-label-inline">Up next</p>
+                          <h1 className="mirror-title mirror-title-next">{normalizeMirrorText(nextSong.title, '?')}</h1>
+                          <p className="mirror-artist mirror-artist-next">{normalizeMirrorText(nextSong.artist, '')}</p>
+                          {nextSong.createdByName ? (
+                            <p className={`mirror-picked-by ${getChosenByAccentClass(nextSong.id)}`}>
+                              {getChosenByLine(nextSong.id, nextSong.createdByName) ?? `Chosen by ${nextSong.createdByName}`}
+                            </p>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                 ) : (
-                  <>
-                    <div className="mirror-now-playing-track">
-                      <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests from bold citizens...')}</h1>
-                      <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune and set the tone.')}</p>
-                      <div className="mirror-now-playing-artwork-slot">
-                        {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
-                          <img
-                            src={activeSong.cover_url}
-                            alt={`Cover art for ${activeSong.title}`}
-                            className="mirror-now-playing-cover"
-                            onError={() => onCoverLoadError(activeSong.cover_url)}
-                          />
-                        ) : activeSong.audience_sings ? (
-                          <span className="mirror-now-playing-karaoke-mark" aria-label="Karaoke request">Karaoke</span>
-                        ) : (
-                          <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
-                        )}
-                      </div>
+                  <div className="mirror-now-playing-track">
+                    {/* Left: album art */}
+                    <div className="mirror-now-playing-artwork-slot">
+                      {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
+                        <img
+                          src={activeSong.cover_url}
+                          alt={`Cover art for ${activeSong.title}`}
+                          className="mirror-now-playing-cover"
+                          onError={() => onCoverLoadError(activeSong.cover_url)}
+                        />
+                      ) : activeSong.audience_sings ? (
+                        <span className="mirror-now-playing-karaoke-mark" aria-label="Karaoke request">Karaoke</span>
+                      ) : (
+                        <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
+                      )}
+                    </div>
+                    {/* Middle: title, artist, chosen-by */}
+                    <div className="mirror-now-playing-meta">
+                      <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests…')}</h1>
+                      <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune.')}</p>
                       {activeSongChosenByLine ? (
                         <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
                           {activeSongChosenByLine}
                         </p>
                       ) : null}
-                      <div className="mirror-now-playing-facts" aria-live="polite">
-                        <div className="mirror-song-fact-box" aria-live="polite">
-                          <p key={`${activeSong.id}-${currentFactIndex}`} className="mirror-song-fact">
-                            {currentSongFact}
-                          </p>
-                        </div>
+                    </div>
+                    {/* Right: fun fact */}
+                    <div className="mirror-now-playing-facts" aria-live="polite">
+                      <div className="mirror-song-fact-box" aria-live="polite">
+                        <p key={`${activeSong.id}-${currentFactIndex}`} className="mirror-song-fact">
+                          {currentSongFact}
+                        </p>
                       </div>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </section>

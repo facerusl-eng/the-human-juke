@@ -9648,13 +9648,40 @@
 
 .mirror-now-playing-track,
 .mirror-shell-hide-controls .mirror-now-playing-track {
-  width: min(100%, 1120px);
-  grid-template-columns: 1fr;
-  justify-items: center;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  text-align: center;
-  gap: clamp(0.8rem, 1.4vw, 1.4rem);
-  padding-right: 0;
+  gap: clamp(1.2rem, 2vw, 2.4rem);
+  padding: 0 clamp(0.8rem, 1.5vw, 1.8rem);
+  text-align: left;
+  min-width: 0;
+}
+
+/* Artwork: fixed width, no shrink */
+.mirror-stage-live .mirror-now-playing-artwork-slot {
+  flex: 0 0 auto;
+}
+
+/* Meta (title + artist + chosen-by): grows to fill available space */
+.mirror-stage-live .mirror-now-playing-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.6vw, 10px);
+}
+
+/* Facts box: fixed max-width on the right */
+.mirror-stage-live .mirror-now-playing-facts {
+  flex: 0 0 auto;
+  max-width: clamp(180px, 28%, 380px);
+  min-width: 0;
+}
+
+.mirror-stage-live .mirror-now-playing-facts .mirror-song-fact {
+  font-size: clamp(0.95rem, 1.5vw, 1.4rem);
+  max-width: 100%;
 }
 
 .mirror-title,
@@ -9867,14 +9894,14 @@
 
 /* Between-songs state */
 .mirror-between-song-quote {
-  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+  font-size: clamp(1.1rem, 2vw, 1.8rem);
   font-style: italic;
   font-weight: 500;
   color: rgba(247, 251, 255, 0.72);
-  text-align: center;
+  text-align: left;
   max-width: min(72ch, 100%);
   line-height: 1.45;
-  margin: 0;
+  margin: 0 0 clamp(6px, 0.8vw, 12px);
 }
 
 .mirror-up-next-label-inline {
