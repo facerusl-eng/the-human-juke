@@ -205,6 +205,16 @@ function buildChosenByLine(name: string | null | undefined, phraseIndex: number)
   return chosenByBuilder(normalizedName)
 }
 
+function buildQueuePickedByTail(name: string | null | undefined) {
+  const normalizedName = name?.trim()
+
+  if (!normalizedName) {
+    return null
+  }
+
+  return `picked by ${normalizedName}`
+}
+
 function getMirrorCountdownTarget(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
   const normalizedDate = gigDate?.trim()
 
@@ -1594,10 +1604,12 @@ function MirrorPage() {
                         ) : null}
                         <div className="mirror-queue-info">
                           <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
-                          <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
-                          {song.createdByName ? (
-                            <span className="mirror-queue-picker">{getChosenByLine(song.id, song.createdByName) ?? `Chosen by ${song.createdByName}`}</span>
-                          ) : null}
+                          <span className="mirror-queue-artist">
+                            {normalizeMirrorText(song.artist, 'Unknown Artist')}
+                            {song.createdByName ? (
+                              <span className="mirror-queue-artist-picker">{` · ${buildQueuePickedByTail(song.createdByName) ?? `picked by ${song.createdByName}`}`}</span>
+                            ) : null}
+                          </span>
                           {song.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                         </div>
                         <span className="mirror-queue-votes">+{song.votes_count}</span>

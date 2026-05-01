@@ -5197,6 +5197,11 @@
   font-style: italic;
   opacity: 0.8;
   display: -webkit-box;
+.mirror-queue-artist-picker {
+  color: #a8c5dd;
+  font-style: italic;
+  opacity: 0.82;
+}
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -5205,6 +5210,9 @@
   word-break: break-word;
 }
 
+.mirror-shell-hide-controls .mirror-queue-artist-picker {
+  opacity: 0.86;
+}
 .mirror-queue-votes {
   font-family: var(--font-head);
   font-size: clamp(0.9rem, 1.8vw, 1.3rem);
