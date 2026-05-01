@@ -612,7 +612,6 @@ function MirrorPage() {
     : 0
   const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
     ?? 'Remain calm. The next song is loading.'
-  const nextSong = !isNowPlayingStarted ? (safeSongs[0] ?? null) : null
   const currentSongFact = funFacts.length > 0
     ? funFacts[currentFactIndex % funFacts.length]
     : 'No fun facts available for this song yet.'
@@ -1978,34 +1977,9 @@ function MirrorPage() {
             <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
                 {!isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
-                    {/* Left: artwork of next song */}
-                    <div className="mirror-now-playing-artwork-slot">
-                      {nextSong?.cover_url && !failedCoverUrls[nextSong.cover_url] ? (
-                        <img
-                          src={nextSong.cover_url}
-                          alt={`Cover art for ${nextSong.title}`}
-                          className="mirror-now-playing-cover mirror-now-playing-cover-next"
-                          onError={() => onCoverLoadError(nextSong.cover_url)}
-                        />
-                      ) : (
-                        <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
-                      )}
-                    </div>
-                    {/* Middle: quote + up-next song info */}
+                    {/* Middle: quote-only between songs state to match Gig Control preview */}
                     <div className="mirror-now-playing-meta">
                       <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
-                      {nextSong ? (
-                        <>
-                          <p className="mirror-up-next-label mirror-up-next-label-inline">Up next</p>
-                          <h1 className="mirror-title mirror-title-next">{normalizeMirrorText(nextSong.title, '?')}</h1>
-                          <p className="mirror-artist mirror-artist-next">{normalizeMirrorText(nextSong.artist, '')}</p>
-                          {nextSong.createdByName ? (
-                            <p className={`mirror-picked-by ${getChosenByAccentClass(nextSong.id)}`}>
-                              {getChosenByLine(nextSong.id, nextSong.createdByName) ?? `Chosen by ${nextSong.createdByName}`}
-                            </p>
-                          ) : null}
-                        </>
-                      ) : null}
                     </div>
                     {/* Far right: QR code */}
                     <div className="mirror-now-playing-qr-slot">
