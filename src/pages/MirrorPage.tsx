@@ -594,10 +594,11 @@ function MirrorPage() {
     : null
   const activeSong = playbackSong ?? nowPlaying
   const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
+  const maxUpNextSongs = hideControlsForAudience ? 4 : 5
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
-    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, 5)
-    : safeSongs.slice(0, 5)
+    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, maxUpNextSongs)
+    : safeSongs.slice(0, maxUpNextSongs)
   const hiddenQueueCount = Math.max(0, safeSongs.length - (isNowPlayingStarted ? 1 : 0) - upNext.length)
   const normalizedBetweenSongQuoteIndex = Number.isFinite(betweenSongQuoteIndex)
     ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length

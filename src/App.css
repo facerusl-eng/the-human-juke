@@ -4276,13 +4276,13 @@
 
 .mirror-shell-hide-controls .mirror-queue {
   gap: clamp(0.48rem, 0.72vw, 0.72rem);
-  grid-template-rows: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
 }
 
 .mirror-shell-hide-controls .mirror-queue-item {
   min-height: 0;
   height: 100%;
-  padding: clamp(0.52rem, 0.8vw, 0.78rem);
+  padding: clamp(0.58rem, 0.9vw, 0.9rem);
   border-radius: 14px;
 }
 
