@@ -1200,7 +1200,7 @@ function MirrorPage() {
       ?? searchParams.get('quality')?.trim().toLowerCase()
 
     const hasContrastQuery = contrastParam === '1' || contrastParam === 'high' || contrastParam === 'true'
-    const hasCastClarityQuery = castParam === '1' || castParam === 'true' || castParam === 'cast' || castParam === 'clarity'
+    const hasCastBlurQuery = castParam === '0' || castParam === 'false' || castParam === 'off' || castParam === 'blur'
     const persistedContrastPreference = readTextFromLocalStorage(MIRROR_HIGH_CONTRAST_STORAGE_KEY) === '1'
     const hasSafeMarginsQuery = safeMarginsParam === '1' || safeMarginsParam === 'on' || safeMarginsParam === 'true'
     const persistedSafeMarginsPreference = readTextFromLocalStorage(MIRROR_SAFE_MARGINS_STORAGE_KEY) === '1'
@@ -1211,7 +1211,10 @@ function MirrorPage() {
       : 'medium'
 
     setHighContrastMode(hasContrastQuery || persistedContrastPreference)
-    setCastClarityMode(hasCastClarityQuery)
+    const resolvedCastClarityMode = !hasCastBlurQuery
+
+    // Keep mirror output crisp by default, including after hard refresh.
+    setCastClarityMode(resolvedCastClarityMode)
     setDensityMode(resolvedDensityMode)
     setVenueMode(resolvedVenueMode)
     setShowSafeMargins(hasSafeMarginsQuery || persistedSafeMarginsPreference)
