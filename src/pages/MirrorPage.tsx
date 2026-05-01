@@ -2074,7 +2074,7 @@ function MirrorPage() {
 
                       return (
                         <li key={song.id} className="mirror-queue-item">
-                          <span className="mirror-queue-pos">{index + 2}</span>
+                          <span className="mirror-queue-pos">{index + (isNowPlayingStarted ? 2 : 1)}</span>
                           {song.cover_url && !failedCoverUrls[song.cover_url] ? (
                             <img
                               src={song.cover_url}

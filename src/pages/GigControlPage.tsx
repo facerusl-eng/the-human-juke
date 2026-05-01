@@ -874,7 +874,7 @@ function GigControlPage() {
                 </div>
                 <p className="gig-mirror-preview-label">Now Playing</p>
                 <div className="gig-mirror-preview-now-playing-stage">
-                  {nowPlaying && !isNowPlayingStarted ? (
+                  {!isNowPlayingStarted ? (
                     <div className="gig-mirror-preview-quote-shell">
                       <p className="gig-mirror-preview-quote">{betweenSongQuote}</p>
                     </div>
