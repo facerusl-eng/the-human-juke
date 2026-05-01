@@ -87,6 +87,7 @@ type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
 type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
 type FunFactsCache = Record<string, string[]>
+type SongWithMirrorFacts = QueueSong & { mirrorFunFacts?: string[] }
 
 function countWords(text: string) {
   return text
@@ -180,7 +181,7 @@ async function fetchWikipediaSummarySentences(title: string, artist: string, sig
 
       const sentenceFacts = extractInterestingSentences(extract)
 
-      if (sentenceFacts.length > 0) {
+      if (sentenceFacts.length >= 3) {
         return sentenceFacts
       }
     } catch {
@@ -626,6 +627,9 @@ function MirrorPage() {
     : 0
   const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
     ?? 'Remain calm. The next song is loading.'
+  const currentSongFact = funFacts.length > 0
+    ? funFacts[currentFactIndex % funFacts.length]
+    : null
 
   const getChosenByLine = (songId: string, name: string | null | undefined) => {
     const normalizedName = name?.trim()
@@ -869,10 +873,18 @@ function MirrorPage() {
   }, [])
 
   const ensureSongFunFacts = useCallback(async (song: QueueSong, signal: AbortSignal) => {
+    const songWithMirrorFacts = song as SongWithMirrorFacts
+    const embeddedFacts = normalizeFunFacts(songWithMirrorFacts.mirrorFunFacts ?? [])
+
+    if (embeddedFacts.length > 0) {
+      return embeddedFacts.slice(0, 10)
+    }
+
     const cacheKey = buildFunFactsCacheKey(song.title, song.artist)
     const existingFacts = funFactsCacheRef.current[cacheKey]
 
     if (existingFacts?.length) {
+      songWithMirrorFacts.mirrorFunFacts = existingFacts
       return existingFacts
     }
 
@@ -898,11 +910,15 @@ function MirrorPage() {
         ...fallbackFacts,
         ...localFacts,
       ]).slice(0, 10)
+      const guaranteedFacts = mergedFacts.length >= 3
+        ? mergedFacts
+        : normalizeFunFacts([...mergedFacts, ...localFacts]).slice(0, 10)
 
-      funFactsCacheRef.current[cacheKey] = mergedFacts
+      funFactsCacheRef.current[cacheKey] = guaranteedFacts
+      songWithMirrorFacts.mirrorFunFacts = guaranteedFacts
       persistFunFactsCache()
 
-      return mergedFacts
+      return guaranteedFacts
     })()
 
     funFactsInFlightRef.current[cacheKey] = fetchPromise
@@ -946,10 +962,20 @@ function MirrorPage() {
     }
 
     const abortController = new AbortController()
+    const activeSongWithMirrorFacts = activeSong as SongWithMirrorFacts
+    const embeddedFacts = normalizeFunFacts(activeSongWithMirrorFacts.mirrorFunFacts ?? [])
+
+    if (embeddedFacts.length > 0) {
+      setFunFacts(embeddedFacts)
+      setCurrentFactIndex(0)
+      return
+    }
+
     const cacheKey = buildFunFactsCacheKey(activeSong.title, activeSong.artist)
     const cachedFacts = funFactsCacheRef.current[cacheKey]
 
     if (cachedFacts?.length) {
+      activeSongWithMirrorFacts.mirrorFunFacts = cachedFacts
       setFunFacts(cachedFacts)
       setCurrentFactIndex(0)
       return
@@ -1938,45 +1964,45 @@ function MirrorPage() {
           <>
             <section className={`mirror-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
               <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
-              {!isNowPlayingStarted && nowPlaying ? (
-                <div className="mirror-between-songs" aria-label="Between songs">
-                  <p className="mirror-between-songs-quote">{currentBetweenSongQuote}</p>
-                </div>
-              ) : (
-                <>
-                  <p className="mirror-eyebrow">Now Playing</p>
-                  <div className="mirror-now-playing-track">
-                    {activeSong?.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
-                      <img
-                        src={activeSong.cover_url}
-                        alt={`Cover art for ${activeSong.title}`}
-                        className="mirror-now-playing-cover"
-                        onError={() => onCoverLoadError(activeSong.cover_url)}
-                      />
-                    ) : null}
-                    <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">{normalizeMirrorText(activeSong?.title, 'Waiting for requests from bold citizens...')}</h1>
-                      <p className="mirror-artist">{normalizeMirrorText(activeSong?.artist, 'Be first to request a tune and set the tone.')}</p>
-                      {activeSongChosenByLine ? (
-                        <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
-                          {activeSongChosenByLine}
-                        </p>
+              <div className={`mirror-now-playing-frame ${isNowPlayingStarted && activeSong ? 'mirror-now-playing-frame-active' : 'mirror-now-playing-frame-idle'}`}>
+                {!isNowPlayingStarted || !activeSong ? (
+                  <div className="mirror-between-songs" aria-label="Between songs">
+                    <p className="mirror-between-songs-quote">{currentBetweenSongQuote}</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="mirror-eyebrow">Now Playing</p>
+                    <div className="mirror-now-playing-track">
+                      {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
+                        <img
+                          src={activeSong.cover_url}
+                          alt={`Cover art for ${activeSong.title}`}
+                          className="mirror-now-playing-cover"
+                          onError={() => onCoverLoadError(activeSong.cover_url)}
+                        />
                       ) : null}
-                      {funFacts.length > 0 ? (
+                      <div className="mirror-now-playing-meta">
+                        <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests from bold citizens...')}</h1>
+                        <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune and set the tone.')}</p>
+                        {activeSongChosenByLine ? (
+                          <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
+                            {activeSongChosenByLine}
+                          </p>
+                        ) : null}
                         <div className="mirror-song-fact-box" aria-live="polite">
-                          <p key={`${activeSong?.id ?? 'song'}-${currentFactIndex}`} className="mirror-song-fact">
-                            {funFacts[currentFactIndex % funFacts.length]}
+                          <p key={`${activeSong.id}-${currentFactIndex}`} className="mirror-song-fact">
+                            {currentSongFact ?? currentBetweenSongQuote}
                           </p>
                         </div>
-                      ) : null}
-                      {activeSong?.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
-                      {karaokeCheer ? (
-                        <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
-                      ) : null}
+                        {activeSong.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
+                        {karaokeCheer ? (
+                          <p className="mirror-karaoke-cheer">{karaokeCheer}</p>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </section>
 
             <section className={`mirror-secondary-grid ${shouldShowAdminElements ? '' : 'mirror-secondary-grid-feed-only'}`}>
