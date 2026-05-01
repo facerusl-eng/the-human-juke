@@ -5328,42 +5328,42 @@
 }
 
 .mirror-pre-show {
-  width: min(1200px, 100%);
+  width: min(1100px, 100%);
   margin: 0 auto;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: clamp(3.75rem, 7vw, 7.5rem);
-  padding: clamp(2.5rem, 5vw, 5rem) clamp(2.5rem, 5vw, 5rem);
-  border-radius: 28px;
-  border: 1px solid rgba(93, 215, 255, 0.18);
+  gap: clamp(1.4rem, 2.8vw, 2.8rem);
+  padding: clamp(1.2rem, 2.2vw, 2rem) clamp(1.4rem, 2.4vw, 2.2rem);
+  border-radius: 24px;
+  border: 1px solid rgba(93, 215, 255, 0.2);
   background:
-    radial-gradient(circle at 16% 20%, rgba(93, 215, 255, 0.07) 0%, transparent 36%),
-    linear-gradient(145deg, rgba(8, 17, 38, 0.9) 0%, rgba(11, 27, 44, 0.86) 100%);
+    radial-gradient(circle at 16% 20%, rgba(93, 215, 255, 0.09) 0%, transparent 32%),
+    linear-gradient(145deg, rgba(8, 17, 38, 0.88) 0%, rgba(11, 27, 44, 0.84) 100%);
 }
 
 /* ── TOP section ─────────────────────────────────────────────────────────── */
 
 .mirror-pre-show-top {
   display: grid;
-  gap: 1.2rem;
+  gap: 0.6rem;
   text-align: center;
 }
 
 .mirror-pre-show-title {
   margin: 0;
-  font-size: clamp(3rem, 5.5vw, 6rem);
+  font-size: clamp(2.1rem, 4.2vw, 4rem);
   font-weight: 800;
   color: #f8fbff;
-  line-height: 1.1;
+  line-height: 1.08;
   letter-spacing: -0.01em;
 }
 
 .mirror-pre-show-subtitle {
   margin: 0;
-  color: rgba(184, 210, 255, 0.85);
-  font-size: clamp(1.4rem, 2.8vw, 3rem);
-  font-weight: 600;
-  line-height: 1.35;
+  color: rgba(184, 210, 255, 0.92);
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 /* ── MIDDLE section — two columns ────────────────────────────────────────── */
@@ -5371,16 +5371,16 @@
 .mirror-pre-show-middle {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: clamp(2.5rem, 4vw, 5rem);
+  gap: clamp(1.4rem, 2.4vw, 2.8rem);
   align-items: center;
 }
 
 .mirror-pre-show-qr-col {
   display: grid;
   justify-items: center;
-  gap: 1.2rem;
-  padding: clamp(1.5rem, 2.5vw, 3rem);
-  border-radius: 20px;
+  gap: 0.75rem;
+  padding: clamp(1rem, 1.6vw, 1.6rem);
+  border-radius: 16px;
   border: 1px solid rgba(93, 215, 255, 0.15);
   background: rgba(8, 14, 32, 0.38);
 }
@@ -5393,32 +5393,32 @@
 /* ── QR image ─────────────────────────────────────────────────────────────── */
 
 .mirror-qr-image {
-  width: clamp(200px, 22vw, 330px);
-  height: clamp(200px, 22vw, 330px);
-  border-radius: 16px;
+  width: clamp(200px, 24vw, 360px);
+  height: clamp(200px, 24vw, 360px);
+  border-radius: 14px;
   background: #ffffff;
-  padding: clamp(0.4rem, 0.8vw, 0.65rem);
+  padding: clamp(0.34rem, 0.72vw, 0.56rem);
   image-rendering: -webkit-optimize-contrast;
   image-rendering: pixelated;
-  border: 2px solid rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.48);
   box-shadow:
-    0 16px 40px rgba(4, 8, 22, 0.42),
-    0 0 32px rgba(93, 215, 255, 0.18);
+    0 22px 40px rgba(4, 8, 22, 0.36),
+    0 0 28px rgba(93, 215, 255, 0.16);
 }
 
 .mirror-qr-label {
   margin: 0;
-  font-size: clamp(0.9rem, 1.4vw, 1.3rem);
+  font-size: clamp(0.72rem, 1vw, 0.9rem);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(93, 215, 255, 0.88);
+  color: rgba(93, 215, 255, 0.75);
   text-align: center;
 }
 
 .mirror-qr-url {
   margin: 0;
-  font-size: clamp(0.78rem, 1.1vw, 1rem);
+  font-size: clamp(0.72rem, 0.95vw, 0.88rem);
   color: rgba(184, 210, 255, 0.72);
   text-align: center;
   word-break: break-all;
@@ -5428,34 +5428,34 @@
 
 .mirror-how-it-works {
   display: grid;
-  gap: clamp(1.2rem, 2vw, 2rem);
-  padding: clamp(2rem, 3vw, 3.5rem) clamp(2rem, 3vw, 3.5rem);
-  border-radius: 20px;
-  border: 1px solid rgba(93, 215, 255, 0.18);
-  background: rgba(8, 14, 32, 0.46);
+  gap: clamp(0.55rem, 0.9vw, 0.9rem);
+  padding: clamp(0.9rem, 1.4vw, 1.4rem) clamp(1rem, 1.6vw, 1.4rem);
+  border-radius: 16px;
+  border: 1px solid rgba(93, 215, 255, 0.2);
+  background: rgba(8, 14, 32, 0.48);
 }
 
 .mirror-how-it-works-label {
   margin: 0;
-  font-size: clamp(1rem, 1.5vw, 1.4rem);
+  font-size: clamp(0.78rem, 1.1vw, 0.95rem);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(93, 215, 255, 0.82);
+  color: rgba(93, 215, 255, 0.72);
 }
 
 .mirror-how-it-works p {
   margin: 0;
-  font-size: clamp(1.2rem, 2vw, 2rem);
+  font-size: clamp(0.92rem, 1.5vw, 1.3rem);
   color: #d9ecff;
-  line-height: 1.45;
+  line-height: 1.5;
   font-weight: 500;
 }
 
 /* ── BOTTOM section — reserved ────────────────────────────────────────────── */
 
 .mirror-pre-show-bottom {
-  min-height: 1rem;
+  min-height: 0.5rem;
 }
 
 /* Mobile: stack columns */
@@ -5465,8 +5465,8 @@
   }
 
   .mirror-pre-show {
-    gap: clamp(2rem, 5vw, 3.5rem);
-    padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.2rem, 3vw, 2rem);
+    gap: clamp(1rem, 3vw, 1.8rem);
+    padding: clamp(0.9rem, 2.5vw, 1.4rem) clamp(0.9rem, 2.5vw, 1.2rem);
   }
 }
 
