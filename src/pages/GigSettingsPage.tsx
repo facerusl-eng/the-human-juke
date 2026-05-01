@@ -340,12 +340,14 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         }
 
         const loadedSelectedPlaylistIds = (selectedPlaylists ?? []).map((row) => row.playlist_id as string)
+        const loadedPlaylistIdSet = new Set(loadedPlaylists.map((p) => p.id))
+        const validSelectedPlaylistIds = loadedSelectedPlaylistIds.filter((id) => loadedPlaylistIdSet.has(id))
 
         setPlaylists(loadedPlaylists)
-        setInitialSelectedPlaylistIds(normalizePlaylistIds(loadedSelectedPlaylistIds))
+        setInitialSelectedPlaylistIds(normalizePlaylistIds(validSelectedPlaylistIds))
         setState((current) => ({
           ...current,
-          selectedPlaylistIds: loadedSelectedPlaylistIds,
+          selectedPlaylistIds: validSelectedPlaylistIds,
         }))
       } catch (error) {
         console.warn('GigSettingsPage: failed to load playlists', error)
