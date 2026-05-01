@@ -9643,7 +9643,7 @@
 .mirror-shell-hide-controls .mirror-now-playing-frame,
 .mirror-now-playing-frame-idle,
 .mirror-now-playing-frame-active {
-  padding: clamp(1.1rem, 1.8vw, 1.9rem);
+  padding: clamp(1rem, 1.5vw, 1.6rem);
 }
 
 .mirror-now-playing-track,
@@ -9653,7 +9653,7 @@
   justify-items: center;
   align-items: center;
   text-align: center;
-  gap: clamp(2.5rem, 3.8vw, 3.75rem);
+  gap: clamp(2.5rem, 3.1vw, 3.2rem);
   padding-right: 0;
 }
 
@@ -9665,7 +9665,7 @@
 }
 
 .mirror-now-playing-artwork-slot {
-  width: min(100%, 340px);
+  width: min(100%, 320px);
 }
 
 .mirror-now-playing-cover,
