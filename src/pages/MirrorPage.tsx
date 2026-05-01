@@ -299,6 +299,8 @@ function MirrorPage() {
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const quoteIndexRef = useRef(0)
+  const isLiveRef = useRef(false)
+  const runToggleRoomOpenRef = useRef(gigActions.runToggleRoomOpen)
   const spotlightTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
@@ -464,6 +466,14 @@ function MirrorPage() {
   }
 
   useEffect(() => {
+    isLiveRef.current = isLive
+  }, [isLive])
+
+  useEffect(() => {
+    runToggleRoomOpenRef.current = gigActions.runToggleRoomOpen
+  }, [gigActions.runToggleRoomOpen])
+
+  useEffect(() => {
     const syncFullscreenState = () => {
       setIsFullscreen(Boolean(getActiveFullscreenElement()))
     }
@@ -583,8 +593,8 @@ function MirrorPage() {
 
       const executeToggle = async () => {
         try {
-          const wasLive = isLive
-          await gigActions.runToggleRoomOpen()
+          const wasLive = isLiveRef.current
+          await runToggleRoomOpenRef.current()
           // If we were live and are now paused, increment the quote
           if (wasLive) {
             const nextQuoteIndex = (quoteIndexRef.current + 1) % BETWEEN_SONG_QUOTES.length
