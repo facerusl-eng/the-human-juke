@@ -1,8 +1,27 @@
 import { readTextFromLocalStorage, saveTextToLocalStorage } from './saveHandling'
 
 export const AUDIENCE_NAME_STORAGE_KEY = 'human-jukebox-audience-name'
+export const AUDIENCE_LOCALE_STORAGE_KEY = 'human-jukebox-audience-locale'
 export const FEED_AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
 export const AUDIENCE_NAME_COMMITTED_EVENT = 'human-jukebox-audience-name-committed'
+
+export type AudienceLocale = 'en' | 'da'
+
+export function normalizeAudienceLocale(value: string | null | undefined): AudienceLocale {
+  return value?.trim().toLowerCase() === 'da' ? 'da' : 'en'
+}
+
+export function readCommittedAudienceLocale() {
+  if (typeof window === 'undefined') {
+    return 'en' satisfies AudienceLocale
+  }
+
+  try {
+    return normalizeAudienceLocale(readTextFromLocalStorage(AUDIENCE_LOCALE_STORAGE_KEY, 'en'))
+  } catch {
+    return 'en'
+  }
+}
 
 export function readCommittedAudienceName() {
   if (typeof window === 'undefined') {
@@ -21,20 +40,36 @@ export function readCommittedAudienceName() {
 }
 
 export function commitAudienceName(nextName: string) {
+  commitAudienceIdentity({ name: nextName, locale: readCommittedAudienceLocale() })
+}
+
+export function commitAudienceLocale(nextLocale: AudienceLocale) {
+  commitAudienceIdentity({ name: readCommittedAudienceName(), locale: nextLocale })
+}
+
+export function commitAudienceIdentity({
+  name,
+  locale,
+}: {
+  name: string
+  locale: AudienceLocale
+}) {
   if (typeof window === 'undefined') {
     return
   }
 
-  const normalizedName = nextName.trim()
+  const normalizedName = name.trim()
+  const normalizedLocale = normalizeAudienceLocale(locale)
 
   if (!normalizedName) {
     return
   }
 
   const audienceNameSaveResult = saveTextToLocalStorage(AUDIENCE_NAME_STORAGE_KEY, normalizedName)
+  const audienceLocaleSaveResult = saveTextToLocalStorage(AUDIENCE_LOCALE_STORAGE_KEY, normalizedLocale)
   const feedAuthorSaveResult = saveTextToLocalStorage(FEED_AUTHOR_NAME_STORAGE_KEY, normalizedName)
 
-  if (!audienceNameSaveResult.success || !feedAuthorSaveResult.success) {
+  if (!audienceNameSaveResult.success || !audienceLocaleSaveResult.success || !feedAuthorSaveResult.success) {
     // Ignore storage failures in restricted webviews.
   }
 

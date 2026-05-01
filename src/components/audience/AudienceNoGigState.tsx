@@ -1,3 +1,5 @@
+import type { AudienceLocale } from '../../lib/audienceIdentity'
+
 type AudienceUpcomingEvent = {
   id: string
   name: string
@@ -8,13 +10,20 @@ type AudienceUpcomingEvent = {
   coverImageUrl: string | null
 }
 
-const NO_GIG_MESSAGES = [
-  'No live show right now - but something awesome is coming soon!',
-  'Grab a drink, stretch your vocal cords, and check out what\'s coming up.',
-  'The stage is quiet... for now. Upcoming events below!',
-]
+const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
+  en: [
+    'No live show right now - but something awesome is coming soon!',
+    'Grab a drink, stretch your vocal cords, and check out what\'s coming up.',
+    'The stage is quiet... for now. Upcoming events below!',
+  ],
+  da: [
+    'Der er ikke et live show lige nu, men noget fedt er på vej!',
+    'Snup en drink, varm stemmebåndene op, og se hvad der kommer.',
+    'Scenen er stille... lige nu. Kommende events er herunder!',
+  ],
+}
 
-function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | null) {
+function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | null, locale: AudienceLocale) {
   if (!gigDate) {
     return null
   }
@@ -26,7 +35,7 @@ function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | 
     return gigDate
   }
 
-  const dateLabel = new Intl.DateTimeFormat(undefined, {
+  const dateLabel = new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : 'en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -36,7 +45,7 @@ function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | 
     return dateLabel
   }
 
-  const timeLabel = new Intl.DateTimeFormat(undefined, {
+  const timeLabel = new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : 'en-US', {
     hour: 'numeric',
     minute: '2-digit',
   }).format(parsedDate)
@@ -44,7 +53,7 @@ function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | 
   return `${dateLabel} · ${timeLabel}`
 }
 
-function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: string | null) {
+function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: string | null, locale: AudienceLocale) {
   if (!gigStartTime && !gigEndTime) {
     return null
   }
@@ -56,7 +65,7 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
       return clockTime
     }
 
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : 'en-US', {
       hour: 'numeric',
       minute: '2-digit',
     }).format(parsedDate)
@@ -67,10 +76,10 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
   }
 
   if (gigStartTime) {
-    return `Starts ${formatClockTime(gigStartTime)}`
+    return locale === 'da' ? `Starter ${formatClockTime(gigStartTime)}` : `Starts ${formatClockTime(gigStartTime)}`
   }
 
-  return `Ends ${formatClockTime(gigEndTime as string)}`
+  return locale === 'da' ? `Slutter ${formatClockTime(gigEndTime as string)}` : `Ends ${formatClockTime(gigEndTime as string)}`
 }
 
 function AudienceNoGigState({
@@ -78,12 +87,34 @@ function AudienceNoGigState({
   loadingUpcomingEvents = false,
   upcomingEventsNotice = null,
   getEventHref,
+  locale = 'en',
 }: {
   upcomingEvents: AudienceUpcomingEvent[]
   loadingUpcomingEvents?: boolean
   upcomingEventsNotice?: string | null
   getEventHref?: (eventId: string) => string
+  locale?: AudienceLocale
 }) {
+  const copy = locale === 'da'
+    ? {
+        eyebrow: 'Publikumsapp',
+        title: 'Intet live show lige nu',
+        loading: 'Indlæser kommende events...',
+        upcomingEvents: 'Kommende Events',
+        upcomingCount: 'kommende',
+        venueFallback: 'Sted annonceres senere',
+        openEvent: 'Åbn eventside',
+      }
+    : {
+        eyebrow: 'Audience App',
+        title: 'No live show right now',
+        loading: 'Loading upcoming gigs...',
+        upcomingEvents: 'Upcoming Events',
+        upcomingCount: 'upcoming',
+        venueFallback: 'Venue to be announced',
+        openEvent: 'Open event page',
+      }
+
   return (
     <section className="audience-entry-shell audience-no-gig-shell" aria-label="Audience app no live gig state">
       <article className="queue-panel audience-entry-card audience-no-gig-card">
@@ -92,10 +123,10 @@ function AudienceNoGigState({
           <span></span>
           <span></span>
         </div>
-        <p className="eyebrow audience-entry-eyebrow">Audience App</p>
-        <h1>No live show right now</h1>
+        <p className="eyebrow audience-entry-eyebrow">{copy.eyebrow}</p>
+        <h1>{copy.title}</h1>
         <div className="audience-no-gig-copy">
-          {NO_GIG_MESSAGES.map((message) => (
+          {NO_GIG_MESSAGES[locale].map((message) => (
             <p key={message} className="subcopy audience-entry-copy">
               {message}
             </p>
@@ -103,7 +134,7 @@ function AudienceNoGigState({
         </div>
 
         {loadingUpcomingEvents ? (
-          <p className="meta-badge" role="status" aria-live="polite">Loading upcoming gigs...</p>
+          <p className="meta-badge" role="status" aria-live="polite">{copy.loading}</p>
         ) : null}
 
         {upcomingEventsNotice ? (
@@ -113,13 +144,13 @@ function AudienceNoGigState({
         {upcomingEvents.length > 0 ? (
           <section className="audience-no-gig-events" aria-label="Upcoming events">
             <div className="panel-head audience-no-gig-events-head">
-              <h2>Upcoming Events</h2>
-              <span className="meta-badge">{upcomingEvents.length} upcoming</span>
+              <h2>{copy.upcomingEvents}</h2>
+              <span className="meta-badge">{upcomingEvents.length} {copy.upcomingCount}</span>
             </div>
             <div className="audience-no-gig-event-list">
               {upcomingEvents.map((upcomingEvent) => {
-                const dateLabel = formatUpcomingEventDate(upcomingEvent.gigDate, upcomingEvent.gigStartTime)
-                const timeRangeLabel = formatUpcomingEventTimeRange(upcomingEvent.gigStartTime, upcomingEvent.gigEndTime)
+                const dateLabel = formatUpcomingEventDate(upcomingEvent.gigDate, upcomingEvent.gigStartTime, locale)
+                const timeRangeLabel = formatUpcomingEventTimeRange(upcomingEvent.gigStartTime, upcomingEvent.gigEndTime, locale)
                 const eventHref = getEventHref ? getEventHref(upcomingEvent.id) : null
 
                 return (
@@ -136,11 +167,11 @@ function AudienceNoGigState({
                       {dateLabel ? <p className="audience-no-gig-event-meta">{dateLabel}</p> : null}
                       {timeRangeLabel ? <p className="audience-no-gig-event-meta">{timeRangeLabel}</p> : null}
                       <p className="audience-no-gig-event-meta">
-                        {upcomingEvent.venue?.trim() ? upcomingEvent.venue : 'Venue to be announced'}
+                        {upcomingEvent.venue?.trim() ? upcomingEvent.venue : copy.venueFallback}
                       </p>
                       {eventHref ? (
                         <p className="audience-no-gig-event-meta">
-                          <a href={eventHref}>Open event page</a>
+                          <a href={eventHref}>{copy.openEvent}</a>
                         </p>
                       ) : null}
                     </div>

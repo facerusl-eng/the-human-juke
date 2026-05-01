@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { readCommittedAudienceName } from '../lib/audienceIdentity'
+import { readCommittedAudienceLocale, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
 import { useQueueStore } from '../state/queueStore'
@@ -131,7 +131,75 @@ function AudienceSongListPage() {
   const [activeSetlist, setActiveSetlist] = useState<'human_jukebox' | 'karaoke' | null>(null)
 
   const audienceName = readCommittedAudienceName()
+  const audienceLocale = readCommittedAudienceLocale()
   const performerDisplayName = 'Performer'
+  const copy = audienceLocale === 'da'
+    ? {
+        back: 'Tilbage',
+        eyebrow: 'Sangliste',
+        pickPlaylist: 'Vælg en playliste',
+        greeting: 'Hej',
+        guest: 'Gæst',
+        choosePlaylistFirst: 'vælg først en playliste.',
+        chooseRequest: 'scroll og vælg dit ønske.',
+        loadingSongs: 'Indlæser sange...',
+        hostPlays: 'Værten spiller - du vælger sangen',
+        youSing: 'Du går op og synger den selv',
+        songs: 'sange',
+        searchSongs: 'Søg sange',
+        searchPlaceholder: 'Søg på sangtitel eller artist',
+        availableSuffix: 'tilgængelige',
+        karaokeSongsLabel: 'Karaoke-sange',
+        jukeboxSongsLabel: 'Human Jukebox-sange',
+        iSing: 'Jeg synger',
+        explicit: 'Eksplicit',
+        allMatchingQueued: 'Alle matchende sange er allerede i kø.',
+        noSongsAssigned: 'Ingen sange er tildelt dette gig endnu.',
+        chooseWhoSings: 'Vælg hvem der synger',
+        selected: 'Valgt',
+        untitledSong: 'Unavngiven sang',
+        unknownArtist: 'Ukendt artist',
+        adding: 'Tilføjer...',
+        addKaraoke: 'Tilføj karaokeønske (jeg synger denne)',
+        performerSings: 'Performeren synger sangen',
+        iWantToSing: 'Jeg vil synge sangen',
+        cancel: 'Annuller',
+        unableToLoadSongs: 'Kan ikke indlæse sangvalg lige nu. Prøv igen.',
+        unableToAddRequest: 'Kan ikke tilføje dette ønske lige nu.',
+      }
+    : {
+        back: 'Back',
+        eyebrow: 'Song List',
+        pickPlaylist: 'Pick a playlist',
+        greeting: 'Hi',
+        guest: 'Guest',
+        choosePlaylistFirst: 'choose a playlist first.',
+        chooseRequest: 'scroll and choose your request.',
+        loadingSongs: 'Loading songs...',
+        hostPlays: 'The host plays — you pick the song',
+        youSing: 'You get up and sing it yourself',
+        songs: 'songs',
+        searchSongs: 'Search songs',
+        searchPlaceholder: 'Search by song title or artist',
+        availableSuffix: 'available',
+        karaokeSongsLabel: 'Karaoke songs',
+        jukeboxSongsLabel: 'Human jukebox songs',
+        iSing: 'I sing',
+        explicit: 'Explicit',
+        allMatchingQueued: 'All matching songs are already in queue.',
+        noSongsAssigned: 'No songs are assigned to this gig yet.',
+        chooseWhoSings: 'Choose who sings',
+        selected: 'Selected',
+        untitledSong: 'Untitled Song',
+        unknownArtist: 'Unknown Artist',
+        adding: 'Adding...',
+        addKaraoke: 'Add Karaoke Request (I sing this one)',
+        performerSings: `${performerDisplayName} sings the song`,
+        iWantToSing: 'I want to sing the song',
+        cancel: 'Cancel',
+        unableToLoadSongs: 'Unable to load song choices right now. Please try again.',
+        unableToAddRequest: 'Unable to add this request right now.',
+      }
   const normalizedSearchQuery = songSearchQuery.trim().toLowerCase()
 
   const queuedLibrarySongIds = useMemo(() => (
@@ -442,7 +510,7 @@ function AudienceSongListPage() {
       } catch (error) {
         console.warn('AudienceSongListPage: failed to load songs', error)
         if (isCurrent) {
-          setErrorText('Unable to load song choices right now. Please try again.')
+          setErrorText(copy.unableToLoadSongs)
         }
       } finally {
         if (isCurrent) {
@@ -536,7 +604,7 @@ function AudienceSongListPage() {
 
       navigate(targetAudienceUrl, { replace: true })
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Unable to add this request right now.')
+      setErrorText(error instanceof Error ? error.message : copy.unableToAddRequest)
       setSubmittingMode(null)
     }
   }
@@ -562,16 +630,16 @@ function AudienceSongListPage() {
             }
           }}
         >
-          ← Back
+          ← {copy.back}
         </button>
         <div className="audience-song-list-header-copy">
-          <p className="eyebrow">Song List</p>
-          <h1>{showPlaylistPicker ? 'Pick a playlist' : effectiveSetlist === 'karaoke' ? 'Karaoke' : 'Human Jukebox'}</h1>
-          <p className="subcopy">Hi {audienceName || 'Guest'} — {showPlaylistPicker ? 'choose a playlist first.' : 'scroll and choose your request.'}</p>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{showPlaylistPicker ? copy.pickPlaylist : effectiveSetlist === 'karaoke' ? 'Karaoke' : 'Human Jukebox'}</h1>
+          <p className="subcopy">{copy.greeting} {audienceName || copy.guest} — {showPlaylistPicker ? copy.choosePlaylistFirst : copy.chooseRequest}</p>
         </div>
       </header>
 
-      {loadingSongs ? <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">Loading songs...</p> : null}
+      {loadingSongs ? <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">{copy.loadingSongs}</p> : null}
       {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
 
       {/* ── Playlist picker ── */}
@@ -586,8 +654,8 @@ function AudienceSongListPage() {
             <img src="/images/playlist-karaoke.jpg" alt="Human Jukebox playlist cover" className="audience-playlist-choice-cover" />
             <div className="audience-playlist-choice-overlay">
               <strong className="audience-playlist-choice-title">Human Jukebox</strong>
-              <span className="audience-playlist-choice-sub">The host plays — you pick the song</span>
-              <span className="audience-playlist-choice-count">{humanJukeboxRows.length} songs</span>
+              <span className="audience-playlist-choice-sub">{copy.hostPlays}</span>
+              <span className="audience-playlist-choice-count">{humanJukeboxRows.length} {copy.songs}</span>
             </div>
           </button>
           <button
@@ -598,8 +666,8 @@ function AudienceSongListPage() {
             <img src="/images/playlist-human-jukebox.jpg" alt="Karaoke playlist cover" className="audience-playlist-choice-cover" />
             <div className="audience-playlist-choice-overlay">
               <strong className="audience-playlist-choice-title">Karaoke</strong>
-              <span className="audience-playlist-choice-sub">You get up and sing it yourself</span>
-              <span className="audience-playlist-choice-count">{karaokeRows.length} songs</span>
+              <span className="audience-playlist-choice-sub">{copy.youSing}</span>
+              <span className="audience-playlist-choice-count">{karaokeRows.length} {copy.songs}</span>
             </div>
           </button>
         </div>
@@ -609,12 +677,12 @@ function AudienceSongListPage() {
       {!loadingSongs && !showPlaylistPicker ? (
         <>
           <section className="audience-song-list-search">
-            <label htmlFor="audience-song-list-search-input">Search songs</label>
+            <label htmlFor="audience-song-list-search-input">{copy.searchSongs}</label>
             <input
               id="audience-song-list-search-input"
               value={songSearchQuery}
               onChange={(event) => setSongSearchQuery(event.target.value)}
-              placeholder="Search by song title or artist"
+              placeholder={copy.searchPlaceholder}
             />
           </section>
 
@@ -622,10 +690,10 @@ function AudienceSongListPage() {
 
           <div className="audience-song-list-scroll">
             <p className="curated-picker-results" aria-live="polite">
-              {activeRows.length} song{activeRows.length === 1 ? '' : 's'} available
+              {activeRows.length} {copy.songs} {copy.availableSuffix}
             </p>
             <div className="audience-song-list-section">
-              <ul className="audience-song-list-grid" aria-label={effectiveSetlist === 'karaoke' ? 'Karaoke songs' : 'Human jukebox songs'}>
+              <ul className="audience-song-list-grid" aria-label={effectiveSetlist === 'karaoke' ? copy.karaokeSongsLabel : copy.jukeboxSongsLabel}>
                 {activeRows.map(({ song, title, artist, sectionLabel }) => (
                   <li key={song.id} className="audience-song-list-item">
                     {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
@@ -649,8 +717,8 @@ function AudienceSongListPage() {
                       <span className="audience-song-list-copy">
                         <span className="audience-song-list-title">{title}</span>
                         <span className="audience-song-list-artist">{artist}</span>
-                        {effectiveSetlist === 'karaoke' ? <span className="karaoke-tag">I sing</span> : null}
-                        {song.is_explicit ? <span className="curated-pick-meta">Explicit</span> : null}
+                        {effectiveSetlist === 'karaoke' ? <span className="karaoke-tag">{copy.iSing}</span> : null}
+                        {song.is_explicit ? <span className="curated-pick-meta">{copy.explicit}</span> : null}
                       </span>
                     </button>
                   </li>
@@ -658,7 +726,7 @@ function AudienceSongListPage() {
               </ul>
               {!activeRows.length ? (
                 <p className="subcopy">
-                  {curatedSongs.length ? 'All matching songs are already in queue.' : 'No songs are assigned to this gig yet.'}
+                  {curatedSongs.length ? copy.allMatchingQueued : copy.noSongsAssigned}
                 </p>
               ) : null}
             </div>
@@ -669,7 +737,7 @@ function AudienceSongListPage() {
       {selectedSong ? (
         <aside
           className="audience-song-choice-overlay"
-          aria-label="Choose who sings"
+          aria-label={copy.chooseWhoSings}
           role="dialog"
           aria-modal="true"
           onClick={(event) => {
@@ -679,9 +747,9 @@ function AudienceSongListPage() {
           }}
         >
           <div className="audience-song-choice-sheet">
-            <p className="eyebrow">Selected</p>
-            <h2>{normalizeDisplayText(selectedSong.title, 'Untitled Song')}</h2>
-            <p className="subcopy">{normalizeDisplayText(selectedSong.artist, 'Unknown Artist')}</p>
+            <p className="eyebrow">{copy.selected}</p>
+            <h2>{normalizeDisplayText(selectedSong.title, copy.untitledSong)}</h2>
+            <p className="subcopy">{normalizeDisplayText(selectedSong.artist, copy.unknownArtist)}</p>
             <div className="audience-song-choice-actions">
               {selectedSong.fromKaraokeSetlist ? (
                 <button
@@ -692,7 +760,7 @@ function AudienceSongListPage() {
                     void submitSongRequest('audience')
                   }}
                 >
-                  {submittingMode === 'audience' ? 'Adding...' : 'Add Karaoke Request (I sing this one)'}
+                  {submittingMode === 'audience' ? copy.adding : copy.addKaraoke}
                 </button>
               ) : (
                 <>
@@ -704,7 +772,7 @@ function AudienceSongListPage() {
                       void submitSongRequest('performer')
                     }}
                   >
-                    {submittingMode === 'performer' ? 'Adding...' : `${performerDisplayName} sings the song`}
+                    {submittingMode === 'performer' ? copy.adding : copy.performerSings}
                   </button>
                   <button
                     type="button"
@@ -714,7 +782,7 @@ function AudienceSongListPage() {
                       void submitSongRequest('audience')
                     }}
                   >
-                    {submittingMode === 'audience' ? 'Adding...' : 'I want to sing the song'}
+                    {submittingMode === 'audience' ? copy.adding : copy.iWantToSing}
                   </button>
                 </>
               )}
@@ -724,7 +792,7 @@ function AudienceSongListPage() {
                 disabled={Boolean(submittingMode)}
                 onClick={() => setSelectedSong(null)}
               >
-                Cancel
+                {copy.cancel}
               </button>
             </div>
           </div>

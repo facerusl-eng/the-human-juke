@@ -2,12 +2,41 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import LiveFeedPanel from '../components/LiveFeedPanel'
-import { commitAudienceName, readCommittedAudienceName } from '../lib/audienceIdentity'
+import {
+  commitAudienceIdentity,
+  readCommittedAudienceLocale,
+  readCommittedAudienceName,
+  type AudienceLocale,
+} from '../lib/audienceIdentity'
 
 function FeedPage() {
   const [nameInput, setNameInput] = useState('')
   const [nameCommitted, setNameCommitted] = useState('')
+  const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
   const [nameError, setNameError] = useState<string | null>(null)
+  const copy = audienceLocale === 'da'
+    ? {
+        title: 'Publikumsfeed',
+        heading: 'Skriv dit navn for at fortsætte',
+        intro: 'Dette feed er for det aktive publikum. Sæt først dit navn for at være med.',
+        nameLabel: 'Dit navn',
+        namePlaceholder: 'Dit navn',
+        languageLabel: 'Sprog',
+        continue: 'Fortsæt til feed',
+        enterName: 'Skriv dit navn før du fortsætter.',
+        back: 'Tilbage til publikum',
+      }
+    : {
+        title: 'Audience Feed',
+        heading: 'Enter your name to continue',
+        intro: 'This feed is for the active audience. Set your name first to join in.',
+        nameLabel: 'Your name',
+        namePlaceholder: 'Your name',
+        languageLabel: 'Language',
+        continue: 'Continue to Feed',
+        enterName: 'Please enter your name before continuing.',
+        back: 'Back to Audience',
+      }
 
   useEffect(() => {
     const storedName = readCommittedAudienceName()
@@ -16,6 +45,8 @@ function FeedPage() {
       setNameCommitted(storedName)
       setNameInput(storedName)
     }
+
+    setAudienceLocale(readCommittedAudienceLocale())
   }, [])
 
   const onCommitName = (event: FormEvent<HTMLFormElement>) => {
@@ -24,12 +55,12 @@ function FeedPage() {
     const normalizedName = nameInput.trim()
 
     if (!normalizedName) {
-      setNameError('Please enter your name before continuing.')
+      setNameError(copy.enterName)
       return
     }
 
     setNameError(null)
-    commitAudienceName(normalizedName)
+    commitAudienceIdentity({ name: normalizedName, locale: audienceLocale })
     setNameCommitted(normalizedName)
   }
 
@@ -37,12 +68,12 @@ function FeedPage() {
     return (
       <section className="audience-entry-shell" aria-label="Feed entry">
         <article className="queue-panel audience-entry-card">
-          <p className="eyebrow">Audience Feed</p>
-          <h1>Enter your name to continue</h1>
-          <p className="subcopy audience-entry-copy">This feed is for the active audience. Set your name first to join in.</p>
+          <p className="eyebrow">{copy.title}</p>
+          <h1>{copy.heading}</h1>
+          <p className="subcopy audience-entry-copy">{copy.intro}</p>
           <form className="queue-form audience-entry-form" onSubmit={onCommitName}>
             <div className="field-row">
-              <label htmlFor="feed-entry-name">Your name</label>
+              <label htmlFor="feed-entry-name">{copy.nameLabel}</label>
               <input
                 id="feed-entry-name"
                 value={nameInput}
@@ -52,14 +83,25 @@ function FeedPage() {
                     setNameError(null)
                   }
                 }}
-                placeholder="Your name"
+                placeholder={copy.namePlaceholder}
                 maxLength={40}
                 autoFocus
                 required
               />
             </div>
+            <div className="field-row">
+              <label htmlFor="feed-entry-language">{copy.languageLabel}</label>
+              <select
+                id="feed-entry-language"
+                value={audienceLocale}
+                onChange={(event) => setAudienceLocale(event.target.value === 'da' ? 'da' : 'en')}
+              >
+                <option value="en">English</option>
+                <option value="da">Dansk</option>
+              </select>
+            </div>
             {nameError ? <p className="error-text">{nameError}</p> : null}
-            <button type="submit" className="primary-button">Continue to Feed</button>
+            <button type="submit" className="primary-button">{copy.continue}</button>
           </form>
         </article>
       </section>
@@ -70,10 +112,10 @@ function FeedPage() {
     <section className="feed-page-shell" aria-label="Feed page">
       <div className="feed-page-actions">
         <Link to="/audience" className="secondary-button feed-back-button">
-          Back to Audience
+          {copy.back}
         </Link>
       </div>
-      <LiveFeedPanel mode="page" title="Audience Feed" />
+      <LiveFeedPanel mode="page" title={copy.title} />
     </section>
   )
 }

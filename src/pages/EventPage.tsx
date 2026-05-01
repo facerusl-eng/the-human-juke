@@ -6,7 +6,12 @@ import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
 import SongVoteCard from '../components/audience/SongVoteCard'
 import { useQueueStore } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
-import { commitAudienceName, readCommittedAudienceName } from '../lib/audienceIdentity'
+import {
+  commitAudienceIdentity,
+  readCommittedAudienceLocale,
+  readCommittedAudienceName,
+  type AudienceLocale,
+} from '../lib/audienceIdentity'
 import {
   BETWEEN_SONG_QUOTES,
   PLAYBACK_STATE_EVENT,
@@ -348,6 +353,7 @@ function EventPage() {
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
   const [audienceNameInput, setAudienceNameInput] = useState('')
   const [audienceName, setAudienceName] = useState('')
+  const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
   const [audienceNameError, setAudienceNameError] = useState<string | null>(null)
   const [audienceNameSaving, setAudienceNameSaving] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -406,6 +412,103 @@ function EventPage() {
   const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
   const hasRequestedEventParam = Boolean(requestedEventId)
   const liveGigApiUnavailableRef = useRef(false)
+  const copy = audienceLocale === 'da'
+    ? {
+        audienceApp: 'Publikumsapp',
+        entryEyebrow: 'Official Audience Lounge',
+        entryCopy: 'Du går ind i den live publikumsapp. Ønsk sange og stem dine favoritter til tops.',
+        nameLabel: 'Dit navn',
+        namePlaceholder: 'f.eks. Alex',
+        languageLabel: 'Sprog',
+        join: 'Gå ind',
+        joining: 'Går ind...',
+        welcome: 'Velkommen! 🎤',
+        waitingGreeting: 'Hej',
+        waitingTitle: 'Velkommen til showet, skønne mennesker!',
+        waitingCopy: 'Find jer til rette, se selvsikre ud, og giv den kunstneriske ledelse skylden for alt kaos.',
+        startingSoon: 'Event starter snart',
+        viewUpcoming: 'Se alle kommende events',
+        audienceLive: 'Publikum Live',
+        audienceHome: 'Publikumsforside',
+        roomOpen: 'Rummet er åbent',
+        songList: 'Sangliste',
+        tipJar: 'Drikkepenge',
+        socialLinks: 'Sociale links',
+        howItWorks: 'Sådan virker det',
+        hideHowItWorks: 'Skjul guide',
+        howItWorksTitle: 'Sådan virker det',
+        howItWorksSteps: [
+          'Tryk på Sangliste for at finde og tilføje dit ønske.',
+          'Stem i Live Queue for at skubbe dine favoritter op.',
+          'Følg Spiller nu og hold energien i gang.',
+          'Brug Sociale links eller Drikkepenge for at støtte artisten.',
+        ],
+        duplicateBlocked: 'Dubletønsker er blokeret til dette gig.',
+        activeRequestLimit: 'Hvert publikumsmedlem kan have {count} aktive ønsker i køen.',
+        nowPlaying: 'Spiller nu',
+        queueThinking: 'Køen tænker sig lige om',
+        requestPrompt: 'Åbn Sangliste og ønsk en sang, før nogen vælger Wonderwall.',
+        liveQueue: 'Livekø',
+        votesRise: 'Flest stemmer først',
+        noSongsQueued: 'Ingen sange i kø endnu.',
+        playedSongs: 'Spillede sange',
+        latestOnTop: 'Nyeste øverst',
+        noSongsPlayed: 'Ingen sange spillet endnu.',
+        performerLinks: 'Artistlinks',
+        tipJarCopy: 'Hvis den sidste sang fik dig til at synge, så giv artisten en skilling. Klapsalver er søde, men huslejen larmer mere.',
+        enterName: 'Skriv dit navn for at fortsætte.',
+        keepNameShort: `Hold dit navn under ${MAX_AUDIENCE_NAME_LENGTH} tegn.`,
+        removeUnsupported: 'Fjern ugyldige tegn fra dit navn.',
+        saveFailed: 'Kunne ikke gemme dit navn.',
+      }
+    : {
+        audienceApp: 'Audience App',
+        entryEyebrow: 'Official Audience Lounge',
+        entryCopy: 'You are joining the live audience board. Request songs and vote your favorites to the top.',
+        nameLabel: 'Your name',
+        namePlaceholder: 'e.g. Alex',
+        languageLabel: 'Language',
+        join: 'Join Audience',
+        joining: 'Joining...',
+        welcome: 'Welcome! 🎤',
+        waitingGreeting: 'Hi',
+        waitingTitle: 'Welcome to the show, you lovely lot!',
+        waitingCopy: 'Settle in, look confident, and blame any chaos on artistic direction.',
+        startingSoon: 'Event starting soon',
+        viewUpcoming: 'View all upcoming gigs',
+        audienceLive: 'Audience Live',
+        audienceHome: 'Audience Home',
+        roomOpen: 'Room Open',
+        songList: 'Song List',
+        tipJar: 'Tip Jar',
+        socialLinks: 'Social Links',
+        howItWorks: 'How It Works',
+        hideHowItWorks: 'Hide How It Works',
+        howItWorksTitle: 'How It Works',
+        howItWorksSteps: [
+          'Tap Song List to browse and add your request.',
+          'Vote in Live Queue to push your favorites up.',
+          'Watch Now Playing and keep the energy going.',
+          'Use Social Links or Tip Jar to support the artist.',
+        ],
+        duplicateBlocked: 'Duplicate requests are blocked for this gig.',
+        activeRequestLimit: 'Each audience member can keep {count} active request{suffix} in the queue.',
+        nowPlaying: 'Now Playing',
+        queueThinking: 'Queue is having a polite think',
+        requestPrompt: 'Open Song List and request one before someone picks Wonderwall.',
+        liveQueue: 'Live Queue',
+        votesRise: 'Most votes rises first',
+        noSongsQueued: 'No songs queued yet.',
+        playedSongs: 'Played Songs',
+        latestOnTop: 'Latest on top',
+        noSongsPlayed: 'No songs played yet.',
+        performerLinks: 'Performer links',
+        tipJarCopy: 'If that last song made you sing like nobody\'s watching (they were), toss the artist a tip. Applause is cute, rent is louder. 🎤✨',
+        enterName: 'Please enter your name to continue.',
+        keepNameShort: `Please keep your name under ${MAX_AUDIENCE_NAME_LENGTH} characters.`,
+        removeUnsupported: 'Please remove unsupported characters from your name.',
+        saveFailed: 'Failed to save your name.',
+      }
 
   useEffect(() => {
     if (hasRequestedEventParam) {
@@ -616,6 +719,8 @@ function EventPage() {
       setAudienceName(storedAudienceName)
       setAudienceNameInput(storedAudienceName)
     }
+
+    setAudienceLocale(readCommittedAudienceLocale())
   }, [])
 
   // Broadcast presence to the host dashboard while audience member is active
@@ -986,20 +1091,20 @@ function EventPage() {
     const normalizedAudienceName = audienceNameInput.trim()
 
     if (!normalizedAudienceName) {
-      setAudienceNameError('Please enter your name to continue.')
-      setErrorText('Please enter your name to continue.')
+      setAudienceNameError(copy.enterName)
+      setErrorText(copy.enterName)
       return
     }
 
     if (normalizedAudienceName.length > MAX_AUDIENCE_NAME_LENGTH) {
-      setAudienceNameError(`Please keep your name under ${MAX_AUDIENCE_NAME_LENGTH} characters.`)
-      setErrorText(`Please keep your name under ${MAX_AUDIENCE_NAME_LENGTH} characters.`)
+      setAudienceNameError(copy.keepNameShort)
+      setErrorText(copy.keepNameShort)
       return
     }
 
     if (hasUnsafeControlChars(normalizedAudienceName)) {
-      setAudienceNameError('Please remove unsupported characters from your name.')
-      setErrorText('Please remove unsupported characters from your name.')
+      setAudienceNameError(copy.removeUnsupported)
+      setErrorText(copy.removeUnsupported)
       return
     }
 
@@ -1008,10 +1113,10 @@ function EventPage() {
     setAudienceNameError(null)
 
     try {
-      commitAudienceName(normalizedAudienceName)
+      commitAudienceIdentity({ name: normalizedAudienceName, locale: audienceLocale })
       setAudienceName(normalizedAudienceName)
       setErrorText(null)
-      setConfirmationText('Welcome! 🎤')
+      setConfirmationText(copy.welcome)
 
       if (confirmationTimerRef.current !== null) {
         window.clearTimeout(confirmationTimerRef.current)
@@ -1022,7 +1127,7 @@ function EventPage() {
         confirmationTimerRef.current = null
       }, 2000)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save your name.'
+      const errorMessage = error instanceof Error ? error.message : copy.saveFailed
       setAudienceNameError(errorMessage)
       setErrorText(errorMessage)
       console.warn('EventPage: failed to save audience name', error)
@@ -1071,6 +1176,7 @@ function EventPage() {
         loadingUpcomingEvents={upcomingEventsLoading}
         upcomingEventsNotice={upcomingEventsNotice ?? authError}
         getEventHref={(eventId) => `/audience?event=${encodeURIComponent(eventId)}&v=${audienceLinkVersionRef.current}`}
+        locale={audienceLocale}
       />
     )
   }
@@ -1079,24 +1185,35 @@ function EventPage() {
     return (
       <section className="audience-entry-shell" aria-label="Audience entry">
         <article className="queue-panel audience-entry-card">
-          <p className="eyebrow audience-entry-eyebrow">Official Audience Lounge</p>
+          <p className="eyebrow audience-entry-eyebrow">{copy.entryEyebrow}</p>
           <h1>{event?.name ?? 'Human Jukebox'}</h1>
           <p className="subcopy audience-entry-copy">
-            You are joining the live audience board. Request songs and vote your favorites to the top.
+            {copy.entryCopy}
           </p>
           <form className="queue-form audience-entry-form" onSubmit={onAudienceNameSubmit}>
             <div className="field-row">
-              <label htmlFor="audience-name" className="audience-entry-label">Your name</label>
+              <label htmlFor="audience-name" className="audience-entry-label">{copy.nameLabel}</label>
               <input
                 id="audience-name"
                 value={audienceNameInput}
                 onChange={(event) => setAudienceNameInput(event.target.value)}
-                placeholder="e.g. Alex"
+                placeholder={copy.namePlaceholder}
                 maxLength={40}
                 required
                 aria-describedby={audienceNameError ? 'audience-name-error' : undefined}
                 autoFocus
               />
+            </div>
+            <div className="field-row">
+              <label htmlFor="audience-language" className="audience-entry-label">{copy.languageLabel}</label>
+              <select
+                id="audience-language"
+                value={audienceLocale}
+                onChange={(event) => setAudienceLocale(event.target.value === 'da' ? 'da' : 'en')}
+              >
+                <option value="en">English</option>
+                <option value="da">Dansk</option>
+              </select>
             </div>
             {audienceNameError ? <p id="audience-name-error" className="error-text request-error-inline" role="alert">{audienceNameError}</p> : null}
             <button 
@@ -1104,7 +1221,7 @@ function EventPage() {
               className="primary-button"
               disabled={audienceNameSaving}
             >
-              {audienceNameSaving ? 'Joining...' : 'Join Audience'}
+              {audienceNameSaving ? copy.joining : copy.join}
             </button>
           </form>
           {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
@@ -1117,18 +1234,18 @@ function EventPage() {
     return (
       <section className="audience-entry-shell" aria-label="Audience waiting room">
         <article className="queue-panel audience-entry-card">
-          <p className="eyebrow audience-entry-eyebrow">Hi {audienceName}</p>
-          <h1>Welcome to the show, you lovely lot!</h1>
-          <p className="subcopy audience-entry-copy">Settle in, look confident, and blame any chaos on artistic direction.</p>
+          <p className="eyebrow audience-entry-eyebrow">{copy.waitingGreeting} {audienceName}</p>
+          <h1>{copy.waitingTitle}</h1>
+          <p className="subcopy audience-entry-copy">{copy.waitingCopy}</p>
           {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
-          <p className="meta-badge audience-soon-badge">Event starting soon</p>
+          <p className="meta-badge audience-soon-badge">{copy.startingSoon}</p>
           {hasRequestedEventParam ? (
             <button
               type="button"
               className="secondary-button"
               onClick={() => navigate('/audience')}
             >
-              View all upcoming gigs
+              {copy.viewUpcoming}
             </button>
           ) : null}
         </article>
@@ -1140,18 +1257,19 @@ function EventPage() {
     <section className="audience-shell audience-shell-compact audience-shell-modern" aria-label="Audience app">
       <section className="audience-stage">
         <AudienceFixedHeader
-          eventName={event?.name ?? 'Audience Live'}
+          eventName={event?.name ?? copy.audienceLive}
           subtitle={event?.subtitle ?? null}
           logoSrc="/the-human-jukebox-logo.svg"
+          locale={audienceLocale}
         />
 
         <section className="queue-panel audience-start-actions-panel" aria-label="Audience actions">
           <div className="panel-head audience-request-head">
             <div>
-              <p className="eyebrow audience-request-eyebrow">Audience Home</p>
+              <p className="eyebrow audience-request-eyebrow">{copy.audienceHome}</p>
               <h2>Hi {audienceName}</h2>
             </div>
-            <span className="meta-badge">Room Open</span>
+            <span className="meta-badge">{copy.roomOpen}</span>
           </div>
           {confirmationText ? <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">{confirmationText}</p> : null}
           {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
@@ -1163,7 +1281,7 @@ function EventPage() {
                 navigate(`/audience/song-list${location.search || ''}`)
               }}
             >
-              Song List
+              {copy.songList}
             </button>
             <button
               type="button"
@@ -1173,7 +1291,7 @@ function EventPage() {
               }}
               disabled={allTipLinks.length === 0}
             >
-              Tip Jar
+              {copy.tipJar}
             </button>
             <button
               type="button"
@@ -1183,7 +1301,7 @@ function EventPage() {
               }}
               disabled={socialLinks.length === 0}
             >
-              Social Links
+              {copy.socialLinks}
             </button>
             <button
               type="button"
@@ -1191,27 +1309,26 @@ function EventPage() {
               aria-controls="audience-how-it-works"
               onClick={() => setShowHowItWorks((current) => !current)}
             >
-              {showHowItWorks ? 'Hide How It Works' : 'How It Works'}
+              {showHowItWorks ? copy.hideHowItWorks : copy.howItWorks}
             </button>
           </div>
           {showHowItWorks ? (
             <div id="audience-how-it-works" className="audience-how-it-works" role="region" aria-label="How the audience app works">
-              <p className="audience-how-it-works-title">How It Works</p>
+              <p className="audience-how-it-works-title">{copy.howItWorksTitle}</p>
               <ol className="audience-how-it-works-list">
-                <li>Tap Song List to browse and add your request.</li>
-                <li>Vote in Live Queue to push your favorites up.</li>
-                <li>Watch Now Playing and keep the energy going.</li>
-                <li>Use Social Links or Tip Jar to support the artist.</li>
+                {copy.howItWorksSteps.map((step) => <li key={step}>{step}</li>)}
               </ol>
             </div>
           ) : null}
           {event?.requestInstructions ? <p className="subcopy audience-request-note">{event.requestInstructions}</p> : null}
           {duplicateRequestsBlocked || activeRequestCap ? (
             <div className="audience-policy-list">
-              {duplicateRequestsBlocked ? <p className="meta-badge audience-policy-badge">Duplicate requests are blocked for this gig.</p> : null}
+              {duplicateRequestsBlocked ? <p className="meta-badge audience-policy-badge">{copy.duplicateBlocked}</p> : null}
               {activeRequestCap ? (
                 <p className="meta-badge audience-policy-badge">
-                  {`Each audience member can keep ${activeRequestCap} active request${activeRequestCap === 1 ? '' : 's'} in the queue.`}
+                  {copy.activeRequestLimit
+                    .replace('{count}', String(activeRequestCap))
+                    .replace('{suffix}', activeRequestCap === 1 ? '' : 's')}
                 </p>
               ) : null}
             </div>
@@ -1219,7 +1336,7 @@ function EventPage() {
         </section>
 
         <article className="now-playing-card">
-          <p className="eyebrow">Now Playing</p>
+          <p className="eyebrow">{copy.nowPlaying}</p>
           {isBetweenSongs ? (
             <div className="now-playing-media now-playing-between-songs">
               <p className="between-songs-quote">{betweenSongQuote}</p>
@@ -1230,8 +1347,8 @@ function EventPage() {
                 <img src={normalizeCoverUrl(displaySongCoverUrl) ?? displaySongCoverUrl} alt={`Cover art for ${displaySong?.title ?? 'current song'}`} className="song-cover song-cover-large" />
               ) : null}
               <div>
-                <h2>{displaySong?.title ?? 'Queue is having a polite think'}</h2>
-                <p className="artist">{displaySong?.artist ?? 'Open Song List and request one before someone picks Wonderwall.'}</p>
+                <h2>{displaySong?.title ?? copy.queueThinking}</h2>
+                <p className="artist">{displaySong?.artist ?? copy.requestPrompt}</p>
               </div>
             </div>
           )}
@@ -1239,11 +1356,11 @@ function EventPage() {
 
         <article className="queue-panel">
           <div className="panel-head">
-            <h2>Live Queue</h2>
-            <span className="meta-badge">Most votes rises first</span>
+            <h2>{copy.liveQueue}</h2>
+            <span className="meta-badge">{copy.votesRise}</span>
           </div>
           <ol className="queue-list">
-            {upNext.length === 0 ? <li className="subcopy">No songs queued yet.</li> : null}
+            {upNext.length === 0 ? <li className="subcopy">{copy.noSongsQueued}</li> : null}
             {upNext.map((song, songIndex) => (
               <SongVoteCard
                 key={song.id}
@@ -1263,11 +1380,11 @@ function EventPage() {
 
         <article className="queue-panel" aria-label="Played songs">
           <div className="panel-head">
-            <h2>Played Songs</h2>
-            <span className="meta-badge">Latest on top</span>
+            <h2>{copy.playedSongs}</h2>
+            <span className="meta-badge">{copy.latestOnTop}</span>
           </div>
           <ol className="queue-list">
-            {recentlyPlayedSongs.length === 0 ? <li className="subcopy">No songs played yet.</li> : null}
+            {recentlyPlayedSongs.length === 0 ? <li className="subcopy">{copy.noSongsPlayed}</li> : null}
             {recentlyPlayedSongs.map((song, index) => (
               <li key={`${song.id}-${song.performedAt}`} className="audience-song-row">
                 <span className="queue-rank-chip" aria-label={`Played position ${index + 1}`}>
@@ -1292,11 +1409,11 @@ function EventPage() {
         </article>
 
         {socialLinks.length > 0 || allTipLinks.length > 0 ? (
-          <section className={`queue-panel link-panel${allTipLinks.length > 0 ? ' tip-jar-panel' : ''}`} aria-label="Performer links">
+          <section className={`queue-panel link-panel${allTipLinks.length > 0 ? ' tip-jar-panel' : ''}`} aria-label={copy.performerLinks}>
             {socialLinks.length > 0 ? (
               <>
                 <div className="panel-head" id="audience-social-links">
-                  <h2>Social Links</h2>
+                  <h2>{copy.socialLinks}</h2>
                 </div>
                 <ul className="link-list" aria-label="Social media links">
                   {socialLinks.map((link) => (
@@ -1313,9 +1430,9 @@ function EventPage() {
             {allTipLinks.length > 0 ? (
               <>
                 <div className="panel-head" id="audience-tip-jar">
-                  <h2>Tip Jar</h2>
+                  <h2>{copy.tipJar}</h2>
                 </div>
-                <p className="subcopy tip-jar-copy">If that last song made you sing like nobody&apos;s watching (they were), toss the artist a tip. Applause is cute, rent is louder. 🎤✨</p>
+                <p className="subcopy tip-jar-copy">{copy.tipJarCopy}</p>
                 <ul className="link-list" aria-label="Tip links">
                   {allTipLinks.map((link) => (
                     <li key={link.label}>
