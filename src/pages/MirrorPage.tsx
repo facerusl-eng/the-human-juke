@@ -1949,7 +1949,6 @@ function MirrorPage() {
         ) : (
           <>
             <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
-              <div className={`mirror-now-playing-frame ${isNowPlayingStarted && activeSong ? 'mirror-now-playing-frame-active' : 'mirror-now-playing-frame-idle'}`}>
                 {!isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     {/* Left: artwork of next song */}
@@ -2029,7 +2028,6 @@ function MirrorPage() {
                     </div>
                   </div>
                 )}
-              </div>
             </section>
 
             <section className="mirror-frames-lower" aria-label="Live feed and queue frames">
