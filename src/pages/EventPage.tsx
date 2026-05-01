@@ -692,6 +692,8 @@ function EventPage() {
     if (paypal) links.push({ label: 'PayPal', url: paypal })
     return links
   }, [event?.paypalUrl, hostProfile?.paypal_url, resolvedMobilepayLink])
+  const primaryTipLink = allTipLinks[0] ?? null
+  const secondaryTipLinks = allTipLinks.slice(1)
 
   useEffect(() => {
     const state = location.state as { requestConfirmation?: string } | null
@@ -1459,16 +1461,31 @@ function EventPage() {
                 <div className="panel-head" id="audience-tip-jar">
                   <h2>{copy.tipJar}</h2>
                 </div>
-                <p className="subcopy tip-jar-copy">{copy.tipJarCopy}</p>
-                <ul className="link-list" aria-label="Tip links">
-                  {allTipLinks.map((link) => (
-                    <li key={link.label}>
-                      <a className="link-chip tip-chip" href={link.url} target="_blank" rel="noreferrer">
-                        {link.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
+                <div className="tip-jar-showcase" aria-label="Tip links">
+                  {primaryTipLink ? (
+                    <a className="tip-jar-link" href={primaryTipLink.url} target="_blank" rel="noreferrer">
+                      <span className="tip-jar-glass" aria-hidden="true">
+                        <span className="tip-jar-lid" />
+                        <span className="tip-jar-symbol">£</span>
+                        <span className="tip-jar-coin-drop">🪙</span>
+                      </span>
+                      <span className="tip-jar-ribbon">A Tip Would Be Lovely. No Drama.</span>
+                      <span className="tip-jar-provider">Pay via {primaryTipLink.label}</span>
+                    </a>
+                  ) : null}
+
+                  {secondaryTipLinks.length > 0 ? (
+                    <ul className="link-list tip-jar-secondary-links">
+                      {secondaryTipLinks.map((link) => (
+                        <li key={link.label}>
+                          <a className="link-chip tip-chip" href={link.url} target="_blank" rel="noreferrer">
+                            {link.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
               </>
             ) : null}
           </section>
