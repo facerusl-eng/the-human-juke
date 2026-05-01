@@ -13,7 +13,7 @@ import {
   BETWEEN_SONG_QUOTES,
 } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
-import { useQueueStore } from '../state/queueStore'
+import { useQueueStore, type QueueSong } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
@@ -72,6 +72,7 @@ const CHOSEN_BY_ACCENT_CLASSES = [
 
 const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
+const SONG_INFO_ROTATE_INTERVAL_MS = 15000
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
 const MIRROR_PLAYBACK_STORAGE_KEY = PLAYBACK_STATE_STORAGE_KEY
 const MIRROR_PLAYBACK_BROADCAST_CHANNEL = PLAYBACK_STATE_BROADCAST_CHANNEL
@@ -82,6 +83,20 @@ const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 
 type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
+type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'votes_count' | 'createdByName' | 'audience_sings' | 'position'>
+
+const SONG_INFO_BUILDERS = [
+  (song: NowPlayingInfoSong) => `Track spotlight: ${song.title} by ${song.artist}.`,
+  (song: NowPlayingInfoSong) => `${song.artist} are on now, and this one currently has +${song.votes_count} votes from the room.`,
+  (song: NowPlayingInfoSong) => `${song.createdByName ? `${song.createdByName} requested this one` : 'Someone in the crowd requested this one'} and it made the cut.`,
+  (song: NowPlayingInfoSong) => song.audience_sings
+    ? 'Karaoke mode is active for this track, mic confidence levels are rising.'
+    : 'DJ performance mode is active for this track, keep those requests coming.',
+  (song: NowPlayingInfoSong) => `Now spinning: ${song.title}. Queue energy says this was a very good decision.`,
+  (song: NowPlayingInfoSong) => song.position && song.position > 0
+    ? `This tune climbed in from queue slot ${song.position}.`
+    : 'This tune just took over the room right on cue.',
+]
 
 function resolveMirrorVenueMode(value: string | null | undefined): MirrorVenueMode | null {
   if (!value) {
@@ -302,6 +317,7 @@ function MirrorPage() {
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [karaokeCheer, setKaraokeCheer] = useState<string | null>(null)
+  const [nowPlayingSongInfo, setNowPlayingSongInfo] = useState<string | null>(null)
   const spacebarBusyRef = useRef(false)
   const lastSpacebarActionAtRef = useRef(0)
   const [flashActive, setFlashActive] = useState(false)
@@ -336,6 +352,7 @@ function MirrorPage() {
   const autoFullscreenAttemptedRef = useRef(false)
   const chosenByPhraseIndexBySongIdRef = useRef<Record<string, number>>({})
   const lastChosenByPhraseIndexRef = useRef<number | null>(null)
+  const lastSongInfoIndexRef = useRef<number | null>(null)
 
   const setMirrorWarningMessage = (message: string) => {
     if (mirrorWarningClearTimerRef.current !== null) {
@@ -659,6 +676,57 @@ function MirrorPage() {
       setKaraokeCheer(null)
     }
   }, [activeSong?.id, activeSong?.audience_sings, activeSong?.createdByName, isLive])
+
+  useEffect(() => {
+    if (!isNowPlayingStarted || !activeSong) {
+      setNowPlayingSongInfo(null)
+      lastSongInfoIndexRef.current = null
+      return
+    }
+
+    const songInfoContext: NowPlayingInfoSong = {
+      title: activeSong.title,
+      artist: activeSong.artist,
+      votes_count: activeSong.votes_count,
+      createdByName: activeSong.createdByName,
+      audience_sings: activeSong.audience_sings,
+      position: activeSong.position,
+    }
+
+    const rotateSongInfo = () => {
+      const buildersCount = SONG_INFO_BUILDERS.length
+
+      if (buildersCount <= 0) {
+        setNowPlayingSongInfo(null)
+        return
+      }
+
+      let infoIndex = Math.floor(Math.random() * buildersCount)
+
+      if (buildersCount > 1 && infoIndex === lastSongInfoIndexRef.current) {
+        infoIndex = (infoIndex + 1 + Math.floor(Math.random() * (buildersCount - 1))) % buildersCount
+      }
+
+      lastSongInfoIndexRef.current = infoIndex
+      setNowPlayingSongInfo(SONG_INFO_BUILDERS[infoIndex](songInfoContext))
+    }
+
+    rotateSongInfo()
+    const songInfoInterval = window.setInterval(rotateSongInfo, SONG_INFO_ROTATE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(songInfoInterval)
+    }
+  }, [
+    isNowPlayingStarted,
+    activeSong?.id,
+    activeSong?.title,
+    activeSong?.artist,
+    activeSong?.votes_count,
+    activeSong?.createdByName,
+    activeSong?.audience_sings,
+    activeSong?.position,
+  ])
 
   const setQuoteIndex = (nextQuoteIndex: number) => {
     quoteIndexRef.current = nextQuoteIndex
@@ -1592,6 +1660,7 @@ function MirrorPage() {
                           {activeSongChosenByLine}
                         </p>
                       ) : null}
+                      {nowPlayingSongInfo ? <p className="mirror-song-fact">{nowPlayingSongInfo}</p> : null}
                       {activeSong?.audience_sings ? <span className="mirror-karaoke-tag">Karaoke Request</span> : null}
                       {karaokeCheer ? (
                         <p className="mirror-karaoke-cheer">{karaokeCheer}</p>

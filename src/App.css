@@ -4738,6 +4738,18 @@
   opacity: 0.85;
 }
 
+.mirror-song-fact {
+  margin: 0.26rem 0 0 0;
+  font-size: clamp(0.78rem, 1.2vw, 1rem);
+  color: #d5e8ff;
+  font-weight: 500;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .mirror-picker-accent-1 { color: #7dd3fc; }
 .mirror-picker-accent-2 { color: #93c5fd; }
 .mirror-picker-accent-3 { color: #a7f3d0; }
@@ -5076,6 +5088,7 @@
 .mirror-shell-high-contrast .mirror-join-strip-url,
 .mirror-shell-high-contrast .mirror-queue-artist,
 .mirror-shell-high-contrast .mirror-picked-by,
+.mirror-shell-high-contrast .mirror-song-fact,
 .mirror-shell-high-contrast .mirror-queue-artist-picker,
 .mirror-shell-high-contrast .mirror-queue-picker,
 .mirror-shell-high-contrast .mirror-how-it-works p,
