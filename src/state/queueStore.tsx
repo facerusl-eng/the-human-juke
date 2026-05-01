@@ -219,6 +219,28 @@ function isMissingPlaylistTypeColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes('playlist_type')
 }
 
+function isMissingQueueSongProfilesRelationshipError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return code === 'PGRST200'
+    && text.includes('queue_songs')
+    && text.includes('profiles')
+}
+
 function isMissingCreateGigRpcError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -645,10 +667,15 @@ function QueueProvider({ children }: PropsWithChildren) {
     let queueLoaded = false
 
     try {
-      const { data: songsData, error: songsError } = await withTimeout(
+      const songsSelectWithProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, profiles!queue_songs_created_by_fkey(display_name)'
+      const songsSelectWithoutProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position'
+
+      let songsData: Array<Record<string, unknown>> | null = null
+
+      const { data: songsWithProfiles, error: songsWithProfilesError } = await withTimeout(
         supabase
           .from('queue_songs')
-          .select('id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, profiles!queue_songs_created_by_fkey(display_name)')
+          .select(songsSelectWithProfiles)
           .eq('event_id', activeEventId)
           .eq('is_removed', false)
           .order('position', { ascending: true }),
@@ -656,15 +683,51 @@ function QueueProvider({ children }: PropsWithChildren) {
         'Loading the queue timed out. Please refresh and try again.',
       )
 
-      if (songsError) {
-        throw songsError
+      if (songsWithProfilesError && !isMissingQueueSongProfilesRelationshipError(songsWithProfilesError)) {
+        throw songsWithProfilesError
       }
 
-      queueSongs = ((songsData ?? []) as any[]).map((song: any) => ({
-        ...song,
-        createdByName: song.profiles?.display_name ?? null,
-        profiles: undefined,
-      })) as QueueSong[]
+      if (songsWithProfilesError && isMissingQueueSongProfilesRelationshipError(songsWithProfilesError)) {
+        const { data: songsWithoutProfiles, error: songsWithoutProfilesError } = await withTimeout(
+          supabase
+            .from('queue_songs')
+            .select(songsSelectWithoutProfiles)
+            .eq('event_id', activeEventId)
+            .eq('is_removed', false)
+            .order('position', { ascending: true }),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Loading the queue timed out. Please refresh and try again.',
+        )
+
+        if (songsWithoutProfilesError) {
+          throw songsWithoutProfilesError
+        }
+
+        songsData = (songsWithoutProfiles ?? []) as Array<Record<string, unknown>>
+      } else {
+        songsData = (songsWithProfiles ?? []) as Array<Record<string, unknown>>
+      }
+
+      queueSongs = (songsData ?? []).map((song) => {
+        const normalizedSong = song as Record<string, unknown>
+        const profile = normalizedSong.profiles as { display_name?: string | null } | null | undefined
+
+        return {
+          id: String(normalizedSong.id ?? ''),
+          event_id: String(normalizedSong.event_id ?? ''),
+          title: String(normalizedSong.title ?? ''),
+          artist: String(normalizedSong.artist ?? ''),
+          votes_count: Number(normalizedSong.votes_count ?? 0),
+          is_explicit: Boolean(normalizedSong.is_explicit),
+          voting_locked: Boolean(normalizedSong.voting_locked),
+          is_removed: Boolean(normalizedSong.is_removed),
+          cover_url: (normalizedSong.cover_url as string | null) ?? null,
+          library_song_id: (normalizedSong.library_song_id as string | null) ?? null,
+          audience_sings: Boolean(normalizedSong.audience_sings),
+          position: typeof normalizedSong.position === 'number' ? normalizedSong.position : undefined,
+          createdByName: profile?.display_name ?? null,
+        } satisfies QueueSong
+      })
       queueLoaded = true
     } catch (error) {
       if (!isTransientLoadError(error)) {
