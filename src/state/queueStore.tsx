@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react'
 import { supabase } from '../lib/supabase'
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { fetchSongArtwork } from '../lib/songArtwork'
+import { readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from './authStore'
 
 export type QueueSong = {
@@ -1529,6 +1530,27 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         const nextPosition = ((maxPositionData?.position as number | null) ?? -1) + 1
+
+        // Keep audience profile display_name in sync with the chosen audience identity
+        // so picker names can be resolved in queue/mirror views.
+        if (!isHostSession) {
+          const committedAudienceName = readCommittedAudienceName().trim()
+
+          if (committedAudienceName) {
+            try {
+              const { error: updateAudienceNameError } = await supabase
+                .from('profiles')
+                .update({ display_name: committedAudienceName })
+                .eq('user_id', user.id)
+
+              if (updateAudienceNameError) {
+                console.warn('queueStore: failed to sync audience display name before queue insert', updateAudienceNameError)
+              }
+            } catch (error) {
+              console.warn('queueStore: unexpected audience display name sync error', error)
+            }
+          }
+        }
 
         const { error } = await supabase.from('queue_songs').insert({
           event_id: targetEventId,
