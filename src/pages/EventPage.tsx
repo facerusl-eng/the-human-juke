@@ -1465,7 +1465,7 @@ function EventPage() {
     return () => {
       isCurrent = false
       if (subscription) {
-        void subscription.unsubscribe()
+        void supabase.removeChannel(subscription)
       }
       if (syncTimerId !== null) {
         window.clearInterval(syncTimerId)

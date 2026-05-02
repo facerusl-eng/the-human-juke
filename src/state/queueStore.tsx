@@ -694,12 +694,14 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
-      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
-      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
+      // Base columns that are always present in the DB.
+      const baseSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
+      // Full select including optional columns that may not exist in older DB schemas.
+      const fullSelect = `${baseSelect}, cover_image_url, tip_thank_you_message_da, tip_thank_you_message_en`
 
       const { data, error } = await supabase
         .from('events')
-        .select(withCoverSelect)
+        .select(fullSelect)
         .eq('id', activeEventId)
         .single()
 
@@ -707,24 +709,55 @@ function QueueProvider({ children }: PropsWithChildren) {
         return data as Record<string, unknown>
       }
 
-      if (!isMissingCoverImageColumnError(error)) {
+      const isCoverMissing = isMissingCoverImageColumnError(error)
+      const isTipMissing = isMissingTipThankYouMessageColumnError(error)
+
+      if (!isCoverMissing && !isTipMissing) {
         throw error
       }
 
+      // Retry with only the columns that are known to exist.
+      const knownGoodColumns = [
+        baseSelect,
+        !isCoverMissing ? 'cover_image_url' : null,
+        !isTipMissing ? 'tip_thank_you_message_da, tip_thank_you_message_en' : null,
+      ].filter(Boolean).join(', ')
+
       const { data: fallbackData, error: fallbackError } = await supabase
         .from('events')
-        .select(withoutCoverSelect)
+        .select(knownGoodColumns)
         .eq('id', activeEventId)
         .single()
 
       if (fallbackError) {
+        // If the fallback also hits a missing-column error (e.g. both columns absent),
+        // drop all optional columns and use the bare base select.
+        if (isMissingCoverImageColumnError(fallbackError) || isMissingTipThankYouMessageColumnError(fallbackError)) {
+          const { data: minimalData, error: minimalError } = await supabase
+            .from('events')
+            .select(baseSelect)
+            .eq('id', activeEventId)
+            .single()
+
+          if (minimalError) {
+            throw minimalError
+          }
+
+          return {
+            ...(minimalData as Record<string, unknown>),
+            cover_image_url: null,
+            tip_thank_you_message_da: null,
+            tip_thank_you_message_en: null,
+          }
+        }
+
         throw fallbackError
       }
 
       return {
         ...(fallbackData as Record<string, unknown>),
-        cover_image_url: null,
-        venue_logo_url: (fallbackData as Record<string, unknown>).venue_logo_url ?? null,
+        ...(isCoverMissing ? { cover_image_url: null } : {}),
+        ...(isTipMissing ? { tip_thank_you_message_da: null, tip_thank_you_message_en: null } : {}),
       }
     }
 
