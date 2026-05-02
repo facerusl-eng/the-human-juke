@@ -51,6 +51,21 @@ function formatTimestamp(isoTimestamp: string) {
   return date.toLocaleString()
 }
 
+function getReadableErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) {
+      return message
+    }
+  }
+
+  return 'Unable to load crash telemetry.'
+}
+
 function escapeCsvValue(value: string) {
   if (value.includes('"') || value.includes(',') || value.includes('\n')) {
     return `"${value.replaceAll('"', '""')}"`
@@ -141,12 +156,12 @@ function CrashTelemetryPage() {
       const { data, error } = await query
 
       if (error) {
-        throw error
+        throw new Error(error.message)
       }
 
       setRows((data ?? []) as CrashTelemetryRow[])
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Unable to load crash telemetry.')
+      setErrorText(getReadableErrorMessage(error))
     } finally {
       if (showRefreshingState) {
         setRefreshing(false)

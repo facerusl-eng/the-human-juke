@@ -731,6 +731,18 @@ BEGIN
       FOR INSERT TO authenticated
       WITH CHECK (true);
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'crash_telemetry'
+      AND policyname = 'crash_telemetry_select_authenticated'
+  ) THEN
+    CREATE POLICY crash_telemetry_select_authenticated ON public.crash_telemetry
+      FOR SELECT TO authenticated
+      USING (true);
+  END IF;
 END $$;
 
 -- ─── Queue reordering: add position column to queue_songs (April 2026) ──────
