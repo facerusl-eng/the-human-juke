@@ -6,6 +6,10 @@
     <link rel="apple-touch-icon" href="/the-human-jukebox-logo.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090a17" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Human Jukebox" />
     <meta name="description" content="Join the Human Jukebox - a collaborative music experience where the audience shapes the setlist in real-time." />
     
     <!-- Open Graph meta tags for social media sharing -->
@@ -26,8 +30,56 @@
     <meta name="twitter:image" content="https://the-human-jukebox.org/the-human-jukebox-logo.png" />
     
     <title>Human Jukebox</title>
+
+    <style>
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 28px;
+        background:
+          radial-gradient(circle at 15% 10%, rgba(74,214,255,0.22) 0%, transparent 38%),
+          radial-gradient(circle at 85% 12%, rgba(255,79,152,0.20) 0%, transparent 36%),
+          linear-gradient(160deg, #080b1f 0%, #0d1534 55%, #11122b 100%);
+        opacity: 1;
+        transition: opacity 0.35s ease;
+        pointer-events: none;
+      }
+      #app-splash.splash-hidden {
+        opacity: 0;
+      }
+      #app-splash img {
+        width: 120px;
+        height: 120px;
+        border-radius: 24px;
+        object-fit: contain;
+        filter: drop-shadow(0 0 24px rgba(74,214,255,0.45)) drop-shadow(0 0 48px rgba(255,79,152,0.30));
+        animation: splash-pulse 1.8s ease-in-out infinite;
+      }
+      @keyframes splash-pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.06); }
+      }
+      #app-splash p {
+        margin: 0;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(157,176,222,0.7);
+      }
+    </style>
   </head>
   <body>
+    <div id="app-splash" aria-hidden="true">
+      <img src="/the-human-jukebox-logo.png" alt="" width="120" height="120" />
+      <p>Loading&hellip;</p>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

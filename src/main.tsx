@@ -337,6 +337,14 @@ function scheduleNonCriticalStartupTasks() {
 installGlobalRuntimeHooks()
 scheduleNonCriticalStartupTasks()
 
+function dismissSplash() {
+  const splash = document.getElementById('app-splash')
+  if (!splash) return
+  splash.classList.add('splash-hidden')
+  // Remove from DOM after the CSS transition finishes (350ms).
+  splash.addEventListener('transitionend', () => splash.remove(), { once: true })
+}
+
 const rootElement = document.getElementById('root')
 
 if (!rootElement) {
@@ -350,8 +358,11 @@ if (!rootElement) {
   })
   console.error(message)
   emitRuntimeNotice(message)
+  dismissSplash()
 } else {
   createRoot(rootElement).render(
     <RouterProvider router={router} />,
   )
+  // Dismiss once the browser has painted the first React frame.
+  requestAnimationFrame(() => requestAnimationFrame(dismissSplash))
 }

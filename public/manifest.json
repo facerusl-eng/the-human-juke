@@ -2,9 +2,10 @@
   "name": "The Human Jukebox",
   "short_name": "Jukebox",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#090a17",
+  "theme_color": "#090a17",
   "start_url": "/",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/icons/icon-192.svg",
@@ -15,6 +16,12 @@
       "src": "/icons/icon-512.svg",
       "sizes": "512x512",
       "type": "image/svg+xml"
+    },
+    {
+      "src": "/the-human-jukebox-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
