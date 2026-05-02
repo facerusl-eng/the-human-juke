@@ -525,6 +525,9 @@ function EventPage() {
     performedSongs,
     loading,
     upvoteSong,
+    audienceConnectionStatus,
+    queueOperatingMode,
+    queueHealthMessage,
   } = useQueueStore()
 
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
@@ -646,6 +649,18 @@ function EventPage() {
   const betweenSongQuote = isBetweenSongs
     ? BETWEEN_SONG_QUOTES[(playbackState?.quoteIndex ?? 0) % BETWEEN_SONG_QUOTES.length]
     : null
+  const connectionBadgeLabel = audienceConnectionStatus === 'connected'
+    ? 'Connected'
+    : audienceConnectionStatus === 'reconnecting'
+    ? 'Reconnecting'
+    : audienceConnectionStatus === 'offline'
+    ? 'Offline'
+    : 'Connecting'
+  const connectionBadgeClassName = audienceConnectionStatus === 'connected'
+    ? 'connection-online'
+    : audienceConnectionStatus === 'offline'
+    ? 'connection-offline'
+    : ''
   const hottestVoteCount = upNext.reduce((highestVotes, song) => Math.max(highestVotes, song.votes_count), 0)
   const recentlyPlayedSongs = performedSongs.slice(0, 8)
   const eventSearchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
@@ -1735,6 +1750,14 @@ function EventPage() {
           locale={audienceLocale}
           onSignOut={handleSignOut}
         />
+
+        <section className="queue-panel audience-connection-banner" aria-label="Audience connection health">
+          <div className="audience-connection-banner-head">
+            <span className={`meta-badge connection-badge ${connectionBadgeClassName}`}>{connectionBadgeLabel}</span>
+            {queueOperatingMode === 'degraded' ? <span className="meta-badge audience-degraded-badge">Fallback Mode</span> : null}
+          </div>
+          {queueHealthMessage ? <p className="subcopy no-margin">{queueHealthMessage}</p> : null}
+        </section>
 
         <section className="queue-panel audience-start-actions-panel" aria-label="Audience actions">
           <div className="panel-head audience-request-head">

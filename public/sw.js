@@ -22,6 +22,3 @@ self.addEventListener('activate', (event) => {
     })(),
   )
 })
-
-  )
-})

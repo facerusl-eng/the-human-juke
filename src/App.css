@@ -7992,6 +7992,27 @@
   gap: 0.75rem;
 }
 
+.audience-connection-banner {
+  display: grid;
+  gap: 0.45rem;
+  border-color: rgba(111, 181, 255, 0.42);
+}
+
+.audience-connection-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.audience-degraded-badge {
+  border-color: rgba(255, 164, 71, 0.55);
+  background: rgba(71, 35, 8, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 14px rgba(255, 164, 71, 0.22);
+}
+
 .audience-start-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -123,6 +123,9 @@ type QueueContextValue = {
   songs: QueueSong[]
   performedSongs: PerformedSong[]
   loading: boolean
+  audienceConnectionStatus: 'connecting' | 'connected' | 'reconnecting' | 'offline'
+  queueOperatingMode: 'normal' | 'degraded'
+  queueHealthMessage: string | null
   addSong: (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => Promise<void>
   setActiveEvent: (nextEventId: string) => Promise<void>
   endGig: (targetEventId: string) => Promise<void>
@@ -150,6 +153,9 @@ const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 30_000
 const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 12_000
 // How often the audience checks for a new live gig when sitting on the no-gig screen.
 const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 8_000
+const DEGRADE_AFTER_CONSECUTIVE_FAILURES = 3
+const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 20_000
+const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 15_000
 const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
 const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
 const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
@@ -654,6 +660,9 @@ function QueueProvider({ children }: PropsWithChildren) {
   const [songs, setSongs] = useState<QueueSong[]>([])
   const [performedSongs, setPerformedSongs] = useState<PerformedSong[]>([])
   const [loading, setLoading] = useState(true)
+  const [audienceConnectionStatus, setAudienceConnectionStatus] = useState<'connecting' | 'connected' | 'reconnecting' | 'offline'>('connecting')
+  const [queueOperatingMode, setQueueOperatingMode] = useState<'normal' | 'degraded'>('normal')
+  const [queueHealthMessage, setQueueHealthMessage] = useState<string | null>(null)
   const [audienceRefreshTick, setAudienceRefreshTick] = useState(0)
   const activeEventIdRef = useRef<string | null>(null)
 
@@ -981,6 +990,22 @@ function QueueProvider({ children }: PropsWithChildren) {
     const feedRouteMode = isFeedRoutePath()
     let snapshotInFlight = false
     let snapshotQueued = false
+    let consecutiveLoadFailures = 0
+
+    const markSnapshotSuccess = () => {
+      consecutiveLoadFailures = 0
+      setQueueOperatingMode('normal')
+      setQueueHealthMessage(null)
+    }
+
+    const markSnapshotFailure = (error: unknown) => {
+      consecutiveLoadFailures += 1
+
+      if (consecutiveLoadFailures >= DEGRADE_AFTER_CONSECUTIVE_FAILURES) {
+        setQueueOperatingMode('degraded')
+        setQueueHealthMessage(`Live sync is unstable. Running fallback mode: slower polling and auto-retries. (${getReadableErrorMessage(error)})`)
+      }
+    }
 
     const clearChannelReconnectTimer = () => {
       if (channelReconnectTimerId !== null) {
@@ -1050,6 +1075,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       if (!user) {
         activeEventIdRef.current = null
         if (isCurrent) {
+          setAudienceConnectionStatus('offline')
           setEvent(null)
           setHostEvents([])
           setSongs([])
@@ -1065,6 +1091,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         let targetEventId: string | null = null
         const requestedEventId = readRequestedEventIdFromUrl()
         const runAsHostSession = isHostSession && !isAudienceRoutePath()
+        setAudienceConnectionStatus(runAsHostSession ? 'connected' : 'connecting')
 
         const syncAudienceActiveEventId = async (nextEventId: string) => {
           if (runAsHostSession) {
@@ -1179,11 +1206,13 @@ function QueueProvider({ children }: PropsWithChildren) {
 
                   if (status === 'SUBSCRIBED') {
                     channelReconnectAttempt = 0
+                    setAudienceConnectionStatus('connected')
                     void maybeReloadAudienceWhenLiveReturns()
                     return
                   }
 
                   if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                    setAudienceConnectionStatus('reconnecting')
                     scheduleChannelReconnect()
                   }
                 })
@@ -1198,7 +1227,9 @@ function QueueProvider({ children }: PropsWithChildren) {
               }
 
               void maybeReloadAudienceWhenLiveReturns()
-            }, AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS)
+            }, queueOperatingMode === 'degraded'
+              ? DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS
+              : AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS)
           }
 
           return
@@ -1240,7 +1271,9 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         try {
           await withTransientRetry(() => fetchQueueSnapshot(resolvedEventId), 2)
+          markSnapshotSuccess()
         } catch (error) {
+          markSnapshotFailure(error)
           const canFallbackToLatestActive = !runAsHostSession
 
           if (!canFallbackToLatestActive) {
@@ -1262,6 +1295,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
 
           await withTransientRetry(() => fetchQueueSnapshot(resolvedEventId), 2)
+          markSnapshotSuccess()
         }
 
         if (!isCurrent) {
@@ -1334,7 +1368,9 @@ function QueueProvider({ children }: PropsWithChildren) {
             }
 
             await withTransientRetry(() => fetchQueueSnapshot(resolvedEventId), 2)
+            markSnapshotSuccess()
           } catch (error) {
+            markSnapshotFailure(error)
             console.warn('queueStore: transient snapshot refresh failure', error)
             // Keep the last known snapshot when transient network errors occur.
           } finally {
@@ -1393,6 +1429,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               if (status === 'SUBSCRIBED') {
                 channelReconnectAttempt = 0
                 lastRealtimeEventAt = Date.now()
+                setAudienceConnectionStatus('connected')
                 startChannelWatchdog()
                 // Force a fresh fetch once subscribed to catch any missed changes.
                 void refreshSnapshot()
@@ -1400,6 +1437,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               }
 
               if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                setAudienceConnectionStatus('reconnecting')
                 clearChannelWatchdog()
                 scheduleChannelReconnect()
               }
@@ -1411,6 +1449,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         const pollIntervalMs = runAsHostSession
           ? (isAdminGigsRoutePath() ? HOST_GIGS_ROUTE_POLL_INTERVAL_MS : HOST_QUEUE_POLL_INTERVAL_MS)
+          : queueOperatingMode === 'degraded'
+          ? DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS
           : AUDIENCE_QUEUE_POLL_INTERVAL_MS
 
         audiencePollTimerId = window.setInterval(() => {
@@ -1423,6 +1463,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }, pollIntervalMs)
       } catch (error) {
+        markSnapshotFailure(error)
+        setAudienceConnectionStatus('reconnecting')
         console.warn('queueStore: initial queue load failed', error)
         // Keep previous state so transient failures do not blank the UI.
         if (isCurrent) {
@@ -1455,6 +1497,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const onVisibilityChange = () => {
       if (document.hidden) {
+        setAudienceConnectionStatus('offline')
         clearChannelReconnectTimer()
         disconnectActiveChannel()
         return
@@ -1463,9 +1506,14 @@ function QueueProvider({ children }: PropsWithChildren) {
       resumeRealtimeSync()
     }
 
+    const onOffline = () => {
+      setAudienceConnectionStatus('offline')
+    }
+
     document.addEventListener('visibilitychange', onVisibilityChange)
     window.addEventListener('focus', resumeRealtimeSync)
     window.addEventListener('online', resumeRealtimeSync)
+    window.addEventListener('offline', onOffline)
     window.addEventListener('pageshow', resumeRealtimeSync)
 
     return () => {
@@ -1473,6 +1521,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('focus', resumeRealtimeSync)
       window.removeEventListener('online', resumeRealtimeSync)
+      window.removeEventListener('offline', onOffline)
       window.removeEventListener('pageshow', resumeRealtimeSync)
       clearChannelReconnectTimer()
       activeChannelReconnectHandler = null
@@ -1482,7 +1531,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
       clearChannelWatchdog()
     }
-  }, [user, eventId, isHostSession, routePathname, audienceRefreshTick, refreshProfile, fetchQueueSnapshot])
+  }, [user, eventId, isHostSession, routePathname, audienceRefreshTick, refreshProfile, fetchQueueSnapshot, queueOperatingMode])
 
   useEffect(() => {
     const refreshOnForeground = () => {
@@ -1552,6 +1601,9 @@ function QueueProvider({ children }: PropsWithChildren) {
       songs,
       performedSongs,
       loading,
+      audienceConnectionStatus,
+      queueOperatingMode,
+      queueHealthMessage,
       addSong: async (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => {
         const targetEventId = eventId ?? event?.id ?? null
 
@@ -1764,7 +1816,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           setPerformedSongs([])
         } catch (error) {
           console.error('queueStore: setActiveEvent fetch step failed', error)
-          throw new Error(`Failed to refresh gig data: ${getReadableErrorMessage(error)}`)
+          throw new Error(`Failed to refresh gig data: ${getReadableErrorMessage(error)}`, { cause: error })
         }
       },
       endGig: async (targetEventId: string) => {
@@ -2671,7 +2723,21 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
       },
     }),
-    [event, hostEvents, songs, performedSongs, loading, user, eventId, isHostSession, refreshProfile, fetchQueueSnapshot],
+    [
+      event,
+      hostEvents,
+      songs,
+      performedSongs,
+      loading,
+      audienceConnectionStatus,
+      queueOperatingMode,
+      queueHealthMessage,
+      user,
+      eventId,
+      isHostSession,
+      refreshProfile,
+      fetchQueueSnapshot,
+    ],
   )
 
   return <QueueContext.Provider value={value}>{children}</QueueContext.Provider>

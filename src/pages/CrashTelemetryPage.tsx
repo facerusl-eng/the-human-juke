@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -12,6 +12,8 @@ type CrashTelemetryRow = {
 }
 
 const DEFAULT_LIMIT = 25
+const CRASH_ALERT_WINDOW_MS = 5 * 60 * 1000
+const CRASH_ALERT_THRESHOLD = 3
 
 const TIME_WINDOW_OPTIONS = [
   { value: '1h', label: 'Last hour', milliseconds: 60 * 60 * 1000 },
@@ -98,6 +100,7 @@ function CrashTelemetryPage() {
   const [routeFilter, setRouteFilter] = useState('')
   const [fingerprintFilter, setFingerprintFilter] = useState('')
   const [timeWindow, setTimeWindow] = useState<TimeWindowValue>('24h')
+  const [alertReferenceMs, setAlertReferenceMs] = useState<number>(() => Date.now())
 
   const downloadCsv = () => {
     if (rows.length === 0 || typeof window === 'undefined') {
@@ -168,6 +171,8 @@ function CrashTelemetryPage() {
       } else {
         setLoading(false)
       }
+
+      setAlertReferenceMs(Date.now())
     }
   }, [fingerprintFilter, routeFilter, timeWindow])
 
@@ -187,6 +192,29 @@ function CrashTelemetryPage() {
   useEffect(() => {
     void loadTelemetry(false)
   }, [loadTelemetry])
+
+  const frequentFingerprintAlerts = useMemo(() => {
+    const windowStartMs = alertReferenceMs - CRASH_ALERT_WINDOW_MS
+    const countsByFingerprint = new Map<string, number>()
+
+    for (const row of rows) {
+      const createdAtMs = new Date(row.created_at).getTime()
+      if (!Number.isFinite(createdAtMs) || createdAtMs < windowStartMs) {
+        continue
+      }
+
+      countsByFingerprint.set(
+        row.error_fingerprint,
+        (countsByFingerprint.get(row.error_fingerprint) ?? 0) + 1,
+      )
+    }
+
+    return Array.from(countsByFingerprint.entries())
+      .filter(([, count]) => count >= CRASH_ALERT_THRESHOLD)
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 5)
+      .map(([fingerprint, count]) => ({ fingerprint, count }))
+  }, [rows, alertReferenceMs])
 
   return (
     <section className="admin-shell" aria-label="Crash telemetry diagnostics">
@@ -226,6 +254,23 @@ function CrashTelemetryPage() {
       </section>
 
       <section className="queue-panel">
+        {frequentFingerprintAlerts.length > 0 ? (
+          <section className="crash-telemetry-alerts" aria-label="Frequent crash fingerprints">
+            <p className="eyebrow">Spike Alert</p>
+            <p className="subcopy">
+              The fingerprints below appeared at least {CRASH_ALERT_THRESHOLD} times in the last 5 minutes.
+            </p>
+            <ul className="crash-telemetry-alert-list">
+              {frequentFingerprintAlerts.map((alert) => (
+                <li key={alert.fingerprint}>
+                  <span>{alert.fingerprint}</span>
+                  <span className="meta-badge">{alert.count} hits</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         <section className="crash-telemetry-quick-filters" aria-label="Quick filters">
           <button
             type="button"

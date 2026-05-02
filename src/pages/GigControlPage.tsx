@@ -65,6 +65,8 @@ function GigControlPage() {
   const [spotifyAutoTransportEnabled, setSpotifyAutoTransportEnabled] = useState(true)
   const [workerHeartbeatText, setWorkerHeartbeatText] = useState<string | null>(null)
   const [activeAudienceCount, setActiveAudienceCount] = useState<number | null>(null)
+  const [preflightBusy, setPreflightBusy] = useState(false)
+  const [preflightStatusText, setPreflightStatusText] = useState<string | null>(null)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -295,6 +297,83 @@ function GigControlPage() {
       window.location.assign('/api/spotify/login')
     }
   }, [refreshSpotifyAccessToken])
+
+  const runGoLivePreflight = useCallback(async () => {
+    if (!event) {
+      throw new Error('No active gig selected for preflight.')
+    }
+
+    setPreflightBusy(true)
+    setPreflightStatusText('Running preflight checks...')
+
+    try {
+      if (!navigator.onLine) {
+        throw new Error('Device is offline. Connect to the internet before going live.')
+      }
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        throw new Error(`Session check failed: ${sessionError.message}`)
+      }
+      if (!sessionData.session?.user) {
+        throw new Error('No active host session. Please sign in again before going live.')
+      }
+
+      const { error: dbReadError } = await supabase
+        .from('events')
+        .select('id, room_open')
+        .eq('id', event.id)
+        .single()
+
+      if (dbReadError) {
+        throw new Error(`Database read failed: ${dbReadError.message}`)
+      }
+
+      const testChannel = supabase.channel(`go-live-preflight-${Date.now()}`)
+      const realtimeStatus = await new Promise<string>((resolve) => {
+        const timeoutId = window.setTimeout(() => resolve('TIMED_OUT'), 3500)
+
+        testChannel
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'events',
+          }, () => {
+            // no-op
+          })
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+              window.clearTimeout(timeoutId)
+              resolve(status)
+            }
+          })
+      })
+
+      void supabase.removeChannel(testChannel)
+
+      if (realtimeStatus !== 'SUBSCRIBED') {
+        throw new Error(`Realtime subscription failed (${realtimeStatus}).`)
+      }
+
+      const joinUrl = getAudienceUrl(event.id, { compact: true })
+      if (!joinUrl.startsWith('http')) {
+        throw new Error('Audience share link could not be generated.')
+      }
+
+      const keepWarmResponse = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' })
+      if (!keepWarmResponse.ok) {
+        throw new Error(`Warm-up endpoint failed (${keepWarmResponse.status}).`)
+      }
+
+      setPreflightStatusText(`Preflight passed at ${new Date().toLocaleTimeString()}.`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Preflight failed.'
+      setPreflightStatusText(message)
+      throw error
+    } finally {
+      setPreflightBusy(false)
+    }
+  }, [event])
 
   const saveQueueSnapshot = () => {
     if (!event) {
@@ -724,10 +803,31 @@ function GigControlPage() {
       id: 'toggle-room-open',
       label: gigActions.roomToggleBusy ? 'Updating...' : event?.roomOpen ? 'Pause Live' : 'Go Live',
       onClick: async () => {
-        await gigActions.runToggleRoomOpen()
+        try {
+          if (event && !event.roomOpen) {
+            await runGoLivePreflight()
+          }
+          await gigActions.runToggleRoomOpen()
+        } catch (error) {
+          setErrorText(error instanceof Error ? error.message : 'Go Live preflight failed.')
+        }
       },
-      disabled: gigActions.quickActionBusy,
+      disabled: gigActions.quickActionBusy || preflightBusy,
       variant: event?.roomOpen ? 'secondary' : 'primary',
+    },
+    {
+      id: 'run-warmup',
+      label: preflightBusy ? 'Warming up...' : 'Warm Up Now',
+      onClick: async () => {
+        try {
+          await runGoLivePreflight()
+          setErrorText(null)
+        } catch (error) {
+          setErrorText(error instanceof Error ? error.message : 'Warm-up check failed.')
+        }
+      },
+      disabled: preflightBusy,
+      variant: 'ghost',
     },
     {
       id: 'toggle-explicit-filter',
@@ -852,6 +952,9 @@ function GigControlPage() {
                 ? 'No audience members online yet'
                 : `${activeAudienceCount} audience member${activeAudienceCount === 1 ? '' : 's'} online`}
             </p>
+            {preflightStatusText ? (
+              <p className="meta-badge" aria-live="polite">{preflightStatusText}</p>
+            ) : null}
             <p className="subcopy gig-playback-note">
               Admin playback control is driven from this screen. Press Space to start the current song, then press
               Space again to move into the next quote transition. This applies to the full live queue for this gig,

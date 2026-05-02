@@ -9,7 +9,9 @@
     "dev:api": "node server/index.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "loadtest:audience": "node scripts/loadtest-audience-join.mjs",
+    "ci:verify": "npm run lint && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1",
