@@ -694,14 +694,12 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
-      // Base columns that are always present in the DB.
-      const baseSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
-      // Full select including optional columns that may not exist in older DB schemas.
-      const fullSelect = `${baseSelect}, cover_image_url, tip_thank_you_message_da, tip_thank_you_message_en`
+      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
+      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
 
       const { data, error } = await supabase
         .from('events')
-        .select(fullSelect)
+        .select(withCoverSelect)
         .eq('id', activeEventId)
         .single()
 
@@ -709,63 +707,59 @@ function QueueProvider({ children }: PropsWithChildren) {
         return data as Record<string, unknown>
       }
 
-      const isCoverMissing = isMissingCoverImageColumnError(error)
-      const isTipMissing = isMissingTipThankYouMessageColumnError(error)
-
-      if (!isCoverMissing && !isTipMissing) {
+      if (!isMissingCoverImageColumnError(error)) {
         throw error
       }
 
-      // Retry with only the columns that are known to exist.
-      const knownGoodColumns = [
-        baseSelect,
-        !isCoverMissing ? 'cover_image_url' : null,
-        !isTipMissing ? 'tip_thank_you_message_da, tip_thank_you_message_en' : null,
-      ].filter(Boolean).join(', ')
-
       const { data: fallbackData, error: fallbackError } = await supabase
         .from('events')
-        .select(knownGoodColumns)
+        .select(withoutCoverSelect)
         .eq('id', activeEventId)
         .single()
 
       if (fallbackError) {
-        // If the fallback also hits a missing-column error (e.g. both columns absent),
-        // drop all optional columns and use the bare base select.
-        if (isMissingCoverImageColumnError(fallbackError) || isMissingTipThankYouMessageColumnError(fallbackError)) {
-          const { data: minimalData, error: minimalError } = await supabase
-            .from('events')
-            .select(baseSelect)
-            .eq('id', activeEventId)
-            .single()
-
-          if (minimalError) {
-            throw minimalError
-          }
-
-          return {
-            ...(minimalData as Record<string, unknown>),
-            cover_image_url: null,
-            tip_thank_you_message_da: null,
-            tip_thank_you_message_en: null,
-          }
-        }
-
         throw fallbackError
       }
 
       return {
         ...(fallbackData as Record<string, unknown>),
-        ...(isCoverMissing ? { cover_image_url: null } : {}),
-        ...(isTipMissing ? { tip_thank_you_message_da: null, tip_thank_you_message_en: null } : {}),
+        cover_image_url: null,
+        venue_logo_url: (fallbackData as Record<string, unknown>).venue_logo_url ?? null,
       }
     }
 
-    const eventData = await withTimeout(
-      loadEventSnapshot(),
-      DEFAULT_DB_TIMEOUT_MS,
-      'Loading the live gig timed out. Please refresh and try again.',
-    )
+    // Separately fetch tip thank-you messages (columns may not exist in older DB schemas).
+    // This is non-blocking — failure just results in null values.
+    const loadTipMessages = async (): Promise<{ tip_thank_you_message_da: string | null; tip_thank_you_message_en: string | null }> => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('tip_thank_you_message_da, tip_thank_you_message_en')
+          .eq('id', activeEventId)
+          .single()
+
+        if (error || !data) {
+          return { tip_thank_you_message_da: null, tip_thank_you_message_en: null }
+        }
+
+        const row = data as Record<string, unknown>
+        return {
+          tip_thank_you_message_da: (row.tip_thank_you_message_da as string | null) ?? null,
+          tip_thank_you_message_en: (row.tip_thank_you_message_en as string | null) ?? null,
+        }
+      } catch {
+        return { tip_thank_you_message_da: null, tip_thank_you_message_en: null }
+      }
+    }
+
+    const [eventData, tipMessages] = await Promise.all([
+      withTimeout(
+        loadEventSnapshot(),
+        DEFAULT_DB_TIMEOUT_MS,
+        'Loading the live gig timed out. Please refresh and try again.',
+      ),
+      loadTipMessages(),
+    ])
 
     let queueSongs: QueueSong[] = []
     let queueLoaded = false
@@ -950,8 +944,8 @@ function QueueProvider({ children }: PropsWithChildren) {
       showCustomButton: ((eventData as Record<string, unknown>).show_custom_button as boolean | null) ?? false,
       customButtonLabel: ((eventData as Record<string, unknown>).custom_button_label as string | null) ?? null,
       customButtonLink: ((eventData as Record<string, unknown>).custom_button_link as string | null) ?? null,
-      tipThankYouMessageDA: ((eventData as Record<string, unknown>).tip_thank_you_message_da as string | null) ?? null,
-      tipThankYouMessageEN: ((eventData as Record<string, unknown>).tip_thank_you_message_en as string | null) ?? null,
+      tipThankYouMessageDA: tipMessages.tip_thank_you_message_da,
+      tipThankYouMessageEN: tipMessages.tip_thank_you_message_en,
     })
     if (queueLoaded) {
       setSongs(queueSongs.map((song) => {
