@@ -1042,6 +1042,10 @@ function QueueProvider({ children }: PropsWithChildren) {
             return
           }
 
+          // Use a short timeout — this is a background optimisation only.
+          // A failure must never block the audience from seeing the live queue.
+          const PROFILE_SYNC_TIMEOUT_MS = 6_000
+
           const { error: profileUpdateError } = await withTimeout(
             withAuthLockRetry(() =>
               supabase
@@ -1049,8 +1053,8 @@ function QueueProvider({ children }: PropsWithChildren) {
                 .update({ active_event_id: nextEventId })
                 .eq('user_id', user.id),
             ),
-            DEFAULT_DB_TIMEOUT_MS,
-            'Timed out while joining the live audience event. Please try again.',
+            PROFILE_SYNC_TIMEOUT_MS,
+            'Profile sync timed out.',
           )
 
           if (profileUpdateError) {
@@ -1059,17 +1063,9 @@ function QueueProvider({ children }: PropsWithChildren) {
             if (profileUpdateError.code === '23503') {
               throw Object.assign(new Error(profileUpdateError.message), { isForeignKeyViolation: true })
             }
-            throw new Error(profileUpdateError.message)
+            // All other errors: log and continue — the queue still loads.
+            console.warn('queueStore: profile active_event_id sync failed (non-blocking)', profileUpdateError.message)
           }
-
-          void withTimeout(
-            withAuthLockRetry(() => refreshProfile(), 2),
-            DEFAULT_DB_TIMEOUT_MS,
-            'Timed out while refreshing audience profile sync.',
-          ).catch((error) => {
-            console.warn('queueStore: profile refresh failed after audience event sync', error)
-            // Profile sync can recover on next auth refresh.
-          })
         }
 
         if (runAsHostSession) {
@@ -1176,6 +1172,8 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         if (!runAsHostSession) {
+          // Only await long enough to detect a stale event ID (FK violation).
+          // Profile sync errors are non-blocking — the queue loads regardless.
           try {
             await syncAudienceActiveEventId(targetEventId!)
           } catch (syncError) {
@@ -1193,10 +1191,10 @@ function QueueProvider({ children }: PropsWithChildren) {
                 return
               }
               targetEventId = latestActiveEventId
-              await syncAudienceActiveEventId(latestActiveEventId)
-            } else {
-              throw syncError
+              // Best-effort sync for the fallback event — don't block on it.
+              void syncAudienceActiveEventId(latestActiveEventId).catch(() => {})
             }
+            // All other sync errors are already logged inside syncAudienceActiveEventId — continue loading.
           }
         }
 
@@ -1226,7 +1224,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           resolvedEventId = latestActiveEventId
 
           if (!runAsHostSession) {
-            await syncAudienceActiveEventId(resolvedEventId)
+            // Best-effort — don't block the snapshot load on a profile write.
+            void syncAudienceActiveEventId(resolvedEventId).catch(() => {})
           }
 
           await withTransientRetry(() => fetchQueueSnapshot(resolvedEventId), 2)

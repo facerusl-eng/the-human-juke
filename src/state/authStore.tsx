@@ -5,7 +5,7 @@ import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { supabase } from '../lib/supabase'
 
 const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
-const AUTH_REQUEST_TIMEOUT_MS = 12_000
+const AUTH_REQUEST_TIMEOUT_MS = 20_000
 const AUTH_TRANSIENT_RETRY_COUNT = 2
 const AUTH_PROFILE_REQUEST_TIMEOUT_MS = 20_000
 const AUTH_PROFILE_RETRY_COUNT = 3
@@ -375,7 +375,7 @@ function AuthProvider({ children }: PropsWithChildren) {
       if (isMounted) {
         setLoading(false)
       }
-    }, 1800)
+    }, 4000)
 
     void supabase.auth
       .getSession()

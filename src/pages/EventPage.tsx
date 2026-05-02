@@ -1556,6 +1556,21 @@ function EventPage() {
   }
 
   if (!event) {
+    // If auth is still in progress (no user yet), show the loading skeleton.
+    // Showing "no live show" while auth reconnects after a retry is misleading.
+    if (authLoading && !user) {
+      return (
+        <section className="audience-entry-shell" aria-label="Audience loading">
+          <article className="queue-panel audience-entry-card">
+            <p className="eyebrow">Audience App</p>
+            <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
+            <div className="loading-skeleton loading-skeleton-line" aria-hidden="true"></div>
+            <div className="loading-skeleton loading-skeleton-line loading-skeleton-line-short" aria-hidden="true"></div>
+          </article>
+        </section>
+      )
+    }
+
     if (!hasRequestedEventParam && !hasCompletedInitialLiveGigProbe) {
       return (
         <section className="audience-entry-shell" aria-label="Audience loading">
