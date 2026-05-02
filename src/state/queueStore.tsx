@@ -976,6 +976,8 @@ function QueueProvider({ children }: PropsWithChildren) {
     let channelReconnectTimerId: number | null = null
     let channelReconnectAttempt = 0
     let activeChannelReconnectHandler: (() => void) | null = null
+    let channelWatchdogTimerId: number | null = null
+    let lastRealtimeEventAt = Date.now()
     const feedRouteMode = isFeedRoutePath()
     let snapshotInFlight = false
     let snapshotQueued = false
@@ -1011,6 +1013,37 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         activeChannelReconnectHandler()
       }, retryDelayMs)
+    }
+
+    // Watchdog: if the Realtime channel is subscribed but delivers no events
+    // for >90 seconds, force a reconnect. This catches silent NAT/proxy
+    // timeouts that cut the WebSocket without triggering a CHANNEL_ERROR.
+    const REALTIME_WATCHDOG_INTERVAL_MS = 30_000
+    const REALTIME_SILENCE_THRESHOLD_MS = 90_000
+
+    const clearChannelWatchdog = () => {
+      if (channelWatchdogTimerId !== null) {
+        window.clearInterval(channelWatchdogTimerId)
+        channelWatchdogTimerId = null
+      }
+    }
+
+    const startChannelWatchdog = () => {
+      clearChannelWatchdog()
+
+      channelWatchdogTimerId = window.setInterval(() => {
+        if (!isCurrent || document.hidden || !activeChannel) {
+          return
+        }
+
+        const silenceMs = Date.now() - lastRealtimeEventAt
+
+        if (silenceMs >= REALTIME_SILENCE_THRESHOLD_MS) {
+          console.warn(`queueStore: Realtime silent for ${silenceMs}ms — forcing reconnect`)
+          lastRealtimeEventAt = Date.now()
+          scheduleChannelReconnect()
+        }
+      }, REALTIME_WATCHDOG_INTERVAL_MS)
     }
 
     const load = async () => {
@@ -1333,6 +1366,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 filter: `event_id=eq.${resolvedEventId}`,
               },
               () => {
+                lastRealtimeEventAt = Date.now()
                 if (!feedRouteMode) {
                   void refreshSnapshot()
                 }
@@ -1347,6 +1381,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 filter: `id=eq.${resolvedEventId}`,
               },
               () => {
+                lastRealtimeEventAt = Date.now()
                 void refreshSnapshot()
               },
             )
@@ -1357,12 +1392,15 @@ function QueueProvider({ children }: PropsWithChildren) {
 
               if (status === 'SUBSCRIBED') {
                 channelReconnectAttempt = 0
+                lastRealtimeEventAt = Date.now()
+                startChannelWatchdog()
                 // Force a fresh fetch once subscribed to catch any missed changes.
                 void refreshSnapshot()
                 return
               }
 
               if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                clearChannelWatchdog()
                 scheduleChannelReconnect()
               }
             })
@@ -1406,6 +1444,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
       clearChannelReconnectTimer()
       channelReconnectAttempt = 0
+      lastRealtimeEventAt = Date.now()
       activeChannelReconnectHandler?.()
 
       const currentEventId = activeEventIdRef.current
@@ -1441,6 +1480,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       if (audiencePollTimerId !== null) {
         window.clearInterval(audiencePollTimerId)
       }
+      clearChannelWatchdog()
     }
   }, [user, eventId, isHostSession, routePathname, audienceRefreshTick, refreshProfile, fetchQueueSnapshot])
 

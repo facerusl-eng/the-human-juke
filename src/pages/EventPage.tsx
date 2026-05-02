@@ -558,6 +558,54 @@ function EventPage() {
   const funFactsInFlightRef = useRef<Partial<Record<string, Promise<string[]>>>>({})
   const votingSongIdsRef = useRef<Record<string, boolean>>({})
   const confirmationTimerRef = useRef<number | null>(null)
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+
+  // Acquire a screen wake lock while the audience is in an active live gig.
+  // This prevents the phone screen from locking mid-concert when browsing the queue.
+  // Silently falls back when the API is unsupported (older browsers / iOS < 16.4).
+  useEffect(() => {
+    if (!event?.roomOpen) {
+      return
+    }
+
+    let released = false
+
+    const acquireWakeLock = async () => {
+      if (!('wakeLock' in navigator)) {
+        return
+      }
+
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request('screen')
+
+        wakeLockRef.current.addEventListener('release', () => {
+          // Re-acquire after page visibility returns (e.g. tab switch then back).
+          if (!released && !document.hidden) {
+            void acquireWakeLock()
+          }
+        })
+      } catch {
+        // Permission denied or system overrule — no action needed.
+      }
+    }
+
+    void acquireWakeLock()
+
+    const onVisibilityChange = () => {
+      if (!document.hidden && !wakeLockRef.current) {
+        void acquireWakeLock()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      released = true
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      void wakeLockRef.current?.release().catch(() => {})
+      wakeLockRef.current = null
+    }
+  }, [event?.roomOpen])
 
   const roomOpen = event?.roomOpen ?? false
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false

@@ -76,5 +76,11 @@
       "source": "/((?!api/|assets/|icons/|.*\\..*).*)",
       "destination": "/index.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/keepwarm",
+      "schedule": "*/5 * * * *"
+    }
   ]
 }
