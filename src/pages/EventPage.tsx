@@ -22,6 +22,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
+import '../audience-karafun.css'
 import { demoMode } from '../demo/demoMode'
 
 type HostProfile = {
@@ -1618,7 +1619,7 @@ function EventPage() {
     && upcomingEvents.length === 0
   ) {
     return (
-      <section className="audience-entry-shell" aria-label="Audience loading">
+      <section className="audience-entry-shell audience-karafun" aria-label="Audience loading">
         <article className="queue-panel audience-entry-card">
           <p className="eyebrow">Audience App</p>
           <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
@@ -1634,7 +1635,7 @@ function EventPage() {
     // Showing "no live show" while auth reconnects after a retry is misleading.
     if (authLoading && !user) {
       return (
-        <section className="audience-entry-shell" aria-label="Audience loading">
+        <section className="audience-entry-shell audience-karafun" aria-label="Audience loading">
           <article className="queue-panel audience-entry-card">
             <p className="eyebrow">Audience App</p>
             <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
@@ -1647,7 +1648,7 @@ function EventPage() {
 
     if (!hasRequestedEventParam && !hasCompletedInitialLiveGigProbe) {
       return (
-        <section className="audience-entry-shell" aria-label="Audience loading">
+        <section className="audience-entry-shell audience-karafun" aria-label="Audience loading">
           <article className="queue-panel audience-entry-card">
             <p className="eyebrow">Audience App</p>
             <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
@@ -1671,7 +1672,7 @@ function EventPage() {
 
   if (!audienceName) {
     return (
-      <section className="audience-entry-shell" aria-label="Audience entry">
+      <section className="audience-entry-shell audience-karafun" aria-label="Audience entry">
         <article className="queue-panel audience-entry-card">
           <p className="eyebrow audience-entry-eyebrow">{copy.entryEyebrow}</p>
           <h1>{event?.name ?? 'Human Jukebox'}</h1>
@@ -1730,7 +1731,7 @@ function EventPage() {
 
   if (!roomOpen) {
     return (
-      <section className="audience-entry-shell" aria-label="Audience waiting room">
+      <section className="audience-entry-shell audience-karafun" aria-label="Audience waiting room">
         <article className="queue-panel audience-entry-card">
           <p className="eyebrow audience-entry-eyebrow">{copy.waitingGreeting} {audienceName}</p>
           <h1>{copy.waitingTitle}</h1>
@@ -1752,7 +1753,7 @@ function EventPage() {
   }
 
   return (
-    <section className="audience-shell audience-shell-compact audience-shell-modern" aria-label="Audience app">
+    <section className="audience-shell audience-shell-compact audience-shell-modern audience-karafun" aria-label="Audience app">
       <section className="audience-stage">
         <AudienceFixedHeader
           eventName={event?.name ?? copy.audienceLive}
@@ -1788,7 +1789,7 @@ function EventPage() {
                 navigate(`/audience/song-list${location.search || ''}`)
               }}
             >
-              {copy.songList}
+              🎤 {copy.songList}
             </button>
             {event?.showCustomButton && event.customButtonLabel?.trim() && event.customButtonLink?.trim() ? (
               <a
@@ -1808,7 +1809,7 @@ function EventPage() {
               }}
               disabled={allTipLinks.length === 0}
             >
-              {copy.tipJar}
+              💸 {copy.tipJar}
             </button>
             <button
               type="button"
@@ -1818,7 +1819,7 @@ function EventPage() {
               }}
               disabled={socialLinks.length === 0}
             >
-              {copy.socialLinks}
+              🔗 {copy.socialLinks}
             </button>
             <button
               type="button"
@@ -1871,7 +1872,7 @@ function EventPage() {
               </button>
             </div>
           ) : null}
-          <p className="eyebrow">{copy.nowPlaying}</p>
+          <p className="eyebrow"><span aria-hidden="true">🎤</span> {copy.nowPlaying}</p>
           {isBetweenSongs ? (
             <div className="now-playing-media now-playing-between-songs">
               <p className="between-songs-quote">{betweenSongQuote}</p>
@@ -1904,7 +1905,7 @@ function EventPage() {
 
         <article className="queue-panel">
           <div className="panel-head">
-            <h2>{copy.liveQueue}</h2>
+            <h2><span aria-hidden="true">🏆</span> {copy.liveQueue}</h2>
             <span className="meta-badge">{copy.votesRise}</span>
           </div>
           <ol className="queue-list">
@@ -1928,7 +1929,7 @@ function EventPage() {
 
         <article className="queue-panel" aria-label="Played songs">
           <div className="panel-head">
-            <h2>{copy.playedSongs}</h2>
+            <h2><span aria-hidden="true">✅</span> {copy.playedSongs}</h2>
             <span className="meta-badge">{copy.latestOnTop}</span>
           </div>
           <ol className="queue-list">

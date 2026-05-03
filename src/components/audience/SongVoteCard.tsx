@@ -118,7 +118,7 @@ function SongVoteCard({
           aria-busy={isVoting}
           aria-label={`Vote for ${song.title} by ${song.artist}`}
         >
-          {isVoting ? 'Voting...' : 'Vote'}
+          {isVoting ? 'Voting…' : '❤️ Vote'}
         </PrimaryButton>
         <span
           key={`votes-${song.id}-${votePulseTick}`}
