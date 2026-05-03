@@ -9786,6 +9786,7 @@
 .queue-song-main > div,
 .gig-song-info > div {
   min-width: 0;
+  flex: 1;
 }
 
 .gig-song-info {

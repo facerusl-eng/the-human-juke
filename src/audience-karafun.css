@@ -421,6 +421,12 @@
 
 /* ─── Song Vote Cards ────────────────────────────────────────── */
 .audience-karafun .audience-song-card {
+  /* Reset .queue-list li flex layout — cards must be grid to stack
+     card-head / progress / actions vertically. */
+  display: grid;
+  gap: 0.6rem;
+  align-items: normal;
+  justify-content: normal;
   background: rgba(22, 22, 50, 0.72);
   border: 1px solid var(--kf-border);
   border-radius: 13px;
