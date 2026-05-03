@@ -63,6 +63,8 @@ export type SharedPlaybackState = {
   currentSongCoverUrl: string | null
   isStarted: boolean
   quoteIndex: number
+  brbActive?: boolean
+  brbMessage?: string | null
 }
 
 type SharedPlaybackStateMessage = {

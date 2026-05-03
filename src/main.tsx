@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import './index.css'
 import router from './App.tsx'
 import { logCrashTelemetry } from './lib/crashTelemetry'
@@ -361,7 +362,10 @@ if (!rootElement) {
   dismissSplash()
 } else {
   createRoot(rootElement).render(
-    <RouterProvider router={router} />,
+    <>
+      <RouterProvider router={router} />
+      <Analytics />
+    </>,
   )
   // Dismiss once the browser has painted the first React frame.
   requestAnimationFrame(() => requestAnimationFrame(dismissSplash))

@@ -596,6 +596,9 @@ function AudienceSongListPage() {
     setSubmittingMode(effectiveMode)
     setErrorText(null)
 
+    // Capture position before the async insert so we can show it on the next screen.
+    const estimatedQueuePosition = songs.length + 1
+
     try {
       await addSong(selectedSong.title, selectedSong.artist, selectedSong.is_explicit, {
         coverUrl: selectedSong.cover_url,
@@ -603,7 +606,9 @@ function AudienceSongListPage() {
         performerMode: effectiveMode,
       })
 
-      const targetAudienceUrl = `/audience${location.search || ''}`
+      const baseAudienceUrl = `/audience${location.search || ''}`
+      const separator = location.search ? '&' : '?'
+      const targetAudienceUrl = `${baseAudienceUrl}${separator}queued=${estimatedQueuePosition}`
 
       // Use a full navigation to avoid stale lazy-chunk errors after rapid deploys.
       if (typeof window !== 'undefined') {

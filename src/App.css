@@ -10430,6 +10430,216 @@
   }
 }
 
+/* ─── Queue Position Banner (Audience) ─────────────────────────────── */
+
+.audience-queued-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #1e293b;
+  border: 1px solid #38bdf8;
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e0f2fe;
+}
+
+.audience-queued-banner-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.audience-queued-banner-text {
+  flex: 1;
+}
+
+.audience-queued-banner-dismiss {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.audience-queued-banner-dismiss:hover {
+  color: #e0f2fe;
+}
+
+/* ─── Gig Summary Modal ─────────────────────────────────────────────── */
+
+.gig-summary-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+
+.gig-summary-modal {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 1rem;
+  padding: 2rem;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  color: #f1f5f9;
+}
+
+.gig-summary-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1.25rem;
+}
+
+.gig-summary-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gig-summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.gig-summary-label {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.gig-summary-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.gig-summary-close {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.55rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gig-summary-close:hover {
+  background: #2563eb;
+}
+
+/* ─── Undo Played Button ─────────────────────────────────────────────── */
+
+.gig-undo-played-button {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  opacity: 0.7;
+  margin-left: auto;
+}
+
+.gig-undo-played-button:hover {
+  opacity: 1;
+}
+
+/* ─── BRB Mirror Overlay ─────────────────────────────────────────────── */
+
+.mirror-brb-overlay {
+  position: fixed;
+  inset: 0;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  z-index: 8000;
+}
+
+.mirror-brb-icon {
+  font-size: 5rem;
+  line-height: 1;
+  margin: 0;
+}
+
+.mirror-brb-heading {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.mirror-brb-message {
+  font-size: 1.5rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* ─── Keyboard Shortcuts Panel ───────────────────────────────────────── */
+
+.gig-shortcuts-panel {
+  padding: 0;
+}
+
+.gig-shortcuts-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.gig-shortcuts-summary::-webkit-details-marker { display: none; }
+
+.gig-shortcuts-list {
+  list-style: none;
+  padding: 0 1rem 1rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.gig-shortcuts-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.84rem;
+  color: #94a3b8;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.3rem;
+  font-size: 0.78rem;
+  font-family: monospace;
+  color: #e2e8f0;
+  min-width: 2rem;
+  text-align: center;
+}
+
 /* ─── Host Readiness Dashboard ─────────────────────────────────────── */
 
 .readiness-panel {

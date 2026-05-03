@@ -2108,8 +2108,17 @@ function MirrorPage() {
         )}
       </main>
 
-      {showSpotlight && activeSpotlight ? (
-        <aside className="mirror-photo-spotlight" aria-label="Live crowd photo spotlight">
+      {playbackState?.brbActive ? (
+        <div className="mirror-brb-overlay" aria-live="polite" role="status">
+          <p className="mirror-brb-icon" aria-hidden="true">☕</p>
+          <p className="mirror-brb-heading">Be Right Back</p>
+          {playbackState.brbMessage ? (
+            <p className="mirror-brb-message">{playbackState.brbMessage}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showSpotlight && activeSpotlight ? (        <aside className="mirror-photo-spotlight" aria-label="Live crowd photo spotlight">
           <figure className="mirror-polaroid" key={activeSpotlight.id}>
             <img src={activeSpotlight.imageDataUrl} alt={`Crowd photo by ${activeSpotlight.authorName}`} className="mirror-polaroid-photo" />
             <figcaption>

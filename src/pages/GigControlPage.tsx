@@ -41,6 +41,7 @@ function GigControlPage() {
     loading,
     addSong,
     markPlayed,
+    unmarkPlayed,
     removeSong,
     moveSong,
     reorderSong,
@@ -77,6 +78,9 @@ function GigControlPage() {
       return 'unknown'
     }
   })
+  const [gigSummary, setGigSummary] = useState<{ totalPlayed: number; topSong: string | null; startedAt: number } | null>(null)
+  const gigStartedAtRef = useRef<number>(Date.now())
+  const [isBrbActive, setIsBrbActive] = useState(false)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -467,9 +471,26 @@ function GigControlPage() {
     }
 
     const previousRoomOpen = previousRoomOpenRef.current
+    const hasJustOpened = previousRoomOpen === false && event.roomOpen === true
     const hasJustEnded = previousRoomOpen === true && event.roomOpen === false
 
+    if (hasJustOpened) {
+      gigStartedAtRef.current = Date.now()
+    }
+
     previousRoomOpenRef.current = event.roomOpen
+
+    if (hasJustEnded) {
+      // Show post-gig summary.
+      const topSong = performedSongs.length > 0
+        ? [...performedSongs].sort((a, b) => b.votes_count - a.votes_count)[0]?.title ?? null
+        : null
+      setGigSummary({
+        totalPlayed: performedSongs.length,
+        topSong,
+        startedAt: gigStartedAtRef.current,
+      })
+    }
 
     if (!hasJustEnded || !event.showInAudienceNoGig) {
       return
@@ -491,7 +512,7 @@ function GigControlPage() {
         setErrorText(error instanceof Error ? error.message : 'Could not update offline audience visibility.')
       }
     })()
-  }, [event, setShowInAudienceNoGig])
+  }, [event, performedSongs, setShowInAudienceNoGig])
 
   // Subscribe to audience presence channel to count active audience members
   useEffect(() => {
@@ -882,6 +903,30 @@ function GigControlPage() {
       variant: 'ghost',
     },
     {
+      id: 'brb-toggle',
+      label: isBrbActive ? 'Cancel BRB' : 'BRB Screen',
+      onClick: async () => {
+        if (!event?.id) return
+        const nextBrb = !isBrbActive
+        setIsBrbActive(nextBrb)
+        try {
+          await writeSharedPlaybackState(event.id, {
+            currentSongId: nowPlaying?.id ?? null,
+            currentSongCoverUrl: null,
+            isStarted: false,
+            quoteIndex: quoteIndexRef.current,
+            brbActive: nextBrb,
+            brbMessage: nextBrb ? 'Be right back — grabbing a pint of courage.' : null,
+          })
+        } catch (error) {
+          setIsBrbActive(isBrbActive)
+          console.warn('GigControlPage: BRB toggle failed', error)
+          setErrorText('Failed to toggle BRB screen.')
+        }
+      },
+      variant: 'ghost' as const,
+    },
+    {
       id: 'open-gig-settings',
       label: 'Gig Settings',
       onClick: () => navigate('/admin/gig-settings'),
@@ -1099,6 +1144,20 @@ function GigControlPage() {
           {snapshotStatusText ? <p className="subcopy no-margin">{snapshotStatusText}</p> : null}
           {workerHeartbeatText ? <p className="subcopy no-margin">{workerHeartbeatText}</p> : null}
         </article>
+      </section>
+
+      <section className="queue-panel gig-shortcuts-panel" aria-label="Keyboard shortcuts">
+        <details>
+          <summary className="gig-shortcuts-summary">
+            <span>⌨ Keyboard Shortcuts</span>
+            <span className="meta-badge">Host cheatsheet</span>
+          </summary>
+          <ul className="gig-shortcuts-list">
+            <li><kbd>Space</kbd> Start song / mark as played</li>
+            <li><kbd>←</kbd> Move top song up in queue</li>
+            <li><kbd>→</kbd> Move top song down in queue</li>
+          </ul>
+        </details>
       </section>
 
       <section className="queue-panel gig-manual-add-panel" aria-label="Admin add song controls">
@@ -1449,6 +1508,27 @@ function GigControlPage() {
                     <p className="artist">{song.artist}</p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  className="ghost-button gig-undo-played-button"
+                  title="Undo — move back to queue"
+                  aria-label={`Undo mark played for ${song.title}`}
+                  disabled={Boolean(songActionBusyId)}
+                  onClick={async () => {
+                    if (songActionBusyId) return
+                    setSongActionBusyId(song.id)
+                    try {
+                      await unmarkPlayed(song.id)
+                    } catch (err) {
+                      console.warn('GigControlPage: unmark played failed', err)
+                      setErrorText('Failed to undo mark played.')
+                    } finally {
+                      setSongActionBusyId(null)
+                    }
+                  }}
+                >
+                  ↩ Undo
+                </button>
               </li>
             ))}
           </ol>
@@ -1456,6 +1536,42 @@ function GigControlPage() {
       </section>
 
       {errorText ? <p className="error-text gig-control-error-text" role="alert">{errorText}</p> : null}
+
+      {gigSummary ? (
+        <div className="gig-summary-modal-overlay" role="dialog" aria-modal="true" aria-label="Gig summary">
+          <div className="gig-summary-modal">
+            <h2 className="gig-summary-title">🎤 Gig Wrapped</h2>
+            <p className="gig-summary-stat">
+              <span className="gig-summary-label">Songs played</span>
+              <span className="gig-summary-value">{gigSummary.totalPlayed}</span>
+            </p>
+            {gigSummary.topSong ? (
+              <p className="gig-summary-stat">
+                <span className="gig-summary-label">Top requested</span>
+                <span className="gig-summary-value">{gigSummary.topSong}</span>
+              </p>
+            ) : null}
+            <p className="gig-summary-stat">
+              <span className="gig-summary-label">Gig duration</span>
+              <span className="gig-summary-value">
+                {(() => {
+                  const mins = Math.round((Date.now() - gigSummary.startedAt) / 60_000)
+                  return mins >= 60
+                    ? `${Math.floor(mins / 60)}h ${mins % 60}m`
+                    : `${mins} min`
+                })()}
+              </span>
+            </p>
+            <button
+              type="button"
+              className="primary-button gig-summary-close"
+              onClick={() => setGigSummary(null)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

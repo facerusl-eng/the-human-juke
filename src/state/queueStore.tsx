@@ -142,6 +142,7 @@ type QueueContextValue = {
   reorderSong: (songId: string, targetIndex: number) => Promise<void>
   createEvent: (name: string, venue: string, options?: CreateEventOptions) => Promise<void>
   markPlayed: () => Promise<void>
+  unmarkPlayed: (songId: string) => Promise<void>
 }
 
 const QueueContext = createContext<QueueContextValue | null>(null)
@@ -1487,6 +1488,14 @@ function QueueProvider({ children }: PropsWithChildren) {
       clearChannelReconnectTimer()
       channelReconnectAttempt = 0
       lastRealtimeEventAt = Date.now()
+
+      // Proactively refresh the anonymous auth token when foregrounding after a
+      // long background period (e.g. phone screen off during a 3+ hour gig).
+      // This is best-effort — a failure must never block the channel reconnect.
+      void supabase.auth.refreshSession().catch((refreshError) => {
+        console.warn('queueStore: background session refresh failed (non-blocking)', refreshError)
+      })
+
       activeChannelReconnectHandler?.()
 
       const currentEventId = activeEventIdRef.current
@@ -1624,7 +1633,34 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         const shouldBypassRules = options?.bypassEventRules || isHostSession
 
+        if (!shouldBypassRules) {
+          // Rate limiting: per-session cooldown to prevent rapid-fire requests.
+          const RATE_LIMIT_WINDOW_MS = 2 * 60 * 1000 // 2 minutes
+          const rateLimitKey = `human-jukebox-request-cooldown-${user.id}-${targetEventId}`
+          const lastRequestRaw = typeof window !== 'undefined' ? window.sessionStorage.getItem(rateLimitKey) : null
+          if (lastRequestRaw) {
+            const lastRequestTime = parseInt(lastRequestRaw, 10)
+            const elapsed = Date.now() - lastRequestTime
+            if (Number.isFinite(lastRequestTime) && elapsed >= 0 && elapsed < RATE_LIMIT_WINDOW_MS) {
+              const remaining = Math.ceil((RATE_LIMIT_WINDOW_MS - elapsed) / 1000)
+              throw new Error(`Please wait ${remaining}s before making another request.`)
+            }
+          }
+        }
+
         if (!shouldBypassRules && event) {
+          // Client-side pre-check for duplicates — saves a DB round-trip.
+          if (!event.allowDuplicateRequests) {
+            const isDuplicate = songs.some(
+              (s) =>
+                s.title.trim().toLowerCase() === normalizedTitle.toLowerCase() &&
+                s.artist.trim().toLowerCase() === normalizedArtist.toLowerCase(),
+            )
+            if (isDuplicate) {
+              throw new Error('That song is already in the live queue for this gig.')
+            }
+          }
+
           if (event.maxActiveRequestsPerUser && event.maxActiveRequestsPerUser > 0) {
             const { count, error: countError } = await supabase
               .from('queue_songs')
@@ -1727,6 +1763,16 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         if (error) {
           throw error
+        }
+
+        // Record the timestamp so the rate limiter can enforce the cooldown.
+        if (!options?.bypassEventRules && !isHostSession) {
+          const rateLimitKey = `human-jukebox-request-cooldown-${user.id}-${targetEventId}`
+          try {
+            window.sessionStorage.setItem(rateLimitKey, String(Date.now()))
+          } catch {
+            // sessionStorage may be unavailable in private mode — not a blocker.
+          }
         }
 
         await fetchQueueSnapshot(targetEventId)
@@ -2715,6 +2761,34 @@ function QueueProvider({ children }: PropsWithChildren) {
               (song) => !(song.id === currentSong.id && song.performedAt === performedAt),
             ),
           )
+          throw error
+        }
+
+        if (event?.id) {
+          await fetchQueueSnapshot(event.id)
+        }
+      },
+      unmarkPlayed: async (songId: string) => {
+        if (!user || !isHostSession) {
+          throw new Error('Host account required.')
+        }
+
+        const targetSong = performedSongs.find((song) => song.id === songId)
+        if (!targetSong) {
+          return
+        }
+
+        // Optimistically remove from performed list.
+        setPerformedSongs((current) => current.filter((song) => song.id !== songId))
+
+        const { error } = await supabase
+          .from('queue_songs')
+          .update({ is_removed: false })
+          .eq('id', songId)
+
+        if (error) {
+          // Roll back on failure.
+          setPerformedSongs((current) => [targetSong, ...current])
           throw error
         }
 

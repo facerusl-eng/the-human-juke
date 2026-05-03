@@ -666,6 +666,9 @@ function EventPage() {
   const eventSearchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
   const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
   const hasRequestedEventParam = Boolean(requestedEventId)
+  const queuedPositionParam = eventSearchParams.get('queued')
+  const queuedPosition = queuedPositionParam ? parseInt(queuedPositionParam, 10) : null
+  const [showQueuedBanner, setShowQueuedBanner] = useState(Boolean(queuedPosition && queuedPosition > 0))
   const liveGigApiUnavailableRef = useRef(false)
   const copy = audienceLocale === 'da'
     ? {
@@ -1842,6 +1845,24 @@ function EventPage() {
         </section>
 
         <article className="now-playing-card">
+          {showQueuedBanner && queuedPosition && queuedPosition > 0 ? (
+            <div className="audience-queued-banner" role="status" aria-live="polite">
+              <span className="audience-queued-banner-icon" aria-hidden="true">🎵</span>
+              <span className="audience-queued-banner-text">
+                {queuedPosition === 1
+                  ? 'Your request is up next!'
+                  : `Your request is #${queuedPosition} in the queue.`}
+              </span>
+              <button
+                type="button"
+                className="audience-queued-banner-dismiss"
+                aria-label="Dismiss"
+                onClick={() => setShowQueuedBanner(false)}
+              >
+                ✕
+              </button>
+            </div>
+          ) : null}
           <p className="eyebrow">{copy.nowPlaying}</p>
           {isBetweenSongs ? (
             <div className="now-playing-media now-playing-between-songs">
