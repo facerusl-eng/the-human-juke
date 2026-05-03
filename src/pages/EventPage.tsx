@@ -1985,8 +1985,27 @@ function EventPage() {
                   {primaryTipLink ? (
                     <a className="tip-jar-link" href={primaryTipLink.url} target="_blank" rel="noreferrer" onClick={handleTipClick}>
                       <span className="tip-jar-glass" aria-hidden="true">
-                        <span className="tip-jar-neon-ring" />
-                        <span className="tip-jar-symbol">🎤</span>
+                        {/* Guitar-pick shape with mic — mirrors the logo badge */}
+                        <svg className="tip-jar-jar-svg" viewBox="0 0 160 196" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          {/* Guitar-pick jar body */}
+                          <path d="M80 8C121 8 150 40 150 80C150 132 106 170 80 188C54 170 10 132 10 80C10 40 39 8 80 8Z"
+                            fill="#0C1734" stroke="#5DD7FF" strokeWidth="3.5"/>
+                          {/* Inner pink ring echo */}
+                          <path d="M80 18C115 18 140 46 140 80C140 126 100 161 80 178C60 161 20 126 20 80C20 46 45 18 80 18Z"
+                            fill="none" stroke="#FF7EAF" strokeWidth="1.2" strokeOpacity="0.35"/>
+                          {/* Coin slot at top */}
+                          <rect x="56" y="28" width="48" height="10" rx="5" fill="#070d22" stroke="#5DD7FF" strokeWidth="1.5"/>
+                          <rect x="63" y="31" width="34" height="3.5" rx="1.75" fill="rgba(93,215,255,0.65)"/>
+                          {/* Mic body */}
+                          <rect x="62" y="72" width="36" height="50" rx="18" fill="#DFF6FF" stroke="#5DD7FF" strokeWidth="2.5"/>
+                          {/* Mic arc / pickup */}
+                          <path d="M50 100C50 124 63 138 80 138C97 138 110 124 110 100"
+                            stroke="#8FD9FF" strokeWidth="4" strokeLinecap="round"/>
+                          {/* Mic stand */}
+                          <line x1="80" y1="138" x2="80" y2="156" stroke="#DFF6FF" strokeWidth="3.5" strokeLinecap="round"/>
+                          {/* Mic base */}
+                          <rect x="61" y="156" width="38" height="9" rx="4.5" fill="#FF7EAF"/>
+                        </svg>
                         <span className="tip-jar-coin-drop">🪙</span>
                       </span>
                       <span className="tip-jar-ribbon">A Tip Would Be Lovely. No Drama.</span>

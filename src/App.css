@@ -2517,38 +2517,18 @@
 }
 
 .tip-jar-glass {
+  /* SVG-based jar — size is driven by the svg inside */
   width: clamp(7.4rem, 26vw, 9.7rem);
-  aspect-ratio: 0.92 / 1;
-  border-radius: 47% 47% 44% 44% / 53% 53% 40% 40%;
-  display: grid;
-  place-items: center;
+  display: block;
   position: relative;
-  /* Dark navy body matching logo interior */
-  background:
-    radial-gradient(circle at 30% 22%, rgba(46, 197, 255, 0.18) 0%, transparent 40%),
-    radial-gradient(circle at 70% 70%, rgba(255, 79, 154, 0.14) 0%, transparent 38%),
-    linear-gradient(160deg, #0f1228, #080b1c);
-  /* Neon blue-to-pink ring matching the logo circle */
-  border: 2px solid transparent;
-  box-shadow:
-    0 0 0 2px rgba(46, 197, 255, 0.55),
-    0 0 24px rgba(46, 197, 255, 0.45),
-    0 0 48px rgba(255, 79, 154, 0.28),
-    inset 0 0 18px rgba(46, 197, 255, 0.08),
-    0 12px 28px rgba(4, 8, 28, 0.6);
+  /* Neon glow matching logo */
+  filter:
+    drop-shadow(0 0 14px rgba(46, 197, 255, 0.6))
+    drop-shadow(0 0 28px rgba(255, 79, 154, 0.3));
 }
 
 .tip-jar-glass::before {
-  content: '';
-  position: absolute;
-  inset: 12% 10%;
-  border-radius: 47% 47% 44% 44% / 53% 53% 40% 40%;
-  border: 1.5px solid transparent;
-  box-shadow:
-    0 0 10px rgba(46, 197, 255, 0.3),
-    inset 0 0 6px rgba(255, 79, 154, 0.2);
-  opacity: 0.6;
-  pointer-events: none;
+  display: none;
 }
 
 /* .tip-jar-lid kept for backward compat but unused in the new design */
@@ -2557,24 +2537,26 @@
 }
 
 .tip-jar-neon-ring {
-  display: none; /* handled by ::before in base styles */
+  display: none;
+}
+
+.tip-jar-jar-svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .tip-jar-symbol {
-  font-size: clamp(2.4rem, 7vw, 3.2rem);
-  filter:
-    drop-shadow(0 0 12px rgba(46, 197, 255, 0.7))
-    drop-shadow(0 0 6px rgba(255, 79, 154, 0.5));
-  z-index: 1;
+  display: none;
 }
 
 .tip-jar-coin-drop {
   position: absolute;
-  top: -0.4rem;
-  right: 18%;
+  top: 4%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-0.5rem) scale(0.85);
   font-size: clamp(1rem, 3.8vw, 1.3rem);
   opacity: 0;
-  transform: translateY(-0.5rem) scale(0.85);
   pointer-events: none;
 }
 
@@ -2641,22 +2623,22 @@
 @keyframes tip-jar-coin-drop {
   0% {
     opacity: 0;
-    transform: translateY(-0.8rem) scale(0.75);
+    transform: translateX(-50%) translateY(-0.8rem) scale(0.75);
   }
 
   16% {
     opacity: 1;
-    transform: translateY(-0.2rem) scale(1);
+    transform: translateX(-50%) translateY(-0.2rem) scale(1);
   }
 
   62% {
     opacity: 1;
-    transform: translateY(2.2rem) scale(0.95);
+    transform: translateX(-50%) translateY(2.2rem) scale(0.95);
   }
 
   100% {
     opacity: 0;
-    transform: translateY(2.9rem) scale(0.7);
+    transform: translateX(-50%) translateY(2.9rem) scale(0.7);
   }
 }
 

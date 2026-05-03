@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { QueueContext } from '../state/queueStore'
 import type { QueueSong, PerformedSong } from '../state/queueStore'
 import { DEMO_EVENT } from './demoEvent'
 import { DEMO_INITIAL_QUEUE } from './demoQueue'
 import { DEMO_NOW_PLAYING } from './demoNowPlaying'
+import { batchFetchDemoArtwork } from './demoArtwork'
 
 let _demoIdCounter = 1000
 const DEMO_DEFAULT_COVER_URL = '/the-human-jukebox-logo.png'
@@ -35,6 +36,19 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
   const [songs, setSongs] = useState<QueueSong[]>([DEMO_NOW_PLAYING, ...DEMO_INITIAL_QUEUE])
   const [performedSongs] = useState<PerformedSong[]>([])
   const [votedSongIds] = useState(() => new Set<string>())
+
+  // Fetch real album art from iTunes on mount and update cover URLs
+  useEffect(() => {
+    const allSongs = [DEMO_NOW_PLAYING, ...DEMO_INITIAL_QUEUE]
+    void batchFetchDemoArtwork(allSongs).then((artworkMap) => {
+      if (Object.keys(artworkMap).length === 0) return
+      setSongs((current) =>
+        current.map((song) =>
+          artworkMap[song.id] ? { ...song, cover_url: artworkMap[song.id] } : song,
+        ),
+      )
+    })
+  }, [])
 
   const addSong = useCallback(async (title: string, artist: string, isExplicit: boolean, options?: DemoAddSongOptions) => {
     const newSong: QueueSong = {

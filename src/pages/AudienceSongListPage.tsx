@@ -5,6 +5,7 @@ import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
 import { demoMode } from '../demo/demoMode'
 import { DEMO_CURATED_SONGS } from '../demo/demoSongCatalog'
+import { batchFetchDemoArtwork } from '../demo/demoArtwork'
 import { useQueueStore } from '../state/queueStore'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
 import '../audience-karafun.css'
@@ -303,12 +304,20 @@ function AudienceSongListPage() {
       setErrorText(null)
 
       if (demoMode) {
+        const sorted = [...DEMO_CURATED_SONGS].sort(sortSongs)
         if (isCurrent) {
           setHasKaraokePlaylist(true)
           setHasHumanJukeboxPlaylist(true)
-          setCuratedSongs([...DEMO_CURATED_SONGS].sort(sortSongs))
+          setCuratedSongs(sorted)
           setLoadingSongs(false)
         }
+        // Fetch real album art in background, then do one batch update
+        void batchFetchDemoArtwork(sorted).then((artworkMap) => {
+          if (!isCurrent || Object.keys(artworkMap).length === 0) return
+          setCuratedSongs((current) =>
+            current.map((s) => artworkMap[s.id] ? { ...s, cover_url: artworkMap[s.id] } : s),
+          )
+        })
         return
       }
 
