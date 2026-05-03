@@ -718,7 +718,14 @@ function GigControlPage() {
         const opened = await gigActions.runToggleRoomOpen()
 
         if (opened && nowPlaying?.id && !isNowPlayingStarted) {
-          await startCurrentSong()
+          await writeSharedPlaybackState(event.id, {
+            currentSongId: nowPlaying.id,
+            currentSongCoverUrl: nowPlaying.cover_url ?? null,
+            isStarted: true,
+            quoteIndex: quoteIndexRef.current,
+          })
+          setIsNowPlayingStarted(true)
+          sendSpotifyTransportCommand('pause')
         }
 
         if (opened) {
@@ -750,7 +757,7 @@ function GigControlPage() {
     isNowPlayingStarted,
     nowPlaying?.id,
     runGoLivePreflight,
-    startCurrentSong,
+    sendSpotifyTransportCommand,
   ])
 
   // Subscribe to audience presence channel to count active audience members
