@@ -62,6 +62,16 @@ function classifyPreflightIssue(error: unknown): PreflightIssueCode {
   return 'unknown'
 }
 
+function resolveGigStartAt(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
+  if (!gigDate || !gigStartTime) {
+    return null
+  }
+
+  const normalizedTime = gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime
+  const startAt = new Date(`${gigDate}T${normalizedTime}`)
+  return Number.isNaN(startAt.getTime()) ? null : startAt
+}
+
 function GigControlPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -141,6 +151,8 @@ function GigControlPage() {
   const playbackActionLockRef = useRef(false)
   const gigWorkerRef = useRef<Worker | null>(null)
   const liveHealthGuardLastRunAtRef = useRef(0)
+  const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
+  const autoLiveInFlightRef = useRef(false)
 
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
@@ -671,6 +683,75 @@ function GigControlPage() {
       }
     })()
   }, [event, performedSongs, setShowInAudienceNoGig])
+
+  useEffect(() => {
+    if (!event?.id) {
+      autoLiveAttemptedEventIdRef.current = null
+      return
+    }
+
+    if (!event.autoLiveEnabled || event.roomOpen) {
+      autoLiveAttemptedEventIdRef.current = null
+    }
+  }, [event?.id, event?.autoLiveEnabled, event?.roomOpen])
+
+  useEffect(() => {
+    const runAutoLiveCountdownCheck = async () => {
+      if (!event?.id || !event.autoLiveEnabled || event.roomOpen || autoLiveInFlightRef.current) {
+        return
+      }
+
+      const startAt = resolveGigStartAt(event.gigDate, event.gigStartTime)
+      if (!startAt || startAt.getTime() > Date.now()) {
+        return
+      }
+
+      if (autoLiveAttemptedEventIdRef.current === event.id) {
+        return
+      }
+
+      autoLiveAttemptedEventIdRef.current = event.id
+      autoLiveInFlightRef.current = true
+
+      try {
+        await runGoLivePreflight().catch(() => {})
+        const opened = await gigActions.runToggleRoomOpen()
+
+        if (opened && nowPlaying?.id && !isNowPlayingStarted) {
+          await startCurrentSong()
+        }
+
+        if (opened) {
+          setPreflightStatusText('Auto Live triggered from scheduled countdown.')
+        }
+      } catch (error) {
+        setErrorText(error instanceof Error ? error.message : 'Auto Live failed when countdown ended. Please use Go Live manually.')
+      } finally {
+        autoLiveInFlightRef.current = false
+      }
+    }
+
+    void runAutoLiveCountdownCheck()
+
+    const timerId = window.setInterval(() => {
+      void runAutoLiveCountdownCheck()
+    }, 5000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [
+    event?.id,
+    event?.autoLiveEnabled,
+    event?.roomOpen,
+    event?.gigDate,
+    event?.gigStartTime,
+    gigActions,
+    isNowPlayingStarted,
+    nowPlaying?.id,
+    runGoLivePreflight,
+    startCurrentSong,
+  ])
 
   // Subscribe to audience presence channel to count active audience members
   useEffect(() => {

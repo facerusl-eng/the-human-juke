@@ -456,7 +456,7 @@ function playShutterSound() {
 }
 
 function MirrorPage() {
-  const { event, songs, loading, markPlayed } = useQueueStore()
+  const { event, songs, loading, markPlayed, toggleRoomOpen } = useQueueStore()
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [funFacts, setFunFacts] = useState<string[]>([])
@@ -485,6 +485,8 @@ function MirrorPage() {
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const quoteIndexRef = useRef(0)
   const nowPlayingRef = useRef<typeof songs[number] | undefined>(undefined)
+  const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
+  const autoLiveInFlightRef = useRef(false)
   const songsRef = useRef(songs)
   const eventIdRef = useRef<string | null>(null)
   const isNowPlayingStartedRef = useRef(false)
@@ -752,6 +754,67 @@ function MirrorPage() {
   useEffect(() => {
     isNowPlayingStartedRef.current = isNowPlayingStarted
   }, [isNowPlayingStarted])
+
+  useEffect(() => {
+    if (!event?.id) {
+      autoLiveAttemptedEventIdRef.current = null
+      return
+    }
+
+    if (!event.autoLiveEnabled || event.roomOpen) {
+      autoLiveAttemptedEventIdRef.current = null
+    }
+  }, [event?.id, event?.autoLiveEnabled, event?.roomOpen])
+
+  useEffect(() => {
+    const runMirrorAutoLive = async () => {
+      if (!isHost || !event?.id || !event.autoLiveEnabled || event.roomOpen || autoLiveInFlightRef.current) {
+        return
+      }
+
+      if (!countdownTarget || countdownRemainingMs === null || countdownRemainingMs > 0) {
+        return
+      }
+
+      if (autoLiveAttemptedEventIdRef.current === event.id) {
+        return
+      }
+
+      autoLiveAttemptedEventIdRef.current = event.id
+      autoLiveInFlightRef.current = true
+
+      try {
+        await toggleRoomOpen()
+
+        if (nowPlaying?.id) {
+          await writeSharedPlaybackState(event.id, {
+            currentSongId: nowPlaying.id,
+            currentSongCoverUrl: nowPlaying.cover_url ?? null,
+            isStarted: true,
+            quoteIndex: quoteIndexRef.current,
+          })
+        }
+
+        setMirrorWarningMessage('Auto Live started from scheduled countdown.')
+      } catch {
+        setMirrorWarningMessage('Countdown ended, but Auto Live could not open the room. Use Gig Control to go live manually.')
+      } finally {
+        autoLiveInFlightRef.current = false
+      }
+    }
+
+    void runMirrorAutoLive()
+  }, [
+    countdownRemainingMs,
+    countdownTarget,
+    event?.id,
+    event?.autoLiveEnabled,
+    event?.roomOpen,
+    isHost,
+    nowPlaying?.cover_url,
+    nowPlaying?.id,
+    toggleRoomOpen,
+  ])
 
   useEffect(() => {
     const syncFullscreenState = () => {
