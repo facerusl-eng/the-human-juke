@@ -1780,7 +1780,7 @@ function EventPage() {
         <section className="queue-panel audience-start-actions-panel" aria-label="Audience actions">
           <div className="panel-head audience-request-head">
             <div>
-              <p className="eyebrow audience-request-eyebrow">{copy.audienceHome}</p>
+              <p className="eyebrow audience-request-eyebrow">{isKaraokeEvent ? '🎤 Karaoke Night' : copy.audienceHome}</p>
               <h2>Hi {audienceName}</h2>
             </div>
             <div className="audience-request-badges">
@@ -1791,71 +1791,104 @@ function EventPage() {
           {confirmationText ? <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">{confirmationText}</p> : null}
           {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
           <div className="audience-start-actions">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => {
-                navigate(`/audience/song-list${location.search || ''}`)
-              }}
-            >
-              🎤 {copy.songList}
-            </button>
-            {event?.showCustomButton && event.customButtonLabel?.trim() && event.customButtonLink?.trim() ? (
-              <a
-                href={event.customButtonLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="audience-custom-button"
-              >
-                {event.customButtonLabel}
-              </a>
-            ) : null}
-            {isKaraokeEvent && karafunLink ? (
-              <a
-                href={karafunLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="secondary-button"
-              >
-                🎶 KaraFun Playlist
-              </a>
-            ) : null}
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                document.getElementById('audience-tip-jar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }}
-              disabled={allTipLinks.length === 0}
-            >
-              💸 {copy.tipJar}
-            </button>
-            <Link
-              to={`/feed${location.search || ''}`}
-              className="secondary-button audience-feed-button"
-            >
-              💬 Live Feed
-            </Link>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                document.getElementById('audience-social-links')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }}
-              disabled={socialLinks.length === 0}
-            >
-              🔗 {copy.socialLinks}
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              aria-controls="audience-how-it-works"
-              onClick={() => setShowHowItWorks((current) => !current)}
-            >
-              {showHowItWorks ? copy.hideHowItWorks : copy.howItWorks}
-            </button>
+            {isKaraokeEvent ? (
+              <>
+                {karafunLink ? (
+                  <a
+                    href={karafunLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="primary-button"
+                  >
+                    🎶 KaraFun Playlist
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    document.getElementById('audience-tip-jar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  disabled={allTipLinks.length === 0}
+                >
+                  💸 {copy.tipJar}
+                </button>
+                <Link
+                  to={`/feed${location.search || ''}`}
+                  className="secondary-button audience-feed-button"
+                >
+                  💬 Live Feed
+                </Link>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    document.getElementById('audience-social-links')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  disabled={socialLinks.length === 0}
+                >
+                  🔗 {copy.socialLinks}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => {
+                    navigate(`/audience/song-list${location.search || ''}`)
+                  }}
+                >
+                  🎤 {copy.songList}
+                </button>
+                {event?.showCustomButton && event.customButtonLabel?.trim() && event.customButtonLink?.trim() ? (
+                  <a
+                    href={event.customButtonLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="audience-custom-button"
+                  >
+                    {event.customButtonLabel}
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    document.getElementById('audience-tip-jar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  disabled={allTipLinks.length === 0}
+                >
+                  💸 {copy.tipJar}
+                </button>
+                <Link
+                  to={`/feed${location.search || ''}`}
+                  className="secondary-button audience-feed-button"
+                >
+                  💬 Live Feed
+                </Link>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    document.getElementById('audience-social-links')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  disabled={socialLinks.length === 0}
+                >
+                  🔗 {copy.socialLinks}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  aria-controls="audience-how-it-works"
+                  onClick={() => setShowHowItWorks((current) => !current)}
+                >
+                  {showHowItWorks ? copy.hideHowItWorks : copy.howItWorks}
+                </button>
+              </>
+            )}
           </div>
-          {showHowItWorks ? (
+          {!isKaraokeEvent && showHowItWorks ? (
             <div id="audience-how-it-works" className="audience-how-it-works" role="region" aria-label="How the audience app works">
               <p className="audience-how-it-works-title">{copy.howItWorksTitle}</p>
               <ol className="audience-how-it-works-list">
@@ -1863,8 +1896,8 @@ function EventPage() {
               </ol>
             </div>
           ) : null}
-          {event?.requestInstructions ? <p className="subcopy audience-request-note">{event.requestInstructions}</p> : null}
-          {duplicateRequestsBlocked || activeRequestCap ? (
+          {!isKaraokeEvent && event?.requestInstructions ? <p className="subcopy audience-request-note">{event.requestInstructions}</p> : null}
+          {!isKaraokeEvent && (duplicateRequestsBlocked || activeRequestCap) ? (
             <div className="audience-policy-list">
               {duplicateRequestsBlocked ? <p className="meta-badge audience-policy-badge">{copy.duplicateBlocked}</p> : null}
               {activeRequestCap ? (
@@ -1878,6 +1911,8 @@ function EventPage() {
           ) : null}
         </section>
 
+        {!isKaraokeEvent ? (
+        <>
         <article className="now-playing-card">
           {showQueuedBanner && queuedPosition && queuedPosition > 0 ? (
             <div className="audience-queued-banner" role="status" aria-live="polite">
@@ -1981,6 +2016,8 @@ function EventPage() {
             ))}
           </ol>
         </article>
+        </>
+        ) : null}
 
         {socialLinks.length > 0 || allTipLinks.length > 0 ? (
           <section className={`queue-panel link-panel${allTipLinks.length > 0 ? ' tip-jar-panel' : ''}`} aria-label={copy.performerLinks}>

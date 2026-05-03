@@ -579,6 +579,11 @@ function MirrorPage() {
   )), [songs])
   const nowPlaying = safeSongs[0]
   const isLive = event?.roomOpen ?? false
+  const isKaraokeEvent = event?.eventType === 'karaoke'
+  const mirrorKarafunUrl = event?.karafunUrl?.trim() || null
+  const mirrorKarafunLink = mirrorKarafunUrl
+    ? (mirrorKarafunUrl.startsWith('http') ? mirrorKarafunUrl : `https://${mirrorKarafunUrl}`)
+    : null
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
   const eventId = event?.id ?? null
@@ -2047,7 +2052,24 @@ function MirrorPage() {
         ) : (
           <>
             <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
-                {!isNowPlayingStarted || !activeSong ? (
+                {isKaraokeEvent ? (
+                  <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Karaoke Night">
+                    <div className="mirror-now-playing-meta">
+                      <h1 className="mirror-title">🎤 Karaoke Night</h1>
+                      <p className="mirror-artist">{event?.name ?? 'Live Karaoke'}</p>
+                      {event?.subtitle ? <p className="mirror-picked-by">{event.subtitle}</p> : null}
+                      {mirrorKarafunLink ? (
+                        <p className="mirror-picked-by">
+                          Playlist: <a href={mirrorKarafunLink} target="_blank" rel="noopener noreferrer">{mirrorKarafunLink}</a>
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="mirror-now-playing-qr-slot">
+                      <img src={qrUrl} alt="Scan to join" className="mirror-now-playing-qr" />
+                      <p className="mirror-qr-cta">Scan to join</p>
+                    </div>
+                  </div>
+                ) : !isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     {/* Middle: quote-only between songs state to match Gig Control preview */}
                     <div className="mirror-now-playing-meta">
@@ -2108,6 +2130,7 @@ function MirrorPage() {
                 <LiveFeedPanel mode="mirror" showComposer={false} title="Community Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
               </section>
 
+              {!isKaraokeEvent ? (
               <section className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`} aria-label="Song queue frame">
                 <p className="mirror-up-next-label">Queue</p>
                 {upNext.length > 0 ? (
@@ -2149,6 +2172,7 @@ function MirrorPage() {
                   <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
                 ) : null}
               </section>
+              ) : null}
             </section>
           </>
         )}
