@@ -157,7 +157,7 @@ function BookShowPage() {
         <header className="book-show-header">
           <p className="eyebrow">Booking Request</p>
           <h1>Book The Human Jukebox</h1>
-          <p className="subcopy">Tell us about your venue and event. We will follow up to confirm availability and details.</p>
+          <p className="subcopy">Tell us about your venue and event. I will follow up to confirm availability and details.</p>
         </header>
 
         <form className="book-show-form" onSubmit={onSubmit} noValidate>
