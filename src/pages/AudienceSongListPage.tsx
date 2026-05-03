@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { readCommittedAudienceLocale, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
+import { demoMode } from '../demo/demoMode'
+import { DEMO_CURATED_SONGS } from '../demo/demoSongCatalog'
 import { useQueueStore } from '../state/queueStore'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
 import '../audience-karafun.css'
@@ -300,6 +302,16 @@ function AudienceSongListPage() {
       setLoadingSongs(true)
       setErrorText(null)
 
+      if (demoMode) {
+        if (isCurrent) {
+          setHasKaraokePlaylist(true)
+          setHasHumanJukeboxPlaylist(true)
+          setCuratedSongs([...DEMO_CURATED_SONGS].sort(sortSongs))
+          setLoadingSongs(false)
+        }
+        return
+      }
+
       const loadFallbackSongs = async () => {
         if (isCurrent) {
           setHasKaraokePlaylist(false)
@@ -537,6 +549,10 @@ function AudienceSongListPage() {
   }, [event?.id, event?.hostId])
 
   useEffect(() => {
+    if (demoMode) {
+      return
+    }
+
     const songsMissingArtwork = curatedSongs
       .filter((song) => !song.cover_url?.trim())
       .slice(0, 8)
