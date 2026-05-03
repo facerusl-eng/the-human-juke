@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import AudienceNoGigState, { type AudienceUpcomingEvent } from '../components/audience/AudienceNoGigState'
 import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
 import SongVoteCard from '../components/audience/SongVoteCard'
@@ -1811,6 +1811,12 @@ function EventPage() {
             >
               💸 {copy.tipJar}
             </button>
+            <Link
+              to={`/feed${location.search || ''}`}
+              className="secondary-button audience-feed-button"
+            >
+              💬 Live Feed
+            </Link>
             <button
               type="button"
               className="secondary-button"

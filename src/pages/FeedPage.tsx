@@ -8,10 +8,13 @@ import {
   readCommittedAudienceName,
   type AudienceLocale,
 } from '../lib/audienceIdentity'
+import { demoMode } from '../demo/demoMode'
 
 function FeedPage() {
   const [nameInput, setNameInput] = useState('')
-  const [nameCommitted, setNameCommitted] = useState('')
+  const [nameCommitted, setNameCommitted] = useState(() =>
+    demoMode ? 'Demo Guest' : (readCommittedAudienceName() ?? ''),
+  )
   const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
   const [nameError, setNameError] = useState<string | null>(null)
   const copy = audienceLocale === 'da'
@@ -119,7 +122,7 @@ function FeedPage() {
   }
 
   return (
-    <section className="feed-page-shell" aria-label="Feed page">
+    <section className="feed-page-shell audience-karafun" aria-label="Feed page">
       <div className="feed-page-actions">
         <Link to="/audience" className="secondary-button feed-back-button">
           {copy.back}

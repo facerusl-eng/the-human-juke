@@ -8,6 +8,9 @@ import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHan
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 import { IconButton, PrimaryButton, SectionHeader } from './ui'
+import { demoMode } from '../demo/demoMode'
+import { DEMO_FEED_POSTS, DEMO_LIVE_INCOMING_POSTS } from '../demo/demoFeedPosts'
+import type { DemoFeedPost } from '../demo/demoFeedPosts'
 
 type FeedPost = {
   id: string
@@ -242,7 +245,34 @@ function LiveFeedPanel({
     }
   }, [])
 
+  // Demo mode: trickle in "live" incoming posts after a short delay
   useEffect(() => {
+    if (!demoMode) return
+
+    const timers = DEMO_LIVE_INCOMING_POSTS.map((post, index) => {
+      const delayMs = 6000 + index * 9000 // 6s, then 15s
+      return window.setTimeout(() => {
+        const livePost: DemoFeedPost = { ...post, created_at: new Date().toISOString() }
+        setPosts((current) => {
+          if (current.some((p) => p.id === livePost.id)) return current
+          return [livePost as FeedPost, ...current]
+        })
+      }, delayMs)
+    })
+
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id))
+    }
+  }, [])
+
+  useEffect(() => {  // eslint-disable-line react-hooks/exhaustive-deps
+    // Demo mode: load fake posts immediately, skip all Supabase logic
+    if (demoMode) {
+      setPosts(DEMO_FEED_POSTS as FeedPost[])
+      setLoading(false)
+      return
+    }
+
     let isCurrent = true
     let pollTimerId: number | null = null
     let channel: ReturnType<typeof supabase.channel> | null = null
@@ -584,11 +614,6 @@ function LiveFeedPanel({
     formEvent.preventDefault()
     setErrorText(null)
 
-    if (!event?.id) {
-      setErrorText('Join the audience before posting to the live feed.')
-      return
-    }
-
     const trimmedMessage = message.trim()
 
     if (isPreparingImage) {
@@ -598,6 +623,28 @@ function LiveFeedPanel({
 
     if (!trimmedMessage && !imageDataUrl) {
       setErrorText('Write a message, add an image, or both.')
+      return
+    }
+
+    // Demo mode: post directly to in-memory state, no Supabase
+    if (demoMode) {
+      const demoPost: FeedPost = {
+        id: `demo-user-post-${Date.now()}`,
+        event_id: 'demo-event-001',
+        user_id: 'demo-audience-user',
+        author_name: normalizeAuthorName(resolvedAuthorName, suggestedAuthorName),
+        message: trimmedMessage,
+        image_data_url: imageDataUrl,
+        created_at: new Date().toISOString(),
+      }
+      setPosts((current) => [demoPost, ...current].slice(0, FEED_MAX_POSTS))
+      setMessage('')
+      clearSelectedImage()
+      return
+    }
+
+    if (!event?.id) {
+      setErrorText('Join the audience before posting to the live feed.')
       return
     }
 
@@ -723,6 +770,7 @@ function LiveFeedPanel({
     <section className={`live-feed-panel live-feed-panel-${mode}`} aria-label={title}>
       <div className="live-feed-head">
         <SectionHeader eyebrow="Community" title={title} className="live-feed-headline" />
+        <span className="live-feed-live-badge" aria-label="Live feed active">● LIVE</span>
         {showJumpLink ? (
           <Link to="/feed" className="live-feed-link" aria-label="Open feed">
             <span aria-hidden="true">↗</span>

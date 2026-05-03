@@ -847,3 +847,217 @@
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ─── Live Feed Panel (audience + feed page) ─────────────────── */
+
+/* Page shell: dark background with subtle neon radial */
+.audience-karafun.feed-page-shell,
+.audience-karafun .feed-page-shell {
+  background: linear-gradient(160deg, #07091a, #0b0c20);
+  min-height: 100dvh;
+  padding: 1rem 1rem 3rem;
+  gap: 1rem;
+}
+
+.audience-karafun .feed-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Feed panel card */
+.audience-karafun .live-feed-panel {
+  border: 1px solid rgba(93, 215, 255, 0.28);
+  border-radius: 22px;
+  padding: clamp(16px, 4vw, 28px);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(162, 89, 255, 0.14) 0%, transparent 32%),
+    radial-gradient(circle at 92% 92%, rgba(93, 215, 255, 0.10) 0%, transparent 28%),
+    linear-gradient(160deg, rgba(11, 16, 38, 0.97) 0%, rgba(8, 10, 26, 0.99) 100%);
+  box-shadow:
+    0 0 40px rgba(93, 215, 255, 0.07),
+    0 18px 36px rgba(4, 6, 20, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Feed head layout */
+.audience-karafun .live-feed-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.audience-karafun .live-feed-panel h2 {
+  background: linear-gradient(90deg, #5DD7FF, #FF7EAF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  font-weight: 900;
+}
+
+.audience-karafun .live-feed-panel .eyebrow {
+  color: rgba(93, 215, 255, 0.7);
+}
+
+/* Live badge neon override */
+.audience-karafun .live-feed-live-badge {
+  color: #5DD7FF;
+  border-color: rgba(93, 215, 255, 0.65);
+  background:
+    linear-gradient(120deg, rgba(93, 215, 255, 0.2) 0%, rgba(162, 89, 255, 0.16) 100%),
+    rgba(6, 9, 24, 0.78);
+}
+
+/* Open Feed link */
+.audience-karafun .live-feed-link {
+  color: #5DD7FF;
+  border-color: rgba(93, 215, 255, 0.4);
+  background: rgba(8, 12, 30, 0.6);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* Inputs + textarea */
+.audience-karafun .live-feed-panel textarea,
+.audience-karafun .live-feed-panel input {
+  background: rgba(6, 9, 22, 0.86);
+  border-color: rgba(93, 215, 255, 0.32);
+  color: #f0f0ff;
+  border-radius: 12px;
+}
+
+.audience-karafun .live-feed-panel textarea::placeholder,
+.audience-karafun .live-feed-panel input::placeholder {
+  color: rgba(176, 196, 255, 0.48);
+}
+
+.audience-karafun .live-feed-panel textarea:focus,
+.audience-karafun .live-feed-panel input:focus {
+  border-color: rgba(93, 215, 255, 0.65);
+  box-shadow: 0 0 0 3px rgba(93, 215, 255, 0.12);
+  outline: none;
+}
+
+/* Emoji chips */
+.audience-karafun .live-feed-emoji-chip.ui-icon-button {
+  background: rgba(162, 89, 255, 0.08);
+  border-color: rgba(162, 89, 255, 0.28);
+  border-radius: 12px;
+  font-size: 1.05rem;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.audience-karafun .live-feed-emoji-chip.ui-icon-button:hover {
+  background: rgba(93, 215, 255, 0.14);
+  border-color: rgba(93, 215, 255, 0.5);
+  transform: scale(1.15);
+}
+
+/* Post to Feed button */
+.audience-karafun .live-feed-actions .primary-button {
+  background: linear-gradient(135deg, #a259ff, #5DD7FF);
+  border: none;
+  color: #fff;
+  font-weight: 800;
+  border-radius: 12px;
+  box-shadow: 0 0 16px rgba(93, 215, 255, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.audience-karafun .live-feed-actions .primary-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 26px rgba(93, 215, 255, 0.4);
+}
+
+/* Helper text */
+.audience-karafun .live-feed-helper-text,
+.audience-karafun .live-feed-image-name {
+  color: rgba(176, 196, 255, 0.55);
+}
+
+/* Post cards — neon chat bubbles */
+.audience-karafun .live-feed-list {
+  display: grid;
+  gap: 12px;
+  max-height: 740px;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(93, 215, 255, 0.25) transparent;
+}
+
+.audience-karafun .live-feed-post {
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(93, 215, 255, 0.18);
+  background: linear-gradient(
+    135deg,
+    rgba(162, 89, 255, 0.13) 0%,
+    rgba(93, 215, 255, 0.09) 100%
+  );
+  box-shadow:
+    0 0 18px rgba(93, 215, 255, 0.06),
+    0 4px 12px rgba(4, 6, 20, 0.35);
+  max-width: 88%;
+  margin-right: auto;
+  position: relative;
+  /* Left accent stripe */
+  border-left: 3px solid;
+  border-image: linear-gradient(180deg, #a259ff, #5DD7FF) 1;
+}
+
+/* Alternate cards — pink accent */
+.audience-karafun .live-feed-post:nth-child(odd) {
+  border-image: linear-gradient(180deg, #5DD7FF, #FF7EAF) 1;
+}
+
+.audience-karafun .live-feed-post-head strong {
+  color: #5DD7FF;
+  font-weight: 800;
+}
+
+.audience-karafun .live-feed-post-head span {
+  color: rgba(176, 196, 255, 0.5);
+}
+
+.audience-karafun .live-feed-post-message {
+  color: #e8e8ff;
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+/* Polaroid photo cards */
+.audience-karafun .live-feed-post-polaroid {
+  background: linear-gradient(180deg, rgba(248, 244, 255, 0.97) 0%, rgba(240, 236, 255, 0.95) 100%);
+  border-left: 3px solid rgba(162, 89, 255, 0.35);
+  border-image: none;
+  box-shadow:
+    0 0 18px rgba(162, 89, 255, 0.14),
+    0 8px 24px rgba(4, 6, 20, 0.45);
+}
+
+.audience-karafun .live-feed-post-polaroid .live-feed-post-head strong {
+  color: #6030cc;
+  -webkit-text-fill-color: #6030cc;
+  background: none;
+}
+
+.audience-karafun .live-feed-post-polaroid .live-feed-post-message {
+  color: #2a1a44;
+}
+
+/* Empty state */
+.audience-karafun .live-feed-list > .subcopy {
+  color: rgba(162, 89, 255, 0.5);
+  text-align: center;
+  padding: 1.5rem 0;
+  font-style: italic;
+}
+
+/* Feed page shell dark background to cover the outer shell */
+.audience-karafun.feed-page-shell {
+  background: linear-gradient(160deg, #07091a, #0b0c20);
+}

@@ -6417,7 +6417,72 @@
   text-decoration: none;
 }
 
-.live-feed-panel {
+/* ── Live badge ─────────────────────────────────────── */
+.live-feed-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.28rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(93, 215, 255, 0.55);
+  background:
+    linear-gradient(120deg, rgba(46, 197, 255, 0.18) 0%, rgba(162, 89, 255, 0.14) 100%),
+    rgba(8, 12, 30, 0.72);
+  color: #5DD7FF;
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow:
+    0 0 12px rgba(46, 197, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+  animation: live-badge-pulse 2.4s ease-in-out infinite;
+  align-self: center;
+}
+
+@keyframes live-badge-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(46, 197, 255, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border-color: rgba(93, 215, 255, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 22px rgba(46, 197, 255, 0.55),
+      0 0 8px rgba(255, 79, 154, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    border-color: rgba(93, 215, 255, 0.9);
+  }
+}
+
+/* ── Feed head flex alignment ───────────────────────── */
+.live-feed-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.live-feed-head .live-feed-headline {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.live-feed-head .live-feed-live-badge {
+  flex: 0 0 auto;
+}
+
+/* ── Audience feed-button in action strip ───────────── */
+.audience-feed-button {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
   border: 1px solid rgba(93, 215, 255, 0.28);
   border-radius: 22px;
   padding: 24px;
@@ -6468,13 +6533,6 @@
   box-shadow:
     0 0 14px rgba(93, 215, 255, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-
-.live-feed-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
 }
 
 .live-feed-head h2 {
