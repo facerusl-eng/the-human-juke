@@ -26,23 +26,6 @@ const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
   ],
 }
 
-const NO_GIG_HOW_IT_WORKS_STEPS: Record<AudienceLocale, string[]> = {
-  en: [
-    'Tap Song List and choose Human Jukebox or Karaoke.',
-    'Add your request (karaoke asks for confirmation because you sing it).',
-    'Vote in Live Queue to push your favorites up.',
-    'Watch Now Playing and keep the energy going.',
-    'Use Social Links or Tip Jar to support the artist.',
-  ],
-  da: [
-    'Tryk på Sangliste og vælg Human Jukebox eller Karaoke.',
-    'Tilføj dit ønske (karaoke kræver bekræftelse, fordi du synger selv).',
-    'Stem i Livekø for at skubbe dine favoritter op.',
-    'Følg Spiller nu og hold energien i gang.',
-    'Brug Sociale links eller Drikkepenge for at støtte artisten.',
-  ],
-}
-
 /** Strip seconds from Postgres 'HH:MM:SS' so appending ':00' doesn't corrupt the datetime string */
 function normalizeTimeForDate(t: string | null): string | null {
   if (!t) return null
@@ -161,6 +144,8 @@ function AudienceNoGigState({
   getEventHref?: (eventId: string) => string
   locale?: AudienceLocale
 }) {
+  const [showHowJukeboxWorks, setShowHowJukeboxWorks] = useState(false)
+  const [showHowKaraokeWorks, setShowHowKaraokeWorks] = useState(false)
   const countdown = useCountdownToEvent(upcomingEvents)
 
   const copy = locale === 'da'
@@ -177,7 +162,25 @@ function AudienceNoGigState({
         openKarafun: 'Åbn KaraFun playliste',
         countdownLabel: 'Næste show starter om',
         countdownFor: 'til',
-        howItWorksTitle: 'Sådan virker det',
+        howItWorks: 'Sådan virker Human Jukebox',
+        hideHowItWorks: 'Skjul guide',
+        howItWorksTitle: '🎸 Sådan virker Human Jukebox',
+        howItWorksSteps: [
+          'Tryk på Sangliste og vælg Human Jukebox.',
+          'Søg efter en sang og tilføj den til køen.',
+          'Stem i Livekø for at skubbe dine favoritter op.',
+          'Artisten spiller - du vælger hvad.',
+        ],
+        howKaraokeWorks: 'Sådan virker Karaoke',
+        hideHowKaraokeWorks: 'Skjul karaoke-guide',
+        howKaraokeWorksTitle: '🎤 Sådan virker Karaoke',
+        howKaraokeWorksSteps: [
+          'Karaoke køres i KaraFun.',
+          'Find en sang i KaraFun-playlisten og book den.',
+          'Vent på at dit navn bliver kaldt op.',
+          'Tag mikrofonen og syng den selv.',
+        ],
+        karafunNote: 'Karaoke køres via KaraFun.',
       }
     : {
         eyebrow: 'Audience App',
@@ -192,7 +195,25 @@ function AudienceNoGigState({
         openKarafun: 'Open KaraFun playlist',
         countdownLabel: 'Next show starts in',
         countdownFor: 'for',
-        howItWorksTitle: 'How It Works',
+        howItWorks: 'How Human Jukebox Works',
+        hideHowItWorks: 'Hide guide',
+        howItWorksTitle: '🎸 How Human Jukebox Works',
+        howItWorksSteps: [
+          'Tap Song List and choose Human Jukebox.',
+          'Search for a song and add it to the queue.',
+          'Vote in Live Queue to push your favorites up.',
+          'The artist plays - you choose what.',
+        ],
+        howKaraokeWorks: 'How Karaoke Works',
+        hideHowKaraokeWorks: 'Hide karaoke guide',
+        howKaraokeWorksTitle: '🎤 How Karaoke Works',
+        howKaraokeWorksSteps: [
+          'Karaoke runs on KaraFun.',
+          'Find a song in the KaraFun playlist and book your slot.',
+          'Wait for your name to be called up.',
+          'Grab the mic and sing it yourself.',
+        ],
+        karafunNote: 'Karaoke is powered by KaraFun.',
       }
 
   return (
@@ -221,14 +242,47 @@ function AudienceNoGigState({
           ))}
         </div>
 
-        <section className="audience-no-gig-how-it-works" aria-label={copy.howItWorksTitle}>
-          <h2>{copy.howItWorksTitle}</h2>
-          <ol>
-            {NO_GIG_HOW_IT_WORKS_STEPS[locale].map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </section>
+        <div className="audience-no-gig-guide-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            aria-controls="audience-no-gig-how-karaoke-works"
+            onClick={() => setShowHowKaraokeWorks((current) => !current)}
+          >
+            {showHowKaraokeWorks ? copy.hideHowKaraokeWorks : copy.howKaraokeWorks}
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            aria-controls="audience-no-gig-how-it-works"
+            onClick={() => setShowHowJukeboxWorks((current) => !current)}
+          >
+            {showHowJukeboxWorks ? copy.hideHowItWorks : copy.howItWorks}
+          </button>
+        </div>
+
+        {showHowJukeboxWorks ? (
+          <section id="audience-no-gig-how-it-works" className="audience-no-gig-how-it-works" aria-label={copy.howItWorksTitle}>
+            <h2>{copy.howItWorksTitle}</h2>
+            <ol>
+              {copy.howItWorksSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
+
+        {showHowKaraokeWorks ? (
+          <section id="audience-no-gig-how-karaoke-works" className="audience-no-gig-how-it-works" aria-label={copy.howKaraokeWorksTitle}>
+            <h2>{copy.howKaraokeWorksTitle}</h2>
+            <p className="subcopy audience-no-gig-how-it-works-note">{copy.karafunNote}</p>
+            <ol>
+              {copy.howKaraokeWorksSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
 
         {loadingUpcomingEvents ? (
           <p className="meta-badge" role="status" aria-live="polite">{copy.loading}</p>

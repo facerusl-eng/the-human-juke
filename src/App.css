@@ -1632,6 +1632,12 @@
   gap: 0.45rem;
 }
 
+.audience-no-gig-guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .audience-no-gig-how-it-works {
   display: grid;
   gap: 0.6rem;
@@ -1656,6 +1662,10 @@
 .audience-no-gig-how-it-works li {
   color: rgba(231, 241, 255, 0.92);
   line-height: 1.45;
+}
+
+.audience-no-gig-how-it-works-note {
+  margin: 0;
 }
 
 .audience-no-gig-motion {
