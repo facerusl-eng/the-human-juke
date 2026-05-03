@@ -40,6 +40,7 @@ type IntroAudioLibraryItem = {
   name: string
   url: string
   createdAt: string | null
+  source: 'current-gig' | 'library'
 }
 
 type PlaylistArtworkRow = {
@@ -300,6 +301,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             path: `${user.id}/${entry.name}`,
             name: entry.name,
             createdAt: entry.created_at ?? null,
+            source: 'library' as const,
           }))
 
         const eventItems = (eventListResult.data ?? [])
@@ -309,6 +311,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             path: `${user.id}/${event.id}/${entry.name}`,
             name: entry.name,
             createdAt: entry.created_at ?? null,
+            source: 'current-gig' as const,
           }))
 
         const merged = [...rootItems, ...eventItems]
@@ -321,6 +324,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             name: entry.name,
             url: publicUrlData.publicUrl,
             createdAt: entry.createdAt,
+            source: entry.source,
           } satisfies IntroAudioLibraryItem
         })
 
@@ -970,6 +974,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     playlists.find((playlist) => playlist.id === playlistId)?.playlist_type === 'karaoke'
   )) ?? ''
 
+  const currentGigIntroTracks = introAudioLibrary.filter((track) => track.source === 'current-gig')
+  const libraryIntroTracks = introAudioLibrary.filter((track) => track.source === 'library')
+
   const humanJukeboxOptions = buildPlaylistOptions(playlists, 'human_jukebox')
   const karaokeOptions = buildPlaylistOptions(playlists, 'karaoke')
 
@@ -1277,11 +1284,24 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               disabled={busy || processingIntroAudio || introAudioLibraryLoading}
             >
               <option value="">Choose saved MP3…</option>
-              {introAudioLibrary.map((track) => (
-                <option key={track.path} value={track.path}>
-                  {track.name}
-                </option>
-              ))}
+              {currentGigIntroTracks.length > 0 ? (
+                <optgroup label="Current Gig Uploads">
+                  {currentGigIntroTracks.map((track) => (
+                    <option key={track.path} value={track.path}>
+                      {track.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {libraryIntroTracks.length > 0 ? (
+                <optgroup label="My Library">
+                  {libraryIntroTracks.map((track) => (
+                    <option key={track.path} value={track.path}>
+                      {track.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </select>
             {introAudioLibraryLoading ? <p className="field-hint">Loading saved intro tracks…</p> : null}
 
