@@ -27,6 +27,15 @@ function HomePage() {
   const navigate = useNavigate()
   const { songs, event } = useQueueStore()
   const topSongs = songs.slice(0, 3)
+  const openAudienceDemo = () => {
+    // Demo mode is resolved at app bootstrap, so force a hard navigation.
+    if (typeof window !== 'undefined') {
+      window.location.assign('/audience?demo=true')
+      return
+    }
+
+    navigate('/audience?demo=true')
+  }
 
   useEffect(() => {
     // In demo mode, immediately redirect to the audience page so the simulated event is visible.
@@ -50,7 +59,7 @@ function HomePage() {
           className="home-hero-header"
         />
         <div className="hero-actions home-hero-actions" aria-label="Primary actions">
-          <PrimaryButton onClick={() => navigate('/audience')}>
+          <PrimaryButton onClick={openAudienceDemo}>
             Try the audience app
           </PrimaryButton>
           <PrimaryButton variant="secondary" onClick={() => navigate('/admin')}>
@@ -126,7 +135,7 @@ function HomePage() {
         <SectionHeader title="Call to action" />
         <p>Bring this live request format to your next venue night, private event, or festival slot.</p>
         <div className="hero-actions home-hero-actions" aria-label="Call to action buttons">
-          <PrimaryButton onClick={() => navigate('/audience')}>
+          <PrimaryButton onClick={openAudienceDemo}>
             Try the audience app
           </PrimaryButton>
           <PrimaryButton variant="secondary" onClick={() => navigate('/admin')}>
