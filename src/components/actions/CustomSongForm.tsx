@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../../lib/supabase'
+import { PrimaryButton } from '../ui'
 import type { CustomSong } from './CustomSongList'
 
 const MAX_CUSTOM_SONG_TITLE_LENGTH = 120
@@ -307,9 +308,9 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
       ) : null}
       {errorText ? <p className="error-text" role="alert">{errorText}</p> : null}
 
-      <button type="submit" className="primary-button" disabled={saveDisabled}>
+      <PrimaryButton type="submit" className="primary-button" disabled={saveDisabled}>
         {saveBusy ? 'Saving...' : coverUploadBusy ? 'Upload in progress...' : 'Save Song'}
-      </button>
+      </PrimaryButton>
     </form>
   )
 }

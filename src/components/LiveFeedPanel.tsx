@@ -7,6 +7,7 @@ import { prepareFeedImage, shrinkPreparedFeedImage } from '../lib/feedImage'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
+import { PrimaryButton, SectionHeader } from './ui'
 
 type FeedPost = {
   id: string
@@ -721,12 +722,9 @@ function LiveFeedPanel({
   return (
     <section className={`live-feed-panel live-feed-panel-${mode}`} aria-label={title}>
       <div className="live-feed-head">
-        <div>
-          <p className="eyebrow live-feed-eyebrow">Community</p>
-          <h2>{title}</h2>
-        </div>
+        <SectionHeader eyebrow="Community" title={title} className="live-feed-headline" />
         {showJumpLink ? (
-          <Link to="/feed" className="live-feed-link">
+          <Link to="/feed" className="live-feed-link" aria-label="Open feed">
             Open Feed
           </Link>
         ) : null}
@@ -817,9 +815,9 @@ function LiveFeedPanel({
             {selectedImageName ? <span className="live-feed-image-name">{selectedImageName}</span> : null}
             {imageStatusText ? <span className="live-feed-helper-text">{imageStatusText}</span> : null}
             {previewImageSrc ? (
-              <button type="button" className="ghost-button" onClick={clearSelectedImage}>
+              <PrimaryButton type="button" variant="ghost" onClick={clearSelectedImage}>
                 Remove Image
-              </button>
+              </PrimaryButton>
             ) : null}
           </div>
 
@@ -834,13 +832,13 @@ function LiveFeedPanel({
           {errorText ? <p className="error-text no-margin">{errorText}</p> : null}
 
           <div className="live-feed-actions">
-            <button
+            <PrimaryButton
               type="submit"
               className="primary-button"
               disabled={busy || !event}
             >
               {busy ? 'Posting...' : 'Post to Feed'}
-            </button>
+            </PrimaryButton>
             <span className="live-feed-helper-text">{message.trim().length}/280</span>
           </div>
         </form>
@@ -873,7 +871,7 @@ function LiveFeedPanel({
               return (
                 <article
                   key={post.id}
-                  className={`live-feed-post ${hasImage ? 'live-feed-post-polaroid' : ''} ${isMirrorTextPost ? 'live-feed-post-mirror-text' : ''}`.trim()}
+                  className={`live-feed-post queue-slide-in ${hasImage ? 'live-feed-post-polaroid' : ''} ${isMirrorTextPost ? 'live-feed-post-mirror-text' : ''}`.trim()}
                 >
                   {isMirrorMode ? imageNode : null}
 
@@ -885,9 +883,9 @@ function LiveFeedPanel({
                       </div>
                     )}
                     {canDelete ? (
-                      <button type="button" className="ghost-button live-feed-delete" onClick={() => { void deletePost(post.id) }}>
+                      <PrimaryButton type="button" variant="ghost" className="ghost-button live-feed-delete" onClick={() => { void deletePost(post.id) }}>
                         Remove
-                      </button>
+                      </PrimaryButton>
                     ) : null}
                   </div>
 

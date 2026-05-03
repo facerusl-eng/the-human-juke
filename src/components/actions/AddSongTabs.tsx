@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { Card, PrimaryButton, SectionHeader } from '../ui'
 import CustomSongForm from './CustomSongForm'
 import CustomSongList, { type CustomSong } from './CustomSongList'
 import PlaylistSongSelector, { type PlaylistSong } from './PlaylistSongSelector'
@@ -215,29 +216,34 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
   }
 
   return (
-    <section className="gig-add-song-tabs" aria-label="Add song options">
+    <Card className="gig-add-song-tabs" aria-label="Add song options">
+      <SectionHeader
+        eyebrow="Queue control"
+        title="Add Songs"
+        subtitle="Choose from Human Jukebox, Karaoke, or save custom songs for quick reuse."
+      />
       <div className="gig-add-song-tab-switcher" aria-label="Song source tabs">
-        <button
-          type="button"
+        <PrimaryButton
+          variant="secondary"
           className={`secondary-button gig-add-song-tab-button${activeTab === 'human_jukebox' ? ' is-active' : ''}`}
           onClick={() => setActiveTab('human_jukebox')}
         >
           Human Jukebox
-        </button>
-        <button
-          type="button"
+        </PrimaryButton>
+        <PrimaryButton
+          variant="secondary"
           className={`secondary-button gig-add-song-tab-button${activeTab === 'karaoke' ? ' is-active' : ''}`}
           onClick={() => setActiveTab('karaoke')}
         >
           Karaoke
-        </button>
-        <button
-          type="button"
+        </PrimaryButton>
+        <PrimaryButton
+          variant="secondary"
           className={`secondary-button gig-add-song-tab-button${activeTab === 'custom' ? ' is-active' : ''}`}
           onClick={() => setActiveTab('custom')}
         >
           Custom Song
-        </button>
+        </PrimaryButton>
       </div>
 
       {toastState ? (
@@ -286,7 +292,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
           )}
         </section>
       )}
-    </section>
+    </Card>
   )
 }
 

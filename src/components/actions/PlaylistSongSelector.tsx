@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { PrimaryButton } from '../ui'
 
 export type PlaylistSong = {
   id: string
@@ -243,8 +244,8 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
         <div className="gig-song-picker-label-row">
           <label htmlFor="gig-control-playlist-song-picker">Choose song from playlist</label>
           <div className="gig-song-picker-random-wrap">
-            <button
-              type="button"
+            <PrimaryButton
+              variant="secondary"
               className="secondary-button gig-random-pick-button"
               disabled={loadingSongs || availableSongs.length === 0 || Boolean(addingSongId) || Boolean(addingRandomCount)}
               onClick={() => {
@@ -255,11 +256,11 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
               title="Randomly add songs"
             >
               {addingRandomCount ? `Adding ${addingRandomCount}...` : '🎲'}
-            </button>
+            </PrimaryButton>
             {isRandomMenuOpen ? (
               <div className="gig-random-pick-menu" aria-label="Random add options">
-                <button
-                  type="button"
+                <PrimaryButton
+                  variant="ghost"
                   className="gig-random-pick-option"
                   onClick={() => {
                     setIsRandomMenuOpen(false)
@@ -267,9 +268,9 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
                   }}
                 >
                   Add random 10
-                </button>
-                <button
-                  type="button"
+                </PrimaryButton>
+                <PrimaryButton
+                  variant="ghost"
                   className="gig-random-pick-option"
                   onClick={() => {
                     setIsRandomMenuOpen(false)
@@ -277,7 +278,7 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
                   }}
                 >
                   Add random 20
-                </button>
+                </PrimaryButton>
               </div>
             ) : null}
           </div>
@@ -364,8 +365,9 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
               </p>
             </div>
           </div>
-          <button
+          <PrimaryButton
             type="button"
+            variant="secondary"
             className="secondary-button"
             onClick={async () => {
               await onAddSong(selectedSong)
@@ -373,7 +375,7 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
             disabled={addingSongId === selectedSong.id}
           >
             {addingSongId === selectedSong.id ? 'Adding...' : 'Add to Queue'}
-          </button>
+          </PrimaryButton>
         </article>
       ) : null}
 

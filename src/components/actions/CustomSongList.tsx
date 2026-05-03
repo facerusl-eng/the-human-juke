@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { PrimaryButton, SectionHeader } from '../ui'
 
 export type CustomSong = {
   id: string
@@ -39,14 +40,11 @@ function isLocalFallbackCoverUrl(coverUrl: string | null | undefined) {
 function CustomSongList({ songs, addingSongId, onAddSong }: CustomSongListProps) {
   return (
     <section className="gig-custom-song-list" aria-label="Saved custom songs">
-      <div className="panel-head">
-        <h3>Custom Songs</h3>
-        <span className="meta-badge">{songs.length} saved</span>
-      </div>
+      <SectionHeader title="Custom Songs" subtitle={`${songs.length} saved`} titleLevel={3} />
 
       <ul className="gig-add-song-list">
         {songs.map((song) => (
-          <li key={song.id} className="gig-add-song-item">
+          <li key={song.id} className="gig-add-song-item ui-card">
             <div className="gig-add-song-main">
               {song.cover_url ? (
                 <img
@@ -65,8 +63,9 @@ function CustomSongList({ songs, addingSongId, onAddSong }: CustomSongListProps)
                   ) : null}
               </div>
             </div>
-            <button
+            <PrimaryButton
               type="button"
+              variant="secondary"
               className="secondary-button"
               disabled={addingSongId === song.id}
               onClick={async () => {
@@ -74,7 +73,7 @@ function CustomSongList({ songs, addingSongId, onAddSong }: CustomSongListProps)
               }}
             >
               {addingSongId === song.id ? 'Adding...' : 'Add to Queue'}
-            </button>
+            </PrimaryButton>
           </li>
         ))}
         {songs.length === 0 ? (
