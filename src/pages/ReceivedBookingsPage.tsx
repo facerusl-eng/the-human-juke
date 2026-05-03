@@ -45,11 +45,29 @@ const STATUS_LABELS: Record<BookingStatus, string> = {
   declined: '🔴 Declined',
 }
 
+function isPastBooking(preferredDate: string) {
+  const bookingDate = new Date(`${preferredDate}T00:00:00`)
+
+  if (Number.isNaN(bookingDate.getTime())) {
+    return false
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  return bookingDate < today
+}
+
+function canDeleteBooking(booking: BookingRequest) {
+  return booking.status === 'declined' || isPastBooking(booking.preferred_date)
+}
+
 function ReceivedBookingsPage() {
   const [bookings, setBookings] = useState<BookingRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const loadBookings = useCallback(async () => {
@@ -87,6 +105,37 @@ function ReceivedBookingsPage() {
     }
   }
 
+  const deleteBooking = async (booking: BookingRequest) => {
+    if (!canDeleteBooking(booking)) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Delete booking request from ${booking.venue_name}? This cannot be undone.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setDeletingId(booking.id)
+    try {
+      const { error: deleteError } = await supabase
+        .from('booking_requests')
+        .delete()
+        .eq('id', booking.id)
+
+      if (deleteError) throw deleteError
+
+      setBookings((prev) => prev.filter((entry) => entry.id !== booking.id))
+      setExpandedId((current) => (current === booking.id ? null : current))
+    } catch (err) {
+      console.error('Failed to delete booking', err)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <section className="create-gig-shell received-bookings-shell" aria-label="Received bookings">
       <section className="hero-card create-gig-card">
@@ -112,6 +161,8 @@ function ReceivedBookingsPage() {
         <section className="queue-panel received-bookings-list" aria-label="Booking requests">
           {bookings.map((booking) => {
             const isExpanded = expandedId === booking.id
+            const isDeletable = canDeleteBooking(booking)
+            const isBusy = updatingId === booking.id || deletingId === booking.id
             return (
               <article key={booking.id} className={`received-booking-card${booking.status === 'new' ? ' received-booking-card-new' : ''}`}>
                 <div className="received-booking-head">
@@ -125,7 +176,6 @@ function ReceivedBookingsPage() {
                       type="button"
                       className="secondary-button received-booking-expand-btn"
                       onClick={() => setExpandedId(isExpanded ? null : booking.id)}
-                      aria-expanded={isExpanded}
                     >
                       {isExpanded ? 'Hide' : 'View'}
                     </button>
@@ -170,13 +220,28 @@ function ReceivedBookingsPage() {
                           key={s}
                           type="button"
                           className={`secondary-button${booking.status === s ? ' received-booking-status-active' : ''}`}
-                          disabled={booking.status === s || updatingId === booking.id}
+                          disabled={booking.status === s || isBusy}
                           onClick={() => void updateStatus(booking.id, s)}
                         >
                           {STATUS_LABELS[s]}
                         </button>
                       ))}
+                      {isDeletable ? (
+                        <button
+                          type="button"
+                          className="secondary-button received-booking-delete-btn"
+                          disabled={isBusy}
+                          onClick={() => void deleteBooking(booking)}
+                        >
+                          {deletingId === booking.id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      ) : null}
                     </div>
+                    {isDeletable ? (
+                      <p className="received-booking-delete-note">
+                        You can delete declined bookings or requests whose preferred date has already passed.
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </article>

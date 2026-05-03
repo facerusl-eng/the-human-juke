@@ -9909,11 +9909,27 @@
   min-height: 2rem;
 }
 
+.received-booking-delete-btn {
+  border-color: rgba(190, 24, 93, 0.24);
+  color: #be185d;
+}
+
+.received-booking-delete-btn:hover:not(:disabled) {
+  border-color: rgba(190, 24, 93, 0.38);
+  background: rgba(190, 24, 93, 0.08);
+}
+
 .received-booking-detail {
   margin-top: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+}
+
+.received-booking-delete-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-muted);
 }
 
 .received-booking-detail-grid {
