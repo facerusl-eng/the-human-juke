@@ -680,7 +680,7 @@ function EventPage() {
         nameLabel: 'Dit navn',
         namePlaceholder: 'f.eks. Alex',
         languageLabel: 'Sprog',
-        join: 'Gå ind',
+        join: 'Bliv en del af showet',
         joining: 'Går ind...',
         welcome: 'Velkommen! 🎤',
         waitingGreeting: 'Hej',
@@ -1607,6 +1607,8 @@ function EventPage() {
 
   const handleSignOut = useCallback(() => {
     clearAudienceIdentity()
+    setAudienceName('')
+    setAudienceNameInput('')
     navigate('/audience', { replace: true })
   }, [navigate])
 
