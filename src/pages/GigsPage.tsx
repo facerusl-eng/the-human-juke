@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGigActions } from '../hooks/useGigActions'
 import { useQueueStore } from '../state/queueStore'
@@ -21,6 +21,16 @@ function formatEventTypeLabel(eventType: 'halli-live' | 'karaoke' | 'build-self'
   return 'Halli Playing Music'
 }
 
+function resolveGigStartAt(gigDate: string | null, gigStartTime: string | null) {
+  if (!gigDate || !gigStartTime) {
+    return null
+  }
+
+  const normalizedTime = gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime
+  const startAt = new Date(`${gigDate}T${normalizedTime}`)
+  return Number.isNaN(startAt.getTime()) ? null : startAt
+}
+
 function GigsPage() {
   const navigate = useNavigate()
   const { event, hostEvents, setActiveEvent, endGig, deleteEvent, setEventAudienceNoGigVisibility } = useQueueStore()
@@ -28,6 +38,8 @@ function GigsPage() {
   const [endingEventId, setEndingEventId] = useState<string | null>(null)
   const [togglingAudienceFallbackEventId, setTogglingAudienceFallbackEventId] = useState<string | null>(null)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const autoLiveInFlightRef = useRef(false)
+  const attemptedAutoLiveGigIdsRef = useRef<Set<string>>(new Set())
   const gigActions = useGigActions({
     setActiveEvent,
     setErrorText,
@@ -95,6 +107,77 @@ function GigsPage() {
     }
   }
 
+  useEffect(() => {
+    const validGigIds = new Set(
+      hostEvents
+        .filter((hostEvent) => hostEvent.autoLiveEnabled && !hostEvent.isActive)
+        .map((hostEvent) => hostEvent.id),
+    )
+
+    attemptedAutoLiveGigIdsRef.current = new Set(
+      [...attemptedAutoLiveGigIdsRef.current].filter((gigId) => validGigIds.has(gigId)),
+    )
+  }, [hostEvents])
+
+  useEffect(() => {
+    const runAutoLiveCheck = async () => {
+      if (autoLiveInFlightRef.current) {
+        return
+      }
+
+      const now = Date.now()
+      const dueEvent = hostEvents.find((hostEvent) => {
+        if (hostEvent.isActive || !hostEvent.autoLiveEnabled) {
+          return false
+        }
+
+        if (attemptedAutoLiveGigIdsRef.current.has(hostEvent.id)) {
+          return false
+        }
+
+        const startAt = resolveGigStartAt(hostEvent.gigDate, hostEvent.gigStartTime)
+        return Boolean(startAt && startAt.getTime() <= now)
+      })
+
+      if (!dueEvent) {
+        return
+      }
+
+      autoLiveInFlightRef.current = true
+      attemptedAutoLiveGigIdsRef.current.add(dueEvent.id)
+
+      try {
+        const switched = await gigActions.switchActiveGig(dueEvent.id)
+
+        if (!switched) {
+          return
+        }
+
+        if (dueEvent.introAudioUrl) {
+          const introAudio = new Audio(dueEvent.introAudioUrl)
+          introAudio.preload = 'auto'
+
+          try {
+            await introAudio.play()
+          } catch {
+            setErrorText('Gig went live automatically, but intro audio was blocked by browser autoplay settings. Press play manually in Gig Settings preview if needed.')
+          }
+        }
+      } finally {
+        autoLiveInFlightRef.current = false
+      }
+    }
+
+    void runAutoLiveCheck()
+    const timerId = window.setInterval(() => {
+      void runAutoLiveCheck()
+    }, 20_000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [gigActions, hostEvents])
+
   return (
     <section className="gigs-shell" aria-label="Gig management">
       <section className="hero-card gigs-hero-card">
@@ -137,6 +220,7 @@ function GigsPage() {
                     <div className="gig-management-title-row">
                       <p className="gig-management-title">{hostEvent.name}</p>
                       <span className="meta-badge">{formatEventTypeLabel(hostEvent.eventType)}</span>
+                      {hostEvent.autoLiveEnabled ? <span className="meta-badge">Auto Live</span> : null}
                       {hostEvent.isActive ? <span className="meta-badge">Live for audience</span> : null}
                       {hostEvent.showInAudienceNoGig ? <span className="meta-badge">Shown when no live gig</span> : null}
                       {isCurrentGig ? <span className="meta-badge">Open in control panel</span> : null}

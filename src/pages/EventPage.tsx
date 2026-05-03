@@ -543,6 +543,7 @@ function EventPage() {
   const [errorText, setErrorText] = useState<string | null>(null)
   const [confirmationText, setConfirmationText] = useState<string | null>(null)
   const [showHowItWorks, setShowHowItWorks] = useState(false)
+  const [showHowKaraokeWorks, setShowHowKaraokeWorks] = useState(false)
   const [votingSongIds, setVotingSongIds] = useState<Record<string, boolean>>({})
   const [votePulseTicks, setVotePulseTicks] = useState<Record<string, number>>({})
   const [songMoveTicks, setSongMoveTicks] = useState<Record<string, number>>({})
@@ -696,16 +697,26 @@ function EventPage() {
         songList: 'Sangliste',
         tipJar: 'Drikkepenge',
         socialLinks: 'Sociale links',
-        howItWorks: 'Sådan virker det',
+        howItWorks: 'Sådan virker Human Jukebox',
         hideHowItWorks: 'Skjul guide',
-        howItWorksTitle: 'Sådan virker det',
+        howItWorksTitle: '🎸 Sådan virker Human Jukebox',
         howItWorksSteps: [
-          'Tryk på Sangliste og vælg Human Jukebox eller Karaoke.',
-          'Tilføj dit ønske (karaoke kræver bekræftelse, fordi du synger selv).',
+          'Tryk på Sangliste og vælg Human Jukebox.',
+          'Søg efter en sang og tilføj den til køen.',
           'Stem i Livekø for at skubbe dine favoritter op.',
-          'Følg Spiller nu og hold energien i gang.',
+          'Artisten spiller — du vælger hvad.',
           'Brug Sociale links eller Drikkepenge for at støtte artisten.',
         ],
+        howKaraokeWorks: 'Sådan virker Karaoke',
+        hideHowKaraokeWorks: 'Skjul karaoke-guide',
+        howKaraokeWorksTitle: '🎤 Sådan virker Karaoke',
+        howKaraokeWorksSteps: [
+          'Karaoke køres i KaraFun — åbn KaraFun-appen eller brug linket herunder.',
+          'Find en sang i KaraFun-playlisten og book den.',
+          'Vent på dit navn bliver kaldt op.',
+          'Tag mikrofonen og giv den gas — ingen dom her.',
+        ],
+        karafunNote: 'Karaoke køres via KaraFun. Du skal bruge KaraFun-appen eller webplayeren for at booke og synge.',
         duplicateBlocked: 'Dubletønsker er blokeret til dette gig.',
         activeRequestLimit: 'Hvert publikumsmedlem kan have {count} aktive ønsker i køen.',
         nowPlaying: 'Spiller nu',
@@ -746,16 +757,26 @@ function EventPage() {
         songList: 'Song List',
         tipJar: 'Tip Jar',
         socialLinks: 'Social Links',
-        howItWorks: 'How It Works',
-        hideHowItWorks: 'Hide How It Works',
-        howItWorksTitle: 'How It Works',
+        howItWorks: 'How Human Jukebox Works',
+        hideHowItWorks: 'Hide guide',
+        howItWorksTitle: '🎸 How Human Jukebox Works',
         howItWorksSteps: [
-          'Tap Song List and choose Human Jukebox or Karaoke.',
-          'Add your request (karaoke asks for confirmation because you sing it).',
+          'Tap Song List and choose Human Jukebox.',
+          'Search for a song and add it to the queue.',
           'Vote in Live Queue to push your favorites up.',
-          'Watch Now Playing and keep the energy going.',
+          'The artist plays — you choose what.',
           'Use Social Links or Tip Jar to support the artist.',
         ],
+        howKaraokeWorks: 'How Karaoke Works',
+        hideHowKaraokeWorks: 'Hide karaoke guide',
+        howKaraokeWorksTitle: '🎤 How Karaoke Works',
+        howKaraokeWorksSteps: [
+          'Karaoke runs on KaraFun — open the KaraFun app or use the link below.',
+          'Find a song in the KaraFun playlist and book your slot.',
+          'Wait for your name to be called up.',
+          'Grab the mic and go for it — no judgment here.',
+        ],
+        karafunNote: 'Karaoke is powered by KaraFun. You need the KaraFun app or web player to book songs and sing.',
         duplicateBlocked: 'Duplicate requests are blocked for this gig.',
         activeRequestLimit: 'Each audience member can keep {count} active request{suffix} in the queue.',
         nowPlaying: 'Now Playing',
@@ -1931,6 +1952,22 @@ function EventPage() {
                 >
                   🔗 {copy.socialLinks}
                 </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  aria-controls="audience-how-karaoke-works"
+                  onClick={() => setShowHowKaraokeWorks((c) => !c)}
+                >
+                  {showHowKaraokeWorks ? copy.hideHowKaraokeWorks : copy.howKaraokeWorks}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  aria-controls="audience-how-it-works"
+                  onClick={() => setShowHowItWorks((c) => !c)}
+                >
+                  {showHowItWorks ? copy.hideHowItWorks : copy.howItWorks}
+                </button>
               </>
             ) : (
               <>
@@ -1984,19 +2021,36 @@ function EventPage() {
                 <button
                   type="button"
                   className="secondary-button"
+                  aria-controls="audience-how-karaoke-works"
+                  onClick={() => setShowHowKaraokeWorks((c) => !c)}
+                >
+                  {showHowKaraokeWorks ? copy.hideHowKaraokeWorks : copy.howKaraokeWorks}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
                   aria-controls="audience-how-it-works"
-                  onClick={() => setShowHowItWorks((current) => !current)}
+                  onClick={() => setShowHowItWorks((c) => !c)}
                 >
                   {showHowItWorks ? copy.hideHowItWorks : copy.howItWorks}
                 </button>
               </>
             )}
           </div>
-          {!isKaraokeEvent && showHowItWorks ? (
-            <div id="audience-how-it-works" className="audience-how-it-works" role="region" aria-label="How the audience app works">
+          {showHowItWorks ? (
+            <div id="audience-how-it-works" className="audience-how-it-works" role="region" aria-label="How Human Jukebox works">
               <p className="audience-how-it-works-title">{copy.howItWorksTitle}</p>
               <ol className="audience-how-it-works-list">
                 {copy.howItWorksSteps.map((step) => <li key={step}>{step}</li>)}
+              </ol>
+            </div>
+          ) : null}
+          {showHowKaraokeWorks ? (
+            <div id="audience-how-karaoke-works" className="audience-how-it-works" role="region" aria-label="How Karaoke works">
+              <p className="audience-how-it-works-title">{copy.howKaraokeWorksTitle}</p>
+              <p className="subcopy" style={{ margin: '0 0 0.5rem' }}>{copy.karafunNote}</p>
+              <ol className="audience-how-it-works-list">
+                {copy.howKaraokeWorksSteps.map((step) => <li key={step}>{step}</li>)}
               </ol>
             </div>
           ) : null}

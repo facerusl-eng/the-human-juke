@@ -74,6 +74,8 @@ type SettingsState = {
   tipThankYouMessageEN: string
   artistName: string
   audienceVotingEnabled: boolean
+  autoLiveEnabled: boolean
+  introAudioUrl: string
 }
 
 type UndoRedoState = SettingsState & { timestamp: number }
@@ -87,6 +89,7 @@ type GigSettingsFormProps = {
 
 const MAX_UNDO_STATES = 20
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
+const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -204,6 +207,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     artistName: event.artistName ?? '',
     audienceVotingEnabled: event.audienceVotingEnabled ?? true,
     gigDate: event.gigDate ?? '',
+      autoLiveEnabled: event.autoLiveEnabled ?? false,
+      introAudioUrl: event.introAudioUrl ?? '',
     gigStartTime: normalizeTimeValue(event.gigStartTime),
     gigEndTime: normalizeTimeValue(event.gigEndTime),
     subtitle: event.subtitle ?? '',
@@ -244,6 +249,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [busy, setBusy] = useState(false)
   const [processingCoverImage, setProcessingCoverImage] = useState(false)
   const [processingVenueLogo, setProcessingVenueLogo] = useState(false)
+  const [processingIntroAudio, setProcessingIntroAudio] = useState(false)
   const [fetchingLinksFromSettings, setFetchingLinksFromSettings] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
@@ -251,6 +257,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const manualSaveInFlightRef = useRef(false)
   const coverImageInFlightRef = useRef(false)
   const venueLogoInFlightRef = useRef(false)
+  const introAudioInFlightRef = useRef(false)
   const otherAudienceFallbackGigCount = hostEvents.filter(
     (hostEvent) => hostEvent.id !== event.id && hostEvent.showInAudienceNoGig,
   ).length
@@ -494,6 +501,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         audienceVotingEnabled: saveState.audienceVotingEnabled,
         gigDate: saveState.gigDate,
         gigStartTime: saveState.gigStartTime,
+          autoLiveEnabled: saveState.autoLiveEnabled,
+          introAudioUrl: saveState.introAudioUrl.trim() || null,
         gigEndTime: saveState.gigEndTime,
         subtitle: saveState.subtitle.trim(),
         requestInstructions: saveState.requestInstructions.trim(),
@@ -642,6 +651,92 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
       if (isMountedRef.current) {
         setProcessingVenueLogo(false)
+      }
+    }
+  }
+
+  const onSelectIntroAudio = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
+    if (introAudioInFlightRef.current) {
+      return
+    }
+
+    introAudioInFlightRef.current = true
+    setProcessingIntroAudio(true)
+
+    const selectedFile = changeEvent.target.files?.[0]
+    changeEvent.target.value = ''
+
+    if (!selectedFile) {
+      introAudioInFlightRef.current = false
+      if (isMountedRef.current) {
+        setProcessingIntroAudio(false)
+      }
+      return
+    }
+
+    const isLikelyMp3 = selectedFile.type === 'audio/mpeg' || selectedFile.name.toLowerCase().endsWith('.mp3')
+    if (!isLikelyMp3) {
+      setErrorText('Please choose an MP3 file for the intro song.')
+      introAudioInFlightRef.current = false
+      setProcessingIntroAudio(false)
+      return
+    }
+
+    if (selectedFile.size > MAX_GIG_INTRO_AUDIO_BYTES) {
+      setErrorText('Intro audio is too large. Use an MP3 up to 12 MB.')
+      introAudioInFlightRef.current = false
+      setProcessingIntroAudio(false)
+      return
+    }
+
+    if (!user?.id) {
+      setErrorText('You must be signed in as host to upload intro audio.')
+      introAudioInFlightRef.current = false
+      setProcessingIntroAudio(false)
+      return
+    }
+
+    try {
+      const sanitizedFileName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const storagePath = `${user.id}/${event.id}/${Date.now()}-${sanitizedFileName}`
+
+      const { error: uploadError } = await supabase
+        .storage
+        .from('gig-intro-audio')
+        .upload(storagePath, selectedFile, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'audio/mpeg',
+        })
+
+      if (uploadError) {
+        throw new Error(uploadError.message)
+      }
+
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('gig-intro-audio')
+        .getPublicUrl(storagePath)
+
+      if (!isMountedRef.current) {
+        return
+      }
+
+      pushUndoState()
+      updateState({ introAudioUrl: publicUrlData.publicUrl })
+      setErrorText(null)
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return
+      }
+
+      const message = error instanceof Error ? error.message : 'Unable to upload intro audio.'
+      setErrorText(message)
+    } finally {
+      introAudioInFlightRef.current = false
+
+      if (isMountedRef.current) {
+        setProcessingIntroAudio(false)
       }
     }
   }
@@ -821,6 +916,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.tipThankYouMessageEN !== (event.tipThankYouMessageEN ?? '')
     || state.artistName !== (event.artistName ?? '')
     || state.audienceVotingEnabled !== (event.audienceVotingEnabled ?? true)
+  || state.autoLiveEnabled !== (event.autoLiveEnabled ?? false)
+  || state.introAudioUrl !== (event.introAudioUrl ?? '')
 
   return (
     <>
@@ -984,6 +1081,22 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             </div>
           </div>
 
+          <label className="checkbox-row" htmlFor="gig-auto-live">
+            <input
+              id="gig-auto-live"
+              type="checkbox"
+              checked={state.autoLiveEnabled}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ autoLiveEnabled: e.target.checked })
+              }}
+            />
+            <span>Automatically go live at scheduled start time</span>
+          </label>
+          {state.autoLiveEnabled ? (
+            <p className="field-hint">The gig will activate automatically when the scheduled start time is reached - as long as the host dashboard is open in a browser.</p>
+          ) : null}
+
           <div className="field-row">
             <label htmlFor="gig-subtitle">Show Subtitle</label>
             <input
@@ -1026,38 +1139,69 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 </button>
               </div>
             ) : null}
-            {state.eventType === 'build-self' ? (
-              <>
-                <div className="field-row">
-                  <label htmlFor="gig-artist-name">Artist / performer name</label>
-                  <input
-                    id="gig-artist-name"
-                    value={state.artistName}
-                    onChange={(e) => {
-                      pushUndoState()
-                      updateState({ artistName: e.target.value })
-                    }}
-                    placeholder="Your artist or band name"
-                  />
-                </div>
-                <label className="checkbox-row" htmlFor="gig-audience-voting">
-                  <input
-                    id="gig-audience-voting"
-                    type="checkbox"
-                    checked={state.audienceVotingEnabled}
-                    onChange={(e) => {
-                      pushUndoState()
-                      updateState({ audienceVotingEnabled: e.target.checked })
-                    }}
-                  />
-                  <span>Allow audience to choose and vote for songs</span>
-                </label>
-                {!state.audienceVotingEnabled ? (
-                  <p className="field-hint">Audience will see the setlist only — no requests or voting.</p>
-                ) : null}
-              </>
+          </div>
+
+          <div className="field-row">
+            <label htmlFor="gig-intro-audio">Intro MP3 (optional)</label>
+            <input
+              id="gig-intro-audio"
+              type="file"
+              accept=".mp3,audio/mpeg"
+              onChange={(e) => {
+                void onSelectIntroAudio(e)
+              }}
+              disabled={busy || processingIntroAudio}
+            />
+            <p className="field-hint">This intro song plays on the host device when auto-live starts this gig. Max 12 MB.</p>
+            {processingIntroAudio ? <p className="field-hint">Uploading intro audio…</p> : null}
+            {state.introAudioUrl ? (
+              <div className="photo-preview">
+                <audio controls src={state.introAudioUrl} />
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    pushUndoState()
+                    updateState({ introAudioUrl: '' })
+                  }}
+                >
+                  Remove intro audio
+                </button>
+              </div>
             ) : null}
           </div>
+
+          {state.eventType === 'build-self' ? (
+            <>
+              <div className="field-row">
+                <label htmlFor="gig-artist-name">Artist / performer name</label>
+                <input
+                  id="gig-artist-name"
+                  value={state.artistName}
+                  onChange={(e) => {
+                    pushUndoState()
+                    updateState({ artistName: e.target.value })
+                  }}
+                  placeholder="Your artist or band name"
+                />
+              </div>
+              <label className="checkbox-row" htmlFor="gig-audience-voting">
+                <input
+                  id="gig-audience-voting"
+                  type="checkbox"
+                  checked={state.audienceVotingEnabled}
+                  onChange={(e) => {
+                    pushUndoState()
+                    updateState({ audienceVotingEnabled: e.target.checked })
+                  }}
+                />
+                <span>Allow audience to choose and vote for songs</span>
+              </label>
+              {!state.audienceVotingEnabled ? (
+                <p className="field-hint">Audience will see the setlist only - no requests or voting.</p>
+              ) : null}
+            </>
+          ) : null}
         </SettingsSection>
 
         <SettingsSection

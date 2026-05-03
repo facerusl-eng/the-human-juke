@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQueueStore } from '../state/queueStore'
 import { resetOGTags } from '../lib/metaTags'
 import { Card, PrimaryButton, SectionHeader } from '../components/ui'
 import { demoMode } from '../demo/demoMode'
@@ -25,8 +24,6 @@ const WHY_GUESTS_LOVE_IT = [
 
 function HomePage() {
   const navigate = useNavigate()
-  const { songs, event } = useQueueStore()
-  const topSongs = songs.slice(0, 3)
   const openAudienceDemo = () => {
     // Demo mode is resolved at app bootstrap, so force a hard navigation.
     if (typeof window !== 'undefined') {
@@ -111,24 +108,6 @@ function HomePage() {
             </p>
           ))}
         </div>
-      </Card>
-
-      <Card className="queue-panel home-queue-panel home-section-card home-fade-section" aria-label="Live queue preview">
-        <div className="panel-head">
-          <h2>Live queue preview</h2>
-          <span className="live-dot">{event?.roomOpen ? 'Live' : 'Paused'}</span>
-        </div>
-        <ol className="queue-list">
-          {topSongs.length > 0 ? topSongs.map((song) => (
-            <li key={song.id}>
-              <div>
-                <p className="song">{song.title}</p>
-                <p className="artist">{song.artist}</p>
-              </div>
-              <span className="votes">+{song.votes_count}</span>
-            </li>
-          )) : <li className="subcopy">No requests yet. Be the first to add one.</li>}
-        </ol>
       </Card>
 
       <Card className="queue-panel home-section-card home-cta-band home-fade-section" aria-label="Call to action">

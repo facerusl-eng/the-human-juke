@@ -8,6 +8,7 @@ type Step = 'info' | 'datetime'
 type EventType = 'halli-live' | 'karaoke' | 'build-self'
 
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
+const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -46,8 +47,12 @@ function CreateGigPage() {
   const [artistName, setArtistName] = useState('')
   const [audienceVotingEnabled, setAudienceVotingEnabled] = useState(true)
   const [showInAudienceNoGig, setShowInAudienceNoGig] = useState(false)
+    const [autoLiveEnabled, setAutoLiveEnabled] = useState(false)
+  const [introAudioUrl, setIntroAudioUrl] = useState<string | null>(null)
+  const [introAudioName, setIntroAudioName] = useState('')
   const [coverImageDataUrl, setCoverImageDataUrl] = useState<string | null>(null)
   const [coverImageName, setCoverImageName] = useState('')
+  const [processingIntroAudio, setProcessingIntroAudio] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const isMountedRef = useRef(true)
@@ -140,6 +145,8 @@ function CreateGigPage() {
       karafunUrl?: string
       artistName?: string | null
       audienceVotingEnabled?: boolean
+      autoLiveEnabled?: boolean
+      introAudioUrl?: string | null
     },
   ) => {
     const maxAttempts = 6
@@ -214,6 +221,8 @@ function CreateGigPage() {
           karafunUrl: karafunUrl.trim() || undefined,
           artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
           audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
+          autoLiveEnabled,
+          introAudioUrl,
         }
       : {
           showInAudienceNoGig,
@@ -223,6 +232,8 @@ function CreateGigPage() {
           karafunUrl: karafunUrl.trim() || undefined,
           artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
           audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
+          autoLiveEnabled,
+          introAudioUrl,
         }
 
     try {
@@ -289,6 +300,77 @@ function CreateGigPage() {
       setErrorText(null)
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Unable to import that cover image.')
+    }
+  }
+
+  const onSelectIntroAudio = async (changeEvent: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = changeEvent.target.files?.[0]
+    changeEvent.target.value = ''
+
+    if (!selectedFile) {
+      setIntroAudioUrl(null)
+      setIntroAudioName('')
+      return
+    }
+
+    const isLikelyMp3 = selectedFile.type === 'audio/mpeg' || selectedFile.name.toLowerCase().endsWith('.mp3')
+    if (!isLikelyMp3) {
+      setErrorText('Please choose an MP3 file for the intro song.')
+      return
+    }
+
+    if (selectedFile.size > MAX_GIG_INTRO_AUDIO_BYTES) {
+      setErrorText('Intro audio is too large. Use an MP3 up to 12 MB.')
+      return
+    }
+
+    if (!user?.id) {
+      setErrorText('You must be signed in as host to upload intro audio.')
+      return
+    }
+
+    setProcessingIntroAudio(true)
+
+    try {
+      const sanitizedFileName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const storagePath = `${user.id}/${Date.now()}-${sanitizedFileName}`
+
+      const { error: uploadError } = await supabase
+        .storage
+        .from('gig-intro-audio')
+        .upload(storagePath, selectedFile, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'audio/mpeg',
+        })
+
+      if (uploadError) {
+        throw new Error(uploadError.message)
+      }
+
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('gig-intro-audio')
+        .getPublicUrl(storagePath)
+
+      if (!isMountedRef.current) {
+        return
+      }
+
+      setIntroAudioUrl(publicUrlData.publicUrl)
+      setIntroAudioName(selectedFile.name)
+      setErrorText(null)
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return
+      }
+
+      const message = error instanceof Error ? error.message : 'Unable to upload intro audio.'
+      setErrorText(message)
+    } finally {
+      if (isMountedRef.current) {
+        setProcessingIntroAudio(false)
+      }
     }
   }
 
@@ -511,6 +593,50 @@ function CreateGigPage() {
               onChange={(e) => setShowInAudienceNoGig(e.target.checked)}
             />
             <span>Show this event in the Audience App when no gig is running</span>
+
+                    <label className="checkbox-row create-gig-checkbox-row" htmlFor="auto-live-enabled">
+                      <input
+                        id="auto-live-enabled"
+                        type="checkbox"
+                        checked={autoLiveEnabled}
+                        onChange={(e) => setAutoLiveEnabled(e.target.checked)}
+                      />
+                      <span>Automatically go live at scheduled start time</span>
+                    </label>
+                    {autoLiveEnabled ? (
+                      <p className="field-hint">The gig will activate automatically when the scheduled start time is reached — as long as the host dashboard is open in a browser.</p>
+                    ) : null}
+
+                    <div className="field-row">
+                      <label htmlFor="gig-intro-audio">Intro MP3 (optional)</label>
+                      <input
+                        id="gig-intro-audio"
+                        type="file"
+                        accept=".mp3,audio/mpeg"
+                        onChange={(e) => {
+                          void onSelectIntroAudio(e)
+                        }}
+                        disabled={processingIntroAudio || busy}
+                      />
+                      <p className="field-hint">This intro song plays on the host device when auto-live starts this gig. Max 12 MB.</p>
+                      {processingIntroAudio ? <p className="field-hint">Uploading intro audio…</p> : null}
+                      {introAudioUrl ? (
+                        <div className="photo-preview">
+                          <audio controls src={introAudioUrl} />
+                          <p className="field-hint">{introAudioName || 'Intro MP3 selected'}</p>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() => {
+                              setIntroAudioUrl(null)
+                              setIntroAudioName('')
+                            }}
+                          >
+                            Remove intro audio
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
           </label>
 
           <div className="field-row">

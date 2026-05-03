@@ -8,6 +8,8 @@ import { useQueueStore } from '../state/queueStore'
 type HealthCheckId =
   | 'network'
   | 'connectionStrength'
+  | 'deviceMemory'
+  | 'cpuCapacity'
   | 'session'
   | 'database'
   | 'activeGig'
@@ -38,6 +40,16 @@ const HEALTH_CHECKS: HealthCheckDefinition[] = [
     id: 'connectionStrength',
     title: 'Internet Strength',
     description: 'Measures latency and connection quality to the live server.',
+  },
+  {
+    id: 'deviceMemory',
+    title: 'RAM Availability',
+    description: 'Checks available device memory indicators for stable live playback.',
+  },
+  {
+    id: 'cpuCapacity',
+    title: 'CPU Readiness',
+    description: 'Checks CPU core count and short main-thread responsiveness.',
   },
   {
     id: 'session',
@@ -76,6 +88,8 @@ function buildDefaultResults(): Record<HealthCheckId, HealthCheckResult> {
   return {
     network: { ...DEFAULT_RESULT },
     connectionStrength: { ...DEFAULT_RESULT },
+    deviceMemory: { ...DEFAULT_RESULT },
+    cpuCapacity: { ...DEFAULT_RESULT },
     session: { ...DEFAULT_RESULT },
     database: { ...DEFAULT_RESULT },
     activeGig: { ...DEFAULT_RESULT },
@@ -90,6 +104,10 @@ function formatDuration(durationMs: number | null) {
   }
 
   return `${durationMs}ms`
+}
+
+function formatBytesToMb(bytes: number) {
+  return `${Math.round(bytes / (1024 * 1024))} MB`
 }
 
 function HealthCheckPage() {
@@ -169,6 +187,105 @@ function HealthCheckPage() {
               durationMs,
             },
           }))
+          return
+        }
+
+        case 'deviceMemory': {
+          const navWithMemory = navigator as Navigator & { deviceMemory?: number }
+          const perfWithMemory = performance as Performance & {
+            memory?: {
+              usedJSHeapSize: number
+              totalJSHeapSize: number
+              jsHeapSizeLimit: number
+            }
+          }
+
+          const deviceMemoryGb = typeof navWithMemory.deviceMemory === 'number' ? navWithMemory.deviceMemory : null
+          const heap = perfWithMemory.memory
+
+          const detailParts: string[] = []
+          let shouldFail = false
+
+          if (deviceMemoryGb !== null) {
+            detailParts.push(`Device memory: ${deviceMemoryGb} GB`)
+            if (deviceMemoryGb < 2) {
+              shouldFail = true
+            }
+          } else {
+            detailParts.push('Device memory API unavailable in this browser')
+          }
+
+          if (heap) {
+            const usedPct = Math.round((heap.usedJSHeapSize / heap.jsHeapSizeLimit) * 100)
+            detailParts.push(
+              `JS heap: ${formatBytesToMb(heap.usedJSHeapSize)} / ${formatBytesToMb(heap.jsHeapSizeLimit)} (${usedPct}%)`,
+            )
+
+            if (usedPct >= 90) {
+              shouldFail = true
+            }
+          } else {
+            detailParts.push('JS heap metrics unavailable in this browser')
+          }
+
+          const durationMs = Math.round(performance.now() - startedAt)
+
+          setResults((currentResults) => ({
+            ...currentResults,
+            deviceMemory: {
+              status: shouldFail ? 'error' : 'ok',
+              detail: detailParts.join(' · '),
+              durationMs,
+            },
+          }))
+
+          if (shouldFail) {
+            throw new Error(detailParts.join(' · '))
+          }
+
+          return
+        }
+
+        case 'cpuCapacity': {
+          const logicalCores = typeof navigator.hardwareConcurrency === 'number' ? navigator.hardwareConcurrency : null
+          const delayStart = performance.now()
+          await new Promise<void>((resolve) => {
+            window.setTimeout(() => resolve(), 0)
+          })
+          const eventLoopDelayMs = Math.round(performance.now() - delayStart)
+
+          const detailParts: string[] = []
+          let shouldFail = false
+
+          if (logicalCores !== null) {
+            detailParts.push(`Logical cores: ${logicalCores}`)
+            if (logicalCores < 2) {
+              shouldFail = true
+            }
+          } else {
+            detailParts.push('CPU core API unavailable in this browser')
+          }
+
+          detailParts.push(`Main-thread delay: ${eventLoopDelayMs}ms`)
+          if (eventLoopDelayMs >= 250) {
+            shouldFail = true
+          }
+
+          const durationMs = Math.round(performance.now() - startedAt)
+
+          setResults((currentResults) => ({
+            ...currentResults,
+            cpuCapacity: {
+              status: shouldFail ? 'error' : 'ok',
+              detail: detailParts.join(' · '),
+              durationMs,
+            },
+          }))
+
+          if (shouldFail) {
+            throw new Error(detailParts.join(' · '))
+          }
+
           return
         }
 

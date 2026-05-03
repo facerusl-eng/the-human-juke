@@ -68,6 +68,8 @@ type EventSettingsUpdates = {
   karafunUrl: string | null
   artistName: string | null
   audienceVotingEnabled: boolean
+  autoLiveEnabled: boolean
+  introAudioUrl: string | null
 }
 
 type EventState = {
@@ -106,6 +108,8 @@ type EventState = {
   karafunUrl: string | null
   artistName: string | null
   audienceVotingEnabled: boolean
+  autoLiveEnabled: boolean
+  introAudioUrl: string | null
 }
 
 type CreateEventOptions = {
@@ -119,6 +123,8 @@ type CreateEventOptions = {
   karafunUrl?: string | null
   artistName?: string | null
   audienceVotingEnabled?: boolean
+  autoLiveEnabled?: boolean
+  introAudioUrl?: string | null
 }
 
 export type HostEventSummary = {
@@ -129,6 +135,10 @@ export type HostEventSummary = {
   showInAudienceNoGig: boolean
   createdAt: string
   eventType: 'halli-live' | 'karaoke' | 'build-self'
+  gigDate: string | null
+  gigStartTime: string | null
+  autoLiveEnabled: boolean
+  introAudioUrl: string | null
 }
 
 export type QueueContextValue = {
@@ -483,7 +493,7 @@ async function fetchHostEvents(hostId: string) {
   const { data, error } = await withTimeout(
     supabase
       .from('events')
-      .select('id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type')
+      .select('id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type, gig_date, gig_start_time, auto_live_enabled, intro_audio_url')
       .eq('host_id', hostId)
       .order('created_at', { ascending: false }),
     DEFAULT_DB_TIMEOUT_MS,
@@ -504,6 +514,10 @@ async function fetchHostEvents(hostId: string) {
       showInAudienceNoGig: ((eventData.show_in_audience_no_gig as boolean | null) ?? false),
       createdAt: (eventData.created_at as string | null) ?? '',
       eventType: (rawEventType === 'karaoke' ? 'karaoke' : rawEventType === 'build-self' ? 'build-self' : 'halli-live') as 'halli-live' | 'karaoke' | 'build-self',
+      gigDate: (eventData.gig_date as string | null) ?? null,
+      gigStartTime: (eventData.gig_start_time as string | null) ?? null,
+      autoLiveEnabled: ((eventData.auto_live_enabled as boolean | null) ?? false),
+      introAudioUrl: (eventData.intro_audio_url as string | null) ?? null,
     }
   })
 }
@@ -781,16 +795,16 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     // Separately fetch event type settings (columns added via migration — graceful fallback).
-    const loadEventTypeSettings = async (): Promise<{ event_type: 'halli-live' | 'karaoke' | 'build-self'; karafun_url: string | null; artist_name: string | null; audience_voting_enabled: boolean }> => {
+    const loadEventTypeSettings = async (): Promise<{ event_type: 'halli-live' | 'karaoke' | 'build-self'; karafun_url: string | null; artist_name: string | null; audience_voting_enabled: boolean; auto_live_enabled: boolean; intro_audio_url: string | null }> => {
       try {
         const { data, error } = await supabase
           .from('events')
-          .select('event_type, karafun_url, event_artist_name, audience_voting_enabled')
+          .select('event_type, karafun_url, event_artist_name, audience_voting_enabled, auto_live_enabled, intro_audio_url')
           .eq('id', activeEventId)
           .single()
 
         if (error || !data) {
-          return { event_type: 'halli-live', karafun_url: null, artist_name: null, audience_voting_enabled: true }
+          return { event_type: 'halli-live', karafun_url: null, artist_name: null, audience_voting_enabled: true, auto_live_enabled: false, intro_audio_url: null }
         }
 
         const row = data as Record<string, unknown>
@@ -802,9 +816,11 @@ function QueueProvider({ children }: PropsWithChildren) {
           karafun_url: (row.karafun_url as string | null) ?? null,
           artist_name: (row.event_artist_name as string | null) ?? null,
           audience_voting_enabled: (row.audience_voting_enabled as boolean | null) ?? true,
+          auto_live_enabled: (row.auto_live_enabled as boolean | null) ?? false,
+          intro_audio_url: (row.intro_audio_url as string | null) ?? null,
         }
       } catch {
-        return { event_type: 'halli-live', karafun_url: null, artist_name: null, audience_voting_enabled: true }
+        return { event_type: 'halli-live', karafun_url: null, artist_name: null, audience_voting_enabled: true, auto_live_enabled: false, intro_audio_url: null }
       }
     }
 
@@ -1007,6 +1023,8 @@ function QueueProvider({ children }: PropsWithChildren) {
       karafunUrl: eventTypeSettings.karafun_url,
       artistName: eventTypeSettings.artist_name,
       audienceVotingEnabled: eventTypeSettings.audience_voting_enabled,
+      autoLiveEnabled: eventTypeSettings.auto_live_enabled,
+      introAudioUrl: eventTypeSettings.intro_audio_url,
     })
     if (queueLoaded) {
       setSongs(queueSongs.map((song) => {
@@ -2168,7 +2186,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           event_type: updates.eventType ?? 'halli-live',
           karafun_url: updates.karafunUrl ?? null,
           event_artist_name: updates.artistName ?? null,
-          audience_voting_enabled: updates.audienceVotingEnabled ?? true,
+          auto_live_enabled: updates.autoLiveEnabled ?? false,
+          intro_audio_url: updates.introAudioUrl ?? null,
         }
 
         const { error } = await withTimeout(
@@ -2588,6 +2607,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           karafunUrl: options?.karafunUrl ?? null,
           artistName: options?.artistName ?? null,
           audienceVotingEnabled: options?.audienceVotingEnabled ?? true,
+          autoLiveEnabled: options?.autoLiveEnabled ?? false,
+          introAudioUrl: options?.introAudioUrl ?? null,
         }
 
         try {
@@ -2630,8 +2651,16 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           setEvent(nextEventState)
 
-          // RPC create_host_gig does not support event_type, karafun_url, or subtitle yet.
-          if ((options?.eventType && options.eventType !== 'halli-live') || options?.karafunUrl || options?.subtitle || options?.artistName || options?.audienceVotingEnabled === false) {
+          // RPC create_host_gig does not support event_type, karafun_url, subtitle, or newer custom fields yet.
+          if (
+            (options?.eventType && options.eventType !== 'halli-live')
+            || options?.karafunUrl
+            || options?.subtitle
+            || options?.artistName
+            || options?.audienceVotingEnabled === false
+            || options?.autoLiveEnabled
+            || options?.introAudioUrl
+          ) {
             void supabase
               .from('events')
               .update({
@@ -2640,6 +2669,8 @@ function QueueProvider({ children }: PropsWithChildren) {
                 subtitle: options?.subtitle ?? null,
                 event_artist_name: options?.artistName ?? null,
                 audience_voting_enabled: options?.audienceVotingEnabled ?? true,
+                auto_live_enabled: options?.autoLiveEnabled ?? false,
+                intro_audio_url: options?.introAudioUrl ?? null,
               })
               .eq('id', createdGigId)
               .then(({ error }) => {
@@ -2656,6 +2687,10 @@ function QueueProvider({ children }: PropsWithChildren) {
               showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
               createdAt: createdAtIso,
               eventType: options?.eventType ?? 'halli-live',
+              gigDate: options?.gigDate ?? null,
+              gigStartTime: options?.gigStartTime ?? null,
+              autoLiveEnabled: options?.autoLiveEnabled ?? false,
+              introAudioUrl: options?.introAudioUrl ?? null,
             }
 
             const withoutCreatedGig = currentHostEvents.filter((currentEvent) => currentEvent.id !== createdGigId)
@@ -2697,7 +2732,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           event_type: options?.eventType ?? 'halli-live',
           karafun_url: options?.karafunUrl ?? null,
           event_artist_name: options?.artistName ?? null,
-          audience_voting_enabled: options?.audienceVotingEnabled ?? true,
+          auto_live_enabled: options?.autoLiveEnabled ?? false,
+          intro_audio_url: options?.introAudioUrl ?? null,
         }
 
         let newEvent: { id: string } | null = null
