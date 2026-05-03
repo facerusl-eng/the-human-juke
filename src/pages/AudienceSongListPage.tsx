@@ -5,6 +5,7 @@ import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
 import { useQueueStore } from '../state/queueStore'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
+import '../audience-karafun.css'
 
 type CuratedSong = {
   id: string
@@ -630,7 +631,7 @@ function AudienceSongListPage() {
   const activeRows = effectiveSetlist === 'karaoke' ? karaokeRows : humanJukeboxRows
 
   return (
-    <section className="audience-song-list-shell" aria-label="Song list page">
+    <section className="audience-song-list-shell audience-karafun" aria-label="Song list page">
       <header className="audience-song-list-header">
         <button
           type="button"
