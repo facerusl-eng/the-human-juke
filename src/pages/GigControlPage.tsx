@@ -1237,6 +1237,8 @@ function GigControlPage() {
                       <div>
                         <p className="gig-mirror-preview-song">{nowPlaying?.title ?? 'Waiting for requests from brave volunteers...'}</p>
                         <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'Queue currently calm, suspiciously so'}</p>
+                        {nowPlaying?.audience_sings ? <span className="gig-mirror-preview-karaoke-tag">🎤 Karaoke Wish</span> : null}
+                        {nowPlaying?.createdByName ? <span className="gig-mirror-preview-requested-by">Wished by: {nowPlaying.createdByName}</span> : null}
                       </div>
                     </div>
                   )}
@@ -1552,9 +1554,10 @@ function GigControlPage() {
                     <p className="song">{song.title}</p>
                     <p className="artist">
                       {song.artist}
-                      {song.audience_sings ? <span className="karaoke-tag"> · Karaoke</span> : null}
+                      {song.audience_sings ? <span className="karaoke-tag"> · Karaoke Wish</span> : null}
                       {song.is_explicit ? <span className="explicit-tag"> · E</span> : null}
                     </p>
+                    {song.createdByName ? <p className="song-requested-by">Wished by: {song.createdByName}</p> : null}
                   </div>
                 </div>
                 <span className="votes">+{song.votes_count}</span>

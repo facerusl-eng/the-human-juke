@@ -3821,6 +3821,23 @@
   font-size: 0.98rem;
 }
 
+.gig-mirror-preview-karaoke-tag {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ff445f;
+  text-shadow: 0 0 6px rgba(255, 68, 95, 0.7);
+}
+
+.gig-mirror-preview-requested-by {
+  margin: 0.1rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(184, 210, 255, 0.72);
+}
+
 .gig-mirror-preview-list {
   list-style: none;
   margin: 0.2rem 0 0;
@@ -8640,6 +8657,12 @@
   font-size: 0.88rem;
   color: #a0c4ff;
   margin: 0;
+}
+
+.song-requested-by {
+  font-size: 0.78rem;
+  color: rgba(160, 196, 255, 0.72);
+  margin: 0.1rem 0 0;
 }
 
 .song-info-votes {
