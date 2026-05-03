@@ -2,18 +2,18 @@
 @import "tailwindcss";
 
 :root {
-  --canvas: #06080f;
-  --canvas-alt: #0a0f1b;
-  --panel: #0c1222;
-  --panel-alt: #121a2f;
-  --panel-border: rgba(0, 213, 255, 0.3);
+  --canvas: #05040b;
+  --canvas-alt: #0b0715;
+  --panel: #100a1d;
+  --panel-alt: #16102a;
+  --panel-border: rgba(162, 89, 255, 0.36);
   --ink: #edf3ff;
-  --ink-soft: #9eb2d3;
+  --ink-soft: #b5b2de;
   --ink-strong: #f7f9ff;
-  --accent: #ffe600;
-  --focus: #00d5ff;
-  --chip-bg: rgba(255, 230, 0, 0.18);
-  --panel-shadow: 0 22px 44px rgba(5, 8, 24, 0.55);
+  --accent: #ff4f9a;
+  --focus: #00c2ff;
+  --chip-bg: rgba(255, 79, 154, 0.16);
+  --panel-shadow: 0 22px 44px rgba(6, 4, 16, 0.62);
 
   --font-body: 'Inter', 'Segoe UI', sans-serif;
   --font-head: 'Montserrat', 'Inter', sans-serif;
@@ -36,10 +36,10 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 11% 8%, rgba(0, 213, 255, 0.24) 0%, transparent 34%),
-    radial-gradient(circle at 85% 12%, rgba(255, 230, 0, 0.18) 0%, transparent 33%),
-    radial-gradient(circle at 52% 110%, rgba(0, 213, 255, 0.12) 0%, transparent 37%),
-    linear-gradient(160deg, #04060d 0%, #090f1d 48%, #060912 100%);
+    radial-gradient(circle at 12% 8%, rgba(255, 79, 154, 0.26) 0%, transparent 36%),
+    radial-gradient(circle at 86% 14%, rgba(0, 194, 255, 0.22) 0%, transparent 35%),
+    radial-gradient(circle at 54% 112%, rgba(162, 89, 255, 0.14) 0%, transparent 40%),
+    linear-gradient(160deg, #05040b 0%, #0b0918 52%, #07050f 100%);
 }
 
 #root {
@@ -90,7 +90,7 @@ h2 {
 
 @media (prefers-contrast: more) {
   :root {
-    --panel-border: rgba(154, 209, 255, 0.68);
-    --focus: #7de9ff;
+    --panel-border: rgba(210, 156, 255, 0.72);
+    --focus: #7fe3ff;
   }
 }

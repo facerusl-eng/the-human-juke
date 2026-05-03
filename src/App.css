@@ -543,31 +543,31 @@
 }
 
 .primary-button {
-  background: linear-gradient(120deg, #ffe600 0%, #ffd500 58%, #ffc400 100%);
-  color: #1a1a1a;
-  border-color: rgba(255, 236, 138, 0.6);
+  background: linear-gradient(120deg, #ff4f9a 0%, #a259ff 58%, #00c2ff 100%);
+  color: #f7fbff;
+  border-color: rgba(255, 115, 176, 0.62);
   box-shadow:
-    0 12px 22px rgba(255, 230, 0, 0.28),
+    0 12px 22px rgba(162, 89, 255, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .secondary-button,
 .ghost-button {
-  background: rgba(8, 13, 33, 0.74);
-  border-color: rgba(0, 213, 255, 0.52);
+  background: rgba(14, 11, 30, 0.76);
+  border-color: rgba(162, 89, 255, 0.52);
   color: #f7fbff;
 }
 
 .ghost-button {
-  background: rgba(20, 11, 38, 0.78);
+  background: rgba(20, 10, 34, 0.84);
   font-weight: 700;
 }
 
 .tertiary-button {
-  background: rgba(255, 255, 255, 0.78);
-  border-color: rgba(17, 24, 39, 0.22);
-  color: #111827;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+  background: rgba(26, 17, 44, 0.85);
+  border-color: rgba(255, 79, 154, 0.35);
+  color: #f7fbff;
+  box-shadow: 0 6px 14px rgba(10, 6, 25, 0.32);
 }
 
 .primary-button:hover,
@@ -580,22 +580,23 @@
 .primary-button:hover {
   filter: brightness(1.06) saturate(1.04);
   box-shadow:
-    0 14px 28px rgba(255, 230, 0, 0.34),
+    0 14px 28px rgba(255, 79, 154, 0.28),
+    0 0 18px rgba(0, 194, 255, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .secondary-button:hover,
 .ghost-button:hover {
-  border-color: rgba(0, 213, 255, 0.82);
-  background: linear-gradient(140deg, rgba(10, 16, 38, 0.92) 0%, rgba(20, 16, 44, 0.86) 100%);
+  border-color: rgba(0, 194, 255, 0.82);
+  background: linear-gradient(140deg, rgba(16, 10, 35, 0.94) 0%, rgba(29, 15, 51, 0.9) 100%);
   box-shadow:
-    0 12px 24px rgba(4, 8, 24, 0.38),
-    0 0 14px rgba(0, 213, 255, 0.26);
+    0 12px 24px rgba(7, 5, 20, 0.42),
+    0 0 14px rgba(162, 89, 255, 0.26);
 }
 
 .tertiary-button:hover {
-  border-color: rgba(79, 70, 229, 0.38);
-  background: #ffffff;
+  border-color: rgba(255, 79, 154, 0.6);
+  background: rgba(36, 20, 56, 0.94);
 }
 
 .primary-button:active,

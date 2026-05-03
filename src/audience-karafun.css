@@ -6,12 +6,12 @@
 /* ─── Design Tokens ──────────────────────────────────────────── */
 .audience-karafun {
   --kf-purple:        #a259ff;
-  --kf-blue:          #00c2ff;
-  --kf-pink:          #ff4f9a;
+  --kf-blue:          #00c8ff;
+  --kf-pink:          #ff3f93;
   --kf-black:         #0a0a0a;
-  --kf-dark:          #0d0d22;
-  --kf-card:          #13132b;
-  --kf-card-hover:    #1a1a38;
+  --kf-dark:          #0b0717;
+  --kf-card:          #151027;
+  --kf-card-hover:    #1d1533;
   --kf-border:        rgba(162, 89, 255, 0.22);
   --kf-border-bright: rgba(162, 89, 255, 0.50);
   --kf-text:          #f0f0ff;
@@ -51,7 +51,7 @@
 
 /* ─── Shell & Stage ──────────────────────────────────────────── */
 .audience-karafun {
-  background: linear-gradient(160deg, #080818 0%, #0d0d22 55%, #130c24 100%);
+  background: linear-gradient(160deg, #06040f 0%, #0b0717 55%, #140a23 100%);
   min-height: 100dvh;
 }
 
