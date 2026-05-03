@@ -229,6 +229,8 @@ function ShellLayout() {
                       type="button"
                       className={`nav-dropdown-trigger ${isGigNavActive ? 'active' : ''}`.trim()}
                       aria-label="Open gig navigation"
+                      aria-haspopup="true"
+                      aria-controls="gig-nav-menu"
                       onClick={() => {
                         setIsGigMenuForceClosed(false)
                         setIsGigMenuOpen((open) => !open)
@@ -236,7 +238,7 @@ function ShellLayout() {
                     >
                       Gigs
                     </button>
-                    <div className="nav-dropdown-menu" aria-label="Gig navigation menu">
+                    <div id="gig-nav-menu" className="nav-dropdown-menu" aria-label="Gig navigation menu">
                       <NavLink to="/admin/gigs" onClick={closeGigMenuAfterNavigation}>All Gigs</NavLink>
                       <NavLink to="/admin/create-gig" onClick={closeGigMenuAfterNavigation}>New Gig</NavLink>
                       <NavLink to="/admin/gig-control" onClick={closeGigMenuAfterNavigation}>Gig Control</NavLink>

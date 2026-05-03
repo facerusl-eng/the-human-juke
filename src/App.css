@@ -4144,6 +4144,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gig-song-picker-hint {
+  font-size: 0.82rem;
+  color: #9dbcf0;
 }
 
 .gig-song-picker-random-wrap {
@@ -4151,9 +4157,9 @@
 }
 
 .gig-random-pick-button {
-  min-width: 2.6rem;
-  min-height: 2.2rem;
-  padding: 0.2rem 0.55rem;
+  min-width: 2.7rem;
+  min-height: 2.7rem;
+  padding: 0;
   font-size: 1rem;
 }
 
@@ -4249,6 +4255,24 @@
 .gig-song-picker-option.is-selected {
   border-color: rgba(93, 215, 255, 0.72);
   background: rgba(25, 36, 66, 0.82);
+}
+
+.gig-add-song-selected-card {
+  border-color: rgba(93, 215, 255, 0.56);
+  box-shadow:
+    0 10px 24px rgba(6, 10, 28, 0.4),
+    inset 0 0 0 1px rgba(93, 215, 255, 0.18);
+}
+
+.gig-song-picker-selected-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.gig-song-picker-selected-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #9bc2f4;
 }
 
 .gig-custom-song-form {
@@ -6282,11 +6306,18 @@
 }
 
 .live-feed-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid rgba(93, 215, 255, 0.4);
   border-radius: 999px;
   padding: 8px 12px;
   text-decoration: none;
   background: rgba(8, 14, 34, 0.64);
+}
+
+.live-feed-link:hover {
+  border-color: rgba(93, 215, 255, 0.7);
 }
 
 .live-feed-composer {
@@ -6327,12 +6358,19 @@
 }
 
 .live-feed-emoji-chip {
-  border: 1px solid rgba(93, 215, 255, 0.32);
-  background: rgba(8, 14, 34, 0.68);
-  border-radius: 999px;
-  padding: 0.35rem 0.65rem;
-  cursor: pointer;
-  font: inherit;
+  border-radius: 12px;
+}
+
+.live-feed-emoji-chip.ui-icon-button {
+  min-width: 2.55rem;
+  min-height: 2.55rem;
+  border-color: rgba(93, 215, 255, 0.42);
+  background: rgba(8, 14, 34, 0.78);
+  font-size: 1rem;
+}
+
+.live-feed-emoji-chip.ui-icon-button:hover {
+  border-color: rgba(93, 215, 255, 0.74);
 }
 
 .live-feed-media-row,
@@ -7117,6 +7155,14 @@
     align-items: stretch;
   }
 
+  .live-feed-head {
+    flex-direction: column;
+  }
+
+  .live-feed-link {
+    width: fit-content;
+  }
+
   .mirror-qr-copy {
     text-align: center;
   }
@@ -7182,7 +7228,11 @@
   .site-nav-collapsible.site-nav-open {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0.5rem;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid rgba(93, 215, 255, 0.22);
+    border-radius: 12px;
+    background: rgba(10, 16, 34, 0.72);
   }
 
   .site-nav-admin {

@@ -7,7 +7,7 @@ import { prepareFeedImage, shrinkPreparedFeedImage } from '../lib/feedImage'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
-import { PrimaryButton, SectionHeader } from './ui'
+import { IconButton, PrimaryButton, SectionHeader } from './ui'
 
 type FeedPost = {
   id: string
@@ -725,6 +725,7 @@ function LiveFeedPanel({
         <SectionHeader eyebrow="Community" title={title} className="live-feed-headline" />
         {showJumpLink ? (
           <Link to="/feed" className="live-feed-link" aria-label="Open feed">
+            <span aria-hidden="true">↗</span>
             Open Feed
           </Link>
         ) : null}
@@ -757,14 +758,13 @@ function LiveFeedPanel({
 
           <div className="live-feed-emoji-row" aria-label="Quick emojis">
             {QUICK_EMOJIS.map((emoji) => (
-              <button
+              <IconButton
                 key={emoji}
-                type="button"
+                icon={emoji}
+                label={`Add ${emoji}`}
                 className="live-feed-emoji-chip"
                 onClick={() => setMessage((currentMessage) => `${currentMessage}${emoji}`)}
-              >
-                {emoji}
-              </button>
+              />
             ))}
           </div>
 
@@ -803,14 +803,14 @@ function LiveFeedPanel({
               className="secondary-button"
               onClick={suppressReconnectWarning}
             >
-              Take Photo
+              <span aria-hidden="true">📷</span> Take Photo
             </label>
             <label
               htmlFor={`feed-image-gallery-${mode}`}
               className="ghost-button"
               onClick={suppressReconnectWarning}
             >
-              Choose Photo
+              <span aria-hidden="true">🖼</span> Choose Photo
             </label>
             {selectedImageName ? <span className="live-feed-image-name">{selectedImageName}</span> : null}
             {imageStatusText ? <span className="live-feed-helper-text">{imageStatusText}</span> : null}

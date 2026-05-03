@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { PrimaryButton } from '../ui'
+import { IconButton, PrimaryButton } from '../ui'
 
 export type PlaylistSong = {
   id: string
@@ -239,24 +239,22 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
   return (
     <section className="gig-add-song-tab-content" aria-label="Playlist songs">
       <p className="subcopy no-margin">Showing songs from: <strong>{playlistName}</strong></p>
+      <p className="gig-song-picker-hint no-margin">Pick a track, then send it straight to queue.</p>
 
       <div className="field-row no-margin-bottom" ref={songPickerRef}>
         <div className="gig-song-picker-label-row">
           <label htmlFor="gig-control-playlist-song-picker">Choose song from playlist</label>
           <div className="gig-song-picker-random-wrap">
-            <PrimaryButton
-              variant="secondary"
-              className="secondary-button gig-random-pick-button"
+            <IconButton
+              icon={addingRandomCount ? '⏳' : '🎲'}
+              label={addingRandomCount ? `Adding ${addingRandomCount} random songs` : 'Randomly add songs'}
+              className="gig-random-pick-button"
               disabled={loadingSongs || availableSongs.length === 0 || Boolean(addingSongId) || Boolean(addingRandomCount)}
               onClick={() => {
                 setIsRandomMenuOpen((open) => !open)
                 setIsSongPickerOpen(false)
               }}
-              aria-label="Randomly add songs"
-              title="Randomly add songs"
-            >
-              {addingRandomCount ? `Adding ${addingRandomCount}...` : '🎲'}
-            </PrimaryButton>
+            />
             {isRandomMenuOpen ? (
               <div className="gig-random-pick-menu" aria-label="Random add options">
                 <PrimaryButton
@@ -317,30 +315,29 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
         {isSongPickerOpen && availableSongs.length > 0 ? (
           <div id="gig-control-playlist-song-picker-list" className="gig-song-picker-list" aria-label="Playlist songs">
             {availableSongs.map((song) => (
-              <div key={song.id}>
-                <button
-                  type="button"
-                  className={`gig-song-picker-option${selectedSongId === song.id ? ' is-selected' : ''}`}
-                  onClick={() => {
-                    setSelectedSongId(song.id)
-                    setIsSongPickerOpen(false)
-                  }}
-                >
-                  {song.cover_url ? (
-                    <img src={song.cover_url} alt="" className="song-cover gig-song-picker-cover" aria-hidden="true" />
-                  ) : (
-                    <span className="song-cover song-cover-fallback gig-song-picker-cover" aria-hidden="true">♪</span>
-                  )}
-                  <span className="gig-song-picker-text">
-                    <span>{song.title}</span>
-                    <span className="artist">
-                      {song.artist}
-                      {song.is_explicit ? <span className="explicit-tag"> · E</span> : null}
-                    </span>
+              <button
+                key={song.id}
+                type="button"
+                className={`gig-song-picker-option${selectedSongId === song.id ? ' is-selected' : ''}`}
+                onClick={() => {
+                  setSelectedSongId(song.id)
+                  setIsSongPickerOpen(false)
+                }}
+              >
+                {song.cover_url ? (
+                  <img src={song.cover_url} alt="" className="song-cover gig-song-picker-cover" aria-hidden="true" />
+                ) : (
+                  <span className="song-cover song-cover-fallback gig-song-picker-cover" aria-hidden="true">♪</span>
+                )}
+                <span className="gig-song-picker-text">
+                  <span>{song.title}</span>
+                  <span className="artist">
+                    {song.artist}
+                    {song.is_explicit ? <span className="explicit-tag"> · E</span> : null}
                   </span>
-                  {queuedLibrarySongIds.has(song.id) ? <span className="meta-badge">Queued</span> : null}
-                </button>
-              </div>
+                </span>
+                {queuedLibrarySongIds.has(song.id) ? <span className="meta-badge">Queued</span> : null}
+              </button>
             ))}
           </div>
         ) : null}
@@ -350,18 +347,23 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
       {errorText ? <p className="error-text" role="alert">{errorText}</p> : null}
 
       {!loadingSongs && selectedSong ? (
-        <article className="gig-add-song-item" aria-label="Selected playlist song">
+        <article className="gig-add-song-item gig-add-song-selected-card" aria-label="Selected playlist song">
           <div className="gig-add-song-main">
             {selectedSong.cover_url ? (
               <img src={selectedSong.cover_url} alt={`Cover art for ${selectedSong.title}`} className="song-cover" />
             ) : (
               <span className="song-cover song-cover-fallback" aria-hidden="true">♪</span>
             )}
-            <div>
+            <div className="gig-song-picker-selected-copy">
               <p className="song">{selectedSong.title}</p>
               <p className="artist">
                 {selectedSong.artist}
                 {selectedSong.is_explicit ? <span className="explicit-tag"> · E</span> : null}
+              </p>
+              <p className="gig-song-picker-selected-hint">
+                {queuedLibrarySongIds.has(selectedSong.id)
+                  ? 'Already queued. Add again to create another queue entry.'
+                  : 'Ready to add this track to queue.'}
               </p>
             </div>
           </div>
@@ -381,14 +383,6 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
 
       {!loadingSongs && !selectedSong && !errorText ? (
         <p className="subcopy no-margin-bottom">No songs found in the selected {playlistTypeFilter === 'karaoke' ? 'karaoke' : 'Human Jukebox'} playlist.</p>
-      ) : null}
-
-      {!loadingSongs && selectedSong ? (
-        <p className="subcopy no-margin-bottom">
-          {queuedLibrarySongIds.has(selectedSong.id)
-            ? 'This song is already in queue. Adding again will create another queue entry.'
-            : 'Ready to add this song to queue.'}
-        </p>
       ) : null}
     </section>
   )
