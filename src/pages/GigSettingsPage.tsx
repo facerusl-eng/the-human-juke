@@ -912,8 +912,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 updateState({ eventType: e.target.value as 'halli-live' | 'karaoke' })
               }}
             >
+              <option value="halli-live">The Human Jukebox</option>
               <option value="karaoke">Karaoke Event</option>
-              <option value="halli-live">Halli Playing Music</option>
             </select>
           </div>
 

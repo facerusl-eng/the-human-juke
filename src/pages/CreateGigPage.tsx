@@ -442,8 +442,8 @@ function CreateGigPage() {
               value={eventType}
               onChange={(e) => setEventType(e.target.value as EventType)}
             >
+              <option value="halli-live">The Human Jukebox</option>
               <option value="karaoke">Karaoke Event</option>
-              <option value="halli-live">Halli Playing Music</option>
             </select>
           </div>
           {eventType === 'karaoke' ? (
