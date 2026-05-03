@@ -1813,12 +1813,14 @@ function EventPage() {
                 >
                   💸 {copy.tipJar}
                 </button>
-                <Link
-                  to={`/feed${location.search || ''}`}
-                  className="secondary-button audience-feed-button"
-                >
-                  💬 Live Feed
-                </Link>
+                {audienceName ? (
+                  <Link
+                    to={`/feed${location.search || ''}`}
+                    className="secondary-button audience-feed-button"
+                  >
+                    💬 Live Feed
+                  </Link>
+                ) : null}
                 <button
                   type="button"
                   className="secondary-button"
@@ -1861,12 +1863,14 @@ function EventPage() {
                 >
                   💸 {copy.tipJar}
                 </button>
-                <Link
-                  to={`/feed${location.search || ''}`}
-                  className="secondary-button audience-feed-button"
-                >
-                  💬 Live Feed
-                </Link>
+                {audienceName ? (
+                  <Link
+                    to={`/feed${location.search || ''}`}
+                    className="secondary-button audience-feed-button"
+                  >
+                    💬 Live Feed
+                  </Link>
+                ) : null}
                 <button
                   type="button"
                   className="secondary-button"
