@@ -124,7 +124,7 @@ async function cleanupLegacyServiceWorkers() {
           ?? registration.installing?.scriptURL
           ?? ''
 
-        if (scriptUrl.includes('/pwa-worker.js') || scriptUrl.includes('/service-worker.js')) {
+        if (scriptUrl.includes('/pwa-worker.js')) {
           return
         }
 
