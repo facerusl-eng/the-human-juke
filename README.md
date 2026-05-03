@@ -18,6 +18,9 @@ Realtime event music queue with guest requests, host moderation, and protected a
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_PUBLISHABLE_KEY=...
 VITE_ALLOWED_HOST_EMAIL=...
+RESEND_API_KEY=...
+BOOKING_TO_EMAIL=...
+BOOKING_FROM_EMAIL=The Human Jukebox <onboarding@resend.dev>
 ```
 
 3. For local phone testing only, optionally set:
@@ -52,7 +55,13 @@ Set these in Vercel Project Settings -> Environment Variables:
 VITE_SUPABASE_URL
 VITE_SUPABASE_PUBLISHABLE_KEY
 VITE_ALLOWED_HOST_EMAIL
+RESEND_API_KEY
+BOOKING_TO_EMAIL
+BOOKING_FROM_EMAIL
 ```
+
+`BOOKING_FROM_EMAIL` is optional (defaults to `The Human Jukebox <onboarding@resend.dev>`).
+If `BOOKING_TO_EMAIL` is missing, booking requests can still be stored in Supabase when the Supabase env vars are present, but no email notification is sent.
 
 Do not add `VITE_DEV_PUBLIC_ORIGIN` in production.
 

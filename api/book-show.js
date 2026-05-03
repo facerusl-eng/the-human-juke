@@ -79,6 +79,38 @@ function buildEmailHtml(payload) {
   `
 }
 
+async function saveBookingToInbox(payload, supabaseUrl, supabaseKey) {
+  if (!supabaseUrl || !supabaseKey) {
+    return false
+  }
+
+  await fetch(`${supabaseUrl}/rest/v1/booking_requests`, {
+    method: 'POST',
+    headers: {
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({
+      venue_name: payload.venueName,
+      venue_address: payload.venueAddress,
+      contact_person_name: payload.contactPersonName,
+      email: payload.email,
+      phone_number: payload.phoneNumber,
+      preferred_date: payload.preferredDate,
+      preferred_start_time: payload.preferredStartTime,
+      event_type: payload.eventType,
+      estimated_guests: Number(payload.estimatedGuests),
+      frequency: payload.frequency,
+      additional_message: payload.additionalMessage || null,
+      status: 'new',
+    }),
+  })
+
+  return true
+}
+
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Allow', 'POST, OPTIONS')
@@ -92,15 +124,6 @@ export default async function handler(req, res) {
     return
   }
 
-  const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
-  const toEmail = process.env.BOOKING_TO_EMAIL?.trim() || ''
-  const fromEmail = process.env.BOOKING_FROM_EMAIL?.trim() || 'The Human Jukebox <onboarding@resend.dev>'
-
-  if (!resendApiKey || !toEmail) {
-    res.status(500).json({ error: 'Booking email service is not configured yet.' })
-    return
-  }
-
   const payload = toJsonBody(req.body)
   const validationError = validate(payload)
 
@@ -111,64 +134,61 @@ export default async function handler(req, res) {
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim() || ''
   const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
+  const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
+  const toEmail = process.env.BOOKING_TO_EMAIL?.trim() || ''
+  const fromEmail = process.env.BOOKING_FROM_EMAIL?.trim() || 'The Human Jukebox <onboarding@resend.dev>'
+
+  const canSendEmail = Boolean(resendApiKey && toEmail)
+  let inboxStored = false
+  let emailSent = false
 
   try {
-    const emailResponse = await fetch(RESEND_API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [toEmail],
-        reply_to: payload.email,
-        subject: `New booking request from ${payload.venueName}`,
-        html: buildEmailHtml(payload),
-      }),
-    })
-
-    const emailPayload = await emailResponse.json().catch(() => ({}))
-
-    if (!emailResponse.ok) {
-      const resendError = typeof emailPayload?.message === 'string'
-        ? emailPayload.message
-        : 'Failed to send booking request email.'
-      throw new Error(resendError)
+    try {
+      inboxStored = await saveBookingToInbox(payload, supabaseUrl, supabaseKey)
+    } catch {
+      inboxStored = false
     }
 
-    // Save to Supabase inbox (best-effort, does not fail the request)
-    if (supabaseUrl && supabaseKey) {
-      try {
-        await fetch(`${supabaseUrl}/rest/v1/booking_requests`, {
-          method: 'POST',
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=minimal',
-          },
-          body: JSON.stringify({
-            venue_name: payload.venueName,
-            venue_address: payload.venueAddress,
-            contact_person_name: payload.contactPersonName,
-            email: payload.email,
-            phone_number: payload.phoneNumber,
-            preferred_date: payload.preferredDate,
-            preferred_start_time: payload.preferredStartTime,
-            event_type: payload.eventType,
-            estimated_guests: Number(payload.estimatedGuests),
-            frequency: payload.frequency,
-            additional_message: payload.additionalMessage || null,
-            status: 'new',
-          }),
-        })
-      } catch {
-        // Inbox save failed — email was already sent, so we still return success
+    if (canSendEmail) {
+      const emailResponse = await fetch(RESEND_API_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [toEmail],
+          reply_to: payload.email,
+          subject: `New booking request from ${payload.venueName}`,
+          html: buildEmailHtml(payload),
+        }),
+      })
+
+      const emailPayload = await emailResponse.json().catch(() => ({}))
+
+      if (!emailResponse.ok) {
+        const resendError = typeof emailPayload?.message === 'string'
+          ? emailPayload.message
+          : 'Failed to send booking request email.'
+
+        if (!inboxStored) {
+          throw new Error(resendError)
+        }
+      } else {
+        emailSent = true
       }
     }
 
-    res.status(200).json({ ok: true })
+    if (!emailSent && !inboxStored) {
+      res.status(500).json({ error: 'Booking service is not configured. Set BOOKING_TO_EMAIL and RESEND_API_KEY, or configure Supabase booking inbox env vars.' })
+      return
+    }
+
+    res.status(200).json({
+      ok: true,
+      delivery: emailSent ? 'email' : 'inbox_only',
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to send booking request email.'
     res.status(500).json({ error: message })
