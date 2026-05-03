@@ -812,8 +812,8 @@ function QueueProvider({ children }: PropsWithChildren) {
     let queueLoaded = false
 
     try {
-      const songsSelectWithProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by, requester_name, profiles!queue_songs_created_by_fkey(display_name)'
-      const songsSelectWithoutProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by, requester_name'
+      const songsSelectWithProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by, requester_name'
+      const songsSelectWithoutProfiles = songsSelectWithProfiles
 
       let songsData: Array<Record<string, unknown>> | null = null
 
