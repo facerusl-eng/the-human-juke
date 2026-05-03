@@ -2118,7 +2118,8 @@ function MirrorPage() {
         </div>
       ) : null}
 
-      {showSpotlight && activeSpotlight ? (        <aside className="mirror-photo-spotlight" aria-label="Live crowd photo spotlight">
+      {showSpotlight && activeSpotlight ? (
+        <aside className="mirror-photo-spotlight" aria-label="Live crowd photo spotlight">
           <figure className="mirror-polaroid" key={activeSpotlight.id}>
             <img src={activeSpotlight.imageDataUrl} alt={`Crowd photo by ${activeSpotlight.authorName}`} className="mirror-polaroid-photo" />
             <figcaption>
