@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import type { AudienceLocale } from '../../lib/audienceIdentity'
+import { PrimaryButton } from '../ui'
 
 type AudienceFixedHeaderProps = {
   eventName: string
@@ -43,18 +44,12 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en', onSi
       </div>
       <div className="audience-fixed-actions">
         {onSignOut ? (
-          <button
-            type="button"
-            className="tertiary-button"
-            onClick={onSignOut}
-            aria-label={copy.signOutLabel}
-            title={copy.signOutLabel}
-          >
+          <PrimaryButton type="button" variant="tertiary" onClick={onSignOut} aria-label={copy.signOutLabel} title={copy.signOutLabel}>
             {copy.signOutLabel}
-          </button>
+          </PrimaryButton>
         ) : null}
-        <Link to="/" className="tertiary-button audience-fixed-back" aria-label={copy.backLabel}>
-          {copy.backText}
+        <Link to="/" className="ui-icon-button audience-fixed-back-link" aria-label={copy.backLabel} title={copy.backText}>
+          <span aria-hidden="true">←</span>
         </Link>
       </div>
     </header>

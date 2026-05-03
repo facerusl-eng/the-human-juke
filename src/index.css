@@ -1,22 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Sora:wght@500;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
-  --canvas: #090a17;
-  --canvas-alt: #0f1430;
-  --panel: #101633;
-  --panel-alt: #171f47;
-  --panel-border: rgba(111, 181, 255, 0.34);
-  --ink: #e5edff;
-  --ink-soft: #9db0de;
+  --canvas: #06080f;
+  --canvas-alt: #0a0f1b;
+  --panel: #0c1222;
+  --panel-alt: #121a2f;
+  --panel-border: rgba(0, 213, 255, 0.3);
+  --ink: #edf3ff;
+  --ink-soft: #9eb2d3;
   --ink-strong: #f7f9ff;
-  --accent: #ff4f98;
-  --focus: #4ad6ff;
-  --chip-bg: rgba(255, 79, 152, 0.15);
+  --accent: #ffe600;
+  --focus: #00d5ff;
+  --chip-bg: rgba(255, 230, 0, 0.18);
   --panel-shadow: 0 22px 44px rgba(5, 8, 24, 0.55);
 
-  --font-body: 'Outfit', 'Segoe UI', sans-serif;
-  --font-head: 'Sora', 'Outfit', sans-serif;
+  --font-body: 'Inter', 'Segoe UI', sans-serif;
+  --font-head: 'Montserrat', 'Inter', sans-serif;
 
   font-family: var(--font-body);
   font-size: 18px;
@@ -36,10 +36,10 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 12% 8%, rgba(74, 214, 255, 0.28) 0%, transparent 35%),
-    radial-gradient(circle at 86% 10%, rgba(255, 79, 152, 0.26) 0%, transparent 34%),
-    radial-gradient(circle at 50% 110%, rgba(255, 148, 70, 0.2) 0%, transparent 40%),
-    linear-gradient(160deg, #080b1f 0%, #0d1534 50%, #11122b 100%);
+    radial-gradient(circle at 11% 8%, rgba(0, 213, 255, 0.24) 0%, transparent 34%),
+    radial-gradient(circle at 85% 12%, rgba(255, 230, 0, 0.18) 0%, transparent 33%),
+    radial-gradient(circle at 52% 110%, rgba(0, 213, 255, 0.12) 0%, transparent 37%),
+    linear-gradient(160deg, #04060d 0%, #090f1d 48%, #060912 100%);
 }
 
 #root {

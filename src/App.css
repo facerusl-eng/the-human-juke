@@ -519,18 +519,18 @@
 }
 
 .primary-button {
-  background: linear-gradient(120deg, #ff4f98 0%, #ff6d6f 50%, #ff9746 100%);
-  color: #ffffff;
-  border-color: rgba(255, 191, 218, 0.45);
+  background: linear-gradient(120deg, #ffe600 0%, #ffd500 58%, #ffc400 100%);
+  color: #1a1a1a;
+  border-color: rgba(255, 236, 138, 0.6);
   box-shadow:
-    0 12px 22px rgba(255, 79, 152, 0.38),
+    0 12px 22px rgba(255, 230, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .secondary-button,
 .ghost-button {
-  background: rgba(8, 13, 33, 0.66);
-  border-color: rgba(111, 181, 255, 0.48);
+  background: rgba(8, 13, 33, 0.74);
+  border-color: rgba(0, 213, 255, 0.52);
   color: #f7fbff;
 }
 
@@ -556,17 +556,17 @@
 .primary-button:hover {
   filter: brightness(1.06) saturate(1.04);
   box-shadow:
-    0 14px 28px rgba(255, 79, 152, 0.44),
+    0 14px 28px rgba(255, 230, 0, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .secondary-button:hover,
 .ghost-button:hover {
-  border-color: rgba(90, 248, 255, 0.8);
+  border-color: rgba(0, 213, 255, 0.82);
   background: linear-gradient(140deg, rgba(10, 16, 38, 0.92) 0%, rgba(20, 16, 44, 0.86) 100%);
   box-shadow:
     0 12px 24px rgba(4, 8, 24, 0.38),
-    0 0 14px rgba(90, 248, 255, 0.15);
+    0 0 14px rgba(0, 213, 255, 0.26);
 }
 
 .tertiary-button:hover {
@@ -10956,18 +10956,80 @@ kbd {
   line-height: 1.62;
 }
 
-.home-flow-list,
-.home-benefits-list {
-  margin: 0;
-  padding-left: 1.1rem;
-  display: grid;
-  gap: 0.45rem;
-  color: #d7e5ff;
+.home-fade-section {
+  animation: rise-in 520ms ease-out both;
 }
 
-.home-flow-list li,
-.home-benefits-list li {
-  line-height: 1.58;
+.home-hero-header {
+  margin-bottom: 1rem;
+}
+
+.home-shell-v2 {
+  gap: 24px;
+}
+
+.home-visual-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.home-visual-card {
+  border: 1px solid rgba(0, 213, 255, 0.3);
+  border-radius: 14px;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(0, 213, 255, 0.12), transparent 40%),
+    linear-gradient(150deg, rgba(8, 12, 23, 0.95), rgba(12, 18, 31, 0.95));
+}
+
+.home-visual-icon {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: rgba(255, 230, 0, 0.95);
+}
+
+.home-visual-label {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 1rem;
+  color: #f4f8ff;
+}
+
+.home-visual-copy {
+  margin: 0;
+  color: #aabddf;
+  line-height: 1.55;
+}
+
+.home-icon-pill-list {
+  display: grid;
+  gap: 8px;
+}
+
+.home-icon-pill {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 230, 0, 0.28);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(255, 230, 0, 0.08);
+  color: #ebf2ff;
+}
+
+.home-icon-pill span:first-child {
+  font-size: 1rem;
+}
+
+.audience-fixed-back-link {
+  display: inline-flex;
+  text-decoration: none;
 }
 
 .home-cta-band {
@@ -11067,6 +11129,11 @@ kbd {
 @media (max-width: 760px) {
   .home-stage-hero {
     padding: 1.2rem;
+  }
+
+  .home-visual-card-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .home-hero-actions {

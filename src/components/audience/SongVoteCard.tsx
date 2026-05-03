@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react'
 import type { QueueSong } from '../../state/queueStore'
+import { IconButton, PrimaryButton } from '../ui'
 
 type SongVoteCardProps = {
   song: QueueSong
@@ -37,7 +38,7 @@ function SongVoteCard({
   const [showInfo, setShowInfo] = useState(false)
 
   return (
-    <li className={`audience-song-card ${moveTick > 0 ? 'song-card-move' : ''}`}>
+    <li className={`audience-song-card queue-slide-in ${moveTick > 0 ? 'song-card-move' : ''}`}>
       {showInfo && (
         <div
           className="song-info-overlay"
@@ -67,13 +68,9 @@ function SongVoteCard({
               <p className="song-info-chosen-by">♡ Requested by {song.createdByName}</p>
             )}
             <p className="song-info-votes">{song.votes_count} {song.votes_count === 1 ? 'vote' : 'votes'}</p>
-            <button
-              type="button"
-              className="primary-button song-info-close"
-              onClick={() => setShowInfo(false)}
-            >
+            <PrimaryButton type="button" className="song-info-close" onClick={() => setShowInfo(false)}>
               Close
-            </button>
+            </PrimaryButton>
           </div>
         </div>
       )}
@@ -102,14 +99,7 @@ function SongVoteCard({
             ) : null}
           </div>
         </div>
-        <button
-          type="button"
-          className="song-info-trigger"
-          aria-label={`More info about ${song.title}`}
-          onClick={() => setShowInfo(true)}
-        >
-          ⓘ
-        </button>
+        <IconButton icon="ⓘ" label={`More info about ${song.title}`} className="song-info-trigger" onClick={() => setShowInfo(true)} />
       </div>
 
       <progress
@@ -120,16 +110,16 @@ function SongVoteCard({
       />
 
       <div className="queue-actions audience-song-actions">
-        <button
-          type="button"
+        <PrimaryButton
           className="secondary-button tap-vote like-vote audience-vote-button"
+          variant="secondary"
           onClick={onVoteClick}
           disabled={disabled}
           aria-busy={isVoting}
           aria-label={`Vote for ${song.title} by ${song.artist}`}
         >
           {isVoting ? 'Voting...' : 'Vote'}
-        </button>
+        </PrimaryButton>
         <span
           key={`votes-${song.id}-${votePulseTick}`}
           className={`votes ${(votePulseTick > 0) ? 'votes-pulse' : ''}`}

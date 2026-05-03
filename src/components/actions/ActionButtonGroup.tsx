@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { PrimaryButton } from '../ui'
 
 export type ActionButtonConfig = {
   id: string
@@ -40,9 +41,9 @@ export const ActionButtonGroup = memo(function ActionButtonGroup({
   return (
     <div className={layoutClassName}>
       {actions.map((action) => (
-        <button
+        <PrimaryButton
           key={action.id}
-          type="button"
+          variant={action.variant ?? 'secondary'}
           className={getActionButtonClassName(action.variant, buttonClassName, action.className)}
           disabled={action.disabled}
           title={action.title}
@@ -51,7 +52,7 @@ export const ActionButtonGroup = memo(function ActionButtonGroup({
           }}
         >
           {action.label}
-        </button>
+        </PrimaryButton>
       ))}
     </div>
   )
