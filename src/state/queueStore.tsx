@@ -64,8 +64,10 @@ type EventSettingsUpdates = {
   customButtonLink: string | null
   tipThankYouMessageDA: string | null
   tipThankYouMessageEN: string | null
-  eventType: 'halli-live' | 'karaoke'
+  eventType: 'halli-live' | 'karaoke' | 'build-self'
   karafunUrl: string | null
+  artistName: string | null
+  audienceVotingEnabled: boolean
 }
 
 type EventState = {
@@ -100,8 +102,10 @@ type EventState = {
   customButtonLink: string | null
   tipThankYouMessageDA: string | null
   tipThankYouMessageEN: string | null
-  eventType: 'halli-live' | 'karaoke'
+  eventType: 'halli-live' | 'karaoke' | 'build-self'
   karafunUrl: string | null
+  artistName: string | null
+  audienceVotingEnabled: boolean
 }
 
 type CreateEventOptions = {
@@ -111,8 +115,10 @@ type CreateEventOptions = {
   gigEndTime?: string
   showInAudienceNoGig?: boolean
   coverImageUrl?: string | null
-  eventType?: 'halli-live' | 'karaoke'
+  eventType?: 'halli-live' | 'karaoke' | 'build-self'
   karafunUrl?: string | null
+  artistName?: string | null
+  audienceVotingEnabled?: boolean
 }
 
 export type HostEventSummary = {
@@ -122,7 +128,7 @@ export type HostEventSummary = {
   isActive: boolean
   showInAudienceNoGig: boolean
   createdAt: string
-  eventType: 'halli-live' | 'karaoke'
+  eventType: 'halli-live' | 'karaoke' | 'build-self'
 }
 
 export type QueueContextValue = {
@@ -497,7 +503,7 @@ async function fetchHostEvents(hostId: string) {
       isActive: ((eventData.is_active as boolean | null) ?? false),
       showInAudienceNoGig: ((eventData.show_in_audience_no_gig as boolean | null) ?? false),
       createdAt: (eventData.created_at as string | null) ?? '',
-      eventType: (rawEventType === 'karaoke' ? 'karaoke' : 'halli-live') as 'halli-live' | 'karaoke',
+      eventType: (rawEventType === 'karaoke' ? 'karaoke' : rawEventType === 'build-self' ? 'build-self' : 'halli-live') as 'halli-live' | 'karaoke' | 'build-self',
     }
   })
 }
@@ -775,26 +781,30 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     // Separately fetch event type settings (columns added via migration — graceful fallback).
-    const loadEventTypeSettings = async (): Promise<{ event_type: 'halli-live' | 'karaoke'; karafun_url: string | null }> => {
+    const loadEventTypeSettings = async (): Promise<{ event_type: 'halli-live' | 'karaoke' | 'build-self'; karafun_url: string | null; artist_name: string | null; audience_voting_enabled: boolean }> => {
       try {
         const { data, error } = await supabase
           .from('events')
-          .select('event_type, karafun_url')
+          .select('event_type, karafun_url, event_artist_name, audience_voting_enabled')
           .eq('id', activeEventId)
           .single()
 
         if (error || !data) {
-          return { event_type: 'halli-live', karafun_url: null }
+          return { event_type: 'halli-live', karafun_url: null, artist_name: null, audience_voting_enabled: true }
         }
 
         const row = data as Record<string, unknown>
         const rawType = row.event_type as string | null
+        const resolvedType: 'halli-live' | 'karaoke' | 'build-self' =
+          rawType === 'karaoke' ? 'karaoke' : rawType === 'build-self' ? 'build-self' : 'halli-live'
         return {
-          event_type: rawType === 'karaoke' ? 'karaoke' : 'halli-live',
+          event_type: resolvedType,
           karafun_url: (row.karafun_url as string | null) ?? null,
+          artist_name: (row.event_artist_name as string | null) ?? null,
+          audience_voting_enabled: (row.audience_voting_enabled as boolean | null) ?? true,
         }
       } catch {
-        return { event_type: 'halli-live', karafun_url: null }
+        return { event_type: 'halli-live', karafun_url: null, artist_name: null, audience_voting_enabled: true }
       }
     }
 
@@ -995,6 +1005,8 @@ function QueueProvider({ children }: PropsWithChildren) {
       tipThankYouMessageEN: tipMessages.tip_thank_you_message_en,
       eventType: eventTypeSettings.event_type,
       karafunUrl: eventTypeSettings.karafun_url,
+      artistName: eventTypeSettings.artist_name,
+      audienceVotingEnabled: eventTypeSettings.audience_voting_enabled,
     })
     if (queueLoaded) {
       setSongs(queueSongs.map((song) => {
@@ -2155,6 +2167,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           tip_thank_you_message_en: updates.tipThankYouMessageEN || null,
           event_type: updates.eventType ?? 'halli-live',
           karafun_url: updates.karafunUrl ?? null,
+          event_artist_name: updates.artistName ?? null,
+          audience_voting_enabled: updates.audienceVotingEnabled ?? true,
         }
 
         const { error } = await withTimeout(
@@ -2572,6 +2586,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           tipThankYouMessageEN: null,
           eventType: options?.eventType ?? 'halli-live',
           karafunUrl: options?.karafunUrl ?? null,
+          artistName: options?.artistName ?? null,
+          audienceVotingEnabled: options?.audienceVotingEnabled ?? true,
         }
 
         try {
@@ -2615,13 +2631,15 @@ function QueueProvider({ children }: PropsWithChildren) {
           setEvent(nextEventState)
 
           // RPC create_host_gig does not support event_type, karafun_url, or subtitle yet.
-          if ((options?.eventType && options.eventType !== 'halli-live') || options?.karafunUrl || options?.subtitle) {
+          if ((options?.eventType && options.eventType !== 'halli-live') || options?.karafunUrl || options?.subtitle || options?.artistName || options?.audienceVotingEnabled === false) {
             void supabase
               .from('events')
               .update({
                 event_type: options?.eventType ?? 'halli-live',
                 karafun_url: options?.karafunUrl ?? null,
                 subtitle: options?.subtitle ?? null,
+                event_artist_name: options?.artistName ?? null,
+                audience_voting_enabled: options?.audienceVotingEnabled ?? true,
               })
               .eq('id', createdGigId)
               .then(({ error }) => {
@@ -2678,6 +2696,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           cover_image_url: options?.coverImageUrl ?? null,
           event_type: options?.eventType ?? 'halli-live',
           karafun_url: options?.karafunUrl ?? null,
+          event_artist_name: options?.artistName ?? null,
+          audience_voting_enabled: options?.audienceVotingEnabled ?? true,
         }
 
         let newEvent: { id: string } | null = null

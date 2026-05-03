@@ -1145,6 +1145,8 @@ function EventPage() {
 
   const resolvedMobilepayLink = resolveMobilepayLink(event?.mobilpayUrl || hostProfile?.mobilpay_url)
   const isKaraokeEvent = event?.eventType === 'karaoke'
+  const isBuildSelfEvent = event?.eventType === 'build-self'
+  const audienceVotingEnabled = event?.audienceVotingEnabled ?? true
   const karafunLink = normalizeExternalLink(event?.karafunUrl)
   const allTipLinks = useMemo(() => {
     const links: { label: string; url: string }[] = []
@@ -1676,6 +1678,54 @@ function EventPage() {
     )
   }
 
+  if (isBuildSelfEvent && !audienceVotingEnabled) {
+    return (
+      <section className="audience-entry-shell audience-karafun" aria-label="Build Self Gig info">
+        <article className="queue-panel audience-entry-card">
+          <p className="eyebrow audience-entry-eyebrow">🎵 Live Music</p>
+          {event?.artistName ? <h2 className="subcopy" style={{ marginBottom: '0.25rem', fontWeight: 700 }}>{event.artistName}</h2> : null}
+          <h1>{event?.name ?? 'Live Show'}</h1>
+          {event?.subtitle ? <p className="subcopy audience-entry-copy">{event.subtitle}</p> : null}
+          {event?.coverImageUrl ? (
+            <img
+              src={event.coverImageUrl}
+              alt="Event cover"
+              style={{ width: '100%', borderRadius: '0.75rem', marginBottom: '1rem', objectFit: 'cover', maxHeight: '220px' }}
+            />
+          ) : null}
+          <span className="meta-badge" style={{ display: 'inline-block', marginBottom: '1.25rem' }}>Setlist Only</span>
+          <div className="audience-start-actions" style={{ marginTop: '0.5rem' }}>
+            {allTipLinks.length > 0 ? (
+              <a
+                href={allTipLinks[0].url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="secondary-button"
+              >
+                💸 {allTipLinks[0].label}
+              </a>
+            ) : null}
+            {socialLinks.length > 0 ? (
+              <div className="audience-social-links-inline" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+                {socialLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="secondary-button"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </article>
+      </section>
+    )
+  }
+
   if (isKaraokeEvent) {
     return (
       <section className="audience-entry-shell audience-karafun" aria-label="Karaoke event info">
@@ -1812,7 +1862,7 @@ function EventPage() {
     <section className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun${isKaraokeEvent ? ' audience-shell-karaoke' : ''}`} aria-label="Audience app">
       <section className="audience-stage">
         <AudienceFixedHeader
-          eventName={event?.name ?? copy.audienceLive}
+          eventName={isBuildSelfEvent && event?.artistName ? `${event.artistName} — ${event.name ?? copy.audienceLive}` : (event?.name ?? copy.audienceLive)}
           subtitle={event?.subtitle ?? null}
           logoSrc="/the-human-jukebox-logo.svg"
           locale={audienceLocale}

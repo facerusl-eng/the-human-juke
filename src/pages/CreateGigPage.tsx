@@ -5,7 +5,7 @@ import { useQueueStore } from '../state/queueStore'
 import { supabase } from '../lib/supabase'
 
 type Step = 'info' | 'datetime'
-type EventType = 'halli-live' | 'karaoke'
+type EventType = 'halli-live' | 'karaoke' | 'build-self'
 
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 
@@ -43,6 +43,8 @@ function CreateGigPage() {
   const [description, setDescription] = useState('')
   const [eventType, setEventType] = useState<EventType>('halli-live')
   const [karafunUrl, setKarafunUrl] = useState('')
+  const [artistName, setArtistName] = useState('')
+  const [audienceVotingEnabled, setAudienceVotingEnabled] = useState(true)
   const [showInAudienceNoGig, setShowInAudienceNoGig] = useState(false)
   const [coverImageDataUrl, setCoverImageDataUrl] = useState<string | null>(null)
   const [coverImageName, setCoverImageName] = useState('')
@@ -136,6 +138,8 @@ function CreateGigPage() {
       coverImageUrl?: string | null
       eventType?: EventType
       karafunUrl?: string
+      artistName?: string | null
+      audienceVotingEnabled?: boolean
     },
   ) => {
     const maxAttempts = 6
@@ -215,6 +219,8 @@ function CreateGigPage() {
           subtitle: description.trim() || undefined,
           eventType,
           karafunUrl: karafunUrl.trim() || undefined,
+          artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
+          audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
         }
 
     try {
@@ -223,7 +229,9 @@ function CreateGigPage() {
     } catch (error) {
       if (!isMountedRef.current) {
         return
-      }
+          artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
+          audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
+        }
 
       if (isAuthLockError(error)) {
         setErrorText('Session lock is busy. Close duplicate admin tabs, wait 2 seconds, then try Create Gig again.')
@@ -444,6 +452,7 @@ function CreateGigPage() {
             >
               <option value="halli-live">The Human Jukebox</option>
               <option value="karaoke">Karaoke Event</option>
+              <option value="build-self">Build Self Gig</option>
             </select>
           </div>
           {eventType === 'karaoke' ? (
@@ -458,6 +467,31 @@ function CreateGigPage() {
               />
               <p className="field-hint">This link will be shown on the karaoke event page.</p>
             </div>
+          ) : null}
+          {eventType === 'build-self' ? (
+            <>
+              <div className="field-row">
+                <label htmlFor="artist-name">Artist / performer name</label>
+                <input
+                  id="artist-name"
+                  value={artistName}
+                  onChange={(e) => setArtistName(e.target.value)}
+                  placeholder="Your artist or band name"
+                />
+              </div>
+              <label className="checkbox-row create-gig-checkbox-row" htmlFor="audience-voting">
+                <input
+                  id="audience-voting"
+                  type="checkbox"
+                  checked={audienceVotingEnabled}
+                  onChange={(e) => setAudienceVotingEnabled(e.target.checked)}
+                />
+                <span>Allow audience to choose and vote for songs</span>
+              </label>
+              {!audienceVotingEnabled ? (
+                <p className="field-hint">Audience will see the setlist only — no requests or voting.</p>
+              ) : null}
+            </>
           ) : null}
           <div className="field-row">
             <label htmlFor="gig-description">Description</label>

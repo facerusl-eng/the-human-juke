@@ -42,7 +42,7 @@ type PlaylistArtworkRow = {
 type SettingsState = {
   gigName: string
   venue: string
-  eventType: 'halli-live' | 'karaoke'
+  eventType: 'halli-live' | 'karaoke' | 'build-self'
   karafunUrl: string
   gigDate: string
   gigStartTime: string
@@ -72,6 +72,8 @@ type SettingsState = {
   customButtonLink: string
   tipThankYouMessageDA: string
   tipThankYouMessageEN: string
+  artistName: string
+  audienceVotingEnabled: boolean
 }
 
 type UndoRedoState = SettingsState & { timestamp: number }
@@ -199,6 +201,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     venue: event.venue ?? '',
     eventType: event.eventType ?? 'halli-live',
     karafunUrl: event.karafunUrl ?? '',
+    artistName: event.artistName ?? '',
+    audienceVotingEnabled: event.audienceVotingEnabled ?? true,
     gigDate: event.gigDate ?? '',
     gigStartTime: normalizeTimeValue(event.gigStartTime),
     gigEndTime: normalizeTimeValue(event.gigEndTime),
@@ -486,6 +490,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         venue: saveState.venue.trim(),
         eventType: saveState.eventType,
         karafunUrl: saveState.karafunUrl.trim() || null,
+        artistName: saveState.artistName.trim() || null,
+        audienceVotingEnabled: saveState.audienceVotingEnabled,
         gigDate: saveState.gigDate,
         gigStartTime: saveState.gigStartTime,
         gigEndTime: saveState.gigEndTime,
@@ -813,6 +819,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.customButtonLink !== (event.customButtonLink ?? '')
     || state.tipThankYouMessageDA !== (event.tipThankYouMessageDA ?? '')
     || state.tipThankYouMessageEN !== (event.tipThankYouMessageEN ?? '')
+    || state.artistName !== (event.artistName ?? '')
+    || state.audienceVotingEnabled !== (event.audienceVotingEnabled ?? true)
 
   return (
     <>
@@ -909,11 +917,12 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               value={state.eventType}
               onChange={(e) => {
                 pushUndoState()
-                updateState({ eventType: e.target.value as 'halli-live' | 'karaoke' })
+                updateState({ eventType: e.target.value as 'halli-live' | 'karaoke' | 'build-self' })
               }}
             >
               <option value="halli-live">The Human Jukebox</option>
               <option value="karaoke">Karaoke Event</option>
+              <option value="build-self">Build Self Gig</option>
             </select>
           </div>
 
@@ -1016,6 +1025,37 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                   Remove photo
                 </button>
               </div>
+            ) : null}
+            {state.eventType === 'build-self' ? (
+              <>
+                <div className="field-row">
+                  <label htmlFor="gig-artist-name">Artist / performer name</label>
+                  <input
+                    id="gig-artist-name"
+                    value={state.artistName}
+                    onChange={(e) => {
+                      pushUndoState()
+                      updateState({ artistName: e.target.value })
+                    }}
+                    placeholder="Your artist or band name"
+                  />
+                </div>
+                <label className="checkbox-row" htmlFor="gig-audience-voting">
+                  <input
+                    id="gig-audience-voting"
+                    type="checkbox"
+                    checked={state.audienceVotingEnabled}
+                    onChange={(e) => {
+                      pushUndoState()
+                      updateState({ audienceVotingEnabled: e.target.checked })
+                    }}
+                  />
+                  <span>Allow audience to choose and vote for songs</span>
+                </label>
+                {!state.audienceVotingEnabled ? (
+                  <p className="field-hint">Audience will see the setlist only — no requests or voting.</p>
+                ) : null}
+              </>
             ) : null}
           </div>
         </SettingsSection>
