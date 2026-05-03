@@ -225,6 +225,47 @@ function GigControlPage() {
     setSpotifyTransportCommand({ mode, nonce: Date.now() })
   }, [spotifyAutoTransportEnabled])
 
+  const playIntroAudioWithSpotifyBridge = useCallback(async (introAudioUrl: string) => {
+    if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+      return
+    }
+
+    const introAudio = new Audio(introAudioUrl)
+    introAudio.preload = 'auto'
+
+    // Duck Spotify while the intro stinger runs, then restore when it ends.
+    sendSpotifyTransportCommand('pause')
+
+    try {
+      await introAudio.play()
+    } catch (error) {
+      sendSpotifyTransportCommand('play')
+      throw error
+    }
+
+    await new Promise<void>((resolve) => {
+      const cleanup = () => {
+        introAudio.removeEventListener('ended', onEnded)
+        introAudio.removeEventListener('error', onError)
+      }
+
+      const onEnded = () => {
+        cleanup()
+        sendSpotifyTransportCommand('play')
+        resolve()
+      }
+
+      const onError = () => {
+        cleanup()
+        sendSpotifyTransportCommand('play')
+        resolve()
+      }
+
+      introAudio.addEventListener('ended', onEnded, { once: true })
+      introAudio.addEventListener('error', onError, { once: true })
+    })
+  }, [sendSpotifyTransportCommand])
+
   useEffect(() => {
     const storedToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)
     if (storedToken) {
@@ -717,6 +758,14 @@ function GigControlPage() {
         await runGoLivePreflight().catch(() => {})
         const opened = await gigActions.runToggleRoomOpen()
 
+        if (opened && event.introAudioUrl) {
+          try {
+            await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
+          } catch {
+            setErrorText('Auto Live intro audio was blocked by browser autoplay settings. Spotify transport was restored.')
+          }
+        }
+
         if (opened && nowPlaying?.id && !isNowPlayingStarted) {
           await writeSharedPlaybackState(event.id, {
             currentSongId: nowPlaying.id,
@@ -753,9 +802,12 @@ function GigControlPage() {
     event?.roomOpen,
     event?.gigDate,
     event?.gigStartTime,
+    event?.introAudioUrl,
     gigActions,
     isNowPlayingStarted,
+    nowPlaying?.cover_url,
     nowPlaying?.id,
+    playIntroAudioWithSpotifyBridge,
     runGoLivePreflight,
     sendSpotifyTransportCommand,
   ])
