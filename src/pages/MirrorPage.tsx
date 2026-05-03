@@ -1902,6 +1902,7 @@ function MirrorPage() {
             <button
               type="button"
               className="mirror-fullscreen-button"
+              aria-label={isFullscreen ? 'Exit fullscreen mode' : 'Enter fullscreen mode'}
               onClick={async () => {
                 try {
                   if (!getActiveFullscreenElement()) {
@@ -1915,25 +1916,31 @@ function MirrorPage() {
                 }
               }}
             >
+              <span className="mirror-control-button-icon" aria-hidden="true">FS</span>
               {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             </button>
             <button
               type="button"
-              className="mirror-contrast-button"
+              className={`mirror-contrast-button ${highContrastMode ? 'mirror-control-button-active' : ''}`.trim()}
+              aria-label="Toggle high contrast mode"
               onClick={() => setHighContrastMode((currentMode) => !currentMode)}
             >
+              <span className="mirror-control-button-icon" aria-hidden="true">HC</span>
               {highContrastMode ? 'High Contrast: On' : 'High Contrast: Off'}
             </button>
             <button
               type="button"
-              className="mirror-contrast-button"
+              className={`mirror-contrast-button ${showSafeMargins ? 'mirror-control-button-active' : ''}`.trim()}
+              aria-label="Toggle safe margins overlay"
               onClick={() => setShowSafeMargins((currentValue) => !currentValue)}
             >
+              <span className="mirror-control-button-icon" aria-hidden="true">SM</span>
               {showSafeMargins ? 'Safe Margins: On' : 'Safe Margins: Off'}
             </button>
             <button
               type="button"
               className="mirror-contrast-button"
+              aria-label="Cycle venue visual mode"
               onClick={() => {
                 setVenueMode((currentMode) => {
                   if (currentMode === 'club') {
@@ -1948,6 +1955,7 @@ function MirrorPage() {
                 })
               }}
             >
+              <span className="mirror-control-button-icon" aria-hidden="true">VM</span>
               Venue: {venueMode === 'club' ? 'Club' : venueMode === 'festival' ? 'Festival' : 'Lounge'}
             </button>
           </div>
@@ -2059,7 +2067,7 @@ function MirrorPage() {
 
             <section className="mirror-frames-lower" aria-label="Live feed and queue frames">
               <section className="mirror-live-feed-frame mirror-frame" aria-label="Live feed frame">
-                <LiveFeedPanel mode="mirror" showComposer={false} title="Live Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
+                <LiveFeedPanel mode="mirror" showComposer={false} title="Community Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
               </section>
 
               <section className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`} aria-label="Song queue frame">
