@@ -6483,6 +6483,8 @@
   gap: 6px;
   justify-content: center;
 }
+
+.live-feed-panel {
   border: 1px solid rgba(93, 215, 255, 0.28);
   border-radius: 22px;
   padding: 24px;
