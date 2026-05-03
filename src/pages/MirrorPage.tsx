@@ -1340,10 +1340,9 @@ function MirrorPage() {
       stopPlaybackHealthTimer()
 
       playbackHealthTimerId = window.setInterval(() => {
-        if (document.hidden) {
-          return
-        }
-
+        // Mirror is displayed on a TV/projector — always poll regardless of
+        // document visibility so state stays current even when the browser
+        // reports the page as "hidden" (e.g. some casting scenarios).
         void syncPlaybackState()
       }, 15000)
     }
@@ -1453,7 +1452,8 @@ function MirrorPage() {
               return
             }
 
-            const retryDelayMs = Math.min(1000 * (2 ** reconnectAttempt), 8000)
+            // Mirror on a TV/projector must recover quickly — cap backoff at 3 seconds.
+            const retryDelayMs = Math.min(1000 * (2 ** reconnectAttempt), 3000)
             reconnectAttempt += 1
             reconnectTimerId = window.setTimeout(() => {
               reconnectTimerId = null
@@ -1475,9 +1475,8 @@ function MirrorPage() {
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        clearReconnectTimer()
-        disconnectSubscription()
-        stopPlaybackHealthTimer()
+        // Mirror is a persistent display (TV/projector). Never disconnect on
+        // visibility change — the WebSocket must stay alive regardless.
         return
       }
 

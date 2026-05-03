@@ -1092,11 +1092,14 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     const scheduleChannelReconnect = () => {
-      if (!isCurrent || document.hidden || !activeChannelReconnectHandler || channelReconnectTimerId !== null) {
+      // For audience sessions, don't schedule reconnects when the tab is hidden
+      // (saves battery on mobile). Host sessions must always reconnect.
+      if (!isCurrent || (!isHostSession && document.hidden) || !activeChannelReconnectHandler || channelReconnectTimerId !== null) {
         return
       }
 
-      const retryDelayMs = Math.min(1000 * (2 ** channelReconnectAttempt), 8000)
+      const maxBackoffMs = isHostSession ? 4000 : 8000
+      const retryDelayMs = Math.min(1000 * (2 ** channelReconnectAttempt), maxBackoffMs)
       channelReconnectAttempt += 1
 
       channelReconnectTimerId = window.setTimeout(() => {
@@ -1111,10 +1114,11 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     // Watchdog: if the Realtime channel is subscribed but delivers no events
-    // for >90 seconds, force a reconnect. This catches silent NAT/proxy
-    // timeouts that cut the WebSocket without triggering a CHANNEL_ERROR.
+    // for too long, force a reconnect. This catches silent NAT/proxy timeouts
+    // that cut the WebSocket without triggering a CHANNEL_ERROR.
+    // Host sessions use a shorter threshold to detect drops faster.
     const REALTIME_WATCHDOG_INTERVAL_MS = 30_000
-    const REALTIME_SILENCE_THRESHOLD_MS = 90_000
+    const REALTIME_SILENCE_THRESHOLD_MS = isHostSession ? 45_000 : 90_000
 
     const clearChannelWatchdog = () => {
       if (channelWatchdogTimerId !== null) {
@@ -1127,7 +1131,10 @@ function QueueProvider({ children }: PropsWithChildren) {
       clearChannelWatchdog()
 
       channelWatchdogTimerId = window.setInterval(() => {
-        if (!isCurrent || document.hidden || !activeChannel) {
+        // Host sessions keep the watchdog running even when hidden (tab not focused)
+        // so they recover silently if the connection is lost while the host
+        // has briefly switched to another app.
+        if (!isCurrent || (!isHostSession && document.hidden) || !activeChannel) {
           return
         }
 
@@ -1575,9 +1582,14 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const onVisibilityChange = () => {
       if (document.hidden) {
-        setAudienceConnectionStatus('offline')
-        clearChannelReconnectTimer()
-        disconnectActiveChannel()
+        // Audience mobile: disconnect to save battery.
+        // Host session: keep the channel alive — the host must not lose
+        // connection just because they briefly switched apps.
+        if (!isHostSession) {
+          setAudienceConnectionStatus('offline')
+          clearChannelReconnectTimer()
+          disconnectActiveChannel()
+        }
         return
       }
 
