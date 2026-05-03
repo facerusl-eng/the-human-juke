@@ -67,6 +67,16 @@ function GigControlPage() {
   const [activeAudienceCount, setActiveAudienceCount] = useState<number | null>(null)
   const [preflightBusy, setPreflightBusy] = useState(false)
   const [preflightStatusText, setPreflightStatusText] = useState<string | null>(null)
+  const [lastReadinessVerdict, setLastReadinessVerdict] = useState<'pass' | 'fail' | 'unknown'>(() => {
+    try {
+      const raw = window.sessionStorage.getItem('human-jukebox-readiness-verdict')
+      if (!raw) return 'unknown'
+      const parsed = JSON.parse(raw) as { verdict?: string }
+      return parsed.verdict === 'pass' ? 'pass' : parsed.verdict === 'fail' ? 'fail' : 'unknown'
+    } catch {
+      return 'unknown'
+    }
+  })
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -273,6 +283,24 @@ function GigControlPage() {
       worker.terminate()
       gigWorkerRef.current = null
     }
+  }, [])
+
+  // Re-read readiness verdict from sessionStorage when tab becomes visible
+  useEffect(() => {
+    const onFocus = () => {
+      try {
+        const raw = window.sessionStorage.getItem('human-jukebox-readiness-verdict')
+        if (!raw) return
+        const parsed = JSON.parse(raw) as { verdict?: string }
+        setLastReadinessVerdict(
+          parsed.verdict === 'pass' ? 'pass' : parsed.verdict === 'fail' ? 'fail' : 'unknown',
+        )
+      } catch {
+        // non-critical
+      }
+    }
+    document.addEventListener('visibilitychange', onFocus)
+    return () => document.removeEventListener('visibilitychange', onFocus)
   }, [])
 
   const copyJoinUrl = async () => {
@@ -801,8 +829,18 @@ function GigControlPage() {
     },
     {
       id: 'toggle-room-open',
-      label: gigActions.roomToggleBusy ? 'Updating...' : event?.roomOpen ? 'Pause Live' : 'Go Live',
+      label: gigActions.roomToggleBusy
+        ? 'Updating...'
+        : event?.roomOpen
+        ? 'Pause Live'
+        : lastReadinessVerdict === 'fail'
+        ? 'Go Live (issues detected)'
+        : 'Go Live',
       onClick: async () => {
+        if (!event?.roomOpen && lastReadinessVerdict === 'fail') {
+          setErrorText('Readiness check detected issues. Visit Readiness Check before going live, or proceed at your own risk.')
+          return
+        }
         try {
           if (event && !event.roomOpen) {
             await runGoLivePreflight()
@@ -813,7 +851,7 @@ function GigControlPage() {
         }
       },
       disabled: gigActions.quickActionBusy || preflightBusy,
-      variant: event?.roomOpen ? 'secondary' : 'primary',
+      variant: event?.roomOpen ? 'secondary' : lastReadinessVerdict === 'fail' ? 'secondary' : 'primary',
     },
     {
       id: 'run-warmup',

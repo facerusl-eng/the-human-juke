@@ -10436,14 +10436,45 @@
   max-width: 680px;
 }
 
+/* Back link */
+.readiness-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 0.85rem;
+  letter-spacing: 0.02em;
+  transition: color 0.15s;
+}
+
+.readiness-back-link:hover,
+.readiness-back-link:focus-visible {
+  color: #93c5fd;
+  outline: none;
+}
+
+/* Top row: verdict + audience card */
+.readiness-top-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.85rem;
+  margin: 1.2rem 0 0;
+  align-items: stretch;
+}
+
 /* Verdict block */
 .readiness-verdict {
   display: flex;
   align-items: center;
   gap: 0.9rem;
   border-radius: 18px;
-  padding: 1.4rem 1.6rem;
-  margin: 1.4rem 0 1rem;
+  padding: 1.2rem 1.4rem;
   border: 2px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   transition: background 0.25s, border-color 0.25s;
@@ -10464,9 +10495,10 @@
 }
 
 .readiness-verdict-icon {
-  font-size: 2.6rem;
+  font-size: 2.2rem;
   line-height: 1;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .readiness-verdict--pending .readiness-verdict-icon {
@@ -10485,7 +10517,7 @@
 }
 
 .readiness-verdict-label {
-  font-size: clamp(1.25rem, 3.6vw, 1.65rem);
+  font-size: clamp(1.1rem, 3.2vw, 1.5rem);
   font-weight: 800;
   letter-spacing: -0.02em;
 }
@@ -10498,12 +10530,85 @@
   to { transform: rotate(360deg); }
 }
 
+/* Audience count card */
+.readiness-audience-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1rem 1.2rem;
+  min-width: 7.5rem;
+  text-align: center;
+  transition: border-color 0.25s;
+}
+
+.readiness-audience-card--active {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.readiness-audience-card--idle {
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+.readiness-audience-count {
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #f0f6ff;
+}
+
+.readiness-audience-card--active .readiness-audience-count {
+  color: #34d399;
+  text-shadow: 0 0 14px rgba(52, 211, 153, 0.45);
+}
+
+.readiness-audience-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 0.3rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+/* Progress bar */
+.readiness-progress-bar-track {
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 0.85rem 0 0.25rem;
+  overflow: hidden;
+}
+
+.readiness-progress-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.35s ease, background 0.35s;
+}
+
+.readiness-progress-bar-fill--pending { background: #60a5fa; }
+.readiness-progress-bar-fill--pass    { background: #34d399; }
+.readiness-progress-bar-fill--fail    { background: #f87171; }
+
+.readiness-progress-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0 0 0.6rem;
+  min-height: 1.1em;
+}
+
 /* Live signals row */
 .readiness-signals {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-bottom: 1.2rem;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .readiness-signal {
@@ -10511,8 +10616,8 @@
   align-items: center;
   gap: 0.45rem;
   border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.8rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   border: 1px solid transparent;
@@ -10547,32 +10652,43 @@
 .readiness-signal--warn .readiness-signal-dot { background: #fbbf24; box-shadow: 0 0 6px rgba(251, 191, 36, 0.7); }
 .readiness-signal--idle .readiness-signal-dot { background: #94a3b8; }
 
-.readiness-signal-label {
-  white-space: nowrap;
+.readiness-signal-label { white-space: nowrap; }
+
+/* Actions — 2 buttons, no third button (back is now a top link) */
+.readiness-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.5rem;
+}
+
+.readiness-actions .primary-button,
+.readiness-actions .secondary-button {
+  flex: 1 1 auto;
 }
 
 /* Last run */
 .readiness-last-run {
-  font-size: 0.78rem;
-  color: #64748b;
-  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: #475569;
+  margin: 0 0 0;
   text-align: right;
 }
 
 /* Checklist */
 .readiness-checklist {
   list-style: none;
-  margin: 1.4rem 0 0;
+  margin: 1.2rem 0 0;
   padding: 0;
   display: grid;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .readiness-check-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.8rem;
-  padding: 0.7rem 0.85rem;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.03);
@@ -10580,8 +10696,8 @@
 }
 
 .readiness-check-item--ok {
-  border-color: rgba(52, 211, 153, 0.25);
-  background: rgba(52, 211, 153, 0.05);
+  border-color: rgba(52, 211, 153, 0.22);
+  background: rgba(52, 211, 153, 0.04);
 }
 
 .readiness-check-item--error {
@@ -10590,19 +10706,19 @@
 }
 
 .readiness-check-item--running {
-  border-color: rgba(96, 165, 250, 0.28);
+  border-color: rgba(96, 165, 250, 0.25);
   background: rgba(96, 165, 250, 0.04);
 }
 
 .readiness-check-icon {
   flex-shrink: 0;
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.35rem;
+  height: 1.35rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 800;
   margin-top: 0.1rem;
 }
@@ -10614,26 +10730,52 @@
 
 .readiness-check-body {
   display: grid;
-  gap: 0.12rem;
+  gap: 0.1rem;
 }
 
 .readiness-check-title {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: #e8f0ff;
 }
 
 .readiness-check-detail {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: #8898aa;
   word-break: break-word;
 }
 
 .readiness-check-duration {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: #475569;
   font-variant-numeric: tabular-nums;
+}
+
+.readiness-check-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.73rem;
+  color: #fbbf24;
+  font-weight: 500;
+}
+
+/* Mobile: stack verdict and audience card vertically */
+@media (max-width: 480px) {
+  .readiness-top-row {
+    grid-template-columns: 1fr;
+  }
+
+  .readiness-audience-card {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.6rem;
+    min-width: unset;
+    padding: 0.75rem 1rem;
+  }
+
+  .readiness-audience-count {
+    font-size: 1.5rem;
+  }
 }
