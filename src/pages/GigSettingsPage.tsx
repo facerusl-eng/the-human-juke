@@ -35,6 +35,13 @@ type PlaylistOption = {
   helper: string
 }
 
+type IntroAudioLibraryItem = {
+  path: string
+  name: string
+  url: string
+  createdAt: string | null
+}
+
 type PlaylistArtworkRow = {
   library_songs: PlaylistArtworkSong | PlaylistArtworkSong[] | null
 }
@@ -250,6 +257,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [processingCoverImage, setProcessingCoverImage] = useState(false)
   const [processingVenueLogo, setProcessingVenueLogo] = useState(false)
   const [processingIntroAudio, setProcessingIntroAudio] = useState(false)
+  const [introAudioLibrary, setIntroAudioLibrary] = useState<IntroAudioLibraryItem[]>([])
+  const [introAudioLibraryLoading, setIntroAudioLibraryLoading] = useState(false)
+  const [selectedIntroAudioPath, setSelectedIntroAudioPath] = useState('')
   const [fetchingLinksFromSettings, setFetchingLinksFromSettings] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
@@ -258,6 +268,89 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const coverImageInFlightRef = useRef(false)
   const venueLogoInFlightRef = useRef(false)
   const introAudioInFlightRef = useRef(false)
+
+  useEffect(() => {
+    if (!user?.id) {
+      setIntroAudioLibrary([])
+      setSelectedIntroAudioPath('')
+      return
+    }
+
+    let isCurrent = true
+
+    const loadIntroAudioLibrary = async () => {
+      setIntroAudioLibraryLoading(true)
+
+      try {
+        const [rootListResult, eventListResult] = await Promise.all([
+          supabase.storage.from('gig-intro-audio').list(user.id, {
+            limit: 100,
+            sortBy: { column: 'created_at', order: 'desc' },
+          }),
+          supabase.storage.from('gig-intro-audio').list(`${user.id}/${event.id}`, {
+            limit: 100,
+            sortBy: { column: 'created_at', order: 'desc' },
+          }),
+        ])
+
+        const rootItems = (rootListResult.data ?? [])
+          .filter((entry) => !entry.name.endsWith('/'))
+          .filter((entry) => entry.name.toLowerCase().endsWith('.mp3'))
+          .map((entry) => ({
+            path: `${user.id}/${entry.name}`,
+            name: entry.name,
+            createdAt: entry.created_at ?? null,
+          }))
+
+        const eventItems = (eventListResult.data ?? [])
+          .filter((entry) => !entry.name.endsWith('/'))
+          .filter((entry) => entry.name.toLowerCase().endsWith('.mp3'))
+          .map((entry) => ({
+            path: `${user.id}/${event.id}/${entry.name}`,
+            name: entry.name,
+            createdAt: entry.created_at ?? null,
+          }))
+
+        const merged = [...rootItems, ...eventItems]
+        const dedupedByPath = Array.from(new Map(merged.map((entry) => [entry.path, entry])).values())
+        const mappedLibrary = dedupedByPath.map((entry) => {
+          const { data: publicUrlData } = supabase.storage.from('gig-intro-audio').getPublicUrl(entry.path)
+
+          return {
+            path: entry.path,
+            name: entry.name,
+            url: publicUrlData.publicUrl,
+            createdAt: entry.createdAt,
+          } satisfies IntroAudioLibraryItem
+        })
+
+        if (!isCurrent) {
+          return
+        }
+
+        setIntroAudioLibrary(mappedLibrary)
+
+        if (state.introAudioUrl) {
+          const currentSelection = mappedLibrary.find((item) => item.url === state.introAudioUrl)
+          setSelectedIntroAudioPath(currentSelection?.path ?? '')
+        } else {
+          setSelectedIntroAudioPath('')
+        }
+      } catch (error) {
+        console.warn('GigSettingsPage: failed to load intro audio library', error)
+      } finally {
+        if (isCurrent) {
+          setIntroAudioLibraryLoading(false)
+        }
+      }
+    }
+
+    void loadIntroAudioLibrary()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [event.id, state.introAudioUrl, user?.id])
   const otherAudienceFallbackGigCount = hostEvents.filter(
     (hostEvent) => hostEvent.id !== event.id && hostEvent.showInAudienceNoGig,
   ).length
@@ -724,6 +817,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
       pushUndoState()
       updateState({ introAudioUrl: publicUrlData.publicUrl })
+      setSelectedIntroAudioPath(storagePath)
       setErrorText(null)
     } catch (error) {
       if (!isMountedRef.current) {
@@ -739,6 +833,26 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         setProcessingIntroAudio(false)
       }
     }
+  }
+
+  const onSelectSavedIntroAudio = (nextPath: string) => {
+    setSelectedIntroAudioPath(nextPath)
+
+    if (!nextPath) {
+      pushUndoState()
+      updateState({ introAudioUrl: '' })
+      return
+    }
+
+    const selectedTrack = introAudioLibrary.find((track) => track.path === nextPath)
+
+    if (!selectedTrack) {
+      return
+    }
+
+    pushUndoState()
+    updateState({ introAudioUrl: selectedTrack.url })
+    setErrorText(null)
   }
 
   const onManualSave = async (formEvent: FormEvent<HTMLFormElement>) => {
@@ -1141,7 +1255,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             ) : null}
           </div>
 
-          <div className="field-row">
+          <div className="field-row create-gig-intro-panel">
             <label htmlFor="gig-intro-audio">Intro MP3 (optional)</label>
             <input
               id="gig-intro-audio"
@@ -1152,10 +1266,27 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               }}
               disabled={busy || processingIntroAudio}
             />
-            <p className="field-hint">This intro song plays on the host device when auto-live starts this gig. Max 12 MB.</p>
+            <p className="field-hint">Upload intro tracks once, then pick any saved MP3 for this gig. Max 12 MB per file.</p>
             {processingIntroAudio ? <p className="field-hint">Uploading intro audio…</p> : null}
+
+            <label htmlFor="gig-intro-audio-library">Saved intro MP3 library</label>
+            <select
+              id="gig-intro-audio-library"
+              value={selectedIntroAudioPath}
+              onChange={(e) => onSelectSavedIntroAudio(e.target.value)}
+              disabled={busy || processingIntroAudio || introAudioLibraryLoading}
+            >
+              <option value="">Choose saved MP3…</option>
+              {introAudioLibrary.map((track) => (
+                <option key={track.path} value={track.path}>
+                  {track.name}
+                </option>
+              ))}
+            </select>
+            {introAudioLibraryLoading ? <p className="field-hint">Loading saved intro tracks…</p> : null}
+
             {state.introAudioUrl ? (
-              <div className="photo-preview">
+              <div className="photo-preview create-gig-intro-preview">
                 <audio controls src={state.introAudioUrl} />
                 <button
                   type="button"
@@ -1163,6 +1294,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                   onClick={() => {
                     pushUndoState()
                     updateState({ introAudioUrl: '' })
+                    setSelectedIntroAudioPath('')
                   }}
                 >
                   Remove intro audio
