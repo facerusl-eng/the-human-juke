@@ -165,6 +165,7 @@ function AudienceSongListPage() {
         untitledSong: 'Unavngiven sang',
         unknownArtist: 'Ukendt artist',
         adding: 'Tilføjer...',
+        requestAdded: 'Demo: Dit ønske er tilføjet til køen.',
         addKaraoke: 'Tilføj karaokeønske (jeg synger denne)',
         karaokeConfirmHeading: 'Vent lidt, rockstjerne.',
         karaokeConfirmBody: 'Hvis du fortsætter, melder du dig frivilligt — ja, dig personligt — til at gå op på scenen og synge denne sang foran alle. Værten vil kalde dit navn. Folk vil kigge. Der er ingen vej tilbage. Det bliver helt fantastisk (eller i det mindste uforglemmelig).',
@@ -202,6 +203,7 @@ function AudienceSongListPage() {
         untitledSong: 'Untitled Song',
         unknownArtist: 'Unknown Artist',
         adding: 'Adding...',
+        requestAdded: 'Demo: Your request was added to the queue.',
         addKaraoke: 'Add Karaoke Request (I sing this one)',
         karaokeConfirmHeading: 'Steady on, rockstar.',
         karaokeConfirmBody: 'By proceeding, you are volunteering yourself — yes, you, personally — to walk onto that stage and sing this song in front of everyone here. The host will call your name. People will look at you. There is absolutely no backing out. It is going to be legendary (or at the very least, deeply memorable).',
@@ -635,6 +637,14 @@ function AudienceSongListPage() {
       const baseAudienceUrl = `/audience${location.search || ''}`
       const separator = location.search ? '&' : '?'
       const targetAudienceUrl = `${baseAudienceUrl}${separator}queued=${estimatedQueuePosition}`
+
+      if (demoMode) {
+        navigate(targetAudienceUrl, {
+          replace: true,
+          state: { requestConfirmation: copy.requestAdded },
+        })
+        return
+      }
 
       // Use a full navigation to avoid stale lazy-chunk errors after rapid deploys.
       if (typeof window !== 'undefined') {
