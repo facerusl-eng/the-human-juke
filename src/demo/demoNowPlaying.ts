@@ -13,7 +13,7 @@ export const DEMO_NOW_PLAYING: QueueSong = {
   is_explicit: false,
   voting_locked: true,
   is_removed: false,
-  cover_url: null,
+  cover_url: '/the-human-jukebox-logo.png',
   library_song_id: null,
   audience_sings: false,
   position: 0,

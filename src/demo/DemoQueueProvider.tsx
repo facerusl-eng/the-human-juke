@@ -57,13 +57,33 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
 
     votedSongIds.add(songId)
 
-    setSongs((current) =>
-      current.map((song) =>
+    setSongs((current) => {
+      const [nowPlaying, ...queue] = current
+
+      const withUpdatedVotes = queue.map((song) => (
         song.id === songId
           ? { ...song, votes_count: song.votes_count + 1 }
-          : song,
-      ),
-    )
+          : song
+      ))
+
+      const reRankedQueue = withUpdatedVotes
+        .map((song, originalIndex) => ({ song, originalIndex }))
+        .sort((left, right) => {
+          if (right.song.votes_count !== left.song.votes_count) {
+            return right.song.votes_count - left.song.votes_count
+          }
+
+          // Preserve prior order for ties so the list remains stable.
+          return left.originalIndex - right.originalIndex
+        })
+        .map(({ song }, index) => ({ ...song, position: index + 1 }))
+
+      if (!nowPlaying) {
+        return reRankedQueue
+      }
+
+      return [{ ...nowPlaying, position: 0 }, ...reRankedQueue]
+    })
   }, [votedSongIds])
 
   const noop = useCallback(async () => {

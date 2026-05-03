@@ -1,5 +1,7 @@
 import type { QueueSong } from '../state/queueStore'
 
+const DEMO_COVER_URL = '/the-human-jukebox-logo.png'
+
 /**
  * Initial fake queue for Demo Mode.
  * Contains 8 realistic requests that a bar audience might submit.
@@ -14,7 +16,7 @@ export const DEMO_INITIAL_QUEUE: QueueSong[] = [
     is_explicit: false,
     voting_locked: false,
     is_removed: false,
-    cover_url: null,
+    cover_url: DEMO_COVER_URL,
     library_song_id: null,
     audience_sings: false,
     position: 1,
@@ -29,7 +31,7 @@ export const DEMO_INITIAL_QUEUE: QueueSong[] = [
     is_explicit: false,
     voting_locked: false,
     is_removed: false,
-    cover_url: null,
+    cover_url: DEMO_COVER_URL,
     library_song_id: null,
     audience_sings: false,
     position: 2,
@@ -44,7 +46,7 @@ export const DEMO_INITIAL_QUEUE: QueueSong[] = [
     is_explicit: false,
     voting_locked: false,
     is_removed: false,
-    cover_url: null,
+    cover_url: DEMO_COVER_URL,
     library_song_id: null,
     audience_sings: false,
     position: 3,
@@ -59,7 +61,7 @@ export const DEMO_INITIAL_QUEUE: QueueSong[] = [
     is_explicit: false,
     voting_locked: false,
     is_removed: false,
-    cover_url: null,
+    cover_url: DEMO_COVER_URL,
     library_song_id: null,
     audience_sings: false,
     position: 4,
@@ -74,7 +76,7 @@ export const DEMO_INITIAL_QUEUE: QueueSong[] = [
     is_explicit: false,
     voting_locked: false,
     is_removed: false,
-    cover_url: null,
+    cover_url: DEMO_COVER_URL,
     library_song_id: null,
     audience_sings: false,
     position: 5,
@@ -89,7 +91,7 @@ export const DEMO_INITIAL_QUEUE: QueueSong[] = [
     is_explicit: false,
     voting_locked: false,
     is_removed: false,
-    cover_url: null,
+    cover_url: DEMO_COVER_URL,
     library_song_id: null,
     audience_sings: false,
     position: 6,
@@ -104,7 +106,7 @@ export const DEMO_INITIAL_QUEUE: QueueSong[] = [
     is_explicit: false,
     voting_locked: false,
     is_removed: false,
-    cover_url: null,
+    cover_url: DEMO_COVER_URL,
     library_song_id: null,
     audience_sings: false,
     position: 7,
@@ -119,7 +121,7 @@ export const DEMO_INITIAL_QUEUE: QueueSong[] = [
     is_explicit: false,
     voting_locked: false,
     is_removed: false,
-    cover_url: null,
+    cover_url: DEMO_COVER_URL,
     library_song_id: null,
     audience_sings: false,
     position: 8,
