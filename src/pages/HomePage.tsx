@@ -62,7 +62,7 @@ function HomePage() {
           <PrimaryButton onClick={openAudienceDemo}>
             Try the audience app
           </PrimaryButton>
-          <PrimaryButton variant="secondary" onClick={() => navigate('/admin')}>
+          <PrimaryButton variant="secondary" onClick={() => navigate('/book-show')}>
             Book the show
           </PrimaryButton>
         </div>
@@ -138,7 +138,7 @@ function HomePage() {
           <PrimaryButton onClick={openAudienceDemo}>
             Try the audience app
           </PrimaryButton>
-          <PrimaryButton variant="secondary" onClick={() => navigate('/admin')}>
+          <PrimaryButton variant="secondary" onClick={() => navigate('/book-show')}>
             Book the show
           </PrimaryButton>
         </div>

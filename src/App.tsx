@@ -4,6 +4,7 @@ import './setlist-library.css'
 import './gig-settings.css'
 import './admin-settings.css'
 import './promote-event.css'
+import './book-show.css'
 import './components/ui/ui.css'
 import { Suspense, lazy, useEffect } from 'react'
 import { Navigate, createBrowserRouter, isRouteErrorResponse, useNavigate, useRouteError, useParams } from 'react-router-dom'
@@ -68,6 +69,7 @@ const GigSettingsPage = lazyWithChunkReload(() => import('./pages/GigSettingsPag
 const GigsPage = lazyWithChunkReload(() => import('./pages/GigsPage'))
 const HealthCheckPage = lazyWithChunkReload(() => import('./pages/HealthCheckPage'))
 const HomePage = lazyWithChunkReload(() => import('./pages/HomePage'))
+const BookShowPage = lazyWithChunkReload(() => import('./pages/BookShowPage'))
 const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
 const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
@@ -170,6 +172,10 @@ const router = createBrowserRouter([
       {
         index: true,
         element: withSuspense(<HomePage />),
+      },
+      {
+        path: 'book-show',
+        element: withSuspense(<BookShowPage />),
       },
       {
         path: 'audience',

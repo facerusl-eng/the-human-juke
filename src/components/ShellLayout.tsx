@@ -261,6 +261,7 @@ function ShellLayout() {
           ) : (
             <>
               <NavLink to="/" end>Home</NavLink>
+              <NavLink to="/book-show">Book Show</NavLink>
               <NavLink to="/audience">Audience</NavLink>
               {canOpenFeed ? <NavLink to="/feed">Feed</NavLink> : null}
               {isHost ? (
