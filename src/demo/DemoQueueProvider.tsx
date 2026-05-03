@@ -7,6 +7,13 @@ import { DEMO_INITIAL_QUEUE } from './demoQueue'
 import { DEMO_NOW_PLAYING } from './demoNowPlaying'
 
 let _demoIdCounter = 1000
+const DEMO_DEFAULT_COVER_URL = '/the-human-jukebox-logo.png'
+
+type DemoAddSongOptions = {
+  coverUrl?: string | null
+  librarySongId?: string | null
+  performerMode?: 'performer' | 'audience'
+}
 
 function generateDemoId() {
   _demoIdCounter += 1
@@ -29,7 +36,7 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
   const [performedSongs] = useState<PerformedSong[]>([])
   const [votedSongIds] = useState(() => new Set<string>())
 
-  const addSong = useCallback(async (title: string, artist: string, isExplicit: boolean) => {
+  const addSong = useCallback(async (title: string, artist: string, isExplicit: boolean, options?: DemoAddSongOptions) => {
     const newSong: QueueSong = {
       id: generateDemoId(),
       event_id: DEMO_EVENT.id,
@@ -39,9 +46,9 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
       is_explicit: isExplicit,
       voting_locked: false,
       is_removed: false,
-      cover_url: null,
-      library_song_id: null,
-      audience_sings: false,
+      cover_url: options?.coverUrl ?? DEMO_DEFAULT_COVER_URL,
+      library_song_id: options?.librarySongId ?? null,
+      audience_sings: options?.performerMode === 'audience',
       position: songs.length,
       createdByName: 'You',
     }

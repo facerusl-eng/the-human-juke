@@ -2077,10 +2077,19 @@
   display: flex;
   gap: 0.65rem;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .audience-song-main {
   flex: 1;
+  min-width: 0;
+}
+
+.audience-song-main .song,
+.audience-song-main .artist {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .audience-song-actions {
