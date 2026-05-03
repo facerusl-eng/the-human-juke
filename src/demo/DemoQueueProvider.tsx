@@ -80,6 +80,14 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
             return right.song.votes_count - left.song.votes_count
           }
 
+          const leftWasVoted = left.song.id === songId
+          const rightWasVoted = right.song.id === songId
+
+          // If votes are tied, promote the song that was just voted for.
+          if (leftWasVoted !== rightWasVoted) {
+            return leftWasVoted ? -1 : 1
+          }
+
           // Preserve prior order for ties so the list remains stable.
           return left.originalIndex - right.originalIndex
         })
