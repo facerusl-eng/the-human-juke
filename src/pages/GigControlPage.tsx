@@ -72,6 +72,34 @@ function resolveGigStartAt(gigDate: string | null | undefined, gigStartTime: str
   return Number.isNaN(startAt.getTime()) ? null : startAt
 }
 
+async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const accessToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)?.trim()
+  if (!accessToken) {
+    return false
+  }
+
+  const endpoint = mode === 'pause'
+    ? 'https://api.spotify.com/v1/me/player/pause'
+    : 'https://api.spotify.com/v1/me/player/play'
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
 function GigControlPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -235,11 +263,13 @@ function GigControlPage() {
 
     // Duck Spotify while the intro stinger runs, then restore when it ends.
     sendSpotifyTransportCommand('pause')
+    void sendSpotifyWebApiTransportCommand('pause')
 
     try {
       await introAudio.play()
     } catch (error) {
       sendSpotifyTransportCommand('play')
+      void sendSpotifyWebApiTransportCommand('play')
       throw error
     }
 
@@ -252,12 +282,14 @@ function GigControlPage() {
       const onEnded = () => {
         cleanup()
         sendSpotifyTransportCommand('play')
+        void sendSpotifyWebApiTransportCommand('play')
         resolve()
       }
 
       const onError = () => {
         cleanup()
         sendSpotifyTransportCommand('play')
+        void sendSpotifyWebApiTransportCommand('play')
         resolve()
       }
 

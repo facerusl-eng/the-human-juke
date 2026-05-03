@@ -69,6 +69,8 @@ const MIRROR_SAFE_MARGINS_STORAGE_KEY = 'human-jukebox-mirror-safe-margins'
 const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
+const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
+const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
 
 type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
@@ -136,6 +138,92 @@ function normalizeFunFacts(facts: string[]) {
     .filter(Boolean)
 
   return Array.from(new Set(normalizedFacts))
+}
+
+function isSpotifyAutoTransportEnabled() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY) !== '0'
+}
+
+async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const accessToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)?.trim()
+  if (!accessToken) {
+    return false
+  }
+
+  const endpoint = mode === 'pause'
+    ? 'https://api.spotify.com/v1/me/player/pause'
+    : 'https://api.spotify.com/v1/me/player/play'
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
+async function playIntroAudioWithSpotifyBridge(introAudioUrl: string) {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+    return
+  }
+
+  const shouldBridgeSpotify = isSpotifyAutoTransportEnabled()
+
+  if (shouldBridgeSpotify) {
+    await sendSpotifyWebApiTransportCommand('pause')
+  }
+
+  const introAudio = new Audio(introAudioUrl)
+  introAudio.preload = 'auto'
+
+  try {
+    await introAudio.play()
+  } catch (error) {
+    if (shouldBridgeSpotify) {
+      await sendSpotifyWebApiTransportCommand('play')
+    }
+    throw error
+  }
+
+  await new Promise<void>((resolve) => {
+    const cleanup = () => {
+      introAudio.removeEventListener('ended', onEnded)
+      introAudio.removeEventListener('error', onError)
+    }
+
+    const onEnded = () => {
+      cleanup()
+      if (shouldBridgeSpotify) {
+        void sendSpotifyWebApiTransportCommand('play')
+      }
+      resolve()
+    }
+
+    const onError = () => {
+      cleanup()
+      if (shouldBridgeSpotify) {
+        void sendSpotifyWebApiTransportCommand('play')
+      }
+      resolve()
+    }
+
+    introAudio.addEventListener('ended', onEnded, { once: true })
+    introAudio.addEventListener('error', onError, { once: true })
+  })
 }
 
 async function fetchWikipediaSummarySentences(title: string, artist: string, signal: AbortSignal) {
@@ -786,6 +874,14 @@ function MirrorPage() {
       try {
         await toggleRoomOpen()
 
+        if (event.introAudioUrl) {
+          try {
+            await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
+          } catch {
+            setMirrorWarningMessage('Auto Live intro audio was blocked by browser autoplay settings.')
+          }
+        }
+
         if (nowPlaying?.id) {
           await writeSharedPlaybackState(event.id, {
             currentSongId: nowPlaying.id,
@@ -809,6 +905,7 @@ function MirrorPage() {
     countdownTarget,
     event?.id,
     event?.autoLiveEnabled,
+    event?.introAudioUrl,
     event?.roomOpen,
     isHost,
     nowPlaying?.cover_url,
