@@ -1933,6 +1933,8 @@ function MirrorPage() {
               type="button"
               className="mirror-fullscreen-button"
               aria-label={isFullscreen ? 'Exit fullscreen mode' : 'Enter fullscreen mode'}
+              aria-keyshortcuts="F"
+              title="Keyboard shortcut: F"
               onClick={async () => {
                 try {
                   if (!getActiveFullscreenElement()) {
@@ -1953,6 +1955,7 @@ function MirrorPage() {
               type="button"
               className={`mirror-contrast-button ${highContrastMode ? 'mirror-control-button-active' : ''}`.trim()}
               aria-label="Toggle high contrast mode"
+              title="High contrast"
               onClick={() => setHighContrastMode((currentMode) => !currentMode)}
             >
               <span className="mirror-control-button-icon" aria-hidden="true">HC</span>
@@ -1962,6 +1965,7 @@ function MirrorPage() {
               type="button"
               className={`mirror-contrast-button ${showSafeMargins ? 'mirror-control-button-active' : ''}`.trim()}
               aria-label="Toggle safe margins overlay"
+              title="Safe margins"
               onClick={() => setShowSafeMargins((currentValue) => !currentValue)}
             >
               <span className="mirror-control-button-icon" aria-hidden="true">SM</span>
@@ -1971,6 +1975,7 @@ function MirrorPage() {
               type="button"
               className="mirror-contrast-button"
               aria-label="Cycle venue visual mode"
+              title="Cycle venue mode"
               onClick={() => {
                 setVenueMode((currentMode) => {
                   if (currentMode === 'club') {
@@ -1988,6 +1993,9 @@ function MirrorPage() {
               <span className="mirror-control-button-icon" aria-hidden="true">VM</span>
               Venue: {venueMode === 'club' ? 'Club' : venueMode === 'festival' ? 'Festival' : 'Lounge'}
             </button>
+            <p className="mirror-control-shortcuts" aria-live="polite">
+              Shortcuts: <strong>F</strong> fullscreen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> play/pause.
+            </p>
           </div>
         ) : null}
       </header>

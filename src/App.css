@@ -4756,6 +4756,20 @@
   gap: 0.55rem;
 }
 
+.mirror-control-shortcuts {
+  margin: 0;
+  width: 100%;
+  text-align: right;
+  font-size: clamp(0.66rem, 1vw, 0.78rem);
+  letter-spacing: 0.04em;
+  color: rgba(184, 210, 255, 0.82);
+}
+
+.mirror-control-shortcuts strong {
+  color: #9bdfff;
+  font-weight: 800;
+}
+
 .mirror-shell-hide-controls .mirror-editor-controls {
   display: none !important;
 }
