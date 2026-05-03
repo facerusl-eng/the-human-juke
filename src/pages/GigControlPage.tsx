@@ -838,6 +838,12 @@ function GigControlPage() {
       disabled: gigActions.quickActionBusy,
     },
     {
+      id: 'host-readiness',
+      label: 'Readiness Check',
+      onClick: () => navigate('/admin/readiness'),
+      variant: 'ghost',
+    },
+    {
       id: 'open-gig-settings',
       label: 'Gig Settings',
       onClick: () => navigate('/admin/gig-settings'),

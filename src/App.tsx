@@ -64,6 +64,7 @@ const GigSettingsPage = lazyWithChunkReload(() => import('./pages/GigSettingsPag
 const GigsPage = lazyWithChunkReload(() => import('./pages/GigsPage'))
 const HealthCheckPage = lazyWithChunkReload(() => import('./pages/HealthCheckPage'))
 const HomePage = lazyWithChunkReload(() => import('./pages/HomePage'))
+const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
 const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
 const PromoteEventPage = lazyWithChunkReload(() => import('./pages/PromoteEventPage'))
@@ -273,6 +274,17 @@ const router = createBrowserRouter([
             'Admin',
             <RequireHost>
               <HealthCheckPage />
+            </RequireHost>,
+          ),
+        ),
+      },
+      {
+        path: 'admin/readiness',
+        element: withSuspense(
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <ReadinessPage />
             </RequireHost>,
           ),
         ),
