@@ -257,6 +257,9 @@ function AdminDashboardContent({
   const openPromoteEvent = useCallback(() => {
     navigate('/admin/promote-event')
   }, [navigate])
+  const openReceivedBookings = useCallback(() => {
+    navigate('/admin/received-bookings')
+  }, [navigate])
 
   useEffect(() => {
     if (!loading) {
@@ -476,6 +479,11 @@ function AdminDashboardContent({
       id: 'open-promote-event',
       label: 'Promote Event',
       onClick: openPromoteEvent,
+    },
+    {
+      id: 'open-received-bookings',
+      label: 'Received Bookings',
+      onClick: openReceivedBookings,
     },
   ]
   const retryDashboardActions: ActionButtonConfig[] = [

@@ -74,6 +74,7 @@ const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
 const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
 const PromoteEventPage = lazyWithChunkReload(() => import('./pages/PromoteEventPage'))
+const ReceivedBookingsPage = lazyWithChunkReload(() => import('./pages/ReceivedBookingsPage'))
 const SettingsPage = lazyWithChunkReload(() => import('./pages/SettingsPage'))
 const SpotifyCallbackPage = lazyWithChunkReload(() => import('./pages/SpotifyCallbackPage'))
 
@@ -326,6 +327,17 @@ const router = createBrowserRouter([
             'Admin',
             <RequireHost>
               <PromoteEventPage />
+            </RequireHost>,
+          ),
+        ),
+      },
+      {
+        path: 'admin/received-bookings',
+        element: withSuspense(
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <ReceivedBookingsPage />
             </RequireHost>,
           ),
         ),
