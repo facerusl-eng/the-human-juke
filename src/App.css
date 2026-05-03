@@ -3016,6 +3016,28 @@
   background: rgba(93, 215, 255, 0.05);
 }
 
+.create-gig-intro-panel {
+  padding: 1rem;
+  border: 1px solid rgba(93, 215, 255, 0.24);
+  border-radius: 14px;
+  background: rgba(93, 215, 255, 0.05);
+  gap: 0.6rem;
+}
+
+.create-gig-intro-panel select,
+.create-gig-intro-panel input[type="file"] {
+  width: 100%;
+}
+
+.create-gig-intro-preview {
+  margin-top: 0.35rem;
+}
+
+.create-gig-intro-preview audio {
+  width: 100%;
+  max-width: 100%;
+}
+
 .create-gig-datetime-label {
   font-size: 0.9rem;
   font-weight: 600;

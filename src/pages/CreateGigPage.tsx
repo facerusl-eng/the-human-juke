@@ -7,6 +7,13 @@ import { supabase } from '../lib/supabase'
 type Step = 'info' | 'datetime'
 type EventType = 'halli-live' | 'karaoke' | 'build-self'
 
+type IntroAudioLibraryItem = {
+  path: string
+  name: string
+  url: string
+  createdAt: string | null
+}
+
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
 
@@ -50,6 +57,9 @@ function CreateGigPage() {
     const [autoLiveEnabled, setAutoLiveEnabled] = useState(false)
   const [introAudioUrl, setIntroAudioUrl] = useState<string | null>(null)
   const [introAudioName, setIntroAudioName] = useState('')
+  const [selectedIntroAudioPath, setSelectedIntroAudioPath] = useState<string>('')
+  const [introAudioLibrary, setIntroAudioLibrary] = useState<IntroAudioLibraryItem[]>([])
+  const [introAudioLibraryLoading, setIntroAudioLibraryLoading] = useState(false)
   const [coverImageDataUrl, setCoverImageDataUrl] = useState<string | null>(null)
   const [coverImageName, setCoverImageName] = useState('')
   const [processingIntroAudio, setProcessingIntroAudio] = useState(false)
@@ -120,6 +130,59 @@ function CreateGigPage() {
       isCurrent = false
     }
   }, [isHost, user?.id])
+
+  const refreshIntroAudioLibrary = useCallback(async () => {
+    if (!user?.id || !isHost) {
+      setIntroAudioLibrary([])
+      return
+    }
+
+    setIntroAudioLibraryLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .storage
+        .from('gig-intro-audio')
+        .list(user.id, {
+          limit: 100,
+          sortBy: { column: 'created_at', order: 'desc' },
+        })
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      const nextLibrary = (data ?? [])
+        .filter((file) => !file.name.endsWith('/'))
+        .filter((file) => file.name.toLowerCase().endsWith('.mp3'))
+        .map((file) => {
+          const path = `${user.id}/${file.name}`
+          const { data: publicUrlData } = supabase
+            .storage
+            .from('gig-intro-audio')
+            .getPublicUrl(path)
+
+          return {
+            path,
+            name: file.name,
+            url: publicUrlData.publicUrl,
+            createdAt: file.created_at ?? null,
+          } satisfies IntroAudioLibraryItem
+        })
+
+      setIntroAudioLibrary(nextLibrary)
+    } catch (error) {
+      console.warn('CreateGigPage: failed to load intro audio library', error)
+    } finally {
+      if (isMountedRef.current) {
+        setIntroAudioLibraryLoading(false)
+      }
+    }
+  }, [isHost, user?.id])
+
+  useEffect(() => {
+    void refreshIntroAudioLibrary()
+  }, [refreshIntroAudioLibrary])
 
   const isAuthLockError = (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
@@ -310,6 +373,7 @@ function CreateGigPage() {
     if (!selectedFile) {
       setIntroAudioUrl(null)
       setIntroAudioName('')
+      setSelectedIntroAudioPath('')
       return
     }
 
@@ -359,7 +423,9 @@ function CreateGigPage() {
 
       setIntroAudioUrl(publicUrlData.publicUrl)
       setIntroAudioName(selectedFile.name)
+      setSelectedIntroAudioPath(storagePath)
       setErrorText(null)
+      void refreshIntroAudioLibrary()
     } catch (error) {
       if (!isMountedRef.current) {
         return
@@ -372,6 +438,25 @@ function CreateGigPage() {
         setProcessingIntroAudio(false)
       }
     }
+  }
+
+  const onSelectSavedIntroAudio = (path: string) => {
+    setSelectedIntroAudioPath(path)
+
+    if (!path) {
+      setIntroAudioUrl(null)
+      setIntroAudioName('')
+      return
+    }
+
+    const selectedTrack = introAudioLibrary.find((item) => item.path === path)
+    if (!selectedTrack) {
+      return
+    }
+
+    setIntroAudioUrl(selectedTrack.url)
+    setIntroAudioName(selectedTrack.name)
+    setErrorText(null)
   }
 
   if (loading) {
@@ -593,51 +678,69 @@ function CreateGigPage() {
               onChange={(e) => setShowInAudienceNoGig(e.target.checked)}
             />
             <span>Show this event in the Audience App when no gig is running</span>
-
-                    <label className="checkbox-row create-gig-checkbox-row" htmlFor="auto-live-enabled">
-                      <input
-                        id="auto-live-enabled"
-                        type="checkbox"
-                        checked={autoLiveEnabled}
-                        onChange={(e) => setAutoLiveEnabled(e.target.checked)}
-                      />
-                      <span>Automatically go live at scheduled start time</span>
-                    </label>
-                    {autoLiveEnabled ? (
-                      <p className="field-hint">The gig will activate automatically when the scheduled start time is reached — as long as the host dashboard is open in a browser.</p>
-                    ) : null}
-
-                    <div className="field-row">
-                      <label htmlFor="gig-intro-audio">Intro MP3 (optional)</label>
-                      <input
-                        id="gig-intro-audio"
-                        type="file"
-                        accept=".mp3,audio/mpeg"
-                        onChange={(e) => {
-                          void onSelectIntroAudio(e)
-                        }}
-                        disabled={processingIntroAudio || busy}
-                      />
-                      <p className="field-hint">This intro song plays on the host device when auto-live starts this gig. Max 12 MB.</p>
-                      {processingIntroAudio ? <p className="field-hint">Uploading intro audio…</p> : null}
-                      {introAudioUrl ? (
-                        <div className="photo-preview">
-                          <audio controls src={introAudioUrl} />
-                          <p className="field-hint">{introAudioName || 'Intro MP3 selected'}</p>
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={() => {
-                              setIntroAudioUrl(null)
-                              setIntroAudioName('')
-                            }}
-                          >
-                            Remove intro audio
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
           </label>
+
+          <label className="checkbox-row create-gig-checkbox-row" htmlFor="auto-live-enabled">
+            <input
+              id="auto-live-enabled"
+              type="checkbox"
+              checked={autoLiveEnabled}
+              onChange={(e) => setAutoLiveEnabled(e.target.checked)}
+            />
+            <span>Automatically go live at scheduled start time</span>
+          </label>
+          {autoLiveEnabled ? (
+            <p className="field-hint">The gig will activate automatically when the scheduled start time is reached — as long as the host dashboard is open in a browser.</p>
+          ) : null}
+
+          <div className="field-row create-gig-intro-panel">
+            <label htmlFor="gig-intro-audio">Intro MP3 (optional)</label>
+            <input
+              id="gig-intro-audio"
+              type="file"
+              accept=".mp3,audio/mpeg"
+              onChange={(e) => {
+                void onSelectIntroAudio(e)
+              }}
+              disabled={processingIntroAudio || busy}
+            />
+            <p className="field-hint">Upload intro tracks once, then pick any saved MP3 for this gig. Max 12 MB per file.</p>
+            {processingIntroAudio ? <p className="field-hint">Uploading intro audio…</p> : null}
+
+            <label htmlFor="saved-intro-audio">Saved intro MP3 library</label>
+            <select
+              id="saved-intro-audio"
+              value={selectedIntroAudioPath}
+              onChange={(e) => onSelectSavedIntroAudio(e.target.value)}
+              disabled={introAudioLibraryLoading || busy}
+            >
+              <option value="">Choose saved MP3…</option>
+              {introAudioLibrary.map((track) => (
+                <option key={track.path} value={track.path}>
+                  {track.name}
+                </option>
+              ))}
+            </select>
+            {introAudioLibraryLoading ? <p className="field-hint">Loading saved intro tracks…</p> : null}
+
+            {introAudioUrl ? (
+              <div className="photo-preview create-gig-intro-preview">
+                <audio controls src={introAudioUrl} />
+                <p className="field-hint">{introAudioName || 'Intro MP3 selected'}</p>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    setIntroAudioUrl(null)
+                    setIntroAudioName('')
+                    setSelectedIntroAudioPath('')
+                  }}
+                >
+                  Remove intro audio
+                </button>
+              </div>
+            ) : null}
+          </div>
 
           <div className="field-row">
             <label htmlFor="gig-cover-image">Gig cover image (optional)</label>
