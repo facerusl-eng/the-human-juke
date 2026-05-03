@@ -1079,6 +1079,45 @@ function MirrorPage() {
         return
       }
 
+      const target = keyEvent.target as HTMLElement | null
+      const activeElement = document.activeElement as HTMLElement | null
+      const interactiveTarget = target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="button"], [role="textbox"], [data-spacebar-ignore="true"]')
+      const isTypingTarget = Boolean(interactiveTarget || activeElement?.isContentEditable)
+
+      if (isTypingTarget) {
+        return
+      }
+
+      if (keyEvent.key === 'Escape') {
+        if (!getActiveFullscreenElement()) {
+          return
+        }
+
+        keyEvent.preventDefault()
+        void exitFullscreenSafe().catch((error) => {
+          console.warn('MirrorPage: keyboard fullscreen exit failed', error)
+          setMirrorWarningMessage('Could not exit fullscreen from keyboard shortcut.')
+        })
+        return
+      }
+
+      if (keyEvent.key.toLowerCase() === 'f' && !keyEvent.altKey && !keyEvent.ctrlKey && !keyEvent.metaKey) {
+        keyEvent.preventDefault()
+        void (async () => {
+          try {
+            if (!getActiveFullscreenElement()) {
+              await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+            } else {
+              await exitFullscreenSafe()
+            }
+          } catch (error) {
+            console.warn('MirrorPage: keyboard fullscreen toggle failed', error)
+            setMirrorWarningMessage('Could not toggle fullscreen from keyboard shortcut.')
+          }
+        })()
+        return
+      }
+
       if (keyEvent.code !== 'Space') {
         return
       }
@@ -1089,15 +1128,6 @@ function MirrorPage() {
 
       if (keyEvent.repeat) {
         keyEvent.preventDefault()
-        return
-      }
-
-      const target = keyEvent.target as HTMLElement | null
-      const activeElement = document.activeElement as HTMLElement | null
-      const interactiveTarget = target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="button"], [role="textbox"], [data-spacebar-ignore="true"]')
-      const isTypingTarget = Boolean(interactiveTarget || activeElement?.isContentEditable)
-
-      if (isTypingTarget) {
         return
       }
 

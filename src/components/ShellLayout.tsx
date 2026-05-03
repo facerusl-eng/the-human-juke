@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AUDIENCE_NAME_COMMITTED_EVENT, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from '../state/authStore'
@@ -22,6 +22,9 @@ function ShellLayout() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [isGigMenuOpen, setIsGigMenuOpen] = useState(false)
   const [isGigMenuForceClosed, setIsGigMenuForceClosed] = useState(false)
+  const mobileNavToggleRef = useRef<HTMLButtonElement | null>(null)
+  const gigMenuRef = useRef<HTMLDivElement | null>(null)
+  const gigMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
   const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
@@ -56,6 +59,17 @@ function ShellLayout() {
     })
   }
 
+  const closeGigMenu = (focusTrigger = false) => {
+    setIsGigMenuOpen(false)
+    setIsGigMenuForceClosed(true)
+
+    if (focusTrigger) {
+      window.requestAnimationFrame(() => {
+        gigMenuTriggerRef.current?.focus()
+      })
+    }
+  }
+
   useEffect(() => {
     const syncAudienceAccess = () => {
       setHasAudienceAccess(Boolean(readCommittedAudienceName()))
@@ -76,6 +90,37 @@ function ShellLayout() {
     setIsGigMenuOpen(false)
     setIsGigMenuForceClosed(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!isMobileNavOpen && !isGigMenuOpen) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      if (isGigMenuOpen) {
+        event.preventDefault()
+        closeGigMenu(true)
+        return
+      }
+
+      if (isMobileNavOpen) {
+        event.preventDefault()
+        setIsMobileNavOpen(false)
+        window.requestAnimationFrame(() => {
+          mobileNavToggleRef.current?.focus()
+        })
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [isGigMenuOpen, isMobileNavOpen])
 
   useEffect(() => {
     if (!authActionBusy) {
@@ -183,6 +228,7 @@ function ShellLayout() {
         {showMobileMenu ? (
           <button
             type="button"
+            ref={mobileNavToggleRef}
             className="mobile-nav-toggle"
             aria-controls="primary-site-nav"
             aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -191,7 +237,18 @@ function ShellLayout() {
             {isMobileNavOpen ? 'Close menu' : 'Menu'}
           </button>
         ) : null}
-        <nav id="primary-site-nav" className={siteNavClassName} aria-label="Primary navigation">
+        <nav
+          id="primary-site-nav"
+          className={siteNavClassName}
+          aria-label="Primary navigation"
+          onClick={(event) => {
+            const clickTarget = event.target as HTMLElement
+
+            if (showMobileMenu && isMobileNavOpen && clickTarget.closest('a')) {
+              setIsMobileNavOpen(false)
+            }
+          }}
+        >
           {isAudienceMode ? (
             <>
               <NavLink to="/audience">Audience</NavLink>
@@ -207,6 +264,7 @@ function ShellLayout() {
                 <>
                   <NavLink to="/admin" end>Dashboard</NavLink>
                   <div
+                    ref={gigMenuRef}
                     className={[
                       'nav-dropdown',
                       'gigs-nav-dropdown',
@@ -224,13 +282,36 @@ function ShellLayout() {
                       setIsGigMenuOpen(false)
                       setIsGigMenuForceClosed(false)
                     }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Escape') {
+                        return
+                      }
+
+                      event.preventDefault()
+                      closeGigMenu(true)
+                    }}
                   >
                     <button
                       type="button"
+                      ref={gigMenuTriggerRef}
                       className={`nav-dropdown-trigger ${isGigNavActive ? 'active' : ''}`.trim()}
                       aria-label="Open gig navigation"
                       aria-haspopup="true"
                       aria-controls="gig-nav-menu"
+                      onKeyDown={(event) => {
+                        if (event.key !== 'ArrowDown') {
+                          return
+                        }
+
+                        event.preventDefault()
+                        setIsGigMenuForceClosed(false)
+                        setIsGigMenuOpen(true)
+
+                        window.requestAnimationFrame(() => {
+                          const firstMenuLink = gigMenuRef.current?.querySelector<HTMLAnchorElement>('.nav-dropdown-menu a')
+                          firstMenuLink?.focus()
+                        })
+                      }}
                       onClick={() => {
                         setIsGigMenuForceClosed(false)
                         setIsGigMenuOpen((open) => !open)
