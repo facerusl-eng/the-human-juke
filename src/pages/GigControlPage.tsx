@@ -582,6 +582,7 @@ function GigControlPage() {
           const normalizedQuoteIndex = sharedPlaybackState.quoteIndex % BETWEEN_SONG_QUOTES.length
           quoteIndexRef.current = normalizedQuoteIndex
           setBetweenSongQuoteIndex(normalizedQuoteIndex)
+          setIsBrbActive(Boolean(sharedPlaybackState.brbActive))
 
           if (sharedPlaybackState.currentSongId === nowPlaying.id) {
             setIsNowPlayingStarted(sharedPlaybackState.isStarted)
