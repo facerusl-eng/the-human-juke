@@ -36,4 +36,6 @@ export const DEMO_EVENT = {
   tipThankYouMessageEN: 'Thanks for the tip! 🙏',
   eventType: 'halli-live',
   karafunUrl: null,
+  artistName: null,
+  audienceVotingEnabled: true,
 } as const

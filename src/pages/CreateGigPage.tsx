@@ -212,6 +212,8 @@ function CreateGigPage() {
           subtitle: description.trim() || undefined,
           eventType,
           karafunUrl: karafunUrl.trim() || undefined,
+          artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
+          audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
         }
       : {
           showInAudienceNoGig,
@@ -229,9 +231,7 @@ function CreateGigPage() {
     } catch (error) {
       if (!isMountedRef.current) {
         return
-          artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
-          audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
-        }
+      }
 
       if (isAuthLockError(error)) {
         setErrorText('Session lock is busy. Close duplicate admin tabs, wait 2 seconds, then try Create Gig again.')

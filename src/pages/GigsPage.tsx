@@ -15,8 +15,10 @@ function formatGigDate(createdAt: string) {
   }).format(new Date(createdAt))
 }
 
-function formatEventTypeLabel(eventType: 'halli-live' | 'karaoke') {
-  return eventType === 'karaoke' ? 'Karaoke' : 'Halli Playing Music'
+function formatEventTypeLabel(eventType: 'halli-live' | 'karaoke' | 'build-self') {
+  if (eventType === 'karaoke') return 'Karaoke'
+  if (eventType === 'build-self') return 'Build Self Gig'
+  return 'Halli Playing Music'
 }
 
 function GigsPage() {
