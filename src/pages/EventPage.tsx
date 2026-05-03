@@ -1985,8 +1985,8 @@ function EventPage() {
                   {primaryTipLink ? (
                     <a className="tip-jar-link" href={primaryTipLink.url} target="_blank" rel="noreferrer" onClick={handleTipClick}>
                       <span className="tip-jar-glass" aria-hidden="true">
-                        <span className="tip-jar-lid" />
-                        <span className="tip-jar-symbol">£</span>
+                        <span className="tip-jar-neon-ring" />
+                        <span className="tip-jar-symbol">🎤</span>
                         <span className="tip-jar-coin-drop">🪙</span>
                       </span>
                       <span className="tip-jar-ribbon">A Tip Would Be Lovely. No Drama.</span>

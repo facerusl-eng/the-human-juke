@@ -582,37 +582,99 @@
 }
 
 .audience-karafun .tip-jar-link {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 79, 154, 0.12),
-    rgba(162, 89, 255, 0.12)
-  );
-  border: 1px solid rgba(255, 79, 154, 0.28);
-  border-radius: 16px;
+  background: none;
+  border: none;
+  border-radius: 0;
   color: var(--kf-text);
   text-decoration: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 1.2rem;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  gap: 0.7rem;
+  padding: 0.5rem;
+  transition: transform 0.18s ease;
 }
 
 .audience-karafun .tip-jar-link:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 18px rgba(255, 79, 154, 0.22);
+  transform: translateY(-3px);
+  box-shadow: none;
 }
 
+/* The jar body — dark navy + neon ring glow like the logo circle */
+.audience-karafun .tip-jar-glass {
+  width: clamp(7.4rem, 26vw, 9.7rem);
+  aspect-ratio: 0.92 / 1;
+  border-radius: 47% 47% 44% 44% / 53% 53% 40% 40%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  /* Dark navy body — matches logo interior */
+  background:
+    radial-gradient(circle at 30% 22%, rgba(46, 197, 255, 0.18) 0%, transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(255, 79, 154, 0.14) 0%, transparent 38%),
+    linear-gradient(160deg, #0f1228, #080b1c);
+  /* Neon blue-to-pink ring, like the logo's neon circle */
+  border: 2px solid transparent;
+  box-shadow:
+    0 0 0 2px rgba(46, 197, 255, 0.55),
+    0 0 24px rgba(46, 197, 255, 0.45),
+    0 0 48px rgba(255, 79, 154, 0.28),
+    inset 0 0 18px rgba(46, 197, 255, 0.08),
+    0 12px 28px rgba(4, 8, 28, 0.6);
+}
+
+/* Neon ring accent inside the jar — the bokeh ring from the logo */
+.audience-karafun .tip-jar-neon-ring {
+  position: absolute;
+  inset: 12% 10%;
+  border-radius: 47% 47% 44% 44% / 53% 53% 40% 40%;
+  border: 1.5px solid transparent;
+  background: transparent;
+  box-shadow:
+    0 0 10px rgba(46, 197, 255, 0.3),
+    0 0 6px rgba(255, 79, 154, 0.2) inset;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.audience-karafun .tip-jar-symbol {
+  font-size: clamp(2.4rem, 7vw, 3.2rem);
+  filter:
+    drop-shadow(0 0 12px rgba(46, 197, 255, 0.7))
+    drop-shadow(0 0 6px rgba(255, 79, 154, 0.5));
+  z-index: 1;
+}
+
+/* Ribbon label — bold white text like logo, neon border */
 .audience-karafun .tip-jar-ribbon {
-  color: var(--kf-pink);
+  width: 100%;
+  display: block;
+  text-align: center;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1.5px solid rgba(46, 197, 255, 0.45);
+  background: linear-gradient(
+    135deg,
+    rgba(46, 197, 255, 0.12) 0%,
+    rgba(162, 89, 255, 0.12) 50%,
+    rgba(255, 79, 154, 0.12) 100%
+  );
+  color: #ffffff;
+  font-size: clamp(0.84rem, 2.6vw, 0.96rem);
   font-weight: 800;
-  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 0 12px rgba(93, 215, 255, 0.7),
+    0 1px 3px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 0 14px rgba(46, 197, 255, 0.18),
+    0 0 8px rgba(255, 79, 154, 0.12);
 }
 
 .audience-karafun .tip-jar-provider {
-  color: var(--kf-text-sub);
+  color: rgba(93, 215, 255, 0.7);
   font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .audience-karafun .tip-chip {
