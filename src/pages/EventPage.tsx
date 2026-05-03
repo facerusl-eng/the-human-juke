@@ -22,6 +22,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
+import { demoMode } from '../demo/demoMode'
 
 type HostProfile = {
   display_name: string | null
@@ -1187,7 +1188,7 @@ function EventPage() {
   useEffect(() => {
     const eventId = event?.id
 
-    if (!eventId || !audienceName || !roomOpen) {
+    if (!eventId || !audienceName || !roomOpen || demoMode) {
       return
     }
 
@@ -1214,6 +1215,13 @@ function EventPage() {
         const hostId = event?.hostId
 
         if (!hostId) {
+          if (isCurrent) {
+            setHostProfile(null)
+          }
+          return
+        }
+
+        if (demoMode) {
           if (isCurrent) {
             setHostProfile(null)
           }
@@ -1468,7 +1476,7 @@ function EventPage() {
   useEffect(() => {
     const eventId = event?.id
 
-    if (!eventId) {
+    if (!eventId || demoMode) {
       setPlaybackState(null)
       return
     }

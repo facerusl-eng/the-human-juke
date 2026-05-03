@@ -53,7 +53,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+export const AuthContext = createContext<AuthContextValue | null>(null)
 
 function isAllowedHostEmail(email: string | null | undefined) {
   if (!ALLOWED_HOST_EMAIL || !email) {

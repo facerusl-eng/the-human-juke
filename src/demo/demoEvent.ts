@@ -1,0 +1,37 @@
+/**
+ * Fake event data for Demo Mode.
+ * Mirrors the EventState shape used by queueStore.
+ */
+export const DEMO_EVENT = {
+  id: 'demo-event-001',
+  hostId: 'demo-host-001',
+  name: 'The Groove Lounge — Live Night',
+  venue: 'The Groove Lounge',
+  gigDate: new Date().toISOString().split('T')[0],
+  gigStartTime: '20:00',
+  gigEndTime: '23:30',
+  subtitle: 'Your requests keep the party alive 🎶',
+  requestInstructions: 'Type a song and artist, then hit Add to Queue!',
+  instagramUrl: null,
+  tiktokUrl: null,
+  youtubeUrl: null,
+  facebookUrl: null,
+  paypalUrl: 'https://paypal.me/demohost',
+  mobilpayUrl: null,
+  contactEmail: null,
+  playlistOnlyRequests: false,
+  mirrorPhotoSpotlightEnabled: true,
+  mirrorCountdownEnabled: false,
+  allowDuplicateRequests: false,
+  maxActiveRequestsPerUser: 2,
+  roomOpen: true,
+  explicitFilterEnabled: false,
+  showInAudienceNoGig: false,
+  coverImageUrl: null,
+  venueLogoUrl: null,
+  showCustomButton: false,
+  customButtonLabel: null,
+  customButtonLink: null,
+  tipThankYouMessageDA: 'Tak for dit tip! 🙏',
+  tipThankYouMessageEN: 'Thanks for the tip! 🙏',
+} as const

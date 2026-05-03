@@ -365,6 +365,30 @@
   border-top: 1px solid rgba(93, 215, 255, 0.2);
 }
 
+/* ─── DEMO MODE ──────────────────────────────────── */
+
+.demo-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: linear-gradient(90deg, #f59e0b 0%, #f97316 100%);
+  color: #1a0a00;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  padding: 0.42rem 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.app-shell-demo {
+  padding-top: 2.2rem;
+}
+
 .site-legal-footer p {
   margin: 0;
   text-align: center;

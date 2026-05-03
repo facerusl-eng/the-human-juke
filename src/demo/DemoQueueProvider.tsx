@@ -1,0 +1,106 @@
+import { useCallback, useMemo, useState } from 'react'
+import type { PropsWithChildren } from 'react'
+import { QueueContext } from '../state/queueStore'
+import type { QueueSong, PerformedSong } from '../state/queueStore'
+import { DEMO_EVENT } from './demoEvent'
+import { DEMO_INITIAL_QUEUE } from './demoQueue'
+import { DEMO_NOW_PLAYING } from './demoNowPlaying'
+
+let _demoIdCounter = 1000
+
+function generateDemoId() {
+  _demoIdCounter += 1
+  return `demo-user-song-${_demoIdCounter}`
+}
+
+/**
+ * DemoQueueProvider — provides the same QueueContext as QueueProvider but
+ * backed entirely by in-memory fake data.
+ *
+ * Audience-facing interactions (addSong, upvoteSong) are fully functional and
+ * update in-memory state so the UI reflects realistic changes.
+ *
+ * Host-only operations (endGig, deleteEvent, updateEventSettings, etc.) are
+ * no-ops because demo users are always guests.
+ */
+export function DemoQueueProvider({ children }: PropsWithChildren) {
+  // Prepend the now-playing song so songs[0] becomes the active track.
+  const [songs, setSongs] = useState<QueueSong[]>([DEMO_NOW_PLAYING, ...DEMO_INITIAL_QUEUE])
+  const [performedSongs] = useState<PerformedSong[]>([])
+  const [votedSongIds] = useState(() => new Set<string>())
+
+  const addSong = useCallback(async (title: string, artist: string, isExplicit: boolean) => {
+    const newSong: QueueSong = {
+      id: generateDemoId(),
+      event_id: DEMO_EVENT.id,
+      title: title.trim() || 'Untitled',
+      artist: artist.trim() || 'Unknown Artist',
+      votes_count: 0,
+      is_explicit: isExplicit,
+      voting_locked: false,
+      is_removed: false,
+      cover_url: null,
+      library_song_id: null,
+      audience_sings: false,
+      position: songs.length,
+      createdByName: 'You',
+    }
+
+    setSongs((current) => [...current, newSong])
+  }, [songs.length])
+
+  const upvoteSong = useCallback(async (songId: string) => {
+    // Only allow one vote per song per demo session.
+    if (votedSongIds.has(songId)) {
+      return
+    }
+
+    votedSongIds.add(songId)
+
+    setSongs((current) =>
+      current.map((song) =>
+        song.id === songId
+          ? { ...song, votes_count: song.votes_count + 1 }
+          : song,
+      ),
+    )
+  }, [votedSongIds])
+
+  const noop = useCallback(async () => {
+    // Intentional no-op for host-only operations not available in demo mode.
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      event: { ...DEMO_EVENT },
+      hostEvents: [],
+      songs,
+      performedSongs,
+      loading: false,
+      audienceConnectionStatus: 'connected' as const,
+      queueOperatingMode: 'normal' as const,
+      queueHealthMessage: null,
+      addSong,
+      upvoteSong,
+      // Host-only operations — silently no-op.
+      setActiveEvent: noop,
+      endGig: noop,
+      deleteEvent: noop,
+      updateEventSettings: noop,
+      toggleRoomOpen: noop,
+      toggleExplicitFilter: noop,
+      setShowInAudienceNoGig: noop,
+      setEventAudienceNoGigVisibility: noop,
+      toggleVotingLock: noop,
+      removeSong: noop,
+      moveSong: noop,
+      reorderSong: noop,
+      createEvent: noop,
+      markPlayed: noop,
+      unmarkPlayed: noop,
+    }),
+    [songs, performedSongs, addSong, upvoteSong, noop],
+  )
+
+  return <QueueContext.Provider value={value}>{children}</QueueContext.Provider>
+}

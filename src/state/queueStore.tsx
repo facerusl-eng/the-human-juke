@@ -117,7 +117,7 @@ export type HostEventSummary = {
   createdAt: string
 }
 
-type QueueContextValue = {
+export type QueueContextValue = {
   event: EventState | null
   hostEvents: HostEventSummary[]
   songs: QueueSong[]
@@ -145,7 +145,7 @@ type QueueContextValue = {
   unmarkPlayed: (songId: string) => Promise<void>
 }
 
-const QueueContext = createContext<QueueContextValue | null>(null)
+export const QueueContext = createContext<QueueContextValue | null>(null)
 const DEFAULT_DB_TIMEOUT_MS = 25_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
 const HOST_QUEUE_POLL_INTERVAL_MS = 15_000

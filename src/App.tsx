@@ -15,6 +15,9 @@ import EventPage from './pages/EventPage'
 import AudienceSongListPage from './pages/AudienceSongListPage'
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
+import { demoMode } from './demo/demoMode'
+import { DemoAuthProvider } from './demo/DemoAuthProvider'
+import { DemoQueueProvider } from './demo/DemoQueueProvider'
 
 const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
 
@@ -158,11 +161,9 @@ const router = createBrowserRouter([
     path: '/',
     element: withCrashBoundary(
       'App Shell',
-      <AuthProvider>
-        <QueueProvider>
-          <ShellLayout />
-        </QueueProvider>
-      </AuthProvider>,
+      demoMode
+        ? <DemoAuthProvider><DemoQueueProvider><ShellLayout /></DemoQueueProvider></DemoAuthProvider>
+        : <AuthProvider><QueueProvider><ShellLayout /></QueueProvider></AuthProvider>,
     ),
     errorElement: <RouteErrorFallback />,
     children: [
@@ -334,11 +335,9 @@ const router = createBrowserRouter([
     element: withSuspense(
       withCrashBoundary(
         'Mirror',
-        <AuthProvider>
-          <QueueProvider>
-            <MirrorPage />
-          </QueueProvider>
-        </AuthProvider>,
+        demoMode
+          ? <DemoAuthProvider><DemoQueueProvider><MirrorPage /></DemoQueueProvider></DemoAuthProvider>
+          : <AuthProvider><QueueProvider><MirrorPage /></QueueProvider></AuthProvider>,
       ),
     ),
     errorElement: <RouteErrorFallback />,

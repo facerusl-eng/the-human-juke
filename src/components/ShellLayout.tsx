@@ -3,6 +3,8 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AUDIENCE_NAME_COMMITTED_EVENT, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
+import { demoMode } from '../demo/demoMode'
+import { DemoBanner } from '../demo/DemoBanner'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
@@ -217,7 +219,8 @@ function ShellLayout() {
   }, [location.pathname, location.search, navigate])
 
   return (
-    <main className={shellClassName}>
+    <main className={[shellClassName, demoMode ? 'app-shell-demo' : ''].filter(Boolean).join(' ')}>
+      {demoMode ? <DemoBanner /> : null}
       {!isAudienceSongListMode ? <header className={topbarClassName}>
         <NavLink to="/" className="brand" aria-label="Go to Home page">
           <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
@@ -331,7 +334,7 @@ function ShellLayout() {
                   <NavLink to="/admin/settings">Settings</NavLink>
                 </>
               ) : (
-                <NavLink to="/admin">Admin</NavLink>
+                !demoMode ? <NavLink to="/admin">Admin</NavLink> : null
               )}
             </>
           )}
@@ -343,7 +346,7 @@ function ShellLayout() {
             <span className="meta-badge">Checking session...</span>
           ) : null}
 
-          {!loading && !isHost ? (
+          {!loading && !isHost && !demoMode ? (
             <form
               className="inline-auth-form"
               onSubmit={async (event) => {

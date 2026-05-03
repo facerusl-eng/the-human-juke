@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueueStore } from '../state/queueStore'
 import { resetOGTags } from '../lib/metaTags'
 import { Card, PrimaryButton, SectionHeader } from '../components/ui'
+import { demoMode } from '../demo/demoMode'
 
 const HOW_IT_WORKS = [
   { icon: '01', label: 'Scan & Join', copy: 'Guests open the audience app and request songs in seconds.' },
@@ -28,9 +29,15 @@ function HomePage() {
   const topSongs = songs.slice(0, 3)
 
   useEffect(() => {
+    // In demo mode, immediately redirect to the audience page so the simulated event is visible.
+    if (demoMode) {
+      navigate('/audience?demo=true', { replace: true })
+      return
+    }
+
     // Reset OG tags to app defaults on home page
     resetOGTags()
-  }, [])
+  }, [navigate])
 
   return (
     <section className="home-shell home-shell-v2" aria-label="Home page">
