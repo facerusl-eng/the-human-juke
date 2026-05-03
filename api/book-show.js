@@ -109,6 +109,9 @@ export default async function handler(req, res) {
     return
   }
 
+  const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim() || ''
+  const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
+
   try {
     const emailResponse = await fetch(RESEND_API_URL, {
       method: 'POST',
@@ -132,6 +135,37 @@ export default async function handler(req, res) {
         ? emailPayload.message
         : 'Failed to send booking request email.'
       throw new Error(resendError)
+    }
+
+    // Save to Supabase inbox (best-effort, does not fail the request)
+    if (supabaseUrl && supabaseKey) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/booking_requests`, {
+          method: 'POST',
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify({
+            venue_name: payload.venueName,
+            venue_address: payload.venueAddress,
+            contact_person_name: payload.contactPersonName,
+            email: payload.email,
+            phone_number: payload.phoneNumber,
+            preferred_date: payload.preferredDate,
+            preferred_start_time: payload.preferredStartTime,
+            event_type: payload.eventType,
+            estimated_guests: Number(payload.estimatedGuests),
+            frequency: payload.frequency,
+            additional_message: payload.additionalMessage || null,
+            status: 'new',
+          }),
+        })
+      } catch {
+        // Inbox save failed — email was already sent, so we still return success
+      }
     }
 
     res.status(200).json({ ok: true })
