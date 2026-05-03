@@ -146,6 +146,117 @@
   cursor: pointer;
 }
 
+
+/* Neon jukebox stage-lighting theme overrides (Audience + Mirror first surfaces) */
+.audience-shell-modern,
+.mirror-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.audience-shell-modern::before,
+.mirror-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 16% 10%, rgba(255, 79, 154, 0.18) 0%, transparent 34%),
+    radial-gradient(circle at 84% 13%, rgba(0, 194, 255, 0.16) 0%, transparent 34%),
+    radial-gradient(circle at 50% 112%, rgba(162, 89, 255, 0.12) 0%, transparent 42%);
+}
+
+.audience-shell-modern .queue-panel,
+.audience-shell-modern .now-playing-card,
+.mirror-header,
+.mirror-now-playing,
+.mirror-up-next,
+.mirror-live-feed {
+  border-color: rgba(162, 89, 255, 0.32) !important;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(255, 79, 154, 0.1) 0%, transparent 44%),
+    radial-gradient(circle at 88% 14%, rgba(0, 194, 255, 0.08) 0%, transparent 42%),
+    linear-gradient(160deg, rgba(16, 10, 32, 0.9) 0%, rgba(12, 9, 25, 0.92) 100%) !important;
+  box-shadow:
+    0 16px 34px rgba(7, 5, 16, 0.48),
+    0 0 24px rgba(162, 89, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.mirror-shell,
+.mirror-shell-live,
+.mirror-shell-paused {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 79, 154, 0.24) 0%, transparent 34%),
+    radial-gradient(circle at 86% 10%, rgba(0, 194, 255, 0.2) 0%, transparent 34%),
+    radial-gradient(circle at 50% 110%, rgba(162, 89, 255, 0.18) 0%, transparent 40%),
+    linear-gradient(160deg, #06040f 0%, #0b0818 50%, #110a21 100%) !important;
+}
+
+.mirror-brand-logo,
+.mirror-venue-logo-image {
+  filter:
+    drop-shadow(0 0 14px rgba(255, 79, 154, 0.22))
+    drop-shadow(0 0 14px rgba(0, 194, 255, 0.2));
+}
+
+.mirror-queue-item,
+.gig-control-queue .gig-control-row,
+.mirror-up-next .mirror-queue-item {
+  border-color: rgba(255, 79, 154, 0.3) !important;
+  background: linear-gradient(145deg, rgba(21, 11, 38, 0.86), rgba(14, 10, 28, 0.9)) !important;
+}
+
+.mirror-queue-votes,
+.mirror-queue-pos,
+.votes {
+  color: #7fdcff !important;
+  text-shadow: 0 0 12px rgba(0, 194, 255, 0.25);
+}
+
+.panel-head h2,
+.mirror-title,
+.mirror-queue-title,
+.audience-shell-modern .song,
+.audience-shell-modern h2 {
+  color: #f8f9ff;
+  text-shadow: 0 0 12px rgba(162, 89, 255, 0.16);
+}
+
+.eyebrow,
+.mirror-queue-artist,
+.mirror-event-name,
+.subcopy,
+.artist {
+  color: rgba(220, 222, 255, 0.84);
+}
+
+.primary-button,
+.vote-button,
+.tap-vote {
+  background: linear-gradient(120deg, #ff4f9a 0%, #a259ff 58%, #00c2ff 100%) !important;
+  border-color: rgba(255, 112, 177, 0.65) !important;
+  color: #f7fbff !important;
+  box-shadow:
+    0 12px 24px rgba(162, 89, 255, 0.28),
+    0 0 18px rgba(255, 79, 154, 0.22) !important;
+}
+
+.primary-button:hover,
+.vote-button:hover,
+.tap-vote:hover {
+  filter: brightness(1.08) saturate(1.06);
+}
+
+.secondary-button,
+.ghost-button,
+.tertiary-button,
+.link-chip {
+  border-color: rgba(0, 194, 255, 0.56) !important;
+  background: linear-gradient(145deg, rgba(18, 10, 34, 0.9), rgba(10, 10, 24, 0.9)) !important;
+  color: #edf3ff !important;
+}
 .mobile-nav-toggle:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;

@@ -15,6 +15,38 @@
   --chip-bg: rgba(255, 79, 154, 0.16);
   --panel-shadow: 0 22px 44px rgba(6, 4, 16, 0.62);
 
+  /* Neon jukebox palette */
+  --neon-pink: #ff4f9a;
+  --neon-blue: #00c2ff;
+  --neon-purple: #a259ff;
+  --neon-red: #ff5a5f;
+  --neon-orange: #ff9f43;
+  --frame-border: rgba(255, 116, 175, 0.34);
+  --frame-border-soft: rgba(0, 194, 255, 0.28);
+  --stage-glow-pink: rgba(255, 79, 154, 0.22);
+  --stage-glow-blue: rgba(0, 194, 255, 0.2);
+  --stage-glow-purple: rgba(162, 89, 255, 0.2);
+
+  /* Spacing + radius scale */
+  --space-1: 0.375rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  /* Typography scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.6rem;
+  --text-2xl: 2.2rem;
+
   --font-body: 'Inter', 'Segoe UI', sans-serif;
   --font-head: 'Montserrat', 'Inter', sans-serif;
 
@@ -36,9 +68,9 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 12% 8%, rgba(255, 79, 154, 0.26) 0%, transparent 36%),
-    radial-gradient(circle at 86% 14%, rgba(0, 194, 255, 0.22) 0%, transparent 35%),
-    radial-gradient(circle at 54% 112%, rgba(162, 89, 255, 0.14) 0%, transparent 40%),
+    radial-gradient(circle at 12% 8%, var(--stage-glow-pink) 0%, transparent 36%),
+    radial-gradient(circle at 86% 14%, var(--stage-glow-blue) 0%, transparent 35%),
+    radial-gradient(circle at 54% 112%, var(--stage-glow-purple) 0%, transparent 40%),
     linear-gradient(160deg, #05040b 0%, #0b0918 52%, #07050f 100%);
 }
 
