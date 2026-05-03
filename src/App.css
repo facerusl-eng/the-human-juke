@@ -4499,6 +4499,11 @@
 /* ─── MIRROR SCREEN ──────────────────────────────── */
 
 .mirror-shell {
+  --mirror-cyan-rgb: 93, 215, 255;
+  --mirror-soft-text: rgba(184, 210, 255, 0.82);
+  --mirror-cyan-soft-border: rgba(var(--mirror-cyan-rgb), 0.22);
+  --mirror-cyan-soft-bg: rgba(var(--mirror-cyan-rgb), 0.1);
+  --mirror-cyan-soft-bg-hover: rgba(var(--mirror-cyan-rgb), 0.18);
   width: 100vw;
   height: 100dvh;
   max-width: 100vw;
@@ -4762,11 +4767,11 @@
   text-align: right;
   font-size: clamp(0.66rem, 1vw, 0.78rem);
   letter-spacing: 0.04em;
-  color: rgba(184, 210, 255, 0.82);
+  color: var(--mirror-soft-text);
 }
 
 .mirror-control-shortcuts strong {
-  color: #9bdfff;
+  color: rgb(var(--mirror-cyan-rgb));
   font-weight: 800;
 }
 
@@ -4865,8 +4870,8 @@
 
 .mirror-fullscreen-button,
 .mirror-contrast-button {
-  border: 1px solid rgba(93, 215, 255, 0.22);
-  background: rgba(93, 215, 255, 0.1);
+  border: 1px solid var(--mirror-cyan-soft-border);
+  background: var(--mirror-cyan-soft-bg);
   color: #dff3ff;
   border-radius: 999px;
   min-height: 2.8rem;
@@ -4888,27 +4893,27 @@
   font-size: 0.64rem;
   letter-spacing: 0.08em;
   font-weight: 800;
-  border: 1px solid rgba(93, 215, 255, 0.38);
+  border: 1px solid rgba(var(--mirror-cyan-rgb), 0.38);
   background: rgba(8, 16, 35, 0.72);
-  color: #9bdfff;
+  color: rgb(var(--mirror-cyan-rgb));
 }
 
 .mirror-control-button-active {
-  border-color: rgba(93, 215, 255, 0.6);
+  border-color: rgba(var(--mirror-cyan-rgb), 0.6);
   background:
-    radial-gradient(circle at 20% 20%, rgba(93, 215, 255, 0.22) 0%, transparent 52%),
+    radial-gradient(circle at 20% 20%, rgba(var(--mirror-cyan-rgb), 0.22) 0%, transparent 52%),
     rgba(8, 18, 36, 0.84);
   color: #f7fbff;
   box-shadow:
     0 12px 24px rgba(3, 8, 22, 0.36),
-    0 0 18px rgba(93, 215, 255, 0.2);
+    0 0 18px rgba(var(--mirror-cyan-rgb), 0.2);
 }
 
 .mirror-fullscreen-button:hover,
 .mirror-contrast-button:hover {
   transform: translateY(-1px);
-  background: rgba(93, 215, 255, 0.18);
-  border-color: rgba(93, 215, 255, 0.36);
+  background: var(--mirror-cyan-soft-bg-hover);
+  border-color: rgba(var(--mirror-cyan-rgb), 0.36);
   box-shadow: 0 12px 24px rgba(3, 8, 22, 0.32);
 }
 
@@ -7002,6 +7007,12 @@
   .mirror-editor-controls {
     width: 100%;
     justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .mirror-control-shortcuts {
+    text-align: left;
+    letter-spacing: 0.02em;
   }
 
   .mirror-fullscreen-button,
@@ -7056,6 +7067,12 @@
 @media (max-width: 720px) {
   .app-shell {
     padding: 0.8rem;
+  }
+
+  .mirror-control-shortcuts {
+    width: 100%;
+    text-align: left;
+    line-height: 1.35;
   }
 
   .site-nav a,
