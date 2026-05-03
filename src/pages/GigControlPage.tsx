@@ -30,6 +30,38 @@ type PersistedGigControlNowPlaying = {
   updatedAt: number
 }
 
+type PreflightIssueCode = 'offline' | 'session' | 'database' | 'realtime' | 'shareLinks' | 'keepwarm' | 'unknown'
+
+function classifyPreflightIssue(error: unknown): PreflightIssueCode {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+
+  if (message.includes('offline') || message.includes('internet')) {
+    return 'offline'
+  }
+
+  if (message.includes('session') || message.includes('sign in') || message.includes('host session')) {
+    return 'session'
+  }
+
+  if (message.includes('database')) {
+    return 'database'
+  }
+
+  if (message.includes('realtime') || message.includes('channel')) {
+    return 'realtime'
+  }
+
+  if (message.includes('share link') || message.includes('audience share link')) {
+    return 'shareLinks'
+  }
+
+  if (message.includes('warm-up') || message.includes('warm up') || message.includes('keep-warm')) {
+    return 'keepwarm'
+  }
+
+  return 'unknown'
+}
+
 function GigControlPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -49,6 +81,7 @@ function GigControlPage() {
     toggleRoomOpen,
     toggleExplicitFilter,
     setShowInAudienceNoGig,
+    audienceConnectionStatus,
   } = useQueueStore()
 
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -107,6 +140,7 @@ function GigControlPage() {
   const previousRoomOpenRef = useRef<boolean | null>(null)
   const playbackActionLockRef = useRef(false)
   const gigWorkerRef = useRef<Worker | null>(null)
+  const liveHealthGuardLastRunAtRef = useRef(0)
 
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
@@ -330,6 +364,136 @@ function GigControlPage() {
     }
   }, [refreshSpotifyAccessToken])
 
+  const persistReadinessVerdict = useCallback((verdict: 'pass' | 'fail') => {
+    setLastReadinessVerdict(verdict)
+
+    try {
+      window.sessionStorage.setItem(
+        'human-jukebox-readiness-verdict',
+        JSON.stringify({ verdict, at: new Date().toLocaleTimeString() }),
+      )
+    } catch {
+      // non-critical
+    }
+  }, [])
+
+  const runPreflightChecks = useCallback(async () => {
+    if (!event) {
+      throw new Error('No active gig selected for preflight.')
+    }
+
+    if (!navigator.onLine) {
+      throw new Error('Device is offline. Connect to the internet before going live.')
+    }
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) {
+      throw new Error(`Session check failed: ${sessionError.message}`)
+    }
+    if (!sessionData.session?.user) {
+      throw new Error('No active host session. Please sign in again before going live.')
+    }
+
+    const { error: dbReadError } = await supabase
+      .from('events')
+      .select('id, room_open')
+      .eq('id', event.id)
+      .single()
+
+    if (dbReadError) {
+      throw new Error(`Database read failed: ${dbReadError.message}`)
+    }
+
+    const testChannel = supabase.channel(`go-live-preflight-${Date.now()}`)
+    const realtimeStatus = await new Promise<string>((resolve) => {
+      const timeoutId = window.setTimeout(() => resolve('TIMED_OUT'), 3500)
+
+      testChannel
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'events',
+        }, () => {
+          // no-op
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            window.clearTimeout(timeoutId)
+            resolve(status)
+          }
+        })
+    })
+
+    void supabase.removeChannel(testChannel)
+
+    if (realtimeStatus !== 'SUBSCRIBED') {
+      throw new Error(`Realtime subscription failed (${realtimeStatus}).`)
+    }
+
+    const nextJoinUrl = getAudienceUrl(event.id, { compact: true })
+    if (!nextJoinUrl.startsWith('http')) {
+      throw new Error('Audience share link could not be generated.')
+    }
+
+    const keepWarmResponse = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' })
+    if (!keepWarmResponse.ok) {
+      throw new Error(`Warm-up endpoint failed (${keepWarmResponse.status}).`)
+    }
+  }, [event])
+
+  const attemptAutomaticHealthRepair = useCallback(async (issueCode: PreflightIssueCode) => {
+    switch (issueCode) {
+      case 'offline':
+        return {
+          fixed: false,
+          detail: 'Auto-fix could not continue because this device is offline. Reconnect Wi-Fi or mobile data and try again.',
+        }
+
+      case 'session': {
+        const { data, error } = await supabase.auth.refreshSession()
+        return {
+          fixed: Boolean(data.session) && !error,
+          detail: error
+            ? `Auto-fix could not refresh the host session: ${error.message}`
+            : 'Auto-fix refreshed the host session. Retesting now...',
+        }
+      }
+
+      case 'database':
+      case 'keepwarm':
+      case 'unknown': {
+        await supabase.auth.refreshSession().catch(() => undefined)
+        const keepWarmResponse = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' }).catch(() => null)
+
+        return {
+          fixed: Boolean(keepWarmResponse?.ok),
+          detail: keepWarmResponse?.ok
+            ? 'Auto-fix warmed the backend and refreshed auth. Retesting now...'
+            : 'Auto-fix could not wake the backend automatically. Check connectivity and deployment health.',
+        }
+      }
+
+      case 'realtime': {
+        await supabase.auth.refreshSession().catch(() => undefined)
+        const channels = supabase.getChannels()
+        await Promise.allSettled(channels.map((channel) => supabase.removeChannel(channel)))
+
+        return {
+          fixed: true,
+          detail: 'Auto-fix reset live channels and refreshed the session. Retesting now...',
+        }
+      }
+
+      case 'shareLinks':
+        return {
+          fixed: Boolean(event?.id),
+          detail: event?.id
+            ? 'Auto-fix regenerated the audience share link. Retesting now...'
+            : 'Auto-fix could not regenerate the audience link because no gig is selected.',
+        }
+    }
+  }, [event?.id])
+
   const runGoLivePreflight = useCallback(async () => {
     if (!event) {
       throw new Error('No active gig selected for preflight.')
@@ -339,73 +503,67 @@ function GigControlPage() {
     setPreflightStatusText('Running preflight checks...')
 
     try {
-      if (!navigator.onLine) {
-        throw new Error('Device is offline. Connect to the internet before going live.')
-      }
-
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError) {
-        throw new Error(`Session check failed: ${sessionError.message}`)
-      }
-      if (!sessionData.session?.user) {
-        throw new Error('No active host session. Please sign in again before going live.')
-      }
-
-      const { error: dbReadError } = await supabase
-        .from('events')
-        .select('id, room_open')
-        .eq('id', event.id)
-        .single()
-
-      if (dbReadError) {
-        throw new Error(`Database read failed: ${dbReadError.message}`)
-      }
-
-      const testChannel = supabase.channel(`go-live-preflight-${Date.now()}`)
-      const realtimeStatus = await new Promise<string>((resolve) => {
-        const timeoutId = window.setTimeout(() => resolve('TIMED_OUT'), 3500)
-
-        testChannel
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'events',
-          }, () => {
-            // no-op
-          })
-          .subscribe((status) => {
-            if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-              window.clearTimeout(timeoutId)
-              resolve(status)
-            }
-          })
-      })
-
-      void supabase.removeChannel(testChannel)
-
-      if (realtimeStatus !== 'SUBSCRIBED') {
-        throw new Error(`Realtime subscription failed (${realtimeStatus}).`)
-      }
-
-      const joinUrl = getAudienceUrl(event.id, { compact: true })
-      if (!joinUrl.startsWith('http')) {
-        throw new Error('Audience share link could not be generated.')
-      }
-
-      const keepWarmResponse = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' })
-      if (!keepWarmResponse.ok) {
-        throw new Error(`Warm-up endpoint failed (${keepWarmResponse.status}).`)
-      }
-
+      await runPreflightChecks()
+      persistReadinessVerdict('pass')
       setPreflightStatusText(`Preflight passed at ${new Date().toLocaleTimeString()}.`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Preflight failed.'
-      setPreflightStatusText(message)
-      throw error
+      const issueCode = classifyPreflightIssue(error)
+
+      setPreflightStatusText(`${message} Auto-fix is checking what it can repair...`)
+
+      const repairResult = await attemptAutomaticHealthRepair(issueCode)
+
+      if (!repairResult.fixed) {
+        persistReadinessVerdict('fail')
+        const nextError = new Error(`${message} ${repairResult.detail}`)
+        setPreflightStatusText(nextError.message)
+        throw nextError
+      }
+
+      setPreflightStatusText(repairResult.detail)
+
+      try {
+        await runPreflightChecks()
+        persistReadinessVerdict('pass')
+        setPreflightStatusText(`Auto-fix succeeded. Ready at ${new Date().toLocaleTimeString()}.`)
+      } catch (retryError) {
+        const retryMessage = retryError instanceof Error ? retryError.message : 'Preflight failed after auto-fix.'
+        persistReadinessVerdict('fail')
+        setPreflightStatusText(`Auto-fix ran, but there is still a blocking issue: ${retryMessage}`)
+        throw retryError
+      }
     } finally {
       setPreflightBusy(false)
     }
-  }, [event])
+  }, [attemptAutomaticHealthRepair, event, persistReadinessVerdict, runPreflightChecks])
+
+  useEffect(() => {
+    if (!event?.roomOpen || preflightBusy || audienceConnectionStatus === 'connected') {
+      return
+    }
+
+    if (!navigator.onLine) {
+      setPreflightStatusText('Live health guard detected offline mode. The app will retry auto-fix when the connection returns.')
+      return
+    }
+
+    const now = Date.now()
+    if (now - liveHealthGuardLastRunAtRef.current < 60_000) {
+      return
+    }
+
+    const timerId = window.setTimeout(() => {
+      liveHealthGuardLastRunAtRef.current = Date.now()
+      void runGoLivePreflight().catch((error) => {
+        setErrorText(error instanceof Error ? `Live health guard: ${error.message}` : 'Live health guard found an issue that could not be repaired automatically.')
+      })
+    }, audienceConnectionStatus === 'reconnecting' ? 8_000 : 1_500)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [audienceConnectionStatus, event?.roomOpen, preflightBusy, runGoLivePreflight])
 
   const saveQueueSnapshot = () => {
     if (!event) {
@@ -856,13 +1014,9 @@ function GigControlPage() {
         : event?.roomOpen
         ? 'Pause Live'
         : lastReadinessVerdict === 'fail'
-        ? 'Go Live (issues detected)'
+        ? 'Go Live + Auto Fix'
         : 'Go Live',
       onClick: async () => {
-        if (!event?.roomOpen && lastReadinessVerdict === 'fail') {
-          setErrorText('Readiness check detected issues. Visit Readiness Check before going live, or proceed at your own risk.')
-          return
-        }
         try {
           if (event && !event.roomOpen) {
             await runGoLivePreflight()
