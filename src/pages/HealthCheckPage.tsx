@@ -7,6 +7,7 @@ import { useQueueStore } from '../state/queueStore'
 
 type HealthCheckId =
   | 'network'
+  | 'connectionStrength'
   | 'session'
   | 'database'
   | 'activeGig'
@@ -32,6 +33,11 @@ const HEALTH_CHECKS: HealthCheckDefinition[] = [
     id: 'network',
     title: 'Network Reachability',
     description: 'Confirms the device is online and can reach live services.',
+  },
+  {
+    id: 'connectionStrength',
+    title: 'Internet Strength',
+    description: 'Measures latency and connection quality to the live server.',
   },
   {
     id: 'session',
@@ -69,6 +75,7 @@ const DEFAULT_RESULT: HealthCheckResult = {
 function buildDefaultResults(): Record<HealthCheckId, HealthCheckResult> {
   return {
     network: { ...DEFAULT_RESULT },
+    connectionStrength: { ...DEFAULT_RESULT },
     session: { ...DEFAULT_RESULT },
     database: { ...DEFAULT_RESULT },
     activeGig: { ...DEFAULT_RESULT },
@@ -118,6 +125,51 @@ function HealthCheckPage() {
           }
 
           break
+        }
+
+        case 'connectionStrength': {
+          if (!navigator.onLine) {
+            throw new Error('Device is offline — cannot measure connection strength.')
+          }
+
+          // Measure round-trip latency with a lightweight timed fetch
+          const pingStart = performance.now()
+          const pingUrl = `${window.location.origin}/the-human-jukebox-logo.svg?_=${Date.now()}`
+          await fetch(pingUrl, { method: 'HEAD', cache: 'no-store' })
+          const rttMeasured = Math.round(performance.now() - pingStart)
+
+          // Read Network Information API when available
+          const conn = (navigator as Navigator & { connection?: { effectiveType?: string; downlink?: number; rtt?: number } }).connection
+          const effectiveType = conn?.effectiveType ?? null
+          const downlink = typeof conn?.downlink === 'number' ? conn.downlink : null
+          const apiRtt = typeof conn?.rtt === 'number' ? conn.rtt : null
+
+          const rating =
+            rttMeasured < 120 ? 'Excellent'
+            : rttMeasured < 280 ? 'Good'
+            : rttMeasured < 600 ? 'Fair'
+            : 'Poor'
+
+          const parts: string[] = [`Latency: ${rttMeasured}ms (${rating})`]
+          if (effectiveType) parts.push(`Type: ${effectiveType}`)
+          if (downlink !== null) parts.push(`Downlink: ${downlink} Mbps`)
+          if (apiRtt !== null) parts.push(`Browser RTT: ${apiRtt}ms`)
+
+          const durationMs = Math.round(performance.now() - startedAt)
+
+          if (rttMeasured >= 600) {
+            throw new Error(`Weak connection — ${parts.join(' · ')}`)
+          }
+
+          setResults((currentResults) => ({
+            ...currentResults,
+            connectionStrength: {
+              status: rttMeasured >= 280 ? 'error' : 'ok',
+              detail: parts.join(' · '),
+              durationMs,
+            },
+          }))
+          return
         }
 
         case 'session': {
