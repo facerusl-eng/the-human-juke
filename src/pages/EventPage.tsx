@@ -1872,16 +1872,14 @@ function EventPage() {
           <div className="audience-start-actions">
             {isKaraokeEvent ? (
               <>
-                {karafunLink ? (
-                  <a
-                    href={karafunLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="primary-button"
-                  >
-                    🎶 KaraFun Playlist
-                  </a>
-                ) : null}
+                <a
+                  href={karafunLink ?? 'https://www.karafun.com/048490/'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="primary-button"
+                >
+                  🎤 Join the Karaoke Show
+                </a>
                 <button
                   type="button"
                   className="secondary-button"
