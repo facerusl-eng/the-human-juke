@@ -1676,6 +1676,56 @@ function EventPage() {
     )
   }
 
+  if (isKaraokeEvent) {
+    return (
+      <section className="audience-entry-shell audience-karafun" aria-label="Karaoke event info">
+        <article className="queue-panel audience-entry-card">
+          <p className="eyebrow audience-entry-eyebrow">🎤 Karaoke Night</p>
+          <h1>{event?.name ?? 'Karaoke'}</h1>
+          {event?.subtitle ? <p className="subcopy audience-entry-copy">{event.subtitle}</p> : null}
+          <span className="meta-badge" style={{ display: 'inline-block', marginBottom: '1.25rem' }}>Karaoke Event</span>
+          <div className="audience-start-actions" style={{ marginTop: '0.5rem' }}>
+            {karafunLink ? (
+              <a
+                href={karafunLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="primary-button"
+              >
+                🎶 KaraFun Playlist
+              </a>
+            ) : null}
+            {allTipLinks.length > 0 ? (
+              <a
+                href={allTipLinks[0].url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="secondary-button"
+              >
+                💸 {allTipLinks[0].label}
+              </a>
+            ) : null}
+            {socialLinks.length > 0 ? (
+              <div className="audience-social-links-inline" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+                {socialLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="secondary-button"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </article>
+      </section>
+    )
+  }
+
   if (!audienceName) {
     return (
       <section className="audience-entry-shell audience-karafun" aria-label="Audience entry">
