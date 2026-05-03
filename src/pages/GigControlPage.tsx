@@ -1191,10 +1191,21 @@ function GigControlPage() {
         : 'Go Live',
       onClick: async () => {
         try {
-          if (event && !event.roomOpen) {
+          const isOpeningRoom = Boolean(event && !event.roomOpen)
+
+          if (isOpeningRoom) {
             await runGoLivePreflight()
           }
-          await gigActions.runToggleRoomOpen()
+
+          const toggled = await gigActions.runToggleRoomOpen()
+
+          if (isOpeningRoom && toggled && event?.introAudioUrl) {
+            try {
+              await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
+            } catch {
+              setErrorText('Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport was restored.')
+            }
+          }
         } catch (error) {
           setErrorText(error instanceof Error ? error.message : 'Go Live preflight failed.')
         }
