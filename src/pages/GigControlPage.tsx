@@ -1002,6 +1002,7 @@ function GigControlPage() {
     {
       id: 'connect-spotify',
       label: spotifyAccessToken ? 'Reconnect Spotify' : 'Connect Spotify',
+      title: spotifyAccessToken ? 'Reconnect your Spotify account for playback control' : 'Connect Spotify to enable play/pause and track controls',
       onClick: async () => {
         await connectSpotify()
       },
@@ -1026,12 +1027,14 @@ function GigControlPage() {
           setErrorText(error instanceof Error ? error.message : 'Go Live preflight failed.')
         }
       },
+      title: event?.roomOpen ? 'Pause the live event — the audience will see a waiting screen' : 'Run health checks and open the room so the audience can join',
       disabled: gigActions.quickActionBusy || preflightBusy,
       variant: event?.roomOpen ? 'secondary' : lastReadinessVerdict === 'fail' ? 'secondary' : 'primary',
     },
     {
       id: 'run-warmup',
       label: preflightBusy ? 'Warming up...' : 'Warm Up Now',
+      title: 'Run a pre-gig health check and warm up realtime connections before going live',
       onClick: async () => {
         try {
           await runGoLivePreflight()
@@ -1046,6 +1049,7 @@ function GigControlPage() {
     {
       id: 'toggle-explicit-filter',
       label: gigActions.explicitToggleBusy ? 'Updating...' : event?.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit',
+      title: event?.explicitFilterEnabled ? 'Currently blocking explicit songs — click to allow them' : 'Currently allowing explicit songs — click to block them',
       onClick: async () => {
         await gigActions.runToggleExplicitFilter()
       },
@@ -1054,12 +1058,14 @@ function GigControlPage() {
     {
       id: 'host-readiness',
       label: 'Readiness Check',
+      title: 'Open the pre-gig health check page to verify all systems are working',
       onClick: () => navigate('/admin/readiness'),
       variant: 'ghost',
     },
     {
       id: 'brb-toggle',
       label: isBrbActive ? 'Cancel BRB' : 'BRB Screen',
+      title: isBrbActive ? 'Cancel BRB — return to the normal live screen' : 'Show a "Be Right Back" screen to the audience while you take a break',
       onClick: async () => {
         if (!event?.id) return
         const nextBrb = !isBrbActive
@@ -1084,18 +1090,21 @@ function GigControlPage() {
     {
       id: 'open-gig-settings',
       label: 'Gig Settings',
+      title: 'Edit gig details, playlists, tip links, social links and more',
       onClick: () => navigate('/admin/gig-settings'),
       variant: 'ghost',
     },
     {
       id: 'open-mirror-screen',
       label: 'Open Mirror Screen',
+      title: 'Open the audience-facing mirror display in a new window — show this on a TV or projector',
       onClick: () => openMirrorScreen(),
       variant: 'ghost',
     },
     {
       id: 'toggle-play-shortcut',
       label: 'Toggle Spotify Playlist',
+      title: 'Play or pause the Spotify between-song playlist',
       onClick: () => {
         if (!spotifyAccessToken) {
           setErrorText('Connect Spotify first to use the playlist toggle shortcut.')
@@ -1284,6 +1293,7 @@ function GigControlPage() {
           <button
             type="button"
             className="secondary-button"
+            title="Copy the audience join link to share with your guests"
             onClick={async () => {
               await copyJoinUrl()
             }}
@@ -1291,10 +1301,10 @@ function GigControlPage() {
             {copiedAudienceLink ? 'Copied!' : 'Copy Audience Link'}
           </button>
           <div className="hero-actions no-margin-bottom">
-            <button type="button" className="secondary-button" onClick={saveQueueSnapshot}>
+            <button type="button" className="secondary-button" title="Save a backup of the current queue to local storage" onClick={saveQueueSnapshot}>
               Save Queue Snapshot
             </button>
-            <button type="button" className="ghost-button" onClick={downloadLatestSnapshot}>
+            <button type="button" className="ghost-button" title="Download the last saved queue snapshot as a JSON file" onClick={downloadLatestSnapshot}>
               Download Latest Snapshot
             </button>
           </div>
@@ -1398,6 +1408,7 @@ function GigControlPage() {
                 <button
                   type="button"
                   className="primary-button"
+                  title="Mark this song as played and move to the next one (Space)"
                   disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
                   onClick={async () => {
                     if (spaceActionBusy || playbackActionLockRef.current || songActionBusyId === nowPlaying.id) {
@@ -1427,6 +1438,7 @@ function GigControlPage() {
                 <button
                   type="button"
                   className="secondary-button"
+                  title="Remove this song from the queue without marking it as played"
                   disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
                   onClick={async () => {
                     if (spaceActionBusy || playbackActionLockRef.current || songActionBusyId === nowPlaying.id) {
@@ -1464,6 +1476,7 @@ function GigControlPage() {
                 <button
                   type="button"
                   className="primary-button"
+                  title="Mark this song as started — it will show as now playing on the mirror screen (Space)"
                   disabled={spaceActionBusy}
                   onClick={async () => {
                     if (spaceActionBusy || playbackActionLockRef.current) return
@@ -1567,6 +1580,7 @@ function GigControlPage() {
                       <button
                         type="button"
                         className="secondary-button"
+                        title="Move this song up in the queue"
                         disabled={songActionBusyId === song.id || index === 0}
                         onClick={async () => {
                           if (songActionBusyId) {
@@ -1591,6 +1605,7 @@ function GigControlPage() {
                       <button
                         type="button"
                         className="secondary-button"
+                        title="Move this song down in the queue"
                         disabled={songActionBusyId === song.id || index === upNext.length - 1}
                         onClick={async () => {
                           if (songActionBusyId) {
@@ -1617,6 +1632,7 @@ function GigControlPage() {
                   <button
                     type="button"
                     className="vote-button danger-button"
+                    title="Remove this song from the queue"
                     disabled={songActionBusyId === song.id}
                     onClick={async () => {
                       if (songActionBusyId === song.id) {
