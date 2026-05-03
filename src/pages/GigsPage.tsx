@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useGigActions } from '../hooks/useGigActions'
 import { useQueueStore } from '../state/queueStore'
 
+const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
+const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
+
 function formatGigDate(createdAt: string) {
   if (!createdAt) {
     return 'Created recently'
@@ -29,6 +32,88 @@ function resolveGigStartAt(gigDate: string | null, gigStartTime: string | null) 
   const normalizedTime = gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime
   const startAt = new Date(`${gigDate}T${normalizedTime}`)
   return Number.isNaN(startAt.getTime()) ? null : startAt
+}
+
+async function sendSpotifyTransportCommand(mode: 'play' | 'pause') {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const accessToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)?.trim()
+  if (!accessToken) {
+    return false
+  }
+
+  const endpoint = mode === 'pause'
+    ? 'https://api.spotify.com/v1/me/player/pause'
+    : 'https://api.spotify.com/v1/me/player/play'
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
+function isSpotifyAutoTransportEnabled() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY) !== '0'
+}
+
+async function playIntroAudioWithSpotifyBridge(introAudioUrl: string) {
+  const shouldBridgeSpotify = isSpotifyAutoTransportEnabled()
+
+  if (shouldBridgeSpotify) {
+    await sendSpotifyTransportCommand('pause')
+  }
+
+  const introAudio = new Audio(introAudioUrl)
+  introAudio.preload = 'auto'
+
+  try {
+    await introAudio.play()
+  } catch (error) {
+    if (shouldBridgeSpotify) {
+      await sendSpotifyTransportCommand('play')
+    }
+    throw error
+  }
+
+  await new Promise<void>((resolve) => {
+    const cleanup = () => {
+      introAudio.removeEventListener('ended', onEnded)
+      introAudio.removeEventListener('error', onError)
+    }
+
+    const onEnded = () => {
+      cleanup()
+      if (shouldBridgeSpotify) {
+        void sendSpotifyTransportCommand('play')
+      }
+      resolve()
+    }
+
+    const onError = () => {
+      cleanup()
+      if (shouldBridgeSpotify) {
+        void sendSpotifyTransportCommand('play')
+      }
+      resolve()
+    }
+
+    introAudio.addEventListener('ended', onEnded, { once: true })
+    introAudio.addEventListener('error', onError, { once: true })
+  })
 }
 
 function GigsPage() {
@@ -154,11 +239,8 @@ function GigsPage() {
         }
 
         if (dueEvent.introAudioUrl) {
-          const introAudio = new Audio(dueEvent.introAudioUrl)
-          introAudio.preload = 'auto'
-
           try {
-            await introAudio.play()
+            await playIntroAudioWithSpotifyBridge(dueEvent.introAudioUrl)
           } catch {
             setErrorText('Gig went live automatically, but intro audio was blocked by browser autoplay settings. Press play manually in Gig Settings preview if needed.')
           }
