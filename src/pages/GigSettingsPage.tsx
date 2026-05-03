@@ -42,6 +42,8 @@ type PlaylistArtworkRow = {
 type SettingsState = {
   gigName: string
   venue: string
+  eventType: 'halli-live' | 'karaoke'
+  karafunUrl: string
   gigDate: string
   gigStartTime: string
   gigEndTime: string
@@ -195,6 +197,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [state, setState] = useState<SettingsState>({
     gigName: event.name,
     venue: event.venue ?? '',
+    eventType: event.eventType ?? 'halli-live',
+    karafunUrl: event.karafunUrl ?? '',
     gigDate: event.gigDate ?? '',
     gigStartTime: normalizeTimeValue(event.gigStartTime),
     gigEndTime: normalizeTimeValue(event.gigEndTime),
@@ -480,6 +484,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       await updateEventSettings({
         name: saveState.gigName.trim(),
         venue: saveState.venue.trim(),
+        eventType: saveState.eventType,
+        karafunUrl: saveState.karafunUrl.trim() || null,
         gigDate: saveState.gigDate,
         gigStartTime: saveState.gigStartTime,
         gigEndTime: saveState.gigEndTime,
@@ -778,6 +784,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
   const isModified = state.gigName !== event.name
     || state.venue !== (event.venue ?? '')
+    || state.eventType !== (event.eventType ?? 'halli-live')
+    || state.karafunUrl !== (event.karafunUrl ?? '')
     || state.gigDate !== (event.gigDate ?? '')
     || state.gigStartTime !== normalizeTimeValue(event.gigStartTime)
     || state.gigEndTime !== normalizeTimeValue(event.gigEndTime)
@@ -893,6 +901,38 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               placeholder="The Anchor Bar, Main Stage"
             />
           </div>
+
+          <div className="field-row">
+            <label htmlFor="gig-event-type">Event Type</label>
+            <select
+              id="gig-event-type"
+              value={state.eventType}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ eventType: e.target.value as 'halli-live' | 'karaoke' })
+              }}
+            >
+              <option value="karaoke">Karaoke Event</option>
+              <option value="halli-live">Halli Playing Music</option>
+            </select>
+          </div>
+
+          {state.eventType === 'karaoke' ? (
+            <div className="field-row">
+              <label htmlFor="gig-karafun-url">KaraFun Playlist URL</label>
+              <input
+                id="gig-karafun-url"
+                type="url"
+                value={state.karafunUrl}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ karafunUrl: e.target.value })
+                }}
+                placeholder="https://www.karafun.com/..."
+              />
+              <p className="field-hint">Visible on audience and no-live event cards for karaoke events.</p>
+            </div>
+          ) : null}
 
           <div className="create-gig-time-row">
             <div className="field-row">

@@ -64,6 +64,8 @@ type EventSettingsUpdates = {
   customButtonLink: string | null
   tipThankYouMessageDA: string | null
   tipThankYouMessageEN: string | null
+  eventType: 'halli-live' | 'karaoke'
+  karafunUrl: string | null
 }
 
 type EventState = {
@@ -98,14 +100,19 @@ type EventState = {
   customButtonLink: string | null
   tipThankYouMessageDA: string | null
   tipThankYouMessageEN: string | null
+  eventType: 'halli-live' | 'karaoke'
+  karafunUrl: string | null
 }
 
 type CreateEventOptions = {
+  subtitle?: string
   gigDate?: string
   gigStartTime?: string
   gigEndTime?: string
   showInAudienceNoGig?: boolean
   coverImageUrl?: string | null
+  eventType?: 'halli-live' | 'karaoke'
+  karafunUrl?: string | null
 }
 
 export type HostEventSummary = {
@@ -115,6 +122,7 @@ export type HostEventSummary = {
   isActive: boolean
   showInAudienceNoGig: boolean
   createdAt: string
+  eventType: 'halli-live' | 'karaoke'
 }
 
 export type QueueContextValue = {
@@ -469,7 +477,7 @@ async function fetchHostEvents(hostId: string) {
   const { data, error } = await withTimeout(
     supabase
       .from('events')
-      .select('id, name, venue, is_active, show_in_audience_no_gig, created_at')
+      .select('id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type')
       .eq('host_id', hostId)
       .order('created_at', { ascending: false }),
     DEFAULT_DB_TIMEOUT_MS,
@@ -480,14 +488,18 @@ async function fetchHostEvents(hostId: string) {
     throw error
   }
 
-  return ((data ?? []) as Array<Record<string, unknown>>).map((eventData) => ({
-    id: String(eventData.id ?? ''),
-    name: (eventData.name as string | null) ?? 'Untitled Gig',
-    venue: (eventData.venue as string | null) ?? null,
-    isActive: ((eventData.is_active as boolean | null) ?? false),
-    showInAudienceNoGig: ((eventData.show_in_audience_no_gig as boolean | null) ?? false),
-    createdAt: (eventData.created_at as string | null) ?? '',
-  }))
+  return ((data ?? []) as Array<Record<string, unknown>>).map((eventData) => {
+    const rawEventType = eventData.event_type as string | null
+    return {
+      id: String(eventData.id ?? ''),
+      name: (eventData.name as string | null) ?? 'Untitled Gig',
+      venue: (eventData.venue as string | null) ?? null,
+      isActive: ((eventData.is_active as boolean | null) ?? false),
+      showInAudienceNoGig: ((eventData.show_in_audience_no_gig as boolean | null) ?? false),
+      createdAt: (eventData.created_at as string | null) ?? '',
+      eventType: (rawEventType === 'karaoke' ? 'karaoke' : 'halli-live') as 'halli-live' | 'karaoke',
+    }
+  })
 }
 
 async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
@@ -762,13 +774,38 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const [eventData, tipMessages] = await Promise.all([
+    // Separately fetch event type settings (columns added via migration — graceful fallback).
+    const loadEventTypeSettings = async (): Promise<{ event_type: 'halli-live' | 'karaoke'; karafun_url: string | null }> => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('event_type, karafun_url')
+          .eq('id', activeEventId)
+          .single()
+
+        if (error || !data) {
+          return { event_type: 'halli-live', karafun_url: null }
+        }
+
+        const row = data as Record<string, unknown>
+        const rawType = row.event_type as string | null
+        return {
+          event_type: rawType === 'karaoke' ? 'karaoke' : 'halli-live',
+          karafun_url: (row.karafun_url as string | null) ?? null,
+        }
+      } catch {
+        return { event_type: 'halli-live', karafun_url: null }
+      }
+    }
+
+    const [eventData, tipMessages, eventTypeSettings] = await Promise.all([
       withTimeout(
         loadEventSnapshot(),
         DEFAULT_DB_TIMEOUT_MS,
         'Loading the live gig timed out. Please refresh and try again.',
       ),
       loadTipMessages(),
+      loadEventTypeSettings(),
     ])
 
     let queueSongs: QueueSong[] = []
@@ -956,6 +993,8 @@ function QueueProvider({ children }: PropsWithChildren) {
       customButtonLink: ((eventData as Record<string, unknown>).custom_button_link as string | null) ?? null,
       tipThankYouMessageDA: tipMessages.tip_thank_you_message_da,
       tipThankYouMessageEN: tipMessages.tip_thank_you_message_en,
+      eventType: eventTypeSettings.event_type,
+      karafunUrl: eventTypeSettings.karafun_url,
     })
     if (queueLoaded) {
       setSongs(queueSongs.map((song) => {
@@ -2114,6 +2153,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           custom_button_link: updates.customButtonLink || null,
           tip_thank_you_message_da: updates.tipThankYouMessageDA || null,
           tip_thank_you_message_en: updates.tipThankYouMessageEN || null,
+          event_type: updates.eventType ?? 'halli-live',
+          karafun_url: updates.karafunUrl ?? null,
         }
 
         const { error } = await withTimeout(
@@ -2209,6 +2250,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             name: updates.name,
             venue: updates.venue || null,
             showInAudienceNoGig: updates.showInAudienceNoGig,
+            eventType: updates.eventType,
           }
         }))
 
@@ -2504,7 +2546,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           gigDate: options?.gigDate ?? null,
           gigStartTime: options?.gigStartTime ?? null,
           gigEndTime: options?.gigEndTime ?? null,
-          subtitle: null,
+          subtitle: options?.subtitle ?? null,
           requestInstructions: null,
           instagramUrl: null,
           tiktokUrl: null,
@@ -2528,6 +2570,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           customButtonLink: null,
           tipThankYouMessageDA: null,
           tipThankYouMessageEN: null,
+          eventType: options?.eventType ?? 'halli-live',
+          karafunUrl: options?.karafunUrl ?? null,
         }
 
         try {
@@ -2569,6 +2613,22 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
 
           setEvent(nextEventState)
+
+          // RPC create_host_gig does not support event_type, karafun_url, or subtitle yet.
+          if ((options?.eventType && options.eventType !== 'halli-live') || options?.karafunUrl || options?.subtitle) {
+            void supabase
+              .from('events')
+              .update({
+                event_type: options?.eventType ?? 'halli-live',
+                karafun_url: options?.karafunUrl ?? null,
+                subtitle: options?.subtitle ?? null,
+              })
+              .eq('id', createdGigId)
+              .then(({ error }) => {
+                if (error) console.warn('queueStore: failed to set event_type/karafun_url/subtitle after rpc create', error)
+              })
+          }
+
           setHostEvents((currentHostEvents) => {
             const nextSummary: HostEventSummary = {
               id: createdGigId,
@@ -2577,6 +2637,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               isActive: activated,
               showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
               createdAt: createdAtIso,
+              eventType: options?.eventType ?? 'halli-live',
             }
 
             const withoutCreatedGig = currentHostEvents.filter((currentEvent) => currentEvent.id !== createdGigId)
@@ -2605,6 +2666,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           host_id: authenticatedUserId,
           name: normalizedName,
           venue: venue || null,
+          subtitle: options?.subtitle ?? null,
           is_active: false,
           playlist_only_requests: true,
           room_open: false,
@@ -2614,6 +2676,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           gig_end_time: options?.gigEndTime ?? null,
           show_in_audience_no_gig: options?.showInAudienceNoGig ?? false,
           cover_image_url: options?.coverImageUrl ?? null,
+          event_type: options?.eventType ?? 'halli-live',
+          karafun_url: options?.karafunUrl ?? null,
         }
 
         let newEvent: { id: string } | null = null

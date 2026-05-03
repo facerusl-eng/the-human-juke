@@ -9,6 +9,8 @@ type AudienceUpcomingEvent = {
   gigStartTime: string | null
   gigEndTime: string | null
   coverImageUrl: string | null
+  eventType: 'halli-live' | 'karaoke'
+  karafunUrl: string | null
 }
 
 const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
@@ -170,6 +172,9 @@ function AudienceNoGigState({
         upcomingCount: 'kommende',
         venueFallback: 'Sted annonceres senere',
         openEvent: 'Åbn eventside',
+        karaokeBadge: 'Karaoke Event',
+        halliBadge: 'Halli Playing Music',
+        openKarafun: 'Åbn KaraFun playliste',
         countdownLabel: 'Næste show starter om',
         countdownFor: 'til',
         howItWorksTitle: 'Sådan virker det',
@@ -182,6 +187,9 @@ function AudienceNoGigState({
         upcomingCount: 'upcoming',
         venueFallback: 'Venue to be announced',
         openEvent: 'Open event page',
+        karaokeBadge: 'Karaoke Event',
+        halliBadge: 'Halli Playing Music',
+        openKarafun: 'Open KaraFun playlist',
         countdownLabel: 'Next show starts in',
         countdownFor: 'for',
         howItWorksTitle: 'How It Works',
@@ -253,11 +261,21 @@ function AudienceNoGigState({
                     </div>
                     <div className="audience-no-gig-event-body">
                       <p className="audience-no-gig-event-title">{upcomingEvent.name}</p>
+                      <p className="audience-no-gig-event-meta">
+                        <span className="meta-badge">
+                          {upcomingEvent.eventType === 'karaoke' ? copy.karaokeBadge : copy.halliBadge}
+                        </span>
+                      </p>
                       {dateLabel ? <p className="audience-no-gig-event-meta">{dateLabel}</p> : null}
                       {timeRangeLabel ? <p className="audience-no-gig-event-meta">{timeRangeLabel}</p> : null}
                       <p className="audience-no-gig-event-meta">
                         {upcomingEvent.venue?.trim() ? upcomingEvent.venue : copy.venueFallback}
                       </p>
+                      {upcomingEvent.eventType === 'karaoke' && upcomingEvent.karafunUrl ? (
+                        <p className="audience-no-gig-event-meta">
+                          <a href={upcomingEvent.karafunUrl} target="_blank" rel="noreferrer">{copy.openKarafun}</a>
+                        </p>
+                      ) : null}
                       {eventHref ? (
                         <p className="audience-no-gig-event-meta">
                           <a href={eventHref}>{copy.openEvent}</a>

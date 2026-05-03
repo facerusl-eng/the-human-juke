@@ -99,7 +99,7 @@ function isAuthSessionError(error: unknown) {
 async function fetchUpcomingEventRows() {
   const { data, error } = await supabase
     .from('events')
-    .select('id, name, venue, gig_date, gig_start_time, gig_end_time, cover_image_url')
+    .select('id, name, venue, gig_date, gig_start_time, gig_end_time, cover_image_url, event_type, karafun_url')
     .eq('show_in_audience_no_gig', true)
     .order('gig_date', { ascending: true, nullsFirst: false })
     .order('gig_start_time', { ascending: true, nullsFirst: false })
@@ -108,7 +108,7 @@ async function fetchUpcomingEventRows() {
   if (error && isMissingCoverImageColumnError(error)) {
     const { data: fallbackData, error: fallbackError } = await supabase
       .from('events')
-      .select('id, name, venue, gig_date, gig_start_time, gig_end_time')
+      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
       .eq('show_in_audience_no_gig', true)
       .order('gig_date', { ascending: true, nullsFirst: false })
       .order('gig_start_time', { ascending: true, nullsFirst: false })
@@ -436,6 +436,8 @@ function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomi
       ?? (eventData.cover_url as string | null)
       ?? null,
     ),
+    eventType: (eventData.event_type as string | null) === 'karaoke' ? 'karaoke' : 'halli-live',
+    karafunUrl: normalizeExternalLink((eventData.karafun_url as string | null) ?? (eventData.karafunUrl as string | null) ?? null),
   }))
 }
 
@@ -1142,6 +1144,8 @@ function EventPage() {
   ), [event?.contactEmail, event?.facebookUrl, event?.instagramUrl, event?.tiktokUrl, event?.youtubeUrl, hostProfile])
 
   const resolvedMobilepayLink = resolveMobilepayLink(event?.mobilpayUrl || hostProfile?.mobilpay_url)
+  const isKaraokeEvent = event?.eventType === 'karaoke'
+  const karafunLink = normalizeExternalLink(event?.karafunUrl)
   const allTipLinks = useMemo(() => {
     const links: { label: string; url: string }[] = []
     if (resolvedMobilepayLink) {
@@ -1755,7 +1759,7 @@ function EventPage() {
   }
 
   return (
-    <section className="audience-shell audience-shell-compact audience-shell-modern audience-karafun" aria-label="Audience app">
+    <section className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun${isKaraokeEvent ? ' audience-shell-karaoke' : ''}`} aria-label="Audience app">
       <section className="audience-stage">
         <AudienceFixedHeader
           eventName={event?.name ?? copy.audienceLive}
@@ -1779,7 +1783,10 @@ function EventPage() {
               <p className="eyebrow audience-request-eyebrow">{copy.audienceHome}</p>
               <h2>Hi {audienceName}</h2>
             </div>
-            <span className="meta-badge">{copy.roomOpen}</span>
+            <div className="audience-request-badges">
+              {isKaraokeEvent ? <span className="meta-badge">Karaoke Event</span> : null}
+              <span className="meta-badge">{copy.roomOpen}</span>
+            </div>
           </div>
           {confirmationText ? <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">{confirmationText}</p> : null}
           {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
@@ -1801,6 +1808,16 @@ function EventPage() {
                 className="audience-custom-button"
               >
                 {event.customButtonLabel}
+              </a>
+            ) : null}
+            {isKaraokeEvent && karafunLink ? (
+              <a
+                href={karafunLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="secondary-button"
+              >
+                🎶 KaraFun Playlist
               </a>
             ) : null}
             <button

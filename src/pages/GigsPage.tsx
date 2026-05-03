@@ -15,6 +15,10 @@ function formatGigDate(createdAt: string) {
   }).format(new Date(createdAt))
 }
 
+function formatEventTypeLabel(eventType: 'halli-live' | 'karaoke') {
+  return eventType === 'karaoke' ? 'Karaoke' : 'Halli Playing Music'
+}
+
 function GigsPage() {
   const navigate = useNavigate()
   const { event, hostEvents, setActiveEvent, endGig, deleteEvent, setEventAudienceNoGigVisibility } = useQueueStore()
@@ -130,6 +134,7 @@ function GigsPage() {
                   <div className="gig-management-main">
                     <div className="gig-management-title-row">
                       <p className="gig-management-title">{hostEvent.name}</p>
+                      <span className="meta-badge">{formatEventTypeLabel(hostEvent.eventType)}</span>
                       {hostEvent.isActive ? <span className="meta-badge">Live for audience</span> : null}
                       {hostEvent.showInAudienceNoGig ? <span className="meta-badge">Shown when no live gig</span> : null}
                       {isCurrentGig ? <span className="meta-badge">Open in control panel</span> : null}

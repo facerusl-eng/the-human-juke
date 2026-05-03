@@ -5,6 +5,7 @@ import { useQueueStore } from '../state/queueStore'
 import { supabase } from '../lib/supabase'
 
 type Step = 'info' | 'datetime'
+type EventType = 'halli-live' | 'karaoke'
 
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 
@@ -39,6 +40,9 @@ function CreateGigPage() {
   const [gigDate, setGigDate] = useState('')
   const [gigStartTime, setGigStartTime] = useState('')
   const [gigEndTime, setGigEndTime] = useState('')
+  const [description, setDescription] = useState('')
+  const [eventType, setEventType] = useState<EventType>('halli-live')
+  const [karafunUrl, setKarafunUrl] = useState('')
   const [showInAudienceNoGig, setShowInAudienceNoGig] = useState(false)
   const [coverImageDataUrl, setCoverImageDataUrl] = useState<string | null>(null)
   const [coverImageName, setCoverImageName] = useState('')
@@ -123,7 +127,16 @@ function CreateGigPage() {
   const runCreateWithLockRetry = async (
     name: string,
     nextVenue: string,
-    options?: { gigDate?: string; gigStartTime?: string; gigEndTime?: string; showInAudienceNoGig?: boolean },
+    options?: {
+      subtitle?: string
+      gigDate?: string
+      gigStartTime?: string
+      gigEndTime?: string
+      showInAudienceNoGig?: boolean
+      coverImageUrl?: string | null
+      eventType?: EventType
+      karafunUrl?: string
+    },
   ) => {
     const maxAttempts = 6
 
@@ -192,8 +205,17 @@ function CreateGigPage() {
           gigEndTime: gigEndTime || undefined,
           showInAudienceNoGig,
           coverImageUrl: coverImageDataUrl,
+          subtitle: description.trim() || undefined,
+          eventType,
+          karafunUrl: karafunUrl.trim() || undefined,
         }
-      : { showInAudienceNoGig, coverImageUrl: coverImageDataUrl }
+      : {
+          showInAudienceNoGig,
+          coverImageUrl: coverImageDataUrl,
+          subtitle: description.trim() || undefined,
+          eventType,
+          karafunUrl: karafunUrl.trim() || undefined,
+        }
 
     try {
       await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), eventOptions))
@@ -411,6 +433,40 @@ function CreateGigPage() {
               value={venue}
               onChange={(e) => setVenue(e.target.value)}
               placeholder="The Anchor Bar, Main Stage"
+            />
+          </div>
+          <div className="field-row">
+            <label htmlFor="event-type">Choose event type</label>
+            <select
+              id="event-type"
+              value={eventType}
+              onChange={(e) => setEventType(e.target.value as EventType)}
+            >
+              <option value="karaoke">Karaoke Event</option>
+              <option value="halli-live">Halli Playing Music</option>
+            </select>
+          </div>
+          {eventType === 'karaoke' ? (
+            <div className="field-row">
+              <label htmlFor="karafun-url">KaraFun playlist link (optional)</label>
+              <input
+                id="karafun-url"
+                type="url"
+                value={karafunUrl}
+                onChange={(e) => setKarafunUrl(e.target.value)}
+                placeholder="https://www.karafun.com/..."
+              />
+              <p className="field-hint">This link will be shown on the karaoke event page.</p>
+            </div>
+          ) : null}
+          <div className="field-row">
+            <label htmlFor="gig-description">Description</label>
+            <textarea
+              id="gig-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Tell people what this event is about..."
+              rows={3}
             />
           </div>
           <label className="checkbox-row create-gig-checkbox-row" htmlFor="show-in-audience-no-gig">

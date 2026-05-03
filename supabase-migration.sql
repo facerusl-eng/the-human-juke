@@ -896,3 +896,15 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.create_host_gig(text, text, date, time, time, boolean, text) TO authenticated;
+
+-- ─── Event types: karaoke and halli-live (May 2026) ───────────────────────
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS event_type TEXT NOT NULL DEFAULT 'halli-live',
+  ADD COLUMN IF NOT EXISTS karafun_url TEXT;
+
+ALTER TABLE public.events
+  DROP CONSTRAINT IF EXISTS events_event_type_check;
+
+ALTER TABLE public.events
+  ADD CONSTRAINT events_event_type_check
+  CHECK (event_type IN ('halli-live', 'karaoke'));

@@ -34,4 +34,6 @@ export const DEMO_EVENT = {
   customButtonLink: null,
   tipThankYouMessageDA: 'Tak for dit tip! 🙏',
   tipThankYouMessageEN: 'Thanks for the tip! 🙏',
+  eventType: 'halli-live',
+  karafunUrl: null,
 } as const

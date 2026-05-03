@@ -1305,6 +1305,13 @@
   gap: 0.8rem;
 }
 
+.audience-request-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
 .audience-request-head h2 {
   margin: 0;
   color: #f7fbff;
