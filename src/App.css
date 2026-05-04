@@ -1451,7 +1451,7 @@
 
 .audience-shell {
   position: relative;
-  overflow: hidden;
+  overflow: clip;
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
   gap: 1rem;
@@ -1934,6 +1934,7 @@
 .audience-stage {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .audience-hype-card {
