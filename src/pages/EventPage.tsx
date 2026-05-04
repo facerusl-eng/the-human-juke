@@ -847,7 +847,7 @@ function EventPage() {
         nameLabel: 'Nafnid thitt',
         namePlaceholder: 't.d. Alex',
         languageLabel: 'Tungumal',
-        join: 'Vertu með í partíinu',
+        join: '🇮🇸 Vertu með í partíinu',
         joining: 'Fer inn...',
         welcome: 'Velkomin! 🎤',
         waitingGreeting: 'Haell',
