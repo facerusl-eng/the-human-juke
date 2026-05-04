@@ -66,7 +66,7 @@ function FeedPage() {
         messagePlaceholder: 'Sendu kveðju, tileinka lag eða deildu stemmningunni með öllum!',
         takePhotoLabel: 'Taktu mynd',
         choosePhotoLabel: 'Veldu Mynd',
-        phoneHelpText: 'Í síma: Veldu \'Taka mynd\' til að taka og senda beint í live‑Feed',
+        phoneHelpText: 'Í síma: Veldu \'Taktu mynd\' Eða veldu eina úr albúminu þínu og senda beint í live‑Feed.',
         submitLabel: 'Sendu á Live Feed',
         submitPostingLabel: 'Sendir...',
         emptyFeedText: 'Engin skilaboð hafa verið send, Taktu þátt í gleðinni og sendu á Feediö!',
