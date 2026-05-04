@@ -34,7 +34,7 @@ function generateDemoId() {
 export function DemoQueueProvider({ children }: PropsWithChildren) {
   // Prepend the now-playing song so songs[0] becomes the active track.
   const [songs, setSongs] = useState<QueueSong[]>([DEMO_NOW_PLAYING, ...DEMO_INITIAL_QUEUE])
-  const [performedSongs] = useState<PerformedSong[]>([
+  const [performedSongs, setPerformedSongs] = useState<PerformedSong[]>([
     {
       id: 'demo-played-001',
       event_id: DEMO_EVENT.id,
@@ -97,6 +97,18 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
         ),
       )
     })
+  }, [])
+
+  useEffect(() => {
+    void batchFetchDemoArtwork(performedSongs).then((artworkMap) => {
+      if (Object.keys(artworkMap).length === 0) return
+      setPerformedSongs((current) =>
+        current.map((song) =>
+          artworkMap[song.id] ? { ...song, cover_url: artworkMap[song.id] } : song,
+        ),
+      )
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const addSong = useCallback(async (title: string, artist: string, isExplicit: boolean, options?: DemoAddSongOptions) => {
