@@ -1881,20 +1881,8 @@ function MirrorPage() {
       const orderedPosts = [...data].reverse()
 
       if (seedOnly) {
-        // Show one latest crowd photo immediately so spotlight is visibly active after toggling on/opening mirror.
-        const latestImagePost = [...orderedPosts]
-          .reverse()
-          .find((post) => Boolean(post.id && post.image_data_url))
-
-        if (latestImagePost?.id && latestImagePost.image_data_url) {
-          enqueueSpotlight({
-            id: latestImagePost.id,
-            eventId,
-            imageDataUrl: latestImagePost.image_data_url,
-            authorName: latestImagePost.author_name?.trim() || 'Guest',
-          })
-        }
-
+        // Seed seen IDs only. Do not replay old photos when opening the mirror.
+        // Spotlights should trigger only for newly inserted feed photos.
         for (const nextPost of orderedPosts) {
           if (nextPost.id) {
             seenSpotlightPostIdsRef.current.add(nextPost.id)
