@@ -2155,7 +2155,7 @@ function EventPage() {
 
         {!isKaraokeEvent ? (
         <>
-        <article className="now-playing-card">
+        <article className="now-playing-card audience-now-playing-panel">
           {showQueuedBanner && queuedPosition && queuedPosition > 0 ? (
             <div className="audience-queued-banner" role="status" aria-live="polite">
               <span className="audience-queued-banner-icon" aria-hidden="true">🎵</span>
@@ -2205,7 +2205,7 @@ function EventPage() {
           )}
         </article>
 
-        <article className="queue-panel">
+        <article className="queue-panel audience-live-queue-panel">
           <div className="panel-head">
             <h2><span aria-hidden="true">🏆</span> {copy.liveQueue}</h2>
             <span className="meta-badge">{copy.votesRise}</span>
@@ -2229,7 +2229,7 @@ function EventPage() {
           </ol>
         </article>
 
-        <article className="queue-panel" aria-label="Played songs">
+        <article className="queue-panel audience-played-queue-panel" aria-label="Played songs">
           <div className="panel-head">
             <h2><span aria-hidden="true">✅</span> {copy.playedSongs}</h2>
             <span className="meta-badge">{copy.latestOnTop}</span>
@@ -2262,7 +2262,7 @@ function EventPage() {
         ) : null}
 
         {socialLinks.length > 0 || allTipLinks.length > 0 ? (
-          <section className={`queue-panel link-panel${allTipLinks.length > 0 ? ' tip-jar-panel' : ''}`} aria-label={copy.performerLinks}>
+          <section className={`queue-panel link-panel audience-links-panel${allTipLinks.length > 0 ? ' tip-jar-panel' : ''}`} aria-label={copy.performerLinks}>
             {socialLinks.length > 0 ? (
               <>
                 <div className="panel-head" id="audience-social-links">

@@ -2119,6 +2119,7 @@
 
 .audience-song-main {
   flex: 1;
+  width: 100%;
   min-width: 0;
 }
 
@@ -7926,6 +7927,15 @@
     padding: 0.76rem;
   }
 
+  .audience-song-main .song {
+    -webkit-line-clamp: 2;
+    min-height: calc(1em * 1.22 * 2);
+  }
+
+  .audience-song-main .artist {
+    -webkit-line-clamp: 1;
+  }
+
   .audience-fixed-subtitle {
     font-size: 0.88rem;
   }
@@ -11833,5 +11843,121 @@ kbd {
 
   .audience-shell-modern .audience-start-actions {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 769px) {
+  .audience-shell-modern {
+    width: min(1400px, calc(100vw - 2rem));
+    margin-inline: auto;
+    padding: 1.1rem 1.15rem 1.2rem;
+  }
+
+  .audience-shell-modern .audience-stage {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .audience-shell-modern .audience-fixed-header,
+  .audience-shell-modern .audience-connection-banner,
+  .audience-shell-modern .audience-start-actions-panel {
+    grid-column: 1 / -1;
+  }
+
+  .audience-shell-modern .audience-now-playing-panel {
+    grid-column: 1 / 6;
+  }
+
+  .audience-shell-modern .audience-live-queue-panel {
+    grid-column: 6 / -1;
+  }
+
+  .audience-shell-modern .audience-played-queue-panel {
+    grid-column: 1 / 8;
+  }
+
+  .audience-shell-modern .audience-links-panel {
+    grid-column: 8 / -1;
+  }
+
+  .audience-shell-modern .audience-start-actions {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    align-items: stretch;
+  }
+
+  .audience-shell-modern .audience-start-actions .primary-button,
+  .audience-shell-modern .audience-start-actions .secondary-button,
+  .audience-shell-modern .audience-start-actions .audience-custom-button {
+    min-height: 3rem;
+  }
+
+  .audience-shell-modern .queue-list {
+    gap: 0.82rem;
+  }
+
+  .audience-shell-modern .audience-song-card {
+    padding: 0.98rem;
+  }
+
+  .audience-shell-modern .audience-song-actions {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .audience-shell-modern .now-playing-card {
+    min-height: 100%;
+  }
+
+  .audience-shell-modern .now-playing-media-stacked {
+    gap: 0.8rem;
+  }
+
+  .audience-shell-modern .audience-request-note {
+    max-width: 72ch;
+  }
+}
+
+@media (min-width: 1200px) {
+  .audience-shell-modern {
+    width: min(1520px, calc(100vw - 3rem));
+    padding: 1.2rem 1.3rem 1.35rem;
+  }
+
+  .audience-shell-modern .audience-stage {
+    gap: 1.1rem;
+  }
+
+  .audience-shell-modern .audience-now-playing-panel {
+    grid-column: 1 / 5;
+    position: sticky;
+    top: calc(max(0.6rem, env(safe-area-inset-top)) + 5.7rem);
+  }
+
+  .audience-shell-modern .audience-live-queue-panel {
+    grid-column: 5 / -1;
+  }
+
+  .audience-shell-modern .audience-played-queue-panel {
+    grid-column: 1 / 7;
+  }
+
+  .audience-shell-modern .audience-links-panel {
+    grid-column: 7 / -1;
+  }
+
+  .audience-shell-modern .audience-fixed-copy h1 {
+    font-size: clamp(1.28rem, 1.35vw, 1.62rem);
+  }
+
+  .audience-shell-modern .now-playing-card h2 {
+    font-size: clamp(2rem, 2.45vw, 3.05rem);
+  }
+
+  .audience-shell-modern .queue-panel,
+  .audience-shell-modern .now-playing-card,
+  .audience-shell-modern .audience-request-panel,
+  .audience-shell-modern .link-panel {
+    padding: 1rem;
   }
 }
