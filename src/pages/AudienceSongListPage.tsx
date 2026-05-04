@@ -207,7 +207,7 @@ function AudienceSongListPage() {
         requestAdded: 'Demo: Oskin thin var baett i kona.',
         addKaraoke: 'Bæta við Laginu og ég syng það',
         karaokeConfirmHeading: 'Bíddu aðeins, rokkstjarna.',
-        karaokeConfirmBody: 'Ef þú heldur áfram núna ertu basically að segja: "Ó já, ég ætla að fara upp á svið og syngja þetta fyrir lifandi manneskjur."\n\nSviðstjórinn mun kalla nafið þitt hátt og skýrt. Fólk mun snúa sér við. Sumir munu taka upp sína.\n\nEngin leið til baka.\n\nÞetta verður GEGGJABJÓD!!... eða að minnsta kosti eithvað sem þú munt segja vinum þínum frá á morgun.',
+        karaokeConfirmBody: 'Ef þú heldur áfram núna ertu basically að segja: "Ó já, ég ætla að fara upp á svið og syngja þetta fyrir framan áhorfendur."\n\nSviðstjórinn mun kalla nafnið þitt hátt og skýrt. Fólk mun snúa sér við. Sumir munu taka upp símann sinn.\n\nEngin leið til baka.\n\nÞetta verður GEGGJAÐÐ!!... eða að minnsta kosti eithvað sem þú munt segja vinum þínum frá á morgun.',
         karaokeConfirmGo: 'Já, ég geri þetta!',
         karaokeConfirmAbort: 'Nei, ég ætla að þykjast að þetta hafi verið mistæk.',
         performerSings: 'Flytjandinn syngur lagið',
@@ -265,16 +265,14 @@ function AudienceSongListPage() {
   ), [songs])
 
   const availableSongs = useMemo(() => {
-    const songsWithoutQueued = curatedSongs.filter((song) => !queuedLibrarySongIds.has(song.id))
-
     if (!normalizedSearchQuery) {
-      return songsWithoutQueued
+      return curatedSongs
     }
 
-    return songsWithoutQueued.filter((song) => (
+    return curatedSongs.filter((song) => (
       `${song.title} ${song.artist}`.toLowerCase().includes(normalizedSearchQuery)
     ))
-  }, [curatedSongs, normalizedSearchQuery, queuedLibrarySongIds])
+  }, [curatedSongs, normalizedSearchQuery])
 
   const humanJukeboxSongs = useMemo(
     () => availableSongs.filter((song) => !song.fromKaraokeSetlist),
@@ -728,7 +726,11 @@ function AudienceSongListPage() {
         </div>
       </header>
 
-      {loadingSongs ? <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">{copy.loadingSongs}</p> : null}
+      {loadingSongs ? (
+        <div className="audience-song-list-logo-loader" role="status" aria-live="polite" aria-label={copy.loadingSongs}>
+          <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="72" height="72" />
+        </div>
+      ) : null}
       {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
 
       {/* ── Playlist picker ── */}
@@ -809,6 +811,7 @@ function AudienceSongListPage() {
                         <span className="audience-song-list-artist">{artist}</span>
                         {effectiveSetlist === 'karaoke' ? <span className="karaoke-tag">{copy.iSing}</span> : null}
                         {song.is_explicit ? <span className="curated-pick-meta">{copy.explicit}</span> : null}
+                        {queuedLibrarySongIds.has(song.id) ? <span className="audience-song-queued-badge">✓ {copy.selected}</span> : null}
                       </span>
                     </button>
                   </li>
