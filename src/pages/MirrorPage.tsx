@@ -2187,7 +2187,8 @@ function MirrorPage() {
             </p>
           ) : (
             <p className="mirror-venue-logo-placeholder" aria-label="Venue logo placeholder">
-              Designed to be your logo here
+              <span className="mirror-venue-logo-placeholder-title">Your Logo</span>
+              <span className="mirror-venue-logo-placeholder-copy">Designed to sit here</span>
             </p>
           )}
         </div>
