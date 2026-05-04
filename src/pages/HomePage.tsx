@@ -59,6 +59,9 @@ function HomePage() {
           <PrimaryButton onClick={openAudienceDemo}>
             Try the audience app
           </PrimaryButton>
+          <PrimaryButton variant="secondary" onClick={() => navigate('/login')}>
+            Login
+          </PrimaryButton>
           <PrimaryButton variant="secondary" onClick={() => navigate('/book-show')}>
             Book the show
           </PrimaryButton>
@@ -116,6 +119,9 @@ function HomePage() {
         <div className="hero-actions home-hero-actions" aria-label="Call to action buttons">
           <PrimaryButton onClick={openAudienceDemo}>
             Try the audience app
+          </PrimaryButton>
+          <PrimaryButton variant="secondary" onClick={() => navigate('/login')}>
+            Login
           </PrimaryButton>
           <PrimaryButton variant="secondary" onClick={() => navigate('/book-show')}>
             Book the show
