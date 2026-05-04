@@ -535,8 +535,8 @@ function EventPage() {
   } = useQueueStore()
 
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
-  const [audienceNameInput, setAudienceNameInput] = useState('')
-  const [audienceName, setAudienceName] = useState('')
+  const [audienceNameInput, setAudienceNameInput] = useState(() => readCommittedAudienceName())
+  const [audienceName, setAudienceName] = useState(() => readCommittedAudienceName())
   const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
   const [audienceNameError, setAudienceNameError] = useState<string | null>(null)
   const [audienceNameSaving, setAudienceNameSaving] = useState(false)
@@ -1158,17 +1158,6 @@ function EventPage() {
       confirmationTimerRef.current = null
     }, 2600)
   }, [location.pathname, location.search, location.state, navigate])
-
-  useEffect(() => {
-    const storedAudienceName = readCommittedAudienceName()
-
-    if (storedAudienceName) {
-      setAudienceName(storedAudienceName)
-      setAudienceNameInput(storedAudienceName)
-    }
-
-    setAudienceLocale(readCommittedAudienceLocale())
-  }, [])
 
   // Broadcast presence to the host dashboard while audience member is active
   useEffect(() => {
