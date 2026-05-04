@@ -839,6 +839,7 @@ function EventPage() {
         keepNameShort: `Hold dit navn under ${MAX_AUDIENCE_NAME_LENGTH} tegn.`,
         removeUnsupported: 'Fjern ugyldige tegn fra dit navn.',
         saveFailed: 'Kunne ikke gemme dit navn.',
+        backToHome: 'Tilbage til start',
       }
     : audienceLocale === 'is'
     ? {
@@ -880,6 +881,7 @@ function EventPage() {
         keepNameShort: `Hafdu nafnid undir ${MAX_AUDIENCE_NAME_LENGTH} stafi.`,
         removeUnsupported: 'Fjarlagdu ogild stafi ur nafninu.',
         saveFailed: 'Mistokst ad vista nafnid.',
+        backToHome: 'Aftur Heim',
       }
     : {
         audienceApp: 'Audience App',
@@ -920,7 +922,18 @@ function EventPage() {
         keepNameShort: `Please keep your name under ${MAX_AUDIENCE_NAME_LENGTH} characters.`,
         removeUnsupported: 'Please remove unsupported characters from your name.',
         saveFailed: 'Failed to save your name.',
+        backToHome: 'Back to Home Page',
       }
+
+  const demoBackToHomeButton = demoMode ? (
+    <button
+      type="button"
+      className="secondary-button"
+      onClick={() => navigate('/')}
+    >
+      🏠 {copy.backToHome}
+    </button>
+  ) : null
 
   useEffect(() => {
     if (demoMode) return
@@ -1842,6 +1855,7 @@ function EventPage() {
                 ))}
               </div>
             ) : null}
+            {demoBackToHomeButton}
           </div>
         </article>
       </section>
@@ -1892,6 +1906,7 @@ function EventPage() {
                 ))}
               </div>
             ) : null}
+            {demoBackToHomeButton}
           </div>
         </article>
       </section>
@@ -1945,6 +1960,7 @@ function EventPage() {
             >
               {audienceNameSaving ? copy.joining : copy.join}
             </button>
+            {demoBackToHomeButton}
           </form>
           {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
         </article>
@@ -1970,6 +1986,7 @@ function EventPage() {
               {copy.viewUpcoming}
             </button>
           ) : null}
+          {demoBackToHomeButton}
         </article>
       </section>
     )
@@ -2098,6 +2115,7 @@ function EventPage() {
                 </button>
               </>
             )}
+            {demoBackToHomeButton}
           </div>
           {!isKaraokeEvent && event?.requestInstructions ? <p className="subcopy audience-request-note">{event.requestInstructions}</p> : null}
           {!isKaraokeEvent && (duplicateRequestsBlocked || activeRequestCap) ? (
