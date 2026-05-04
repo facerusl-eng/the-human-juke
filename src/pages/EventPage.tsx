@@ -1784,7 +1784,6 @@ function EventPage() {
     && !audienceLoadingFallbackActive
     && !hasResolvedInitialAudienceLoad
     && !event
-    && !hasCompletedInitialLiveGigProbe
     && upcomingEvents.length === 0
   ) {
     return (
