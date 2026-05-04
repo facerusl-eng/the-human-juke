@@ -1071,7 +1071,19 @@
     padding-bottom: 2rem;
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 14px;
+    gap: 16px;
+  }
+
+  .audience-karafun .audience-fixed-header {
+    border-radius: 14px;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid rgba(120, 164, 255, 0.3);
+    box-shadow: 0 8px 20px rgba(2, 8, 24, 0.34);
+  }
+
+  .audience-karafun .audience-fixed-header h1 {
+    font-size: clamp(1.14rem, 1.6vw, 1.55rem);
+    letter-spacing: 0.01em;
   }
 
   .audience-karafun .audience-fixed-header,
@@ -1101,6 +1113,85 @@
   .audience-karafun .now-playing-card,
   .audience-karafun .queue-panel {
     margin: 0;
+    border-radius: 14px;
+    border-color: rgba(120, 164, 255, 0.24);
+    box-shadow: 0 8px 20px rgba(2, 8, 24, 0.3);
+  }
+
+  .audience-karafun .audience-connection-banner {
+    padding: 0.45rem 0.7rem !important;
+    border: 1px solid rgba(96, 215, 255, 0.24) !important;
+    border-radius: 999px;
+    background: rgba(7, 14, 34, 0.65) !important;
+    width: fit-content;
+  }
+
+  .audience-karafun .audience-start-actions-panel {
+    padding: 1rem;
+  }
+
+  .audience-karafun .now-playing-card {
+    padding: 1.1rem 1rem;
+    animation: none;
+  }
+
+  .audience-karafun .now-playing-card h2 {
+    font-size: clamp(1.55rem, 2.2vw, 2.25rem);
+    line-height: 1.08;
+  }
+
+  .audience-karafun .now-playing-artwork-slot .song-cover-large,
+  .audience-karafun .now-playing-cover-fallback {
+    width: 132px;
+    height: 132px;
+  }
+
+  .audience-karafun .queue-panel {
+    padding: 1rem;
+  }
+
+  .audience-karafun .queue-panel .panel-head {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid rgba(120, 164, 255, 0.18);
+  }
+
+  .audience-karafun .queue-panel .panel-head h2 {
+    font-size: 1.02rem;
+  }
+
+  .audience-karafun .queue-list {
+    gap: 0.5rem;
+  }
+
+  .audience-karafun .audience-song-card,
+  .audience-karafun .audience-song-row {
+    border-radius: 10px;
+    border-color: rgba(120, 164, 255, 0.26);
+    background: rgba(12, 20, 42, 0.92);
+  }
+
+  .audience-karafun .audience-song-card {
+    padding: 0.72rem 0.78rem;
+    gap: 0.48rem;
+  }
+
+  .audience-karafun .audience-song-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(142, 179, 255, 0.4);
+    box-shadow: 0 4px 14px rgba(93, 154, 255, 0.14);
+  }
+
+  .audience-karafun .audience-vote-button {
+    border-radius: 10px;
+    font-size: 0.8rem;
+    padding: 0.45rem 1rem;
+    box-shadow: 0 0 12px rgba(255, 79, 154, 0.24);
+  }
+
+  .audience-karafun .audience-start-actions .secondary-button,
+  .audience-karafun .audience-start-actions .audience-custom-button {
+    border-radius: 10px;
   }
 
   .audience-karafun .audience-start-actions {
@@ -1128,6 +1219,7 @@
     max-width: none;
     width: min(1520px, calc(100% - 2rem));
     padding: 1.35rem;
+    border-radius: 16px;
   }
 
   .audience-karafun .audience-no-gig-card {
@@ -1147,6 +1239,7 @@
   .audience-karafun .audience-no-gig-how-it-works {
     grid-column: 6 / -1;
     min-height: 100%;
+    border-radius: 14px;
   }
 
   .audience-karafun .audience-no-gig-events,
@@ -1158,6 +1251,12 @@
   .audience-karafun .audience-no-gig-event-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.85rem;
+  }
+
+  .audience-karafun .audience-no-gig-event-card {
+    border-radius: 12px;
+    border: 1px solid rgba(120, 164, 255, 0.24);
+    background: rgba(12, 20, 42, 0.84);
   }
 }
 
@@ -1185,5 +1284,13 @@
 
   .audience-karafun .audience-no-gig-event-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .audience-karafun .audience-start-actions {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .audience-karafun .audience-start-actions .primary-button {
+    grid-column: span 2;
   }
 }
