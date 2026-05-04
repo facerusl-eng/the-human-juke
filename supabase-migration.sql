@@ -21,19 +21,16 @@ CREATE POLICY queue_songs_select_event ON public.queue_songs
   FOR SELECT TO authenticated
   USING (
     (
-      is_removed = false
-      AND (
-        event_id IN (
-          SELECT p.active_event_id
-          FROM public.profiles p
-          WHERE p.user_id = auth.uid()
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM public.events e
-          WHERE e.id = queue_songs.event_id
-            AND e.room_open = true
-        )
+      event_id IN (
+        SELECT p.active_event_id
+        FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.events e
+        WHERE e.id = queue_songs.event_id
+          AND e.room_open = true
       )
     )
     OR is_host_for_event(event_id)
@@ -206,6 +203,9 @@ ALTER TABLE public.queue_songs
   ADD COLUMN IF NOT EXISTS cover_url TEXT,
   ADD COLUMN IF NOT EXISTS library_song_id UUID REFERENCES public.library_songs(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS audience_sings BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE public.queue_songs
+  ADD COLUMN IF NOT EXISTS performed_at TIMESTAMPTZ;
 
 -- Add playlist and song-library tables
 CREATE TABLE IF NOT EXISTS public.playlists (
