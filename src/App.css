@@ -704,8 +704,7 @@
   color: #f7fbff;
   border-color: rgba(255, 115, 176, 0.62);
   box-shadow:
-    0 12px 22px rgba(162, 89, 255, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 12px 22px rgba(162, 89, 255, 0.34);
 }
 
 .secondary-button,
@@ -738,8 +737,7 @@
   filter: brightness(1.06) saturate(1.04);
   box-shadow:
     0 14px 28px rgba(255, 79, 154, 0.28),
-    0 0 18px rgba(0, 194, 255, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 0 18px rgba(0, 194, 255, 0.26);
 }
 
 .secondary-button:hover,
