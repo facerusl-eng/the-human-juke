@@ -46,6 +46,8 @@ function FeedPage() {
         takePhotoLabel: 'Tag Foto',
         choosePhotoLabel: 'Vælg Foto',
         phoneHelpText: 'På telefon: tryk "Tag Foto" for at optage og dele direkte til live-feed.',
+        submitLabel: 'Send til Feed',
+        submitPostingLabel: 'Sender...',
       }
     : audienceLocale === 'is'
     ? {
@@ -64,6 +66,8 @@ function FeedPage() {
         takePhotoLabel: 'Taktu mynd',
         choosePhotoLabel: 'Veldu Mynd',
         phoneHelpText: 'Í síma: Veldu \'Taka mynd\' til að taka og senda beint í live‑Feed',
+        submitLabel: 'Sendu á Live Feed',
+        submitPostingLabel: 'Sendir...',
       }
     : {
         title: 'Audience Feed',
@@ -81,6 +85,8 @@ function FeedPage() {
         takePhotoLabel: 'Take Photo',
         choosePhotoLabel: 'Choose Photo',
         phoneHelpText: 'On phone: tap Take Photo to capture and share instantly to the live feed.',
+        submitLabel: 'Post to Feed',
+        submitPostingLabel: 'Posting...',
       }
 
   useEffect(() => {
@@ -180,6 +186,8 @@ function FeedPage() {
         takePhotoLabel: copy.takePhotoLabel,
         choosePhotoLabel: copy.choosePhotoLabel,
         phoneHelpText: copy.phoneHelpText,
+        submitLabel: copy.submitLabel,
+        submitPostingLabel: copy.submitPostingLabel,
       }} />
     </section>
   )

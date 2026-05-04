@@ -29,6 +29,8 @@ type FeedComposerCopy = {
   takePhotoLabel: string
   choosePhotoLabel: string
   phoneHelpText: string
+  submitLabel: string
+  submitPostingLabel: string
 }
 
 type LiveFeedPanelProps = {
@@ -55,6 +57,8 @@ const DEFAULT_FEED_COMPOSER_COPY: FeedComposerCopy = {
   takePhotoLabel: 'Take Photo',
   choosePhotoLabel: 'Choose Photo',
   phoneHelpText: 'On phone: tap Take Photo to capture and share instantly to the live feed.',
+  submitLabel: 'Post to Feed',
+  submitPostingLabel: 'Posting...',
 }
 
 function getStoredAuthorName() {
@@ -906,7 +910,7 @@ function LiveFeedPanel({
               className="primary-button"
               disabled={busy || !event}
             >
-              {busy ? 'Posting...' : 'Post to Feed'}
+              {busy ? composerCopy.submitPostingLabel : composerCopy.submitLabel}
             </PrimaryButton>
             <span className="live-feed-helper-text">{message.trim().length}/280</span>
           </div>
