@@ -17,6 +17,7 @@ import { useQueueStore, type QueueSong } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
+import { demoMode } from '../demo/demoMode'
 
 type FeedImageSpotlight = {
   id: string
@@ -691,6 +692,7 @@ function MirrorPage() {
   const funFactsInFlightRef = useRef<Partial<Record<string, Promise<string[]>>>>({})
 
   const setMirrorWarningMessage = (message: string) => {
+    if (demoMode) return  // suppress all warnings in demo — reconnects are expected and not real
     if (mirrorWarningClearTimerRef.current !== null) {
       window.clearTimeout(mirrorWarningClearTimerRef.current)
       mirrorWarningClearTimerRef.current = null
