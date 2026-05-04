@@ -2188,12 +2188,15 @@ function MirrorPage() {
             <p className="mirror-venue-logo" aria-label="Venue logo">
               <img src={event.venueLogoUrl} alt={`${event.venue || 'Venue'} logo`} className="mirror-venue-logo-image" />
             </p>
-          ) : null}
+          ) : (
+            <p className="mirror-venue-logo-placeholder" aria-label="Venue logo placeholder">
+              Designed to be your logo here
+            </p>
+          )}
           {event ? (
             <div>
               <p className="mirror-event-name">
                 {normalizeMirrorText(event.name, 'Live Event')}
-                {event.venue ? ` · ${normalizeMirrorText(event.venue, '')}` : ''}
               </p>
               {event.subtitle ? <p className="mirror-event-subtitle">{normalizeMirrorText(event.subtitle, '')}</p> : null}
             </div>
@@ -2431,6 +2434,7 @@ function MirrorPage() {
                     {/* Right: fun fact */}
                     <div className="mirror-now-playing-facts" aria-live="polite">
                       <div className="mirror-song-fact-box" aria-live="polite">
+                        <p className="mirror-song-fact-label">Song fact</p>
                         <p key={`${activeSong.id}-${currentFactIndex}`} className="mirror-song-fact">
                           {currentSongFact}
                         </p>

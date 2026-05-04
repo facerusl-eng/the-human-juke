@@ -5268,6 +5268,22 @@
   filter: drop-shadow(0 0 12px rgba(93, 215, 255, 0.14));
 }
 
+.mirror-venue-logo-placeholder {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  border: 1px dashed rgba(93, 215, 255, 0.4);
+  background: rgba(10, 18, 36, 0.42);
+  color: rgba(184, 210, 255, 0.92);
+  font-size: clamp(0.66rem, 1vw, 0.8rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .mirror-event-name {
   margin: 0;
   font-size: var(--mirror-event-size);
@@ -9586,12 +9602,12 @@
   font-size: clamp(0.98rem, 1.24vw, 1.24rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #151515;
+  color: #d7ecff;
 }
 
 .live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head span {
   font-size: clamp(0.7rem, 0.8vw, 0.78rem);
-  color: #544a3e;
+  color: rgba(184, 210, 255, 0.72);
 }
 
 .live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-message {
@@ -9601,8 +9617,8 @@
   font-size: clamp(1.05rem, 1.6vw, 1.7rem);
   line-height: 1.08;
   letter-spacing: 0.02em;
-  color: #151515;
-  text-shadow: none;
+  color: #f5fbff;
+  text-shadow: 0 0 16px rgba(93, 215, 255, 0.16);
 }
 
 @media (max-width: 1180px) {
@@ -10968,6 +10984,15 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     0 10px 24px rgba(2, 6, 18, 0.34);
+}
+
+.mirror-song-fact-label {
+  margin: 0 0 0.35rem;
+  font-size: clamp(0.62rem, 0.9vw, 0.76rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(93, 215, 255, 0.76);
 }
 
 .mirror-song-fact {
