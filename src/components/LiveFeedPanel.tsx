@@ -217,7 +217,7 @@ function LiveFeedPanel({
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [isPreparingImage, setIsPreparingImage] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!demoMode)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [selectedImageName, setSelectedImageName] = useState<string | null>(null)
   const [imageStatusText, setImageStatusText] = useState<string | null>(null)

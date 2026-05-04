@@ -6250,7 +6250,8 @@
 }
 
 .mirror-up-next-compact .mirror-karaoke-tag {
-  display: none;
+  font-size: clamp(0.62rem, 0.9vw, 0.76rem);
+  padding: 0.1rem 0.45rem;
 }
 
 .mirror-up-next-compact .mirror-queue-title {
