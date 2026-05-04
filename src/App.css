@@ -11876,6 +11876,40 @@ kbd {
 }
 
 /* ── Home hero v2 ─────────────────────────────────────────── */
+.home-lang-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1.2rem;
+}
+
+.home-lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.78rem;
+  font-family: var(--font-head);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.home-lang-btn:hover {
+  border-color: rgba(255, 255, 255, 0.36);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.home-lang-btn--active {
+  border-color: rgba(255, 103, 163, 0.7);
+  background: rgba(255, 103, 163, 0.15);
+  color: #f4f8ff;
+}
+
 .home-hero-eyebrow {
   margin: 0 0 1rem;
   font-size: 0.78rem;
