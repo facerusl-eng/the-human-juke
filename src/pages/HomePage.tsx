@@ -23,7 +23,7 @@ const COPY = {
     ],
     howTitle: 'How it works',
     how: [
-      { icon: '📅', label: 'I book the show', copy: 'One message is all it takes. Halli arrives set up and ready — no gear, no stress for my team.' },
+      { icon: '📅', label: 'I book the show', copy: 'One message is all it takes. I arrive set up and ready — no gear, no stress for your team.' },
       { icon: '📱', label: 'Guests scan & join', copy: 'A QR code on the table or screen. No app to install. Guests request songs and vote in seconds.' },
       { icon: '🎶', label: 'The crowd drives the room', copy: 'Real-time votes reshape the queue all event. The energy builds itself — I just serve the drinks.' },
     ],
@@ -78,7 +78,7 @@ const COPY = {
     ],
     howTitle: 'Sådan virker det',
     how: [
-      { icon: '📅', label: 'Jeg booker showet', copy: 'Én besked er alt, der skal til. Halli møder op klar til at spille — intet udstyr, ingen stress for mit personale.' },
+      { icon: '📅', label: 'Jeg booker showet', copy: 'Én besked er alt, der skal til. Jeg møder op klar til at spille — intet udstyr, ingen stress for dit personale.' },
       { icon: '📱', label: 'Gæsterne scanner og deltager', copy: 'En QR-kode på bordet eller skærmen. Ingen app at installere. Gæsterne ønsker sange og stemmer på sekunder.' },
       { icon: '🎶', label: 'Publikum styrer stemningen', copy: 'Live-stemmer omrokerer køen løbende. Energien bygger sig selv — jeg serverer bare drinks.' },
     ],
