@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 
-type EventType = 'karaoke' | 'live jukebox' | 'private party' | 'other'
+type EventType = 'private party — karaoke night' | 'live jukebox' | 'private party' | 'other'
 type FrequencyType = 'one-time' | 'weekly' | 'monthly' | 'special event'
 
 type BookingFormState = {
@@ -246,8 +246,8 @@ function BookShowPage() {
               required
             >
               <option value="">Select event type</option>
-              <option value="karaoke">Karaoke</option>
-              <option value="live jukebox">Live Jukebox</option>
+              <option value="live jukebox">Live Jukebox — Pub / Bar</option>
+              <option value="private party — karaoke night">Private Party — Karaoke Night</option>
               <option value="private party">Private Party</option>
               <option value="other">Other</option>
             </select>
