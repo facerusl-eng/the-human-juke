@@ -38,11 +38,21 @@ const VENUE_BENEFITS = [
   },
   {
     icon: '🎤',
-    label: 'Fresh every single night',
-    copy: 'Every show is different because every crowd is different. No two nights feel the same.',
+    label: 'Karaoke mode built in',
+    copy: 'Guests can flag songs for karaoke — the host sees it on the queue and the crowd sings along.',
+  },
+  {
+    icon: '📺',
+    label: 'Live feed screen for the venue',
+    copy: 'A dedicated display shows the live queue, now-playing track, and crowd activity — great on a bar TV.',
   },
   {
     icon: '🔁',
+    label: 'Fresh every single event',
+    copy: 'Every show is shaped by that crowd. No two events feel the same.',
+  },
+  {
+    icon: '✅',
     label: 'Repeat bookings',
     copy: 'Guests come back specifically to request songs again. It becomes a venue signature.',
   },
@@ -80,11 +90,11 @@ function HomePage() {
         <p className="home-hero-eyebrow">🎵 Live music experience for venues</p>
         <h1 className="home-hero-h1">
           Your guests pick the music.<br />
-          Your nights get <span className="home-hero-accent">unforgettable.</span>
+          Your events get <span className="home-hero-accent">unforgettable.</span>
         </h1>
         <p className="home-hero-subtitle">
-          The Human Jukebox lets the crowd request and vote on songs in real time —
-          creating electric nights that keep people engaged, ordering, and coming back.
+          The Human Jukebox lets the crowd request songs, sing along in karaoke mode,
+          and vote the queue live — all on a shared screen your whole venue can see.
         </p>
         <div className="hero-actions home-hero-actions" aria-label="Primary actions">
           <PrimaryButton onClick={() => navigate('/book-show')}>
@@ -177,7 +187,7 @@ function HomePage() {
 
       {/* ── Booking CTA ──────────────────────────────────────── */}
       <Card className="queue-panel home-section-card home-cta-band home-fade-section" aria-label="Book the show">
-        <p className="home-cta-eyebrow">Ready to upgrade your venue nights?</p>
+        <p className="home-cta-eyebrow">Ready to upgrade your venue events?</p>
         <h2 className="home-cta-heading">Book The Human Jukebox for your next event</h2>
         <p className="home-cta-sub">
           Pubs, bars, restaurants, private parties and festivals. One message gets things started.
