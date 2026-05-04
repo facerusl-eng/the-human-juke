@@ -923,12 +923,13 @@ function EventPage() {
       }
 
   useEffect(() => {
+    if (event === null) return
     if ((event?.audienceIcelandicEnabled ?? false) || audienceLocale !== 'is') {
       return
     }
 
     setAudienceLocale('en')
-  }, [audienceLocale, event?.audienceIcelandicEnabled])
+  }, [audienceLocale, event, event?.audienceIcelandicEnabled])
 
   useEffect(() => {
     if (hasRequestedEventParam) {
