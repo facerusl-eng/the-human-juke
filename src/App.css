@@ -12208,14 +12208,26 @@ kbd {
   margin: 0 auto 10px;
 }
 
-.home-tv-screen {
-  display: block;
+/* Wrapper clips the scaled iframe to a 16:9 box */
+.home-tv-screen-wrapper {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border: none;
-  border-radius: 6px;
-  background: #000;
   overflow: hidden;
+  border-radius: 6px;
+  position: relative;
+  background: #000;
+}
+
+/* Iframe renders at full 1440px desktop width; JS scales it to fit wrapper */
+.home-tv-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1440px;
+  height: 810px;
+  border: none;
+  transform-origin: 0 0;
+  transform: scale(var(--tv-scale, 0.6));
 }
 
 /* screen glare */
