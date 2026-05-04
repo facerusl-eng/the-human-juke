@@ -205,7 +205,7 @@ function AudienceSongListPage() {
         unknownArtist: 'Okunnur flytjandi',
         adding: 'Baeti vid...',
         requestAdded: 'Demo: Oskin thin var baett i kona.',
-        addKaraoke: 'Baeta vid karaoke osk (eg syng thetta)',
+        addKaraoke: 'Bæta við Laginu og ég syng það',
         karaokeConfirmHeading: 'Bittu adeins, rokkstjarna.',
         karaokeConfirmBody: 'Ef thu heldur afram ertu ad bjoda thig fram - ja, thig personulega - til ad fara upp a svid og syngja thetta lag fyrir alla. Vardstjorinn mun kalla nafnid thitt. Folk mun horfa. Engin leid til baka. Thetta verdur stort (eda ad minnsta kosti eftirminnilegt).',
         karaokeConfirmGo: 'Ja, eg geri thetta!',
