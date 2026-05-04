@@ -5114,9 +5114,9 @@
 
 .mirror-venue-logo-slot {
   position: absolute;
-  top: 0;
+  top: clamp(0.22rem, 0.45vw, 0.42rem);
   left: 50%;
-  transform: translate(-50%, -44%);
+  transform: translateX(-50%);
   width: clamp(80px, 8.5vw, 118px);
   height: clamp(80px, 8.5vw, 118px);
   aspect-ratio: 1 / 1;
