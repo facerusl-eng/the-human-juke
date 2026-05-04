@@ -181,7 +181,7 @@ function AudienceSongListPage() {
     ? {
         back: 'Til baka',
         eyebrow: 'Lagalisti',
-        pickPlaylist: 'Veldu playlista',
+        pickPlaylist: 'Veldu Lagalista - veldu fyrst Lagalista',
         greeting: 'Haell',
         guest: 'Gestur',
         choosePlaylistFirst: 'veldu fyrst playlista.',
