@@ -10777,7 +10777,7 @@
 /* Facts box: fixed max-width on the right */
 .mirror-stage-live .mirror-now-playing-facts {
   flex: 0 0 auto;
-  max-width: clamp(180px, 28%, 380px);
+  max-width: clamp(160px, 24%, 320px);
   min-width: 0;
 }
 
@@ -10800,12 +10800,38 @@
   position: static;
   top: auto;
   right: auto;
-  width: clamp(160px, 18vw, 260px);
-  height: clamp(160px, 18vw, 260px);
+  width: clamp(120px, 13vw, 190px);
+  height: clamp(120px, 13vw, 190px);
   border-radius: 12px;
   background: #ffffff;
   padding: 8px;
   image-rendering: pixelated;
+}
+
+@media (max-width: 1500px) {
+  .mirror-now-playing-track,
+  .mirror-shell-hide-controls .mirror-now-playing-track {
+    gap: clamp(0.5rem, 0.8vw, 0.8rem);
+  }
+
+  .mirror-now-playing-cover,
+  .mirror-now-playing-karaoke-mark,
+  .mirror-shell-hide-controls .mirror-now-playing-cover,
+  .mirror-shell-hide-controls .mirror-now-playing-karaoke-mark {
+    width: clamp(115px, 10vw, 168px);
+    min-width: clamp(115px, 10vw, 168px);
+    min-height: clamp(115px, 10vw, 168px);
+  }
+
+  .mirror-stage-live .mirror-now-playing-facts {
+    max-width: clamp(150px, 21%, 260px);
+  }
+
+  .mirror-now-playing-qr-slot .mirror-now-playing-qr {
+    width: clamp(108px, 10vw, 150px);
+    height: clamp(108px, 10vw, 150px);
+    padding: 6px;
+  }
 }
 
 .mirror-qr-cta {
