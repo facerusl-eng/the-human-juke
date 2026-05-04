@@ -887,7 +887,7 @@ function EventPage() {
         nameLabel: 'Your name',
         namePlaceholder: 'e.g. Alex',
         languageLabel: 'Language',
-        join: 'Join Audience',
+        join: '🇬🇧 Join Audience',
         joining: 'Joining...',
         welcome: 'Welcome! 🎤',
         waitingGreeting: 'Hi',
