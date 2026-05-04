@@ -65,7 +65,7 @@ const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const SONG_INFO_ROTATE_INTERVAL_MS = 15000
 const SONG_FACT_MAX_LENGTH = 180
-const MIRROR_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-mirror-fun-facts-cache-v2'
+const MIRROR_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-mirror-fun-facts-cache-v3'
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
 const MIRROR_PLAYBACK_STORAGE_KEY = PLAYBACK_STATE_STORAGE_KEY
 const MIRROR_PLAYBACK_BROADCAST_CHANNEL = PLAYBACK_STATE_BROADCAST_CHANNEL
@@ -81,14 +81,6 @@ type MirrorVenueMode = 'club' | 'lounge' | 'festival'
 type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
 type FunFactsCache = Record<string, string[]>
 type SongWithMirrorFacts = QueueSong & { mirrorFunFacts?: string[] }
-
-function countWords(text: string) {
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .length
-}
 
 function countCharactersWithoutSpaces(text: string) {
   return text.replace(/\s+/g, '').length
@@ -139,9 +131,79 @@ function normalizeFunFacts(facts: string[]) {
   const normalizedFacts = facts
     .map((fact) => truncateFact(fact))
     .map((fact) => fact.replace(/\s+/g, ' ').trim())
+    .filter((fact) => !isLowValueFact(fact))
     .filter(Boolean)
 
   return Array.from(new Set(normalizedFacts))
+}
+
+function isLowValueFact(fact: string) {
+  const normalizedFact = fact.trim().toLowerCase()
+
+  return /has\s+\d+\s+word/.test(normalizedFact)
+    || /uses\s+\d+\s+characters?/.test(normalizedFact)
+    || /title initials/.test(normalizedFact)
+    || /artist name\s+"?.+"?\s+has\s+\d+\s+word/.test(normalizedFact)
+}
+
+async function fetchItunesSongFacts(title: string, artist: string, signal: AbortSignal) {
+  const searchTerm = `${title} ${artist}`.trim()
+  const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=3`
+
+  try {
+    const response = await fetch(searchUrl, { signal })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const payload = await response.json() as {
+      results?: Array<{
+        trackName?: string
+        artistName?: string
+        collectionName?: string
+        releaseDate?: string
+        trackTimeMillis?: number
+        primaryGenreName?: string
+      }>
+    }
+
+    const exactMatch = payload.results?.find((track) => (
+      (track.trackName ?? '').trim().toLowerCase() === title.trim().toLowerCase()
+      && (track.artistName ?? '').trim().toLowerCase() === artist.trim().toLowerCase()
+    ))
+
+    const track = exactMatch ?? payload.results?.[0]
+
+    if (!track) {
+      return []
+    }
+
+    const releaseYear = track.releaseDate?.slice(0, 4)
+    const durationMs = track.trackTimeMillis ?? 0
+    const durationMinutes = durationMs > 0 ? Math.floor(durationMs / 60000) : 0
+    const durationSeconds = durationMs > 0 ? String(Math.round((durationMs % 60000) / 1000)).padStart(2, '0') : '00'
+    const durationLabel = durationMs > 0 ? `${durationMinutes}:${durationSeconds}` : null
+
+    const facts = [
+      track.collectionName
+        ? `iTunes metadata: this track is listed on the release "${track.collectionName}".`
+        : null,
+      releaseYear
+        ? `iTunes metadata: release year is ${releaseYear}.`
+        : null,
+      track.primaryGenreName
+        ? `iTunes metadata tags this song as ${track.primaryGenreName}.`
+        : null,
+      durationLabel
+        ? `iTunes metadata runtime is about ${durationLabel}.`
+        : null,
+    ].filter((fact): fact is string => Boolean(fact))
+
+    return facts.slice(0, 4)
+  } catch {
+    return []
+  }
 }
 
 function isSpotifyAutoTransportEnabled() {
@@ -323,16 +385,33 @@ async function fetchMusicBrainzFallbackFacts(title: string, artist: string, sign
 }
 
 const SONG_INFO_BUILDERS = [
-  (song: NowPlayingInfoSong) => `Song fact: "${song.title}" has ${countWords(song.title)} word${countWords(song.title) === 1 ? '' : 's'} in the title.`,
-  (song: NowPlayingInfoSong) => `Song fact: "${song.title}" uses ${countCharactersWithoutSpaces(song.title)} characters (without spaces).`,
-  (song: NowPlayingInfoSong) => `Song fact: Artist name "${song.artist}" has ${countWords(song.artist)} word${countWords(song.artist) === 1 ? '' : 's'}.`,
-  (song: NowPlayingInfoSong) => `Song fact: Title initials are ${buildInitials(song.title)}.`,
+  (song: NowPlayingInfoSong) => /\//.test(song.title)
+    ? `This title looks like a medley set - multiple songs woven into one moment.`
+    : `"${song.title}" keeps the spotlight sharp and memorable on the mirror.`,
+  (song: NowPlayingInfoSong) => /[()[\]]/.test(song.title)
+    ? `Bracketed title detected - this is often a remix, edit, or live version.`
+    : `No remix/live tags in the title - this is presented as a straight version.`,
+  (song: NowPlayingInfoSong) => /\b(live|acoustic|remix|edit|version)\b/i.test(song.title)
+    ? `Version keyword found in title - this cut likely has a distinct arrangement.`
+    : `No version keyword found - likely the standard studio-style listing.`,
   (song: NowPlayingInfoSong) => containsFeatToken(song.title)
-    ? 'Song fact: This title includes a featured-artist tag (feat./ft.).'
-    : 'Song fact: This title does not include a featured-artist tag.',
+    ? 'Featured artist tag detected (feat./ft.) - this is a collaboration track.'
+    : 'No featured artist tag in the title - this reads like a solo billing.',
   (song: NowPlayingInfoSong) => song.is_explicit
-    ? 'Song fact: This track is marked explicit in the library.'
-    : 'Song fact: This track is marked clean in the library.',
+    ? 'Library flag: this track is marked explicit.'
+    : 'Library flag: this track is marked clean.',
+  (song: NowPlayingInfoSong) => {
+    const initials = buildInitials(song.title)
+    return initials.length > 1
+      ? `Shortcode for hosts: "${song.title}" can be referenced as ${initials}.`
+      : `Short title detected - easy to call out quickly in a live room.`
+  },
+  (song: NowPlayingInfoSong) => {
+    const compactLength = countCharactersWithoutSpaces(song.title)
+    return compactLength >= 24
+      ? `Long-form title (${compactLength} letters without spaces) - built for dramatic mirror presence.`
+      : `Compact title (${compactLength} letters without spaces) - quick to read from a distance.`
+  },
 ]
 
 function ensureRotatingFacts(song: NowPlayingInfoSong, facts: string[], minimumCount = 2) {
@@ -1077,7 +1156,8 @@ function MirrorPage() {
 
     const fetchPromise = (async () => {
       const wikipediaFacts = await fetchWikipediaSummarySentences(song.title, song.artist, signal)
-      const fallbackFacts = wikipediaFacts.length >= 3
+      const itunesFacts = await fetchItunesSongFacts(song.title, song.artist, signal)
+      const fallbackFacts = wikipediaFacts.length + itunesFacts.length >= 3
         ? []
         : await fetchMusicBrainzFallbackFacts(song.title, song.artist, signal)
 
@@ -1085,6 +1165,7 @@ function MirrorPage() {
 
       const mergedFacts = normalizeFunFacts([
         ...wikipediaFacts,
+        ...itunesFacts,
         ...fallbackFacts,
         ...localFacts,
       ]).slice(0, 10)

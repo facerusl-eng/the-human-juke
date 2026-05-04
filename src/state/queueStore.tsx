@@ -323,6 +323,26 @@ function isMissingAudienceIcelandicColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes('audience_icelandic_enabled')
 }
 
+function isMissingPerformedAtColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('performed_at')
+}
+
 function isMissingPlaylistTypeColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -443,6 +463,28 @@ function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: str
 function isTransientLoadError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
   return /timed out|statement timeout|connection pool|pgrst003|failed to fetch|networkerror|network error/i.test(message)
+}
+
+function isQueueReadPolicyDenied(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code.toUpperCase() : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return code === '42501'
+    || text.includes('row-level security')
+    || text.includes('permission denied')
 }
 
 async function withTransientRetry<T>(operation: () => Promise<T>, attempts = TRANSIENT_LOAD_RETRY_ATTEMPTS) {
@@ -724,7 +766,12 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
+  const isHostSessionRef = useRef(isHostSession)
   const routePathname = typeof window === 'undefined' ? '' : window.location.pathname
+
+  useEffect(() => {
+    isHostSessionRef.current = isHostSession
+  }, [isHostSession])
 
   useEffect(() => {
     const snapshot = readFromLocalStorage<PersistedQueueSnapshot | null>(QUEUE_STATE_STORAGE_KEY, null)
@@ -885,6 +932,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     let queueSongs: QueueSong[] = []
     let queueLoaded = false
+    let performedSongsSnapshot: PerformedSong[] = []
+    let performedSongsLoaded = false
 
     try {
       const songsSelectWithProfiles = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, created_by, requester_name'
@@ -1010,8 +1059,85 @@ function QueueProvider({ children }: PropsWithChildren) {
       console.warn('queueStore: queue songs unavailable, keeping live event shell active', error)
     }
 
+    try {
+      const performedSongsSelectWithPerformedAt = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, requester_name, performed_at, created_at'
+      const performedSongsSelectWithoutPerformedAt = 'id, event_id, title, artist, votes_count, is_explicit, voting_locked, is_removed, cover_url, library_song_id, audience_sings, position, requester_name, created_at'
+
+      let performedSongsData: Array<Record<string, unknown>> | null = null
+
+      const { data: performedWithPerformedAt, error: performedWithPerformedAtError } = await withTimeout(
+        supabase
+          .from('queue_songs')
+          .select(performedSongsSelectWithPerformedAt)
+          .eq('event_id', activeEventId)
+          .eq('is_removed', true)
+          .order('performed_at', { ascending: false, nullsFirst: false })
+          .limit(30),
+        DEFAULT_DB_TIMEOUT_MS,
+        'Loading played songs timed out. Please refresh and try again.',
+      )
+
+      if (performedWithPerformedAtError && !isMissingPerformedAtColumnError(performedWithPerformedAtError)) {
+        throw performedWithPerformedAtError
+      }
+
+      if (performedWithPerformedAtError && isMissingPerformedAtColumnError(performedWithPerformedAtError)) {
+        const { data: performedWithoutPerformedAt, error: performedWithoutPerformedAtError } = await withTimeout(
+          supabase
+            .from('queue_songs')
+            .select(performedSongsSelectWithoutPerformedAt)
+            .eq('event_id', activeEventId)
+            .eq('is_removed', true)
+            .order('created_at', { ascending: false })
+            .limit(30),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Loading played songs timed out. Please refresh and try again.',
+        )
+
+        if (performedWithoutPerformedAtError) {
+          throw performedWithoutPerformedAtError
+        }
+
+        performedSongsData = (performedWithoutPerformedAt ?? []) as Array<Record<string, unknown>>
+      } else {
+        performedSongsData = (performedWithPerformedAt ?? []) as Array<Record<string, unknown>>
+      }
+
+      performedSongsSnapshot = (performedSongsData ?? []).map((song) => {
+        const normalizedSong = song as Record<string, unknown>
+        const requesterName = typeof normalizedSong.requester_name === 'string' ? normalizedSong.requester_name.trim() : ''
+        const performedAt = (normalizedSong.performed_at as string | null)
+          ?? (normalizedSong.created_at as string | null)
+          ?? new Date().toISOString()
+
+        return {
+          id: String(normalizedSong.id ?? ''),
+          event_id: String(normalizedSong.event_id ?? ''),
+          title: String(normalizedSong.title ?? ''),
+          artist: String(normalizedSong.artist ?? ''),
+          votes_count: Number(normalizedSong.votes_count ?? 0),
+          is_explicit: Boolean(normalizedSong.is_explicit),
+          voting_locked: Boolean(normalizedSong.voting_locked),
+          is_removed: Boolean(normalizedSong.is_removed),
+          cover_url: (normalizedSong.cover_url as string | null) ?? null,
+          library_song_id: (normalizedSong.library_song_id as string | null) ?? null,
+          audience_sings: Boolean(normalizedSong.audience_sings),
+          position: typeof normalizedSong.position === 'number' ? normalizedSong.position : undefined,
+          createdByName: requesterName || null,
+          performedAt,
+        }
+      })
+      performedSongsLoaded = true
+    } catch (error) {
+      if (!isTransientLoadError(error) && !isQueueReadPolicyDenied(error)) {
+        throw error
+      }
+
+      console.warn('queueStore: played songs unavailable, keeping previous played songs', error)
+    }
+
     const missingCoverLibrarySongIds = [...new Set(
-      queueSongs
+      [...queueSongs, ...performedSongsSnapshot]
         .filter((song) => !song.cover_url && song.library_song_id)
         .map((song) => song.library_song_id)
         .filter((songId): songId is string => Boolean(songId)),
@@ -1089,6 +1215,30 @@ function QueueProvider({ children }: PropsWithChildren) {
       }))
     } else {
       setSongs((currentSongs) => (activeEventIdRef.current === activeEventId ? currentSongs : []))
+    }
+
+    if (performedSongsLoaded) {
+      const nextPerformedSongs = performedSongsSnapshot.map((song) => {
+        if (song.cover_url || !song.library_song_id) {
+          return song
+        }
+
+        return {
+          ...song,
+          cover_url: coverUrlByLibrarySongId.get(song.library_song_id) ?? null,
+        }
+      })
+
+      setPerformedSongs((currentPerformedSongs) => {
+        if (nextPerformedSongs.length === 0 && isHostSessionRef.current && currentPerformedSongs.length > 0) {
+          // Legacy DB policies may hide removed rows; keep local host history instead of wiping it.
+          return currentPerformedSongs
+        }
+
+        return nextPerformedSongs
+      })
+    } else {
+      setPerformedSongs((currentPerformedSongs) => (activeEventIdRef.current === activeEventId ? currentPerformedSongs : []))
     }
   }, [])
 
@@ -2942,10 +3092,38 @@ function QueueProvider({ children }: PropsWithChildren) {
           ...currentPerformedSongs.filter((song) => song.id !== currentSong.id),
         ])
 
-        const { error } = await supabase
-          .from('queue_songs')
-          .update({ is_removed: true })
-          .eq('id', currentSong.id)
+        const updatePlayedState = async (includePerformedAt: boolean) => {
+          const payload = includePerformedAt
+            ? { is_removed: true, performed_at: performedAt }
+            : { is_removed: true }
+
+          return supabase
+            .from('queue_songs')
+            .update(payload)
+            .eq('id', currentSong.id)
+        }
+
+        const { error } = await updatePlayedState(true)
+
+        if (error && isMissingPerformedAtColumnError(error)) {
+          const { error: fallbackError } = await updatePlayedState(false)
+
+          if (fallbackError) {
+            setSongs(songs)
+            setPerformedSongs((currentPerformedSongs) =>
+              currentPerformedSongs.filter(
+                (song) => !(song.id === currentSong.id && song.performedAt === performedAt),
+              ),
+            )
+            throw fallbackError
+          }
+
+          if (event?.id) {
+            await fetchQueueSnapshot(event.id)
+          }
+
+          return
+        }
 
         if (error) {
           setSongs(songs)
@@ -2974,10 +3152,34 @@ function QueueProvider({ children }: PropsWithChildren) {
         // Optimistically remove from performed list.
         setPerformedSongs((current) => current.filter((song) => song.id !== songId))
 
-        const { error } = await supabase
-          .from('queue_songs')
-          .update({ is_removed: false })
-          .eq('id', songId)
+        const updateUnplayedState = async (includePerformedAt: boolean) => {
+          const payload = includePerformedAt
+            ? { is_removed: false, performed_at: null }
+            : { is_removed: false }
+
+          return supabase
+            .from('queue_songs')
+            .update(payload)
+            .eq('id', songId)
+        }
+
+        const { error } = await updateUnplayedState(true)
+
+        if (error && isMissingPerformedAtColumnError(error)) {
+          const { error: fallbackError } = await updateUnplayedState(false)
+
+          if (fallbackError) {
+            // Roll back on failure.
+            setPerformedSongs((current) => [targetSong, ...current])
+            throw fallbackError
+          }
+
+          if (event?.id) {
+            await fetchQueueSnapshot(event.id)
+          }
+
+          return
+        }
 
         if (error) {
           // Roll back on failure.

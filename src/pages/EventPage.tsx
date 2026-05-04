@@ -140,7 +140,7 @@ const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim(
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
-const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v2'
+const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v3'
 const AUDIENCE_SONG_FACT_PLACEHOLDER = 'No fun facts available for this song yet.'
 
 type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
@@ -205,9 +205,79 @@ function normalizeFunFacts(facts: string[]) {
   const normalizedFacts = facts
     .map((fact) => truncateFact(fact))
     .map((fact) => fact.replace(/\s+/g, ' ').trim())
+    .filter((fact) => !isLowValueFact(fact))
     .filter(Boolean)
 
   return Array.from(new Set(normalizedFacts))
+}
+
+function isLowValueFact(fact: string) {
+  const normalizedFact = fact.trim().toLowerCase()
+
+  return /has\s+\d+\s+word/.test(normalizedFact)
+    || /uses\s+\d+\s+characters?/.test(normalizedFact)
+    || /title initials/.test(normalizedFact)
+    || /artist name\s+"?.+"?\s+has\s+\d+\s+word/.test(normalizedFact)
+}
+
+async function fetchItunesSongFacts(title: string, artist: string, signal: AbortSignal) {
+  const searchTerm = `${title} ${artist}`.trim()
+  const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=3`
+
+  try {
+    const response = await fetch(searchUrl, { signal })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const payload = await response.json() as {
+      results?: Array<{
+        trackName?: string
+        artistName?: string
+        collectionName?: string
+        releaseDate?: string
+        trackTimeMillis?: number
+        primaryGenreName?: string
+      }>
+    }
+
+    const exactMatch = payload.results?.find((track) => (
+      (track.trackName ?? '').trim().toLowerCase() === title.trim().toLowerCase()
+      && (track.artistName ?? '').trim().toLowerCase() === artist.trim().toLowerCase()
+    ))
+
+    const track = exactMatch ?? payload.results?.[0]
+
+    if (!track) {
+      return []
+    }
+
+    const releaseYear = track.releaseDate?.slice(0, 4)
+    const durationMs = track.trackTimeMillis ?? 0
+    const durationMinutes = durationMs > 0 ? Math.floor(durationMs / 60000) : 0
+    const durationSeconds = durationMs > 0 ? String(Math.round((durationMs % 60000) / 1000)).padStart(2, '0') : '00'
+    const durationLabel = durationMs > 0 ? `${durationMinutes}:${durationSeconds}` : null
+
+    const facts = [
+      track.collectionName
+        ? `iTunes metadata: this track is listed on the release "${track.collectionName}".`
+        : null,
+      releaseYear
+        ? `iTunes metadata: release year is ${releaseYear}.`
+        : null,
+      track.primaryGenreName
+        ? `iTunes metadata tags this song as ${track.primaryGenreName}.`
+        : null,
+      durationLabel
+        ? `iTunes metadata runtime is about ${durationLabel}.`
+        : null,
+    ].filter((fact): fact is string => Boolean(fact))
+
+    return facts.slice(0, 4)
+  } catch {
+    return []
+  }
 }
 
 async function fetchWikipediaSummarySentences(title: string, artist: string, signal: AbortSignal) {
@@ -309,10 +379,9 @@ async function fetchMusicBrainzFallbackFacts(title: string, artist: string, sign
 
 const SONG_INFO_BUILDERS = [
   (song: NowPlayingInfoSong) => {
-    const n = countWords(song.title)
-    if (n === 1) return `"${song.title}" — a one-word title that somehow says everything.`
-    if (n >= 6) return `"${song.title}" packs ${n} words into one title — ${song.artist} clearly had a lot to get off their chest.`
-    return `"${song.title}" — ${n} words, zero filler, maximum impact.`
+    if (/\//.test(song.title)) return `"${song.title}" reads like a medley title - multiple songs stitched into one spotlight moment.`
+    if (/[()[\]]/.test(song.title)) return `"${song.title}" includes bracket tags, often signaling a remix, live cut, or special edit.`
+    return `"${song.title}" keeps things clear and direct for a live audience screen.`
   },
   (song: NowPlayingInfoSong) => containsFeatToken(song.title)
     ? `This is a collab — ${song.artist} brought company along for this one. The more the merrier. 🎉`
@@ -336,14 +405,13 @@ const SONG_INFO_BUILDERS = [
   },
   (song: NowPlayingInfoSong) => {
     const n = countCharactersWithoutSpaces(song.title)
-    if (n <= 4) return `At just ${n} letters, "${song.title}" is short, punchy, and straight to the point.`
-    if (n >= 18) return `"${song.title}" clocks in at ${n} letters without spaces — ${song.artist} went big on the title.`
-    return `"${song.title}" — ${n} letters packed into a title that sticks in your head all night.`
+    if (n >= 24) return `Long-form title alert: "${song.title}" carries ${n} letters without spaces.`
+    return `Compact title format (${n} letters without spaces) keeps this one easy to spot in queue.`
   },
   (song: NowPlayingInfoSong) => {
     const initials = buildInitials(song.title)
-    if (initials.length <= 1) return `"${song.title}" — one of those titles you need to actually hear to fully understand.`
-    return `"${song.title}" abbreviates to ${initials} — if you ever need a shorthand for tonight's absolute banger.`
+    if (initials.length <= 1) return `"${song.title}" is short enough that shorthand is not really needed.`
+    return `Quick shorthand for hosts: "${song.title}" -> ${initials}.`
   },
 ]
 
@@ -934,7 +1002,8 @@ function EventPage() {
 
     const fetchPromise = (async () => {
       const wikipediaFacts = await fetchWikipediaSummarySentences(song.title, song.artist, signal)
-      const fallbackFacts = wikipediaFacts.length >= 3
+      const itunesFacts = await fetchItunesSongFacts(song.title, song.artist, signal)
+      const fallbackFacts = wikipediaFacts.length + itunesFacts.length >= 3
         ? []
         : await fetchMusicBrainzFallbackFacts(song.title, song.artist, signal)
 
@@ -942,6 +1011,7 @@ function EventPage() {
 
       const mergedFacts = normalizeFunFacts([
         ...wikipediaFacts,
+        ...itunesFacts,
         ...fallbackFacts,
         ...localFacts,
       ]).slice(0, 10)
@@ -2179,9 +2249,9 @@ function EventPage() {
                       className="song-cover"
                     />
                   ) : <span className="song-cover song-cover-fallback" aria-hidden="true">♪</span>}
-                  <div>
-                    <p className="song">{song.title}</p>
-                    <p className="artist">{song.artist}</p>
+                  <div className="audience-song-main-copy">
+                    <p className="song" title={song.title}>{song.title}</p>
+                    <p className="artist" title={song.artist}>{song.artist}</p>
                   </div>
                 </div>
               </li>
