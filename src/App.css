@@ -1575,6 +1575,14 @@
   opacity: 0.34;
 }
 
+.audience-language-option::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.18) 60%, transparent 100%);
+  z-index: 0;
+}
+
 .audience-language-option-en::before {
   opacity: 0.55;
   background-image: url('https://flagcdn.com/w320/gb.png');
@@ -1631,7 +1639,8 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 2px 12px rgba(0,0,0,0.8);
 }
 
 .audience-no-gig-shell {
