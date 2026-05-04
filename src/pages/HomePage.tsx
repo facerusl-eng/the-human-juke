@@ -40,7 +40,7 @@ const COPY = {
     ],
     mirrorTitle: 'The mirror screen — your brand, front and centre',
     mirror: [
-      { icon: '🏷️', label: 'Your logo, all night long', copy: 'Upload your venue logo once. It appears on the big mirror screen the whole event — your branding, not ours.' },
+      { icon: '🏷️', label: 'Your logo, all night long', copy: 'Upload your venue logo once. It appears on the big mirror screen the whole event — your branding, not mine.' },
       { icon: '🍹', label: 'Link to your drink menu', copy: 'Add a URL to your drinks menu or tonight\'s specials. Guests see a tap-able link right inside the audience app — driving orders while the music plays.' },
       { icon: '🎵', label: 'Live queue on the big screen', copy: 'The mirror shows the current song, the live vote queue, and crowd activity. Guests at the bar can see what\'s coming up next.' },
       { icon: '✨', label: 'Makes the room feel alive', copy: 'A dynamic, branded screen behind the performer transforms any corner into a proper stage — even in a small pub.' },
@@ -95,7 +95,7 @@ const COPY = {
     ],
     mirrorTitle: 'Spejlskærmen — din branding i centrum',
     mirror: [
-      { icon: '🏷️', label: 'Dit logo hele natten', copy: 'Upload dit logo én gang. Det vises på den store spejlskærm hele eventet — din branding, ikke vores.' },
+      { icon: '🏷️', label: 'Dit logo hele natten', copy: 'Upload dit logo én gang. Det vises på den store spejlskærm hele eventet — din branding, ikke min.' },
       { icon: '🍹', label: 'Link til din drinksmenu', copy: 'Tilføj et link til din menu eller aftenens tilbud. Gæsterne ser et klikbart link direkte i publikumsappen — og bestiller mens musikken spiller.' },
       { icon: '🎵', label: 'Live-kø på storskærmen', copy: 'Spejlskærmen viser den aktuelle sang, live-afstemningskøen og publikumsaktivitet. Gæster ved baren kan se, hvad der kommer næst.' },
       { icon: '✨', label: 'Giver rummet liv', copy: 'En dynamisk, branded skærm bag kunstneren forvandler ethvert hjørne til en ordentlig scene — selv i en lille pub.' },
