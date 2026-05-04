@@ -843,7 +843,7 @@ function EventPage() {
     ? {
         audienceApp: 'Ahorfenda app',
         entryEyebrow: 'Official Audience Lounge',
-        entryCopy: 'Thu ert ad skra thig inn i live ahorfenda appid. Oskadu lag og studdu uppahaldslagin med atkvaedum.',
+        entryCopy: 'Skráðu þig inn, veldu lag og kjóstu þitt uppáhalds lag.',
         nameLabel: 'Nafnid thitt',
         namePlaceholder: 't.d. Alex',
         languageLabel: 'Tungumal',
