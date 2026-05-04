@@ -670,8 +670,6 @@ function EventPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>([])
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
-  const [audienceLoadingFallbackActive, setAudienceLoadingFallbackActive] = useState(false)
-  const [hasResolvedInitialAudienceLoad, setHasResolvedInitialAudienceLoad] = useState(false)
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(false)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
@@ -1185,32 +1183,6 @@ function EventPage() {
       })
     }
   }, [upvoteSong])
-
-  useEffect(() => {
-    if (!loading || event) {
-      setAudienceLoadingFallbackActive(false)
-      return
-    }
-
-    const timerId = window.setTimeout(() => {
-      setAudienceLoadingFallbackActive(true)
-      setUpcomingEventsNotice('Loading is taking longer than expected. Showing upcoming events while we reconnect...')
-    }, 1600)
-
-    return () => {
-      window.clearTimeout(timerId)
-    }
-  }, [loading, event])
-
-  useEffect(() => {
-    if (hasResolvedInitialAudienceLoad) {
-      return
-    }
-
-    if (!loading || Boolean(event) || upcomingEvents.length > 0 || Boolean(upcomingEventsNotice)) {
-      setHasResolvedInitialAudienceLoad(true)
-    }
-  }, [loading, event, upcomingEvents.length, upcomingEventsNotice, hasResolvedInitialAudienceLoad])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1779,13 +1751,7 @@ function EventPage() {
     navigate('/audience', { replace: true })
   }, [navigate])
 
-  if (
-    loading
-    && !audienceLoadingFallbackActive
-    && !hasResolvedInitialAudienceLoad
-    && !event
-    && upcomingEvents.length === 0
-  ) {
+  if (loading && !event && upcomingEvents.length === 0) {
     return (
       <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
         <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
@@ -1794,6 +1760,14 @@ function EventPage() {
   }
 
   if (!event) {
+    if (hasRequestedEventParam && (loading || authLoading)) {
+      return (
+        <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
+          <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
+        </section>
+      )
+    }
+
     // If auth is still in progress (no user yet), show the loading skeleton.
     // Showing "no live show" while auth reconnects after a retry is misleading.
     if (authLoading && !user) {
