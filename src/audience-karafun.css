@@ -802,6 +802,31 @@
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
+.audience-karafun .audience-language-option-en::before {
+  opacity: 0.55;
+  background-image: url('https://flagcdn.com/w320/gb.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.audience-karafun .audience-language-option-da::before {
+  opacity: 0.55;
+  background-image: url('https://flagcdn.com/w320/dk.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.audience-karafun .audience-language-option-is::before {
+  opacity: 0.55;
+  background-image: url('https://flagcdn.com/w320/is.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.audience-karafun .audience-language-option-text {
+  color: #ffffff;
+}
+
 .audience-karafun .audience-language-option-active {
   border-color: var(--kf-purple) !important;
   background: rgba(162, 89, 255, 0.16) !important;
