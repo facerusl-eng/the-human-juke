@@ -119,13 +119,14 @@ function HomePage() {
       {/* ── How it works ─────────────────────────────────────── */}
       <Card className="queue-panel home-section-card home-fade-section" aria-label="How it works">
         <SectionHeader title="How it works" />
-        <div className="home-visual-card-grid" role="list" aria-label="How it works steps">
+        <div className="home-benefit-grid home-benefit-grid--3" role="list" aria-label="How it works steps">
           {HOW_IT_WORKS.map((step) => (
-            <article key={step.label} className="home-visual-card" role="listitem">
-              <p className="home-visual-step-icon" aria-hidden="true">{step.icon}</p>
-              <p className="home-visual-num" aria-hidden="true">{step.num}</p>
-              <p className="home-visual-label">{step.label}</p>
-              <p className="home-visual-copy">{step.copy}</p>
+            <article key={step.label} className="home-benefit-card" role="listitem">
+              <span className="home-benefit-icon" aria-hidden="true">{step.icon}</span>
+              <div>
+                <p className="home-benefit-label">{step.label}</p>
+                <p className="home-benefit-copy">{step.copy}</p>
+              </div>
             </article>
           ))}
         </div>
@@ -150,41 +151,35 @@ function HomePage() {
       {/* ── What your guests experience ─────────────────────── */}
       <Card className="queue-panel home-section-card home-fade-section" aria-label="What guests experience">
         <SectionHeader title="What your guests experience" />
-        <div className="home-guest-flow" role="list">
-          <div className="home-guest-step" role="listitem">
-            <span className="home-guest-icon" aria-hidden="true">📲</span>
+        <div className="home-benefit-grid home-benefit-grid--4" role="list">
+          <article className="home-benefit-card" role="listitem">
+            <span className="home-benefit-icon" aria-hidden="true">📲</span>
             <div>
-              <strong>Scan the QR code</strong>
-              <p>Instantly in the app — no download, no account.</p>
+              <p className="home-benefit-label">Scan the QR code</p>
+              <p className="home-benefit-copy">Instantly in the app — no download, no account.</p>
             </div>
-          </div>
-          <div className="home-guest-arrow" aria-hidden="true">→</div>
-          <div className="home-guest-step" role="listitem">
-            <span className="home-guest-icon" aria-hidden="true">🎵</span>
+          </article>
+          <article className="home-benefit-card" role="listitem">
+            <span className="home-benefit-icon" aria-hidden="true">🎵</span>
             <div>
-              <strong>Request a song</strong>
-              <p>Search the catalogue and submit in seconds.</p>
+              <p className="home-benefit-label">Request a song</p>
+              <p className="home-benefit-copy">Search the catalogue and submit in seconds.</p>
             </div>
-          </div>
-          <div className="home-guest-arrow" aria-hidden="true">→</div>
-          <div className="home-guest-step" role="listitem">
-            <span className="home-guest-icon" aria-hidden="true">🗳️</span>
+          </article>
+          <article className="home-benefit-card" role="listitem">
+            <span className="home-benefit-icon" aria-hidden="true">🗳️</span>
             <div>
-              <strong>Vote songs up the queue</strong>
-              <p>Live voting reshapes the set as the night evolves.</p>
+              <p className="home-benefit-label">Vote songs up the queue</p>
+              <p className="home-benefit-copy">Live voting reshapes the set as the event evolves.</p>
             </div>
-          </div>
-          <div className="home-guest-arrow" aria-hidden="true">→</div>
-          <div className="home-guest-step" role="listitem">
-            <span className="home-guest-icon" aria-hidden="true">🔥</span>
+          </article>
+          <article className="home-benefit-card" role="listitem">
+            <span className="home-benefit-icon" aria-hidden="true">🔥</span>
             <div>
-              <strong>Hear their song live</strong>
-              <p>The crowd goes wild. They order another round.</p>
+              <p className="home-benefit-label">Hear their song live</p>
+              <p className="home-benefit-copy">The crowd goes wild. They order another round.</p>
             </div>
-          </div>
-        </div>
-      </Card>
-
+          </article>
       {/* ── Booking CTA ──────────────────────────────────────── */}
       <Card className="queue-panel home-section-card home-cta-band home-fade-section" aria-label="Book the show">
         <p className="home-cta-eyebrow">Ready to upgrade your venue events?</p>

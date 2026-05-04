@@ -11966,6 +11966,14 @@ kbd {
   gap: 16px;
 }
 
+.home-benefit-grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.home-benefit-grid--4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
 .home-benefit-card {
   display: flex;
   align-items: flex-start;
@@ -12183,6 +12191,11 @@ kbd {
   }
 
   .home-benefit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-benefit-grid--3,
+  .home-benefit-grid--4 {
     grid-template-columns: 1fr;
   }
 
