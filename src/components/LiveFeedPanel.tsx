@@ -25,6 +25,7 @@ type FeedPost = {
 type FeedComposerCopy = {
   displayNameLabel: string
   messageLabel: string
+  messagePlaceholder: string
   takePhotoLabel: string
   choosePhotoLabel: string
   phoneHelpText: string
@@ -50,6 +51,7 @@ const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.
 const DEFAULT_FEED_COMPOSER_COPY: FeedComposerCopy = {
   displayNameLabel: 'Display name',
   messageLabel: 'Message',
+  messagePlaceholder: 'Send a shout-out, dedication, or crowd moment...',
   takePhotoLabel: 'Take Photo',
   choosePhotoLabel: 'Choose Photo',
   phoneHelpText: 'On phone: tap Take Photo to capture and share instantly to the live feed.',
@@ -817,7 +819,7 @@ function LiveFeedPanel({
               id={`feed-message-${mode}`}
               value={message}
               onChange={(event) => setMessage(event.target.value)}
-              placeholder="Send a shout-out, dedication, or crowd moment..."
+              placeholder={composerCopy.messagePlaceholder}
               rows={4}
               maxLength={280}
             />
