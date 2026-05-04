@@ -40,7 +40,7 @@ const COPY = {
     ],
     mirrorTitle: 'The mirror screen — my brand, front and centre',
     mirror: [
-      { icon: '🏷️', label: 'My logo, all night long', copy: 'Upload my venue logo once. It appears on the big mirror screen the whole event — my branding, not Halli\'s.' },
+      { icon: '🏷️', label: 'Your logo, all night long', copy: 'Send me your venue logo once. I\'ll set it up on the big mirror screen the whole event — your branding, not mine.' },
       { icon: '🍹', label: 'Link to my drink menu', copy: 'Add a URL to my drinks menu or tonight\'s specials. Guests see a tap-able link right inside the audience app — driving orders while the music plays.' },
       { icon: '🎵', label: 'Live queue on the big screen', copy: 'The mirror shows the current song, the live vote queue, and crowd activity. Guests at the bar can see what\'s coming up next.' },
       { icon: '✨', label: 'Makes the room feel alive', copy: 'A dynamic, branded screen behind the performer transforms any corner into a proper stage — even in a small pub.' },
@@ -95,7 +95,7 @@ const COPY = {
     ],
     mirrorTitle: 'Spejlskærmen — min branding i centrum',
     mirror: [
-      { icon: '🏷️', label: 'Mit logo hele natten', copy: 'Upload mit logo én gang. Det vises på den store spejlskærm hele eventet — min branding, ikke Hallis.' },
+      { icon: '🏷️', label: 'Dit logo hele natten', copy: 'Send mig dit venues logo én gang. Jeg sætter det op på den store spejlskærm hele eventet — din branding, ikke min.' },
       { icon: '🍹', label: 'Link til min drinksmenu', copy: 'Tilføj et link til min menu eller aftenens tilbud. Gæsterne ser et klikbart link direkte i publikumsappen — og bestiller mens musikken spiller.' },
       { icon: '🎵', label: 'Live-kø på storskærmen', copy: 'Spejlskærmen viser den aktuelle sang, live-afstemningskøen og publikumsaktivitet. Gæster ved baren kan se, hvad der kommer næst.' },
       { icon: '✨', label: 'Giver rummet liv', copy: 'En dynamisk, branded skærm bag kunstneren forvandler ethvert hjørne til en ordentlig scene — selv i en lille pub.' },
