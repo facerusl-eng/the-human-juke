@@ -867,7 +867,7 @@ function EventPage() {
         queueThinking: 'Koin er ad hugsa sig um',
         requestPrompt: 'Opnadu Laglista og oskadu lag adur en eitthvad velur Wonderwall.',
         liveQueue: 'Live Lagalisti',
-        votesRise: 'Flest atkvaedi fara efst',
+        votesRise: 'Flest atkvæði fara efst',
         noSongsQueued: 'Engin log i ko enn.',
         playedSongs: 'Spilað Lög',
         latestOnTop: 'Nyjasta efst',
