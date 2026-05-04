@@ -34,6 +34,7 @@ type HostProfile = {
   facebook_url: string | null
   paypal_url: string | null
   mobilpay_url: string | null
+  buymeacoffee_url: string | null
   contact_email: string | null
 }
 
@@ -1319,8 +1320,10 @@ function EventPage() {
     }
     const paypal = normalizeExternalLink(event?.paypalUrl || hostProfile?.paypal_url)
     if (paypal) links.push({ label: 'PayPal', url: paypal })
+    const bmc = normalizeExternalLink(hostProfile?.buymeacoffee_url)
+    if (bmc) links.push({ label: 'Buy Me a Coffee', url: bmc })
     return links
-  }, [event?.paypalUrl, hostProfile?.paypal_url, resolvedMobilepayLink])
+  }, [event?.paypalUrl, hostProfile?.paypal_url, hostProfile?.buymeacoffee_url, resolvedMobilepayLink])
   const primaryTipLink = allTipLinks[0] ?? null
   const secondaryTipLinks = allTipLinks.slice(1)
 
@@ -1390,7 +1393,7 @@ function EventPage() {
 
         const { data, error } = await supabase
           .from('profiles')
-          .select('display_name, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email')
+          .select('display_name, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, buymeacoffee_url, contact_email')
           .eq('user_id', hostId)
           .maybeSingle()
 
