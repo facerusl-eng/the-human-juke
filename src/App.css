@@ -11848,25 +11848,25 @@ kbd {
 
 @media (min-width: 1024px) {
   .audience-shell-modern {
-    width: min(1360px, calc(100vw - 3rem));
+    width: min(1680px, calc(100vw - 2.6rem));
     margin-inline: auto;
-    padding: 1.05rem 1.05rem 1.25rem;
+    padding: 1rem 1rem 1.25rem;
     background:
-      radial-gradient(circle at 10% 0%, rgba(86, 160, 255, 0.08), transparent 38%),
-      radial-gradient(circle at 90% 0%, rgba(255, 102, 169, 0.08), transparent 36%),
-      #f8fafc;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 22px;
+      radial-gradient(circle at 8% -10%, rgba(90, 198, 255, 0.22), transparent 34%),
+      radial-gradient(circle at 92% -12%, rgba(255, 95, 170, 0.2), transparent 32%),
+      linear-gradient(180deg, rgba(10, 15, 34, 0.97), rgba(6, 10, 24, 0.98));
+    border: 1px solid rgba(118, 155, 255, 0.24);
+    border-radius: 20px;
     box-shadow:
-      0 24px 52px rgba(15, 23, 42, 0.12),
-      0 3px 12px rgba(15, 23, 42, 0.08);
+      0 22px 48px rgba(2, 5, 16, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   .audience-shell-modern .audience-stage {
     display: grid;
-    grid-template-columns: repeat(14, minmax(0, 1fr));
+    grid-template-columns: repeat(18, minmax(0, 1fr));
     align-items: start;
-    gap: 0.95rem;
+    gap: 0.9rem;
   }
 
   .audience-shell-modern .audience-fixed-header,
@@ -11878,50 +11878,74 @@ kbd {
   .audience-shell-modern .audience-fixed-header {
     top: 0.8rem;
     border-radius: 14px;
-    border-color: rgba(15, 23, 42, 0.12);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(248, 250, 252, 0.94));
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.1);
+    border-color: rgba(106, 147, 255, 0.34);
+    background:
+      linear-gradient(145deg, rgba(17, 28, 58, 0.94), rgba(9, 16, 38, 0.94));
+    box-shadow: 0 10px 24px rgba(3, 8, 26, 0.4);
     padding: 0.62rem 0.8rem;
   }
 
   .audience-shell-modern .audience-fixed-copy h1 {
-    font-size: 1.1rem;
+    font-size: 1.12rem;
     letter-spacing: 0.01em;
+    color: #f3f8ff;
   }
 
   .audience-shell-modern .audience-now-playing-panel {
-    grid-column: 1 / 6;
+    grid-column: 1 / 7;
     position: sticky;
     top: calc(max(0.8rem, env(safe-area-inset-top)) + 4.9rem);
   }
 
   .audience-shell-modern .audience-live-queue-panel {
-    grid-column: 6 / 11;
+    grid-column: 7 / 13;
   }
 
   .audience-shell-modern .audience-played-queue-panel {
-    grid-column: 11 / -1;
+    grid-column: 13 / -1;
   }
 
   .audience-shell-modern .audience-links-panel,
   .audience-shell-modern .audience-request-panel {
-    grid-column: 1 / -1;
+    grid-column: 7 / -1;
   }
 
   .audience-shell-modern .queue-panel,
   .audience-shell-modern .now-playing-card,
   .audience-shell-modern .audience-request-panel,
   .audience-shell-modern .link-panel {
-    border-color: rgba(15, 23, 42, 0.12);
+    border-color: rgba(106, 147, 255, 0.26);
     border-radius: 14px;
     padding: 0.95rem;
-    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+    background:
+      linear-gradient(160deg, rgba(14, 23, 49, 0.96), rgba(9, 15, 35, 0.96));
+    box-shadow:
+      0 10px 26px rgba(2, 8, 24, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
   .audience-shell-modern .panel-head {
     margin-bottom: 0.72rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    border-bottom: 1px solid rgba(106, 147, 255, 0.24);
+  }
+
+  .audience-shell-modern .panel-head h2,
+  .audience-shell-modern .song,
+  .audience-shell-modern h2 {
+    color: #f3f8ff;
+  }
+
+  .audience-shell-modern .artist,
+  .audience-shell-modern .subcopy,
+  .audience-shell-modern .meta-badge {
+    color: #9eb4db;
+  }
+
+  .audience-shell-modern .meta-badge,
+  .audience-shell-modern .audience-policy-badge {
+    border-color: rgba(106, 147, 255, 0.38);
+    background: rgba(22, 36, 76, 0.68);
   }
 
   .audience-shell-modern .queue-list {
@@ -11932,15 +11956,15 @@ kbd {
   .audience-shell-modern .audience-played-queue-panel .queue-list > li,
   .audience-shell-modern .audience-song-card {
     border-radius: 10px;
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    background: #ffffff;
+    border: 1px solid rgba(93, 134, 238, 0.34);
+    background: rgba(13, 22, 46, 0.92);
     box-shadow: none;
   }
 
   .audience-shell-modern .audience-live-queue-panel .queue-list > li:nth-child(odd),
   .audience-shell-modern .audience-played-queue-panel .queue-list > li:nth-child(odd),
   .audience-shell-modern .audience-live-queue-panel .audience-song-card:nth-child(odd) {
-    background: #f8fafc;
+    background: rgba(20, 30, 61, 0.92);
   }
 
   .audience-shell-modern .audience-song-card {
@@ -11953,7 +11977,7 @@ kbd {
   }
 
   .audience-shell-modern .audience-start-actions {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 0.55rem;
   }
 
@@ -11965,6 +11989,24 @@ kbd {
     font-size: 0.92rem;
     border-radius: 10px;
     padding: 0.52rem 0.72rem;
+  }
+
+  .audience-shell-modern .primary-button,
+  .audience-shell-modern .secondary-button,
+  .audience-shell-modern .audience-custom-button,
+  .audience-shell-modern .audience-vote-button {
+    border: 1px solid rgba(117, 157, 255, 0.36);
+    box-shadow: none;
+  }
+
+  .audience-shell-modern .field-row input {
+    background: rgba(10, 16, 36, 0.95);
+    border-color: rgba(108, 147, 250, 0.36);
+    color: #f3f8ff;
+  }
+
+  .audience-shell-modern .field-row input::placeholder {
+    color: rgba(158, 180, 220, 0.72);
   }
 
   .audience-shell-modern .now-playing-card h2 {
@@ -11983,24 +12025,24 @@ kbd {
 
 @media (min-width: 1440px) {
   .audience-shell-modern {
-    width: min(1500px, calc(100vw - 3.4rem));
+    width: min(1800px, calc(100vw - 3.2rem));
     padding: 1.15rem 1.2rem 1.35rem;
   }
 
   .audience-shell-modern .audience-stage {
-    grid-template-columns: repeat(16, minmax(0, 1fr));
+    grid-template-columns: repeat(20, minmax(0, 1fr));
     gap: 1rem;
   }
 
   .audience-shell-modern .audience-now-playing-panel {
-    grid-column: 1 / 6;
+    grid-column: 1 / 8;
   }
 
   .audience-shell-modern .audience-live-queue-panel {
-    grid-column: 6 / 12;
+    grid-column: 8 / 14;
   }
 
   .audience-shell-modern .audience-played-queue-panel {
-    grid-column: 12 / -1;
+    grid-column: 14 / -1;
   }
 }
