@@ -8,6 +8,7 @@ import { useQueueStore, type QueueSong } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
 import {
   commitAudienceIdentity,
+  commitAudienceLocale,
   readCommittedAudienceLocale,
   readCommittedAudienceName,
   clearAudienceIdentity,
@@ -1926,7 +1927,7 @@ function EventPage() {
                     key={option.code}
                     type="button"
                     className={`audience-language-option audience-language-option-${option.code}${audienceLocale === option.code ? ' audience-language-option-active' : ''}`}
-                    onClick={() => setAudienceLocale(option.code)}
+                    onClick={() => { setAudienceLocale(option.code); commitAudienceLocale(option.code) }}
                   >
                     <img className="audience-language-option-flag" src={`https://flagcdn.com/20x15/${option.flagCode}.png`} alt="" aria-hidden="true" />
                     <span className="audience-language-option-text">{option.label}</span>
