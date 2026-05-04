@@ -14,6 +14,11 @@
   width: min(1480px, calc(100% - 2.5rem));
 }
 
+.app-shell-audience {
+  width: min(1520px, calc(100% - 2rem));
+  padding: 0.75rem;
+}
+
 .topbar {
   position: relative;
   z-index: 40;
@@ -519,6 +524,11 @@
     width: min(1600px, calc(100% - 3rem));
   }
 
+  .app-shell-audience {
+    width: min(1680px, calc(100% - 2rem));
+    padding: 0.75rem;
+  }
+
   .topbar {
     padding: 0.78rem 1rem;
     gap: 1.1rem;
@@ -575,6 +585,11 @@
 
   .app-shell-wide {
     width: min(1760px, calc(100% - 3.5rem));
+  }
+
+  .app-shell-audience {
+    width: min(1860px, calc(100% - 2rem));
+    padding: 0.75rem;
   }
 
   .hero-card,
@@ -11859,7 +11874,7 @@ kbd {
 
 @media (min-width: 880px) {
   .audience-shell-modern {
-    width: min(1680px, calc(100vw - 2rem));
+    width: 100%;
     margin-inline: auto;
     padding: 1rem 1rem 1.2rem;
     border: 1px solid rgba(112, 153, 255, 0.25);
@@ -11900,22 +11915,22 @@ kbd {
   }
 
   .audience-shell-modern .audience-now-playing-panel {
-    grid-column: 1 / 6;
+    grid-column: 1 / 5;
     position: sticky;
     top: calc(max(0.75rem, env(safe-area-inset-top)) + 4.9rem);
   }
 
   .audience-shell-modern .audience-live-queue-panel {
-    grid-column: 6 / -1;
+    grid-column: 5 / -1;
   }
 
   .audience-shell-modern .audience-played-queue-panel {
-    grid-column: 1 / 7;
+    grid-column: 1 / 5;
   }
 
   .audience-shell-modern .audience-links-panel,
   .audience-shell-modern .audience-request-panel {
-    grid-column: 7 / -1;
+    grid-column: 5 / -1;
   }
 
   .audience-shell-modern .queue-panel,
@@ -12035,7 +12050,7 @@ kbd {
   }
 
   .audience-no-gig-shell {
-    width: min(1500px, calc(100vw - 2.2rem));
+    width: 100%;
     margin-inline: auto;
   }
 
@@ -12093,25 +12108,25 @@ kbd {
 
 @media (min-width: 1360px) {
   .audience-shell-modern {
-    width: min(1920px, calc(100vw - 3.2rem));
+    width: 100%;
     padding: 1.1rem 1.2rem 1.3rem;
   }
 
   .audience-shell-modern .audience-stage {
-    grid-template-columns: repeat(24, minmax(0, 1fr));
-    gap: 0.95rem;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
   }
 
   .audience-shell-modern .audience-now-playing-panel {
-    grid-column: 1 / 9;
+    grid-column: 1 / 4;
   }
 
   .audience-shell-modern .audience-live-queue-panel {
-    grid-column: 9 / 16;
+    grid-column: 4 / 9;
   }
 
   .audience-shell-modern .audience-played-queue-panel {
-    grid-column: 16 / -1;
+    grid-column: 9 / -1;
   }
 
   .audience-shell-modern .audience-links-panel,
@@ -12120,7 +12135,7 @@ kbd {
   }
 
   .audience-no-gig-shell {
-    width: min(1740px, calc(100vw - 3.2rem));
+    width: 100%;
   }
 
   .audience-no-gig-event-list {

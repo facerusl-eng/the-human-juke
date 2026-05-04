@@ -1094,25 +1094,25 @@
   }
 
   .audience-karafun .audience-start-actions-panel {
-    grid-column: 1 / 5;
+    grid-column: 1 / -1;
   }
 
   .audience-karafun .audience-now-playing-panel {
-    grid-column: 5 / -1;
+    grid-column: 1 / 5;
     align-self: start;
   }
 
   .audience-karafun .audience-live-queue-panel {
-    grid-column: 1 / 8;
+    grid-column: 5 / -1;
   }
 
   .audience-karafun .audience-played-queue-panel {
-    grid-column: 8 / 11;
+    grid-column: 1 / 5;
   }
 
   .audience-karafun .audience-links-panel,
   .audience-karafun .audience-request-panel {
-    grid-column: 11 / -1;
+    grid-column: 5 / -1;
   }
 
   .audience-karafun .audience-start-actions-panel,
@@ -1320,28 +1320,32 @@
 
 @media (min-width: 1360px) {
   .audience-karafun .audience-stage {
-    grid-template-columns: repeat(16, minmax(0, 1fr));
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
   }
 
   .audience-karafun .audience-start-actions-panel {
-    grid-column: 1 / 6;
+    grid-column: 1 / -1;
   }
 
+  /* 3-column layout on wide screens: now-playing | queue | played+links */
   .audience-karafun .audience-now-playing-panel {
-    grid-column: 6 / -1;
+    grid-column: 1 / 4;
+    position: sticky;
+    top: 1rem;
   }
 
   .audience-karafun .audience-live-queue-panel {
-    grid-column: 1 / 9;
+    grid-column: 4 / 9;
   }
 
   .audience-karafun .audience-played-queue-panel {
-    grid-column: 9 / 13;
+    grid-column: 9 / -1;
   }
 
   .audience-karafun .audience-links-panel,
   .audience-karafun .audience-request-panel {
-    grid-column: 13 / -1;
+    grid-column: 9 / -1;
   }
 
   .audience-karafun .audience-no-gig-event-list {
@@ -1349,10 +1353,6 @@
   }
 
   .audience-karafun .audience-start-actions {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  .audience-karafun .audience-start-actions .primary-button {
-    grid-column: span 2;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 }

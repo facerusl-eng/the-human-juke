@@ -38,6 +38,8 @@ function ShellLayout() {
     ? 'app-shell app-shell-audience-fullscreen'
     : location.pathname.startsWith('/admin/setlist-library')
     ? 'app-shell app-shell-wide'
+    : isAudienceMode
+    ? 'app-shell app-shell-audience'
     : 'app-shell'
   const topbarClassName = isAdminMode ? 'topbar topbar-admin' : 'topbar'
   const siteNavClassName = [
