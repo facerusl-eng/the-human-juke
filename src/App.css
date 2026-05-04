@@ -12344,6 +12344,12 @@ kbd {
   text-align: center;
 }
 
+@media (max-width: 767px) {
+  .home-mirror-preview-card {
+    display: none;
+  }
+}
+
 .home-mirror-preview-heading {
   margin-bottom: 0.5rem;
 }
