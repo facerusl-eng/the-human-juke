@@ -2117,7 +2117,7 @@ function EventPage() {
             )}
             {demoBackToHomeButton}
           </div>
-          {!isKaraokeEvent && event?.requestInstructions ? <p className="subcopy audience-request-note">{event.requestInstructions}</p> : null}
+          {!isKaraokeEvent && !demoMode && event?.requestInstructions ? <p className="subcopy audience-request-note">{event.requestInstructions}</p> : null}
           {!isKaraokeEvent && (duplicateRequestsBlocked || activeRequestCap) ? (
             <div className="audience-policy-list">
               {duplicateRequestsBlocked ? <p className="meta-badge audience-policy-badge">{copy.duplicateBlocked}</p> : null}
