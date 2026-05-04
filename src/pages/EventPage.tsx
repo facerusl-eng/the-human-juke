@@ -347,6 +347,17 @@ const SONG_INFO_BUILDERS = [
   },
 ]
 
+function ensureRotatingFacts(song: NowPlayingInfoSong, facts: string[], minimumCount = 2) {
+  const normalizedFacts = normalizeFunFacts(facts)
+
+  if (normalizedFacts.length >= minimumCount) {
+    return normalizedFacts.slice(0, 10)
+  }
+
+  const localFacts = normalizeFunFacts(SONG_INFO_BUILDERS.map((songInfoBuilder) => songInfoBuilder(song)))
+  return normalizeFunFacts([...normalizedFacts, ...localFacts]).slice(0, 10)
+}
+
 function makeCacheBustedUrl(path: string) {
   const requestUrl = new URL(path, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
   requestUrl.searchParams.set('v', `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`)
@@ -835,18 +846,27 @@ function EventPage() {
 
   const ensureSongFunFacts = useCallback(async (song: QueueSong, signal: AbortSignal) => {
     const songWithAudienceFacts = song as SongWithAudienceFacts
+    const songInfoContext: NowPlayingInfoSong = {
+      title: song.title,
+      artist: song.artist,
+      is_explicit: song.is_explicit,
+    }
     const embeddedFacts = normalizeFunFacts(songWithAudienceFacts.audienceFunFacts ?? [])
 
     if (embeddedFacts.length > 0) {
-      return embeddedFacts.slice(0, 10)
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, embeddedFacts)
+      songWithAudienceFacts.audienceFunFacts = rotatingFacts
+      return rotatingFacts
     }
 
     const cacheKey = buildFunFactsCacheKey(song.title, song.artist)
     const existingFacts = funFactsCacheRef.current[cacheKey]
 
     if (existingFacts?.length) {
-      songWithAudienceFacts.audienceFunFacts = existingFacts
-      return existingFacts
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, existingFacts)
+      funFactsCacheRef.current[cacheKey] = rotatingFacts
+      songWithAudienceFacts.audienceFunFacts = rotatingFacts
+      return rotatingFacts
     }
 
     if (funFactsInFlightRef.current[cacheKey]) {
@@ -859,11 +879,6 @@ function EventPage() {
         ? []
         : await fetchMusicBrainzFallbackFacts(song.title, song.artist, signal)
 
-      const songInfoContext: NowPlayingInfoSong = {
-        title: song.title,
-        artist: song.artist,
-        is_explicit: song.is_explicit,
-      }
       const localFacts = SONG_INFO_BUILDERS.map((songInfoBuilder) => songInfoBuilder(songInfoContext))
 
       const mergedFacts = normalizeFunFacts([
@@ -872,11 +887,13 @@ function EventPage() {
         ...localFacts,
       ]).slice(0, 10)
 
-      funFactsCacheRef.current[cacheKey] = mergedFacts
-      songWithAudienceFacts.audienceFunFacts = mergedFacts
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, mergedFacts)
+
+      funFactsCacheRef.current[cacheKey] = rotatingFacts
+      songWithAudienceFacts.audienceFunFacts = rotatingFacts
       persistFunFactsCache()
 
-      return mergedFacts
+      return rotatingFacts
     })()
 
     funFactsInFlightRef.current[cacheKey] = fetchPromise
@@ -939,10 +956,17 @@ function EventPage() {
 
     const abortController = new AbortController()
     const songWithAudienceFacts = displaySong as SongWithAudienceFacts
+    const songInfoContext: NowPlayingInfoSong = {
+      title: displaySong.title,
+      artist: displaySong.artist,
+      is_explicit: displaySong.is_explicit,
+    }
     const embeddedFacts = normalizeFunFacts(songWithAudienceFacts.audienceFunFacts ?? [])
 
     if (embeddedFacts.length > 0) {
-      setSongFunFacts(embeddedFacts)
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, embeddedFacts)
+      songWithAudienceFacts.audienceFunFacts = rotatingFacts
+      setSongFunFacts(rotatingFacts)
       setCurrentSongFactIndex(0)
       return
     }
@@ -951,8 +975,10 @@ function EventPage() {
     const cachedFacts = funFactsCacheRef.current[cacheKey]
 
     if (cachedFacts?.length) {
-      songWithAudienceFacts.audienceFunFacts = cachedFacts
-      setSongFunFacts(cachedFacts)
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, cachedFacts)
+      funFactsCacheRef.current[cacheKey] = rotatingFacts
+      songWithAudienceFacts.audienceFunFacts = rotatingFacts
+      setSongFunFacts(rotatingFacts)
       setCurrentSongFactIndex(0)
       return
     }

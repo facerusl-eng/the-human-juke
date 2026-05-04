@@ -335,6 +335,17 @@ const SONG_INFO_BUILDERS = [
     : 'Song fact: This track is marked clean in the library.',
 ]
 
+function ensureRotatingFacts(song: NowPlayingInfoSong, facts: string[], minimumCount = 2) {
+  const normalizedFacts = normalizeFunFacts(facts)
+
+  if (normalizedFacts.length >= minimumCount) {
+    return normalizedFacts.slice(0, 10)
+  }
+
+  const localFacts = normalizeFunFacts(SONG_INFO_BUILDERS.map((songInfoBuilder) => songInfoBuilder(song)))
+  return normalizeFunFacts([...normalizedFacts, ...localFacts]).slice(0, 10)
+}
+
 function resolveMirrorVenueMode(value: string | null | undefined): MirrorVenueMode | null {
   if (!value) {
     return null
@@ -1027,18 +1038,27 @@ function MirrorPage() {
 
   const ensureSongFunFacts = useCallback(async (song: QueueSong, signal: AbortSignal) => {
     const songWithMirrorFacts = song as SongWithMirrorFacts
+    const songInfoContext: NowPlayingInfoSong = {
+      title: song.title,
+      artist: song.artist,
+      is_explicit: song.is_explicit,
+    }
     const embeddedFacts = normalizeFunFacts(songWithMirrorFacts.mirrorFunFacts ?? [])
 
     if (embeddedFacts.length > 0) {
-      return embeddedFacts.slice(0, 10)
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, embeddedFacts)
+      songWithMirrorFacts.mirrorFunFacts = rotatingFacts
+      return rotatingFacts
     }
 
     const cacheKey = buildFunFactsCacheKey(song.title, song.artist)
     const existingFacts = funFactsCacheRef.current[cacheKey]
 
     if (existingFacts?.length) {
-      songWithMirrorFacts.mirrorFunFacts = existingFacts
-      return existingFacts
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, existingFacts)
+      funFactsCacheRef.current[cacheKey] = rotatingFacts
+      songWithMirrorFacts.mirrorFunFacts = rotatingFacts
+      return rotatingFacts
     }
 
     if (funFactsInFlightRef.current[cacheKey]) {
@@ -1051,11 +1071,6 @@ function MirrorPage() {
         ? []
         : await fetchMusicBrainzFallbackFacts(song.title, song.artist, signal)
 
-      const songInfoContext: NowPlayingInfoSong = {
-        title: song.title,
-        artist: song.artist,
-        is_explicit: song.is_explicit,
-      }
       const localFacts = SONG_INFO_BUILDERS.map((songInfoBuilder) => songInfoBuilder(songInfoContext))
 
       const mergedFacts = normalizeFunFacts([
@@ -1066,12 +1081,13 @@ function MirrorPage() {
       const guaranteedFacts = mergedFacts.length >= 3
         ? mergedFacts
         : normalizeFunFacts([...mergedFacts, ...localFacts]).slice(0, 10)
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, guaranteedFacts)
 
-      funFactsCacheRef.current[cacheKey] = guaranteedFacts
-      songWithMirrorFacts.mirrorFunFacts = guaranteedFacts
+      funFactsCacheRef.current[cacheKey] = rotatingFacts
+      songWithMirrorFacts.mirrorFunFacts = rotatingFacts
       persistFunFactsCache()
 
-      return guaranteedFacts
+      return rotatingFacts
     })()
 
     funFactsInFlightRef.current[cacheKey] = fetchPromise
@@ -1116,10 +1132,17 @@ function MirrorPage() {
 
     const abortController = new AbortController()
     const activeSongWithMirrorFacts = activeSong as SongWithMirrorFacts
+    const songInfoContext: NowPlayingInfoSong = {
+      title: activeSong.title,
+      artist: activeSong.artist,
+      is_explicit: activeSong.is_explicit,
+    }
     const embeddedFacts = normalizeFunFacts(activeSongWithMirrorFacts.mirrorFunFacts ?? [])
 
     if (embeddedFacts.length > 0) {
-      setFunFacts(embeddedFacts)
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, embeddedFacts)
+      activeSongWithMirrorFacts.mirrorFunFacts = rotatingFacts
+      setFunFacts(rotatingFacts)
       setCurrentFactIndex(0)
       return
     }
@@ -1128,8 +1151,10 @@ function MirrorPage() {
     const cachedFacts = funFactsCacheRef.current[cacheKey]
 
     if (cachedFacts?.length) {
-      activeSongWithMirrorFacts.mirrorFunFacts = cachedFacts
-      setFunFacts(cachedFacts)
+      const rotatingFacts = ensureRotatingFacts(songInfoContext, cachedFacts)
+      funFactsCacheRef.current[cacheKey] = rotatingFacts
+      activeSongWithMirrorFacts.mirrorFunFacts = rotatingFacts
+      setFunFacts(rotatingFacts)
       setCurrentFactIndex(0)
       return
     }
