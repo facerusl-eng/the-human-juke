@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AudioPlayer from '../components/ui/AudioPlayer'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
 import { SaveStatusBadges } from '../components/settings/SaveStatusBadges'
 import { SettingsSection } from '../components/settings/SettingsSection'
@@ -1307,7 +1308,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
             {state.introAudioUrl ? (
               <div className="photo-preview create-gig-intro-preview">
-                <audio controls src={state.introAudioUrl} />
+                <AudioPlayer src={state.introAudioUrl} />
                 <button
                   type="button"
                   className="secondary-button"

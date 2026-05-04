@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AudioPlayer from '../components/ui/AudioPlayer'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 import { supabase } from '../lib/supabase'
@@ -725,8 +726,7 @@ function CreateGigPage() {
 
             {introAudioUrl ? (
               <div className="photo-preview create-gig-intro-preview">
-                <audio controls src={introAudioUrl} />
-                <p className="field-hint">{introAudioName || 'Intro MP3 selected'}</p>
+                <AudioPlayer src={introAudioUrl} label={introAudioName || 'Intro MP3 selected'} />
                 <button
                   type="button"
                   className="secondary-button"
