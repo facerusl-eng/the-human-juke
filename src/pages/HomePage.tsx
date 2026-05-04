@@ -5,83 +5,115 @@ import { Card, PrimaryButton, SectionHeader } from '../components/ui'
 import { demoMode } from '../demo/demoMode'
 
 const HOW_IT_WORKS = [
-  { icon: '01', label: 'Scan & Join', copy: 'Guests open the audience app and request songs in seconds.' },
-  { icon: '02', label: 'Vote Live', copy: 'Crowd votes reorder the queue in real time as energy shifts.' },
-  { icon: '03', label: 'Perform', copy: 'Host plays the top tracks and keeps the room moving.' },
+  {
+    num: '01',
+    label: 'You book the show',
+    copy: 'One message is all it takes. Halli arrives set up and ready — no gear, no stress for your team.',
+    icon: '📅',
+  },
+  {
+    num: '02',
+    label: 'Guests scan & join',
+    copy: 'A QR code on the table or screen. No app to install. Guests request songs and vote in seconds.',
+    icon: '📱',
+  },
+  {
+    num: '03',
+    label: 'The crowd drives the room',
+    copy: 'Real-time votes reshape the queue all night. The energy builds itself — you just serve the drinks.',
+    icon: '🎶',
+  },
 ]
 
-const WHY_VENUES_LOVE_IT = [
-  { icon: '⚡', label: 'Higher engagement' },
-  { icon: '🏟', label: 'A stronger event centerpiece' },
-  { icon: '🔁', label: 'Repeat bookings with a fresh feel' },
+const VENUE_BENEFITS = [
+  {
+    icon: '🍺',
+    label: 'Guests stay longer',
+    copy: 'When people are invested in the music, they order another round and stick around.',
+  },
+  {
+    icon: '📱',
+    label: 'Zero friction for guests',
+    copy: 'No app download, no sign-up wall. Works on any phone browser the moment they scan.',
+  },
+  {
+    icon: '🎤',
+    label: 'Fresh every single night',
+    copy: 'Every show is different because every crowd is different. No two nights feel the same.',
+  },
+  {
+    icon: '🔁',
+    label: 'Repeat bookings',
+    copy: 'Guests come back specifically to request songs again. It becomes a venue signature.',
+  },
 ]
 
-const WHY_GUESTS_LOVE_IT = [
-  { icon: '🎵', label: 'They shape the soundtrack instantly' },
-  { icon: '🗳', label: 'Voting keeps everyone involved' },
-  { icon: '🔥', label: 'The room feels collaborative and alive' },
+const GUEST_STATS = [
+  { value: '500+', label: 'Song requests per night' },
+  { value: '100%', label: 'Crowd-controlled setlist' },
+  { value: '0', label: 'Apps to install' },
 ]
 
 function HomePage() {
   const navigate = useNavigate()
   const openAudienceDemo = () => {
-    // Demo mode is resolved at app bootstrap, so force a hard navigation.
     if (typeof window !== 'undefined') {
       window.location.assign('/audience?demo=true')
       return
     }
-
     navigate('/audience?demo=true')
   }
 
   useEffect(() => {
-    // In demo mode, immediately redirect to the audience page so the simulated event is visible.
     if (demoMode) {
       navigate('/audience?demo=true', { replace: true })
       return
     }
-
-    // Reset OG tags to app defaults on home page
     resetOGTags()
   }, [navigate])
 
   return (
     <section className="home-shell home-shell-v2" aria-label="Home page">
+
+      {/* ── Hero ─────────────────────────────────────────────── */}
       <section className="hero-card home-hero-card home-stage-hero home-fade-section" aria-label="Hero">
-        <SectionHeader
-          eyebrow="Live request platform"
-          title="The Human Jukebox"
-          titleLevel={1}
-          subtitle="Live music. Real-time requests. The audience controls the show."
-          className="home-hero-header"
-        />
+        <p className="home-hero-eyebrow">🎵 Live music experience for venues</p>
+        <h1 className="home-hero-h1">
+          Your guests pick the music.<br />
+          Your nights get <span className="home-hero-accent">unforgettable.</span>
+        </h1>
+        <p className="home-hero-subtitle">
+          The Human Jukebox lets the crowd request and vote on songs in real time —
+          creating electric nights that keep people engaged, ordering, and coming back.
+        </p>
         <div className="hero-actions home-hero-actions" aria-label="Primary actions">
-          <PrimaryButton onClick={openAudienceDemo}>
-            Try the audience app
+          <PrimaryButton onClick={() => navigate('/book-show')}>
+            🎤 Book the show
           </PrimaryButton>
-          <PrimaryButton variant="secondary" onClick={() => navigate('/login')}>
-            Login
-          </PrimaryButton>
-          <PrimaryButton variant="secondary" onClick={() => navigate('/book-show')}>
-            Book the show
+          <PrimaryButton variant="secondary" onClick={openAudienceDemo}>
+            Try the demo
           </PrimaryButton>
         </div>
       </section>
 
-      <Card className="queue-panel home-section-card home-fade-section" aria-label="What it is">
-        <SectionHeader title="What it is" />
-        <p>
-          The Human Jukebox is a live performance format where guests submit songs in real time,
-          vote songs up the queue, and shape the soundtrack of the night.
-        </p>
-      </Card>
+      {/* ── Stats bar ────────────────────────────────────────── */}
+      <div className="home-stats-bar home-fade-section" aria-label="Key stats">
+        {GUEST_STATS.map((stat) => (
+          <div key={stat.label} className="home-stat-item">
+            <span className="home-stat-value">{stat.value}</span>
+            <span className="home-stat-label">{stat.label}</span>
+          </div>
+        ))}
+      </div>
 
+      {/* ── How it works ─────────────────────────────────────── */}
       <Card className="queue-panel home-section-card home-fade-section" aria-label="How it works">
         <SectionHeader title="How it works" />
         <div className="home-visual-card-grid" role="list" aria-label="How it works steps">
           {HOW_IT_WORKS.map((step) => (
             <article key={step.label} className="home-visual-card" role="listitem">
-              <p className="home-visual-icon" aria-hidden="true">{step.icon}</p>
+              <p className="home-visual-step-icon" aria-hidden="true">{step.icon}</p>
+              <p className="home-visual-num" aria-hidden="true">{step.num}</p>
               <p className="home-visual-label">{step.label}</p>
               <p className="home-visual-copy">{step.copy}</p>
             </article>
@@ -89,45 +121,77 @@ function HomePage() {
         </div>
       </Card>
 
-      <Card className="queue-panel home-section-card home-fade-section" aria-label="Why venues love it">
-        <SectionHeader title="Why venues love it" />
-        <div className="home-icon-pill-list" role="list" aria-label="Venue benefits">
-          {WHY_VENUES_LOVE_IT.map((benefit) => (
-            <p key={benefit.label} className="home-icon-pill" role="listitem">
-              <span aria-hidden="true">{benefit.icon}</span>
-              <span>{benefit.label}</span>
-            </p>
+      {/* ── Why venues love it ───────────────────────────────── */}
+      <Card className="queue-panel home-section-card home-fade-section" aria-label="Why venues choose The Human Jukebox">
+        <SectionHeader title="Why venues choose The Human Jukebox" />
+        <div className="home-benefit-grid" role="list" aria-label="Venue benefits">
+          {VENUE_BENEFITS.map((b) => (
+            <article key={b.label} className="home-benefit-card" role="listitem">
+              <span className="home-benefit-icon" aria-hidden="true">{b.icon}</span>
+              <div>
+                <p className="home-benefit-label">{b.label}</p>
+                <p className="home-benefit-copy">{b.copy}</p>
+              </div>
+            </article>
           ))}
         </div>
       </Card>
 
-      <Card className="queue-panel home-section-card home-fade-section" aria-label="Why guests love it">
-        <SectionHeader title="Why guests love it" />
-        <div className="home-icon-pill-list" role="list" aria-label="Guest benefits">
-          {WHY_GUESTS_LOVE_IT.map((benefit) => (
-            <p key={benefit.label} className="home-icon-pill" role="listitem">
-              <span aria-hidden="true">{benefit.icon}</span>
-              <span>{benefit.label}</span>
-            </p>
-          ))}
+      {/* ── What your guests experience ─────────────────────── */}
+      <Card className="queue-panel home-section-card home-fade-section" aria-label="What guests experience">
+        <SectionHeader title="What your guests experience" />
+        <div className="home-guest-flow" role="list">
+          <div className="home-guest-step" role="listitem">
+            <span className="home-guest-icon" aria-hidden="true">📲</span>
+            <div>
+              <strong>Scan the QR code</strong>
+              <p>Instantly in the app — no download, no account.</p>
+            </div>
+          </div>
+          <div className="home-guest-arrow" aria-hidden="true">→</div>
+          <div className="home-guest-step" role="listitem">
+            <span className="home-guest-icon" aria-hidden="true">🎵</span>
+            <div>
+              <strong>Request a song</strong>
+              <p>Search the catalogue and submit in seconds.</p>
+            </div>
+          </div>
+          <div className="home-guest-arrow" aria-hidden="true">→</div>
+          <div className="home-guest-step" role="listitem">
+            <span className="home-guest-icon" aria-hidden="true">🗳️</span>
+            <div>
+              <strong>Vote songs up the queue</strong>
+              <p>Live voting reshapes the set as the night evolves.</p>
+            </div>
+          </div>
+          <div className="home-guest-arrow" aria-hidden="true">→</div>
+          <div className="home-guest-step" role="listitem">
+            <span className="home-guest-icon" aria-hidden="true">🔥</span>
+            <div>
+              <strong>Hear their song live</strong>
+              <p>The crowd goes wild. They order another round.</p>
+            </div>
+          </div>
         </div>
       </Card>
 
-      <Card className="queue-panel home-section-card home-cta-band home-fade-section" aria-label="Call to action">
-        <SectionHeader title="Call to action" />
-        <p>Bring this live request format to your next venue night, private event, or festival slot.</p>
-        <div className="hero-actions home-hero-actions" aria-label="Call to action buttons">
-          <PrimaryButton onClick={openAudienceDemo}>
-            Try the audience app
+      {/* ── Booking CTA ──────────────────────────────────────── */}
+      <Card className="queue-panel home-section-card home-cta-band home-fade-section" aria-label="Book the show">
+        <p className="home-cta-eyebrow">Ready to upgrade your venue nights?</p>
+        <h2 className="home-cta-heading">Book The Human Jukebox for your next event</h2>
+        <p className="home-cta-sub">
+          Pubs, bars, restaurants, private parties and festivals. One message gets things started.
+        </p>
+        <div className="hero-actions home-hero-actions" aria-label="Booking actions">
+          <PrimaryButton onClick={() => navigate('/book-show')}>
+            🎤 Book the show
           </PrimaryButton>
-          <PrimaryButton variant="secondary" onClick={() => navigate('/login')}>
-            Login
-          </PrimaryButton>
-          <PrimaryButton variant="secondary" onClick={() => navigate('/book-show')}>
-            Book the show
+          <PrimaryButton variant="secondary" onClick={openAudienceDemo}>
+            Try the demo first
           </PrimaryButton>
         </div>
       </Card>
+
     </section>
   )
 }
