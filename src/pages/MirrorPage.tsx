@@ -2180,10 +2180,7 @@ function MirrorPage() {
         </button>
       )}
       <header className="mirror-header">
-        <div className="mirror-header-main">
-          <p className="mirror-brand" aria-label="The Human Jukebox">
-            <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
-          </p>
+        <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
           {event?.venueLogoUrl ? (
             <p className="mirror-venue-logo" aria-label="Venue logo">
               <img src={event.venueLogoUrl} alt={`${event.venue || 'Venue'} logo`} className="mirror-venue-logo-image" />
@@ -2193,6 +2190,11 @@ function MirrorPage() {
               Designed to be your logo here
             </p>
           )}
+        </div>
+        <div className="mirror-header-main">
+          <p className="mirror-brand" aria-label="The Human Jukebox">
+            <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
+          </p>
           {event ? (
             <div>
               <p className="mirror-event-name">
