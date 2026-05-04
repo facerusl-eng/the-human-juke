@@ -10800,8 +10800,8 @@
   position: static;
   top: auto;
   right: auto;
-  width: clamp(120px, 13vw, 190px);
-  height: clamp(120px, 13vw, 190px);
+  width: clamp(104px, 11vw, 150px);
+  height: clamp(104px, 11vw, 150px);
   border-radius: 12px;
   background: #ffffff;
   padding: 8px;
@@ -10906,8 +10906,8 @@
   }
 
   .mirror-now-playing-qr-slot .mirror-now-playing-qr {
-    width: clamp(140px, 14vw, 210px);
-    height: clamp(140px, 14vw, 210px);
+    width: clamp(112px, 10vw, 150px);
+    height: clamp(112px, 10vw, 150px);
   }
 
   .mirror-stage-live .mirror-title {
@@ -10928,16 +10928,16 @@
 }
 
 .mirror-now-playing-artwork-slot {
-  width: min(100%, 320px);
+  width: min(100%, 220px);
 }
 
 .mirror-now-playing-cover,
 .mirror-now-playing-karaoke-mark,
 .mirror-shell-hide-controls .mirror-now-playing-cover,
 .mirror-shell-hide-controls .mirror-now-playing-karaoke-mark {
-  width: clamp(140px, 16vw, 260px);
-  min-width: clamp(140px, 16vw, 260px);
-  min-height: clamp(140px, 16vw, 260px);
+  width: clamp(108px, 11vw, 170px);
+  min-width: clamp(108px, 11vw, 170px);
+  min-height: clamp(108px, 11vw, 170px);
 }
 
 .mirror-picked-by {
