@@ -793,7 +793,7 @@ function AudienceSongListPage() {
                       className={`audience-song-list-card${effectiveSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}`}
                       onClick={() => {
                         setSelectedSong(song)
-                        setKaraokeConfirmPending(false)
+                        setKaraokeConfirmPending(audienceLocale === 'is' && song.fromKaraokeSetlist)
                         setErrorText(null)
                       }}
                     >
