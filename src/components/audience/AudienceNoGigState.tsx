@@ -90,11 +90,13 @@ function useCountdownToEvent(upcomingEvents: AudienceUpcomingEvent[]) {
     .filter((x): x is { event: AudienceUpcomingEvent; date: Date } => x.date !== null && x.date.getTime() > Date.now())
     .sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null
 
+  const targetEventId = target?.event.id ?? null
+
   useEffect(() => {
-    if (!target) return
+    if (!targetEventId) return
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
-  }, [target?.event.id])
+  }, [targetEventId])
 
   if (!target) return null
   const remainingMs = target.date.getTime() - now

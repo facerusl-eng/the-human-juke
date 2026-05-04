@@ -266,7 +266,7 @@ function LiveFeedPanel({
     }
   }, [])
 
-  useEffect(() => {  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
     // Demo mode: load fake posts immediately, skip all Supabase logic
     if (demoMode) {
       setPosts(DEMO_FEED_POSTS as FeedPost[])

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { prepareFeedImage } from '../lib/feedImage'
@@ -485,7 +485,7 @@ function PromoteEventPage() {
 
   const clampPercentage = (value: number, min = 8, max = 92) => Math.min(max, Math.max(min, value))
 
-  const updateHeadlineAnchorFromPointer = (clientX: number, clientY: number) => {
+  const updateHeadlineAnchorFromPointer = useCallback((clientX: number, clientY: number) => {
     const canvas = previewRef.current
 
     if (!canvas) {
@@ -500,25 +500,25 @@ function PromoteEventPage() {
     const nextX = clampPercentage(((clientX - canvasRect.left) / canvasRect.width) * 100)
     const nextY = clampPercentage(((clientY - canvasRect.top) / canvasRect.height) * 100, 12, 73)
     setHeadlineAnchor({ x: nextX, y: nextY })
-  }
+  }, [])
 
-  const stopHeadlineDrag = () => {
-    dragActiveRef.current = false
-    setHeadlineDragging(false)
-    window.removeEventListener('pointermove', onHeadlinePointerMove)
-    window.removeEventListener('pointerup', stopHeadlineDrag)
-    window.removeEventListener('pointercancel', stopHeadlineDrag)
-  }
-
-  const onHeadlinePointerMove = (pointerEvent: PointerEvent) => {
+  const onHeadlinePointerMove = useCallback((pointerEvent: PointerEvent) => {
     if (!dragActiveRef.current) {
       return
     }
 
     updateHeadlineAnchorFromPointer(pointerEvent.clientX, pointerEvent.clientY)
-  }
+  }, [updateHeadlineAnchorFromPointer])
 
-  const startHeadlineDrag = (pointerEvent: ReactPointerEvent<HTMLDivElement>) => {
+  const stopHeadlineDrag = useCallback(() => {
+    dragActiveRef.current = false
+    setHeadlineDragging(false)
+    window.removeEventListener('pointermove', onHeadlinePointerMove)
+    window.removeEventListener('pointerup', stopHeadlineDrag)
+    window.removeEventListener('pointercancel', stopHeadlineDrag)
+  }, [onHeadlinePointerMove])
+
+  const startHeadlineDrag = useCallback((pointerEvent: ReactPointerEvent<HTMLDivElement>) => {
     if (pointerEvent.button !== 0) {
       return
     }
@@ -531,7 +531,7 @@ function PromoteEventPage() {
     window.addEventListener('pointermove', onHeadlinePointerMove)
     window.addEventListener('pointerup', stopHeadlineDrag)
     window.addEventListener('pointercancel', stopHeadlineDrag)
-  }
+  }, [onHeadlinePointerMove, stopHeadlineDrag, updateHeadlineAnchorFromPointer])
 
   const handleHeadlinePositionPreset = (nextPosition: HeadlinePosition) => {
     setHeadlinePosition(nextPosition)
@@ -551,14 +551,18 @@ function PromoteEventPage() {
 
   useEffect(() => {
     return () => {
-      stopHeadlineDrag()
+      dragActiveRef.current = false
+      setHeadlineDragging(false)
+      window.removeEventListener('pointermove', onHeadlinePointerMove)
+      window.removeEventListener('pointerup', stopHeadlineDrag)
+      window.removeEventListener('pointercancel', stopHeadlineDrag)
 
       if (photoObjectUrlRef.current) {
         URL.revokeObjectURL(photoObjectUrlRef.current)
         photoObjectUrlRef.current = null
       }
     }
-  }, [])
+  }, [onHeadlinePointerMove, stopHeadlineDrag])
 
   useEffect(() => {
     if (!audienceVisibilitySaved) {

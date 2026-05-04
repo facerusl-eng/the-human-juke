@@ -557,7 +557,7 @@ function AudienceSongListPage() {
     return () => {
       isCurrent = false
     }
-  }, [event?.id, event?.hostId])
+  }, [copy.unableToLoadSongs, event?.id, event?.hostId])
 
   useEffect(() => {
     if (demoMode) {
