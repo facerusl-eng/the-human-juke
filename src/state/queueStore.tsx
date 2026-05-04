@@ -790,7 +790,15 @@ function QueueProvider({ children }: PropsWithChildren) {
     setSongs(Array.isArray(snapshot.songs) ? snapshot.songs : [])
     setPerformedSongs(Array.isArray(snapshot.performedSongs) ? snapshot.performedSongs : [])
     activeEventIdRef.current = snapshot.event?.id ?? null
-    setLoading(false)
+
+    const hasRenderableSnapshot = Boolean(snapshot.event)
+      || (Array.isArray(snapshot.songs) && snapshot.songs.length > 0)
+      || (Array.isArray(snapshot.performedSongs) && snapshot.performedSongs.length > 0)
+      || (Array.isArray(snapshot.hostEvents) && snapshot.hostEvents.length > 0)
+
+    if (hasRenderableSnapshot) {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
