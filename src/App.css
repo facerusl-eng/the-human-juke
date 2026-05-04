@@ -10838,21 +10838,30 @@
   .mirror-now-playing-track,
   .mirror-shell-hide-controls .mirror-now-playing-track {
     gap: clamp(0.4rem, 0.7vw, 0.7rem);
+    align-items: flex-start;
+  }
+
+  .mirror-now-playing-artwork-slot {
+    width: min(100%, 170px);
   }
 
   .mirror-now-playing-cover,
   .mirror-now-playing-karaoke-mark,
   .mirror-shell-hide-controls .mirror-now-playing-cover,
   .mirror-shell-hide-controls .mirror-now-playing-karaoke-mark {
-    width: clamp(96px, 9vw, 132px);
-    min-width: clamp(96px, 9vw, 132px);
-    min-height: clamp(96px, 9vw, 132px);
+    width: clamp(90px, 8vw, 118px);
+    min-width: clamp(90px, 8vw, 118px);
+    min-height: clamp(90px, 8vw, 118px);
   }
 
   .mirror-now-playing-qr-slot .mirror-now-playing-qr {
-    width: clamp(96px, 9vw, 132px);
-    height: clamp(96px, 9vw, 132px);
-    padding: 5px;
+    width: clamp(88px, 8vw, 116px);
+    height: clamp(88px, 8vw, 116px);
+    padding: 4px;
+  }
+
+  .mirror-qr-cta {
+    display: none;
   }
 
   .mirror-stage-live .mirror-now-playing-facts {
