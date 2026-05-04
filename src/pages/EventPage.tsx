@@ -870,7 +870,7 @@ function EventPage() {
         liveQueue: 'Live Lagalisti',
         votesRise: 'Flest atkvæði fara efst',
         noSongsQueued: 'Engin log i ko enn.',
-        playedSongs: 'Spilað Lög',
+        playedSongs: 'Spiluð Lög',
         latestOnTop: 'Nyjasta efst',
         noSongsPlayed: 'Engin log hafa verid spilud enn.',
         performerLinks: 'Listamanna tenglar',
@@ -2272,7 +2272,7 @@ function EventPage() {
                         </svg>
                         <span className="tip-jar-coin-drop">🪙</span>
                       </span>
-                      <span className="tip-jar-ribbon">A Tip Would Be Lovely. No Drama.</span>
+                      <span className="tip-jar-ribbon">{copy.tipJarCopy}</span>
                       <span className="tip-jar-provider">Pay via {primaryTipLink.label}</span>
                     </a>
                   ) : null}
