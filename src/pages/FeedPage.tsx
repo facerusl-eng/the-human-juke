@@ -43,7 +43,7 @@ function FeedPage() {
       }
     : audienceLocale === 'is'
     ? {
-        title: 'Ahorfenda feed',
+        title: 'Live Feed',
         heading: 'Skraddu nafnid thitt til ad halda afram',
         intro: 'Thetta feed er fyrir virka ahorfendur. Skraddu fyrst nafnid thitt.',
         nameLabel: 'Nafnid thitt',
