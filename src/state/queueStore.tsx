@@ -1716,7 +1716,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         if (!shouldBypassRules) {
           // Rate limiting: per-session cooldown to prevent rapid-fire requests.
-          const RATE_LIMIT_WINDOW_MS = 2 * 60 * 1000 // 2 minutes
+          const RATE_LIMIT_WINDOW_MS = 30 * 1000 // 30 seconds
           const rateLimitKey = `human-jukebox-request-cooldown-${user.id}-${targetEventId}`
           const lastRequestRaw = typeof window !== 'undefined' ? window.sessionStorage.getItem(rateLimitKey) : null
           if (lastRequestRaw) {

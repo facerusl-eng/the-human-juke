@@ -98,6 +98,28 @@ function formatPostTime(createdAt: string) {
   }).format(new Date(createdAt))
 }
 
+const PHOTO_MESSAGES = [
+  (name: string) => `📸 ${name}, you just made the show 10× more beautiful ✨`,
+  (name: string) => `🌟 ${name} with the VIP shot — we see you! 🎉`,
+  (name: string) => `❤️ ${name}, thanks for sharing — you absolute legend!`,
+  (name: string) => `🎶 ${name} came, vibed, and left photographic evidence. Love it!`,
+  (name: string) => `🥳 ${name}, this pic just became the cover of tonight's album!`,
+  (name: string) => `🔥 ${name} proving once again that the audience steals the show!`,
+  (name: string) => `😍 ${name}, this photo deserves a standing ovation. Respect.`,
+  (name: string) => `🎤 ${name} dropping evidence of a great night — we love this!`,
+  (name: string) => `✨ ${name}, you made the feed instantly classier. No debate.`,
+  (name: string) => `🎸 ${name} with the snap heard around the room! 📸`,
+]
+
+function pickPhotoMessage(postId: string, authorName: string) {
+  let hash = 0
+  for (let i = 0; i < postId.length; i++) {
+    hash = ((hash << 5) - hash + postId.charCodeAt(i)) | 0
+  }
+  const index = Math.abs(hash) % PHOTO_MESSAGES.length
+  return PHOTO_MESSAGES[index](authorName)
+}
+
 function resolveVisiblePosts(posts: FeedPost[], now: number) {
 
   const imagePostsOldestFirst = [...posts]
@@ -939,6 +961,9 @@ function LiveFeedPanel({
 
                   {post.message ? <p className="live-feed-post-message">{post.message}</p> : null}
                   {!isMirrorMode ? imageNode : null}
+                  {hasImage && !isMirrorMode ? (
+                    <p className="live-feed-polaroid-message">{pickPhotoMessage(post.id, post.author_name)}</p>
+                  ) : null}
                 </article>
               )
             })
