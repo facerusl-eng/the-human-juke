@@ -11846,25 +11846,36 @@ kbd {
   }
 }
 
+@keyframes audience-desktop-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(93, 215, 255, 0.16);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(93, 215, 255, 0);
+  }
+}
+
 @media (min-width: 1024px) {
   .audience-shell-modern {
-    width: min(1680px, calc(100vw - 2.6rem));
+    width: min(1760px, calc(100vw - 2.6rem));
     margin-inline: auto;
-    padding: 1rem 1rem 1.25rem;
-    background:
-      radial-gradient(circle at 8% -10%, rgba(90, 198, 255, 0.22), transparent 34%),
-      radial-gradient(circle at 92% -12%, rgba(255, 95, 170, 0.2), transparent 32%),
-      linear-gradient(180deg, rgba(10, 15, 34, 0.97), rgba(6, 10, 24, 0.98));
-    border: 1px solid rgba(118, 155, 255, 0.24);
+    padding: 1rem 1rem 1.2rem;
+    border: 1px solid rgba(112, 153, 255, 0.25);
     border-radius: 20px;
+    background:
+      radial-gradient(circle at 5% -5%, rgba(93, 215, 255, 0.2), transparent 34%),
+      radial-gradient(circle at 95% -10%, rgba(255, 94, 162, 0.18), transparent 34%),
+      linear-gradient(180deg, rgba(8, 12, 29, 0.98), rgba(6, 10, 24, 0.98));
     box-shadow:
-      0 22px 48px rgba(2, 5, 16, 0.45),
+      0 24px 48px rgba(2, 6, 18, 0.46),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   .audience-shell-modern .audience-stage {
     display: grid;
-    grid-template-columns: repeat(18, minmax(0, 1fr));
+    grid-template-columns: repeat(20, minmax(0, 1fr));
     align-items: start;
     gap: 0.9rem;
   }
@@ -11876,76 +11887,73 @@ kbd {
   }
 
   .audience-shell-modern .audience-fixed-header {
-    top: 0.8rem;
+    top: 0.75rem;
     border-radius: 14px;
-    border-color: rgba(106, 147, 255, 0.34);
-    background:
-      linear-gradient(145deg, rgba(17, 28, 58, 0.94), rgba(9, 16, 38, 0.94));
-    box-shadow: 0 10px 24px rgba(3, 8, 26, 0.4);
-    padding: 0.62rem 0.8rem;
+    border-color: rgba(112, 153, 255, 0.34);
+    background: linear-gradient(145deg, rgba(17, 26, 54, 0.95), rgba(10, 16, 38, 0.95));
+    box-shadow: 0 10px 24px rgba(2, 8, 24, 0.42);
   }
 
   .audience-shell-modern .audience-fixed-copy h1 {
+    color: #f4f8ff;
     font-size: 1.12rem;
-    letter-spacing: 0.01em;
-    color: #f3f8ff;
   }
 
   .audience-shell-modern .audience-now-playing-panel {
-    grid-column: 1 / 7;
+    grid-column: 1 / 8;
     position: sticky;
-    top: calc(max(0.8rem, env(safe-area-inset-top)) + 4.9rem);
+    top: calc(max(0.75rem, env(safe-area-inset-top)) + 4.9rem);
   }
 
   .audience-shell-modern .audience-live-queue-panel {
-    grid-column: 7 / 13;
+    grid-column: 8 / 14;
   }
 
   .audience-shell-modern .audience-played-queue-panel {
-    grid-column: 13 / -1;
+    grid-column: 14 / -1;
   }
 
   .audience-shell-modern .audience-links-panel,
   .audience-shell-modern .audience-request-panel {
-    grid-column: 7 / -1;
+    grid-column: 8 / -1;
   }
 
   .audience-shell-modern .queue-panel,
   .audience-shell-modern .now-playing-card,
   .audience-shell-modern .audience-request-panel,
   .audience-shell-modern .link-panel {
-    border-color: rgba(106, 147, 255, 0.26);
+    border: 1px solid rgba(112, 153, 255, 0.24);
     border-radius: 14px;
     padding: 0.95rem;
     background:
-      linear-gradient(160deg, rgba(14, 23, 49, 0.96), rgba(9, 15, 35, 0.96));
+      linear-gradient(160deg, rgba(13, 22, 48, 0.96), rgba(8, 14, 34, 0.96));
     box-shadow:
-      0 10px 26px rgba(2, 8, 24, 0.38),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      0 10px 24px rgba(2, 8, 24, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .audience-shell-modern .panel-head {
     margin-bottom: 0.72rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(106, 147, 255, 0.24);
+    border-bottom: 1px solid rgba(112, 153, 255, 0.24);
   }
 
   .audience-shell-modern .panel-head h2,
   .audience-shell-modern .song,
   .audience-shell-modern h2 {
-    color: #f3f8ff;
+    color: #f4f8ff;
   }
 
   .audience-shell-modern .artist,
   .audience-shell-modern .subcopy,
   .audience-shell-modern .meta-badge {
-    color: #9eb4db;
+    color: #a9c0e8;
   }
 
   .audience-shell-modern .meta-badge,
   .audience-shell-modern .audience-policy-badge {
-    border-color: rgba(106, 147, 255, 0.38);
-    background: rgba(22, 36, 76, 0.68);
+    border-color: rgba(112, 153, 255, 0.38);
+    background: rgba(20, 32, 68, 0.66);
   }
 
   .audience-shell-modern .queue-list {
@@ -11956,19 +11964,18 @@ kbd {
   .audience-shell-modern .audience-played-queue-panel .queue-list > li,
   .audience-shell-modern .audience-song-card {
     border-radius: 10px;
-    border: 1px solid rgba(93, 134, 238, 0.34);
-    background: rgba(13, 22, 46, 0.92);
-    box-shadow: none;
+    border: 1px solid rgba(90, 132, 232, 0.34);
+    background: rgba(13, 21, 44, 0.92);
   }
 
   .audience-shell-modern .audience-live-queue-panel .queue-list > li:nth-child(odd),
   .audience-shell-modern .audience-played-queue-panel .queue-list > li:nth-child(odd),
   .audience-shell-modern .audience-live-queue-panel .audience-song-card:nth-child(odd) {
-    background: rgba(20, 30, 61, 0.92);
+    background: rgba(19, 29, 58, 0.92);
   }
 
   .audience-shell-modern .audience-song-card {
-    padding: 0.8rem;
+    padding: 0.82rem;
   }
 
   .audience-shell-modern .audience-song-actions {
@@ -11991,6 +11998,11 @@ kbd {
     padding: 0.52rem 0.72rem;
   }
 
+  .audience-shell-modern .audience-start-actions .primary-button,
+  .audience-shell-modern .audience-vote-button {
+    animation: audience-desktop-pulse 2.4s ease-out infinite;
+  }
+
   .audience-shell-modern .primary-button,
   .audience-shell-modern .secondary-button,
   .audience-shell-modern .audience-custom-button,
@@ -12002,47 +12014,116 @@ kbd {
   .audience-shell-modern .field-row input {
     background: rgba(10, 16, 36, 0.95);
     border-color: rgba(108, 147, 250, 0.36);
-    color: #f3f8ff;
+    color: #f4f8ff;
   }
 
   .audience-shell-modern .field-row input::placeholder {
-    color: rgba(158, 180, 220, 0.72);
+    color: rgba(167, 189, 227, 0.72);
   }
 
   .audience-shell-modern .now-playing-card h2 {
-    font-size: clamp(1.65rem, 2vw, 2.2rem);
+    font-size: clamp(1.72rem, 2vw, 2.28rem);
     line-height: 1.05;
   }
 
   .audience-shell-modern .now-playing-media-stacked {
-    gap: 0.6rem;
+    gap: 0.62rem;
   }
 
   .audience-shell-modern .audience-request-note {
     max-width: 72ch;
   }
+
+  .audience-no-gig-shell {
+    width: min(1600px, calc(100vw - 2.8rem));
+    margin-inline: auto;
+  }
+
+  .audience-no-gig-card {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 1.2rem;
+    border-radius: 18px;
+    border-color: rgba(112, 153, 255, 0.28);
+    background:
+      radial-gradient(circle at 6% -10%, rgba(93, 215, 255, 0.2), transparent 36%),
+      radial-gradient(circle at 94% -8%, rgba(255, 94, 162, 0.18), transparent 34%),
+      linear-gradient(155deg, rgba(11, 18, 39, 0.96), rgba(8, 12, 29, 0.96));
+  }
+
+  .audience-no-gig-motion,
+  .audience-entry-eyebrow,
+  .audience-no-gig-card > h1,
+  .audience-no-gig-countdown,
+  .audience-no-gig-copy,
+  .audience-no-gig-guide-actions {
+    grid-column: 1 / 6;
+  }
+
+  .audience-no-gig-how-it-works {
+    grid-column: 6 / -1;
+    min-height: 100%;
+    border-color: rgba(93, 215, 255, 0.3);
+    background: rgba(9, 18, 39, 0.7);
+  }
+
+  .audience-no-gig-events,
+  .audience-no-gig-card > .meta-badge,
+  .audience-no-gig-card > .subcopy[role='status'] {
+    grid-column: 1 / -1;
+  }
+
+  .audience-no-gig-event-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .audience-no-gig-event-card {
+    min-height: 8.6rem;
+    border-color: rgba(112, 153, 255, 0.24);
+    background: rgba(14, 24, 50, 0.66);
+  }
+
+  .audience-no-gig-guide-actions .secondary-button {
+    min-height: 2.5rem;
+    border-color: rgba(112, 153, 255, 0.34);
+    animation: audience-desktop-pulse 2.6s ease-out infinite;
+  }
 }
 
 @media (min-width: 1440px) {
   .audience-shell-modern {
-    width: min(1800px, calc(100vw - 3.2rem));
-    padding: 1.15rem 1.2rem 1.35rem;
+    width: min(1920px, calc(100vw - 3.2rem));
+    padding: 1.1rem 1.2rem 1.3rem;
   }
 
   .audience-shell-modern .audience-stage {
-    grid-template-columns: repeat(20, minmax(0, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+    gap: 0.95rem;
   }
 
   .audience-shell-modern .audience-now-playing-panel {
-    grid-column: 1 / 8;
+    grid-column: 1 / 9;
   }
 
   .audience-shell-modern .audience-live-queue-panel {
-    grid-column: 8 / 14;
+    grid-column: 9 / 16;
   }
 
   .audience-shell-modern .audience-played-queue-panel {
-    grid-column: 14 / -1;
+    grid-column: 16 / -1;
+  }
+
+  .audience-shell-modern .audience-links-panel,
+  .audience-shell-modern .audience-request-panel {
+    grid-column: 9 / -1;
+  }
+
+  .audience-no-gig-shell {
+    width: min(1740px, calc(100vw - 3.2rem));
+  }
+
+  .audience-no-gig-event-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
