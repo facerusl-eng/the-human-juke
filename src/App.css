@@ -9662,18 +9662,17 @@
 
 .live-feed-panel-mirror .live-feed-post-mirror-text {
   width: 100%;
-  aspect-ratio: 4 / 3;
-  min-height: 0;
-  padding: clamp(0.7rem, 1.1vw, 1.1rem);
+  min-height: clamp(56px, 7vw, 80px);
+  padding: clamp(0.6rem, 0.9vw, 0.9rem) clamp(0.7rem, 1.1vw, 1.1rem);
   border-radius: 12px;
-  border: none;
-  background: linear-gradient(145deg, rgba(12, 19, 42, 0.86) 0%, rgba(14, 22, 48, 0.88) 100%);
-  box-shadow: none;
+  border: 1px solid rgba(93, 215, 255, 0.18);
+  background: linear-gradient(145deg, rgba(93, 215, 255, 0.13) 0%, rgba(93, 215, 255, 0.08) 100%);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
   display: grid;
   align-content: center;
   justify-items: center;
   text-align: center;
-  gap: clamp(0.24rem, 0.45vw, 0.42rem);
+  gap: clamp(0.2rem, 0.38vw, 0.36rem);
 }
 
 .live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head {
