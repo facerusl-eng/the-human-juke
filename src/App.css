@@ -12156,6 +12156,119 @@ kbd {
   box-shadow: inset 0 0 0 1px rgba(255, 118, 172, 0.18);
 }
 
+/* ── Mirror screen TV frame preview ──────────────────────── */
+.home-mirror-preview-card {
+  text-align: center;
+}
+
+.home-mirror-preview-heading {
+  margin-bottom: 0.5rem;
+}
+
+.home-mirror-preview-sub {
+  margin-bottom: 1.5rem;
+  font-size: 1rem;
+}
+
+.home-mirror-preview-footer {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.home-tv-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;
+  max-width: 860px;
+}
+
+.home-tv-bezel {
+  width: 100%;
+  background: #0d1020;
+  border-radius: 16px 16px 8px 8px;
+  border: 6px solid #1e2540;
+  box-shadow:
+    0 0 0 2px #0a0d1a,
+    0 24px 60px rgba(0, 0, 0, 0.6),
+    inset 0 0 30px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  position: relative;
+}
+
+.home-tv-bezel::before {
+  content: '';
+  display: block;
+  height: 10px;
+  background: #141930;
+  border-bottom: 2px solid #0a0d1a;
+}
+
+.home-tv-screen {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: none;
+  background: #000;
+  pointer-events: none;
+}
+
+.home-tv-bezel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%);
+  pointer-events: none;
+  border-radius: 10px;
+}
+
+.home-tv-stand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.home-tv-stand-neck {
+  width: 60px;
+  height: 24px;
+  background: linear-gradient(to bottom, #1e2540, #141930);
+  border-left: 3px solid #0a0d1a;
+  border-right: 3px solid #0a0d1a;
+}
+
+.home-tv-stand-base {
+  width: 180px;
+  height: 12px;
+  background: linear-gradient(to bottom, #1e2540, #0d1020);
+  border-radius: 0 0 8px 8px;
+  border: 2px solid #0a0d1a;
+  border-top: none;
+}
+
+.home-mirror-preview-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 103, 163, 0.9);
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  padding: 8px 18px;
+  border: 1px solid rgba(255, 103, 163, 0.3);
+  border-radius: 999px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.home-mirror-preview-link:hover {
+  border-color: rgba(255, 103, 163, 0.7);
+  background: rgba(255, 103, 163, 0.1);
+  color: #fff;
+}
+
+
+
 .home-queue-panel .queue-list li {
   background: rgba(20, 26, 48, 0.72);
   border: 1px solid rgba(109, 145, 255, 0.28);

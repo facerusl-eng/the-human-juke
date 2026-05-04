@@ -52,6 +52,11 @@ const COPY = {
       { icon: '🗳️', label: 'Vote songs up the queue', copy: 'Live voting reshapes the set as the event evolves.' },
       { icon: '🔥', label: 'Hear their song live', copy: 'The crowd goes wild. They order another round.' },
     ],
+    mirrorPreviewLabel: 'Live mirror screen — demo',
+    mirrorPreviewEyebrow: '📺 This is what your bar TV shows all night',
+    mirrorPreviewHeading: 'See the mirror screen live',
+    mirrorPreviewSub: 'The queue, the current track, crowd shout-outs — all updating in real time. This runs on any screen or TV in your venue.',
+    mirrorPreviewLink: 'Open full screen ↗',
     ctaEyebrow: 'Ready to upgrade your venue events?',
     ctaHeading: 'Book The Human Jukebox for your next event',
     ctaSub: 'Pubs, bars, restaurants, private parties and festivals. One message gets things started.',
@@ -102,6 +107,11 @@ const COPY = {
       { icon: '🗳️', label: 'Stem sange op i køen', copy: 'Live-stemmer omformer sætlisten, mens eventet udvikler sig.' },
       { icon: '🔥', label: 'Hører deres sang live', copy: 'Publikum jubler. De bestiller endnu en øl.' },
     ],
+    mirrorPreviewLabel: 'Live spejlskærm — demo',
+    mirrorPreviewEyebrow: '📺 Det her kører på din bar-TV hele natten',
+    mirrorPreviewHeading: 'Se spejlskærmen live',
+    mirrorPreviewSub: 'Køen, den aktuelle sang, publikums beskeder — alt opdaterer i realtid. Kører på enhver skærm eller TV i dit spillested.',
+    mirrorPreviewLink: 'Åbn fuld skærm ↗',
     ctaEyebrow: 'Klar til at opgradere dine events?',
     ctaHeading: 'Book The Human Jukebox til dit næste event',
     ctaSub: 'Pubber, barer, restauranter, private fester og festivaler. Én besked er nok.',
@@ -239,7 +249,39 @@ function HomePage() {
         </div>
       </Card>
 
-      {/* ── Mirror screen ────────────────────────────────────── */}
+      {/* ── Mirror screen preview ─────────────────────────────── */}
+      <Card className="queue-panel home-section-card home-mirror-preview-card home-fade-section" aria-label={copy.mirrorPreviewLabel}>
+        <p className="home-hero-eyebrow">{copy.mirrorPreviewEyebrow}</p>
+        <h2 className="home-cta-heading home-mirror-preview-heading">{copy.mirrorPreviewHeading}</h2>
+        <p className="home-benefit-copy home-mirror-preview-sub">{copy.mirrorPreviewSub}</p>
+        <div className="home-tv-frame">
+          <div className="home-tv-bezel">
+            <iframe
+              src="/mirror?demo=true"
+              className="home-tv-screen"
+              title={copy.mirrorPreviewLabel}
+              loading="lazy"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+          <div className="home-tv-stand">
+            <div className="home-tv-stand-neck" />
+            <div className="home-tv-stand-base" />
+          </div>
+        </div>
+        <div className="home-mirror-preview-footer">
+          <a
+            href="/mirror?demo=true"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="home-mirror-preview-link"
+          >
+            {copy.mirrorPreviewLink}
+          </a>
+        </div>
+      </Card>
+
+      {/* ── Mirror screen benefits ───────────────────────────── */}
       <Card className="queue-panel home-section-card home-fade-section" aria-label={copy.mirrorTitle}>
         <SectionHeader title={copy.mirrorTitle} />
         <div className="home-benefit-grid home-benefit-grid--4" role="list">
