@@ -181,6 +181,9 @@ function GigControlPage() {
   const liveHealthGuardLastRunAtRef = useRef(0)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveInFlightRef = useRef(false)
+  // Tracks event IDs whose intro audio has already played this page session.
+  // Prevents the intro from replaying if the host pauses and re-opens the room.
+  const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
 
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
@@ -790,7 +793,8 @@ function GigControlPage() {
         await runGoLivePreflight().catch(() => {})
         const opened = await gigActions.runToggleRoomOpen()
 
-        if (opened && event.introAudioUrl) {
+        if (opened && event.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(event.id)) {
+          introAudioPlayedEventIdsRef.current.add(event.id)
           try {
             await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
           } catch {
@@ -1199,7 +1203,8 @@ function GigControlPage() {
 
           const toggled = await gigActions.runToggleRoomOpen()
 
-          if (isOpeningRoom && toggled && event?.introAudioUrl) {
+          if (isOpeningRoom && toggled && event?.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(event.id)) {
+            introAudioPlayedEventIdsRef.current.add(event.id)
             try {
               await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
             } catch {
