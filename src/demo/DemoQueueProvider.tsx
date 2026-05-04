@@ -111,6 +111,35 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Simulate live audience activity: bump a random queue song's votes every ~7 seconds
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setSongs((current) => {
+        const [nowPlaying, ...queue] = current
+        if (queue.length === 0) return current
+        const eligibleIndexes = queue
+          .map((song, index) => ({ song, index }))
+          .filter(({ song }) => !song.is_removed)
+          .map(({ index }) => index)
+        if (eligibleIndexes.length === 0) return current
+        const pick = eligibleIndexes[Math.floor(Math.random() * eligibleIndexes.length)]
+        const updatedQueue = queue.map((song, index) =>
+          index === pick ? { ...song, votes_count: song.votes_count + 1 } : song,
+        )
+        const reRanked = [...updatedQueue]
+          .sort((a, b) => {
+            if (b.votes_count !== a.votes_count) return b.votes_count - a.votes_count
+            const posA = typeof a.position === 'number' ? a.position : 999
+            const posB = typeof b.position === 'number' ? b.position : 999
+            return posA - posB
+          })
+          .map((song, i) => ({ ...song, position: i + 1 }))
+        return nowPlaying ? [{ ...nowPlaying, position: 0 }, ...reRanked] : reRanked
+      })
+    }, 7000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   const addSong = useCallback(async (title: string, artist: string, isExplicit: boolean, options?: DemoAddSongOptions) => {
     // Enforce total queue size cap
     if (DEMO_EVENT.maxQueueSize != null) {

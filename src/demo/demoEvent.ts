@@ -39,7 +39,7 @@ export const DEMO_EVENT = {
   karafunUrl: null,
   artistName: null,
   audienceVotingEnabled: true,
-  audienceIcelandicEnabled: true,
+  audienceIcelandicEnabled: false,
   autoLiveEnabled: false,
   introAudioUrl: null,
 } as const

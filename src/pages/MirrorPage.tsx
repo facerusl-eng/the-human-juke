@@ -2186,6 +2186,12 @@ function MirrorPage() {
           <span className="mirror-fullscreen-prompt-label">Tap to enter fullscreen</span>
         </button>
       )}
+      {demoMode ? (
+        <div className="mirror-demo-exit-bar">
+          <span className="mirror-demo-exit-label">Demo Preview</span>
+          <a href="/" className="mirror-demo-exit-button">← Exit Demo</a>
+        </div>
+      ) : null}
       <header className="mirror-header">
         <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
           {event?.venueLogoUrl ? (
