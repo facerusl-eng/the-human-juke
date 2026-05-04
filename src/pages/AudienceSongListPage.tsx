@@ -223,7 +223,7 @@ function AudienceSongListPage() {
         greeting: 'Hi',
         guest: 'Guest',
         choosePlaylistFirst: 'choose a playlist first.',
-        chooseRequest: 'scroll and choose your request.',
+        chooseRequest: 'Type a song and artist, then hit Add to Queue!',
         loadingSongs: 'Loading songs...',
         hostPlays: 'The host plays — you pick the song',
         youSing: 'You get up and sing it yourself',
