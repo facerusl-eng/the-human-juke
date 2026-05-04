@@ -139,7 +139,7 @@ const LIVE_GIG_API_POLLING_ENABLED = import.meta.env.VITE_ENABLE_LIVE_GIG_API?.t
 const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
-const AUDIENCE_SONG_FACT_MAX_LENGTH = 180
+const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
 const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v1'
 const AUDIENCE_SONG_FACT_PLACEHOLDER = 'No fun facts available for this song yet.'
 
@@ -194,10 +194,11 @@ function extractInterestingSentences(extract: string) {
 
   const normalizedSentences = sentenceMatches
     .map((sentence) => sentence.replace(/\s+/g, ' ').trim())
-    .filter((sentence) => sentence.length >= 40 && sentence.length <= AUDIENCE_SONG_FACT_MAX_LENGTH)
+    .filter((sentence) => sentence.length >= 35 && sentence.length <= 260)
     .filter((sentence) => !/^coordinates?:?/i.test(sentence))
+    .filter((sentence) => !/^\d+\s*(km|mi|m|ft)\b/i.test(sentence))
 
-  return Array.from(new Set(normalizedSentences)).slice(0, 10)
+  return Array.from(new Set(normalizedSentences)).slice(0, 12)
 }
 
 function normalizeFunFacts(facts: string[]) {
@@ -215,6 +216,7 @@ async function fetchWikipediaSummarySentences(title: string, artist: string, sig
     title,
     `${title} (${artist} song)`,
     `${title} ${artist}`,
+    artist,
   ]
 
   for (const candidateTitle of candidateTitles) {
@@ -282,31 +284,67 @@ async function fetchMusicBrainzFallbackFacts(title: string, artist: string, sign
     const firstReleaseDate = recording['first-release-date']?.trim()
     const artistCredit = recording['artist-credit']?.map((credit) => credit.name?.trim()).filter(Boolean).join(', ')
 
+    const releaseYear = firstReleaseDate ? firstReleaseDate.slice(0, 4) : null
+    const durationMs = recording.length ?? 0
+    const durationMin = durationMs > 0 ? Math.floor(durationMs / 60000) : 0
+    const durationSec = durationMs > 0 ? String(Math.round((durationMs % 60000) / 1000)).padStart(2, '0') : '00'
+    const durationLabel = durationMs > 0 ? `${durationMin}:${durationSec}` : null
+
     const fallbackFacts = [
-      recording.score ? `MusicBrainz match confidence is ${recording.score}% for this track.` : null,
-      firstReleaseDate ? `MusicBrainz lists the first release date as ${firstReleaseDate}.` : null,
-      releaseTitle ? `This track appears on the release "${releaseTitle}" in MusicBrainz.` : null,
-      artistCredit ? `MusicBrainz artist credit: ${artistCredit}.` : null,
-      recording.length ? `MusicBrainz duration is about ${Math.round(recording.length / 1000)} seconds.` : null,
+      releaseYear ? `"${title}" was first released in ${releaseYear} — celebrating every year since.` : null,
+      releaseTitle && releaseTitle.toLowerCase() !== title.toLowerCase()
+        ? `The track originally appeared on the album "${releaseTitle}".`
+        : null,
+      durationLabel ? `The track runs ${durationLabel} — just long enough to forget everything else. 🎶` : null,
+      artistCredit && artistCredit.toLowerCase() !== artist.toLowerCase()
+        ? `Also credited as: ${artistCredit}.`
+        : null,
     ].filter((fact): fact is string => Boolean(fact))
 
-    return fallbackFacts.slice(0, 5)
+    return fallbackFacts.slice(0, 4)
   } catch {
     return []
   }
 }
 
 const SONG_INFO_BUILDERS = [
-  (song: NowPlayingInfoSong) => `Song fact: "${song.title}" has ${countWords(song.title)} word${countWords(song.title) === 1 ? '' : 's'} in the title.`,
-  (song: NowPlayingInfoSong) => `Song fact: "${song.title}" uses ${countCharactersWithoutSpaces(song.title)} characters (without spaces).`,
-  (song: NowPlayingInfoSong) => `Song fact: Artist name "${song.artist}" has ${countWords(song.artist)} word${countWords(song.artist) === 1 ? '' : 's'}.`,
-  (song: NowPlayingInfoSong) => `Song fact: Title initials are ${buildInitials(song.title)}.`,
+  (song: NowPlayingInfoSong) => {
+    const n = countWords(song.title)
+    if (n === 1) return `"${song.title}" — a one-word title that somehow says everything.`
+    if (n >= 6) return `"${song.title}" packs ${n} words into one title — ${song.artist} clearly had a lot to get off their chest.`
+    return `"${song.title}" — ${n} words, zero filler, maximum impact.`
+  },
   (song: NowPlayingInfoSong) => containsFeatToken(song.title)
-    ? 'Song fact: This title includes a featured-artist tag (feat./ft.).'
-    : 'Song fact: This title does not include a featured-artist tag.',
+    ? `This is a collab — ${song.artist} brought company along for this one. The more the merrier. 🎉`
+    : `No features, no guests — "${song.title}" is a pure ${song.artist} statement from start to finish.`,
   (song: NowPlayingInfoSong) => song.is_explicit
-    ? 'Song fact: This track is marked explicit in the library.'
-    : 'Song fact: This track is marked clean in the library.',
+    ? `This track carries an explicit label — apparently ${song.artist} had some very strong feelings and decided not to hold back. 🔥`
+    : `Clean track — every single word is sing-along approved. Go completely wild. 🎤`,
+  (song: NowPlayingInfoSong) => /[()\[\]]/.test(song.title)
+    ? `Those brackets in "${song.title}" usually signal a remix, a live version, or a hidden bonus — always worth paying attention to.`
+    : `Straight title, no brackets — ${song.artist} said exactly what they meant.`,
+  (song: NowPlayingInfoSong) => {
+    if (/\?/.test(song.title)) return `"${song.title}" is a genuine question — and ${song.artist} spends the whole song answering it.`
+    if (/!/.test(song.title)) return `That exclamation mark in "${song.title}" is not decoration — ${song.artist} really, truly means every word.`
+    return `"${song.title}" — no question marks, no exclamations. Just pure, unfiltered confidence from ${song.artist}.`
+  },
+  (song: NowPlayingInfoSong) => {
+    const looksLikeGroup = /&|\band\b|\bthe\s/i.test(song.artist) || countWords(song.artist) >= 3
+    return looksLikeGroup
+      ? `"${song.artist}" — sounds like a proper group effort. Great music has always been a team sport. 🎸`
+      : `${song.artist} — one name, one sound, carrying the whole song on their shoulders tonight.`
+  },
+  (song: NowPlayingInfoSong) => {
+    const n = countCharactersWithoutSpaces(song.title)
+    if (n <= 4) return `At just ${n} letters, "${song.title}" is short, punchy, and straight to the point.`
+    if (n >= 18) return `"${song.title}" clocks in at ${n} letters without spaces — ${song.artist} went big on the title.`
+    return `"${song.title}" — ${n} letters packed into a title that sticks in your head all night.`
+  },
+  (song: NowPlayingInfoSong) => {
+    const initials = buildInitials(song.title)
+    if (initials.length <= 1) return `"${song.title}" — one of those titles you need to actually hear to fully understand.`
+    return `"${song.title}" abbreviates to ${initials} — if you ever need a shorthand for tonight's absolute banger.`
+  },
 ]
 
 function makeCacheBustedUrl(path: string) {
