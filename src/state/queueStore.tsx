@@ -323,6 +323,26 @@ function isMissingAudienceIcelandicColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes('audience_icelandic_enabled')
 }
 
+function isMissingAudienceVotingColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('audience_voting_enabled')
+}
+
 function isMissingPerformedAtColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -2411,6 +2431,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           event_type: updates.eventType ?? 'halli-live',
           karafun_url: updates.karafunUrl ?? null,
           event_artist_name: updates.artistName ?? null,
+          audience_voting_enabled: updates.audienceVotingEnabled ?? true,
           audience_icelandic_enabled: updates.audienceIcelandicEnabled ?? false,
           auto_live_enabled: updates.autoLiveEnabled ?? false,
           intro_audio_url: updates.introAudioUrl ?? null,
@@ -2427,7 +2448,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -2441,6 +2462,10 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (isMissingAudienceIcelandicColumnError(error)) {
             delete fallbackPayload.audience_icelandic_enabled
+          }
+
+          if (isMissingAudienceVotingColumnError(error)) {
+            delete fallbackPayload.audience_voting_enabled
           }
 
           const { error: fallbackError } = await withTimeout(

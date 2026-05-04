@@ -205,6 +205,25 @@ function normalizeTimeValue(value: string | null | undefined): string {
   return trimmed.length > 5 && trimmed[2] === ':' && trimmed[5] === ':' ? trimmed.slice(0, 5) : trimmed
 }
 
+function normalizeRequestCapValue(value: number | string | null | undefined): string {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return String(Math.trunc(value))
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+
+    if (!trimmed) {
+      return ''
+    }
+
+    const parsed = Number.parseInt(trimmed, 10)
+    return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : trimmed
+  }
+
+  return ''
+}
+
 function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: GigSettingsFormProps) {
   const { user } = useAuthStore()
 
@@ -235,7 +254,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     mirrorPhotoSpotlightEnabled: event.mirrorPhotoSpotlightEnabled,
     mirrorCountdownEnabled: event.mirrorCountdownEnabled,
     allowDuplicateRequests: event.allowDuplicateRequests,
-    maxActiveRequestsPerUser: event.maxActiveRequestsPerUser ? String(event.maxActiveRequestsPerUser) : '',
+    maxActiveRequestsPerUser: normalizeRequestCapValue(event.maxActiveRequestsPerUser),
     selectedPlaylistIds: [],
     roomOpen: event.roomOpen,
     explicitFilterEnabled: event.explicitFilterEnabled,
@@ -1028,6 +1047,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.mirrorPhotoSpotlightEnabled !== event.mirrorPhotoSpotlightEnabled
     || state.mirrorCountdownEnabled !== event.mirrorCountdownEnabled
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
+    || normalizeRequestCapValue(state.maxActiveRequestsPerUser) !== normalizeRequestCapValue(event.maxActiveRequestsPerUser)
     || state.roomOpen !== event.roomOpen
     || state.explicitFilterEnabled !== event.explicitFilterEnabled
     || !arePlaylistSelectionsEqual(state.selectedPlaylistIds, initialSelectedPlaylistIds)
