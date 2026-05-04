@@ -22,11 +22,20 @@ type FeedPost = {
   created_at: string
 }
 
+type FeedComposerCopy = {
+  displayNameLabel: string
+  messageLabel: string
+  takePhotoLabel: string
+  choosePhotoLabel: string
+  phoneHelpText: string
+}
+
 type LiveFeedPanelProps = {
   mode: 'audience' | 'mirror' | 'page'
   showComposer?: boolean
   title?: string
   showModerationControls?: boolean
+  composerCopy?: FeedComposerCopy
 }
 
 const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '❤️']
@@ -37,6 +46,14 @@ const FEED_FETCH_DEBOUNCE_MS = 300
 const FEED_MAX_POSTS = 40
 const FEED_PICKER_RECONNECT_SUPPRESS_MS = 20000
 const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif']
+
+const DEFAULT_FEED_COMPOSER_COPY: FeedComposerCopy = {
+  displayNameLabel: 'Display name',
+  messageLabel: 'Message',
+  takePhotoLabel: 'Take Photo',
+  choosePhotoLabel: 'Choose Photo',
+  phoneHelpText: 'On phone: tap Take Photo to capture and share instantly to the live feed.',
+}
 
 function getStoredAuthorName() {
   if (typeof window === 'undefined') {
@@ -170,6 +187,7 @@ function LiveFeedPanel({
   showComposer = true,
   title = 'Live Feed',
   showModerationControls = true,
+  composerCopy = DEFAULT_FEED_COMPOSER_COPY,
 }: LiveFeedPanelProps) {
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const galleryInputRef = useRef<HTMLInputElement | null>(null)
@@ -783,7 +801,7 @@ function LiveFeedPanel({
       {showComposer ? (
         <form className="live-feed-composer" onSubmit={onSubmit}>
           <div className="field-row">
-            <label htmlFor={`feed-author-${mode}`}>Display name</label>
+            <label htmlFor={`feed-author-${mode}`}>{composerCopy.displayNameLabel}</label>
             <input
               id={`feed-author-${mode}`}
               value={authorName}
@@ -794,7 +812,7 @@ function LiveFeedPanel({
           </div>
 
           <div className="field-row">
-            <label htmlFor={`feed-message-${mode}`}>Message</label>
+            <label htmlFor={`feed-message-${mode}`}>{composerCopy.messageLabel}</label>
             <textarea
               id={`feed-message-${mode}`}
               value={message}
@@ -852,14 +870,14 @@ function LiveFeedPanel({
               className="secondary-button"
               onClick={suppressReconnectWarning}
             >
-              <span aria-hidden="true">📷</span> Take Photo
+              <span aria-hidden="true">📷</span> {composerCopy.takePhotoLabel}
             </label>
             <label
               htmlFor={`feed-image-gallery-${mode}`}
               className="ghost-button"
               onClick={suppressReconnectWarning}
             >
-              <span aria-hidden="true">🖼</span> Choose Photo
+              <span aria-hidden="true">🖼</span> {composerCopy.choosePhotoLabel}
             </label>
             {selectedImageName ? <span className="live-feed-image-name">{selectedImageName}</span> : null}
             {imageStatusText ? <span className="live-feed-helper-text">{imageStatusText}</span> : null}
@@ -871,7 +889,7 @@ function LiveFeedPanel({
           </div>
 
           <p className="live-feed-helper-text no-margin">
-            On phone: tap <strong>Take Photo</strong> to capture and share instantly to the live feed.
+            {composerCopy.phoneHelpText}
           </p>
 
           {previewImageSrc ? (

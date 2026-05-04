@@ -40,6 +40,11 @@ function FeedPage() {
         continue: 'Fortsæt til feed',
         enterName: 'Skriv dit navn før du fortsætter.',
         back: 'Tilbage til publikum',
+        displayNameLabel: 'Dit navn',
+        messageLabel: 'Besked',
+        takePhotoLabel: 'Tag Foto',
+        choosePhotoLabel: 'Vælg Foto',
+        phoneHelpText: 'På telefon: tryk "Tag Foto" for at optage og dele direkte til live-feed.',
       }
     : audienceLocale === 'is'
     ? {
@@ -52,6 +57,11 @@ function FeedPage() {
         continue: 'Afram i feed',
         enterName: 'Skraddu nafnid thitt adur en thu heldur afram.',
         back: 'Til baka i ahorfendur',
+        displayNameLabel: 'Nafn sem byrtist',
+        messageLabel: 'Skilaboð',
+        takePhotoLabel: 'Taktu mynd',
+        choosePhotoLabel: 'Veldu Mynd',
+        phoneHelpText: 'Í síma: Veldu \'Taka mynd\' til að taka og senda beint í live‑Feed',
       }
     : {
         title: 'Audience Feed',
@@ -63,6 +73,11 @@ function FeedPage() {
         continue: 'Continue to Feed',
         enterName: 'Please enter your name before continuing.',
         back: 'Back to Audience',
+        displayNameLabel: 'Display name',
+        messageLabel: 'Message',
+        takePhotoLabel: 'Take Photo',
+        choosePhotoLabel: 'Choose Photo',
+        phoneHelpText: 'On phone: tap Take Photo to capture and share instantly to the live feed.',
       }
 
   useEffect(() => {
@@ -155,7 +170,13 @@ function FeedPage() {
           {copy.back}
         </Link>
       </div>
-      <LiveFeedPanel mode="page" title={copy.title} />
+      <LiveFeedPanel mode="page" title={copy.title} composerCopy={{
+        displayNameLabel: copy.displayNameLabel,
+        messageLabel: copy.messageLabel,
+        takePhotoLabel: copy.takePhotoLabel,
+        choosePhotoLabel: copy.choosePhotoLabel,
+        phoneHelpText: copy.phoneHelpText,
+      }} />
     </section>
   )
 }
