@@ -33,8 +33,17 @@ const COPY = {
       { icon: '📱', label: 'Zero friction for guests', copy: 'No app download, no sign-up wall. Works on any phone browser the moment they scan.' },
       { icon: '🎤', label: 'Karaoke mode built in', copy: 'Guests can flag songs for karaoke — the host sees it on the queue and the crowd sings along.' },
       { icon: '📺', label: 'Live feed screen for the venue', copy: 'A dedicated display shows the live queue, now-playing track, and crowd activity — great on a bar TV.' },
+      { icon: '🍹', label: 'Promote your drink offers', copy: 'Add a link to your menu or tonight\'s specials. Every guest sees it right in the app — at the perfect moment.' },
+      { icon: '🏷️', label: 'Your logo on the mirror screen', copy: 'The live display carries your venue branding. It looks like your event, powered by your stage.' },
       { icon: '🔁', label: 'Fresh every single event', copy: 'Every show is shaped by that crowd. No two events feel the same.' },
       { icon: '✅', label: 'Repeat bookings', copy: 'Guests come back specifically to request songs again. It becomes a venue signature.' },
+    ],
+    mirrorTitle: 'The mirror screen — your brand, front and centre',
+    mirror: [
+      { icon: '🏷️', label: 'Your logo, all night long', copy: 'Upload your venue logo once. It appears on the big mirror screen the whole event — your branding, not ours.' },
+      { icon: '🍹', label: 'Link to your drink menu', copy: 'Add a URL to your drinks menu or tonight\'s specials. Guests see a tap-able link right inside the audience app — driving orders while the music plays.' },
+      { icon: '🎵', label: 'Live queue on the big screen', copy: 'The mirror shows the current song, the live vote queue, and crowd activity. Guests at the bar can see what\'s coming up next.' },
+      { icon: '✨', label: 'Makes the room feel alive', copy: 'A dynamic, branded screen behind the performer transforms any corner into a proper stage — even in a small pub.' },
     ],
     guestTitle: 'What your guests experience',
     guest: [
@@ -74,8 +83,17 @@ const COPY = {
       { icon: '📱', label: 'Nul besvær for gæsterne', copy: 'Ingen app, ingen tilmelding. Virker direkte i telefon-browseren, så snart de scanner.' },
       { icon: '🎤', label: 'Karaoke er inkluderet', copy: 'Gæster kan markere sange til karaoke — værten ser det i køen og publikum synger med.' },
       { icon: '📺', label: 'Live-skærm til spillestedet', copy: 'Et dedikeret display viser den live-kø, aktuelle sang og publikumsaktivitet — perfekt på en bar-TV.' },
+      { icon: '🍹', label: 'Fremvis dine drinktilbud', copy: 'Tilføj et link til din menu eller aftenens tilbud. Alle gæster ser det direkte i appen — på det perfekte tidspunkt.' },
+      { icon: '🏷️', label: 'Dit logo på spejlskærmen', copy: 'Live-displayet bærer din branding. Det ser ud som dit event, drevet af din scene.' },
       { icon: '🔁', label: 'Frisk for hvert eneste event', copy: 'Hvert show formes af netop det publikum. To events føles aldrig ens.' },
       { icon: '✅', label: 'Genbookinger', copy: 'Gæsterne kommer tilbage specifikt for at ønske sange igen. Det bliver stedets varemærke.' },
+    ],
+    mirrorTitle: 'Spejlskærmen — din branding i centrum',
+    mirror: [
+      { icon: '🏷️', label: 'Dit logo hele natten', copy: 'Upload dit logo én gang. Det vises på den store spejlskærm hele eventet — din branding, ikke vores.' },
+      { icon: '🍹', label: 'Link til din drinksmenu', copy: 'Tilføj et link til din menu eller aftenens tilbud. Gæsterne ser et klikbart link direkte i publikumsappen — og bestiller mens musikken spiller.' },
+      { icon: '🎵', label: 'Live-kø på storskærmen', copy: 'Spejlskærmen viser den aktuelle sang, live-afstemningskøen og publikumsaktivitet. Gæster ved baren kan se, hvad der kommer næst.' },
+      { icon: '✨', label: 'Giver rummet liv', copy: 'En dynamisk, branded skærm bag kunstneren forvandler ethvert hjørne til en ordentlig scene — selv i en lille pub.' },
     ],
     guestTitle: 'Hvad dine gæster oplever',
     guest: [
@@ -215,6 +233,22 @@ function HomePage() {
               <div>
                 <p className="home-benefit-label">{step.label}</p>
                 <p className="home-benefit-copy">{step.copy}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </Card>
+
+      {/* ── Mirror screen ────────────────────────────────────── */}
+      <Card className="queue-panel home-section-card home-fade-section" aria-label={copy.mirrorTitle}>
+        <SectionHeader title={copy.mirrorTitle} />
+        <div className="home-benefit-grid home-benefit-grid--4" role="list">
+          {copy.mirror.map((b) => (
+            <article key={b.label} className="home-benefit-card" role="listitem">
+              <span className="home-benefit-icon" aria-hidden="true">{b.icon}</span>
+              <div>
+                <p className="home-benefit-label">{b.label}</p>
+                <p className="home-benefit-copy">{b.copy}</p>
               </div>
             </article>
           ))}
