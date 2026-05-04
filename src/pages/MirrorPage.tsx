@@ -18,6 +18,7 @@ import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
 import { demoMode } from '../demo/demoMode'
+import { DEMO_NOW_PLAYING_FACTS } from '../demo/demoNowPlaying'
 
 type FeedImageSpotlight = {
   id: string
@@ -1225,6 +1226,12 @@ function MirrorPage() {
   useEffect(() => {
     if (!isNowPlayingStarted || !activeSong) {
       setFunFacts([])
+      setCurrentFactIndex(0)
+      return
+    }
+
+    if (demoMode) {
+      setFunFacts(DEMO_NOW_PLAYING_FACTS)
       setCurrentFactIndex(0)
       return
     }

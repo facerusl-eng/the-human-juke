@@ -210,7 +210,7 @@ function LiveFeedPanel({
   const lastHandledFileSignatureRef = useRef<string | null>(null)
   const { user, isHost } = useAuthStore()
   const { event } = useQueueStore()
-  const [posts, setPosts] = useState<FeedPost[]>([])
+  const [posts, setPosts] = useState<FeedPost[]>(() => demoMode ? DEMO_FEED_POSTS as FeedPost[] : [])
   const [message, setMessage] = useState('')
   const [authorName, setAuthorName] = useState(() => getStoredAuthorName())
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
