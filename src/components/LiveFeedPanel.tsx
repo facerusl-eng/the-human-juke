@@ -1001,25 +1001,27 @@ function LiveFeedPanel({
 
       {!loading ? (
         <div className="live-feed-list">
-          <div style={{
-            backgroundColor: 'rgba(255, 107, 53, 0.15)',
-            borderLeft: '4px solid #ff6b35',
-            padding: '1rem',
-            marginBottom: '1.5rem',
-            borderRadius: '8px',
-          }}>
-            <p style={{
-              margin: 0,
-              fontSize: '0.95rem',
-              fontWeight: 600,
-              color: '#ff6b35',
-              lineHeight: '1.5',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+          {!isMirrorMode && (
+            <div style={{
+              backgroundColor: 'rgba(255, 107, 53, 0.15)',
+              borderLeft: '4px solid #ff6b35',
+              padding: '1rem',
+              marginBottom: '1.5rem',
+              borderRadius: '8px',
             }}>
-              ⚠️ {composerCopy.warningText}
-            </p>
-          </div>
+              <p style={{
+                margin: 0,
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                color: '#ff6b35',
+                lineHeight: '1.5',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}>
+                ⚠️ {composerCopy.warningText}
+              </p>
+            </div>
+          )}
           {visiblePosts.length === 0 ? (
             <p className="subcopy no-margin">
               {isMirrorMode

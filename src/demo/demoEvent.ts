@@ -29,7 +29,7 @@ export const DEMO_EVENT = {
   explicitFilterEnabled: false,
   showInAudienceNoGig: false,
   coverImageUrl: '/the-human-jukebox-logo.png',
-  venueLogoUrl: '/the-human-jukebox-logo.svg',
+  venueLogoUrl: null,
   showCustomButton: false,
   customButtonLabel: null,
   customButtonLink: null,
