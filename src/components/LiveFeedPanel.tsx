@@ -31,6 +31,7 @@ type FeedComposerCopy = {
   phoneHelpText: string
   submitLabel: string
   submitPostingLabel: string
+  emptyFeedText: string
 }
 
 type LiveFeedPanelProps = {
@@ -59,6 +60,7 @@ const DEFAULT_FEED_COMPOSER_COPY: FeedComposerCopy = {
   phoneHelpText: 'On phone: tap Take Photo to capture and share instantly to the live feed.',
   submitLabel: 'Post to Feed',
   submitPostingLabel: 'Posting...',
+  emptyFeedText: 'No feed posts yet. Start the conversation.',
 }
 
 function getStoredAuthorName() {
@@ -925,7 +927,7 @@ function LiveFeedPanel({
             <p className="subcopy no-margin">
               {isMirrorMode
                 ? 'No community posts yet. Audience shout-outs and photos will appear here live.'
-                : 'No feed posts yet. Start the conversation.'}
+                : composerCopy.emptyFeedText}
             </p>
           ) : (
             visiblePosts.map((post) => {

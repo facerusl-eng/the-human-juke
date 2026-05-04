@@ -48,6 +48,7 @@ function FeedPage() {
         phoneHelpText: 'På telefon: tryk "Tag Foto" for at optage og dele direkte til live-feed.',
         submitLabel: 'Send til Feed',
         submitPostingLabel: 'Sender...',
+        emptyFeedText: 'Ingen feedposts endnu. Start samtalen.',
       }
     : audienceLocale === 'is'
     ? {
@@ -68,6 +69,7 @@ function FeedPage() {
         phoneHelpText: 'Í síma: Veldu \'Taka mynd\' til að taka og senda beint í live‑Feed',
         submitLabel: 'Sendu á Live Feed',
         submitPostingLabel: 'Sendir...',
+        emptyFeedText: 'Engin skilaboð hafa verið send, Taktu þátt í gleðinni og sendu á Feediö!',
       }
     : {
         title: 'Audience Feed',
@@ -87,6 +89,7 @@ function FeedPage() {
         phoneHelpText: 'On phone: tap Take Photo to capture and share instantly to the live feed.',
         submitLabel: 'Post to Feed',
         submitPostingLabel: 'Posting...',
+        emptyFeedText: 'No feed posts yet. Start the conversation.',
       }
 
   useEffect(() => {
@@ -188,6 +191,7 @@ function FeedPage() {
         phoneHelpText: copy.phoneHelpText,
         submitLabel: copy.submitLabel,
         submitPostingLabel: copy.submitPostingLabel,
+        emptyFeedText: copy.emptyFeedText,
       }} />
     </section>
   )
