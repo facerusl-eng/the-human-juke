@@ -1162,7 +1162,12 @@ function QueueProvider({ children }: PropsWithChildren) {
         return
       }
 
-      setLoading(true)
+      // Only show the loading spinner if we have no cached data to show yet.
+      // When a valid localStorage snapshot was already hydrated, do a silent
+      // background refresh so the mirror screen never flashes "Connecting to stage…".
+      if (!activeEventIdRef.current) {
+        setLoading(true)
+      }
 
       try {
         let targetEventId: string | null = null

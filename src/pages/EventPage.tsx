@@ -140,7 +140,7 @@ const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim(
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
-const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v1'
+const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v2'
 const AUDIENCE_SONG_FACT_PLACEHOLDER = 'No fun facts available for this song yet.'
 
 type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
