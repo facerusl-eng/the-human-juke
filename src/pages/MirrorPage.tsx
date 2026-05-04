@@ -71,6 +71,7 @@ const MIRROR_PLAYBACK_STORAGE_KEY = PLAYBACK_STATE_STORAGE_KEY
 const MIRROR_PLAYBACK_BROADCAST_CHANNEL = PLAYBACK_STATE_BROADCAST_CHANNEL
 const MIRROR_SAFE_MARGINS_STORAGE_KEY = 'human-jukebox-mirror-safe-margins'
 const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
+const MIRROR_BANNER_STORAGE_KEY = 'human-jukebox-mirror-banner-text'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
@@ -660,6 +661,7 @@ function MirrorPage() {
   const [densityMode, setDensityMode] = useState<MirrorDensityMode>('medium')
   const [venueMode, setVenueMode] = useState<MirrorVenueMode>('lounge')
   const [showSafeMargins, setShowSafeMargins] = useState(false)
+  const [bannerText, setBannerText] = useState<string>(() => readTextFromLocalStorage(MIRROR_BANNER_STORAGE_KEY) ?? '')
   const [, setStorageError] = useState<string | null>(null)
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
   const [showShutterFallbackPulse, setShowShutterFallbackPulse] = useState(false)
@@ -2270,9 +2272,33 @@ function MirrorPage() {
             <p className="mirror-control-shortcuts" aria-live="polite">
               Shortcuts: <strong>F</strong> fullscreen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> play/pause.
             </p>
+            <div className="mirror-banner-editor">
+              <label className="mirror-banner-label" htmlFor="mirror-banner-input">📢 Scrolling Banner</label>
+              <input
+                id="mirror-banner-input"
+                type="text"
+                className="mirror-banner-input"
+                placeholder="e.g. 🍺 2-for-1 beers until 22:00 · Happy hour all night!"
+                value={bannerText}
+                maxLength={250}
+                onChange={(e) => {
+                  setBannerText(e.target.value)
+                  saveTextToLocalStorage(MIRROR_BANNER_STORAGE_KEY, e.target.value)
+                }}
+              />
+            </div>
           </div>
         ) : null}
       </header>
+
+      {bannerText.trim() ? (
+        <div className="mirror-ticker-bar" aria-label="Bar offers and promotions">
+          <div className="mirror-ticker-track">
+            <span className="mirror-ticker-content">{bannerText.trim()}</span>
+            <span className="mirror-ticker-content" aria-hidden="true">{bannerText.trim()}</span>
+          </div>
+        </div>
+      ) : null}
 
       <main className={`mirror-stage ${isLive ? 'mirror-stage-live' : ''}`}>
         {!isLive && !nowPlaying ? (

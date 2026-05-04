@@ -5144,6 +5144,72 @@
   font-weight: 800;
 }
 
+/* ── Scrolling Banner / Ticker ── */
+.mirror-banner-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.mirror-banner-label {
+  font-size: clamp(0.64rem, 0.9vw, 0.74rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mirror-soft-text);
+}
+
+.mirror-banner-input {
+  width: 100%;
+  background: rgba(255 255 255 / 0.07);
+  border: 1px solid rgba(255 255 255 / 0.18);
+  border-radius: 6px;
+  color: #fff;
+  font-size: clamp(0.74rem, 1.1vw, 0.88rem);
+  padding: 0.35rem 0.6rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.mirror-banner-input::placeholder {
+  color: rgba(255 255 255 / 0.38);
+}
+
+.mirror-banner-input:focus {
+  border-color: rgb(var(--mirror-cyan-rgb));
+}
+
+.mirror-ticker-bar {
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(255, 176, 0, 0.18) 0%, rgba(255, 138, 0, 0.14) 100%);
+  border-top: 1px solid rgba(255, 180, 0, 0.35);
+  border-bottom: 1px solid rgba(255, 180, 0, 0.35);
+  padding: 0.45rem 0;
+  flex-shrink: 0;
+}
+
+.mirror-ticker-track {
+  display: flex;
+  width: max-content;
+  animation: mirror-ticker-scroll 28s linear infinite;
+}
+
+.mirror-ticker-content {
+  white-space: nowrap;
+  font-size: clamp(0.9rem, 1.6vw, 1.15rem);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: #ffd97a;
+  padding-right: 8rem;
+}
+
+@keyframes mirror-ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
 .mirror-shell-hide-controls .mirror-editor-controls {
   display: none !important;
 }
