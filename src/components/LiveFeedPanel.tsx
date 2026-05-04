@@ -32,6 +32,7 @@ type FeedComposerCopy = {
   submitLabel: string
   submitPostingLabel: string
   emptyFeedText: string
+  warningText: string
 }
 
 type LiveFeedPanelProps = {
@@ -61,6 +62,7 @@ const DEFAULT_FEED_COMPOSER_COPY: FeedComposerCopy = {
   submitLabel: 'Post to Feed',
   submitPostingLabel: 'Posting...',
   emptyFeedText: 'No feed posts yet. Start the conversation.',
+  warningText: 'All content published in the Live Feed is the responsibility of the user. If the host considers any post inappropriate or unfitting for the event, the user may be blocked from the event.',
 }
 
 function getStoredAuthorName() {
@@ -923,6 +925,7 @@ function LiveFeedPanel({
 
       {!loading ? (
         <div className="live-feed-list">
+          <p className="subcopy" style={{ marginBottom: '1.5rem', fontStyle: 'italic', opacity: 0.85 }}>{composerCopy.warningText}</p>
           {visiblePosts.length === 0 ? (
             <p className="subcopy no-margin">
               {isMirrorMode

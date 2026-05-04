@@ -49,6 +49,7 @@ function FeedPage() {
         submitLabel: 'Send til Feed',
         submitPostingLabel: 'Sender...',
         emptyFeedText: 'Ingen feedposts endnu. Start samtalen.',
+        warningText: 'Alt indhold, der offentliggøres i Live Feedet, er på brugerens eget ansvar. Hvis værten vurderer, at noget indhold er upassende eller ikke passer til arrangementet, kan brugeren blive blokeret fra eventet.',
       }
     : audienceLocale === 'is'
     ? {
@@ -70,6 +71,7 @@ function FeedPage() {
         submitLabel: 'Sendu á Live Feed',
         submitPostingLabel: 'Sendir...',
         emptyFeedText: 'Engin skilaboð hafa verið send, Taktu þátt í gleðinni og sendu á Feediö!',
+        warningText: 'Allt efni sem birt er í Live Feedinu er á ábyrgð notandans. Ef gestgjafinn telur að efnið sé óviðeigandi eða ekki við hæfi fyrir viðburðinn, getur notandinn verið lokaður úti frá viðburðinum.',
       }
     : {
         title: 'Audience Feed',
@@ -90,6 +92,7 @@ function FeedPage() {
         submitLabel: 'Post to Feed',
         submitPostingLabel: 'Posting...',
         emptyFeedText: 'No feed posts yet. Start the conversation.',
+        warningText: 'All content published in the Live Feed is the responsibility of the user. If the host considers any post inappropriate or unfitting for the event, the user may be blocked from the event.',
       }
 
   useEffect(() => {
@@ -192,6 +195,7 @@ function FeedPage() {
         submitLabel: copy.submitLabel,
         submitPostingLabel: copy.submitPostingLabel,
         emptyFeedText: copy.emptyFeedText,
+        warningText: copy.warningText,
       }} />
     </section>
   )
