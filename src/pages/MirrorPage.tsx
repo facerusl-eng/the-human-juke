@@ -388,8 +388,8 @@ async function fetchMusicBrainzFallbackFacts(title: string, artist: string, sign
 
 const SONG_INFO_BUILDERS = [
   (song: NowPlayingInfoSong) => /\//.test(song.title)
-    ? `This title looks like a medley set - multiple songs woven into one moment.`
-    : `"${song.title}" keeps the spotlight sharp and memorable on the mirror.`,
+    ? `This title looks like a medley set — multiple songs woven into one performance.`
+    : `Tonight's crowd voted "${song.title}" to the top of the queue.`,
   (song: NowPlayingInfoSong) => /[()[\]]/.test(song.title)
     ? `Bracketed title detected - this is often a remix, edit, or live version.`
     : `No remix/live tags in the title - this is presented as a straight version.`,
