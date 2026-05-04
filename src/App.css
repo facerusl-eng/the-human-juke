@@ -19,6 +19,37 @@
   padding: 0.75rem;
 }
 
+/* ─── Page logo loader (hourglass flip) ──────────────────────── */
+.page-logo-loader-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  pointer-events: none;
+}
+
+.page-logo-loader {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 18px rgba(74, 214, 255, 0.4)) drop-shadow(0 0 36px rgba(255, 79, 152, 0.25));
+  animation: logo-hourglass 1.8s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+@keyframes logo-hourglass {
+  0%   { transform: rotate(0deg) scale(1); }
+  40%  { transform: rotate(0deg) scale(1.04); }
+  50%  { transform: rotate(180deg) scale(1.04); }
+  90%  { transform: rotate(180deg) scale(1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+/* ─────────────────────────────────────────────────────────────── */
+
 .topbar {
   position: relative;
   z-index: 40;

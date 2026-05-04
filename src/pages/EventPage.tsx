@@ -1788,13 +1788,8 @@ function EventPage() {
     && upcomingEvents.length === 0
   ) {
     return (
-      <section className="audience-entry-shell audience-karafun" aria-label="Audience loading">
-        <article className="queue-panel audience-entry-card">
-          <p className="eyebrow">Audience App</p>
-          <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
-          <div className="loading-skeleton loading-skeleton-line" aria-hidden="true"></div>
-          <div className="loading-skeleton loading-skeleton-line loading-skeleton-line-short" aria-hidden="true"></div>
-        </article>
+      <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
+        <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
       </section>
     )
   }
@@ -1804,26 +1799,16 @@ function EventPage() {
     // Showing "no live show" while auth reconnects after a retry is misleading.
     if (authLoading && !user) {
       return (
-        <section className="audience-entry-shell audience-karafun" aria-label="Audience loading">
-          <article className="queue-panel audience-entry-card">
-            <p className="eyebrow">Audience App</p>
-            <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
-            <div className="loading-skeleton loading-skeleton-line" aria-hidden="true"></div>
-            <div className="loading-skeleton loading-skeleton-line loading-skeleton-line-short" aria-hidden="true"></div>
-          </article>
+        <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
+          <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
         </section>
       )
     }
 
     if (!hasRequestedEventParam && !hasCompletedInitialLiveGigProbe) {
       return (
-        <section className="audience-entry-shell audience-karafun" aria-label="Audience loading">
-          <article className="queue-panel audience-entry-card">
-            <p className="eyebrow">Audience App</p>
-            <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
-            <div className="loading-skeleton loading-skeleton-line" aria-hidden="true"></div>
-            <div className="loading-skeleton loading-skeleton-line loading-skeleton-line-short" aria-hidden="true"></div>
-          </article>
+        <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
+          <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
         </section>
       )
     }
