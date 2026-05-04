@@ -566,6 +566,33 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
   -webkit-user-select: none;
   user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.demo-banner-exit {
+  background: rgba(0, 0, 0, 0.18);
+  border: 1.5px solid rgba(0, 0, 0, 0.35);
+  color: #1a0a00;
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  padding: 0.18rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.demo-banner-exit:hover {
+  background: rgba(0, 0, 0, 0.3);
+  transform: scale(1.04);
+}
+
+.demo-banner-exit:active {
+  transform: scale(0.97);
 }
 
 .app-shell-demo {
