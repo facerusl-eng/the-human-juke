@@ -316,7 +316,7 @@ function AudienceSongListPage() {
   }, [selectedSong, submittingMode])
 
   useEffect(() => {
-    if (!audienceName) {
+    if (!demoMode && !audienceName) {
       navigate('/audience', { replace: true })
     }
   }, [audienceName, navigate])
