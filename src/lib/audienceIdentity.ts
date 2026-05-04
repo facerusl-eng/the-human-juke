@@ -54,7 +54,9 @@ export function commitAudienceName(nextName: string) {
 }
 
 export function commitAudienceLocale(nextLocale: AudienceLocale) {
-  commitAudienceIdentity({ name: readCommittedAudienceName(), locale: nextLocale })
+  if (typeof window === 'undefined') return
+  const normalizedLocale = normalizeAudienceLocale(nextLocale)
+  saveTextToLocalStorage(AUDIENCE_LOCALE_STORAGE_KEY, normalizedLocale)
 }
 
 export function commitAudienceIdentity({
