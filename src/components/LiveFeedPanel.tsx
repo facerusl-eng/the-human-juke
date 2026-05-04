@@ -235,6 +235,28 @@ function LiveFeedPanel({
     [feedNow, isMirrorMode, posts],
   )
 
+  const [userBlockedStatus, setUserBlockedStatus] = useState<boolean | null>(null)
+
+  // Check if current user is blocked (once when component mounts or event changes)
+  useEffect(() => {
+    const checkIfBlocked = async () => {
+      if (!event?.id || demoMode) {
+        setUserBlockedStatus(false)
+        return
+      }
+
+      const { data: userData } = await supabase.auth.getUser()
+      if (userData.user?.id) {
+        const blocked = await isUserBlocked(event.id, userData.user.id)
+        setUserBlockedStatus(blocked)
+      } else {
+        setUserBlockedStatus(false)
+      }
+    }
+
+    void checkIfBlocked()
+  }, [event?.id])
+
   const suppressReconnectWarning = () => {
     suppressReconnectWarningUntilRef.current = Date.now() + FEED_PICKER_RECONNECT_SUPPRESS_MS
   }
@@ -678,14 +700,10 @@ function LiveFeedPanel({
       return
     }
 
-    // Check if user is blocked
-    const { data: userData } = await supabase.auth.getUser()
-    if (userData.user?.id) {
-      const blocked = await isUserBlocked(event.id, userData.user.id)
-      if (blocked) {
-        setErrorText('You have been blocked from posting to this event.')
-        return
-      }
+    // Check cached blocked status
+    if (userBlockedStatus) {
+      setErrorText('You have been blocked from posting to this event.')
+      return
     }
 
     setBusy(true)
@@ -970,7 +988,7 @@ function LiveFeedPanel({
             <PrimaryButton
               type="submit"
               className="primary-button"
-              disabled={busy || !event}
+              disabled={busy || !event || userBlockedStatus === true}
             >
               {busy ? composerCopy.submitPostingLabel : composerCopy.submitLabel}
             </PrimaryButton>
