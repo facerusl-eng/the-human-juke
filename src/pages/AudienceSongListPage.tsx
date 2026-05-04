@@ -209,7 +209,7 @@ function AudienceSongListPage() {
         karaokeConfirmHeading: 'Bíddu aðeins, rokkstjarna.',
         karaokeConfirmBody: 'Ef þú heldur áfram núna ertu basically að segja: "Ó já, ég ætla að fara upp á svið og syngja þetta fyrir framan áhorfendur."\n\nSviðstjórinn mun kalla nafnið þitt hátt og skýrt. Fólk mun snúa sér við. Sumir munu taka upp símann sinn.\n\nEngin leið til baka.\n\nÞetta verður GEGGJAÐÐ!!... eða að minnsta kosti eithvað sem þú munt segja vinum þínum frá á morgun.',
         karaokeConfirmGo: 'Já, ég geri þetta!',
-        karaokeConfirmAbort: 'Nei, ég ætla að þykjast að þetta hafi verið mistæk.',
+        karaokeConfirmAbort: 'Nei, ég ætla að láta eins og að ég hafi rekist í takkann.',
         performerSings: 'Flytjandinn syngur lagið',
         iWantToSing: '🎸 Ég vil/Vill syngja lagið',
         cancel: 'Hætta við',
