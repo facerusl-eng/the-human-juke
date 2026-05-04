@@ -24,6 +24,23 @@ const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
     'Snup en drink, varm stemmebåndene op, og se hvad der kommer.',
     'Scenen er stille... lige nu. Kommende events er herunder!',
   ],
+  is: [
+    'Engin live tonleikar eru i gangi nuna - en eitthvad geggjad er a leidinni!',
+    'Gribbu drykk, hitaudu upp roddina og skodadu hvad er framundan.',
+    'Svidid er hljott... i bili. Komandi vidburdir eru her fyrir nedan!',
+  ],
+}
+
+function toIntlLocale(locale: AudienceLocale) {
+  if (locale === 'da') {
+    return 'da-DK'
+  }
+
+  if (locale === 'is') {
+    return 'is-IS'
+  }
+
+  return 'en-US'
 }
 
 /** Strip seconds from Postgres 'HH:MM:SS' so appending ':00' doesn't corrupt the datetime string */
@@ -64,7 +81,7 @@ function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | 
     return gigDate
   }
 
-  const dateLabel = new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : 'en-US', {
+  const dateLabel = new Intl.DateTimeFormat(toIntlLocale(locale), {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -74,7 +91,7 @@ function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | 
     return dateLabel
   }
 
-  const timeLabel = new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : 'en-US', {
+  const timeLabel = new Intl.DateTimeFormat(toIntlLocale(locale), {
     hour: 'numeric',
     minute: '2-digit',
   }).format(parsedDate)
@@ -116,7 +133,7 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
       return clockTime
     }
 
-    return new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : 'en-US', {
+    return new Intl.DateTimeFormat(toIntlLocale(locale), {
       hour: 'numeric',
       minute: '2-digit',
     }).format(parsedDate)
@@ -183,6 +200,40 @@ function AudienceNoGigState({
           'Tag mikrofonen og syng den selv.',
         ],
         karafunNote: 'Karaoke køres via KaraFun.',
+      }
+    : locale === 'is'
+    ? {
+        eyebrow: 'Ahorfenda app',
+        title: 'Ekkert live show i gangi nuna',
+        loading: 'Hle dur komandi vidburdi...',
+        upcomingEvents: 'Komandi vidburdir',
+        upcomingCount: 'komandi',
+        venueFallback: 'Stadur kemur sidar',
+        openEvent: 'Opna vidburdasidu',
+        karaokeBadge: 'Karaoke vidburdur',
+        halliBadge: 'Halli Playing Music',
+        openKarafun: 'Opna KaraFun lista',
+        countdownLabel: 'Naesta show hefst eftir',
+        countdownFor: 'fyrir',
+        howItWorks: 'Svona virkar Human Jukebox',
+        hideHowItWorks: 'Fela leidbeiningar',
+        howItWorksTitle: '🎸 Svona virkar Human Jukebox',
+        howItWorksSteps: [
+          'Smelltu a Lagalista og veldu Human Jukebox.',
+          'Leitadu ad lagi og baettu thvi i ko.',
+          'Kjostu i Live ko til ad hlyta uppahaldslagin.',
+          'Listamadurinn spilar - thu velur hvad.',
+        ],
+        howKaraokeWorks: 'Svona virkar Karaoke',
+        hideHowKaraokeWorks: 'Fela karaoke-leidbeiningar',
+        howKaraokeWorksTitle: '🎤 Svona virkar Karaoke',
+        howKaraokeWorksSteps: [
+          'Karaoke keyrir i KaraFun.',
+          'Findu lag i KaraFun listanum og bokadu timann thinn.',
+          'Biddu eftir ad nafnid thitt verdi kallad upp.',
+          'Taktu mic-inn og syngdu sjaelf/ur.',
+        ],
+        karafunNote: 'Karaoke er keyrt i gegnum KaraFun.',
       }
     : {
         eyebrow: 'Audience App',

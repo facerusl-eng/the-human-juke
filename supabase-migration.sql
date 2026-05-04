@@ -154,6 +154,9 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS show_in_audience_no_gig BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
 
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS audience_icelandic_enabled BOOLEAN NOT NULL DEFAULT false;
+
 CREATE INDEX IF NOT EXISTS events_show_in_audience_no_gig_idx
   ON public.events (show_in_audience_no_gig, gig_date, gig_start_time)
   WHERE show_in_audience_no_gig = true;

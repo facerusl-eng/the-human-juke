@@ -21,6 +21,15 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en', onSi
         backText: 'Tilbage',
         signOutLabel: 'Log ud',
       }
+    : locale === 'is'
+    ? {
+        headerLabel: 'Vidhburdarhaus',
+        logoAlt: 'Vidhburdarlogo',
+        kicker: 'Live vidburdur',
+        backLabel: 'Til baka a forsidu',
+        backText: 'Til baka',
+        signOutLabel: 'Skra ut',
+      }
     : {
         headerLabel: 'Event header',
         logoAlt: 'Event logo',

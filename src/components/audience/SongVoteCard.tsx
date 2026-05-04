@@ -86,16 +86,16 @@ function SongVoteCard({
               className="song-cover"
             />
           ) : <span className="song-cover song-cover-fallback" aria-hidden="true">♪</span>}
-          <div>
-            <p className="song">{song.title}</p>
-            <p className="artist">
+          <div className="audience-song-main-copy">
+            <p className="song" title={song.title}>{song.title}</p>
+            <p className="artist" title={song.artist}>
               {song.artist}
               {song.audience_sings ? <span className="karaoke-tag"> - Karaoke</span> : ''}
               {song.is_explicit ? ' - Explicit' : ''}
               {song.voting_locked ? ' - Voting Locked' : ''}
             </p>
             {song.createdByName ? (
-              <p className="audience-song-chosen-by">♡ {song.createdByName}</p>
+              <p className="audience-song-chosen-by" title={song.createdByName}>♡ {song.createdByName}</p>
             ) : null}
           </div>
         </div>

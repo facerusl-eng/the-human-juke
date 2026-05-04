@@ -5,10 +5,20 @@ export const AUDIENCE_LOCALE_STORAGE_KEY = 'human-jukebox-audience-locale'
 export const FEED_AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
 export const AUDIENCE_NAME_COMMITTED_EVENT = 'human-jukebox-audience-name-committed'
 
-export type AudienceLocale = 'en' | 'da'
+export type AudienceLocale = 'en' | 'da' | 'is'
 
 export function normalizeAudienceLocale(value: string | null | undefined): AudienceLocale {
-  return value?.trim().toLowerCase() === 'da' ? 'da' : 'en'
+  const normalizedValue = value?.trim().toLowerCase()
+
+  if (normalizedValue === 'da') {
+    return 'da'
+  }
+
+  if (normalizedValue === 'is') {
+    return 'is'
+  }
+
+  return 'en'
 }
 
 export function readCommittedAudienceLocale() {

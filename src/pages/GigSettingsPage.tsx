@@ -83,6 +83,7 @@ type SettingsState = {
   tipThankYouMessageEN: string
   artistName: string
   audienceVotingEnabled: boolean
+  audienceIcelandicEnabled: boolean
   autoLiveEnabled: boolean
   introAudioUrl: string
 }
@@ -215,6 +216,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     karafunUrl: event.karafunUrl ?? '',
     artistName: event.artistName ?? '',
     audienceVotingEnabled: event.audienceVotingEnabled ?? true,
+    audienceIcelandicEnabled: event.audienceIcelandicEnabled ?? false,
     gigDate: event.gigDate ?? '',
       autoLiveEnabled: event.autoLiveEnabled ?? false,
       introAudioUrl: event.introAudioUrl ?? '',
@@ -597,6 +599,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         karafunUrl: saveState.karafunUrl.trim() || null,
         artistName: saveState.artistName.trim() || null,
         audienceVotingEnabled: saveState.audienceVotingEnabled,
+        audienceIcelandicEnabled: saveState.audienceIcelandicEnabled,
         gigDate: saveState.gigDate,
         gigStartTime: saveState.gigStartTime,
           autoLiveEnabled: saveState.autoLiveEnabled,
@@ -1038,6 +1041,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.tipThankYouMessageEN !== (event.tipThankYouMessageEN ?? '')
     || state.artistName !== (event.artistName ?? '')
     || state.audienceVotingEnabled !== (event.audienceVotingEnabled ?? true)
+    || state.audienceIcelandicEnabled !== (event.audienceIcelandicEnabled ?? false)
   || state.autoLiveEnabled !== (event.autoLiveEnabled ?? false)
   || state.introAudioUrl !== (event.introAudioUrl ?? '')
 
@@ -1744,6 +1748,21 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 <div>
                   <strong>{state.showCustomButton ? '✓ Custom Button Enabled' : '⊘ Custom Button Off'}</strong>
                   <span>Show a custom action button in the Audience App</span>
+                </div>
+              </label>
+              <label className="gig-settings-toggle-card" htmlFor="gig-audience-icelandic">
+                <input
+                  id="gig-audience-icelandic"
+                  type="checkbox"
+                  checked={state.audienceIcelandicEnabled}
+                  onChange={(e) => {
+                    pushUndoState()
+                    updateState({ audienceIcelandicEnabled: e.target.checked })
+                  }}
+                />
+                <div>
+                  <strong>{state.audienceIcelandicEnabled ? '✓ Icelandic Language Enabled' : '⊘ Icelandic Language Hidden'}</strong>
+                  <span>Show an Icelandic language option in the Audience App.</span>
                 </div>
               </label>
               {state.showCustomButton ? (

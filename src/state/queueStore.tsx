@@ -68,6 +68,7 @@ type EventSettingsUpdates = {
   karafunUrl: string | null
   artistName: string | null
   audienceVotingEnabled: boolean
+  audienceIcelandicEnabled: boolean
   autoLiveEnabled: boolean
   introAudioUrl: string | null
 }
@@ -108,6 +109,7 @@ type EventState = {
   karafunUrl: string | null
   artistName: string | null
   audienceVotingEnabled: boolean
+  audienceIcelandicEnabled: boolean
   autoLiveEnabled: boolean
   introAudioUrl: string | null
 }
@@ -123,6 +125,7 @@ type CreateEventOptions = {
   karafunUrl?: string | null
   artistName?: string | null
   audienceVotingEnabled?: boolean
+  audienceIcelandicEnabled?: boolean
   autoLiveEnabled?: boolean
   introAudioUrl?: string | null
 }
@@ -298,6 +301,26 @@ function isMissingTipThankYouMessageColumnError(error: unknown) {
 
   return (code === '42703' || code === 'PGRST204')
     && (text.includes('tip_thank_you_message_da') || text.includes('tip_thank_you_message_en'))
+}
+
+function isMissingAudienceIcelandicColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('audience_icelandic_enabled')
 }
 
 function isMissingPlaylistTypeColumnError(error: unknown) {
@@ -824,7 +847,32 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const [eventData, tipMessages, eventTypeSettings] = await Promise.all([
+    const loadAudienceLocaleSettings = async (): Promise<{ audience_icelandic_enabled: boolean }> => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('audience_icelandic_enabled')
+          .eq('id', activeEventId)
+          .single()
+
+        if (error) {
+          if (isMissingAudienceIcelandicColumnError(error)) {
+            return { audience_icelandic_enabled: false }
+          }
+
+          throw error
+        }
+
+        const row = data as Record<string, unknown>
+        return {
+          audience_icelandic_enabled: (row.audience_icelandic_enabled as boolean | null) ?? false,
+        }
+      } catch {
+        return { audience_icelandic_enabled: false }
+      }
+    }
+
+    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings] = await Promise.all([
       withTimeout(
         loadEventSnapshot(),
         DEFAULT_DB_TIMEOUT_MS,
@@ -832,6 +880,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       ),
       loadTipMessages(),
       loadEventTypeSettings(),
+      loadAudienceLocaleSettings(),
     ])
 
     let queueSongs: QueueSong[] = []
@@ -1023,6 +1072,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       karafunUrl: eventTypeSettings.karafun_url,
       artistName: eventTypeSettings.artist_name,
       audienceVotingEnabled: eventTypeSettings.audience_voting_enabled,
+      audienceIcelandicEnabled: audienceLocaleSettings.audience_icelandic_enabled,
       autoLiveEnabled: eventTypeSettings.auto_live_enabled,
       introAudioUrl: eventTypeSettings.intro_audio_url,
     })
@@ -2203,6 +2253,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           event_type: updates.eventType ?? 'halli-live',
           karafun_url: updates.karafunUrl ?? null,
           event_artist_name: updates.artistName ?? null,
+          audience_icelandic_enabled: updates.audienceIcelandicEnabled ?? false,
           auto_live_enabled: updates.autoLiveEnabled ?? false,
           intro_audio_url: updates.introAudioUrl ?? null,
         }
@@ -2218,7 +2269,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -2228,6 +2279,10 @@ function QueueProvider({ children }: PropsWithChildren) {
           if (isMissingTipThankYouMessageColumnError(error)) {
             delete fallbackPayload.tip_thank_you_message_da
             delete fallbackPayload.tip_thank_you_message_en
+          }
+
+          if (isMissingAudienceIcelandicColumnError(error)) {
+            delete fallbackPayload.audience_icelandic_enabled
           }
 
           const { error: fallbackError } = await withTimeout(
@@ -2624,6 +2679,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           karafunUrl: options?.karafunUrl ?? null,
           artistName: options?.artistName ?? null,
           audienceVotingEnabled: options?.audienceVotingEnabled ?? true,
+          audienceIcelandicEnabled: options?.audienceIcelandicEnabled ?? false,
           autoLiveEnabled: options?.autoLiveEnabled ?? false,
           introAudioUrl: options?.introAudioUrl ?? null,
         }

@@ -8,15 +8,27 @@ import {
   readCommittedAudienceName,
   type AudienceLocale,
 } from '../lib/audienceIdentity'
+import { useQueueStore } from '../state/queueStore'
 import { demoMode } from '../demo/demoMode'
 
 function FeedPage() {
+  const { event } = useQueueStore()
   const [nameInput, setNameInput] = useState('')
   const [nameCommitted, setNameCommitted] = useState(() =>
     demoMode ? 'Demo Guest' : (readCommittedAudienceName() ?? ''),
   )
   const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
   const [nameError, setNameError] = useState<string | null>(null)
+  const audienceLanguageOptions = (event?.audienceIcelandicEnabled ?? false)
+    ? [
+        { code: 'en' as const, label: 'English', flag: '🇬🇧' },
+        { code: 'da' as const, label: 'Dansk', flag: '🇩🇰' },
+        { code: 'is' as const, label: 'Islenska', flag: '🇮🇸' },
+      ]
+    : [
+        { code: 'en' as const, label: 'English', flag: '🇬🇧' },
+        { code: 'da' as const, label: 'Dansk', flag: '🇩🇰' },
+      ]
   const copy = audienceLocale === 'da'
     ? {
         title: 'Publikumsfeed',
@@ -29,6 +41,18 @@ function FeedPage() {
         enterName: 'Skriv dit navn før du fortsætter.',
         back: 'Tilbage til publikum',
       }
+    : audienceLocale === 'is'
+    ? {
+        title: 'Ahorfenda feed',
+        heading: 'Skraddu nafnid thitt til ad halda afram',
+        intro: 'Thetta feed er fyrir virka ahorfendur. Skraddu fyrst nafnid thitt.',
+        nameLabel: 'Nafnid thitt',
+        namePlaceholder: 'Nafnid thitt',
+        languageLabel: 'Tungumal',
+        continue: 'Afram i feed',
+        enterName: 'Skraddu nafnid thitt adur en thu heldur afram.',
+        back: 'Til baka i ahorfendur',
+      }
     : {
         title: 'Audience Feed',
         heading: 'Enter your name to continue',
@@ -40,6 +64,14 @@ function FeedPage() {
         enterName: 'Please enter your name before continuing.',
         back: 'Back to Audience',
       }
+
+  useEffect(() => {
+    if ((event?.audienceIcelandicEnabled ?? false) || audienceLocale !== 'is') {
+      return
+    }
+
+    setAudienceLocale('en')
+  }, [audienceLocale, event?.audienceIcelandicEnabled])
 
   useEffect(() => {
     const storedName = readCommittedAudienceName()
@@ -95,22 +127,17 @@ function FeedPage() {
             <div className="field-row">
               <span id="feed-entry-language" className="audience-entry-label">{copy.languageLabel}</span>
               <div className="audience-language-picker" role="radiogroup" aria-labelledby="feed-entry-language">
-                <button
-                  type="button"
-                  className={`audience-language-option audience-language-option-en${audienceLocale === 'en' ? ' audience-language-option-active' : ''}`}
-                  onClick={() => setAudienceLocale('en')}
-                >
-                  <span className="audience-language-option-flag" aria-hidden="true">🇬🇧</span>
-                  <span className="audience-language-option-text">English</span>
-                </button>
-                <button
-                  type="button"
-                  className={`audience-language-option audience-language-option-da${audienceLocale === 'da' ? ' audience-language-option-active' : ''}`}
-                  onClick={() => setAudienceLocale('da')}
-                >
-                  <span className="audience-language-option-flag" aria-hidden="true">🇩🇰</span>
-                  <span className="audience-language-option-text">Dansk</span>
-                </button>
+                {audienceLanguageOptions.map((option) => (
+                  <button
+                    key={option.code}
+                    type="button"
+                    className={`audience-language-option audience-language-option-${option.code}${audienceLocale === option.code ? ' audience-language-option-active' : ''}`}
+                    onClick={() => setAudienceLocale(option.code)}
+                  >
+                    <span className="audience-language-option-flag" aria-hidden="true">{option.flag}</span>
+                    <span className="audience-language-option-text">{option.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
             {nameError ? <p className="error-text">{nameError}</p> : null}

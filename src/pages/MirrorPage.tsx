@@ -513,7 +513,9 @@ function formatMirrorCountdownLabel(remainingMs: number) {
 }
 
 function formatMirrorCountdownStartTime(date: Date, locale: AudienceLocale) {
-  return new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : undefined, {
+  const resolvedLocale = locale === 'da' ? 'da-DK' : locale === 'is' ? 'is-IS' : undefined
+
+  return new Intl.DateTimeFormat(resolvedLocale, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -806,6 +808,14 @@ function MirrorPage() {
         startingIn: 'Starter om',
         scheduledStart: 'Planlagt start',
         scheduledPrefix: 'Planlagt start:',
+      }
+    : audienceLocale === 'is'
+    ? {
+        live: '● Live',
+        paused: '● I pusu',
+        startingIn: 'Hefst eftir',
+        scheduledStart: 'Aetlud byrjun',
+        scheduledPrefix: 'Aetlud byrjun:',
       }
     : {
         live: '● Live',

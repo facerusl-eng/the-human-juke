@@ -722,6 +722,16 @@ function EventPage() {
   const queuedPosition = queuedPositionParam ? parseInt(queuedPositionParam, 10) : null
   const [showQueuedBanner, setShowQueuedBanner] = useState(Boolean(queuedPosition && queuedPosition > 0))
   const liveGigApiUnavailableRef = useRef(false)
+  const audienceLanguageOptions = (event?.audienceIcelandicEnabled ?? false)
+    ? [
+        { code: 'en' as const, label: 'English', flag: '🇬🇧' },
+        { code: 'da' as const, label: 'Dansk', flag: '🇩🇰' },
+        { code: 'is' as const, label: 'Islenska', flag: '🇮🇸' },
+      ]
+    : [
+        { code: 'en' as const, label: 'English', flag: '🇬🇧' },
+        { code: 'da' as const, label: 'Dansk', flag: '🇩🇰' },
+      ]
   const copy = audienceLocale === 'da'
     ? {
         audienceApp: 'Publikumsapp',
@@ -763,6 +773,47 @@ function EventPage() {
         removeUnsupported: 'Fjern ugyldige tegn fra dit navn.',
         saveFailed: 'Kunne ikke gemme dit navn.',
       }
+    : audienceLocale === 'is'
+    ? {
+        audienceApp: 'Ahorfenda app',
+        entryEyebrow: 'Official Audience Lounge',
+        entryCopy: 'Thu ert ad skra thig inn i live ahorfenda appid. Oskadu lag og studdu uppahaldslagin med atkvaedum.',
+        nameLabel: 'Nafnid thitt',
+        namePlaceholder: 't.d. Alex',
+        languageLabel: 'Tungumal',
+        join: 'Skrá i ahorfendur',
+        joining: 'Skrái...',
+        welcome: 'Velkomin! 🎤',
+        waitingGreeting: 'Haell',
+        waitingTitle: 'Velkomin i showid, frabaeru gestir!',
+        waitingCopy: 'Komdu ther fyrir, vertu svalur, og kenndu liststjorninni um allt kaos.',
+        startingSoon: 'Vidhburdur hefst bradum',
+        viewUpcoming: 'Sja alla komandi vidburdi',
+        audienceLive: 'Ahorfendur Live',
+        audienceHome: 'Ahorfenda forsida',
+        roomOpen: 'Salurinn er opinn',
+        songList: 'Laglisti',
+        tipJar: 'Tipskraling',
+        socialLinks: 'Samfelagsmidlar',
+        duplicateBlocked: 'Tvofeld osk er blokkerud fyrir thetta gigg.',
+        activeRequestLimit: 'Hver gestur getur haft {count} virka osk i konni.',
+        nowPlaying: 'Nu i gangi',
+        queueThinking: 'Koin er ad hugsa sig um',
+        requestPrompt: 'Opnadu Laglista og oskadu lag adur en eitthvad velur Wonderwall.',
+        liveQueue: 'Live ko',
+        votesRise: 'Flest atkvaedi fara efst',
+        noSongsQueued: 'Engin log i ko enn.',
+        playedSongs: 'Spilud log',
+        latestOnTop: 'Nyjasta efst',
+        noSongsPlayed: 'Engin log hafa verid spilud enn.',
+        performerLinks: 'Listamanna tenglar',
+        tipJarCopy: 'Ef seinasta lag fekk thig til ad syngja, hentu listamanninum smatips. Lofaklapp er saett, en leigan er haerri. 🎤✨',
+        tipThankYou: event?.tipThankYouMessageEN?.trim() || 'Takk kaerlega fyrir studninginn - hann skiptir miklu mali. — Harald',
+        enterName: 'Skraddu nafnid thitt til ad halda afram.',
+        keepNameShort: `Hafdu nafnid undir ${MAX_AUDIENCE_NAME_LENGTH} stafi.`,
+        removeUnsupported: 'Fjarlagdu ogild stafi ur nafninu.',
+        saveFailed: 'Mistokst ad vista nafnid.',
+      }
     : {
         audienceApp: 'Audience App',
         entryEyebrow: 'Official Audience Lounge',
@@ -803,6 +854,14 @@ function EventPage() {
         removeUnsupported: 'Please remove unsupported characters from your name.',
         saveFailed: 'Failed to save your name.',
       }
+
+  useEffect(() => {
+    if ((event?.audienceIcelandicEnabled ?? false) || audienceLocale !== 'is') {
+      return
+    }
+
+    setAudienceLocale('en')
+  }, [audienceLocale, event?.audienceIcelandicEnabled])
 
   useEffect(() => {
     if (hasRequestedEventParam) {
@@ -1834,22 +1893,17 @@ function EventPage() {
             <div className="field-row">
               <span id="audience-language" className="audience-entry-label">{copy.languageLabel}</span>
               <div className="audience-language-picker" role="radiogroup" aria-labelledby="audience-language">
-                <button
-                  type="button"
-                  className={`audience-language-option audience-language-option-en${audienceLocale === 'en' ? ' audience-language-option-active' : ''}`}
-                  onClick={() => setAudienceLocale('en')}
-                >
-                  <span className="audience-language-option-flag" aria-hidden="true">🇬🇧</span>
-                  <span className="audience-language-option-text">English</span>
-                </button>
-                <button
-                  type="button"
-                  className={`audience-language-option audience-language-option-da${audienceLocale === 'da' ? ' audience-language-option-active' : ''}`}
-                  onClick={() => setAudienceLocale('da')}
-                >
-                  <span className="audience-language-option-flag" aria-hidden="true">🇩🇰</span>
-                  <span className="audience-language-option-text">Dansk</span>
-                </button>
+                {audienceLanguageOptions.map((option) => (
+                  <button
+                    key={option.code}
+                    type="button"
+                    className={`audience-language-option audience-language-option-${option.code}${audienceLocale === option.code ? ' audience-language-option-active' : ''}`}
+                    onClick={() => setAudienceLocale(option.code)}
+                  >
+                    <span className="audience-language-option-flag" aria-hidden="true">{option.flag}</span>
+                    <span className="audience-language-option-text">{option.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
             {audienceNameError ? <p id="audience-name-error" className="error-text request-error-inline" role="alert">{audienceNameError}</p> : null}

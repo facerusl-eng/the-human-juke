@@ -1501,7 +1501,7 @@
 
 .audience-language-picker {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8.8rem, 1fr));
   gap: 0.7rem;
 }
 
@@ -1542,6 +1542,15 @@
     linear-gradient(90deg, transparent 32%, rgba(255, 255, 255, 0.92) 32%, rgba(255, 255, 255, 0.92) 44%, transparent 44%),
     linear-gradient(transparent 42%, rgba(255, 255, 255, 0.92) 42%, rgba(255, 255, 255, 0.92) 58%, transparent 58%),
     linear-gradient(135deg, rgba(198, 12, 48, 0.98) 0%, rgba(173, 0, 32, 0.88) 100%);
+}
+
+.audience-language-option-is::before {
+  background:
+    linear-gradient(90deg, transparent 34%, rgba(255, 255, 255, 0.92) 34%, rgba(255, 255, 255, 0.92) 44%, transparent 44%),
+    linear-gradient(transparent 40%, rgba(255, 255, 255, 0.92) 40%, rgba(255, 255, 255, 0.92) 52%, transparent 52%),
+    linear-gradient(90deg, transparent 36%, rgba(0, 82, 180, 0.92) 36%, rgba(0, 82, 180, 0.92) 42%, transparent 42%),
+    linear-gradient(transparent 42%, rgba(0, 82, 180, 0.92) 42%, rgba(0, 82, 180, 0.92) 50%, transparent 50%),
+    linear-gradient(135deg, rgba(208, 25, 54, 0.98) 0%, rgba(183, 12, 40, 0.9) 100%);
 }
 
 .audience-language-option:hover {
@@ -2113,11 +2122,40 @@
   min-width: 0;
 }
 
+.audience-song-main-copy {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
 .audience-song-main .song,
 .audience-song-main .artist {
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.audience-song-main .song {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.26;
+  min-height: calc(1em * 1.26 * 2);
+}
+
+.audience-song-main .artist {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  line-height: 1.2;
+}
+
+.audience-song-main .audience-song-chosen-by {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .audience-song-actions {
