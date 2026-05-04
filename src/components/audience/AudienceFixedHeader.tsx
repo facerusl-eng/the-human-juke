@@ -28,7 +28,7 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en', onSi
         kicker: 'Live vidburdur',
         backLabel: 'Til baka a forsidu',
         backText: 'Til baka',
-        signOutLabel: 'Skra ut',
+        signOutLabel: 'Skrá Út',
       }
     : {
         headerLabel: 'Event header',
