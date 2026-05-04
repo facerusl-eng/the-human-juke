@@ -13,7 +13,7 @@ const COPY = {
     h1Line1: 'Your crowd picks the songs.',
     h1Line2: 'Your pub becomes',
     h1Accent: 'the place to be.',
-    subtitle: 'I\'m Halli — a live performer who brings an interactive jukebox show to your pub. Your guests request songs, vote the queue, and sing along in karaoke mode. All on a shared screen your whole bar can see.',
+    subtitle: 'I\'m Harald — a live performer who brings an interactive jukebox show to your pub. Your guests request songs, vote the queue, and sing along in karaoke mode. All on a shared screen your whole bar can see.',
     bookCta: '🎤 Book the show',
     demoCta: 'See how it works',
     stats: [
@@ -68,7 +68,7 @@ const COPY = {
     h1Line1: 'Dine gæster vælger sangene.',
     h1Line2: 'Din pub bliver',
     h1Accent: 'stedet alle taler om.',
-    subtitle: 'Jeg hedder Halli — en live performer der bringer en interaktiv jukebox til din pub. Dine gæster ønsker sange, stemmer på køen og synger med i karaoke. Alt på en fælles skærm hele baren kan se.',
+    subtitle: 'Jeg hedder Harald — en live performer der bringer en interaktiv jukebox til din pub. Dine gæster ønsker sange, stemmer på køen og synger med i karaoke. Alt på en fælles skærm hele baren kan se.',
     bookCta: '🎤 Book showet',
     demoCta: 'Se hvordan det virker',
     stats: [
