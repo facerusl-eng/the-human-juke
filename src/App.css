@@ -11848,9 +11848,13 @@ kbd {
 
 @media (min-width: 1024px) {
   .audience-shell-modern {
-    width: min(1100px, calc(100vw - 3rem));
+    width: min(1360px, calc(100vw - 3rem));
     margin-inline: auto;
-    padding: 1rem 1rem 1.2rem;
+    padding: 1.05rem 1.05rem 1.25rem;
+    background:
+      radial-gradient(circle at 10% 0%, rgba(86, 160, 255, 0.08), transparent 38%),
+      radial-gradient(circle at 90% 0%, rgba(255, 102, 169, 0.08), transparent 36%),
+      #f8fafc;
     border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 22px;
     box-shadow:
@@ -11860,9 +11864,9 @@ kbd {
 
   .audience-shell-modern .audience-stage {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: repeat(14, minmax(0, 1fr));
     align-items: start;
-    gap: 0.9rem;
+    gap: 0.95rem;
   }
 
   .audience-shell-modern .audience-fixed-header,
@@ -11892,16 +11896,16 @@ kbd {
   }
 
   .audience-shell-modern .audience-live-queue-panel {
-    grid-column: 6 / -1;
+    grid-column: 6 / 11;
   }
 
   .audience-shell-modern .audience-played-queue-panel {
-    grid-column: 1 / 7;
+    grid-column: 11 / -1;
   }
 
   .audience-shell-modern .audience-links-panel,
   .audience-shell-modern .audience-request-panel {
-    grid-column: 7 / -1;
+    grid-column: 1 / -1;
   }
 
   .audience-shell-modern .queue-panel,
@@ -11910,7 +11914,7 @@ kbd {
   .audience-shell-modern .link-panel {
     border-color: rgba(15, 23, 42, 0.12);
     border-radius: 14px;
-    padding: 0.92rem;
+    padding: 0.95rem;
     box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
   }
 
@@ -11921,7 +11925,7 @@ kbd {
   }
 
   .audience-shell-modern .queue-list {
-    gap: 0.5rem;
+    gap: 0.45rem;
   }
 
   .audience-shell-modern .audience-live-queue-panel .queue-list > li,
@@ -11949,7 +11953,7 @@ kbd {
   }
 
   .audience-shell-modern .audience-start-actions {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.55rem;
   }
 
@@ -11957,10 +11961,10 @@ kbd {
   .audience-shell-modern .audience-start-actions .secondary-button,
   .audience-shell-modern .audience-start-actions .audience-custom-button,
   .audience-shell-modern .audience-vote-button {
-    min-height: 2.45rem;
-    font-size: 0.9rem;
+    min-height: 2.55rem;
+    font-size: 0.92rem;
     border-radius: 10px;
-    padding: 0.5rem 0.7rem;
+    padding: 0.52rem 0.72rem;
   }
 
   .audience-shell-modern .now-playing-card h2 {
@@ -11974,5 +11978,29 @@ kbd {
 
   .audience-shell-modern .audience-request-note {
     max-width: 72ch;
+  }
+}
+
+@media (min-width: 1440px) {
+  .audience-shell-modern {
+    width: min(1500px, calc(100vw - 3.4rem));
+    padding: 1.15rem 1.2rem 1.35rem;
+  }
+
+  .audience-shell-modern .audience-stage {
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .audience-shell-modern .audience-now-playing-panel {
+    grid-column: 1 / 6;
+  }
+
+  .audience-shell-modern .audience-live-queue-panel {
+    grid-column: 6 / 12;
+  }
+
+  .audience-shell-modern .audience-played-queue-panel {
+    grid-column: 12 / -1;
   }
 }
