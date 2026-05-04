@@ -800,7 +800,11 @@ function MirrorPage() {
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
   const activeSong = playbackSong ?? nowPlaying
-  const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
+  // In demo mode, treat the first song as already playing so the now-playing
+  // card shows album art + title instead of the "between songs" quote.
+  const isNowPlayingStarted = demoMode
+    ? Boolean(nowPlaying)
+    : Boolean(playbackState?.isStarted && playbackState.currentSongId)
   const maxUpNextSongs = hideControlsForAudience ? 3 : 5
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
@@ -2361,10 +2365,12 @@ function MirrorPage() {
                         </p>
                       ) : null}
                     </div>
+                    {!isEmbeddedPreview && (
                     <div className="mirror-now-playing-qr-slot">
                       <img src={qrUrl} alt="Scan to join" className="mirror-now-playing-qr" />
                       <p className="mirror-qr-cta">Scan to join</p>
                     </div>
+                    )}
                   </div>
                 ) : isBuildSelfEvent && !audienceVotingEnabled ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Build Self Gig">
@@ -2374,10 +2380,12 @@ function MirrorPage() {
                       {event?.subtitle ? <p className="mirror-picked-by">{event.subtitle}</p> : null}
                       <p className="mirror-picked-by">🎵 Setlist Show</p>
                     </div>
+                    {!isEmbeddedPreview && (
                     <div className="mirror-now-playing-qr-slot">
                       <img src={qrUrl} alt="Scan to view" className="mirror-now-playing-qr" />
                       <p className="mirror-qr-cta">Scan to view</p>
                     </div>
+                    )}
                   </div>
                 ) : !isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
@@ -2386,10 +2394,12 @@ function MirrorPage() {
                       <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
                     </div>
                     {/* Far right: QR code */}
+                    {!isEmbeddedPreview && (
                     <div className="mirror-now-playing-qr-slot">
                       <img src={qrUrl} alt="Scan to join" className="mirror-now-playing-qr" />
                       <p className="mirror-qr-cta">Scan to request</p>
                     </div>
+                    )}
                   </div>
                 ) : (
                   <div className="mirror-now-playing-track">
@@ -2427,10 +2437,12 @@ function MirrorPage() {
                       </div>
                     </div>
                     {/* Far right: QR code */}
+                    {!isEmbeddedPreview && (
                     <div className="mirror-now-playing-qr-slot">
                       <img src={qrUrl} alt="Scan to join" className="mirror-now-playing-qr" />
                       <p className="mirror-qr-cta">Scan to request</p>
                     </div>
+                    )}
                   </div>
                 )}
             </section>

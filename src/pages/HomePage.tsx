@@ -275,7 +275,7 @@ function HomePage() {
               style={{ '--tv-scale': tvScale } as React.CSSProperties}
             >
               <iframe
-                src="/mirror?demo=true"
+                src="/mirror?demo=true&preview=1"
                 className="home-tv-screen"
                 title={copy.mirrorPreviewLabel}
                 loading="lazy"
