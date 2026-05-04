@@ -27,12 +27,16 @@ type FeedImageSpotlight = {
 }
 
 const SPOTLIGHT_CAPTION_BUILDERS = [
-  (authorName: string) => `${authorName}, you just lit up the room!`,
-  (authorName: string) => `${authorName} brought the party to the big screen!`,
-  (authorName: string) => `${authorName} just served a main character moment!`,
-  (authorName: string) => `${authorName}'s crowd cam drop is pure gold!`,
-  (authorName: string) => `Big cheers for ${authorName} and this dance-floor classic!`,
-  (authorName: string) => `${authorName} just gave tonight another highlight reel!`,
+  (authorName: string) => `📸 ${authorName}, you just made the show 10× more beautiful ✨`,
+  (authorName: string) => `🌟 ${authorName} with the VIP shot — we see you! 🎉`,
+  (authorName: string) => `❤️ ${authorName}, thanks for sharing — you absolute legend!`,
+  (authorName: string) => `🎶 ${authorName} came, vibed, and left photographic evidence. Love it!`,
+  (authorName: string) => `🥳 ${authorName}, this pic just became the cover of tonight's album!`,
+  (authorName: string) => `🔥 ${authorName} proving once again that the audience steals the show!`,
+  (authorName: string) => `😍 ${authorName}, this photo deserves a standing ovation. Respect.`,
+  (authorName: string) => `🎤 ${authorName} dropping evidence of a great night — we love this!`,
+  (authorName: string) => `✨ ${authorName}, you made the feed instantly classier. No debate.`,
+  (authorName: string) => `🎸 ${authorName} with the snap heard around the room! 📸`,
 ]
 
 const CHOSEN_BY_BUILDERS = [
