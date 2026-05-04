@@ -34,7 +34,56 @@ function generateDemoId() {
 export function DemoQueueProvider({ children }: PropsWithChildren) {
   // Prepend the now-playing song so songs[0] becomes the active track.
   const [songs, setSongs] = useState<QueueSong[]>([DEMO_NOW_PLAYING, ...DEMO_INITIAL_QUEUE])
-  const [performedSongs] = useState<PerformedSong[]>([])
+  const [performedSongs] = useState<PerformedSong[]>([
+    {
+      id: 'demo-played-001',
+      event_id: DEMO_EVENT.id,
+      title: 'Dancing in the Moonlight',
+      artist: 'Toploader',
+      votes_count: 9,
+      is_explicit: false,
+      voting_locked: true,
+      is_removed: false,
+      cover_url: DEMO_DEFAULT_COVER_URL,
+      library_song_id: null,
+      audience_sings: false,
+      position: 0,
+      createdByName: 'Oliver R.',
+      performedAt: '2026-05-04T20:15:00.000Z',
+    },
+    {
+      id: 'demo-played-002',
+      event_id: DEMO_EVENT.id,
+      title: 'I Wanna Dance with Somebody',
+      artist: 'Whitney Houston',
+      votes_count: 8,
+      is_explicit: false,
+      voting_locked: true,
+      is_removed: false,
+      cover_url: DEMO_DEFAULT_COVER_URL,
+      library_song_id: null,
+      audience_sings: false,
+      position: 0,
+      createdByName: 'Emma T.',
+      performedAt: '2026-05-04T19:58:00.000Z',
+    },
+    {
+      id: 'demo-played-003',
+      event_id: DEMO_EVENT.id,
+      title: 'Shut Up and Dance',
+      artist: 'WALK THE MOON',
+      votes_count: 7,
+      is_explicit: false,
+      voting_locked: true,
+      is_removed: false,
+      cover_url: DEMO_DEFAULT_COVER_URL,
+      library_song_id: null,
+      audience_sings: false,
+      position: 0,
+      createdByName: 'Noah V.',
+      performedAt: '2026-05-04T19:41:00.000Z',
+    },
+  ])
   const [votedSongIds] = useState(() => new Set<string>())
 
   // Fetch real album art from iTunes on mount and update cover URLs
