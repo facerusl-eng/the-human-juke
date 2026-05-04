@@ -302,7 +302,7 @@ function LiveFeedPanel({
     if (!demoMode) return
 
     const timers = DEMO_LIVE_INCOMING_POSTS.map((post, index) => {
-      const delayMs = 6000 + index * 9000 // 6s, then 15s
+      const delayMs = 2500 + index * 6000 // starts quickly, then every ~6s
       return window.setTimeout(() => {
         const livePost: DemoFeedPost = { ...post, created_at: new Date().toISOString() }
         setPosts((current) => {
