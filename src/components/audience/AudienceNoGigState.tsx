@@ -20,12 +20,12 @@ const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
     'The stage is quiet... for now. Upcoming events below!',
   ],
   da: [
-    'Der er ikke et live show lige nu, men noget fedt er på vej!',
+    'No live show right now - but something awesome is coming soon!',
     'Snup en drink, varm stemmebåndene op, og se hvad der kommer.',
     'Scenen er stille... lige nu. Kommende events er herunder!',
   ],
   is: [
-    'Engin live tonleikar eru i gangi nuna - en eitthvad geggjad er a leidinni!',
+    'No live show right now - but something awesome is coming soon!',
     'Gribbu drykk, hitaudu upp roddina og skodadu hvad er framundan.',
     'Svidid er hljott... i bili. Komandi vidburdir eru her fyrir nedan!',
   ],
@@ -170,7 +170,7 @@ function AudienceNoGigState({
   const copy = locale === 'da'
     ? {
         eyebrow: 'Publikumsapp',
-        title: 'Intet live show lige nu',
+        title: 'No live show right now',
         loading: 'Indlæser kommende events...',
         upcomingEvents: 'Kommende Events',
         upcomingCount: 'kommende',
@@ -204,7 +204,7 @@ function AudienceNoGigState({
     : locale === 'is'
     ? {
         eyebrow: 'Ahorfenda app',
-        title: 'Ekkert live show i gangi nuna',
+        title: 'No live show right now',
         loading: 'Hle dur komandi vidburdi...',
         upcomingEvents: 'Komandi vidburdir',
         upcomingCount: 'komandi',
