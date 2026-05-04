@@ -923,6 +923,7 @@ function EventPage() {
       }
 
   useEffect(() => {
+    if (demoMode) return
     if (event === null) return
     if ((event?.audienceIcelandicEnabled ?? false) || audienceLocale !== 'is') {
       return
