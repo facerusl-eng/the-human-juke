@@ -185,7 +185,7 @@ function AudienceSongListPage() {
         greeting: 'Haell',
         guest: 'Gestur',
         choosePlaylistFirst: 'veldu fyrst playlista.',
-        chooseRequest: 'Skrollaðu yfir listann og veldu lag',
+        chooseRequest: 'Skrollaðu og veldu lag til að syngja',
         loadingSongs: 'Hle dur log...',
         hostPlays: 'Skemmtarinn spilar - Þú velur lagið',
         youSing: 'Þú brillerar og kemur sjálf/ur uppá sviðið og syngur',
