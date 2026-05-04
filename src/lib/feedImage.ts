@@ -217,7 +217,6 @@ export async function prepareFeedImage(file: File) {
   }
 
   let normalizedBlob: Blob = file
-  let sourceDataUrl = ''
 
   if (isHeicLikeImage(file)) {
     try {
@@ -232,7 +231,7 @@ export async function prepareFeedImage(file: File) {
   try {
     raster = await loadRasterSourceFromBlob(normalizedBlob)
   } catch (error) {
-    sourceDataUrl = await readBlobAsDataUrl(normalizedBlob)
+    const sourceDataUrl = await readBlobAsDataUrl(normalizedBlob)
 
     try {
       const image = await loadImage(sourceDataUrl)
@@ -242,22 +241,20 @@ export async function prepareFeedImage(file: File) {
         height: image.naturalHeight || image.height,
       }
     } catch {
-      raster = null
+      // Fall through to size-based data URL fallback below.
     }
 
-    if (raster) {
-      // Recovered through data URL decoding.
-    } else if (sourceDataUrl.length <= MAX_DATA_URL_LENGTH) {
+    if (!raster && sourceDataUrl.length <= MAX_DATA_URL_LENGTH) {
       return sourceDataUrl
     }
 
-    if (raster) {
-      // Continue to compression below.
-    } else if (isHeicLikeImage(file)) {
+    if (!raster && isHeicLikeImage(file)) {
       throw new Error('iPhone photo could not be processed. In Settings > Camera > Formats, choose Most Compatible, then try again.', {
         cause: error,
       })
-    } else {
+    }
+
+    if (!raster) {
       throw new Error('Unable to process the selected image. Try a different photo.', { cause: error })
     }
   }

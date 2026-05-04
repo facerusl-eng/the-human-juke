@@ -15,6 +15,8 @@ function formatTime(seconds: number): string {
 
 export default function AudioPlayer({ src, label }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null)
+  const progressWrapRef = useRef<HTMLDivElement>(null)
+  const volumeWrapRef = useRef<HTMLDivElement>(null)
   const [playing, setPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -92,6 +94,18 @@ export default function AudioPlayer({ src, label }: Props) {
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
+  useEffect(() => {
+    if (progressWrapRef.current) {
+      progressWrapRef.current.style.setProperty('--ap-progress', `${progress}%`)
+    }
+  }, [progress])
+
+  useEffect(() => {
+    if (volumeWrapRef.current) {
+      volumeWrapRef.current.style.setProperty('--ap-vol', `${muted ? 0 : volume * 100}%`)
+    }
+  }, [muted, volume])
+
   return (
     <div className="ap-root" role="region" aria-label={label ? `Audio player: ${label}` : 'Audio player'}>
       {/* Hidden native element */}
@@ -121,7 +135,7 @@ export default function AudioPlayer({ src, label }: Props) {
 
         {/* Progress + time */}
         <div className="ap-seek-area">
-          <div className="ap-progress-wrap" style={{ ['--ap-progress' as string]: `${progress}%` }}>
+          <div ref={progressWrapRef} className="ap-progress-wrap">
             <div className="ap-progress-fill" />
             <input
               type="range"
@@ -166,7 +180,7 @@ export default function AudioPlayer({ src, label }: Props) {
               </svg>
             )}
           </button>
-          <div className="ap-vol-wrap" style={{ ['--ap-vol' as string]: `${muted ? 0 : volume * 100}%` }}>
+          <div ref={volumeWrapRef} className="ap-vol-wrap">
             <div className="ap-vol-fill" />
             <input
               type="range"

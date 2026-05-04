@@ -1435,7 +1435,11 @@ function GigControlPage() {
                         <p className="gig-mirror-preview-song">{nowPlaying?.title ?? 'Waiting for requests from brave volunteers...'}</p>
                         <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'Queue currently calm, suspiciously so'}</p>
                         {nowPlaying?.audience_sings ? <span className="gig-mirror-preview-karaoke-tag">🎤 Karaoke Wish</span> : null}
-                        {nowPlaying?.createdByName ? <span className="gig-mirror-preview-requested-by">Wished by: {nowPlaying.createdByName}</span> : null}
+                        {nowPlaying?.createdByName ? (
+                          <span className="gig-mirror-preview-requested-by">
+                            <span className="gig-mirror-preview-requested-by-label">Wished by:</span> {nowPlaying.createdByName}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   )}
@@ -1458,7 +1462,12 @@ function GigControlPage() {
                         <div className="gig-mirror-preview-list-copy">
                           <span className="gig-mirror-preview-list-song">{song.title}</span>
                           <span className="gig-mirror-preview-list-artist">{song.artist || 'Unknown Artist'}</span>
-                          {chosenBy ? <span className="gig-mirror-preview-list-chosen-by">Chosen by: {chosenBy}</span> : null}
+                          {song.audience_sings ? <span className="gig-mirror-preview-list-karaoke">🎤 Karaoke Wish</span> : null}
+                          {chosenBy ? (
+                            <span className="gig-mirror-preview-list-chosen-by">
+                              <span className="gig-mirror-preview-list-chosen-by-label">Wished by:</span> {chosenBy}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       <span>+{song.votes_count}</span>

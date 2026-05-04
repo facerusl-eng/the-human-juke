@@ -320,7 +320,7 @@ const SONG_INFO_BUILDERS = [
   (song: NowPlayingInfoSong) => song.is_explicit
     ? `This track carries an explicit label — apparently ${song.artist} had some very strong feelings and decided not to hold back. 🔥`
     : `Clean track — every single word is sing-along approved. Go completely wild. 🎤`,
-  (song: NowPlayingInfoSong) => /[()\[\]]/.test(song.title)
+  (song: NowPlayingInfoSong) => /[()[\]]/.test(song.title)
     ? `Those brackets in "${song.title}" usually signal a remix, a live version, or a hidden bonus — always worth paying attention to.`
     : `Straight title, no brackets — ${song.artist} said exactly what they meant.`,
   (song: NowPlayingInfoSong) => {
@@ -1689,18 +1689,18 @@ function EventPage() {
       <section className="audience-entry-shell audience-karafun" aria-label="Build Self Gig info">
         <article className="queue-panel audience-entry-card">
           <p className="eyebrow audience-entry-eyebrow">🎵 Live Music</p>
-          {event?.artistName ? <h2 className="subcopy" style={{ marginBottom: '0.25rem', fontWeight: 700 }}>{event.artistName}</h2> : null}
+          {event?.artistName ? <h2 className="subcopy audience-entry-artist">{event.artistName}</h2> : null}
           <h1>{event?.name ?? 'Live Show'}</h1>
           {event?.subtitle ? <p className="subcopy audience-entry-copy">{event.subtitle}</p> : null}
           {event?.coverImageUrl ? (
             <img
               src={event.coverImageUrl}
               alt="Event cover"
-              style={{ width: '100%', borderRadius: '0.75rem', marginBottom: '1rem', objectFit: 'cover', maxHeight: '220px' }}
+              className="audience-entry-cover-image"
             />
           ) : null}
-          <span className="meta-badge" style={{ display: 'inline-block', marginBottom: '1.25rem' }}>Setlist Only</span>
-          <div className="audience-start-actions" style={{ marginTop: '0.5rem' }}>
+          <span className="meta-badge audience-entry-meta-badge">Setlist Only</span>
+          <div className="audience-start-actions audience-start-actions-spaced">
             {allTipLinks.length > 0 ? (
               <a
                 href={allTipLinks[0].url}
@@ -1712,7 +1712,7 @@ function EventPage() {
               </a>
             ) : null}
             {socialLinks.length > 0 ? (
-              <div className="audience-social-links-inline" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <div className="audience-social-links-inline">
                 {socialLinks.map((link) => (
                   <a
                     key={link.label}
@@ -1739,8 +1739,8 @@ function EventPage() {
           <p className="eyebrow audience-entry-eyebrow">🎤 Karaoke Night</p>
           <h1>{event?.name ?? 'Karaoke'}</h1>
           {event?.subtitle ? <p className="subcopy audience-entry-copy">{event.subtitle}</p> : null}
-          <span className="meta-badge" style={{ display: 'inline-block', marginBottom: '1.25rem' }}>Karaoke Event</span>
-          <div className="audience-start-actions" style={{ marginTop: '0.5rem' }}>
+          <span className="meta-badge audience-entry-meta-badge">Karaoke Event</span>
+          <div className="audience-start-actions audience-start-actions-spaced">
             {karafunLink ? (
               <a
                 href={karafunLink}
@@ -1762,7 +1762,7 @@ function EventPage() {
               </a>
             ) : null}
             {socialLinks.length > 0 ? (
-              <div className="audience-social-links-inline" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <div className="audience-social-links-inline">
                 {socialLinks.map((link) => (
                   <a
                     key={link.label}

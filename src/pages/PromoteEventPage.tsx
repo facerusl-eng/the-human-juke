@@ -47,6 +47,20 @@ type PromotionDraft = {
   photoSaturation: number
 }
 
+type SaveFilePickerHandle = {
+  createWritable: () => Promise<{
+    write: (data: Blob) => Promise<void>
+    close: () => Promise<void>
+  }>
+}
+
+type SaveFilePickerWindow = Window & {
+  showSaveFilePicker?: (options: {
+    suggestedName: string
+    types: Array<{ description: string; accept: Record<string, string[]> }>
+  }) => Promise<SaveFilePickerHandle>
+}
+
 const PROMOTION_DRAFT_STORAGE_KEY_PREFIX = 'human-jukebox-promo-draft:'
 
 const THEMES: Theme[] = [
@@ -973,9 +987,11 @@ function PromoteEventPage() {
 
       // Desktop / Android fallback – object URL download
       // Desktop: try File System Access API first (most reliable — opens native Save dialog).
-      if ('showSaveFilePicker' in window) {
+      const saveFilePickerWindow = window as SaveFilePickerWindow
+
+      if (typeof saveFilePickerWindow.showSaveFilePicker === 'function') {
         try {
-          const handle = await (window as any).showSaveFilePicker({
+          const handle = await saveFilePickerWindow.showSaveFilePicker({
             suggestedName: fileName,
             types: [{ description: 'Image', accept: { [mimeType]: [`.${type}`] } }],
           })

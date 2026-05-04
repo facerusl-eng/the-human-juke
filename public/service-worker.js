@@ -22,5 +22,4 @@ self.addEventListener('activate', (event) => {
     })(),
   )
 })
-  // Placeholder for future push notification behavior.
-})
+
