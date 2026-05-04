@@ -846,7 +846,7 @@ function EventPage() {
         entryCopy: 'Skráðu þig inn, veldu lag og kjóstu þitt uppáhalds.',
         nameLabel: 'Nafnid thitt',
         namePlaceholder: 't.d. Alex',
-        languageLabel: 'Tungumal',
+        languageLabel: 'Íslenska',
         join: '🇮🇸 Taktu þátt í gleðinni',
         joining: 'Fer inn...',
         welcome: 'Velkomin! 🎤',
