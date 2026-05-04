@@ -5099,7 +5099,8 @@
 .mirror-header {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) auto auto;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto;
+  position: relative;
   align-items: center;
   gap: 0.9rem;
   padding: clamp(0.78rem, 1.15vw, 1rem) clamp(0.85rem, 1.2vw, 1.1rem);
@@ -5112,12 +5113,13 @@
 }
 
 .mirror-venue-logo-slot {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  justify-self: center;
-  min-width: clamp(210px, 28vw, 360px);
-  min-height: clamp(54px, 7vh, 76px);
-  padding: 0.3rem 0.8rem;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -44%);
+  width: clamp(74px, 8vw, 112px);
+  aspect-ratio: 1 / 1;
+  padding: 0.28rem;
   border-radius: 14px;
   border: 1px solid rgba(93, 215, 255, 0.34);
   background:
@@ -5125,11 +5127,12 @@
   box-shadow:
     0 10px 24px rgba(3, 8, 22, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  z-index: 2;
 }
 
 .mirror-header-main {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
   min-width: 0;
   display: grid;
   gap: 0.25rem;
@@ -5137,7 +5140,7 @@
 
 .mirror-header-meta {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 1;
   display: grid;
   justify-items: end;
   gap: 0.35rem;
@@ -5145,7 +5148,7 @@
 
 .mirror-editor-controls {
   grid-column: 3;
-  grid-row: 2;
+  grid-row: 1;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -5283,14 +5286,15 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: inherit;
+  height: 100%;
 }
 
 .mirror-venue-logo-image {
   display: block;
-  width: clamp(130px, 18vw, 240px);
+  width: 100%;
   max-width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
   filter: drop-shadow(0 0 12px rgba(93, 215, 255, 0.14));
 }
 
@@ -5300,14 +5304,15 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: inherit;
-  padding: 0.5rem 0.8rem;
+  height: 100%;
+  padding: 0.36rem;
   border-radius: 10px;
   border: 1px dashed rgba(93, 215, 255, 0.55);
   background: rgba(10, 18, 36, 0.52);
   color: rgba(184, 210, 255, 0.92);
-  font-size: clamp(0.68rem, 0.96vw, 0.84rem);
-  letter-spacing: 0.08em;
+  font-size: clamp(0.44rem, 0.5vw, 0.56rem);
+  letter-spacing: 0.06em;
+  line-height: 1.18;
   text-transform: uppercase;
   text-align: center;
 }
