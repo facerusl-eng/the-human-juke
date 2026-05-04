@@ -11876,11 +11876,55 @@ kbd {
 }
 
 /* ── Home hero v2 ─────────────────────────────────────────── */
+/* Mobile: stacked */
+.home-hero-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+}
+
+.home-hero-body {
+  flex: 1;
+}
+
+.home-hero-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Aside stats (only shown on desktop inside aside, hidden on mobile) */
+.home-hero-aside-stats {
+  display: none;
+}
+
+/* CTA band inner */
+.home-cta-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.home-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.home-hero-aside-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
 .home-lang-toggle {
   display: flex;
   gap: 8px;
-  margin-bottom: 1.2rem;
+  margin-bottom: 0;
 }
+
+.home-hero-eyebrow {
 
 .home-lang-btn {
   display: inline-flex;
@@ -12186,21 +12230,75 @@ kbd {
 @media (min-width: 980px) {
   .home-shell-v2 {
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    align-items: stretch;
+    align-items: start;
   }
 
   .home-stage-hero,
   .home-cta-band,
-  .home-stats-bar {
-    grid-column: span 12;
-  }
-
+  .home-stats-bar,
   .home-shell-v2 .home-section-card {
-    grid-column: span 6;
+    grid-column: span 12;
   }
 
-  .home-shell-v2 .home-queue-panel {
-    grid-column: span 12;
+  /* Hero: text left, CTA panel right */
+  .home-stage-hero .home-hero-inner {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 3.5rem;
+    align-items: center;
+    flex-direction: unset;
+  }
+
+  .home-hero-aside {
+    align-items: flex-start;
+    gap: 1.4rem;
+  }
+
+  .home-hero-aside-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    width: 100%;
+  }
+
+  .home-hero-aside-stat {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .home-hero-aside-stat .home-stat-value {
+    font-size: clamp(1.3rem, 2.5vw, 1.7rem);
+  }
+
+  /* CTA band: text left, buttons right */
+  .home-cta-band .home-cta-inner {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3rem;
+    align-items: center;
+    flex-direction: unset;
+  }
+
+  .home-cta-actions {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    min-width: 220px;
+  }
+
+  /* Wider inner grids on desktop */
+  .home-benefit-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .home-benefit-grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .home-benefit-grid--4 {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
