@@ -790,13 +790,13 @@ function EventPage() {
   const liveGigApiUnavailableRef = useRef(false)
   const audienceLanguageOptions = (event?.audienceIcelandicEnabled ?? false)
     ? [
-        { code: 'en' as const, label: 'English', flag: '🇬🇧' },
-        { code: 'da' as const, label: 'Dansk', flag: '🇩🇰' },
-        { code: 'is' as const, label: 'Islenska', flag: '🇮🇸' },
+        { code: 'en' as const, label: 'English', flagCode: 'gb' },
+        { code: 'da' as const, label: 'Dansk', flagCode: 'dk' },
+        { code: 'is' as const, label: 'Íslenska', flagCode: 'is' },
       ]
     : [
-        { code: 'en' as const, label: 'English', flag: '🇬🇧' },
-        { code: 'da' as const, label: 'Dansk', flag: '🇩🇰' },
+        { code: 'en' as const, label: 'English', flagCode: 'gb' },
+        { code: 'da' as const, label: 'Dansk', flagCode: 'dk' },
       ]
   const copy = audienceLocale === 'da'
     ? {
@@ -847,7 +847,7 @@ function EventPage() {
         nameLabel: 'Nafnid thitt',
         namePlaceholder: 't.d. Alex',
         languageLabel: 'Íslenska',
-        join: '🇮🇸 Taktu þátt í gleðinni',
+        join: 'Taktu þátt í gleðinni',
         joining: 'Fer inn...',
         welcome: 'Velkomin! 🎤',
         waitingGreeting: 'Haell',
@@ -887,7 +887,7 @@ function EventPage() {
         nameLabel: 'Your name',
         namePlaceholder: 'e.g. Alex',
         languageLabel: 'Language',
-        join: '🇬🇧 Join Audience',
+        join: 'Join Audience',
         joining: 'Joining...',
         welcome: 'Welcome! 🎤',
         waitingGreeting: 'Hi',
@@ -1928,7 +1928,7 @@ function EventPage() {
                     className={`audience-language-option audience-language-option-${option.code}${audienceLocale === option.code ? ' audience-language-option-active' : ''}`}
                     onClick={() => setAudienceLocale(option.code)}
                   >
-                    <span className="audience-language-option-flag" aria-hidden="true">{option.flag}</span>
+                    <img className="audience-language-option-flag" src={`https://flagcdn.com/20x15/${option.flagCode}.png`} alt="" aria-hidden="true" />
                     <span className="audience-language-option-text">{option.label}</span>
                   </button>
                 ))}
