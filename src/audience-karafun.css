@@ -1061,3 +1061,129 @@
 .audience-karafun.feed-page-shell {
   background: linear-gradient(160deg, #07091a, #0b0c20);
 }
+
+/* ─── Desktop / Laptop Overrides ─────────────────────────────── */
+@media (min-width: 900px) {
+  .audience-karafun .audience-stage {
+    max-width: none;
+    margin: 0;
+    width: 100%;
+    padding-bottom: 2rem;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .audience-karafun .audience-fixed-header,
+  .audience-karafun .audience-connection-banner,
+  .audience-karafun .audience-start-actions-panel {
+    grid-column: 1 / -1;
+  }
+
+  .audience-karafun .audience-now-playing-panel {
+    grid-column: 1 / 6;
+  }
+
+  .audience-karafun .audience-live-queue-panel {
+    grid-column: 6 / -1;
+  }
+
+  .audience-karafun .audience-played-queue-panel {
+    grid-column: 1 / 8;
+  }
+
+  .audience-karafun .audience-links-panel,
+  .audience-karafun .audience-request-panel {
+    grid-column: 8 / -1;
+  }
+
+  .audience-karafun .audience-start-actions-panel,
+  .audience-karafun .now-playing-card,
+  .audience-karafun .queue-panel {
+    margin: 0;
+  }
+
+  .audience-karafun .audience-start-actions {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  }
+
+  .audience-karafun .audience-start-actions .primary-button {
+    grid-column: span 2;
+    font-size: 0.95rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .audience-karafun .audience-start-actions .secondary-button,
+  .audience-karafun .audience-start-actions .audience-custom-button {
+    font-size: 0.82rem;
+    min-height: 2.65rem;
+  }
+
+  .audience-karafun .audience-entry-shell {
+    align-items: flex-start;
+    padding-top: 0.8rem;
+  }
+
+  .audience-karafun .audience-entry-card {
+    max-width: none;
+    width: min(1520px, calc(100% - 2rem));
+    padding: 1.35rem;
+  }
+
+  .audience-karafun .audience-no-gig-card {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 0.95rem;
+  }
+
+  .audience-karafun .audience-no-gig-motion,
+  .audience-karafun .audience-entry-eyebrow,
+  .audience-karafun .audience-no-gig-card > h1,
+  .audience-karafun .audience-no-gig-countdown,
+  .audience-karafun .audience-no-gig-copy,
+  .audience-karafun .audience-no-gig-guide-actions {
+    grid-column: 1 / 6;
+  }
+
+  .audience-karafun .audience-no-gig-how-it-works {
+    grid-column: 6 / -1;
+    min-height: 100%;
+  }
+
+  .audience-karafun .audience-no-gig-events,
+  .audience-karafun .audience-no-gig-card > .meta-badge,
+  .audience-karafun .audience-no-gig-card > .subcopy[role='status'] {
+    grid-column: 1 / -1;
+  }
+
+  .audience-karafun .audience-no-gig-event-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+}
+
+@media (min-width: 1360px) {
+  .audience-karafun .audience-stage {
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+  }
+
+  .audience-karafun .audience-now-playing-panel {
+    grid-column: 1 / 7;
+  }
+
+  .audience-karafun .audience-live-queue-panel {
+    grid-column: 7 / 12;
+  }
+
+  .audience-karafun .audience-played-queue-panel {
+    grid-column: 12 / -1;
+  }
+
+  .audience-karafun .audience-links-panel,
+  .audience-karafun .audience-request-panel {
+    grid-column: 7 / -1;
+  }
+
+  .audience-karafun .audience-no-gig-event-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
