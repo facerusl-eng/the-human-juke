@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { prepareFeedImage, shrinkPreparedFeedImage } from '../lib/feedImage'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
+import { blockUser, isUserBlocked } from '../lib/feedModeration'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 import { IconButton, PrimaryButton, SectionHeader } from './ui'
@@ -677,6 +678,16 @@ function LiveFeedPanel({
       return
     }
 
+    // Check if user is blocked
+    const { data: userData } = await supabase.auth.getUser()
+    if (userData.user?.id) {
+      const blocked = await isUserBlocked(event.id, userData.user.id)
+      if (blocked) {
+        setErrorText('You have been blocked from posting to this event.')
+        return
+      }
+    }
+
     setBusy(true)
 
     try {
@@ -792,6 +803,53 @@ function LiveFeedPanel({
     } catch (error) {
       console.warn('LiveFeedPanel: failed to delete post', { postId, error })
       setErrorText('Unable to remove that post right now.')
+    }
+  }
+
+  const blockUserFromPost = async (post: FeedPost) => {
+    if (!isHost || !showModerationControls) {
+      return
+    }
+
+    if (!event?.id) {
+      setErrorText('Event not loaded.')
+      return
+    }
+
+    const confirmed = window.confirm(`Block ${post.author_name} from posting? They won't be able to post again.`)
+    if (!confirmed) {
+      return
+    }
+
+    setErrorText(null)
+
+    try {
+      // Block by user ID
+      const blockResult = await blockUser({
+        eventId: event.id,
+        blockedUserId: post.user_id,
+        reason: `Blocked by host after post: "${post.message?.substring(0, 50)}..."`,
+      })
+
+      if (!blockResult.success) {
+        throw new Error(blockResult.error || 'Failed to block user')
+      }
+
+      // Also delete the post
+      const { error } = await supabase
+        .from('feed_posts')
+        .delete()
+        .eq('id', post.id)
+
+      if (error) {
+        throw error
+      }
+
+      // Remove from visible posts
+      setPosts((current) => current.filter((p) => p.id !== post.id))
+    } catch (error) {
+      console.warn('LiveFeedPanel: failed to block user', { postId: post.id, error })
+      setErrorText('Unable to block that user right now.')
     }
   }
 
@@ -925,7 +983,25 @@ function LiveFeedPanel({
 
       {!loading ? (
         <div className="live-feed-list">
-          <p className="subcopy" style={{ marginBottom: '1.5rem', fontStyle: 'italic', opacity: 0.85 }}>{composerCopy.warningText}</p>
+          <div style={{
+            backgroundColor: 'rgba(255, 107, 53, 0.15)',
+            borderLeft: '4px solid #ff6b35',
+            padding: '1rem',
+            marginBottom: '1.5rem',
+            borderRadius: '8px',
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              color: '#ff6b35',
+              lineHeight: '1.5',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}>
+              ⚠️ {composerCopy.warningText}
+            </p>
+          </div>
           {visiblePosts.length === 0 ? (
             <p className="subcopy no-margin">
               {isMirrorMode
@@ -961,9 +1037,14 @@ function LiveFeedPanel({
                       </div>
                     )}
                     {canDelete ? (
-                      <PrimaryButton type="button" variant="ghost" className="ghost-button live-feed-delete" onClick={() => { void deletePost(post.id) }}>
-                        Remove
-                      </PrimaryButton>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <PrimaryButton type="button" variant="ghost" className="ghost-button live-feed-delete" onClick={() => { void deletePost(post.id) }}>
+                          Remove
+                        </PrimaryButton>
+                        <PrimaryButton type="button" variant="ghost" className="ghost-button live-feed-block" onClick={() => { void blockUserFromPost(post) }}>
+                          Block
+                        </PrimaryButton>
+                      </div>
                     ) : null}
                   </div>
 
