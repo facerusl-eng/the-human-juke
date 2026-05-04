@@ -639,6 +639,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
         allowDuplicateRequests: saveState.allowDuplicateRequests,
         maxActiveRequestsPerUser: parsedLimit,
+        maxQueueSize: null,
         roomOpen: saveState.roomOpen,
         explicitFilterEnabled: saveState.explicitFilterEnabled,
         showInAudienceNoGig: saveState.showInAudienceNoGig,

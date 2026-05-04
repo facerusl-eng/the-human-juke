@@ -112,6 +112,14 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
   }, [])
 
   const addSong = useCallback(async (title: string, artist: string, isExplicit: boolean, options?: DemoAddSongOptions) => {
+    // Enforce total queue size cap
+    if (DEMO_EVENT.maxQueueSize != null) {
+      const activeCount = songs.filter((s) => !s.is_removed).length
+      if (activeCount >= DEMO_EVENT.maxQueueSize) {
+        throw new Error(`The queue is full — only ${DEMO_EVENT.maxQueueSize} songs allowed at a time.`)
+      }
+    }
+
     const newSong: QueueSong = {
       id: generateDemoId(),
       event_id: DEMO_EVENT.id,

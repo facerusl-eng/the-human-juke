@@ -732,6 +732,7 @@ function EventPage() {
   const roomOpen = event?.roomOpen ?? false
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
   const activeRequestCap = event?.maxActiveRequestsPerUser ?? null
+  const queueSizeCap = event?.maxQueueSize ?? null
   const nowPlaying = songs[0]
   const playbackSong = playbackState?.currentSongId
     ? songs.find((song) => song.id === playbackState.currentSongId) ?? null
@@ -823,6 +824,7 @@ function EventPage() {
         socialLinks: 'Sociale links',
         duplicateBlocked: 'Dubletønsker er blokeret til dette gig.',
         activeRequestLimit: 'Hvert publikumsmedlem kan have {count} aktive ønsker i køen.',
+        queueSizeLimit: 'Maksimalt {count} sange i køen ad gangen.',
         nowPlaying: 'Spiller nu',
         queueThinking: 'Køen tænker sig lige om',
         requestPrompt: 'Ingen sang spiller endnu.',
@@ -865,6 +867,7 @@ function EventPage() {
         socialLinks: 'Samfélagsmiðlar',
         duplicateBlocked: 'Tvofeld osk er blokkerud fyrir thetta gigg.',
         activeRequestLimit: 'Hver gestur getur haft {count} virka osk i konni.',
+        queueSizeLimit: 'Mest {count} lög í biðröðinni í einu.',
         nowPlaying: 'Beint',
         queueThinking: 'Koin er ad hugsa sig um',
         requestPrompt: 'Ekkert lag er i gangi enn.',
@@ -906,6 +909,7 @@ function EventPage() {
         socialLinks: 'Social Links',
         duplicateBlocked: 'Duplicate requests are blocked for this gig.',
         activeRequestLimit: 'Each audience member can keep {count} active request{suffix} in the queue.',
+        queueSizeLimit: 'Max {count} songs in the queue at a time.',
         nowPlaying: 'Now Playing',
         queueThinking: 'Queue is having a polite think',
         requestPrompt: 'No song playing yet.',
@@ -2118,7 +2122,7 @@ function EventPage() {
             {demoBackToHomeButton}
           </div>
           {!isKaraokeEvent && !demoMode && event?.requestInstructions ? <p className="subcopy audience-request-note">{event.requestInstructions}</p> : null}
-          {!isKaraokeEvent && (duplicateRequestsBlocked || activeRequestCap) ? (
+          {!isKaraokeEvent && (duplicateRequestsBlocked || activeRequestCap || queueSizeCap) ? (
             <div className="audience-policy-list">
               {duplicateRequestsBlocked ? <p className="meta-badge audience-policy-badge">{copy.duplicateBlocked}</p> : null}
               {activeRequestCap ? (
@@ -2126,6 +2130,11 @@ function EventPage() {
                   {copy.activeRequestLimit
                     .replace('{count}', String(activeRequestCap))
                     .replace('{suffix}', activeRequestCap === 1 ? '' : 's')}
+                </p>
+              ) : null}
+              {queueSizeCap ? (
+                <p className="meta-badge audience-policy-badge">
+                  {copy.queueSizeLimit.replace('{count}', String(queueSizeCap))}
                 </p>
               ) : null}
             </div>

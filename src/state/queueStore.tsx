@@ -54,6 +54,7 @@ type EventSettingsUpdates = {
   mirrorCountdownEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
+  maxQueueSize: number | null
   roomOpen: boolean
   explicitFilterEnabled: boolean
   showInAudienceNoGig: boolean
@@ -95,6 +96,7 @@ type EventState = {
   mirrorCountdownEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
+  maxQueueSize: number | null
   roomOpen: boolean
   explicitFilterEnabled: boolean
   showInAudienceNoGig: boolean
@@ -1212,6 +1214,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       mirrorCountdownEnabled: ((eventData as Record<string, unknown>).mirror_countdown_enabled as boolean | null) ?? true,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
+      maxQueueSize: (eventData as Record<string, unknown>).max_queue_size as number | null ?? null,
       roomOpen: ((eventData as Record<string, unknown>).room_open as boolean | null) ?? false,
       explicitFilterEnabled: ((eventData as Record<string, unknown>).explicit_filter_enabled as boolean | null) ?? false,
       showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
@@ -2848,6 +2851,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           mirrorCountdownEnabled: true,
           allowDuplicateRequests: true,
           maxActiveRequestsPerUser: null,
+          maxQueueSize: null,
           roomOpen: false,
           explicitFilterEnabled: true,
           showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
