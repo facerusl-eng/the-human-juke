@@ -123,7 +123,6 @@ const COPY = {
 function HomePage() {
   const navigate = useNavigate()
   const tvWrapperRef = useRef<HTMLDivElement>(null)
-  const [tvScale, setTvScale] = useState(0.6)
   const [lang, setLang] = useState<HomeLang>(() => {
     const stored = readCommittedAudienceLocale()
     return stored === 'da' ? 'da' : 'en'
@@ -144,11 +143,15 @@ function HomePage() {
     navigate('/audience?demo=true')
   }
 
-  // Scale iframe so the mirror page renders at full 1440px desktop width
+  // Render the mirror at desktop width and scale to fit with a small safety margin.
   useEffect(() => {
     const el = tvWrapperRef.current
     if (!el) return
-    const update = () => setTvScale(el.clientWidth / 1440)
+    const update = () => {
+      const safeWidth = Math.max(0, el.clientWidth - 16)
+      const scale = Math.min(1, safeWidth / 1440)
+      el.style.setProperty('--tv-scale', `${scale}`)
+    }
     const ro = new ResizeObserver(update)
     ro.observe(el)
     update()
@@ -269,11 +272,7 @@ function HomePage() {
         <p className="home-benefit-copy home-mirror-preview-sub">{copy.mirrorPreviewSub}</p>
         <div className="home-tv-frame">
           <div className="home-tv-bezel">
-            <div
-              className="home-tv-screen-wrapper"
-              ref={tvWrapperRef}
-              style={{ '--tv-scale': tvScale } as React.CSSProperties}
-            >
+            <div className="home-tv-screen-wrapper" ref={tvWrapperRef}>
               <iframe
                 src="/mirror?demo=true&preview=1"
                 className="home-tv-screen"

@@ -12222,12 +12222,12 @@ kbd {
 .home-tv-screen {
   position: absolute;
   top: 0;
-  left: 0;
+  left: 50%;
   width: 1440px;
   height: 810px;
   border: none;
-  transform-origin: 0 0;
-  transform: scale(var(--tv-scale, 0.6));
+  transform-origin: top center;
+  transform: translateX(-50%) scale(var(--tv-scale, 0.6));
 }
 
 /* screen glare */
