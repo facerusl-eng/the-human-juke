@@ -5293,7 +5293,7 @@
   background: linear-gradient(90deg, rgba(255, 176, 0, 0.18) 0%, rgba(255, 138, 0, 0.14) 100%);
   border-top: 1px solid rgba(255, 180, 0, 0.35);
   border-bottom: 1px solid rgba(255, 180, 0, 0.35);
-  padding: 0.45rem 0;
+  padding: 0.2rem 0;
   flex-shrink: 0;
 }
 
@@ -5305,11 +5305,12 @@
 
 .mirror-ticker-content {
   white-space: nowrap;
-  font-size: clamp(0.9rem, 1.6vw, 1.15rem);
+  font-size: clamp(0.68rem, 1vw, 0.9rem);
   font-weight: 600;
-  letter-spacing: 0.05em;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
   color: #ffd97a;
-  padding-right: 8rem;
+  padding-right: 5rem;
 }
 
 @keyframes mirror-ticker-scroll {
