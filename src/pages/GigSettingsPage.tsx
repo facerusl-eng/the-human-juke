@@ -287,7 +287,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [selectedIntroAudioPath, setSelectedIntroAudioPath] = useState('')
   const [fetchingLinksFromSettings, setFetchingLinksFromSettings] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo']))
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo', 'mirrorSettings']))
   const isMountedRef = useRef(true)
   const manualSaveInFlightRef = useRef(false)
   const coverImageInFlightRef = useRef(false)
