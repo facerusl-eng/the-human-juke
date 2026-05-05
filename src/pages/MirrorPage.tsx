@@ -664,6 +664,7 @@ function MirrorPage() {
   const [venueMode, setVenueMode] = useState<MirrorVenueMode>('lounge')
   const [showSafeMargins, setShowSafeMargins] = useState(false)
   const [bannerText, setBannerText] = useState<string>(() => readTextFromLocalStorage(MIRROR_BANNER_STORAGE_KEY) ?? '')
+  const [bannerEnabledOverride, setBannerEnabledOverride] = useState<boolean | null>(null)
   const [, setStorageError] = useState<string | null>(null)
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
   const [showShutterFallbackPulse, setShowShutterFallbackPulse] = useState(false)
@@ -889,6 +890,7 @@ function MirrorPage() {
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
   const shouldShowAdminElements = isHost
+  const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
   const countdownCopy = audienceLocale === 'da'
     ? {
         live: '● Live',
@@ -2299,6 +2301,33 @@ function MirrorPage() {
             </p>
             <div className="mirror-banner-editor">
               <label className="mirror-banner-label" htmlFor="mirror-banner-input">📢 Scrolling Banner</label>
+              <button
+                type="button"
+                className={`mirror-contrast-button ${isMirrorBannerEnabled ? 'mirror-control-button-active' : ''}`.trim()}
+                aria-label="Toggle scrolling banner"
+                title="Toggle scrolling banner"
+                onClick={async () => {
+                  const nextEnabled = !isMirrorBannerEnabled
+                  setBannerEnabledOverride(nextEnabled)
+
+                  if (!event?.id) {
+                    return
+                  }
+
+                  const { error } = await supabase
+                    .from('events')
+                    .update({ mirror_banner_enabled: nextEnabled })
+                    .eq('id', event.id)
+
+                  if (error) {
+                    setBannerEnabledOverride(!nextEnabled)
+                    setMirrorWarningMessage('Could not update mirror banner setting. Please try again.')
+                  }
+                }}
+              >
+                <span className="mirror-control-button-icon" aria-hidden="true">BN</span>
+                Banner: {isMirrorBannerEnabled ? 'On' : 'Off'}
+              </button>
               <input
                 id="mirror-banner-input"
                 type="text"
@@ -2316,7 +2345,7 @@ function MirrorPage() {
         ) : null}
       </header>
 
-      {((event?.mirrorBannerEnabled ?? true) && bannerText.trim()) ? (
+      {(isMirrorBannerEnabled && bannerText.trim()) ? (
         <div className="mirror-ticker-bar" aria-label="Bar offers and promotions">
           <div className="mirror-ticker-track">
             <span className="mirror-ticker-content">{bannerText.trim()}</span>
