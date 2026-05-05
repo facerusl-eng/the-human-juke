@@ -1610,6 +1610,21 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           expandedClassName="expanded"
           collapsedClassName="collapsed"
         >
+          <div className="field-row">
+            <label>Scrolling banner</label>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                pushUndoState()
+                updateState({ mirrorBannerEnabled: !state.mirrorBannerEnabled })
+              }}
+            >
+              {state.mirrorBannerEnabled ? 'Turn Banner Off' : 'Turn Banner On'}
+            </button>
+            <p className="field-hint">Quick toggle for the mirror scroller banner.</p>
+          </div>
+
           <div className="toggle-group">
             <label className="toggle-card" htmlFor="gig-mirror-spotlight">
               <input
