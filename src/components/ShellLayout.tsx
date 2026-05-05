@@ -223,7 +223,7 @@ function ShellLayout() {
   return (
     <main className={[shellClassName, demoMode ? 'app-shell-demo' : ''].filter(Boolean).join(' ')}>
       {demoMode ? <DemoBanner /> : null}
-      {!isAudienceSongListMode ? <header className={topbarClassName}>
+      {!isAudienceMode ? <header className={topbarClassName}>
         <NavLink to="/" className="brand" aria-label="Go to Home page">
           <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
         </NavLink>

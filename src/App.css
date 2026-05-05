@@ -599,6 +599,12 @@
   padding-top: 2.2rem;
 }
 
+/* In demo mode the fixed banner is 2.2rem tall — slide sticky audience
+   header below it so it is never hidden underneath the banner. */
+.app-shell-demo .audience-fixed-header {
+  top: 2.4rem !important;
+}
+
 .site-legal-footer p {
   margin: 0;
   text-align: center;
