@@ -2310,7 +2310,7 @@ function MirrorPage() {
                   const nextEnabled = !isMirrorBannerEnabled
                   setBannerEnabledOverride(nextEnabled)
 
-                  if (!event?.id) {
+                  if (demoMode || !event?.id) {
                     return
                   }
 
