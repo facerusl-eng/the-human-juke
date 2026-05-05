@@ -185,6 +185,7 @@
 
 /* Demo exit banner — sits above the mirror screen */
 .mirror-demo-exit-bar {
+  grid-row: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4950,7 +4951,7 @@
   min-height: 0;
   aspect-ratio: auto;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto auto 1fr;
   background:
     radial-gradient(circle at 12% 8%, rgba(74, 214, 255, 0.28) 0%, transparent 35%),
     radial-gradient(circle at 86% 10%, rgba(255, 79, 152, 0.26) 0%, transparent 34%),
@@ -5173,6 +5174,7 @@
 }
 
 .mirror-header {
+  grid-row: 2;
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) auto auto;
   grid-template-rows: auto;
@@ -5285,6 +5287,7 @@
 }
 
 .mirror-ticker-bar {
+  grid-row: 3;
   width: 100%;
   overflow: hidden;
   background: linear-gradient(90deg, rgba(255, 176, 0, 0.18) 0%, rgba(255, 138, 0, 0.14) 100%);
@@ -5550,6 +5553,7 @@
 }
 
 .mirror-stage {
+  grid-row: 4;
   display: grid;
   min-height: 0;
   grid-template-columns: minmax(0, 1fr);
