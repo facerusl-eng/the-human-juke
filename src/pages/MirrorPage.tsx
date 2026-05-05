@@ -2316,7 +2316,7 @@ function MirrorPage() {
         ) : null}
       </header>
 
-      {bannerText.trim() ? (
+      {((event?.mirrorBannerEnabled ?? true) && bannerText.trim()) ? (
         <div className="mirror-ticker-bar" aria-label="Bar offers and promotions">
           <div className="mirror-ticker-track">
             <span className="mirror-ticker-content">{bannerText.trim()}</span>

@@ -68,6 +68,7 @@ type SettingsState = {
   playlistOnlyRequests: boolean
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
+  mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: string
   selectedPlaylistIds: string[]
@@ -253,6 +254,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     playlistOnlyRequests: event.playlistOnlyRequests,
     mirrorPhotoSpotlightEnabled: event.mirrorPhotoSpotlightEnabled,
     mirrorCountdownEnabled: event.mirrorCountdownEnabled,
+    mirrorBannerEnabled: event.mirrorBannerEnabled ?? true,
     allowDuplicateRequests: event.allowDuplicateRequests,
     maxActiveRequestsPerUser: normalizeRequestCapValue(event.maxActiveRequestsPerUser),
     selectedPlaylistIds: [],
@@ -637,6 +639,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         selectedPlaylistIds: saveState.selectedPlaylistIds,
         mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
         mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
+        mirrorBannerEnabled: saveState.mirrorBannerEnabled,
         allowDuplicateRequests: saveState.allowDuplicateRequests,
         maxActiveRequestsPerUser: parsedLimit,
         maxQueueSize: null,
@@ -1047,6 +1050,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.playlistOnlyRequests !== event.playlistOnlyRequests
     || state.mirrorPhotoSpotlightEnabled !== event.mirrorPhotoSpotlightEnabled
     || state.mirrorCountdownEnabled !== event.mirrorCountdownEnabled
+    || state.mirrorBannerEnabled !== (event.mirrorBannerEnabled ?? true)
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
     || normalizeRequestCapValue(state.maxActiveRequestsPerUser) !== normalizeRequestCapValue(event.maxActiveRequestsPerUser)
     || state.roomOpen !== event.roomOpen
@@ -1635,6 +1639,21 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               <div>
                 <strong>{state.mirrorCountdownEnabled ? '✓ Pre-Show Countdown On' : '⊘ Pre-Show Countdown Off'}</strong>
                 <span>Show a live countdown on the mirror before the gig goes live</span>
+              </div>
+            </label>
+            <label className="toggle-card" htmlFor="gig-mirror-banner">
+              <input
+                id="gig-mirror-banner"
+                type="checkbox"
+                checked={state.mirrorBannerEnabled}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mirrorBannerEnabled: e.target.checked })
+                }}
+              />
+              <div>
+                <strong>{state.mirrorBannerEnabled ? '✓ Scrolling Banner On' : '⊘ Scrolling Banner Off'}</strong>
+                <span>Show or hide the promotional scrolling banner on the mirror screen</span>
               </div>
             </label>
           </div>

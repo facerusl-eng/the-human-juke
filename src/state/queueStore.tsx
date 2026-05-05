@@ -52,6 +52,7 @@ type EventSettingsUpdates = {
   selectedPlaylistIds: string[]
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
+  mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   maxQueueSize: number | null
@@ -94,6 +95,7 @@ type EventState = {
   playlistOnlyRequests: boolean
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
+  mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   maxQueueSize: number | null
@@ -1212,6 +1214,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       playlistOnlyRequests: ((eventData as Record<string, unknown>).playlist_only_requests as boolean | null) ?? false,
       mirrorPhotoSpotlightEnabled: ((eventData as Record<string, unknown>).mirror_photo_spotlight_enabled as boolean | null) ?? true,
       mirrorCountdownEnabled: ((eventData as Record<string, unknown>).mirror_countdown_enabled as boolean | null) ?? true,
+      mirrorBannerEnabled: ((eventData as Record<string, unknown>).mirror_banner_enabled as boolean | null) ?? true,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
       maxQueueSize: (eventData as Record<string, unknown>).max_queue_size as number | null ?? null,
@@ -2419,6 +2422,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           playlist_only_requests: updates.playlistOnlyRequests,
           mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
           mirror_countdown_enabled: updates.mirrorCountdownEnabled,
+          mirror_banner_enabled: updates.mirrorBannerEnabled,
           allow_duplicate_requests: updates.allowDuplicateRequests,
           max_active_requests_per_user: updates.maxActiveRequestsPerUser,
           room_open: updates.roomOpen,
@@ -2849,6 +2853,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           playlistOnlyRequests: true,
           mirrorPhotoSpotlightEnabled: true,
           mirrorCountdownEnabled: true,
+          mirrorBannerEnabled: true,
           allowDuplicateRequests: true,
           maxActiveRequestsPerUser: null,
           maxQueueSize: null,
