@@ -1015,6 +1015,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
   useEffect(() => {
     const logoPreviewElement = venueLogoPreviewRef.current
+    const logoFrameElement = venueLogoDragFrameRef.current
 
     if (!logoPreviewElement) {
       return
@@ -1024,6 +1025,11 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     logoPreviewElement.style.objectPosition = `${50 + state.venueLogoOffsetX}% ${50 + state.venueLogoOffsetY}%`
     logoPreviewElement.style.transform = `scale(${state.venueLogoScale / 100})`
     logoPreviewElement.style.transformOrigin = 'center center'
+
+    if (logoFrameElement) {
+      logoFrameElement.style.setProperty('--logo-pos-x', `${50 + state.venueLogoOffsetX}%`)
+      logoFrameElement.style.setProperty('--logo-pos-y', `${50 + state.venueLogoOffsetY}%`)
+    }
   }, [state.venueLogoOffsetX, state.venueLogoOffsetY, state.venueLogoScale, state.venueLogoUrl])
 
   const updateVenueLogoOffsetFromPoint = (clientX: number, clientY: number) => {
@@ -1819,12 +1825,16 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                   onPointerUp={onVenueLogoDragEnd}
                   onPointerCancel={onVenueLogoDragEnd}
                 >
+                  <span className="logo-drag-grid" aria-hidden="true" />
+                  <span className="logo-drag-crosshair" aria-hidden="true" />
                   <img
                     src={state.venueLogoUrl}
                     alt="Venue logo preview"
                     ref={venueLogoPreviewRef}
                   />
-                  <span className="logo-drag-hint">Drag to position logo</span>
+                  <span className="logo-drag-target" aria-hidden="true" />
+                  <span className="logo-drag-hint">Drag logo inside frame</span>
+                  <span className="logo-drag-values">X {state.venueLogoOffsetX} · Y {state.venueLogoOffsetY}</span>
                 </div>
                 <div className="logo-position-controls">
                   <div className="field-row">
