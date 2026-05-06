@@ -1107,7 +1107,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   }
 
   const adjustVenueLogoScale = (delta: number) => {
-    const nextScale = Math.min(260, Math.max(20, state.venueLogoScale + delta))
+    const nextScale = Math.min(340, Math.max(20, state.venueLogoScale + delta))
 
     if (nextScale === state.venueLogoScale) {
       return
@@ -1890,7 +1890,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                       id="gig-venue-logo-scale"
                       type="range"
                       min="20"
-                      max="260"
+                      max="340"
                       step="1"
                       value={state.venueLogoScale}
                       onChange={(e) => {

@@ -704,7 +704,7 @@
 
 .logo-mirror-preview-header {
   position: relative;
-  min-height: 120px;
+  min-height: 156px;
   border-radius: 10px;
   border: 1px solid rgba(93, 215, 255, 0.2);
   background: rgba(7, 15, 32, 0.62);
@@ -712,7 +712,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 0.45rem;
-  padding: 3.6rem 0.5rem 0.38rem;
+  padding: 5.2rem 0.5rem 0.42rem;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -758,11 +758,11 @@
 
 .logo-drag-slot {
   position: absolute;
-  top: 0.3rem;
+  top: 0.35rem;
   left: 50%;
   transform: translateX(-50%);
   width: min(70%, 360px);
-  height: 54%;
+  height: 70%;
   border-radius: 10px;
   border: 1px solid rgba(93, 215, 255, 0.34);
   background:
