@@ -651,6 +651,24 @@
   margin: 0;
 }
 
+.logo-size-quick-controls {
+  display: grid;
+  grid-template-columns: 52px 1fr 52px;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.logo-size-quick-controls .secondary-button,
+.logo-size-quick-controls .ghost-button {
+  min-height: 40px;
+  padding: 0.45rem 0.7rem;
+}
+
+.logo-size-quick-controls .secondary-button {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
 .logo-drag-frame {
   position: relative;
   width: 100%;

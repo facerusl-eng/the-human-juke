@@ -1105,6 +1105,17 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     })
   }
 
+  const adjustVenueLogoScale = (delta: number) => {
+    const nextScale = Math.min(260, Math.max(20, state.venueLogoScale + delta))
+
+    if (nextScale === state.venueLogoScale) {
+      return
+    }
+
+    pushUndoState()
+    updateState({ venueLogoScale: nextScale })
+  }
+
   useEffect(() => {
     const handlePointerMove = (pointerEvent: PointerEvent) => {
       if (!venueLogoDragActiveRef.current) {
@@ -1876,6 +1887,38 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                         updateState({ venueLogoScale: Number(e.target.value) })
                       }}
                     />
+                    <div className="logo-size-quick-controls">
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => adjustVenueLogoScale(-10)}
+                        aria-label="Decrease logo size"
+                      >
+                        -
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => {
+                          if (state.venueLogoScale === 100) {
+                            return
+                          }
+
+                          pushUndoState()
+                          updateState({ venueLogoScale: 100 })
+                        }}
+                      >
+                        Reset size
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => adjustVenueLogoScale(10)}
+                        aria-label="Increase logo size"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                   <div className="field-row">
                     <label htmlFor="gig-venue-logo-offset-x">Horizontal Position ({state.venueLogoOffsetX})</label>
