@@ -104,6 +104,9 @@ type GigSettingsFormProps = {
 const MAX_UNDO_STATES = 20
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
+const VENUE_LOGO_SCALE_MIN = 20
+const VENUE_LOGO_SCALE_MAX = 500
+const VENUE_LOGO_OFFSET_LIMIT = 100
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -1056,8 +1059,14 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     const relativeX = (clientX - frameRect.left) / frameRect.width
     const relativeY = (clientY - frameRect.top) / frameRect.height
 
-    const nextOffsetX = Math.min(50, Math.max(-50, Math.round((relativeX - 0.5) * 100)))
-    const nextOffsetY = Math.min(50, Math.max(-50, Math.round((relativeY - 0.5) * 100)))
+    const nextOffsetX = Math.min(
+      VENUE_LOGO_OFFSET_LIMIT,
+      Math.max(-VENUE_LOGO_OFFSET_LIMIT, Math.round((relativeX - 0.5) * (VENUE_LOGO_OFFSET_LIMIT * 2))),
+    )
+    const nextOffsetY = Math.min(
+      VENUE_LOGO_OFFSET_LIMIT,
+      Math.max(-VENUE_LOGO_OFFSET_LIMIT, Math.round((relativeY - 0.5) * (VENUE_LOGO_OFFSET_LIMIT * 2))),
+    )
 
     setState((current) => {
       if (current.venueLogoOffsetX === nextOffsetX && current.venueLogoOffsetY === nextOffsetY) {
@@ -1107,7 +1116,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   }
 
   const adjustVenueLogoScale = (delta: number) => {
-    const nextScale = Math.min(340, Math.max(20, state.venueLogoScale + delta))
+    const nextScale = Math.min(VENUE_LOGO_SCALE_MAX, Math.max(VENUE_LOGO_SCALE_MIN, state.venueLogoScale + delta))
 
     if (nextScale === state.venueLogoScale) {
       return
@@ -1889,8 +1898,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                     <input
                       id="gig-venue-logo-scale"
                       type="range"
-                      min="20"
-                      max="340"
+                      min={VENUE_LOGO_SCALE_MIN}
+                      max={VENUE_LOGO_SCALE_MAX}
                       step="1"
                       value={state.venueLogoScale}
                       onChange={(e) => {
@@ -1936,8 +1945,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                     <input
                       id="gig-venue-logo-offset-x"
                       type="range"
-                      min="-50"
-                      max="50"
+                      min={-VENUE_LOGO_OFFSET_LIMIT}
+                      max={VENUE_LOGO_OFFSET_LIMIT}
                       step="1"
                       value={state.venueLogoOffsetX}
                       onChange={(e) => {
@@ -1951,8 +1960,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                     <input
                       id="gig-venue-logo-offset-y"
                       type="range"
-                      min="-50"
-                      max="50"
+                      min={-VENUE_LOGO_OFFSET_LIMIT}
+                      max={VENUE_LOGO_OFFSET_LIMIT}
                       step="1"
                       value={state.venueLogoOffsetY}
                       onChange={(e) => {
