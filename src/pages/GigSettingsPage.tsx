@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChangeEvent, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AudioPlayer from '../components/ui/AudioPlayer'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
@@ -104,9 +104,6 @@ type GigSettingsFormProps = {
 const MAX_UNDO_STATES = 20
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
-const VENUE_LOGO_SCALE_MIN = 20
-const VENUE_LOGO_SCALE_MAX = 500
-const VENUE_LOGO_OFFSET_LIMIT = 100
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -297,15 +294,10 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [fetchingLinksFromSettings, setFetchingLinksFromSettings] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo', 'mirrorSettings']))
-  const [showVenueLogoGuide, setShowVenueLogoGuide] = useState(false)
   const isMountedRef = useRef(true)
   const manualSaveInFlightRef = useRef(false)
   const coverImageInFlightRef = useRef(false)
   const venueLogoInFlightRef = useRef(false)
-  const venueLogoPreviewRef = useRef<HTMLImageElement | null>(null)
-  const venueLogoDragFrameRef = useRef<HTMLDivElement | null>(null)
-  const venueLogoDragSlotRef = useRef<HTMLDivElement | null>(null)
-  const venueLogoDragActiveRef = useRef(false)
   const introAudioInFlightRef = useRef(false)
 
   useEffect(() => {
@@ -1018,136 +1010,6 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     }
   }, [copyError])
 
-  useEffect(() => {
-    const logoPreviewElement = venueLogoPreviewRef.current
-    const logoFrameElement = venueLogoDragFrameRef.current
-    const logoSlotElement = venueLogoDragSlotRef.current
-
-    if (!logoPreviewElement) {
-      return
-    }
-
-    logoPreviewElement.style.objectFit = 'contain'
-    logoPreviewElement.style.objectPosition = `${50 + state.venueLogoOffsetX}% ${50 + state.venueLogoOffsetY}%`
-    logoPreviewElement.style.transform = `scale(${state.venueLogoScale / 100})`
-    logoPreviewElement.style.transformOrigin = 'center center'
-
-    if (logoFrameElement) {
-      logoFrameElement.style.setProperty('--logo-pos-x', `${50 + state.venueLogoOffsetX}%`)
-      logoFrameElement.style.setProperty('--logo-pos-y', `${50 + state.venueLogoOffsetY}%`)
-    }
-
-    if (logoSlotElement) {
-      logoSlotElement.style.setProperty('--logo-pos-x', `${50 + state.venueLogoOffsetX}%`)
-      logoSlotElement.style.setProperty('--logo-pos-y', `${50 + state.venueLogoOffsetY}%`)
-    }
-  }, [state.venueLogoOffsetX, state.venueLogoOffsetY, state.venueLogoScale, state.venueLogoUrl])
-
-  const updateVenueLogoOffsetFromPoint = (clientX: number, clientY: number) => {
-    const frameElement = venueLogoDragSlotRef.current ?? venueLogoDragFrameRef.current
-
-    if (!frameElement) {
-      return
-    }
-
-    const frameRect = frameElement.getBoundingClientRect()
-
-    if (frameRect.width <= 0 || frameRect.height <= 0) {
-      return
-    }
-
-    const relativeX = (clientX - frameRect.left) / frameRect.width
-    const relativeY = (clientY - frameRect.top) / frameRect.height
-
-    const nextOffsetX = Math.min(
-      VENUE_LOGO_OFFSET_LIMIT,
-      Math.max(-VENUE_LOGO_OFFSET_LIMIT, Math.round((relativeX - 0.5) * (VENUE_LOGO_OFFSET_LIMIT * 2))),
-    )
-    const nextOffsetY = Math.min(
-      VENUE_LOGO_OFFSET_LIMIT,
-      Math.max(-VENUE_LOGO_OFFSET_LIMIT, Math.round((relativeY - 0.5) * (VENUE_LOGO_OFFSET_LIMIT * 2))),
-    )
-
-    setState((current) => {
-      if (current.venueLogoOffsetX === nextOffsetX && current.venueLogoOffsetY === nextOffsetY) {
-        return current
-      }
-
-      return {
-        ...current,
-        venueLogoOffsetX: nextOffsetX,
-        venueLogoOffsetY: nextOffsetY,
-      }
-    })
-  }
-
-  const onVenueLogoDragStart = (pointerEvent: ReactPointerEvent<HTMLDivElement>) => {
-    pointerEvent.preventDefault()
-
-    if (!state.venueLogoUrl) {
-      return
-    }
-
-    pushUndoState()
-    venueLogoDragActiveRef.current = true
-    updateVenueLogoOffsetFromPoint(pointerEvent.clientX, pointerEvent.clientY)
-    pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId)
-  }
-
-  const onVenueLogoDragMove = (pointerEvent: ReactPointerEvent<HTMLDivElement>) => {
-    if (!venueLogoDragActiveRef.current) {
-      return
-    }
-
-    updateVenueLogoOffsetFromPoint(pointerEvent.clientX, pointerEvent.clientY)
-  }
-
-  const onVenueLogoDragEnd = () => {
-    if (!venueLogoDragActiveRef.current) {
-      return
-    }
-
-    venueLogoDragActiveRef.current = false
-
-    updateState({
-      venueLogoOffsetX: state.venueLogoOffsetX,
-      venueLogoOffsetY: state.venueLogoOffsetY,
-    })
-  }
-
-  const adjustVenueLogoScale = (delta: number) => {
-    const nextScale = Math.min(VENUE_LOGO_SCALE_MAX, Math.max(VENUE_LOGO_SCALE_MIN, state.venueLogoScale + delta))
-
-    if (nextScale === state.venueLogoScale) {
-      return
-    }
-
-    pushUndoState()
-    updateState({ venueLogoScale: nextScale })
-  }
-
-  useEffect(() => {
-    const handlePointerMove = (pointerEvent: PointerEvent) => {
-      if (!venueLogoDragActiveRef.current) {
-        return
-      }
-
-      updateVenueLogoOffsetFromPoint(pointerEvent.clientX, pointerEvent.clientY)
-    }
-
-    const handlePointerUp = () => {
-      onVenueLogoDragEnd()
-    }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', handlePointerUp)
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', handlePointerUp)
-    }
-  }, [state.venueLogoOffsetX, state.venueLogoOffsetY])
-
   const selectedHumanJukeboxPlaylistId = state.selectedPlaylistIds.find((playlistId) => (
     playlists.find((playlist) => playlist.id === playlistId)?.playlist_type === 'human_jukebox'
   )) ?? ''
@@ -1845,142 +1707,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name.</p>
             {state.venueLogoUrl ? (
               <div className="photo-preview">
-                <div
-                  className="logo-drag-frame"
-                  ref={venueLogoDragFrameRef}
-                >
-                  <div className="logo-mirror-preview" aria-hidden="true">
-                    <div className="logo-mirror-preview-header">
-                      <div
-                        className="logo-drag-slot"
-                        ref={venueLogoDragSlotRef}
-                        onPointerDown={onVenueLogoDragStart}
-                        onPointerMove={onVenueLogoDragMove}
-                        onPointerUp={onVenueLogoDragEnd}
-                        onPointerCancel={onVenueLogoDragEnd}
-                      >
-                        <span className="logo-drag-grid" />
-                        <span className="logo-drag-crosshair" />
-                        <img
-                          src={state.venueLogoUrl}
-                          alt="Venue logo preview"
-                          ref={venueLogoPreviewRef}
-                        />
-                        <span className="logo-drag-target" />
-                      </div>
-                      <div className="logo-mirror-preview-main">
-                        <p className="logo-mirror-preview-title">{state.gigName || 'Event Name'}</p>
-                        <p className="logo-mirror-preview-subtitle">{state.subtitle || 'Subtitle preview'}</p>
-                      </div>
-                      <div className="logo-mirror-preview-status">LIVE</div>
-                    </div>
-                    <div className="logo-mirror-preview-body">
-                      <span className="logo-mirror-preview-panel" />
-                      <span className="logo-mirror-preview-panel" />
-                    </div>
-                    <div className="logo-mirror-preview-toolbar">
-                      <button
-                        type="button"
-                        className="ghost-button logo-guide-toggle"
-                        onClick={() => setShowVenueLogoGuide((current) => !current)}
-                        aria-expanded={showVenueLogoGuide}
-                      >
-                        {showVenueLogoGuide ? 'Hide guide' : 'Show guide'}
-                      </button>
-                      {showVenueLogoGuide ? <span className="logo-drag-hint">Drag logo in mirror slot</span> : null}
-                      {showVenueLogoGuide ? <span className="logo-drag-values">X {state.venueLogoOffsetX} · Y {state.venueLogoOffsetY}</span> : null}
-                    </div>
-                  </div>
-                </div>
-                <div className="logo-position-controls">
-                  <div className="field-row">
-                    <label htmlFor="gig-venue-logo-scale">Logo Size ({state.venueLogoScale}%)</label>
-                    <input
-                      id="gig-venue-logo-scale"
-                      type="range"
-                      min={VENUE_LOGO_SCALE_MIN}
-                      max={VENUE_LOGO_SCALE_MAX}
-                      step="1"
-                      value={state.venueLogoScale}
-                      onChange={(e) => {
-                        pushUndoState()
-                        updateState({ venueLogoScale: Number(e.target.value) })
-                      }}
-                    />
-                    <div className="logo-size-quick-controls">
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => adjustVenueLogoScale(-10)}
-                        aria-label="Decrease logo size"
-                      >
-                        -
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={() => {
-                          if (state.venueLogoScale === 100) {
-                            return
-                          }
-
-                          pushUndoState()
-                          updateState({ venueLogoScale: 100 })
-                        }}
-                      >
-                        Reset size
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => adjustVenueLogoScale(10)}
-                        aria-label="Increase logo size"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  <div className="field-row">
-                    <label htmlFor="gig-venue-logo-offset-x">Horizontal Position ({state.venueLogoOffsetX})</label>
-                    <input
-                      id="gig-venue-logo-offset-x"
-                      type="range"
-                      min={-VENUE_LOGO_OFFSET_LIMIT}
-                      max={VENUE_LOGO_OFFSET_LIMIT}
-                      step="1"
-                      value={state.venueLogoOffsetX}
-                      onChange={(e) => {
-                        pushUndoState()
-                        updateState({ venueLogoOffsetX: Number(e.target.value) })
-                      }}
-                    />
-                  </div>
-                  <div className="field-row">
-                    <label htmlFor="gig-venue-logo-offset-y">Vertical Position ({state.venueLogoOffsetY})</label>
-                    <input
-                      id="gig-venue-logo-offset-y"
-                      type="range"
-                      min={-VENUE_LOGO_OFFSET_LIMIT}
-                      max={VENUE_LOGO_OFFSET_LIMIT}
-                      step="1"
-                      value={state.venueLogoOffsetY}
-                      onChange={(e) => {
-                        pushUndoState()
-                        updateState({ venueLogoOffsetY: Number(e.target.value) })
-                      }}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => {
-                      pushUndoState()
-                      updateState({ venueLogoScale: 100, venueLogoOffsetX: 0, venueLogoOffsetY: 0 })
-                    }}
-                  >
-                    Reset logo placement
-                  </button>
-                </div>
+                <img src={state.venueLogoUrl} alt="Venue logo preview" />
                 <button
                   type="button"
                   className="secondary-button"
