@@ -1867,8 +1867,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                     <input
                       id="gig-venue-logo-scale"
                       type="range"
-                      min="40"
-                      max="180"
+                      min="20"
+                      max="260"
                       step="1"
                       value={state.venueLogoScale}
                       onChange={(e) => {
