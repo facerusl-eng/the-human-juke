@@ -803,6 +803,12 @@
   flex-wrap: wrap;
 }
 
+.logo-guide-toggle {
+  min-height: 32px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+}
+
 .logo-mirror-preview-panel {
   border-radius: 10px;
   border: 1px solid rgba(93, 215, 255, 0.2);

@@ -294,6 +294,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [fetchingLinksFromSettings, setFetchingLinksFromSettings] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo', 'mirrorSettings']))
+  const [showVenueLogoGuide, setShowVenueLogoGuide] = useState(false)
   const isMountedRef = useRef(true)
   const manualSaveInFlightRef = useRef(false)
   const coverImageInFlightRef = useRef(false)
@@ -1869,8 +1870,16 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                       <span className="logo-mirror-preview-panel" />
                     </div>
                     <div className="logo-mirror-preview-toolbar">
-                      <span className="logo-drag-hint">Drag logo in mirror slot</span>
-                      <span className="logo-drag-values">X {state.venueLogoOffsetX} · Y {state.venueLogoOffsetY}</span>
+                      <button
+                        type="button"
+                        className="ghost-button logo-guide-toggle"
+                        onClick={() => setShowVenueLogoGuide((current) => !current)}
+                        aria-expanded={showVenueLogoGuide}
+                      >
+                        {showVenueLogoGuide ? 'Hide guide' : 'Show guide'}
+                      </button>
+                      {showVenueLogoGuide ? <span className="logo-drag-hint">Drag logo in mirror slot</span> : null}
+                      {showVenueLogoGuide ? <span className="logo-drag-values">X {state.venueLogoOffsetX} · Y {state.venueLogoOffsetY}</span> : null}
                     </div>
                   </div>
                 </div>
