@@ -300,6 +300,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const venueLogoInFlightRef = useRef(false)
   const venueLogoPreviewRef = useRef<HTMLImageElement | null>(null)
   const venueLogoDragFrameRef = useRef<HTMLDivElement | null>(null)
+  const venueLogoDragSlotRef = useRef<HTMLDivElement | null>(null)
   const venueLogoDragActiveRef = useRef(false)
   const introAudioInFlightRef = useRef(false)
 
@@ -1016,6 +1017,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   useEffect(() => {
     const logoPreviewElement = venueLogoPreviewRef.current
     const logoFrameElement = venueLogoDragFrameRef.current
+    const logoSlotElement = venueLogoDragSlotRef.current
 
     if (!logoPreviewElement) {
       return
@@ -1030,10 +1032,15 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       logoFrameElement.style.setProperty('--logo-pos-x', `${50 + state.venueLogoOffsetX}%`)
       logoFrameElement.style.setProperty('--logo-pos-y', `${50 + state.venueLogoOffsetY}%`)
     }
+
+    if (logoSlotElement) {
+      logoSlotElement.style.setProperty('--logo-pos-x', `${50 + state.venueLogoOffsetX}%`)
+      logoSlotElement.style.setProperty('--logo-pos-y', `${50 + state.venueLogoOffsetY}%`)
+    }
   }, [state.venueLogoOffsetX, state.venueLogoOffsetY, state.venueLogoScale, state.venueLogoUrl])
 
   const updateVenueLogoOffsetFromPoint = (clientX: number, clientY: number) => {
-    const frameElement = venueLogoDragFrameRef.current
+    const frameElement = venueLogoDragSlotRef.current ?? venueLogoDragFrameRef.current
 
     if (!frameElement) {
       return
@@ -1820,21 +1827,39 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 <div
                   className="logo-drag-frame"
                   ref={venueLogoDragFrameRef}
-                  onPointerDown={onVenueLogoDragStart}
-                  onPointerMove={onVenueLogoDragMove}
-                  onPointerUp={onVenueLogoDragEnd}
-                  onPointerCancel={onVenueLogoDragEnd}
                 >
-                  <span className="logo-drag-grid" aria-hidden="true" />
-                  <span className="logo-drag-crosshair" aria-hidden="true" />
-                  <img
-                    src={state.venueLogoUrl}
-                    alt="Venue logo preview"
-                    ref={venueLogoPreviewRef}
-                  />
-                  <span className="logo-drag-target" aria-hidden="true" />
-                  <span className="logo-drag-hint">Drag logo inside frame</span>
-                  <span className="logo-drag-values">X {state.venueLogoOffsetX} · Y {state.venueLogoOffsetY}</span>
+                  <div className="logo-mirror-preview" aria-hidden="true">
+                    <div className="logo-mirror-preview-header">
+                      <div
+                        className="logo-drag-slot"
+                        ref={venueLogoDragSlotRef}
+                        onPointerDown={onVenueLogoDragStart}
+                        onPointerMove={onVenueLogoDragMove}
+                        onPointerUp={onVenueLogoDragEnd}
+                        onPointerCancel={onVenueLogoDragEnd}
+                      >
+                        <span className="logo-drag-grid" />
+                        <span className="logo-drag-crosshair" />
+                        <img
+                          src={state.venueLogoUrl}
+                          alt="Venue logo preview"
+                          ref={venueLogoPreviewRef}
+                        />
+                        <span className="logo-drag-target" />
+                        <span className="logo-drag-hint">Drag logo in mirror slot</span>
+                        <span className="logo-drag-values">X {state.venueLogoOffsetX} · Y {state.venueLogoOffsetY}</span>
+                      </div>
+                      <div className="logo-mirror-preview-main">
+                        <p className="logo-mirror-preview-title">{state.gigName || 'Event Name'}</p>
+                        <p className="logo-mirror-preview-subtitle">{state.subtitle || 'Subtitle preview'}</p>
+                      </div>
+                      <div className="logo-mirror-preview-status">LIVE</div>
+                    </div>
+                    <div className="logo-mirror-preview-body">
+                      <span className="logo-mirror-preview-panel" />
+                      <span className="logo-mirror-preview-panel" />
+                    </div>
+                  </div>
                 </div>
                 <div className="logo-position-controls">
                   <div className="field-row">
