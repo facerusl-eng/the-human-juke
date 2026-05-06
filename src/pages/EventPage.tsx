@@ -673,6 +673,9 @@ function EventPage() {
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(false)
+  const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
+  const upcomingNoticeTimerRef = useRef<number | null>(null)
+  const upcomingNoticeValueRef = useRef<string | null>(null)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -940,6 +943,16 @@ function EventPage() {
     </button>
   ) : null
 
+  const audienceHomeButton = (
+    <button
+      type="button"
+      className="secondary-button"
+      onClick={() => navigate('/')}
+    >
+      🏠 {copy.backToHome}
+    </button>
+  )
+
   useEffect(() => {
     if (demoMode) return
     if (event === null) return
@@ -964,6 +977,10 @@ function EventPage() {
   }, [votingSongIds])
 
   useEffect(() => {
+    upcomingEventsRef.current = upcomingEvents
+  }, [upcomingEvents])
+
+  useEffect(() => {
     return () => {
       if (confirmationTimerRef.current !== null) {
         window.clearTimeout(confirmationTimerRef.current)
@@ -977,6 +994,32 @@ function EventPage() {
       if (tipThankYouTimerRef.current !== null) {
         window.clearTimeout(tipThankYouTimerRef.current)
         tipThankYouTimerRef.current = null
+      }
+    }
+  }, [])
+
+  const setUpcomingNoticeDebounced = useCallback((nextNotice: string | null, delayMs = 300) => {
+    if (upcomingNoticeValueRef.current === nextNotice) {
+      return
+    }
+
+    if (upcomingNoticeTimerRef.current !== null) {
+      window.clearTimeout(upcomingNoticeTimerRef.current)
+      upcomingNoticeTimerRef.current = null
+    }
+
+    upcomingNoticeTimerRef.current = window.setTimeout(() => {
+      setUpcomingEventsNotice(nextNotice)
+      upcomingNoticeValueRef.current = nextNotice
+      upcomingNoticeTimerRef.current = null
+    }, delayMs)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (upcomingNoticeTimerRef.current !== null) {
+        window.clearTimeout(upcomingNoticeTimerRef.current)
+        upcomingNoticeTimerRef.current = null
       }
     }
   }, [])
@@ -1422,22 +1465,25 @@ function EventPage() {
   useEffect(() => {
     if (event) {
       setUpcomingEvents([])
+      upcomingEventsRef.current = []
       setUpcomingEventsLoading(false)
-      setUpcomingEventsNotice(null)
+      setUpcomingNoticeDebounced(null, 0)
       return
     }
 
     if (authLoading && !user) {
       setUpcomingEventsLoading(true)
-      setUpcomingEventsNotice('Finishing sign-in before loading upcoming gigs...')
+      setUpcomingNoticeDebounced('Finishing sign-in before loading upcoming gigs...', 200)
     }
 
     let isCurrent = true
     let channel: ReturnType<typeof supabase.channel> | null = null
     let pollTimerId: number | null = null
 
-    const loadUpcomingEvents = async () => {
-      setUpcomingEventsLoading(true)
+    const loadUpcomingEvents = async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
+      if (showLoading && upcomingEventsRef.current.length === 0) {
+        setUpcomingEventsLoading(true)
+      }
 
       try {
         let mappedEvents: AudienceUpcomingEvent[] = []
@@ -1478,9 +1524,9 @@ function EventPage() {
         setUpcomingEvents(mappedEvents)
 
         if (mappedEvents.length === 0) {
-          setUpcomingEventsNotice('No upcoming gigs have been posted yet.')
+          setUpcomingNoticeDebounced('No upcoming gigs have been posted yet.', 250)
         } else {
-          setUpcomingEventsNotice(null)
+          setUpcomingNoticeDebounced(null, 1800)
         }
       } catch (error) {
         console.warn('EventPage: failed to load upcoming no-gig events', error)
@@ -1506,9 +1552,9 @@ function EventPage() {
               setUpcomingEvents(mappedEvents)
 
               if (mappedEvents.length === 0) {
-                setUpcomingEventsNotice('No upcoming gigs have been posted yet.')
+                setUpcomingNoticeDebounced('No upcoming gigs have been posted yet.', 250)
               } else {
-                setUpcomingEventsNotice(null)
+                setUpcomingNoticeDebounced(null, 1800)
               }
             }
 
@@ -1519,17 +1565,19 @@ function EventPage() {
         }
 
         if (isCurrent) {
-          setUpcomingEvents([])
-          setUpcomingEventsNotice('Could not load upcoming gigs right now. Retrying in the background...')
+          if (upcomingEventsRef.current.length === 0) {
+            setUpcomingEvents([])
+          }
+          setUpcomingNoticeDebounced('Could not load upcoming gigs right now. Retrying in the background...', 250)
         }
       } finally {
-        if (isCurrent) {
+        if (isCurrent && showLoading) {
           setUpcomingEventsLoading(false)
         }
       }
     }
 
-    void loadUpcomingEvents()
+    void loadUpcomingEvents({ showLoading: true })
 
     channel = supabase
       .channel('audience-upcoming-events')
@@ -1541,7 +1589,7 @@ function EventPage() {
           table: 'events',
         },
         () => {
-          void loadUpcomingEvents()
+          void loadUpcomingEvents({ showLoading: false })
         },
       )
       .subscribe((status) => {
@@ -1550,7 +1598,7 @@ function EventPage() {
         }
 
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          setUpcomingEventsNotice('Live updates are reconnecting. Upcoming events are still available.')
+          setUpcomingNoticeDebounced('Live updates are reconnecting. Upcoming events are still available.', 350)
         }
       })
 
@@ -1559,7 +1607,7 @@ function EventPage() {
         return
       }
 
-      void loadUpcomingEvents()
+      void loadUpcomingEvents({ showLoading: false })
     }, UPCOMING_EVENTS_POLL_INTERVAL_MS)
 
     return () => {
@@ -1571,7 +1619,7 @@ function EventPage() {
         window.clearInterval(pollTimerId)
       }
     }
-  }, [event, authLoading, user])
+  }, [event, authLoading, user, setUpcomingNoticeDebounced])
 
   // Update OG meta tags for social media sharing
   useEffect(() => {
@@ -1778,6 +1826,20 @@ function EventPage() {
     return (
       <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
         <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
+        {audienceHomeButton}
+      </section>
+    )
+  }
+
+  // Guard against stale cached audience snapshots on cold load.
+  // Without an explicit event param, wait for the initial live-gig probe
+  // before rendering event-specific UI like name/language entry.
+  if (!hasRequestedEventParam && !hasCompletedInitialLiveGigProbe) {
+    return (
+      <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
+        <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
+        <p className="subcopy no-margin">Checking live gigs...</p>
+        {audienceHomeButton}
       </section>
     )
   }
@@ -1787,6 +1849,7 @@ function EventPage() {
       return (
         <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
           <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
+          {audienceHomeButton}
         </section>
       )
     }
@@ -1920,6 +1983,30 @@ function EventPage() {
     )
   }
 
+  if (!roomOpen) {
+    return (
+      <section className="audience-entry-shell audience-karafun" aria-label="Audience waiting room">
+        <article className="queue-panel audience-entry-card">
+          <p className="eyebrow audience-entry-eyebrow">{audienceName ? `${copy.waitingGreeting} ${audienceName}` : copy.entryEyebrow}</p>
+          <h1>{copy.waitingTitle}</h1>
+          <p className="subcopy audience-entry-copy">{copy.waitingCopy}</p>
+          {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
+          <p className="meta-badge audience-soon-badge">{copy.startingSoon}</p>
+          {hasRequestedEventParam ? (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => navigate('/audience')}
+            >
+              {copy.viewUpcoming}
+            </button>
+          ) : null}
+          {demoBackToHomeButton}
+        </article>
+      </section>
+    )
+  }
+
   if (!audienceName) {
     return (
       <section className="audience-entry-shell audience-karafun" aria-label="Audience entry">
@@ -1970,30 +2057,6 @@ function EventPage() {
             {demoBackToHomeButton}
           </form>
           {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
-        </article>
-      </section>
-    )
-  }
-
-  if (!roomOpen) {
-    return (
-      <section className="audience-entry-shell audience-karafun" aria-label="Audience waiting room">
-        <article className="queue-panel audience-entry-card">
-          <p className="eyebrow audience-entry-eyebrow">{copy.waitingGreeting} {audienceName}</p>
-          <h1>{copy.waitingTitle}</h1>
-          <p className="subcopy audience-entry-copy">{copy.waitingCopy}</p>
-          {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
-          <p className="meta-badge audience-soon-badge">{copy.startingSoon}</p>
-          {hasRequestedEventParam ? (
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => navigate('/audience')}
-            >
-              {copy.viewUpcoming}
-            </button>
-          ) : null}
-          {demoBackToHomeButton}
         </article>
       </section>
     )

@@ -21,6 +21,7 @@ const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
   ],
   da: [
     'No live show right now - but something awesome is coming soon!',
+        home: 'Tilbage til start',
     'Snup en drink, varm stemmebåndene op, og se hvad der kommer.',
     'Scenen er stille... lige nu. Kommende events er herunder!',
   ],
@@ -31,6 +32,7 @@ const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
   ],
 }
 
+        home: 'Aftur Heim',
 function toIntlLocale(locale: AudienceLocale) {
   if (locale === 'da') {
     return 'da-DK'
@@ -238,6 +240,7 @@ function AudienceNoGigState({
     : {
         eyebrow: 'Audience App',
         title: 'No live show right now',
+        home: 'Back to Home Page',
         loading: 'Loading upcoming gigs...',
         upcomingEvents: 'Upcoming Events',
         upcomingCount: 'upcoming',
@@ -296,6 +299,9 @@ function AudienceNoGigState({
         </div>
 
         <div className="audience-no-gig-guide-actions">
+          <a href="/" className="secondary-button">
+            🏠 {copy.home}
+          </a>
           <button
             type="button"
             className="secondary-button"
