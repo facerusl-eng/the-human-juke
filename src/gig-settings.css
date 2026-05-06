@@ -796,6 +796,13 @@
   grid-template-columns: 1.4fr 1fr;
 }
 
+.logo-mirror-preview-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .logo-mirror-preview-panel {
   border-radius: 10px;
   border: 1px solid rgba(93, 215, 255, 0.2);
@@ -846,29 +853,23 @@
 }
 
 .logo-drag-hint {
-  position: absolute;
-  right: 0.5rem;
-  bottom: 0.5rem;
+  position: static;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   font-size: 0.72rem;
   color: #dff4ff;
   border: 1px solid rgba(93, 215, 255, 0.35);
   background: rgba(6, 10, 25, 0.62);
-  z-index: 3;
 }
 
 .logo-drag-values {
-  position: absolute;
-  left: 0.5rem;
-  bottom: 0.5rem;
+  position: static;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   font-size: 0.72rem;
   color: #ecf9ff;
   border: 1px solid rgba(93, 215, 255, 0.35);
   background: rgba(6, 10, 25, 0.62);
-  z-index: 3;
 }
 
 /* Buttons */

@@ -1857,8 +1857,6 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                           ref={venueLogoPreviewRef}
                         />
                         <span className="logo-drag-target" />
-                        <span className="logo-drag-hint">Drag logo in mirror slot</span>
-                        <span className="logo-drag-values">X {state.venueLogoOffsetX} · Y {state.venueLogoOffsetY}</span>
                       </div>
                       <div className="logo-mirror-preview-main">
                         <p className="logo-mirror-preview-title">{state.gigName || 'Event Name'}</p>
@@ -1869,6 +1867,10 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                     <div className="logo-mirror-preview-body">
                       <span className="logo-mirror-preview-panel" />
                       <span className="logo-mirror-preview-panel" />
+                    </div>
+                    <div className="logo-mirror-preview-toolbar">
+                      <span className="logo-drag-hint">Drag logo in mirror slot</span>
+                      <span className="logo-drag-values">X {state.venueLogoOffsetX} · Y {state.venueLogoOffsetY}</span>
                     </div>
                   </div>
                 </div>
