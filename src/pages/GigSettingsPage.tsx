@@ -692,11 +692,15 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
     if (!selectedFile.type.startsWith('image/')) {
       setErrorText('Please choose an image file for the gig cover.')
+      coverImageInFlightRef.current = false
+      setProcessingCoverImage(false)
       return
     }
 
     if (selectedFile.size > MAX_GIG_COVER_IMAGE_BYTES) {
       setErrorText('Cover image is too large. Use an image up to 3 MB.')
+      coverImageInFlightRef.current = false
+      setProcessingCoverImage(false)
       return
     }
 
@@ -746,11 +750,15 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
     if (!selectedFile.type.startsWith('image/')) {
       setErrorText('Please choose an image file for the venue logo.')
+      venueLogoInFlightRef.current = false
+      setProcessingVenueLogo(false)
       return
     }
 
     if (selectedFile.size > MAX_GIG_COVER_IMAGE_BYTES) {
       setErrorText('Venue logo is too large. Use an image up to 3 MB.')
+      venueLogoInFlightRef.current = false
+      setProcessingVenueLogo(false)
       return
     }
 
@@ -1426,7 +1434,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           </div>
 
           <div className="toggle-group">
-            <label className="toggle-card" htmlFor="gig-room-open">
+            <label className={`toggle-card ${state.roomOpen ? 'toggle-card-active' : 'toggle-card-inactive'}`} htmlFor="gig-room-open">
               <input
                 id="gig-room-open"
                 type="checkbox"
@@ -1437,12 +1445,12 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 }}
               />
               <div>
-                <strong>{state.roomOpen ? '✓ Room Open' : '⊘ Room Paused'}</strong>
-                <span>Audience can submit requests</span>
+                <strong>{state.roomOpen ? '🟢 Requests Open' : '⏸ Requests Paused'}</strong>
+                <span>{state.roomOpen ? 'Audience can add song requests now.' : 'Audience can browse songs, but cannot submit requests.'}</span>
               </div>
             </label>
 
-            <label className="toggle-card" htmlFor="gig-playlist-only">
+            <label className={`toggle-card ${state.playlistOnlyRequests ? 'toggle-card-active' : 'toggle-card-inactive'}`} htmlFor="gig-playlist-only">
               <input
                 id="gig-playlist-only"
                 type="checkbox"
@@ -1453,12 +1461,12 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 }}
               />
               <div>
-                <strong>{state.playlistOnlyRequests ? '📋 Playlists Only' : '🔓 Open Text'}</strong>
-                <span>Restrict to setlist or allow any song</span>
+                <strong>{state.playlistOnlyRequests ? '📋 Setlist Only' : '🌐 Any Song Request'}</strong>
+                <span>{state.playlistOnlyRequests ? 'Guests can request only songs in your selected setlists.' : 'Guests can type and request songs outside your setlists.'}</span>
               </div>
             </label>
 
-            <label className="toggle-card" htmlFor="gig-allow-duplicates">
+            <label className={`toggle-card ${state.allowDuplicateRequests ? 'toggle-card-active' : 'toggle-card-inactive'}`} htmlFor="gig-allow-duplicates">
               <input
                 id="gig-allow-duplicates"
                 type="checkbox"
@@ -1469,12 +1477,12 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 }}
               />
               <div>
-                <strong>{state.allowDuplicateRequests ? '✓ Duplicates Allowed' : '✗ Block Duplicates'}</strong>
-                <span>Allow same song requested multiple times</span>
+                <strong>{state.allowDuplicateRequests ? '🔁 Duplicate Requests On' : '🚫 Duplicate Requests Off'}</strong>
+                <span>{state.allowDuplicateRequests ? 'The same song can be requested by multiple guests.' : 'A song can only appear once in the live queue.'}</span>
               </div>
             </label>
 
-            <label className="toggle-card" htmlFor="gig-explicit-filter">
+            <label className={`toggle-card ${state.explicitFilterEnabled ? 'toggle-card-active' : 'toggle-card-inactive'}`} htmlFor="gig-explicit-filter">
               <input
                 id="gig-explicit-filter"
                 type="checkbox"
@@ -1485,8 +1493,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 }}
               />
               <div>
-                <strong>{state.explicitFilterEnabled ? '🔇 Explicit Blocked' : '🔊 Explicit Allowed'}</strong>
-                <span>Block requests for explicit tracks</span>
+                <strong>{state.explicitFilterEnabled ? '🧼 Clean Mode On' : '🔊 Explicit Allowed'}</strong>
+                <span>{state.explicitFilterEnabled ? 'Tracks marked explicit are blocked from audience requests.' : 'Explicit tracks can be requested by guests.'}</span>
               </div>
             </label>
           </div>

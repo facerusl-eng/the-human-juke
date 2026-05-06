@@ -271,6 +271,18 @@
   background: rgba(13, 22, 48, 0.7);
 }
 
+.toggle-card-active {
+  border-color: rgba(93, 215, 255, 0.45);
+  background:
+    linear-gradient(135deg, rgba(12, 26, 58, 0.82), rgba(10, 20, 44, 0.82));
+  box-shadow: inset 0 0 0 1px rgba(93, 215, 255, 0.18);
+}
+
+.toggle-card-inactive {
+  border-color: rgba(142, 166, 209, 0.2);
+  background: rgba(12, 19, 40, 0.46);
+}
+
 .toggle-card input[type="checkbox"] {
   width: 20px;
   height: 20px;
