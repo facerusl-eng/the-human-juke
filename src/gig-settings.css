@@ -637,6 +637,20 @@
   min-width: 120px;
 }
 
+.logo-position-controls {
+  width: 100%;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(93, 215, 255, 0.2);
+  background: rgba(10, 18, 40, 0.5);
+}
+
+.logo-position-controls .field-row {
+  margin: 0;
+}
+
 /* Buttons */
 .primary-button,
 .secondary-button,

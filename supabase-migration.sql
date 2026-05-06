@@ -150,7 +150,10 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS allow_duplicate_requests BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS max_active_requests_per_user INTEGER,
   ADD COLUMN IF NOT EXISTS show_in_audience_no_gig BOOLEAN NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS cover_image_url TEXT;
+  ADD COLUMN IF NOT EXISTS cover_image_url TEXT,
+  ADD COLUMN IF NOT EXISTS venue_logo_scale INTEGER NOT NULL DEFAULT 100,
+  ADD COLUMN IF NOT EXISTS venue_logo_offset_x INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS venue_logo_offset_y INTEGER NOT NULL DEFAULT 0;
 
 ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS audience_icelandic_enabled BOOLEAN NOT NULL DEFAULT false;

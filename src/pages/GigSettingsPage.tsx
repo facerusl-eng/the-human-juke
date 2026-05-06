@@ -77,6 +77,9 @@ type SettingsState = {
   showInAudienceNoGig: boolean
   coverImageUrl: string
   venueLogoUrl: string
+  venueLogoScale: number
+  venueLogoOffsetX: number
+  venueLogoOffsetY: number
   showCustomButton: boolean
   customButtonLabel: string
   customButtonLink: string
@@ -263,6 +266,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     showInAudienceNoGig: event.showInAudienceNoGig,
     coverImageUrl: event.coverImageUrl ?? '',
     venueLogoUrl: event.venueLogoUrl ?? '',
+    venueLogoScale: event.venueLogoScale ?? 100,
+    venueLogoOffsetX: event.venueLogoOffsetX ?? 0,
+    venueLogoOffsetY: event.venueLogoOffsetY ?? 0,
     showCustomButton: event.showCustomButton ?? false,
     customButtonLabel: event.customButtonLabel ?? '',
     customButtonLink: event.customButtonLink ?? '',
@@ -292,6 +298,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const manualSaveInFlightRef = useRef(false)
   const coverImageInFlightRef = useRef(false)
   const venueLogoInFlightRef = useRef(false)
+  const venueLogoPreviewRef = useRef<HTMLImageElement | null>(null)
   const introAudioInFlightRef = useRef(false)
 
   useEffect(() => {
@@ -648,6 +655,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         showInAudienceNoGig: saveState.showInAudienceNoGig,
         coverImageUrl: saveState.coverImageUrl.trim() || null,
         venueLogoUrl: saveState.venueLogoUrl.trim() || null,
+        venueLogoScale: saveState.venueLogoScale,
+        venueLogoOffsetX: saveState.venueLogoOffsetX,
+        venueLogoOffsetY: saveState.venueLogoOffsetY,
         showCustomButton: saveState.showCustomButton,
         customButtonLabel: saveState.customButtonLabel.trim() || null,
         customButtonLink: saveState.customButtonLink.trim() || null,
@@ -1001,6 +1011,19 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     }
   }, [copyError])
 
+  useEffect(() => {
+    const logoPreviewElement = venueLogoPreviewRef.current
+
+    if (!logoPreviewElement) {
+      return
+    }
+
+    logoPreviewElement.style.objectFit = 'contain'
+    logoPreviewElement.style.objectPosition = `${50 + state.venueLogoOffsetX}% ${50 + state.venueLogoOffsetY}%`
+    logoPreviewElement.style.transform = `scale(${state.venueLogoScale / 100})`
+    logoPreviewElement.style.transformOrigin = 'center center'
+  }, [state.venueLogoOffsetX, state.venueLogoOffsetY, state.venueLogoScale, state.venueLogoUrl])
+
   const selectedHumanJukeboxPlaylistId = state.selectedPlaylistIds.find((playlistId) => (
     playlists.find((playlist) => playlist.id === playlistId)?.playlist_type === 'human_jukebox'
   )) ?? ''
@@ -1067,6 +1090,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.coverImageUrl !== (event.coverImageUrl ?? '')
     || state.showInAudienceNoGig !== event.showInAudienceNoGig
     || state.venueLogoUrl !== (event.venueLogoUrl ?? '')
+    || state.venueLogoScale !== (event.venueLogoScale ?? 100)
+    || state.venueLogoOffsetX !== (event.venueLogoOffsetX ?? 0)
+    || state.venueLogoOffsetY !== (event.venueLogoOffsetY ?? 0)
     || state.showCustomButton !== (event.showCustomButton ?? false)
     || state.customButtonLabel !== (event.customButtonLabel ?? '')
     || state.customButtonLink !== (event.customButtonLink ?? '')
@@ -1695,13 +1721,74 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name.</p>
             {state.venueLogoUrl ? (
               <div className="photo-preview">
-                <img src={state.venueLogoUrl} alt="Venue logo preview" />
+                <img
+                  src={state.venueLogoUrl}
+                  alt="Venue logo preview"
+                  ref={venueLogoPreviewRef}
+                />
+                <div className="logo-position-controls">
+                  <div className="field-row">
+                    <label htmlFor="gig-venue-logo-scale">Logo Size ({state.venueLogoScale}%)</label>
+                    <input
+                      id="gig-venue-logo-scale"
+                      type="range"
+                      min="40"
+                      max="180"
+                      step="1"
+                      value={state.venueLogoScale}
+                      onChange={(e) => {
+                        pushUndoState()
+                        updateState({ venueLogoScale: Number(e.target.value) })
+                      }}
+                    />
+                  </div>
+                  <div className="field-row">
+                    <label htmlFor="gig-venue-logo-offset-x">Horizontal Position ({state.venueLogoOffsetX})</label>
+                    <input
+                      id="gig-venue-logo-offset-x"
+                      type="range"
+                      min="-50"
+                      max="50"
+                      step="1"
+                      value={state.venueLogoOffsetX}
+                      onChange={(e) => {
+                        pushUndoState()
+                        updateState({ venueLogoOffsetX: Number(e.target.value) })
+                      }}
+                    />
+                  </div>
+                  <div className="field-row">
+                    <label htmlFor="gig-venue-logo-offset-y">Vertical Position ({state.venueLogoOffsetY})</label>
+                    <input
+                      id="gig-venue-logo-offset-y"
+                      type="range"
+                      min="-50"
+                      max="50"
+                      step="1"
+                      value={state.venueLogoOffsetY}
+                      onChange={(e) => {
+                        pushUndoState()
+                        updateState({ venueLogoOffsetY: Number(e.target.value) })
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => {
+                      pushUndoState()
+                      updateState({ venueLogoScale: 100, venueLogoOffsetX: 0, venueLogoOffsetY: 0 })
+                    }}
+                  >
+                    Reset logo placement
+                  </button>
+                </div>
                 <button
                   type="button"
                   className="secondary-button"
                   onClick={() => {
                     pushUndoState()
-                    updateState({ venueLogoUrl: '' })
+                    updateState({ venueLogoUrl: '', venueLogoScale: 100, venueLogoOffsetX: 0, venueLogoOffsetY: 0 })
                   }}
                 >
                   Remove logo

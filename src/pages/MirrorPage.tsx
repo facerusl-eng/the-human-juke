@@ -687,6 +687,7 @@ function MirrorPage() {
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
   const mirrorShellRef = useRef<HTMLDivElement | null>(null)
+  const venueLogoImageRef = useRef<HTMLImageElement | null>(null)
   const autoFullscreenAttemptedRef = useRef(false)
   const chosenByPhraseIndexBySongIdRef = useRef<Record<string, number>>({})
   const lastChosenByPhraseIndexRef = useRef<number | null>(null)
@@ -957,6 +958,18 @@ function MirrorPage() {
   useEffect(() => {
     isNowPlayingStartedRef.current = isNowPlayingStarted
   }, [isNowPlayingStarted])
+
+  useEffect(() => {
+    const logoImageElement = venueLogoImageRef.current
+
+    if (!logoImageElement) {
+      return
+    }
+
+    logoImageElement.style.objectPosition = `${50 + (event?.venueLogoOffsetX ?? 0)}% ${50 + (event?.venueLogoOffsetY ?? 0)}%`
+    logoImageElement.style.transform = `scale(${(event?.venueLogoScale ?? 100) / 100})`
+    logoImageElement.style.transformOrigin = 'center center'
+  }, [event?.venueLogoOffsetX, event?.venueLogoOffsetY, event?.venueLogoScale, event?.venueLogoUrl])
 
   useEffect(() => {
     if (!event?.id) {
@@ -2198,7 +2211,12 @@ function MirrorPage() {
         <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
           {event?.venueLogoUrl ? (
             <p className="mirror-venue-logo" aria-label="Venue logo">
-              <img src={event.venueLogoUrl} alt={`${event.venue || 'Venue'} logo`} className="mirror-venue-logo-image" />
+              <img
+                src={event.venueLogoUrl}
+                alt={`${event.venue || 'Venue'} logo`}
+                className="mirror-venue-logo-image"
+                ref={venueLogoImageRef}
+              />
             </p>
           ) : (
             <p className="mirror-venue-logo-placeholder" aria-label="Venue logo placeholder">

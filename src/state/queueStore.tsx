@@ -61,6 +61,9 @@ type EventSettingsUpdates = {
   showInAudienceNoGig: boolean
   coverImageUrl: string | null
   venueLogoUrl: string | null
+  venueLogoScale: number
+  venueLogoOffsetX: number
+  venueLogoOffsetY: number
   showCustomButton: boolean
   customButtonLabel: string | null
   customButtonLink: string | null
@@ -104,6 +107,9 @@ type EventState = {
   showInAudienceNoGig: boolean
   coverImageUrl: string | null
   venueLogoUrl: string | null
+  venueLogoScale: number
+  venueLogoOffsetX: number
+  venueLogoOffsetY: number
   showCustomButton: boolean
   customButtonLabel: string | null
   customButtonLink: string | null
@@ -345,6 +351,27 @@ function isMissingAudienceVotingColumnError(error: unknown) {
     .join(' ')
 
   return (code === '42703' || code === 'PGRST204') && text.includes('audience_voting_enabled')
+}
+
+function isMissingVenueLogoLayoutColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204')
+    && (text.includes('venue_logo_scale') || text.includes('venue_logo_offset_x') || text.includes('venue_logo_offset_y'))
 }
 
 function isMissingPerformedAtColumnError(error: unknown) {
@@ -951,7 +978,34 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings] = await Promise.all([
+    const loadVenueLogoLayoutSettings = async (): Promise<{ venue_logo_scale: number; venue_logo_offset_x: number; venue_logo_offset_y: number }> => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('venue_logo_scale, venue_logo_offset_x, venue_logo_offset_y')
+          .eq('id', activeEventId)
+          .single()
+
+        if (error || !data) {
+          return { venue_logo_scale: 100, venue_logo_offset_x: 0, venue_logo_offset_y: 0 }
+        }
+
+        const row = data as Record<string, unknown>
+        const rawScale = row.venue_logo_scale as number | null
+        const rawOffsetX = row.venue_logo_offset_x as number | null
+        const rawOffsetY = row.venue_logo_offset_y as number | null
+
+        return {
+          venue_logo_scale: Number.isFinite(rawScale) ? Math.min(180, Math.max(40, Number(rawScale))) : 100,
+          venue_logo_offset_x: Number.isFinite(rawOffsetX) ? Math.min(50, Math.max(-50, Number(rawOffsetX))) : 0,
+          venue_logo_offset_y: Number.isFinite(rawOffsetY) ? Math.min(50, Math.max(-50, Number(rawOffsetY))) : 0,
+        }
+      } catch {
+        return { venue_logo_scale: 100, venue_logo_offset_x: 0, venue_logo_offset_y: 0 }
+      }
+    }
+
+    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings] = await Promise.all([
       withTimeout(
         loadEventSnapshot(),
         DEFAULT_DB_TIMEOUT_MS,
@@ -960,6 +1014,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       loadTipMessages(),
       loadEventTypeSettings(),
       loadAudienceLocaleSettings(),
+      loadVenueLogoLayoutSettings(),
     ])
 
     let queueSongs: QueueSong[] = []
@@ -1223,6 +1278,9 @@ function QueueProvider({ children }: PropsWithChildren) {
       showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
       coverImageUrl: ((eventData as Record<string, unknown>).cover_image_url as string | null) ?? null,
       venueLogoUrl: ((eventData as Record<string, unknown>).venue_logo_url as string | null) ?? null,
+      venueLogoScale: venueLogoLayoutSettings.venue_logo_scale,
+      venueLogoOffsetX: venueLogoLayoutSettings.venue_logo_offset_x,
+      venueLogoOffsetY: venueLogoLayoutSettings.venue_logo_offset_y,
       showCustomButton: ((eventData as Record<string, unknown>).show_custom_button as boolean | null) ?? false,
       customButtonLabel: ((eventData as Record<string, unknown>).custom_button_label as string | null) ?? null,
       customButtonLink: ((eventData as Record<string, unknown>).custom_button_link as string | null) ?? null,
@@ -2430,6 +2488,9 @@ function QueueProvider({ children }: PropsWithChildren) {
           show_in_audience_no_gig: updates.showInAudienceNoGig,
           cover_image_url: updates.coverImageUrl,
           venue_logo_url: updates.venueLogoUrl,
+          venue_logo_scale: updates.venueLogoScale,
+          venue_logo_offset_x: updates.venueLogoOffsetX,
+          venue_logo_offset_y: updates.venueLogoOffsetY,
           show_custom_button: updates.showCustomButton,
           custom_button_label: updates.customButtonLabel || null,
           custom_button_link: updates.customButtonLink || null,
@@ -2455,7 +2516,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -2473,6 +2534,12 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (isMissingAudienceVotingColumnError(error)) {
             delete fallbackPayload.audience_voting_enabled
+          }
+
+          if (isMissingVenueLogoLayoutColumnError(error)) {
+            delete fallbackPayload.venue_logo_scale
+            delete fallbackPayload.venue_logo_offset_x
+            delete fallbackPayload.venue_logo_offset_y
           }
 
           const { error: fallbackError } = await withTimeout(
@@ -2862,6 +2929,9 @@ function QueueProvider({ children }: PropsWithChildren) {
           showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
           coverImageUrl: options?.coverImageUrl ?? null,
           venueLogoUrl: null,
+          venueLogoScale: 100,
+          venueLogoOffsetX: 0,
+          venueLogoOffsetY: 0,
           showCustomButton: false,
           customButtonLabel: null,
           customButtonLink: null,
