@@ -651,6 +651,43 @@
   margin: 0;
 }
 
+.logo-drag-frame {
+  position: relative;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(93, 215, 255, 0.28);
+  background:
+    linear-gradient(135deg, rgba(15, 24, 52, 0.75), rgba(9, 16, 35, 0.72));
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.logo-drag-frame:active {
+  cursor: grabbing;
+}
+
+.logo-drag-frame img {
+  width: 100%;
+  max-height: 220px;
+  display: block;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.logo-drag-hint {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: #dff4ff;
+  border: 1px solid rgba(93, 215, 255, 0.35);
+  background: rgba(6, 10, 25, 0.62);
+}
+
 /* Buttons */
 .primary-button,
 .secondary-button,

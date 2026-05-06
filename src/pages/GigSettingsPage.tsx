@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChangeEvent, FormEvent } from 'react'
+import type { ChangeEvent, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AudioPlayer from '../components/ui/AudioPlayer'
 import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
@@ -299,6 +299,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const coverImageInFlightRef = useRef(false)
   const venueLogoInFlightRef = useRef(false)
   const venueLogoPreviewRef = useRef<HTMLImageElement | null>(null)
+  const venueLogoDragFrameRef = useRef<HTMLDivElement | null>(null)
+  const venueLogoDragActiveRef = useRef(false)
   const introAudioInFlightRef = useRef(false)
 
   useEffect(() => {
@@ -1024,6 +1026,94 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     logoPreviewElement.style.transformOrigin = 'center center'
   }, [state.venueLogoOffsetX, state.venueLogoOffsetY, state.venueLogoScale, state.venueLogoUrl])
 
+  const updateVenueLogoOffsetFromPoint = (clientX: number, clientY: number) => {
+    const frameElement = venueLogoDragFrameRef.current
+
+    if (!frameElement) {
+      return
+    }
+
+    const frameRect = frameElement.getBoundingClientRect()
+
+    if (frameRect.width <= 0 || frameRect.height <= 0) {
+      return
+    }
+
+    const relativeX = (clientX - frameRect.left) / frameRect.width
+    const relativeY = (clientY - frameRect.top) / frameRect.height
+
+    const nextOffsetX = Math.min(50, Math.max(-50, Math.round((relativeX - 0.5) * 100)))
+    const nextOffsetY = Math.min(50, Math.max(-50, Math.round((relativeY - 0.5) * 100)))
+
+    setState((current) => {
+      if (current.venueLogoOffsetX === nextOffsetX && current.venueLogoOffsetY === nextOffsetY) {
+        return current
+      }
+
+      return {
+        ...current,
+        venueLogoOffsetX: nextOffsetX,
+        venueLogoOffsetY: nextOffsetY,
+      }
+    })
+  }
+
+  const onVenueLogoDragStart = (pointerEvent: ReactPointerEvent<HTMLDivElement>) => {
+    pointerEvent.preventDefault()
+
+    if (!state.venueLogoUrl) {
+      return
+    }
+
+    pushUndoState()
+    venueLogoDragActiveRef.current = true
+    updateVenueLogoOffsetFromPoint(pointerEvent.clientX, pointerEvent.clientY)
+    pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId)
+  }
+
+  const onVenueLogoDragMove = (pointerEvent: ReactPointerEvent<HTMLDivElement>) => {
+    if (!venueLogoDragActiveRef.current) {
+      return
+    }
+
+    updateVenueLogoOffsetFromPoint(pointerEvent.clientX, pointerEvent.clientY)
+  }
+
+  const onVenueLogoDragEnd = () => {
+    if (!venueLogoDragActiveRef.current) {
+      return
+    }
+
+    venueLogoDragActiveRef.current = false
+
+    updateState({
+      venueLogoOffsetX: state.venueLogoOffsetX,
+      venueLogoOffsetY: state.venueLogoOffsetY,
+    })
+  }
+
+  useEffect(() => {
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      if (!venueLogoDragActiveRef.current) {
+        return
+      }
+
+      updateVenueLogoOffsetFromPoint(pointerEvent.clientX, pointerEvent.clientY)
+    }
+
+    const handlePointerUp = () => {
+      onVenueLogoDragEnd()
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [state.venueLogoOffsetX, state.venueLogoOffsetY])
+
   const selectedHumanJukeboxPlaylistId = state.selectedPlaylistIds.find((playlistId) => (
     playlists.find((playlist) => playlist.id === playlistId)?.playlist_type === 'human_jukebox'
   )) ?? ''
@@ -1721,11 +1811,21 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name.</p>
             {state.venueLogoUrl ? (
               <div className="photo-preview">
-                <img
-                  src={state.venueLogoUrl}
-                  alt="Venue logo preview"
-                  ref={venueLogoPreviewRef}
-                />
+                <div
+                  className="logo-drag-frame"
+                  ref={venueLogoDragFrameRef}
+                  onPointerDown={onVenueLogoDragStart}
+                  onPointerMove={onVenueLogoDragMove}
+                  onPointerUp={onVenueLogoDragEnd}
+                  onPointerCancel={onVenueLogoDragEnd}
+                >
+                  <img
+                    src={state.venueLogoUrl}
+                    alt="Venue logo preview"
+                    ref={venueLogoPreviewRef}
+                  />
+                  <span className="logo-drag-hint">Drag to position logo</span>
+                </div>
                 <div className="logo-position-controls">
                   <div className="field-row">
                     <label htmlFor="gig-venue-logo-scale">Logo Size ({state.venueLogoScale}%)</label>
