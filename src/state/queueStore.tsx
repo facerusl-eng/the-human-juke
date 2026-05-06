@@ -197,6 +197,9 @@ const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 15_000
 const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
 const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
 const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
+const VENUE_LOGO_SCALE_MIN = 20
+const VENUE_LOGO_SCALE_MAX = 500
+const VENUE_LOGO_OFFSET_LIMIT = 100
 
 type PersistedQueueSnapshot = {
   event: EventState | null
@@ -996,9 +999,15 @@ function QueueProvider({ children }: PropsWithChildren) {
         const rawOffsetY = row.venue_logo_offset_y as number | null
 
         return {
-          venue_logo_scale: Number.isFinite(rawScale) ? Math.min(180, Math.max(40, Number(rawScale))) : 100,
-          venue_logo_offset_x: Number.isFinite(rawOffsetX) ? Math.min(50, Math.max(-50, Number(rawOffsetX))) : 0,
-          venue_logo_offset_y: Number.isFinite(rawOffsetY) ? Math.min(50, Math.max(-50, Number(rawOffsetY))) : 0,
+          venue_logo_scale: Number.isFinite(rawScale)
+            ? Math.min(VENUE_LOGO_SCALE_MAX, Math.max(VENUE_LOGO_SCALE_MIN, Number(rawScale)))
+            : 100,
+          venue_logo_offset_x: Number.isFinite(rawOffsetX)
+            ? Math.min(VENUE_LOGO_OFFSET_LIMIT, Math.max(-VENUE_LOGO_OFFSET_LIMIT, Number(rawOffsetX)))
+            : 0,
+          venue_logo_offset_y: Number.isFinite(rawOffsetY)
+            ? Math.min(VENUE_LOGO_OFFSET_LIMIT, Math.max(-VENUE_LOGO_OFFSET_LIMIT, Number(rawOffsetY)))
+            : 0,
         }
       } catch {
         return { venue_logo_scale: 100, venue_logo_offset_x: 0, venue_logo_offset_y: 0 }
