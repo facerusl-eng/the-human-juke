@@ -39,6 +39,8 @@ type Role = 'guest' | 'host'
 type Profile = {
   role: Role
   active_event_id: string | null
+  theme_preset?: string | null
+  accent_color?: string | null
 }
 
 type AuthContextValue = {
@@ -148,7 +150,7 @@ async function retryTransientAuthOperation<T>(operation: () => Promise<T>, attem
 async function getProfile(userId: string): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('role, active_event_id')
+    .select('role, active_event_id, theme_preset, accent_color')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -168,7 +170,7 @@ async function getProfile(userId: string): Promise<Profile> {
       role: 'guest',
       active_event_id: null,
     })
-    .select('role, active_event_id')
+    .select('role, active_event_id, theme_preset, accent_color')
     .single()
 
   if (insertError) {
@@ -182,7 +184,7 @@ async function getProfile(userId: string): Promise<Profile> {
     if (insertError.code === '23505') {
       const { data: retriedProfile, error: retryError } = await supabase
         .from('profiles')
-        .select('role, active_event_id')
+        .select('role, active_event_id, theme_preset, accent_color')
         .eq('user_id', userId)
         .maybeSingle()
 

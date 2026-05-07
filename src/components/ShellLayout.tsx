@@ -9,10 +9,67 @@ import { DemoBanner } from '../demo/DemoBanner'
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 
+const RUNTIME_THEME_PRESETS: Record<string, Record<string, string>> = {
+  dark: {
+    '--canvas': '#05040b',
+    '--canvas-alt': '#0b0715',
+    '--panel': '#100a1d',
+    '--panel-alt': '#16102a',
+    '--panel-border': 'rgba(162, 89, 255, 0.36)',
+    '--ink': '#edf3ff',
+    '--ink-soft': '#b5b2de',
+    '--ink-strong': '#f7f9ff',
+  },
+  neon: {
+    '--canvas': '#140620',
+    '--canvas-alt': '#1a0a2e',
+    '--panel': '#1f0f36',
+    '--panel-alt': '#2a1244',
+    '--panel-border': 'rgba(255, 0, 128, 0.42)',
+    '--ink': '#fff0fb',
+    '--ink-soft': '#efb7df',
+    '--ink-strong': '#ffffff',
+  },
+  pub: {
+    '--canvas': '#1f1a16',
+    '--canvas-alt': '#2a2420',
+    '--panel': '#332a24',
+    '--panel-alt': '#3d3128',
+    '--panel-border': 'rgba(212, 165, 116, 0.44)',
+    '--ink': '#fff5e9',
+    '--ink-soft': '#d7c5b2',
+    '--ink-strong': '#fffaf3',
+  },
+  clean: {
+    '--canvas': '#f1f6ff',
+    '--canvas-alt': '#e7efff',
+    '--panel': '#ffffff',
+    '--panel-alt': '#f6f9ff',
+    '--panel-border': 'rgba(26, 115, 232, 0.24)',
+    '--ink': '#17233a',
+    '--ink-soft': '#4a5c78',
+    '--ink-strong': '#0f1b2f',
+  },
+  highcontrast: {
+    '--canvas': '#000000',
+    '--canvas-alt': '#050505',
+    '--panel': '#0d0d0d',
+    '--panel-alt': '#151515',
+    '--panel-border': 'rgba(255, 255, 0, 0.68)',
+    '--ink': '#ffffff',
+    '--ink-soft': '#f0f0a8',
+    '--ink-strong': '#ffffff',
+  },
+}
+
+function isValidHexColor(value: string | null | undefined) {
+  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value.trim())
+}
+
 function ShellLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, isHost, loading, signInHost, signOut } = useAuthStore()
+  const { user, profile, isHost, loading, signInHost, signOut } = useAuthStore()
   const { event } = useQueueStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -140,6 +197,25 @@ function ShellLayout() {
       window.clearTimeout(busyTimeoutId)
     }
   }, [authActionBusy])
+
+  useEffect(() => {
+    const root = document.documentElement
+    const presetKey = profile?.theme_preset && RUNTIME_THEME_PRESETS[profile.theme_preset]
+      ? profile.theme_preset
+      : 'dark'
+    const presetVars = RUNTIME_THEME_PRESETS[presetKey]
+
+    root.setAttribute('data-theme-preset', presetKey)
+
+    Object.entries(presetVars).forEach(([token, value]) => {
+      root.style.setProperty(token, value)
+    })
+
+    const accentColor = isValidHexColor(profile?.accent_color)
+      ? profile?.accent_color?.trim() ?? '#5dd7ff'
+      : '#5dd7ff'
+    root.style.setProperty('--accent', accentColor)
+  }, [profile?.accent_color, profile?.theme_preset])
 
   useEffect(() => {
     const onRuntimeNotice = (event: Event) => {
