@@ -5227,6 +5227,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) auto auto;
   grid-template-rows: auto;
+  min-height: clamp(96px, 10.2dvh, 138px);
   position: relative;
   align-items: center;
   gap: 0.9rem;
@@ -5241,11 +5242,11 @@
 
 .mirror-venue-logo-slot {
   position: absolute;
-  top: clamp(0.22rem, 0.45vw, 0.42rem);
+  top: clamp(0.1rem, 0.28vw, 0.24rem);
   left: 50%;
   transform: translateX(-50%);
-  width: clamp(180px, 20vw, 300px);
-  height: clamp(80px, 9vw, 130px);
+  width: clamp(170px, 18vw, 268px);
+  height: clamp(70px, 7.8vw, 108px);
   padding: 0.28rem;
   border-radius: 14px;
   border: 1px solid rgba(93, 215, 255, 0.34);
@@ -5368,6 +5369,15 @@
 
 .mirror-shell-hide-controls .mirror-editor-controls {
   display: none !important;
+}
+
+.mirror-shell-hide-controls .mirror-header {
+  min-height: clamp(88px, 9.2dvh, 122px);
+}
+
+.mirror-shell-hide-controls .mirror-venue-logo-slot {
+  width: clamp(158px, 16vw, 240px);
+  height: clamp(62px, 6.8vw, 96px);
 }
 
 .mirror-warning {
@@ -6215,8 +6225,8 @@
 }
 
 .mirror-pre-show-has-countdown .mirror-qr-image {
-  width: clamp(110px, min(17.2vw, 14.8dvh), 230px);
-  height: clamp(110px, min(17.2vw, 14.8dvh), 230px);
+  width: clamp(120px, min(19vw, 16.2dvh), 260px);
+  height: clamp(120px, min(19vw, 16.2dvh), 260px);
 }
 
 .mirror-pre-show-has-countdown .mirror-qr-label,
@@ -6226,8 +6236,8 @@
 
 .mirror-pre-show-has-countdown .mirror-qr-url,
 .mirror-pre-show-has-countdown .mirror-how-it-works p {
-  font-size: clamp(0.74rem, min(0.94vw, 1.6dvh), 0.95rem);
-  line-height: 1.26;
+  font-size: clamp(0.82rem, min(1.06vw, 1.82dvh), 1.02rem);
+  line-height: 1.3;
 }
 
 @media (max-aspect-ratio: 3/2) {
@@ -6244,13 +6254,13 @@
   }
 
   .mirror-pre-show-has-countdown .mirror-qr-image {
-    width: clamp(96px, min(14.2vw, 11.8dvh), 180px);
-    height: clamp(96px, min(14.2vw, 11.8dvh), 180px);
+    width: clamp(104px, min(15.2vw, 12.6dvh), 192px);
+    height: clamp(104px, min(15.2vw, 12.6dvh), 192px);
   }
 
   .mirror-pre-show-has-countdown .mirror-how-it-works p {
-    font-size: clamp(0.68rem, min(0.78vw, 1.26dvh), 0.8rem);
-    line-height: 1.18;
+    font-size: clamp(0.76rem, min(0.9vw, 1.45dvh), 0.88rem);
+    line-height: 1.22;
   }
 
   .mirror-pre-show-has-countdown .mirror-pre-show-middle {
