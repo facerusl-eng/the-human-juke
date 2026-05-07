@@ -61,6 +61,17 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "the-human-jukebox.org"
+        }
+      ],
+      "destination": "https://www.the-human-jukebox.org/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [
         {
