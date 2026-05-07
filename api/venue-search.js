@@ -50,7 +50,27 @@ function formatReverseAddress(payload = {}) {
 
   return [streetLine, localityLine].filter(Boolean).join(', ') || fallback
 }
+function formatReverseAddress(payload = {}) {
+  const address = payload?.address || {}
+  const street = cleanString(address.road || address.pedestrian || address.footway || address.path || address.street)
+  const houseNumber = cleanString(address.house_number)
+  const postcode = cleanString(address.postcode)
+  const city = cleanString(address.city || address.town || address.village || address.hamlet || address.municipality)
+  const suburb = cleanString(address.suburb || address.city_district || address.county)
+  const neighbourhood = cleanString(address.neighbourhood)
 
+  const streetLine = [street, houseNumber].filter(Boolean).join(' ')
+  const locality = city || suburb || neighbourhood
+  const localityLine = [postcode, locality].filter(Boolean).join(' ')
+  const parts = [streetLine, localityLine].filter(Boolean)
+
+  if (parts.length > 0) {
+    return parts.join(', ')
+  }
+  
+  const displayName = cleanString(payload?.display_name)
+  return displayName && displayName.length > 5 ? displayName.substring(0, 100) : ''
+}
 async function reverseGeocodeAddress(lat, lon) {
   try {
     const reverseUrl = new URL('https://nominatim.openstreetmap.org/reverse')
@@ -128,7 +148,46 @@ async function enrichMissingVenueAddresses(venues) {
   
   console.log(`Enriched ${lookupBudget} venues with missing addresses`)
 }
+async function enrichMissingVenueAddresses(venues) {
+  const missingVenues = venues.filter((venue) => !venue.address)
+  
+  if (missingVenues.length === 0) {
+    return
+  }
 
+  const lookupBudget = Math.min(12, missingVenues.length)
+  
+  // Process in smaller batches to respect Nominatim rate limits
+  const batchSize = 3
+  for (let batch = 0; batch < Math.ceil(lookupBudget / batchSize); batch += 1) {
+    const start = batch * batchSize
+    const end = Math.min(start + batchSize, lookupBudget)
+    const batchVenues = missingVenues.slice(start, end)
+    
+    const promises = batchVenues.map((venue) =>
+      reverseGeocodeAddress(venue.lat, venue.lon)
+        .then((address) => {
+          const trimmed = cleanString(address)
+          if (trimmed) {
+            venue.address = trimmed
+            console.log(`Geocoded ${venue.name} → ${trimmed}`)
+          } else {
+            console.log(`No address found for ${venue.name}`)
+          }
+        })
+        .catch((err) => console.error(`Error geocoding ${venue.name}:`, err)),
+    )
+    
+    await Promise.allSettled(promises)
+    
+    // Small delay between batches to avoid rate limiting
+    if (batch < Math.ceil(lookupBudget / batchSize) - 1) {
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+  }
+  
+  console.log(`Address enrichment complete for ${lookupBudget} venues`)
+}
 function toVenue(element) {
   const tags = element?.tags || {}
   const lat = typeof element.lat === 'number' ? element.lat : element.center?.lat
