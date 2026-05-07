@@ -46,4 +46,5 @@ export const DEMO_EVENT = {
   audienceIcelandicEnabled: false,
   autoLiveEnabled: false,
   introAudioUrl: null,
+  isTestGig: false,
 } as const

@@ -122,6 +122,7 @@ type EventState = {
   audienceIcelandicEnabled: boolean
   autoLiveEnabled: boolean
   introAudioUrl: string | null
+  isTestGig: boolean
 }
 
 type CreateEventOptions = {
@@ -138,6 +139,7 @@ type CreateEventOptions = {
   audienceIcelandicEnabled?: boolean
   autoLiveEnabled?: boolean
   introAudioUrl?: string | null
+  isTestGig?: boolean
 }
 
 export type HostEventSummary = {
@@ -152,6 +154,7 @@ export type HostEventSummary = {
   gigStartTime: string | null
   autoLiveEnabled: boolean
   introAudioUrl: string | null
+  isTestGig: boolean
 }
 
 export type QueueContextValue = {
@@ -197,9 +200,46 @@ const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 15_000
 const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
 const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
 const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
+const TEST_GIG_MAP_STORAGE_KEY = 'human-jukebox-test-gig-map'
 const VENUE_LOGO_SCALE_MIN = 20
 const VENUE_LOGO_SCALE_MAX = 500
 const VENUE_LOGO_OFFSET_LIMIT = 100
+
+function readTestGigMap() {
+  const parsed = readFromLocalStorage(TEST_GIG_MAP_STORAGE_KEY) as Record<string, unknown> | null
+
+  if (!parsed || typeof parsed !== 'object') {
+    return {} as Record<string, boolean>
+  }
+
+  return Object.entries(parsed).reduce<Record<string, boolean>>((acc, [key, value]) => {
+    if (typeof key === 'string' && typeof value === 'boolean') {
+      acc[key] = value
+    }
+
+    return acc
+  }, {})
+}
+
+function setTestGigFlag(eventId: string, isTestGig: boolean) {
+  const nextMap = {
+    ...readTestGigMap(),
+    [eventId]: isTestGig,
+  }
+
+  saveToLocalStorage(TEST_GIG_MAP_STORAGE_KEY, nextMap)
+}
+
+function removeTestGigFlag(eventId: string) {
+  const currentMap = readTestGigMap()
+
+  if (!(eventId in currentMap)) {
+    return
+  }
+
+  const { [eventId]: _removed, ...nextMap } = currentMap
+  saveToLocalStorage(TEST_GIG_MAP_STORAGE_KEY, nextMap)
+}
 
 type PersistedQueueSnapshot = {
   event: EventState | null
@@ -623,10 +663,13 @@ async function fetchHostEvents(hostId: string) {
     throw error
   }
 
+  const testGigMap = readTestGigMap()
+
   return ((data ?? []) as Array<Record<string, unknown>>).map((eventData) => {
+    const eventId = String(eventData.id ?? '')
     const rawEventType = eventData.event_type as string | null
     return {
-      id: String(eventData.id ?? ''),
+      id: eventId,
       name: (eventData.name as string | null) ?? 'Untitled Gig',
       venue: (eventData.venue as string | null) ?? null,
       isActive: ((eventData.is_active as boolean | null) ?? false),
@@ -637,6 +680,7 @@ async function fetchHostEvents(hostId: string) {
       gigStartTime: (eventData.gig_start_time as string | null) ?? null,
       autoLiveEnabled: ((eventData.auto_live_enabled as boolean | null) ?? false),
       introAudioUrl: (eventData.intro_audio_url as string | null) ?? null,
+      isTestGig: testGigMap[eventId] ?? false,
     }
   })
 }
@@ -1026,6 +1070,14 @@ function QueueProvider({ children }: PropsWithChildren) {
       loadVenueLogoLayoutSettings(),
     ])
 
+    const resolvedEventId = String((eventData as Record<string, unknown>).id ?? '')
+    const isTestGig = readTestGigMap()[resolvedEventId] ?? false
+    const canViewPrivateTestGig = isHostSession && !isAudienceRoutePath()
+
+    if (isTestGig && !canViewPrivateTestGig) {
+      throw new Error('This test gig is private to the host account.')
+    }
+
     let queueSongs: QueueSong[] = []
     let queueLoaded = false
     let performedSongsSnapshot: PerformedSong[] = []
@@ -1259,7 +1311,7 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     setEvent({
-      id: String((eventData as Record<string, unknown>).id ?? ''),
+      id: resolvedEventId,
       hostId: (eventData as Record<string, unknown>).host_id as string | null ?? null,
       name: (eventData as Record<string, unknown>).name as string ?? 'Untitled Gig',
       venue: (eventData as Record<string, unknown>).venue as string | null ?? null,
@@ -1302,6 +1354,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       audienceIcelandicEnabled: audienceLocaleSettings.audience_icelandic_enabled,
       autoLiveEnabled: eventTypeSettings.auto_live_enabled,
       introAudioUrl: eventTypeSettings.intro_audio_url,
+      isTestGig,
     })
     if (queueLoaded) {
       setSongs(queueSongs.map((song) => {
@@ -2451,6 +2504,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error(deleteError.message)
         }
 
+        removeTestGigFlag(targetEventId)
+
         const nextHostEvents = await fetchHostEvents(user.id)
         setHostEvents(nextHostEvents)
 
@@ -2682,6 +2737,10 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
+        if (event.isTestGig && !event.roomOpen) {
+          throw new Error('Test gigs are private and cannot be opened for audience access.')
+        }
+
         const nextRoomOpen = !event.roomOpen
 
         setEvent((currentEvent) => {
@@ -2890,6 +2949,9 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         const normalizedName = name.trim()
+        const resolvedShowInAudienceNoGig = options?.isTestGig
+          ? false
+          : (options?.showInAudienceNoGig ?? false)
 
         if (!normalizedName) {
           throw new Error('Gig name is required.')
@@ -2935,7 +2997,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           maxQueueSize: null,
           roomOpen: false,
           explicitFilterEnabled: true,
-          showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
+          showInAudienceNoGig: resolvedShowInAudienceNoGig,
           coverImageUrl: options?.coverImageUrl ?? null,
           venueLogoUrl: null,
           venueLogoScale: 100,
@@ -2953,6 +3015,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           audienceIcelandicEnabled: options?.audienceIcelandicEnabled ?? false,
           autoLiveEnabled: options?.autoLiveEnabled ?? false,
           introAudioUrl: options?.introAudioUrl ?? null,
+          isTestGig: options?.isTestGig ?? false,
         }
 
         try {
@@ -2964,7 +3027,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 p_gig_date: options?.gigDate ?? null,
                 p_gig_start_time: options?.gigStartTime ?? null,
                 p_gig_end_time: options?.gigEndTime ?? null,
-                p_show_in_audience_no_gig: options?.showInAudienceNoGig ?? false,
+                p_show_in_audience_no_gig: resolvedShowInAudienceNoGig,
                 p_cover_image_url: options?.coverImageUrl ?? null,
               }),
             ),
@@ -2992,6 +3055,8 @@ function QueueProvider({ children }: PropsWithChildren) {
             ...optimisticEventState,
             id: createdGigId,
           }
+
+          setTestGigFlag(createdGigId, options?.isTestGig ?? false)
 
           setEvent(nextEventState)
 
@@ -3028,13 +3093,14 @@ function QueueProvider({ children }: PropsWithChildren) {
               name: normalizedName,
               venue: venue || null,
               isActive: activated,
-              showInAudienceNoGig: options?.showInAudienceNoGig ?? false,
+              showInAudienceNoGig: resolvedShowInAudienceNoGig,
               createdAt: createdAtIso,
               eventType: options?.eventType ?? 'halli-live',
               gigDate: options?.gigDate ?? null,
               gigStartTime: options?.gigStartTime ?? null,
               autoLiveEnabled: options?.autoLiveEnabled ?? false,
               introAudioUrl: options?.introAudioUrl ?? null,
+              isTestGig: options?.isTestGig ?? false,
             }
 
             const withoutCreatedGig = currentHostEvents.filter((currentEvent) => currentEvent.id !== createdGigId)
@@ -3071,7 +3137,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           gig_date: options?.gigDate ?? null,
           gig_start_time: options?.gigStartTime ?? null,
           gig_end_time: options?.gigEndTime ?? null,
-          show_in_audience_no_gig: options?.showInAudienceNoGig ?? false,
+          show_in_audience_no_gig: resolvedShowInAudienceNoGig,
           cover_image_url: options?.coverImageUrl ?? null,
           event_type: options?.eventType ?? 'halli-live',
           karafun_url: options?.karafunUrl ?? null,
@@ -3123,6 +3189,8 @@ function QueueProvider({ children }: PropsWithChildren) {
         if (!newEvent?.id) {
           throw new Error('Unable to create gig.')
         }
+
+        setTestGigFlag(newEvent.id, options?.isTestGig ?? false)
 
         const { defaultPlaylistId, karaokePlaylistId } = await ensureDefaultHostPlaylists(authenticatedUserId, normalizedName)
 

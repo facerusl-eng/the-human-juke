@@ -55,7 +55,8 @@ function CreateGigPage() {
   const [artistName, setArtistName] = useState('')
   const [audienceVotingEnabled, setAudienceVotingEnabled] = useState(true)
   const [showInAudienceNoGig, setShowInAudienceNoGig] = useState(false)
-    const [autoLiveEnabled, setAutoLiveEnabled] = useState(false)
+  const [isTestGig, setIsTestGig] = useState(false)
+  const [autoLiveEnabled, setAutoLiveEnabled] = useState(false)
   const [introAudioUrl, setIntroAudioUrl] = useState<string | null>(null)
   const [introAudioName, setIntroAudioName] = useState('')
   const [selectedIntroAudioPath, setSelectedIntroAudioPath] = useState<string>('')
@@ -278,7 +279,7 @@ function CreateGigPage() {
           gigDate: gigDate || undefined,
           gigStartTime: gigStartTime || undefined,
           gigEndTime: gigEndTime || undefined,
-          showInAudienceNoGig,
+          showInAudienceNoGig: isTestGig ? false : showInAudienceNoGig,
           coverImageUrl: coverImageDataUrl,
           subtitle: description.trim() || undefined,
           eventType,
@@ -287,9 +288,10 @@ function CreateGigPage() {
           audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
           autoLiveEnabled,
           introAudioUrl,
+          isTestGig,
         }
       : {
-          showInAudienceNoGig,
+          showInAudienceNoGig: isTestGig ? false : showInAudienceNoGig,
           coverImageUrl: coverImageDataUrl,
           subtitle: description.trim() || undefined,
           eventType,
@@ -298,6 +300,7 @@ function CreateGigPage() {
           audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
           autoLiveEnabled,
           introAudioUrl,
+          isTestGig,
         }
 
     try {
@@ -677,8 +680,22 @@ function CreateGigPage() {
               type="checkbox"
               checked={showInAudienceNoGig}
               onChange={(e) => setShowInAudienceNoGig(e.target.checked)}
+              disabled={isTestGig}
             />
             <span>Show this event in the Audience App when no gig is running</span>
+          </label>
+          {isTestGig ? (
+            <p className="field-hint">Test gigs stay private and are never shown in audience fallback lists.</p>
+          ) : null}
+
+          <label className="checkbox-row create-gig-checkbox-row" htmlFor="is-test-gig">
+            <input
+              id="is-test-gig"
+              type="checkbox"
+              checked={isTestGig}
+              onChange={(e) => setIsTestGig(e.target.checked)}
+            />
+            <span>Create as private Test Gig (host-only)</span>
           </label>
 
           <label className="checkbox-row create-gig-checkbox-row" htmlFor="auto-live-enabled">

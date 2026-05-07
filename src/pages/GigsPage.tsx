@@ -346,6 +346,7 @@ function GigsPage() {
                     <div className="gig-management-title-row">
                       <p className="gig-management-title">{hostEvent.name}</p>
                       <span className="meta-badge">{formatEventTypeLabel(hostEvent.eventType)}</span>
+                      {hostEvent.isTestGig ? <span className="meta-badge">Test Gig (Private)</span> : null}
                       {hostEvent.autoLiveEnabled ? <span className="meta-badge">Auto Live</span> : null}
                       {hostEvent.isActive ? <span className="meta-badge">Live for audience</span> : null}
                       {hostEvent.showInAudienceNoGig ? <span className="meta-badge">Shown when no live gig</span> : null}
@@ -389,12 +390,12 @@ function GigsPage() {
                     <button
                       type="button"
                       className="ghost-button"
-                      disabled={hostEvent.isActive || isBusy}
+                      disabled={hostEvent.isActive || isBusy || hostEvent.isTestGig}
                       onClick={() => {
                         void chooseGig(hostEvent.id, false)
                       }}
                     >
-                      {hostEvent.isActive ? 'Live Now' : isActivating ? 'Switching…' : 'Set Live Only'}
+                      {hostEvent.isTestGig ? 'Private Test' : hostEvent.isActive ? 'Live Now' : isActivating ? 'Switching…' : 'Set Live Only'}
                     </button>
                     <button
                       type="button"
@@ -409,13 +410,15 @@ function GigsPage() {
                     <button
                       type="button"
                       className="ghost-button"
-                      disabled={isBusy}
+                      disabled={isBusy || hostEvent.isTestGig}
                       onClick={() => {
                         void toggleAudienceFallbackVisibility(hostEvent.id, !hostEvent.showInAudienceNoGig)
                       }}
                     >
                       {isUpdatingNoLiveVisibility
                         ? 'Saving…'
+                        : hostEvent.isTestGig
+                        ? 'Private Test'
                         : hostEvent.showInAudienceNoGig
                         ? 'Hide from No-Live Page'
                         : 'Show on No-Live Page'}
