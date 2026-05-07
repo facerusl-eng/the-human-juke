@@ -1,8 +1,12 @@
 import 'dotenv/config'
+import { spawn } from 'node:child_process'
 import express from 'express'
+import { fileURLToPath } from 'node:url'
 
 const app = express()
 const port = Number(process.env.SPOTIFY_SERVER_PORT ?? 3001)
+const projectRoot = fileURLToPath(new URL('..', import.meta.url))
+const mixerPresetScriptPath = fileURLToPath(new URL('../scripts/apply-backing-preset.mjs', import.meta.url))
 
 const spotifyClientId = process.env.SPOTIFY_CLIENT_ID ?? '510534c3ee9046aba1b67cb526ef8b1c'
 const spotifySecretKeyNames = ['SPOTIFY_CLIENT_SECRET', 'SPOTIFY_SECRET', 'SPOTIFYCLIENTSECRET']
@@ -14,6 +18,48 @@ const spotifyScopes = 'user-read-playback-state user-modify-playback-state strea
 let latestRefreshToken = process.env.SPOTIFY_REFRESH_TOKEN ?? null
 
 app.use(express.json())
+
+async function runMixerRepairScript() {
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [mixerPresetScriptPath], {
+      cwd: projectRoot,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+
+    let stdout = ''
+    let stderr = ''
+    const timeoutId = setTimeout(() => {
+      child.kill('SIGTERM')
+      reject(new Error('Mixer repair timed out.'))
+    }, 20000)
+
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk)
+    })
+
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk)
+    })
+
+    child.on('error', (error) => {
+      clearTimeout(timeoutId)
+      reject(error)
+    })
+
+    child.on('close', (code) => {
+      clearTimeout(timeoutId)
+
+      if (code === 0) {
+        resolve({ stdout, stderr })
+        return
+      }
+
+      const combined = [stdout.trim(), stderr.trim()].filter(Boolean).join('\n')
+      reject(new Error(combined || `Mixer repair exited with code ${code}.`))
+    })
+  })
+}
 
 function getSpotifyClientSecret() {
   for (const keyName of spotifySecretKeyNames) {
@@ -188,6 +234,23 @@ app.get('/api/spotify/token', async (_req, res) => {
     console.error('Spotify refresh error', error)
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Spotify token refresh failed.',
+    })
+  }
+})
+
+app.post('/api/mixer/auto-fix', async (_req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    res.status(403).json({ error: 'Mixer auto-fix is only available in the local laptop admin app.' })
+    return
+  }
+
+  try {
+    await runMixerRepairScript()
+    res.json({ ok: true, detail: 'Local mixer preset repair ran successfully.' })
+  } catch (error) {
+    console.error('Mixer auto-fix error', error)
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Mixer auto-fix failed.',
     })
   }
 })

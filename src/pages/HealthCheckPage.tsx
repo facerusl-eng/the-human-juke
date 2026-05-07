@@ -117,6 +117,20 @@ function formatBytesToMb(bytes: number) {
   return `${Math.round(bytes / (1024 * 1024))} MB`
 }
 
+function isLocalHostName(hostname: string) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+}
+
+function isLikelyMobileOrTablet() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
+function formatMixerAttemptDetail(attempts: Array<{ ip: string; result: { ok: boolean; latencyMs: number; reason: string } }>) {
+  return attempts
+    .map((entry) => `${entry.ip}: ${entry.result.reason || 'No response'} (${entry.result.latencyMs}ms)`)
+    .join(' · ')
+}
+
 const MIXER_CANDIDATE_IPS = ['192.168.10.70', '192.168.10.20']
 
 async function probeMixerHost(ip: string, timeoutMs: number) {
@@ -150,6 +164,26 @@ async function probeMixerHost(ip: string, timeoutMs: number) {
   }
 }
 
+async function runLocalMixerAutoFix() {
+  const response = await fetch('/api/mixer/auto-fix', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ candidateIps: MIXER_CANDIDATE_IPS }),
+  })
+
+  const payload = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(typeof payload?.error === 'string' ? payload.error : 'Automatic mixer repair failed.')
+  }
+
+  return {
+    detail: typeof payload?.detail === 'string' ? payload.detail : 'Automatic mixer repair completed.',
+  }
+}
+
 function HealthCheckPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
@@ -157,6 +191,19 @@ function HealthCheckPage() {
   const [results, setResults] = useState<Record<HealthCheckId, HealthCheckResult>>(buildDefaultResults)
   const [runningAll, setRunningAll] = useState(false)
   const [lastRunAt, setLastRunAt] = useState<string | null>(null)
+
+  const canRunMixerLanCheck = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return isLocalHostName(window.location.hostname) && !isLikelyMobileOrTablet()
+  }, [])
+
+  const availableChecks = useMemo(
+    () => HEALTH_CHECKS.filter((check) => check.id !== 'mixerLan' || canRunMixerLanCheck),
+    [canRunMixerLanCheck],
+  )
 
   const runCheck = useCallback(async (checkId: HealthCheckId) => {
     const startedAt = performance.now()
@@ -186,6 +233,10 @@ function HealthCheckPage() {
         }
 
         case 'mixerLan': {
+          if (!canRunMixerLanCheck) {
+            throw new Error('Mixer LAN Connection is only available in the local laptop admin app.')
+          }
+
           if (!navigator.onLine) {
             throw new Error('Device is offline — connect to the mixer LAN/Wi-Fi first.')
           }
@@ -201,16 +252,47 @@ function HealthCheckPage() {
           const durationMs = Math.round(performance.now() - startedAt)
 
           if (!reachable) {
-            const detail = attempts
-              .map((entry) => `${entry.ip}: ${entry.result.reason || 'No response'} (${entry.result.latencyMs}ms)`)
-              .join(' · ')
+            setResults((currentResults) => ({
+              ...currentResults,
+              mixerLan: {
+                status: 'running',
+                detail: 'Mixer not reachable. Attempting automatic local repair...',
+                durationMs,
+              },
+            }))
+
+            const repair = await runLocalMixerAutoFix()
+
+            const retryAttempts = await Promise.all(
+              MIXER_CANDIDATE_IPS.map(async (ip) => ({
+                ip,
+                result: await probeMixerHost(ip, 2600),
+              })),
+            )
+
+            const repairedReachable = retryAttempts.find((entry) => entry.result.ok)
+
+            if (repairedReachable) {
+              setResults((currentResults) => ({
+                ...currentResults,
+                mixerLan: {
+                  status: 'ok',
+                  detail: `Auto-fix completed. Mixer reachable at ${repairedReachable.ip} (${repairedReachable.result.latencyMs}ms). ${repair.detail}`,
+                  durationMs: Math.round(performance.now() - startedAt),
+                },
+              }))
+
+              return
+            }
+
+            const detail = formatMixerAttemptDetail(retryAttempts)
 
             const browserRestrictionHint = window.location.protocol === 'https:'
               ? ' Browser security can block direct LAN probes from HTTPS pages. If needed, run this check from your local LAN host setup.'
               : ''
 
             throw new Error(
-              `Mixer not reachable on LAN. Tried ${MIXER_CANDIDATE_IPS.join(', ')}. ${detail}.${browserRestrictionHint}`,
+              `Auto-fix ran but mixer is still not reachable on LAN. Tried ${MIXER_CANDIDATE_IPS.join(', ')}. ${detail}.${browserRestrictionHint}`,
             )
           }
 
@@ -490,25 +572,25 @@ function HealthCheckPage() {
         },
       }))
     }
-  }, [event?.id, user?.id])
+  }, [canRunMixerLanCheck, event?.id, user?.id])
 
   const runAllChecks = useCallback(async () => {
     setRunningAll(true)
 
-    for (const check of HEALTH_CHECKS) {
+    for (const check of availableChecks) {
       await runCheck(check.id)
     }
 
     setLastRunAt(new Date().toLocaleTimeString())
     setRunningAll(false)
-  }, [runCheck])
+  }, [availableChecks, runCheck])
 
   useEffect(() => {
     void runAllChecks()
   }, [runAllChecks])
 
   const summary = useMemo(() => {
-    const allResults = HEALTH_CHECKS.map((check) => results[check.id])
+    const allResults = availableChecks.map((check) => results[check.id])
     const failedCount = allResults.filter((result) => result.status === 'error').length
 
     if (failedCount === 0) {
@@ -522,7 +604,7 @@ function HealthCheckPage() {
       label: `${failedCount} check${failedCount === 1 ? '' : 's'} need attention`,
       tone: 'error',
     }
-  }, [results])
+  }, [availableChecks, results])
 
   return (
     <section className="admin-shell" aria-label="Pre-gig health check">
@@ -553,7 +635,7 @@ function HealthCheckPage() {
         </div>
       </section>
 
-      {HEALTH_CHECKS.map((check) => {
+      {availableChecks.map((check) => {
         const result = results[check.id]
         const tone = result.status === 'ok' ? 'saved' : result.status === 'error' ? 'error' : result.status === 'running' ? 'saving' : 'unsaved'
 
