@@ -45,6 +45,7 @@ function generateId() {
 }
 
 export function AiManagerPanel({ pipeline }: Props) {
+  const [avatarBroken, setAvatarBroken] = useState(false)
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -143,7 +144,18 @@ export function AiManagerPanel({ pipeline }: Props) {
         <div className="ai-manager-panel" role="dialog" aria-label="AI Booking Manager">
           <div className="ai-manager-header">
             <div className="ai-manager-header-info">
-              <span className="ai-manager-avatar">🎙️</span>
+              <span className="ai-manager-avatar" aria-hidden="true">
+                {!avatarBroken ? (
+                  <img
+                    src="/images/brian-epstein-avatar.png"
+                    alt=""
+                    className="ai-manager-avatar-image"
+                    onError={() => setAvatarBroken(true)}
+                  />
+                ) : (
+                  <span className="ai-manager-avatar-fallback">BE</span>
+                )}
+              </span>
               <div>
                 <p className="ai-manager-name">Brian Epstein</p>
                 <p className="ai-manager-title">AI Booking Manager</p>
@@ -240,7 +252,18 @@ export function AiManagerPanel({ pipeline }: Props) {
         onClick={() => setOpen(prev => !prev)}
         aria-label={open ? 'Close AI manager' : 'Open AI booking manager'}
       >
-        <span className="ai-manager-fab-icon">🎙️</span>
+        <span className="ai-manager-fab-icon" aria-hidden="true">
+          {!avatarBroken ? (
+            <img
+              src="/images/brian-epstein-avatar.png"
+              alt=""
+              className="ai-manager-fab-image"
+              onError={() => setAvatarBroken(true)}
+            />
+          ) : (
+            <span className="ai-manager-avatar-fallback">BE</span>
+          )}
+        </span>
         {!open && <span className="ai-manager-fab-label">Brian Epstein</span>}
       </button>
     </div>
