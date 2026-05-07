@@ -81,7 +81,7 @@ function parseOutreachSession(raw: string | null): OutreachSessionState | null {
       return null
     }
 
-    const locationQuery = typeof parsed.locationQuery === 'string' ? parsed.locationQuery : 'Copenhagen, Denmark'
+    const locationQuery = typeof parsed.locationQuery === 'string' ? parsed.locationQuery : '2200'
     const radius = Number(parsed.radiusKm)
     const radiusKm = Number.isFinite(radius) ? Math.max(1, Math.min(60, radius)) : 8
     const sortMode: SortMode = parsed.sortMode === 'distance' || parsed.sortMode === 'name' ? parsed.sortMode : 'score'
@@ -245,7 +245,7 @@ function VenueOutreachPage() {
     return parseOutreachSession(window.localStorage.getItem(OUTREACH_SESSION_STORAGE_KEY))
   }, [])
 
-  const [locationQuery, setLocationQuery] = useState(savedSession?.locationQuery ?? 'Copenhagen, Denmark')
+  const [locationQuery, setLocationQuery] = useState(savedSession?.locationQuery ?? '2200')
   const [radiusKm, setRadiusKm] = useState(savedSession?.radiusKm ?? 8)
   const [sortMode, setSortMode] = useState<SortMode>(savedSession?.sortMode ?? 'score')
   const [templateMode, setTemplateMode] = useState<TemplateMode>(savedSession?.templateMode ?? 'auto')
@@ -777,13 +777,13 @@ function VenueOutreachPage() {
             <div className="venue-outreach-section-lead">
               <span className="venue-outreach-section-tag">Venue discovery</span>
               <h3>Search area and filters</h3>
-              <p>Set the area, radius, and ranking before pulling a fresh venue list.</p>
+              <p>Use a Danish post nr or zip code, then set radius and ranking before pulling a fresh venue list.</p>
             </div>
 
             <div className="form-grid two-col venue-outreach-form-grid">
               <label>
-                Search area
-                <input value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="City or area" className="queue-input" />
+                Danish post nr / zip code
+                <input value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="e.g. 2200" inputMode="numeric" className="queue-input" />
               </label>
               <label>
                 Custom radius (km)

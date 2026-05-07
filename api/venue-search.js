@@ -38,20 +38,6 @@ function formatAddress(tags = {}) {
 
 function formatReverseAddress(payload = {}) {
   const address = payload?.address || {}
-  const street = cleanString(address.road || address.pedestrian || address.footway || address.path)
-  const houseNumber = cleanString(address.house_number)
-  const postcode = cleanString(address.postcode)
-  const city = cleanString(address.city || address.town || address.village || address.hamlet || address.municipality)
-  const suburb = cleanString(address.suburb || address.city_district || address.county)
-
-  const streetLine = [street, houseNumber].filter(Boolean).join(' ')
-  const localityLine = [postcode, city || suburb].filter(Boolean).join(' ')
-  const fallback = cleanString(payload?.display_name)
-
-  return [streetLine, localityLine].filter(Boolean).join(', ') || fallback
-}
-function formatReverseAddress(payload = {}) {
-  const address = payload?.address || {}
   const street = cleanString(address.road || address.pedestrian || address.footway || address.path || address.street)
   const houseNumber = cleanString(address.house_number)
   const postcode = cleanString(address.postcode)
@@ -71,6 +57,17 @@ function formatReverseAddress(payload = {}) {
   const displayName = cleanString(payload?.display_name)
   return displayName && displayName.length > 5 ? displayName.substring(0, 100) : ''
 }
+
+function normalizeLocationQuery(location) {
+  const normalized = cleanString(location)
+
+  if (/^\d{4}$/.test(normalized)) {
+    return `${normalized}, Denmark`
+  }
+
+  return normalized
+}
+
 async function reverseGeocodeAddress(lat, lon) {
   try {
     const reverseUrl = new URL('https://nominatim.openstreetmap.org/reverse')
@@ -118,36 +115,6 @@ async function reverseGeocodeAddress(lat, lon) {
   }
 }
 
-async function enrichMissingVenueAddresses(venues) {
-  const missingVenues = venues.filter((venue) => !venue.address)
-  
-  if (missingVenues.length === 0) {
-    return
-  }
-
-  const lookupBudget = Math.min(15, missingVenues.length)
-  
-  // Process in parallel with a limit to avoid overwhelming Nominatim
-  const promises = []
-  for (let i = 0; i < lookupBudget; i += 1) {
-    const venue = missingVenues[i]
-    const promise = reverseGeocodeAddress(venue.lat, venue.lon)
-      .then((address) => {
-        if (address.trim()) {
-          venue.address = address
-        }
-        return venue
-      })
-      .catch(() => venue)
-    
-    promises.push(promise)
-  }
-  
-  // Wait for all geocoding requests to complete
-  await Promise.allSettled(promises)
-  
-  console.log(`Enriched ${lookupBudget} venues with missing addresses`)
-}
 async function enrichMissingVenueAddresses(venues) {
   const missingVenues = venues.filter((venue) => !venue.address)
   
@@ -229,7 +196,7 @@ export default async function handler(req, res) {
     return
   }
 
-  const location = cleanString(req.query.location)
+  const location = normalizeLocationQuery(req.query.location)
   const radiusKm = Math.max(1, Math.min(60, toNumber(req.query.radiusKm, 6)))
   const limit = Math.max(5, Math.min(80, toNumber(req.query.limit, 30)))
 
