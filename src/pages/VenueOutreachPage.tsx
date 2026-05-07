@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AiManagerPanel } from '../components/AiManagerPanel'
 import '../venue-outreach.css'
 
 type PipelineStage = 'new' | 'contacted' | 'replied' | 'negotiating' | 'confirmed' | 'lost'
@@ -1101,6 +1102,14 @@ function VenueOutreachPage() {
           </ul>
         )}
       </section>
+
+      <AiManagerPanel
+        pipeline={{
+          analytics,
+          pendingTasks,
+          venues: sortedVenues,
+        }}
+      />
     </section>
   )
 }
