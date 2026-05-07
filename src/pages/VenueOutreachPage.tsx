@@ -67,7 +67,7 @@ type OutreachSessionState = {
   senderName: string
   senderEmail: string
   venues: Venue[]
-  centerInfo: { label: string; lat: number; lon: number } | null
+  centerInfo: { label: string; address: string; provider: string; lat: number; lon: number } | null
 }
 
 function parseOutreachSession(raw: string | null): OutreachSessionState | null {
@@ -97,9 +97,17 @@ function parseOutreachSession(raw: string | null): OutreachSessionState | null {
     const center = parsed.centerInfo
     const centerInfo = center && typeof center === 'object'
       && typeof center.label === 'string'
+      && typeof center.address === 'string'
+      && typeof center.provider === 'string'
       && Number.isFinite(Number(center.lat))
       && Number.isFinite(Number(center.lon))
-      ? { label: center.label, lat: Number(center.lat), lon: Number(center.lon) }
+      ? {
+        label: center.label,
+        address: center.address,
+        provider: center.provider,
+        lat: Number(center.lat),
+        lon: Number(center.lon),
+      }
       : null
 
     return {
@@ -262,7 +270,7 @@ function VenueOutreachPage() {
   const [searchError, setSearchError] = useState<string | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
   const [statusText, setStatusText] = useState<string | null>(null)
-  const [centerInfo, setCenterInfo] = useState<{ label: string; lat: number; lon: number } | null>(savedSession?.centerInfo ?? null)
+  const [centerInfo, setCenterInfo] = useState<{ label: string; address: string; provider: string; lat: number; lon: number } | null>(savedSession?.centerInfo ?? null)
 
   const [logEntries, setLogEntries] = useState<OutreachLogEntry[]>(() => {
     if (typeof window === 'undefined') {
@@ -411,6 +419,8 @@ function VenueOutreachPage() {
       if (hasCenter) {
         setCenterInfo({
           label: String(center?.location || locationQuery),
+          address: String(center?.address || center?.location || locationQuery),
+          provider: String(center?.provider || 'Nominatim (OpenStreetMap)'),
           lat: centerLat,
           lon: centerLon,
         })
@@ -918,9 +928,10 @@ function VenueOutreachPage() {
         </div>
 
         {centerInfo ? (
-          <p className="subcopy">
-            Search center: {centerInfo.label}
-          </p>
+          <div>
+            <p className="subcopy">Search provider: {centerInfo.provider}</p>
+            <p className="subcopy">Search center: {centerInfo.address}</p>
+          </div>
         ) : null}
         {searchError ? <p className="error-text">{searchError}</p> : null}
         {sendError ? <p className="error-text">{sendError}</p> : null}

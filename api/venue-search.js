@@ -293,6 +293,8 @@ export default async function handler(req, res) {
       ok: true,
       center: {
         location: place.display_name || location,
+        address: place.display_name || location,
+        provider: 'Nominatim (OpenStreetMap)',
         lat,
         lon,
       },
