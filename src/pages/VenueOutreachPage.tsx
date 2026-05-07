@@ -137,6 +137,23 @@ const TEMPLATE_TEXT: Record<Exclude<TemplateMode, 'auto' | 'custom'>, string> = 
   corporate: 'We deliver a polished interactive live music concept perfect for company nights and branded events. Guests request songs, vote live, and stay engaged throughout.\n\nWould you like a proposal for an upcoming corporate event?',
 }
 
+const SEARCH_RADIUS_OPTIONS = [5, 8, 12, 20]
+
+const SORT_MODE_OPTIONS: Array<{ value: SortMode; label: string; description: string }> = [
+  { value: 'score', label: 'Best leads', description: 'Prioritize venues with the strongest fit.' },
+  { value: 'distance', label: 'Closest first', description: 'Keep routing tighter around the search center.' },
+  { value: 'name', label: 'A-Z', description: 'Scan venues alphabetically.' },
+]
+
+const TEMPLATE_MODE_OPTIONS: Array<{ value: TemplateMode; label: string; description: string }> = [
+  { value: 'auto', label: 'Auto', description: 'Match the message to each venue type.' },
+  { value: 'pub', label: 'Pub / Bar', description: 'High-energy nightlife positioning.' },
+  { value: 'restaurant', label: 'Restaurant', description: 'Keep it polished and service-friendly.' },
+  { value: 'hotel', label: 'Hotel', description: 'Premium event-night framing.' },
+  { value: 'corporate', label: 'Corporate', description: 'Professional private-event angle.' },
+  { value: 'custom', label: 'Custom', description: 'Use the exact copy written below.' },
+]
+
 function parseJsonArray<T>(raw: string | null): T[] {
   if (!raw) {
     return []
@@ -755,85 +772,149 @@ function VenueOutreachPage() {
         <div className="panel-head">
           <h2>Search & Campaign</h2>
         </div>
-        <div className="form-grid two-col venue-outreach-form-grid">
-          <label>
-            Search area
-            <input value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="City or area" className="queue-input" />
-          </label>
-          <label>
-            Radius (km)
-            <input
-              type="number"
-              min={1}
-              max={60}
-              value={radiusKm}
-              onChange={(event) => {
-                const value = Number(event.target.value)
-                const normalized = Number.isFinite(value) ? value : 1
-                setRadiusKm(Math.max(1, Math.min(60, normalized)))
-              }}
-              className="queue-input"
-            />
-          </label>
-          <label>
-            Campaign name
-            <input value={campaignName} onChange={(event) => setCampaignName(event.target.value)} className="queue-input" />
-          </label>
-          <label>
-            Sort venues by
-            <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className="queue-input">
-              <option value="score">Lead Score</option>
-              <option value="distance">Distance</option>
-              <option value="name">Name</option>
-            </select>
-          </label>
-          <label>
-            Your name
-            <input value={senderName} onChange={(event) => setSenderName(event.target.value)} className="queue-input" />
-          </label>
-          <label>
-            Reply-to email
-            <input type="email" value={senderEmail} onChange={(event) => setSenderEmail(event.target.value)} placeholder="you@example.com" className="queue-input" />
-          </label>
-        </div>
+        <div className="venue-outreach-campaign-stack">
+          <section className="venue-outreach-control-card" aria-label="Search settings">
+            <div className="venue-outreach-section-lead">
+              <span className="venue-outreach-section-tag">Venue discovery</span>
+              <h3>Search area and filters</h3>
+              <p>Set the area, radius, and ranking before pulling a fresh venue list.</p>
+            </div>
 
-        <div className="form-grid two-col venue-outreach-form-grid">
-          <label>
-            Template mode
-            <select value={templateMode} onChange={(event) => setTemplateMode(event.target.value as TemplateMode)} className="queue-input">
-              <option value="auto">Auto by venue type</option>
-              <option value="pub">Pub/Bar</option>
-              <option value="restaurant">Restaurant/Cafe</option>
-              <option value="hotel">Hotel</option>
-              <option value="corporate">Corporate</option>
-              <option value="custom">Custom text</option>
-            </select>
-          </label>
-          <div className="hero-actions venue-actions-end">
-            <button type="button" className="secondary-button" onClick={applyTemplateToComposer} disabled={templateMode === 'auto' || templateMode === 'custom'}>
-              Load Selected Template
+            <div className="form-grid two-col venue-outreach-form-grid">
+              <label>
+                Search area
+                <input value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="City or area" className="queue-input" />
+              </label>
+              <label>
+                Custom radius (km)
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={radiusKm}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    const normalized = Number.isFinite(value) ? value : 1
+                    setRadiusKm(Math.max(1, Math.min(60, normalized)))
+                  }}
+                  className="queue-input"
+                />
+              </label>
+            </div>
+
+            <div className="venue-choice-group" aria-label="Radius quick choices">
+              <div className="venue-choice-group-head">
+                <h4>Radius quick pick</h4>
+                <span>{radiusKm} km selected</span>
+              </div>
+              <div className="venue-choice-pills">
+                {SEARCH_RADIUS_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`venue-choice-pill ${radiusKm === option ? 'is-active' : ''}`}
+                    onClick={() => setRadiusKm(option)}
+                  >
+                    {option} km
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="venue-choice-group" aria-label="Venue sort choices">
+              <div className="venue-choice-group-head">
+                <h4>Sort venues by</h4>
+                <span>{SORT_MODE_OPTIONS.find((option) => option.value === sortMode)?.label}</span>
+              </div>
+              <div className="venue-choice-grid venue-choice-grid-compact">
+                {SORT_MODE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`venue-choice-card ${sortMode === option.value ? 'is-active' : ''}`}
+                    onClick={() => setSortMode(option.value)}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="venue-outreach-control-card" aria-label="Campaign settings">
+            <div className="venue-outreach-section-lead">
+              <span className="venue-outreach-section-tag">Campaign setup</span>
+              <h3>Message and sender details</h3>
+              <p>Choose the angle, define the sender, and prepare the outreach copy.</p>
+            </div>
+
+            <div className="form-grid two-col venue-outreach-form-grid">
+              <label>
+                Campaign name
+                <input value={campaignName} onChange={(event) => setCampaignName(event.target.value)} className="queue-input" />
+              </label>
+              <label>
+                Your name
+                <input value={senderName} onChange={(event) => setSenderName(event.target.value)} className="queue-input" />
+              </label>
+              <label className="venue-outreach-form-span-full">
+                Reply-to email
+                <input type="email" value={senderEmail} onChange={(event) => setSenderEmail(event.target.value)} placeholder="you@example.com" className="queue-input" />
+              </label>
+            </div>
+
+            <div className="venue-choice-group" aria-label="Template choices">
+              <div className="venue-choice-group-head">
+                <h4>Template mode</h4>
+                <button
+                  type="button"
+                  className="secondary-button venue-inline-action"
+                  onClick={applyTemplateToComposer}
+                  disabled={templateMode === 'auto' || templateMode === 'custom'}
+                >
+                  Load template copy
+                </button>
+              </div>
+              <div className="venue-choice-grid">
+                {TEMPLATE_MODE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`venue-choice-card ${templateMode === option.value ? 'is-active' : ''}`}
+                    onClick={() => setTemplateMode(option.value)}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="venue-outreach-composer-field">
+              Concept message
+              <textarea value={conceptText} onChange={(event) => setConceptText(event.target.value)} className="queue-input" rows={7} />
+            </label>
+          </section>
+
+          <section className="venue-outreach-action-strip" aria-label="Search and send actions">
+            <button type="button" className="venue-action-card venue-action-card-search" onClick={() => void runVenueSearch()} disabled={searching || Boolean(sendingMode)}>
+              <span className="venue-action-card-title">{searching ? 'Searching…' : 'Find Nearby Venues'}</span>
+              <span className="venue-action-card-copy">Refresh the list around {locationQuery} with the current filters.</span>
             </button>
-          </div>
-        </div>
-
-        <label>
-          Concept message
-          <textarea value={conceptText} onChange={(event) => setConceptText(event.target.value)} className="queue-input" rows={7} />
-        </label>
-
-        <div className="hero-actions no-margin-bottom venue-action-row">
-          <button type="button" className="secondary-button" onClick={() => void runVenueSearch()} disabled={searching || Boolean(sendingMode)}>
-            {searching ? 'Searching…' : 'Find Nearby Venues'}
-          </button>
-          <button type="button" className="primary-button" onClick={() => void runSend('concept')} disabled={searching || Boolean(sendingMode)}>
-            {sendingMode === 'concept' ? 'Sending…' : `Send Concept (${selectedCount})`}
-          </button>
-          <button type="button" className="secondary-button" onClick={() => void runSend('offer')} disabled={searching || Boolean(sendingMode)}>
-            {sendingMode === 'offer' ? 'Sending Offer…' : `Send Offer Package (${selectedCount})`}
-          </button>
-          <button type="button" className="secondary-button" onClick={toggleSelectAll} disabled={!venues.length || searching || Boolean(sendingMode)}>
-            Toggle Select All
-          </button>
+            <button type="button" className="venue-action-card venue-action-card-primary" onClick={() => void runSend('concept')} disabled={searching || Boolean(sendingMode)}>
+              <span className="venue-action-card-title">{sendingMode === 'concept' ? 'Sending…' : `Send Concept (${selectedCount})`}</span>
+              <span className="venue-action-card-copy">Send the selected concept email to chosen venues.</span>
+            </button>
+            <button type="button" className="venue-action-card venue-action-card-secondary" onClick={() => void runSend('offer')} disabled={searching || Boolean(sendingMode)}>
+              <span className="venue-action-card-title">{sendingMode === 'offer' ? 'Sending Offer…' : `Send Offer Package (${selectedCount})`}</span>
+              <span className="venue-action-card-copy">Use the more commercial package pitch when the venue is warm.</span>
+            </button>
+            <button type="button" className="venue-action-card venue-action-card-muted" onClick={toggleSelectAll} disabled={!venues.length || searching || Boolean(sendingMode)}>
+              <span className="venue-action-card-title">Toggle Select All</span>
+              <span className="venue-action-card-copy">Quickly include or clear every result in the current list.</span>
+            </button>
+          </section>
         </div>
 
         {centerInfo ? (
