@@ -260,6 +260,9 @@ function AdminDashboardContent({
   const openReceivedBookings = useCallback(() => {
     navigate('/admin/received-bookings')
   }, [navigate])
+  const openVenueOutreach = useCallback(() => {
+    navigate('/admin/venue-outreach')
+  }, [navigate])
 
   useEffect(() => {
     if (!loading) {
@@ -484,6 +487,11 @@ function AdminDashboardContent({
       id: 'open-received-bookings',
       label: 'Received Bookings',
       onClick: openReceivedBookings,
+    },
+    {
+      id: 'open-venue-outreach',
+      label: 'Venue Outreach',
+      onClick: openVenueOutreach,
     },
   ]
   const retryDashboardActions: ActionButtonConfig[] = [

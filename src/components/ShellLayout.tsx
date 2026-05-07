@@ -30,7 +30,7 @@ function ShellLayout() {
   const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
-  const isGigNavActive = /^\/admin\/(gigs|create-gig|gig-control|gig-settings)/.test(location.pathname)
+  const isGigNavActive = /^\/admin\/(gigs|create-gig|gig-control|gig-settings|venue-outreach)/.test(location.pathname)
   const showMobileMenu = !isAudienceMode
   const hasLiveGig = Boolean(event?.roomOpen)
   const canOpenFeed = isHost || (hasAudienceAccess && hasLiveGig)
@@ -330,6 +330,7 @@ function ShellLayout() {
                       <NavLink to="/admin/create-gig" onClick={closeGigMenuAfterNavigation}>New Gig</NavLink>
                       <NavLink to="/admin/gig-control" onClick={closeGigMenuAfterNavigation}>Gig Control</NavLink>
                       <NavLink to="/admin/gig-settings" onClick={closeGigMenuAfterNavigation}>Gig Settings</NavLink>
+                      <NavLink to="/admin/venue-outreach" onClick={closeGigMenuAfterNavigation}>Venue Outreach</NavLink>
                     </div>
                   </div>
                   <NavLink to="/admin/health-check">Health Check</NavLink>
