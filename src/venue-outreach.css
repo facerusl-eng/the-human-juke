@@ -209,6 +209,21 @@
   margin-bottom: 0.35rem;
 }
 
+.venue-outreach-control-card label,
+.venue-outreach-composer-field {
+  display: grid;
+  gap: 0.45rem;
+  color: #dcecff;
+  font-weight: 600;
+}
+
+.venue-outreach-control-card label input,
+.venue-outreach-control-card label select,
+.venue-outreach-control-card label textarea,
+.venue-outreach-composer-field textarea {
+  width: 100%;
+}
+
 .venue-outreach-campaign-stack {
   display: grid;
   gap: 1rem;
@@ -269,6 +284,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .venue-choice-pills {
@@ -565,6 +581,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .venue-outreach-control-card label {
+    gap: 0.35rem;
+  }
+
   .venue-outreach-shell .hero-actions,
   .venue-outreach-shell .venue-action-row,
   .venue-outreach-shell .venue-link-row,
@@ -640,6 +660,15 @@
   .venue-choice-group-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .venue-choice-pills {
+    gap: 0.5rem;
+  }
+
+  .venue-choice-pill {
+    flex: 1 1 calc(50% - 0.5rem);
+    justify-content: center;
   }
 
   .venue-choice-grid,
