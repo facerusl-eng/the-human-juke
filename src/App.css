@@ -12950,17 +12950,28 @@ kbd {
       linear-gradient(155deg, rgba(11, 18, 39, 0.96), rgba(8, 12, 29, 0.96));
   }
 
+  /* Default: content fills full width when the side panel is hidden */
   .audience-no-gig-motion,
   .audience-entry-eyebrow,
   .audience-no-gig-card > h1,
   .audience-no-gig-countdown,
   .audience-no-gig-copy,
   .audience-no-gig-guide-actions {
-    grid-column: 1 / 6;
+    grid-column: 1 / -1;
+  }
+
+  /* When the "how it works" panel is toggled open, switch to two-column split */
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-motion,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-entry-eyebrow,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-card > h1,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-countdown,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-copy,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-guide-actions {
+    grid-column: 1 / 7;
   }
 
   .audience-no-gig-how-it-works {
-    grid-column: 6 / -1;
+    grid-column: 7 / -1;
     min-height: 100%;
     border-color: rgba(93, 215, 255, 0.3);
     background: rgba(9, 18, 39, 0.7);
