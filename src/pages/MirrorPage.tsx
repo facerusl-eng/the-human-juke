@@ -76,6 +76,8 @@ const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_BANNER_STORAGE_KEY = 'human-jukebox-mirror-banner-text'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
+const MIRROR_PROTECTED_INFO_FORCE_QUERY_PARAM = 'mirrorAccess'
+const MIRROR_ROUTER_PROBE_URL = 'http://192.168.10.1/favicon.ico'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
 
@@ -215,6 +217,75 @@ function isSpotifyAutoTransportEnabled() {
   }
 
   return window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY) !== '0'
+}
+
+function isIphoneLikeDevice() {
+  if (typeof navigator === 'undefined') {
+    return false
+  }
+
+  return /iPhone|iPod/i.test(navigator.userAgent)
+}
+
+function isPrivateLanHostname(hostname: string) {
+  if (!hostname) {
+    return false
+  }
+
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+    return true
+  }
+
+  if (/^192\.168\./.test(hostname)) {
+    return true
+  }
+
+  if (/^10\./.test(hostname)) {
+    return true
+  }
+
+  const match = hostname.match(/^172\.(\d{1,3})\./)
+  if (match) {
+    const secondOctet = Number.parseInt(match[1], 10)
+    return Number.isFinite(secondOctet) && secondOctet >= 16 && secondOctet <= 31
+  }
+
+  return false
+}
+
+function probeRouterReachability(timeoutMs = 1400) {
+  return new Promise<boolean>((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve(false)
+      return
+    }
+
+    const probeImage = new Image()
+    let settled = false
+
+    const complete = (result: boolean) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      resolve(result)
+    }
+
+    const timer = window.setTimeout(() => complete(false), timeoutMs)
+
+    probeImage.onload = () => {
+      window.clearTimeout(timer)
+      complete(true)
+    }
+
+    probeImage.onerror = () => {
+      window.clearTimeout(timer)
+      complete(false)
+    }
+
+    probeImage.src = `${MIRROR_ROUTER_PROBE_URL}?mirror-probe=${Date.now()}`
+  })
 }
 
 async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
@@ -670,6 +741,8 @@ function MirrorPage() {
   const [showShutterFallbackPulse, setShowShutterFallbackPulse] = useState(false)
   const [failedCoverUrls, setFailedCoverUrls] = useState<Record<string, true>>({})
   const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
+  const [isMirrorNetworkAllowed, setIsMirrorNetworkAllowed] = useState(false)
+  const [hasCheckedMirrorNetworkAccess, setHasCheckedMirrorNetworkAccess] = useState(false)
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const quoteIndexRef = useRef(0)
@@ -891,6 +964,62 @@ function MirrorPage() {
   const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
   const shouldShowAdminElements = isHost
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
+
+  useEffect(() => {
+    let isCurrent = true
+
+    const runAccessCheck = async () => {
+      const searchParams = new URLSearchParams(window.location.search)
+      const forceAccess = searchParams.get(MIRROR_PROTECTED_INFO_FORCE_QUERY_PARAM)?.trim().toLowerCase() === 'force'
+
+      if (forceAccess) {
+        if (!isCurrent) {
+          return
+        }
+
+        setIsMirrorNetworkAllowed(true)
+        setHasCheckedMirrorNetworkAccess(true)
+        return
+      }
+
+      if (isIphoneLikeDevice()) {
+        if (!isCurrent) {
+          return
+        }
+
+        setIsMirrorNetworkAllowed(false)
+        setHasCheckedMirrorNetworkAccess(true)
+        return
+      }
+
+      const hostname = window.location.hostname
+      const appearsOnPrivateLan = isPrivateLanHostname(hostname)
+      const routerReachable = appearsOnPrivateLan ? true : await probeRouterReachability()
+
+      if (!isCurrent) {
+        return
+      }
+
+      setIsMirrorNetworkAllowed(routerReachable)
+      setHasCheckedMirrorNetworkAccess(true)
+    }
+
+    void runAccessCheck()
+
+    const onOnlineOrFocus = () => {
+      void runAccessCheck()
+    }
+
+    window.addEventListener('online', onOnlineOrFocus)
+    window.addEventListener('focus', onOnlineOrFocus)
+
+    return () => {
+      isCurrent = false
+      window.removeEventListener('online', onOnlineOrFocus)
+      window.removeEventListener('focus', onOnlineOrFocus)
+    }
+  }, [])
+
   const countdownCopy = audienceLocale === 'da'
     ? {
         live: '● Live',
@@ -2181,6 +2310,38 @@ function MirrorPage() {
     return (
       <div className="mirror-shell">
         <p className="mirror-loading">Connecting to stage…</p>
+      </div>
+    )
+  }
+
+  if (!hasCheckedMirrorNetworkAccess) {
+    return (
+      <div className="mirror-shell">
+        <p className="mirror-loading">Checking secure mirror access…</p>
+      </div>
+    )
+  }
+
+  if (!isMirrorNetworkAllowed) {
+    return (
+      <div className="mirror-shell mirror-shell-paused" aria-label="Mirror access restricted">
+        <section className="mirror-pre-show" aria-label="Mirror access blocked">
+          <div className="mirror-pre-show-top">
+            <h1 className="mirror-pre-show-title">Skærmen er låst 🔒</h1>
+            <p className="mirror-pre-show-subtitle">
+              Tilslut denne enhed til <strong>Drifter 5G</strong> eller <strong>Drifter 2,4</strong> for at se scenetavlen.
+            </p>
+            <p className="mirror-pre-show-subtitle mirror-pre-show-subtitle-secondary">
+              Screen locked — connect to <strong>Drifter 5G</strong> or <strong>Drifter 2,4</strong> to view the mirror display.
+            </p>
+            <div className="mirror-countdown-card mirror-countdown-card-muted mirror-network-block-card" aria-label="Access rule">
+              <p className="mirror-countdown-label">WiFi</p>
+              <p className="mirror-countdown-value mirror-countdown-value-compact">Drifter 5G / Drifter 2,4</p>
+              <p className="mirror-countdown-label mirror-countdown-label-spaced">Adgangskode / Password</p>
+              <p className="mirror-countdown-value mirror-countdown-value-compact">Hallig6690?</p>
+            </div>
+          </div>
+        </section>
       </div>
     )
   }

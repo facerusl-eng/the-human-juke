@@ -6090,6 +6090,19 @@
   line-height: 1.4;
 }
 
+.mirror-pre-show-subtitle-secondary {
+  margin-top: 0.5rem;
+  opacity: 0.75;
+}
+
+.mirror-network-block-card {
+  margin-top: 1.5rem;
+}
+
+.mirror-countdown-label-spaced {
+  margin-top: 0.5rem;
+}
+
 /* ── MIDDLE section — two columns ────────────────────────────────────────── */
 
 .mirror-pre-show-middle {
