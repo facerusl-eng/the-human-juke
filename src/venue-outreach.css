@@ -224,6 +224,19 @@
   width: 100%;
 }
 
+.venue-outreach-control-card label input,
+.venue-outreach-control-card label textarea,
+.venue-outreach-control-card label select,
+.venue-outreach-composer-field textarea {
+  text-align: left;
+}
+
+.venue-outreach-control-card label input::placeholder,
+.venue-outreach-control-card label textarea::placeholder,
+.venue-outreach-composer-field textarea::placeholder {
+  text-align: left;
+}
+
 .venue-outreach-campaign-stack {
   display: grid;
   gap: 1rem;

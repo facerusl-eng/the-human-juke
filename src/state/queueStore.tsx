@@ -186,7 +186,7 @@ export type QueueContextValue = {
 }
 
 export const QueueContext = createContext<QueueContextValue | null>(null)
-const DEFAULT_DB_TIMEOUT_MS = 25_000
+const DEFAULT_DB_TIMEOUT_MS = 18_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
 const HOST_QUEUE_POLL_INTERVAL_MS = 15_000
 const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 30_000
@@ -194,9 +194,9 @@ const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 30_000
 const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 12_000
 // How often the audience checks for a new live gig when sitting on the no-gig screen.
 const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 8_000
-const DEGRADE_AFTER_CONSECUTIVE_FAILURES = 3
-const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 20_000
-const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 15_000
+const DEGRADE_AFTER_CONSECUTIVE_FAILURES = 2
+const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 15_000
+const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 10_000
 const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
 const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
 const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
@@ -1453,7 +1453,10 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
 
       const maxBackoffMs = isHostSession ? 4000 : 8000
-      const retryDelayMs = Math.min(1000 * (2 ** channelReconnectAttempt), maxBackoffMs)
+      const baseRetryDelayMs = Math.min(1000 * (2 ** channelReconnectAttempt), maxBackoffMs)
+      // Add jitter (±10%) to prevent thundering herd of simultaneous reconnects
+      const jitterMs = (Math.random() - 0.5) * baseRetryDelayMs * 0.2
+      const retryDelayMs = Math.max(100, baseRetryDelayMs + jitterMs)
       channelReconnectAttempt += 1
 
       channelReconnectTimerId = window.setTimeout(() => {
