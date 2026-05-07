@@ -2998,6 +2998,12 @@
 }
 
 .host-gate {
+  max-width: min(600px, 100%);
+  margin-inline: auto;
+  min-height: clamp(200px, 36vh, 340px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   border: 1px solid rgba(93, 215, 255, 0.38);
   background:
     radial-gradient(circle at 12% 10%, rgba(93, 215, 255, 0.2) 0%, transparent 35%),
