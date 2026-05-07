@@ -50,25 +50,36 @@ function formatReverseAddress(payload = {}) {
 }
 
 async function reverseGeocodeAddress(lat, lon) {
-  const reverseUrl = new URL('https://nominatim.openstreetmap.org/reverse')
-  reverseUrl.searchParams.set('lat', String(lat))
-  reverseUrl.searchParams.set('lon', String(lon))
-  reverseUrl.searchParams.set('format', 'jsonv2')
-  reverseUrl.searchParams.set('zoom', '18')
-  reverseUrl.searchParams.set('addressdetails', '1')
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 3000)
 
-  const response = await fetch(reverseUrl.toString(), {
-    headers: {
-      'User-Agent': 'human-jukebox-venue-search/1.0',
-    },
-  })
+  try {
+    const reverseUrl = new URL('https://nominatim.openstreetmap.org/reverse')
+    reverseUrl.searchParams.set('lat', String(lat))
+    reverseUrl.searchParams.set('lon', String(lon))
+    reverseUrl.searchParams.set('format', 'jsonv2')
+    reverseUrl.searchParams.set('zoom', '18')
+    reverseUrl.searchParams.set('addressdetails', '1')
 
-  if (!response.ok) {
+    const response = await fetch(reverseUrl.toString(), {
+      headers: {
+        'User-Agent': 'human-jukebox-venue-search/1.0',
+      },
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      return ''
+    }
+
+    const payload = await response.json().catch(() => null)
+    return formatReverseAddress(payload)
+  } catch (error) {
+    // Timeout or other fetch error
     return ''
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  const payload = await response.json().catch(() => null)
-  return formatReverseAddress(payload)
 }
 
 async function enrichMissingVenueAddresses(venues) {
@@ -219,7 +230,12 @@ export default async function handler(req, res) {
       }
     }
 
-    await enrichMissingVenueAddresses(venues)
+    try {
+      await enrichMissingVenueAddresses(venues)
+    } catch (enrichError) {
+      // Silently fail enrichment - we still have venues without full addresses
+      console.error('Address enrichment failed:', enrichError instanceof Error ? enrichError.message : enrichError)
+    }
 
     res.status(200).json({
       ok: true,
