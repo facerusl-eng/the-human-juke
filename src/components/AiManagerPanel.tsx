@@ -145,7 +145,7 @@ export function AiManagerPanel({ pipeline }: Props) {
             <div className="ai-manager-header-info">
               <span className="ai-manager-avatar">🎙️</span>
               <div>
-                <p className="ai-manager-name">Alex</p>
+                <p className="ai-manager-name">Brian Epstein</p>
                 <p className="ai-manager-title">AI Booking Manager</p>
               </div>
             </div>
@@ -168,7 +168,7 @@ export function AiManagerPanel({ pipeline }: Props) {
           <div className="ai-manager-messages">
             {messages.length === 0 && (
               <div className="ai-manager-empty">
-                <p className="ai-manager-empty-text">Hi, I'm Alex — your booking manager. Ask me anything about your pipeline, or pick a quick start:</p>
+                <p className="ai-manager-empty-text">Hi, I'm Brian Epstein - your booking manager. Ask me anything about your pipeline, or pick a quick start:</p>
                 <div className="ai-manager-starters">
                   {STARTERS.map(s => (
                     <button
@@ -217,7 +217,7 @@ export function AiManagerPanel({ pipeline }: Props) {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Alex anything..."
+              placeholder="Ask Brian Epstein anything..."
               rows={1}
               disabled={loading}
             />
@@ -241,7 +241,7 @@ export function AiManagerPanel({ pipeline }: Props) {
         aria-label={open ? 'Close AI manager' : 'Open AI booking manager'}
       >
         <span className="ai-manager-fab-icon">🎙️</span>
-        {!open && <span className="ai-manager-fab-label">Alex</span>}
+        {!open && <span className="ai-manager-fab-label">Brian Epstein</span>}
       </button>
     </div>
   )

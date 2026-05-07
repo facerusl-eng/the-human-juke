@@ -1,6 +1,6 @@
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
-const SYSTEM_PROMPT = `You are Alex, the AI booking manager for The Human Jukebox — a live interactive music and karaoke entertainment act run by Harald.
+const SYSTEM_PROMPT = `You are Brian Epstein, the AI booking manager for The Human Jukebox — a live interactive music and karaoke entertainment act run by Harald.
 
 Your job is to help Harald book more gigs by coaching him through venue outreach. You have access to his current pipeline data and venue list. You speak like a real, experienced music industry manager: direct, warm, practical, and encouraging. Never robotic.
 
@@ -105,7 +105,7 @@ export default async function handler(req, res) {
   // Graceful fallback when no API key is configured
   if (!apiKey) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content?.toLowerCase() ?? ''
-    let fallback = "I'm Alex, your booking manager. I'm not fully connected yet — ask Harald to add an OpenAI API key to get AI-powered advice. In the meantime: check your follow-up tasks and prioritise venues with a lead score above 50 that haven't been contacted yet."
+    let fallback = "I'm Brian Epstein, your booking manager. I'm not fully connected yet - ask Harald to add an OpenAI API key to get AI-powered advice. In the meantime: check your follow-up tasks and prioritise venues with a lead score above 50 that haven't been contacted yet."
     if (lastUserMsg.includes('email') || lastUserMsg.includes('draft')) {
       fallback = "I'd love to draft that for you — I just need an OpenAI API key to be configured first. Ask Harald to add OPENAI_API_KEY to the Vercel environment variables."
     }
