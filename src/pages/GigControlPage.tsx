@@ -1411,7 +1411,19 @@ function GigControlPage() {
             <div className="gig-mirror-preview-scale-shell">
               <div className="gig-mirror-preview-scale-canvas">
                 <div className="gig-mirror-preview-top">
-                  <span className="gig-mirror-preview-brand">Human Jukebox</span>
+                  <div className="gig-mirror-preview-brand-shell">
+                    {event.venueLogoUrl ? (
+                      <img
+                        src={event.venueLogoUrl}
+                        alt={`${event.venue || 'Venue'} logo`}
+                        className="gig-mirror-preview-venue-logo"
+                        onError={(errorEvent) => {
+                          errorEvent.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    ) : null}
+                    <span className="gig-mirror-preview-brand">Human Jukebox</span>
+                  </div>
                   <span className={`gig-mirror-preview-state ${event.roomOpen ? 'is-live' : 'is-paused'}`}>
                     {event.roomOpen ? 'Live' : 'Paused'}
                   </span>

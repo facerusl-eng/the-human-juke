@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import '../venue-outreach.css'
 
 type PipelineStage = 'new' | 'contacted' | 'replied' | 'negotiating' | 'confirmed' | 'lost'
 type SortMode = 'score' | 'distance' | 'name'
@@ -576,20 +577,44 @@ function VenueOutreachPage() {
   }
 
   return (
-    <section className="create-gig-shell" aria-label="Venue outreach manager">
-      <section className="hero-card create-gig-card">
+    <section className="create-gig-shell venue-outreach-shell" aria-label="Venue outreach manager">
+      <section className="hero-card create-gig-card venue-outreach-hero">
         <p className="eyebrow">Admin</p>
         <h1>Venue Outreach CRM</h1>
         <p className="subcopy">
           Lead scoring, nearby venue discovery, pipeline, follow-ups, and one-click concept or offer sending.
         </p>
+        <div className="venue-outreach-hero-meta" aria-label="Campaign highlights">
+          <span className="meta-badge">Campaign: {campaignName}</span>
+          <span className="meta-badge">Selected: {selectedCount}</span>
+          <span className="meta-badge">Open follow-ups: {pendingTasks.length}</span>
+        </div>
       </section>
 
-      <section className="queue-panel">
+      <section className="queue-panel venue-outreach-kpi-panel" aria-label="Outreach summary">
+        <article className="venue-kpi-card">
+          <span className="venue-kpi-label">Venues found</span>
+          <strong>{venues.length}</strong>
+        </article>
+        <article className="venue-kpi-card">
+          <span className="venue-kpi-label">Selected to send</span>
+          <strong>{selectedCount}</strong>
+        </article>
+        <article className="venue-kpi-card">
+          <span className="venue-kpi-label">Sent emails</span>
+          <strong>{analytics.sentCount}</strong>
+        </article>
+        <article className="venue-kpi-card">
+          <span className="venue-kpi-label">Success rate</span>
+          <strong>{analytics.successRate}%</strong>
+        </article>
+      </section>
+
+      <section className="queue-panel venue-outreach-campaign-panel">
         <div className="panel-head">
           <h2>Search & Campaign</h2>
         </div>
-        <div className="form-grid two-col">
+        <div className="form-grid two-col venue-outreach-form-grid">
           <label>
             Search area
             <input value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="City or area" className="queue-input" />
@@ -631,7 +656,7 @@ function VenueOutreachPage() {
           </label>
         </div>
 
-        <div className="form-grid two-col">
+        <div className="form-grid two-col venue-outreach-form-grid">
           <label>
             Template mode
             <select value={templateMode} onChange={(event) => setTemplateMode(event.target.value as TemplateMode)} className="queue-input">
@@ -643,7 +668,7 @@ function VenueOutreachPage() {
               <option value="custom">Custom text</option>
             </select>
           </label>
-          <div className="hero-actions" style={{ alignItems: 'end' }}>
+          <div className="hero-actions venue-actions-end">
             <button type="button" className="secondary-button" onClick={applyTemplateToComposer} disabled={templateMode === 'auto' || templateMode === 'custom'}>
               Load Selected Template
             </button>
@@ -655,7 +680,7 @@ function VenueOutreachPage() {
           <textarea value={conceptText} onChange={(event) => setConceptText(event.target.value)} className="queue-input" rows={7} />
         </label>
 
-        <div className="hero-actions no-margin-bottom">
+        <div className="hero-actions no-margin-bottom venue-action-row">
           <button type="button" className="secondary-button" onClick={() => void runVenueSearch()} disabled={searching || Boolean(sendingMode)}>
             {searching ? 'Searching…' : 'Find Nearby Venues'}
           </button>
@@ -680,11 +705,11 @@ function VenueOutreachPage() {
         {statusText ? <p className="subcopy">{statusText}</p> : null}
       </section>
 
-      <section className="queue-panel" aria-label="Pipeline and analytics">
+      <section className="queue-panel venue-outreach-analytics-panel" aria-label="Pipeline and analytics">
         <div className="panel-head">
           <h2>Pipeline & Analytics</h2>
         </div>
-        <div className="hero-actions" style={{ gap: 8 }}>
+        <div className="hero-actions venue-stage-row">
           {STAGE_ORDER.map((stage) => (
             <span key={stage} className="meta-badge">{STAGE_LABELS[stage]}: {Object.values(stageMap).filter((value) => value === stage).length}</span>
           ))}
@@ -694,7 +719,7 @@ function VenueOutreachPage() {
         </p>
       </section>
 
-      <section className="queue-panel" aria-label="Follow-up tasks">
+      <section className="queue-panel venue-outreach-tasks-panel" aria-label="Follow-up tasks">
         <div className="panel-head">
           <h2>Follow-up Tasks</h2>
           <span className="meta-badge">{pendingTasks.length} open</span>
@@ -703,11 +728,11 @@ function VenueOutreachPage() {
         {pendingTasks.length === 0 ? (
           <p className="subcopy no-margin-bottom">No pending follow-ups.</p>
         ) : (
-          <ul className="gig-management-list">
+          <ul className="gig-management-list venue-outreach-list">
             {pendingTasks.slice(0, 60).map((task) => {
               const overdue = new Date(task.dueAt).getTime() < Date.now()
               return (
-                <li key={task.id} className="gig-management-entry">
+                <li key={task.id} className="gig-management-entry venue-outreach-item">
                   <div className="gig-management-main">
                     <div className="gig-management-title-row">
                       <p className="gig-management-title">{task.venueName}</p>
@@ -715,7 +740,7 @@ function VenueOutreachPage() {
                       {overdue ? <span className="meta-badge">Overdue</span> : null}
                     </div>
                     <p className="gig-management-meta">Due: {new Date(task.dueAt).toLocaleString()}</p>
-                    <div className="hero-actions" style={{ gap: 8 }}>
+                    <div className="hero-actions venue-link-row">
                       <a className="secondary-button" href={`mailto:${encodeURIComponent(task.email)}`}>Email</a>
                       <button type="button" className="secondary-button" onClick={() => markTaskDone(task.id, true)}>Mark Done</button>
                     </div>
@@ -727,7 +752,7 @@ function VenueOutreachPage() {
         )}
       </section>
 
-      <section className="queue-panel" aria-label="Nearby venues">
+      <section className="queue-panel venue-outreach-venues-panel" aria-label="Nearby venues">
         <div className="panel-head">
           <h2>Nearby Venues</h2>
           <span className="meta-badge">{venues.length} found</span>
@@ -736,15 +761,15 @@ function VenueOutreachPage() {
         {sortedVenues.length === 0 ? (
           <p className="subcopy no-margin-bottom">Run a search to load nearby pubs and places.</p>
         ) : (
-          <ul className="gig-management-list">
+          <ul className="gig-management-list venue-outreach-list">
             {sortedVenues.map((venue) => {
               const mapUrl = `https://www.openstreetmap.org/?mlat=${venue.lat}&mlon=${venue.lon}#map=15/${venue.lat}/${venue.lon}`
               const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lon}`
               return (
-                <li key={venue.id} className="gig-management-entry">
+                <li key={venue.id} className="gig-management-entry venue-outreach-item venue-outreach-venue-item">
                   <div className="gig-management-main">
                     <div className="gig-management-title-row">
-                      <label className="queue-toggle" style={{ gap: 8 }}>
+                      <label className="queue-toggle queue-toggle-compact">
                         <input
                           type="checkbox"
                           checked={venue.selected}
@@ -797,7 +822,7 @@ function VenueOutreachPage() {
                       </label>
                     </div>
 
-                    <div className="hero-actions" style={{ gap: 8 }}>
+                    <div className="hero-actions venue-link-row">
                       <a className="secondary-button" href={mapUrl} target="_blank" rel="noreferrer">Map</a>
                       <a className="secondary-button" href={directionsUrl} target="_blank" rel="noreferrer">Route</a>
                       {venue.phone ? <a className="secondary-button" href={`tel:${venue.phone}`}>Call</a> : null}
@@ -811,7 +836,7 @@ function VenueOutreachPage() {
         )}
       </section>
 
-      <section className="queue-panel" aria-label="Outreach log">
+      <section className="queue-panel venue-outreach-log-panel" aria-label="Outreach log">
         <div className="panel-head">
           <h2>Outreach Log</h2>
           <div className="hero-actions no-margin-bottom">
@@ -824,9 +849,9 @@ function VenueOutreachPage() {
         {logEntries.length === 0 ? (
           <p className="subcopy no-margin-bottom">No outreach sent yet.</p>
         ) : (
-          <ul className="gig-management-list">
+          <ul className="gig-management-list venue-outreach-list">
             {logEntries.slice(0, 120).map((entry) => (
-              <li key={entry.id} className="gig-management-entry">
+              <li key={entry.id} className="gig-management-entry venue-outreach-item">
                 <div className="gig-management-main">
                   <div className="gig-management-title-row">
                     <p className="gig-management-title">{entry.venueName}</p>

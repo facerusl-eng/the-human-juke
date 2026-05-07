@@ -7,6 +7,7 @@ import { useQueueStore } from '../state/queueStore'
 
 type HealthCheckId =
   | 'network'
+  | 'mixerLan'
   | 'connectionStrength'
   | 'deviceMemory'
   | 'cpuCapacity'
@@ -35,6 +36,11 @@ const HEALTH_CHECKS: HealthCheckDefinition[] = [
     id: 'network',
     title: 'Network Reachability',
     description: 'Confirms the device is online and can reach live services.',
+  },
+  {
+    id: 'mixerLan',
+    title: 'Mixer LAN Connection',
+    description: 'Checks whether the XR18 mixer is reachable on your local network.',
   },
   {
     id: 'connectionStrength',
@@ -87,6 +93,7 @@ const DEFAULT_RESULT: HealthCheckResult = {
 function buildDefaultResults(): Record<HealthCheckId, HealthCheckResult> {
   return {
     network: { ...DEFAULT_RESULT },
+    mixerLan: { ...DEFAULT_RESULT },
     connectionStrength: { ...DEFAULT_RESULT },
     deviceMemory: { ...DEFAULT_RESULT },
     cpuCapacity: { ...DEFAULT_RESULT },
@@ -108,6 +115,39 @@ function formatDuration(durationMs: number | null) {
 
 function formatBytesToMb(bytes: number) {
   return `${Math.round(bytes / (1024 * 1024))} MB`
+}
+
+const MIXER_CANDIDATE_IPS = ['192.168.10.70', '192.168.10.20']
+
+async function probeMixerHost(ip: string, timeoutMs: number) {
+  const startedAt = performance.now()
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => {
+    controller.abort()
+  }, timeoutMs)
+
+  try {
+    await fetch(`http://${ip}/?_=${Date.now()}`, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+
+    return {
+      ok: true,
+      latencyMs: Math.round(performance.now() - startedAt),
+      reason: '',
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      latencyMs: Math.round(performance.now() - startedAt),
+      reason: error instanceof Error ? error.message : 'Connection failed',
+    }
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 }
 
 function HealthCheckPage() {
@@ -143,6 +183,47 @@ function HealthCheckPage() {
           }
 
           break
+        }
+
+        case 'mixerLan': {
+          if (!navigator.onLine) {
+            throw new Error('Device is offline — connect to the mixer LAN/Wi-Fi first.')
+          }
+
+          const attempts = await Promise.all(
+            MIXER_CANDIDATE_IPS.map(async (ip) => ({
+              ip,
+              result: await probeMixerHost(ip, 2200),
+            })),
+          )
+
+          const reachable = attempts.find((entry) => entry.result.ok)
+          const durationMs = Math.round(performance.now() - startedAt)
+
+          if (!reachable) {
+            const detail = attempts
+              .map((entry) => `${entry.ip}: ${entry.result.reason || 'No response'} (${entry.result.latencyMs}ms)`)
+              .join(' · ')
+
+            const browserRestrictionHint = window.location.protocol === 'https:'
+              ? ' Browser security can block direct LAN probes from HTTPS pages. If needed, run this check from your local LAN host setup.'
+              : ''
+
+            throw new Error(
+              `Mixer not reachable on LAN. Tried ${MIXER_CANDIDATE_IPS.join(', ')}. ${detail}.${browserRestrictionHint}`,
+            )
+          }
+
+          setResults((currentResults) => ({
+            ...currentResults,
+            mixerLan: {
+              status: 'ok',
+              detail: `Mixer reachable at ${reachable.ip} (${reachable.result.latencyMs}ms).`,
+              durationMs,
+            },
+          }))
+
+          return
         }
 
         case 'connectionStrength': {

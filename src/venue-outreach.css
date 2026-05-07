@@ -1,0 +1,142 @@
+.venue-outreach-shell {
+  gap: 1.1rem;
+}
+
+.venue-outreach-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.venue-outreach-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto -20% -55% auto;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 190, 90, 0.26) 0%, rgba(255, 190, 90, 0) 68%);
+  pointer-events: none;
+}
+
+.venue-outreach-hero-meta {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.venue-outreach-kpi-panel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  padding: 0.65rem;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 176, 76, 0.14) 0%, transparent 46%),
+    radial-gradient(circle at 95% 100%, rgba(93, 215, 255, 0.1) 0%, transparent 42%),
+    color-mix(in oklab, var(--panel) 92%, transparent);
+}
+
+.venue-kpi-card {
+  border: 1px solid rgba(153, 196, 255, 0.28);
+  border-radius: 14px;
+  padding: 0.8rem 0.9rem;
+  background: linear-gradient(145deg, rgba(10, 14, 34, 0.86) 0%, rgba(20, 28, 61, 0.88) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  display: grid;
+  gap: 0.3rem;
+}
+
+.venue-kpi-label {
+  color: #9eb6da;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.venue-kpi-card strong {
+  color: #f3f8ff;
+  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+}
+
+.venue-outreach-campaign-panel,
+.venue-outreach-analytics-panel,
+.venue-outreach-tasks-panel,
+.venue-outreach-venues-panel,
+.venue-outreach-log-panel {
+  border-color: rgba(160, 197, 255, 0.28);
+}
+
+.venue-outreach-shell .panel-head h2 {
+  letter-spacing: 0.01em;
+}
+
+.venue-outreach-form-grid {
+  margin-bottom: 0.35rem;
+}
+
+.venue-action-row,
+.venue-link-row,
+.venue-stage-row {
+  gap: 0.5rem;
+}
+
+.venue-actions-end {
+  align-items: flex-end;
+}
+
+.queue-toggle-compact {
+  gap: 0.5rem;
+}
+
+.venue-outreach-list {
+  gap: 0.7rem;
+}
+
+.venue-outreach-item {
+  border-radius: 16px;
+  border: 1px solid rgba(140, 173, 231, 0.2);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 169, 69, 0.08) 0%, transparent 34%),
+    linear-gradient(145deg, rgba(10, 14, 32, 0.85) 0%, rgba(13, 18, 44, 0.82) 100%);
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.venue-outreach-item:hover {
+  border-color: rgba(153, 223, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.venue-outreach-venue-item .gig-management-title {
+  font-size: 1.02rem;
+}
+
+.venue-outreach-venues-panel .form-grid.two-col {
+  margin-top: 0.6rem;
+}
+
+@media (max-width: 1024px) {
+  .venue-outreach-kpi-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .venue-outreach-kpi-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .venue-outreach-shell .panel-head {
+    align-items: flex-start;
+    gap: 0.55rem;
+  }
+
+  .venue-outreach-shell .hero-actions {
+    width: 100%;
+  }
+
+  .venue-action-row .secondary-button,
+  .venue-action-row .primary-button,
+  .venue-link-row .secondary-button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,74 @@
+$MIXER_IP   = '192.168.10.70'
+$MIXER_PORT = 10024
+
+$udp = New-Object System.Net.Sockets.UdpClient
+$udp.Connect($MIXER_IP, $MIXER_PORT)
+
+function Pad4([byte[]]$bytes) {
+    $pad = (4 - ($bytes.Length % 4)) % 4
+    $result = New-Object byte[] ($bytes.Length + $pad)
+    [System.Buffer]::BlockCopy($bytes, 0, $result, 0, $bytes.Length)
+    return $result
+}
+function OscStr([string]$s) { return Pad4([System.Text.Encoding]::ASCII.GetBytes($s + "`0")) }
+function OscInt([int]$i) { $b = [System.BitConverter]::GetBytes([int]$i); [System.Array]::Reverse($b); return $b }
+function SendOSC([string]$addr, [int]$val) {
+    $msg = [byte[]]((OscStr $addr) + (OscStr ',i') + (OscInt $val))
+    try {
+        $sent = $udp.Send($msg, $msg.Length)
+        Write-Host "  DEBUG: sent $sent bytes to ${MIXER_IP}:${MIXER_PORT}  addr=$addr val=$val" -ForegroundColor DarkGray
+    } catch {
+        Write-Host "  ERROR: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+$state = @{ ch01=$true;ch02=$true;ch03=$true;ch04=$true;ch05=$true;ch06=$true;ch15=$true;ch16=$true;bus05=$true;bus06=$true;master=$true }
+
+function Toggle([string[]]$keys,[string[]]$addrs,[string]$label) {
+    $on = $state[$keys[0]]
+    $newOn = -not $on
+    foreach ($k in $keys) { $state[$k] = $newOn }
+    foreach ($a in $addrs) { SendOSC $a ([int]$newOn) }
+    if ($newOn) { Write-Host "  LIVE   $label" -ForegroundColor Green }
+    else        { Write-Host "  MUTED  $label" -ForegroundColor Red }
+}
+
+Clear-Host
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "  THE HUMAN JUKEBOX - Mute Hotkeys" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host "  A -> Ch 1   Host Mic" -ForegroundColor Cyan
+Write-Host "  S -> Ch 2   Karaoke Mic" -ForegroundColor Cyan
+Write-Host "  D -> Ch 3   Guitar" -ForegroundColor Cyan
+Write-Host "  F -> Ch 4   Click Track" -ForegroundColor Cyan
+Write-Host "  G -> Ch 5" -ForegroundColor Cyan
+Write-Host "  H -> Ch 6" -ForegroundColor Cyan
+Write-Host "  Q -> Ch 15+16  Jamzone L+R" -ForegroundColor Cyan
+Write-Host "  W -> Bus 5+6   Jamzone Bus" -ForegroundColor Cyan
+Write-Host "  + -> MASTER LR" -ForegroundColor Cyan
+Write-Host "  ESC -> Quit" -ForegroundColor Cyan
+Write-Host "================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  Connected to ${MIXER_IP}:${MIXER_PORT} - all channels LIVE" -ForegroundColor Green
+Write-Host ""
+
+while ($true) {
+    $k = [System.Console]::ReadKey($true)
+    switch ($k.KeyChar.ToString().ToLower()) {
+        'a' { Toggle @('ch01')          @('/ch/01/mix/on')                   'Ch 1   - Host Mic'       }
+        's' { Toggle @('ch02')          @('/ch/02/mix/on')                   'Ch 2   - Karaoke Mic'    }
+        'd' { Toggle @('ch03')          @('/ch/03/mix/on')                   'Ch 3   - Guitar'         }
+        'f' { Toggle @('ch04')          @('/ch/04/mix/on')                   'Ch 4   - Click Track'    }
+        'g' { Toggle @('ch05')          @('/ch/05/mix/on')                   'Ch 5'                    }
+        'h' { Toggle @('ch06')          @('/ch/06/mix/on')                   'Ch 6'                    }
+        'q' { Toggle @('ch15','ch16')   @('/ch/15/mix/on','/ch/16/mix/on')   'Ch 15+16 - Jamzone L+R'  }
+        'w' { Toggle @('bus05','bus06') @('/bus/05/mix/on','/bus/06/mix/on') 'Bus 5+6  - Jamzone Bus'  }
+        '+' { Toggle @('master')        @('/main/st/mix/on')                 'MASTER LR'               }
+        '=' { Toggle @('master')        @('/main/st/mix/on')                 'MASTER LR'               }
+    }
+    if ($k.Key -eq [System.ConsoleKey]::Escape) {
+        Write-Host "`n  Exiting. Bye!" -ForegroundColor Yellow
+        $udp.Close()
+        break
+    }
+}
