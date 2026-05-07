@@ -1625,6 +1625,7 @@ function MirrorPage() {
     let playbackHealthTimerId: number | null = null
     let reconnectTimerId: number | null = null
     let reconnectAttempt = 0
+    let playbackChannelState: 'idle' | 'subscribed' | 'reconnecting' = 'idle'
 
     const stopPlaybackHealthTimer = () => {
       if (playbackHealthTimerId) {
@@ -1656,6 +1657,8 @@ function MirrorPage() {
         void subscription.unsubscribe()
         subscription = null
       }
+
+      playbackChannelState = 'idle'
     }
 
     const syncPlaybackState = async () => {
@@ -1687,6 +1690,7 @@ function MirrorPage() {
 
       clearReconnectTimer()
       disconnectSubscription()
+      playbackChannelState = 'reconnecting'
 
       subscription = supabase
         .channel(`playback_state:${eventId}`)
@@ -1736,6 +1740,7 @@ function MirrorPage() {
           }
 
           if (status === 'SUBSCRIBED') {
+            playbackChannelState = 'subscribed'
             reconnectAttempt = 0
             clearMirrorWarningSmoothly()
             void syncPlaybackState()
@@ -1743,14 +1748,15 @@ function MirrorPage() {
           }
 
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            playbackChannelState = 'reconnecting'
             setMirrorWarningMessage('Mirror realtime channel reconnecting. Display remains active.')
 
             if (reconnectTimerId !== null) {
               return
             }
 
-            // Mirror on a TV/projector must recover quickly — cap backoff at 3 seconds.
-            const retryDelayMs = Math.min(1000 * (2 ** reconnectAttempt), 3000)
+            // Mirror on a TV/projector must recover quickly, but avoid churn.
+            const retryDelayMs = Math.min(1500 * (2 ** reconnectAttempt), 10000)
             reconnectAttempt += 1
             reconnectTimerId = window.setTimeout(() => {
               reconnectTimerId = null
@@ -1763,6 +1769,16 @@ function MirrorPage() {
 
     const recoverMirrorSync = () => {
       if (!isCurrent) {
+        return
+      }
+
+      if (playbackChannelState === 'subscribed' && subscription) {
+        void syncPlaybackState()
+        return
+      }
+
+      if (reconnectTimerId !== null) {
+        void syncPlaybackState()
         return
       }
 
@@ -2360,7 +2376,10 @@ function MirrorPage() {
 
       <main className={`mirror-stage ${isLive ? 'mirror-stage-live' : ''}`}>
         {!isLive && !nowPlaying ? (
-          <section className="mirror-pre-show" aria-label="Pre-show welcome">
+          <section
+            className={`mirror-pre-show ${showCountdown ? 'mirror-pre-show-has-countdown' : ''}`.trim()}
+            aria-label="Pre-show welcome"
+          >
 
             {/* ── TOP: headline + status ── */}
             <div className="mirror-pre-show-top">
