@@ -64,7 +64,7 @@ export default async function handler(req, res) {
   }
 
   const location = cleanString(req.query.location)
-  const radiusKm = Math.max(1, Math.min(30, toNumber(req.query.radiusKm, 6)))
+  const radiusKm = Math.max(1, Math.min(60, toNumber(req.query.radiusKm, 6)))
   const limit = Math.max(5, Math.min(80, toNumber(req.query.limit, 30)))
 
   if (!location) {

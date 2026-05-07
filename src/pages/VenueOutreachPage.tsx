@@ -247,9 +247,13 @@ function VenueOutreachPage() {
             <input
               type="number"
               min={1}
-              max={30}
+              max={60}
               value={radiusKm}
-              onChange={(event) => setRadiusKm(Number(event.target.value) || 1)}
+              onChange={(event) => {
+                const value = Number(event.target.value)
+                const normalized = Number.isFinite(value) ? value : 1
+                setRadiusKm(Math.max(1, Math.min(60, normalized)))
+              }}
               className="queue-input"
             />
           </label>
