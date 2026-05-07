@@ -34,6 +34,64 @@ function formatAddress(tags = {}) {
   return cleanString(tags['addr:full'] || tags['contact:address'] || tags['description'])
 }
 
+function formatReverseAddress(payload = {}) {
+  const address = payload?.address || {}
+  const street = cleanString(address.road || address.pedestrian || address.footway || address.path)
+  const houseNumber = cleanString(address.house_number)
+  const postcode = cleanString(address.postcode)
+  const city = cleanString(address.city || address.town || address.village || address.hamlet || address.municipality)
+  const suburb = cleanString(address.suburb || address.city_district || address.county)
+
+  const streetLine = [street, houseNumber].filter(Boolean).join(' ')
+  const localityLine = [postcode, city || suburb].filter(Boolean).join(' ')
+  const fallback = cleanString(payload?.display_name)
+
+  return [streetLine, localityLine].filter(Boolean).join(', ') || fallback
+}
+
+async function reverseGeocodeAddress(lat, lon) {
+  const reverseUrl = new URL('https://nominatim.openstreetmap.org/reverse')
+  reverseUrl.searchParams.set('lat', String(lat))
+  reverseUrl.searchParams.set('lon', String(lon))
+  reverseUrl.searchParams.set('format', 'jsonv2')
+  reverseUrl.searchParams.set('zoom', '18')
+  reverseUrl.searchParams.set('addressdetails', '1')
+
+  const response = await fetch(reverseUrl.toString(), {
+    headers: {
+      'User-Agent': 'human-jukebox-venue-search/1.0',
+    },
+  })
+
+  if (!response.ok) {
+    return ''
+  }
+
+  const payload = await response.json().catch(() => null)
+  return formatReverseAddress(payload)
+}
+
+async function enrichMissingVenueAddresses(venues) {
+  const cache = new Map()
+  const missingVenues = venues.filter((venue) => !venue.address)
+  const lookupBudget = Math.min(10, missingVenues.length)
+
+  for (let i = 0; i < lookupBudget; i += 1) {
+    const venue = missingVenues[i]
+    const key = `${venue.lat.toFixed(5)}:${venue.lon.toFixed(5)}`
+
+    if (!cache.has(key)) {
+      const resolved = await reverseGeocodeAddress(venue.lat, venue.lon).catch(() => '')
+      cache.set(key, resolved)
+    }
+
+    const resolvedAddress = cleanString(cache.get(key))
+    if (resolvedAddress) {
+      venue.address = resolvedAddress
+    }
+  }
+}
+
 function toVenue(element) {
   const tags = element?.tags || {}
   const lat = typeof element.lat === 'number' ? element.lat : element.center?.lat
@@ -160,6 +218,8 @@ export default async function handler(req, res) {
         break
       }
     }
+
+    await enrichMissingVenueAddresses(venues)
 
     res.status(200).json({
       ok: true,
