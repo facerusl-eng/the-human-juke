@@ -37,11 +37,13 @@ function toJsonBody(body) {
   return {}
 }
 
-function buildEmailHtml({ venueName, senderName, conceptText }) {
+function buildEmailHtml({ venueName, senderName, messageText, emailMode }) {
+  const title = emailMode === 'offer' ? 'Live Music Offer Package' : 'Live Music Concept'
+
   return `
-    <h2>Live Music Concept for ${escapeHtml(venueName)}</h2>
+    <h2>${escapeHtml(title)} for ${escapeHtml(venueName)}</h2>
     <p>Hi ${escapeHtml(venueName)} team,</p>
-    <p>${escapeHtml(conceptText).replace(/\n/g, '<br />')}</p>
+    <p>${escapeHtml(messageText).replace(/\n/g, '<br />')}</p>
     <p>Best regards,<br />${escapeHtml(senderName)}</p>
     <hr />
     <p style="font-size:12px;color:#555;">Sent via The Human Jukebox Outreach Manager.</p>
@@ -63,17 +65,19 @@ export default async function handler(req, res) {
 
   const payload = toJsonBody(req.body)
   const contacts = Array.isArray(payload.contacts) ? payload.contacts : []
-  const conceptText = normalizeString(payload.conceptText)
+  const messageText = normalizeString(payload.messageText || payload.conceptText)
   const senderName = normalizeString(payload.senderName) || 'The Human Jukebox'
   const senderEmail = normalizeString(payload.senderEmail)
+  const emailMode = normalizeString(payload.emailMode) === 'offer' ? 'offer' : 'concept'
+  const requestedSubject = normalizeString(payload.subject)
 
   if (!contacts.length) {
     res.status(400).json({ error: 'At least one contact is required.' })
     return
   }
 
-  if (!conceptText) {
-    res.status(400).json({ error: 'Concept text is required.' })
+  if (!messageText) {
+    res.status(400).json({ error: 'Message text is required.' })
     return
   }
 
@@ -107,6 +111,12 @@ export default async function handler(req, res) {
     }
 
     try {
+      const subject = requestedSubject || (emailMode === 'offer'
+        ? `Live offer package for ${venueName}`
+        : `Live music concept for ${venueName}`)
+      const contactMessageText = normalizeString(contact?.messageText) || messageText
+      const contactSubject = normalizeString(contact?.subject) || subject
+
       const response = await fetch(RESEND_API_URL, {
         method: 'POST',
         headers: {
@@ -117,8 +127,8 @@ export default async function handler(req, res) {
           from: fromEmail,
           to: [toEmail],
           reply_to: senderEmail,
-          subject: `Live music concept for ${venueName}`,
-          html: buildEmailHtml({ venueName, senderName, conceptText }),
+          subject: contactSubject,
+          html: buildEmailHtml({ venueName, senderName, messageText: contactMessageText, emailMode }),
         }),
       })
 

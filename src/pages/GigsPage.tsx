@@ -5,6 +5,30 @@ import { useQueueStore } from '../state/queueStore'
 
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
+const GIG_MIXER_PRESET_STORAGE_KEY = 'human-jukebox-gig-mixer-presets'
+
+type MixerPreset = 'karaoke-ultimate' | 'karaoke-safe' | 'live-band' | 'acoustic' | 'custom'
+
+const MIXER_PRESET_LABELS: Record<MixerPreset, string> = {
+  'karaoke-ultimate': 'Karaoke Ultimate',
+  'karaoke-safe': 'Karaoke Safe',
+  'live-band': 'Live Band',
+  acoustic: 'Acoustic',
+  custom: 'Custom',
+}
+
+function parseMixerPresetMap(raw: string | null): Record<string, MixerPreset> {
+  if (!raw) {
+    return {}
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed ? parsed as Record<string, MixerPreset> : {}
+  } catch {
+    return {}
+  }
+}
 
 function formatGigDate(createdAt: string) {
   if (!createdAt) {
@@ -123,6 +147,13 @@ function GigsPage() {
   const [endingEventId, setEndingEventId] = useState<string | null>(null)
   const [togglingAudienceFallbackEventId, setTogglingAudienceFallbackEventId] = useState<string | null>(null)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [mixerPresetMap, setMixerPresetMap] = useState<Record<string, MixerPreset>>(() => {
+    if (typeof window === 'undefined') {
+      return {}
+    }
+
+    return parseMixerPresetMap(window.localStorage.getItem(GIG_MIXER_PRESET_STORAGE_KEY))
+  })
   const autoLiveInFlightRef = useRef(false)
   const attemptedAutoLiveGigIdsRef = useRef<Set<string>>(new Set())
   const gigActions = useGigActions({
@@ -132,6 +163,19 @@ function GigsPage() {
       setActiveEvent: 'Failed to switch gig. Please try again.',
     },
   })
+
+  const setGigMixerPreset = (gigId: string, preset: MixerPreset) => {
+    const nextMap = {
+      ...mixerPresetMap,
+      [gigId]: preset,
+    }
+
+    setMixerPresetMap(nextMap)
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(GIG_MIXER_PRESET_STORAGE_KEY, JSON.stringify(nextMap))
+    }
+  }
 
   const chooseGig = async (gigId: string, goToControl = true) => {
     const switched = await gigActions.switchActiveGig(gigId)
@@ -309,6 +353,21 @@ function GigsPage() {
                     </div>
                     <p className="gig-management-meta">{hostEvent.venue ?? 'No venue set'}</p>
                     <p className="gig-management-meta">Created {formatGigDate(hostEvent.createdAt)}</p>
+                    <div className="form-grid two-col">
+                      <label>
+                        Mixer preset
+                        <select
+                          value={mixerPresetMap[hostEvent.id] || 'karaoke-ultimate'}
+                          onChange={(event) => setGigMixerPreset(hostEvent.id, event.target.value as MixerPreset)}
+                          className="queue-input"
+                          disabled={isBusy}
+                        >
+                          {Object.entries(MIXER_PRESET_LABELS).map(([key, label]) => (
+                            <option key={key} value={key}>{label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="gig-management-actions">
