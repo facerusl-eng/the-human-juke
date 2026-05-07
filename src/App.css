@@ -13588,6 +13588,25 @@ kbd {
   }
 }
 
+@media (max-width: 768px) {
+  .ai-manager-root {
+    left: max(0.75rem, env(safe-area-inset-left));
+    right: max(0.75rem, env(safe-area-inset-right));
+    inset-inline-start: max(0.75rem, env(safe-area-inset-left));
+    inset-inline-end: max(0.75rem, env(safe-area-inset-right));
+    align-items: stretch;
+  }
+
+  .ai-manager-panel {
+    width: 100%;
+    max-height: min(68vh, calc(100vh - 6.5rem));
+  }
+
+  .ai-manager-fab {
+    align-self: flex-end;
+  }
+}
+
 /* ── Runtime Theme Preset Overrides ───────────────────────────────────────── */
 
 :root[data-theme-preset='clean'] .topbar {

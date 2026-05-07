@@ -47,7 +47,13 @@ function generateId() {
 
 export function AiManagerPanel({ pipeline }: Props) {
   const [avatarBroken, setAvatarBroken] = useState(false)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.matchMedia('(max-width: 768px)').matches
+  })
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
