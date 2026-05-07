@@ -31,7 +31,9 @@ function formatAddress(tags = {}) {
     return parts.join(', ')
   }
 
-  return cleanString(tags['addr:full'] || tags['contact:address'] || tags['description'])
+  // Only use addr:full or contact:address, NOT description
+  const fallback = cleanString(tags['addr:full'] || tags['contact:address'])
+  return fallback
 }
 
 function formatReverseAddress(payload = {}) {
@@ -50,9 +52,6 @@ function formatReverseAddress(payload = {}) {
 }
 
 async function reverseGeocodeAddress(lat, lon) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 3000)
-
   try {
     const reverseUrl = new URL('https://nominatim.openstreetmap.org/reverse')
     reverseUrl.searchParams.set('lat', String(lat))
@@ -61,12 +60,18 @@ async function reverseGeocodeAddress(lat, lon) {
     reverseUrl.searchParams.set('zoom', '18')
     reverseUrl.searchParams.set('addressdetails', '1')
 
-    const response = await fetch(reverseUrl.toString(), {
+    // Wrap fetch in a timeout promise
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Reverse geocoding timeout')), 3000),
+    )
+
+    const fetchPromise = fetch(reverseUrl.toString(), {
       headers: {
         'User-Agent': 'human-jukebox-venue-search/1.0',
       },
-      signal: controller.signal,
     })
+
+    const response = await Promise.race([fetchPromise, timeoutPromise])
 
     if (!response.ok) {
       return ''
@@ -75,10 +80,8 @@ async function reverseGeocodeAddress(lat, lon) {
     const payload = await response.json().catch(() => null)
     return formatReverseAddress(payload)
   } catch (error) {
-    // Timeout or other fetch error
+    // Timeout or other fetch error - silently fail
     return ''
-  } finally {
-    clearTimeout(timeoutId)
   }
 }
 
