@@ -680,18 +680,57 @@ function VenueOutreachPage() {
 
   return (
     <section className="create-gig-shell venue-outreach-shell" aria-label="Venue outreach manager">
-      <section className="hero-card create-gig-card venue-outreach-hero">
-        <p className="eyebrow">Admin</p>
-        <h1>Venue Outreach CRM</h1>
-        <p className="subcopy">
-          Lead scoring, nearby venue discovery, pipeline, follow-ups, and one-click concept or offer sending.
-        </p>
-        <div className="venue-outreach-hero-meta" aria-label="Campaign highlights">
-          <span className="meta-badge">Campaign: {campaignName}</span>
-          <span className="meta-badge">Selected: {selectedCount}</span>
-          <span className="meta-badge">Open follow-ups: {pendingTasks.length}</span>
+      {/* Header Section */}
+      <header className="venue-outreach-header">
+        <div className="venue-outreach-header-content">
+          <h1 className="venue-outreach-header-title">Venue Outreach</h1>
+          <p className="venue-outreach-header-subtitle">Grow your gigs. Contact venues. Track your progress.</p>
         </div>
-      </section>
+      </header>
+
+      {/* Quick Actions Bar */}
+      <nav className="venue-outreach-quick-actions">
+        <button
+          type="button"
+          className="venue-outreach-action-btn primary-button"
+          onClick={() => {
+            const venueListPanel = document.querySelector('.venue-outreach-venues-panel')
+            if (venueListPanel) {
+              venueListPanel.scrollIntoView({ behavior: 'smooth' })
+            }
+          }}
+        >
+          ➕ Add Venue
+        </button>
+        <button
+          type="button"
+          className="venue-outreach-action-btn primary-button"
+          onClick={() => void runSend('concept')}
+          disabled={searching || Boolean(sendingMode) || !venues.length}
+        >
+          ✉️ Send Email
+        </button>
+        <button
+          type="button"
+          className="venue-outreach-action-btn primary-button"
+          onClick={() => {
+            const modes: TemplateMode[] = ['auto', 'pub', 'restaurant', 'hotel', 'corporate', 'custom']
+            const current = modes.indexOf(templateMode)
+            const next = (current + 1) % modes.length
+            setTemplateMode(modes[next])
+          }}
+        >
+          📋 Manage Templates
+        </button>
+      </nav>
+
+      {/* Info Box */}
+      <article className="venue-outreach-info-box">
+        <h3 className="venue-outreach-info-title">💡 What is Venue Outreach?</h3>
+        <p className="venue-outreach-info-text">
+          Use this tool to contact venues, track replies, and grow your Human Jukebox gigs. Search for nearby venues, send personalized concepts, and manage your pipeline all in one place.
+        </p>
+      </article>
 
       <section className="queue-panel venue-outreach-kpi-panel" aria-label="Outreach summary">
         <article className="venue-kpi-card">
