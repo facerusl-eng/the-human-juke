@@ -8,18 +8,30 @@ function cleanString(value) {
 }
 
 function formatAddress(tags = {}) {
-  const parts = [
-    tags['addr:street'],
-    tags['addr:housenumber'],
+  const streetLine = [tags['addr:street'], tags['addr:housenumber']]
+    .map((part) => cleanString(part))
+    .filter(Boolean)
+    .join(' ')
+
+  const localityLine = [
     tags['addr:postcode'],
     tags['addr:city'],
-  ].filter(Boolean)
+    tags['addr:suburb'],
+    tags['addr:district'],
+    tags['addr:place'],
+    tags['is_in:city'],
+  ]
+    .map((part) => cleanString(part))
+    .filter(Boolean)
+    .join(' ')
+
+  const parts = [streetLine, localityLine].filter(Boolean)
 
   if (parts.length) {
-    return parts.join(' ')
+    return parts.join(', ')
   }
 
-  return tags['addr:full'] || tags['contact:address'] || ''
+  return cleanString(tags['addr:full'] || tags['contact:address'] || tags['description'])
 }
 
 function toVenue(element) {

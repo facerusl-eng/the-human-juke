@@ -147,6 +147,15 @@ function buildOfferMessage(baseConcept: string) {
   return `${baseConcept}\n\nOffer package:\n• 1 x host-led live set + karaoke flow\n• Mobile audience requests + voting\n• Full show control and engagement pacing\n• Setup and sound-check guidance included\n\nIf useful, we can also send a custom package for your exact audience profile and time slot.`
 }
 
+function formatVenueAddress(venue: Venue) {
+  const address = venue.address.trim()
+  if (address) {
+    return address
+  }
+
+  return `Location: ${venue.lat.toFixed(5)}, ${venue.lon.toFixed(5)}`
+}
+
 function VenueOutreachPage() {
   const [locationQuery, setLocationQuery] = useState('Copenhagen, Denmark')
   const [radiusKm, setRadiusKm] = useState(8)
@@ -782,7 +791,7 @@ function VenueOutreachPage() {
                       <span className="meta-badge">{venue.distanceKm.toFixed(1)} km</span>
                       <span className="meta-badge">~{estimateDriveTimeMinutes(venue.distanceKm)} min drive</span>
                     </div>
-                    <p className="gig-management-meta">{venue.address || 'No address listed'}</p>
+                    <p className="gig-management-meta">{formatVenueAddress(venue)}</p>
                     <p className="gig-management-meta">
                       {venue.website ? <a href={venue.website} target="_blank" rel="noreferrer">Website</a> : 'No website listed'}
                       {venue.phone ? ` · ${venue.phone}` : ''}
