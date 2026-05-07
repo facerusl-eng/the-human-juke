@@ -137,7 +137,7 @@ const TEMPLATE_TEXT: Record<Exclude<TemplateMode, 'auto' | 'custom'>, string> = 
   corporate: 'We deliver a polished interactive live music concept perfect for company nights and branded events. Guests request songs, vote live, and stay engaged throughout.\n\nWould you like a proposal for an upcoming corporate event?',
 }
 
-const SEARCH_RADIUS_OPTIONS = [5, 8, 12, 20]
+const SEARCH_RADIUS_OPTIONS = [5, 8, 12, 20, 30, 45, 60]
 
 const SORT_MODE_OPTIONS: Array<{ value: SortMode; label: string; description: string }> = [
   { value: 'score', label: 'Best leads', description: 'Prioritize venues with the strongest fit.' },
@@ -786,7 +786,7 @@ function VenueOutreachPage() {
                 <input value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="e.g. 2200" inputMode="numeric" className="queue-input" />
               </label>
               <label>
-                Custom radius (km)
+                Custom radius (km, up to 60)
                 <input
                   type="number"
                   min={1}
@@ -804,7 +804,7 @@ function VenueOutreachPage() {
 
             <div className="venue-choice-group" aria-label="Radius quick choices">
               <div className="venue-choice-group-head">
-                <h4>Radius quick pick</h4>
+                <h4>Radius quick pick (up to 60 km)</h4>
                 <span>{radiusKm} km selected</span>
               </div>
               <div className="venue-choice-pills">
