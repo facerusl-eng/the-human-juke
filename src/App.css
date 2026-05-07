@@ -13583,3 +13583,93 @@ kbd {
     max-height: calc(100vh - 6rem);
   }
 }
+
+/* ── Runtime Theme Preset Overrides ───────────────────────────────────────── */
+
+:root[data-theme-preset='clean'] .topbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(244, 250, 255, 0.94) 100%);
+  border-color: rgba(26, 115, 232, 0.24);
+}
+
+:root[data-theme-preset='clean'] .queue-panel,
+:root[data-theme-preset='clean'] .hero-card {
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 249, 255, 0.95) 100%);
+  border-color: rgba(26, 115, 232, 0.2);
+  box-shadow: 0 14px 28px rgba(39, 88, 158, 0.15);
+}
+
+:root[data-theme-preset='clean'] .secondary-button,
+:root[data-theme-preset='clean'] .ghost-button {
+  background: rgba(255, 255, 255, 0.95);
+  color: #14315c;
+  border-color: rgba(26, 115, 232, 0.3);
+}
+
+:root[data-theme-preset='clean'] .primary-button {
+  background: linear-gradient(120deg, #2c7be5 0%, #5a96f3 100%);
+  color: #ffffff;
+  border-color: rgba(44, 123, 229, 0.55);
+  box-shadow: 0 10px 20px rgba(37, 99, 190, 0.25);
+}
+
+:root[data-theme-preset='pub'] .topbar {
+  background: linear-gradient(180deg, rgba(47, 34, 23, 0.92) 0%, rgba(39, 29, 22, 0.92) 100%);
+  border-color: rgba(212, 165, 116, 0.3);
+}
+
+:root[data-theme-preset='pub'] .queue-panel,
+:root[data-theme-preset='pub'] .hero-card {
+  background:
+    radial-gradient(circle at 10% 8%, rgba(212, 165, 116, 0.18) 0%, transparent 36%),
+    linear-gradient(145deg, rgba(52, 39, 30, 0.98) 0%, rgba(43, 33, 27, 0.95) 100%);
+  border-color: rgba(212, 165, 116, 0.32);
+}
+
+:root[data-theme-preset='pub'] .primary-button {
+  background: linear-gradient(120deg, #9f6a3c 0%, #d4a574 100%);
+  border-color: rgba(236, 191, 147, 0.45);
+}
+
+:root[data-theme-preset='pub'] .secondary-button,
+:root[data-theme-preset='pub'] .ghost-button {
+  background: rgba(46, 33, 24, 0.9);
+  border-color: rgba(212, 165, 116, 0.4);
+  color: #fff5e8;
+}
+
+:root[data-theme-preset='neon'] .topbar {
+  background: linear-gradient(180deg, rgba(33, 13, 51, 0.9) 0%, rgba(28, 10, 45, 0.9) 100%);
+  border-color: rgba(255, 0, 128, 0.32);
+}
+
+:root[data-theme-preset='neon'] .queue-panel,
+:root[data-theme-preset='neon'] .hero-card {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 0, 128, 0.22) 0%, transparent 30%),
+    radial-gradient(circle at 86% 10%, rgba(0, 194, 255, 0.2) 0%, transparent 28%),
+    linear-gradient(145deg, rgba(33, 11, 52, 0.97) 0%, rgba(26, 9, 43, 0.95) 100%);
+  border-color: rgba(255, 0, 128, 0.36);
+}
+
+:root[data-theme-preset='highcontrast'] .topbar,
+:root[data-theme-preset='highcontrast'] .queue-panel,
+:root[data-theme-preset='highcontrast'] .hero-card {
+  background: #000000 !important;
+  border-color: #ffff00 !important;
+  box-shadow: none;
+}
+
+:root[data-theme-preset='highcontrast'] .primary-button {
+  background: #ffff00;
+  color: #000000;
+  border-color: #ffff00;
+  box-shadow: none;
+}
+
+:root[data-theme-preset='highcontrast'] .secondary-button,
+:root[data-theme-preset='highcontrast'] .ghost-button {
+  background: #000000;
+  color: #ffffff;
+  border-color: #ffff00;
+  box-shadow: none;
+}
