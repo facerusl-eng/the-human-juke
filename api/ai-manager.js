@@ -51,14 +51,22 @@ function buildPipelineContext(pipeline) {
 }
 
 export default async function handler(req, res) {
+  const apiKey = process.env.OPENAI_API_KEY?.trim() || ''
+
   if (req.method === 'OPTIONS') {
-    res.setHeader('Allow', 'POST, OPTIONS')
+    res.setHeader('Allow', 'GET, POST, OPTIONS')
     res.status(204).end()
     return
   }
 
+  if (req.method === 'GET') {
+    res.setHeader('Allow', 'GET, POST, OPTIONS')
+    res.status(200).json({ connected: Boolean(apiKey) })
+    return
+  }
+
   if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST, OPTIONS')
+    res.setHeader('Allow', 'GET, POST, OPTIONS')
     res.status(405).json({ error: 'Method Not Allowed' })
     return
   }
@@ -94,8 +102,6 @@ export default async function handler(req, res) {
     return
   }
 
-  const apiKey = process.env.OPENAI_API_KEY?.trim() || ''
-
   // Graceful fallback when no API key is configured
   if (!apiKey) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content?.toLowerCase() ?? ''
@@ -103,7 +109,7 @@ export default async function handler(req, res) {
     if (lastUserMsg.includes('email') || lastUserMsg.includes('draft')) {
       fallback = "I'd love to draft that for you — I just need an OpenAI API key to be configured first. Ask Harald to add OPENAI_API_KEY to the Vercel environment variables."
     }
-    res.status(200).json({ reply: fallback })
+    res.status(200).json({ reply: fallback, connected: false })
     return
   }
 
@@ -163,5 +169,5 @@ export default async function handler(req, res) {
     return
   }
 
-  res.status(200).json({ reply })
+  res.status(200).json({ reply, connected: true })
 }

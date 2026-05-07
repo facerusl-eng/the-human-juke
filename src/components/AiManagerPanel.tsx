@@ -50,6 +50,7 @@ export function AiManagerPanel({ pipeline }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'not-connected'>('checking')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -64,6 +65,35 @@ export function AiManagerPanel({ pipeline }: Props) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, open])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    let cancelled = false
+
+    async function checkConnection() {
+      setConnectionStatus('checking')
+      try {
+        const res = await fetch('/api/ai-manager', { method: 'GET' })
+        const data: { connected?: boolean } = await res.json()
+        if (!cancelled) {
+          setConnectionStatus(res.ok && data.connected ? 'connected' : 'not-connected')
+        }
+      } catch {
+        if (!cancelled) {
+          setConnectionStatus('not-connected')
+        }
+      }
+    }
+
+    checkConnection()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   async function sendMessage(text: string) {
     const trimmed = text.trim()
@@ -119,6 +149,12 @@ export function AiManagerPanel({ pipeline }: Props) {
                 <p className="ai-manager-title">AI Booking Manager</p>
               </div>
             </div>
+            <span
+              className={`ai-manager-status ai-manager-status-${connectionStatus}`}
+              aria-live="polite"
+            >
+              {connectionStatus === 'connected' ? 'AI Connected' : connectionStatus === 'checking' ? 'Checking...' : 'AI Not Connected'}
+            </span>
             <button
               type="button"
               className="ai-manager-close"
