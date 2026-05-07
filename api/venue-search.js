@@ -60,9 +60,9 @@ async function reverseGeocodeAddress(lat, lon) {
     reverseUrl.searchParams.set('zoom', '18')
     reverseUrl.searchParams.set('addressdetails', '1')
 
-    // Wrap fetch in a timeout promise
+    // Wrap fetch in a timeout promise (increase to 5 seconds)
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Reverse geocoding timeout')), 3000),
+      setTimeout(() => reject(new Error('Reverse geocoding timeout')), 5000),
     )
 
     const fetchPromise = fetch(reverseUrl.toString(), {
@@ -74,36 +74,59 @@ async function reverseGeocodeAddress(lat, lon) {
     const response = await Promise.race([fetchPromise, timeoutPromise])
 
     if (!response.ok) {
+      console.error(`Reverse geocoding failed: ${response.status} at ${lat}, ${lon}`)
       return ''
     }
 
-    const payload = await response.json().catch(() => null)
-    return formatReverseAddress(payload)
+    const payload = await response.json().catch((err) => {
+      console.error(`Failed to parse reverse geocoding response: ${err}`)
+      return null
+    })
+    
+    if (!payload) {
+      return ''
+    }
+
+    const formatted = formatReverseAddress(payload)
+    if (formatted) {
+      console.log(`Successfully reverse geocoded ${lat.toFixed(5)}, ${lon.toFixed(5)} → ${formatted}`)
+    }
+    return formatted
   } catch (error) {
-    // Timeout or other fetch error - silently fail
+    console.error(`Reverse geocoding error at ${lat}, ${lon}: ${error instanceof Error ? error.message : String(error)}`)
     return ''
   }
 }
 
 async function enrichMissingVenueAddresses(venues) {
-  const cache = new Map()
   const missingVenues = venues.filter((venue) => !venue.address)
-  const lookupBudget = Math.min(10, missingVenues.length)
+  
+  if (missingVenues.length === 0) {
+    return
+  }
 
+  const lookupBudget = Math.min(15, missingVenues.length)
+  
+  // Process in parallel with a limit to avoid overwhelming Nominatim
+  const promises = []
   for (let i = 0; i < lookupBudget; i += 1) {
     const venue = missingVenues[i]
-    const key = `${venue.lat.toFixed(5)}:${venue.lon.toFixed(5)}`
-
-    if (!cache.has(key)) {
-      const resolved = await reverseGeocodeAddress(venue.lat, venue.lon).catch(() => '')
-      cache.set(key, resolved)
-    }
-
-    const resolvedAddress = cleanString(cache.get(key))
-    if (resolvedAddress) {
-      venue.address = resolvedAddress
-    }
+    const promise = reverseGeocodeAddress(venue.lat, venue.lon)
+      .then((address) => {
+        if (address.trim()) {
+          venue.address = address
+        }
+        return venue
+      })
+      .catch(() => venue)
+    
+    promises.push(promise)
   }
+  
+  // Wait for all geocoding requests to complete
+  await Promise.allSettled(promises)
+  
+  console.log(`Enriched ${lookupBudget} venues with missing addresses`)
 }
 
 function toVenue(element) {
