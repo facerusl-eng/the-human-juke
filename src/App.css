@@ -13234,6 +13234,8 @@ kbd {
   align-items: flex-end;
   gap: 0.75rem;
   pointer-events: none;
+  visibility: visible;
+  opacity: 1;
 }
 
 .ai-manager-panel {
@@ -13247,6 +13249,8 @@ kbd {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  visibility: visible;
+  opacity: 1;
 }
 
 .ai-manager-header {
@@ -13539,6 +13543,8 @@ kbd {
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   transition: background 0.15s, transform 0.15s;
+  visibility: visible;
+  opacity: 1;
 }
 
 .ai-manager-fab:hover {
@@ -13590,20 +13596,33 @@ kbd {
 
 @media (max-width: 768px) {
   .ai-manager-root {
+    position: fixed;
     left: max(0.75rem, env(safe-area-inset-left));
     right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
     inset-inline-start: max(0.75rem, env(safe-area-inset-left));
     inset-inline-end: max(0.75rem, env(safe-area-inset-right));
+    inset-block-end: max(0.75rem, env(safe-area-inset-bottom));
     align-items: stretch;
+    z-index: 12000 !important;
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: none;
   }
 
   .ai-manager-panel {
     width: 100%;
     max-height: min(68vh, calc(100vh - 6.5rem));
+    pointer-events: all;
+    display: flex !important;
+    visibility: visible !important;
   }
 
   .ai-manager-fab {
     align-self: flex-end;
+    pointer-events: all;
+    display: flex !important;
+    visibility: visible !important;
   }
 }
 
