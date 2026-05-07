@@ -61,6 +61,17 @@
   ],
   "redirects": [
     {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "the-human-jukebox.org"
+        }
+      ],
+      "destination": "https://www.the-human-jukebox.org/:path*",
+      "permanent": true
+    },
+    {
       "source": "/j/:eventId",
       "destination": "/api/join-meta?event=:eventId",
       "permanent": false
