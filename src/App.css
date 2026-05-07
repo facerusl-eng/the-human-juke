@@ -13224,9 +13224,11 @@ kbd {
 
 .ai-manager-root {
   position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  z-index: 9000;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  right: max(1rem, env(safe-area-inset-right));
+  inset-block-end: max(1rem, env(safe-area-inset-bottom));
+  inset-inline-end: max(1rem, env(safe-area-inset-right));
+  z-index: 12000;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -13575,8 +13577,10 @@ kbd {
 
 @media (max-width: 480px) {
   .ai-manager-root {
-    bottom: 1rem;
-    right: 1rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    right: max(0.75rem, env(safe-area-inset-right));
+    inset-block-end: max(0.75rem, env(safe-area-inset-bottom));
+    inset-inline-end: max(0.75rem, env(safe-area-inset-right));
   }
 
   .ai-manager-panel {

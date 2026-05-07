@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 type Message = {
   id: string
@@ -138,8 +139,12 @@ export function AiManagerPanel({ pipeline }: Props) {
     }
   }
 
-  return (
-    <div className="ai-manager-root">
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  return createPortal(
+    <div className="ai-manager-root" data-ai-manager-root="true">
       {open && (
         <div className="ai-manager-panel" role="dialog" aria-label="AI Booking Manager">
           <div className="ai-manager-header">
@@ -266,6 +271,7 @@ export function AiManagerPanel({ pipeline }: Props) {
         </span>
         {!open && <span className="ai-manager-fab-label">Brian Epstein</span>}
       </button>
-    </div>
+    </div>,
+    document.body,
   )
 }
