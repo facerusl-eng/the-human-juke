@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import '../venue-outreach.css'
 
 type PipelineStage = 'new' | 'contacted' | 'replied' | 'negotiating' | 'confirmed' | 'lost'
@@ -55,6 +55,69 @@ type FollowUpTask = {
 const OUTREACH_LOG_STORAGE_KEY = 'human-jukebox-outreach-log'
 const OUTREACH_STAGE_STORAGE_KEY = 'human-jukebox-outreach-stage-map'
 const OUTREACH_TASKS_STORAGE_KEY = 'human-jukebox-outreach-tasks'
+const OUTREACH_SESSION_STORAGE_KEY = 'human-jukebox-outreach-session'
+
+type OutreachSessionState = {
+  locationQuery: string
+  radiusKm: number
+  sortMode: SortMode
+  templateMode: TemplateMode
+  campaignName: string
+  conceptText: string
+  senderName: string
+  senderEmail: string
+  venues: Venue[]
+  centerInfo: { label: string; lat: number; lon: number } | null
+}
+
+function parseOutreachSession(raw: string | null): OutreachSessionState | null {
+  if (!raw) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') {
+      return null
+    }
+
+    const locationQuery = typeof parsed.locationQuery === 'string' ? parsed.locationQuery : 'Copenhagen, Denmark'
+    const radius = Number(parsed.radiusKm)
+    const radiusKm = Number.isFinite(radius) ? Math.max(1, Math.min(60, radius)) : 8
+    const sortMode: SortMode = parsed.sortMode === 'distance' || parsed.sortMode === 'name' ? parsed.sortMode : 'score'
+    const templateMode: TemplateMode =
+      parsed.templateMode === 'pub'
+      || parsed.templateMode === 'restaurant'
+      || parsed.templateMode === 'hotel'
+      || parsed.templateMode === 'corporate'
+      || parsed.templateMode === 'custom'
+        ? parsed.templateMode
+        : 'auto'
+
+    const center = parsed.centerInfo
+    const centerInfo = center && typeof center === 'object'
+      && typeof center.label === 'string'
+      && Number.isFinite(Number(center.lat))
+      && Number.isFinite(Number(center.lon))
+      ? { label: center.label, lat: Number(center.lat), lon: Number(center.lon) }
+      : null
+
+    return {
+      locationQuery,
+      radiusKm,
+      sortMode,
+      templateMode,
+      campaignName: typeof parsed.campaignName === 'string' ? parsed.campaignName : 'Spring Outreach',
+      conceptText: typeof parsed.conceptText === 'string' ? parsed.conceptText : '',
+      senderName: typeof parsed.senderName === 'string' ? parsed.senderName : 'Harald',
+      senderEmail: typeof parsed.senderEmail === 'string' ? parsed.senderEmail : '',
+      venues: Array.isArray(parsed.venues) ? parsed.venues as Venue[] : [],
+      centerInfo,
+    }
+  } catch {
+    return null
+  }
+}
 
 const STAGE_ORDER: PipelineStage[] = ['new', 'contacted', 'replied', 'negotiating', 'confirmed', 'lost']
 
@@ -157,23 +220,32 @@ function formatVenueAddress(venue: Venue) {
 }
 
 function VenueOutreachPage() {
-  const [locationQuery, setLocationQuery] = useState('Copenhagen, Denmark')
-  const [radiusKm, setRadiusKm] = useState(8)
-  const [sortMode, setSortMode] = useState<SortMode>('score')
-  const [templateMode, setTemplateMode] = useState<TemplateMode>('auto')
-  const [campaignName, setCampaignName] = useState('Spring Outreach')
+  const savedSession = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    return parseOutreachSession(window.localStorage.getItem(OUTREACH_SESSION_STORAGE_KEY))
+  }, [])
+
+  const [locationQuery, setLocationQuery] = useState(savedSession?.locationQuery ?? 'Copenhagen, Denmark')
+  const [radiusKm, setRadiusKm] = useState(savedSession?.radiusKm ?? 8)
+  const [sortMode, setSortMode] = useState<SortMode>(savedSession?.sortMode ?? 'score')
+  const [templateMode, setTemplateMode] = useState<TemplateMode>(savedSession?.templateMode ?? 'auto')
+  const [campaignName, setCampaignName] = useState(savedSession?.campaignName ?? 'Spring Outreach')
   const [conceptText, setConceptText] = useState(
-    'We run a modern live music and karaoke concept where your guests can request songs live from their phones and vote in real time. We provide full host-led entertainment, energy, and a smooth setup for your venue.\n\nWould you be open to a test night or a recurring collaboration?',
+    savedSession?.conceptText
+    || 'We run a modern live music and karaoke concept where your guests can request songs live from their phones and vote in real time. We provide full host-led entertainment, energy, and a smooth setup for your venue.\n\nWould you be open to a test night or a recurring collaboration?',
   )
-  const [senderName, setSenderName] = useState('Harald')
-  const [senderEmail, setSenderEmail] = useState('')
-  const [venues, setVenues] = useState<Venue[]>([])
+  const [senderName, setSenderName] = useState(savedSession?.senderName ?? 'Harald')
+  const [senderEmail, setSenderEmail] = useState(savedSession?.senderEmail ?? '')
+  const [venues, setVenues] = useState<Venue[]>(savedSession?.venues ?? [])
   const [searching, setSearching] = useState(false)
   const [sendingMode, setSendingMode] = useState<SendMode | null>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
   const [statusText, setStatusText] = useState<string | null>(null)
-  const [centerInfo, setCenterInfo] = useState<{ label: string; lat: number; lon: number } | null>(null)
+  const [centerInfo, setCenterInfo] = useState<{ label: string; lat: number; lon: number } | null>(savedSession?.centerInfo ?? null)
 
   const [logEntries, setLogEntries] = useState<OutreachLogEntry[]>(() => {
     if (typeof window === 'undefined') {
@@ -249,6 +321,27 @@ function VenueOutreachPage() {
     () => followUpTasks.filter((task) => !task.completed).sort((a, b) => a.dueAt.localeCompare(b.dueAt)),
     [followUpTasks],
   )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const sessionState: OutreachSessionState = {
+      locationQuery,
+      radiusKm,
+      sortMode,
+      templateMode,
+      campaignName,
+      conceptText,
+      senderName,
+      senderEmail,
+      venues,
+      centerInfo,
+    }
+
+    window.localStorage.setItem(OUTREACH_SESSION_STORAGE_KEY, JSON.stringify(sessionState))
+  }, [locationQuery, radiusKm, sortMode, templateMode, campaignName, conceptText, senderName, senderEmail, venues, centerInfo])
 
   const withSavedLog = (entries: OutreachLogEntry[]) => {
     setLogEntries(entries)
