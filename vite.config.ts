@@ -22,6 +22,7 @@ export default defineConfig({
         // Don't intercept API, join-redirect, or Vercel edge routes.
         navigateFallbackDenylist: [/^\/api\//, /^\/join\//, /^\/a\//, /^\/j\//],
         cleanupOutdatedCaches: true,
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // Take control of all clients immediately — no waiting for old tabs to close.
         clientsClaim: true,
         skipWaiting: true,
