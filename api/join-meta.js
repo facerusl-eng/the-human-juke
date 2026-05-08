@@ -1,5 +1,7 @@
-const APP_ORIGIN = 'https://the-human-jukebox.org'
-const LOGO_URL = `${APP_ORIGIN}/the-human-jukebox-logo.png`
+const APP_ORIGIN = 'https://www.the-human-jukebox.org'
+const LOGO_URL = `${APP_ORIGIN}/images/1200x630-banner.png`
+const LOGO_WIDTH = '1200'
+const LOGO_HEIGHT = '630'
 const DEFAULT_TITLE = 'Join The Human Jukebox'
 const DEFAULT_DESCRIPTION = 'Join the Human Jukebox - request songs and vote live with the audience.'
 
@@ -127,7 +129,9 @@ export default async function handler(req, res) {
     <meta property="og:url" content="${escapeHtml(shareUrl)}" />
     <meta property="og:image" content="${escapeHtml(LOGO_URL)}" />
     <meta property="og:image:secure_url" content="${escapeHtml(LOGO_URL)}" />
-    <meta property="og:image:alt" content="The Human Jukebox logo" />
+    <meta property="og:image:alt" content="The Human Jukebox \u2013 request songs and vote live" />
+    <meta property="og:image:width" content="${LOGO_WIDTH}" />
+    <meta property="og:image:height" content="${LOGO_HEIGHT}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
