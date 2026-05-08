@@ -191,11 +191,12 @@ function AdminDashboardContent({
 }) {
   const navigate = useNavigate()
   const { signOut, isHost } = useAuthStore()
-  const { event, hostEvents, songs, loading, setActiveEvent, toggleRoomOpen, toggleExplicitFilter } = useQueueStore()
+  const { event, hostEvents, songs, loading, setActiveEvent, toggleRoomOpen, toggleExplicitFilter, toggleAudienceVoting } = useQueueStore()
   const [activeSwitchError, setActiveSwitchError] = useState<string | null>(null)
   const [quickActionError, setQuickActionError] = useState<string | null>(null)
   const [panicModeActive, setPanicModeActive] = useState(false)
-  const [panicSnapshot, setPanicSnapshot] = useState<{ roomOpen: boolean; explicitFilterEnabled: boolean } | null>(null)
+  const [panicSnapshot, setPanicSnapshot] = useState<{ roomOpen: boolean; explicitFilterEnabled: boolean; audienceVotingEnabled: boolean } | null>(null)
+  const [panicIncludeVotingLock, setPanicIncludeVotingLock] = useState(true)
   const [profileBusy, setProfileBusy] = useState<null | 'logout'>(null)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [subscriptionState, setSubscriptionState] = useState<'connecting' | 'healthy' | 'degraded'>('connecting')
@@ -565,6 +566,7 @@ function AdminDashboardContent({
     setPanicSnapshot({
       roomOpen: event.roomOpen,
       explicitFilterEnabled: event.explicitFilterEnabled,
+      audienceVotingEnabled: event.audienceVotingEnabled,
     })
 
     try {
@@ -576,12 +578,16 @@ function AdminDashboardContent({
         await quickGigActions.runToggleExplicitFilter()
       }
 
+      if (panicIncludeVotingLock && event.audienceVotingEnabled) {
+        await toggleAudienceVoting()
+      }
+
       setPanicModeActive(true)
     } catch (error) {
       console.warn('AdminPage: panic mode activation failed', error)
       setQuickActionError(error instanceof Error ? error.message : 'Failed to activate panic mode.')
     }
-  }, [event, quickGigActions])
+  }, [event, panicIncludeVotingLock, quickGigActions, toggleAudienceVoting])
 
   const undoPanicMode = useCallback(async () => {
     if (!event || !panicSnapshot || quickGigActions.quickActionBusy) {
@@ -599,13 +605,17 @@ function AdminDashboardContent({
         await quickGigActions.runToggleExplicitFilter()
       }
 
+      if (event.audienceVotingEnabled !== panicSnapshot.audienceVotingEnabled) {
+        await toggleAudienceVoting()
+      }
+
       setPanicModeActive(false)
       setPanicSnapshot(null)
     } catch (error) {
       console.warn('AdminPage: panic mode undo failed', error)
       setQuickActionError(error instanceof Error ? error.message : 'Failed to undo panic mode.')
     }
-  }, [event, panicSnapshot, quickGigActions])
+  }, [event, panicSnapshot, quickGigActions, toggleAudienceVoting])
 
   const panicModeActions: ActionButtonConfig[] = [
     {
@@ -692,7 +702,20 @@ function AdminDashboardContent({
             </div>
 
             <ActionButtonGroup actions={panicModeActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
-            {panicModeActive ? <p className="meta-badge">Panic mode is active: requests paused + explicit blocked.</p> : null}
+            <label className="subcopy no-margin-bottom" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <input
+                type="checkbox"
+                checked={panicIncludeVotingLock}
+                onChange={(event) => setPanicIncludeVotingLock(event.target.checked)}
+                disabled={panicModeActive || quickGigActions.quickActionBusy}
+              />
+              Also lock audience voting while panic mode is active
+            </label>
+            {panicModeActive ? (
+              <p className="meta-badge">
+                Panic mode is active: requests paused + explicit blocked{panicSnapshot?.audienceVotingEnabled ? ' + audience voting locked.' : '.'}
+              </p>
+            ) : null}
 
             <ActionButtonGroup actions={quickControlActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
             {quickActionError ? <p className="error-text">{quickActionError}</p> : null}

@@ -177,6 +177,7 @@ export type QueueContextValue = {
   upvoteSong: (songId: string) => Promise<void>
   toggleRoomOpen: () => Promise<void>
   toggleExplicitFilter: () => Promise<void>
+  toggleAudienceVoting: () => Promise<void>
   setShowInAudienceNoGig: (visible: boolean) => Promise<void>
   setEventAudienceNoGigVisibility: (targetEventId: string, visible: boolean) => Promise<void>
   toggleVotingLock: (songId: string, nextValue: boolean) => Promise<void>
@@ -2954,6 +2955,22 @@ function QueueProvider({ children }: PropsWithChildren) {
         const { error } = await supabase
           .from('events')
           .update({ explicit_filter_enabled: !event.explicitFilterEnabled })
+          .eq('id', event.id)
+
+        if (error) {
+          throw error
+        }
+
+        await fetchQueueSnapshot(event.id)
+      },
+      toggleAudienceVoting: async () => {
+        if (!event) {
+          return
+        }
+
+        const { error } = await supabase
+          .from('events')
+          .update({ audience_voting_enabled: !event.audienceVotingEnabled })
           .eq('id', event.id)
 
         if (error) {
