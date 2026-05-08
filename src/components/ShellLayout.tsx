@@ -82,6 +82,7 @@ function ShellLayout() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [isGigMenuOpen, setIsGigMenuOpen] = useState(false)
   const [isGigMenuForceClosed, setIsGigMenuForceClosed] = useState(false)
+  const [aiDiagnostics, setAiDiagnostics] = useState<'checking' | 'connected' | 'not-connected'>('checking')
   const mobileNavToggleRef = useRef<HTMLButtonElement | null>(null)
   const gigMenuRef = useRef<HTMLDivElement | null>(null)
   const gigMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -245,6 +246,43 @@ function ShellLayout() {
       window.removeEventListener('offline', onOffline)
     }
   }, [])
+
+  useEffect(() => {
+    if (!isAdminMode) {
+      return
+    }
+
+    let cancelled = false
+
+    const checkAiConnection = async () => {
+      setAiDiagnostics('checking')
+
+      try {
+        const response = await fetch('/api/ai-manager', { method: 'GET' })
+        const payload: { connected?: boolean } = await response.json().catch(() => ({}))
+
+        if (cancelled) {
+          return
+        }
+
+        if (response.ok && payload.connected) {
+          setAiDiagnostics('connected')
+        } else {
+          setAiDiagnostics('not-connected')
+        }
+      } catch {
+        if (!cancelled) {
+          setAiDiagnostics('not-connected')
+        }
+      }
+    }
+
+    checkAiConnection()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isAdminMode, location.pathname])
 
   useEffect(() => {
     if (location.pathname === '/callback') {
@@ -537,6 +575,15 @@ function ShellLayout() {
         </section>
       ) : null}
       <Outlet />
+      {isAdminMode ? (
+        <aside className="admin-ai-diagnostics" role="status" aria-live="polite" aria-label="AI diagnostics">
+          <p className="admin-ai-diagnostics-title">AI Diagnostics</p>
+          <p>route: {isAdminMode ? 'admin' : 'non-admin'}</p>
+          <p>session: {user ? 'signed-in' : 'none'}</p>
+          <p>host: {isHost ? 'true' : 'false'}</p>
+          <p>api: {aiDiagnostics}</p>
+        </aside>
+      ) : null}
       {isHost && isAdminMode ? <AiManagerPanel /> : null}
       {!isAudienceSongListMode ? <footer className="site-legal-footer" aria-label="Copyright notice">
         <p>

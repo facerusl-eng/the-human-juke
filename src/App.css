@@ -13581,6 +13581,32 @@ kbd {
   font-size: 0.85rem;
 }
 
+.admin-ai-diagnostics {
+  position: fixed;
+  left: max(0.75rem, env(safe-area-inset-left));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  z-index: 11999;
+  pointer-events: none;
+  background: rgba(7, 13, 34, 0.92);
+  border: 1px solid rgba(100, 160, 255, 0.4);
+  border-radius: 0.7rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 0.55rem 0.65rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #dce8ff;
+  max-width: min(80vw, 260px);
+}
+
+.admin-ai-diagnostics p {
+  margin: 0;
+}
+
+.admin-ai-diagnostics-title {
+  font-weight: 700;
+  margin-bottom: 0.2rem !important;
+}
+
 @media (max-width: 480px) {
   .ai-manager-root {
     bottom: max(0.75rem, env(safe-area-inset-bottom));
