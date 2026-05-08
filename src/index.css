@@ -56,6 +56,27 @@
   --font-body: 'Inter', 'Segoe UI', sans-serif;
   --font-head: 'Montserrat', 'Inter', sans-serif;
 
+  /* Z-index scale
+   * --z-content:  1–10   Elevated content within a section
+   * --z-topbar:   40     Navigation bar
+   * --z-nav:      41–42  Nav items and dropdowns
+   * --z-menu:     90     Nav dropdown menus
+   * --z-loader:   200    Page logo loader overlay
+   * --z-overlay:  9999   Modals, toasts, and fullscreen prompts
+   * --z-ai-bg:    11999  AI manager background layer
+   * --z-ai:       12000  AI manager floating panel
+   */
+  --z-content: 10;
+  --z-topbar: 40;
+  --z-nav: 41;
+  --z-dropdown: 42;
+  --z-menu: 90;
+  --z-loader: 200;
+  --z-overlay: 9999;
+  --z-update-banner: 10000;
+  --z-ai-bg: 11999;
+  --z-ai: 12000;
+
   font-family: var(--font-body);
   font-size: 18px;
   line-height: 1.45;
@@ -151,7 +172,7 @@ h2 {
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 10000;
+  z-index: var(--z-update-banner);
   background: linear-gradient(135deg, rgba(255, 79, 154, 0.24) 0%, rgba(162, 89, 255, 0.20) 50%, rgba(0, 194, 255, 0.16) 100%);
   border-top: 2px solid rgba(255, 79, 154, 0.6);
   backdrop-filter: blur(12px);

@@ -61,7 +61,7 @@
 .page-logo-loader-shell {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: var(--z-loader);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -99,7 +99,7 @@
 
 .topbar {
   position: relative;
-  z-index: 40;
+  z-index: var(--z-topbar);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -117,7 +117,7 @@
 
 .site-nav {
   position: relative;
-  z-index: 41;
+  z-index: var(--z-nav);
   display: flex;
   gap: 0.45rem;
   align-items: center;
@@ -126,7 +126,7 @@
 
 .site-nav .nav-dropdown {
   position: relative;
-  z-index: 42;
+  z-index: var(--z-dropdown);
   display: inline-flex;
 }
 
@@ -190,7 +190,7 @@
   pointer-events: none;
   transform: translateY(-4px);
   transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
-  z-index: 90;
+  z-index: var(--z-menu);
 }
 
 .site-nav .nav-dropdown:hover .nav-dropdown-menu,
@@ -603,7 +603,7 @@
   top: 0;
   left: 0;
   right: 0;
-  z-index: 9999;
+  z-index: var(--z-overlay);
   background: linear-gradient(90deg, #f59e0b 0%, #f97316 100%);
   color: #1a0a00;
   font-weight: 700;
@@ -5599,7 +5599,7 @@
 .mirror-fullscreen-prompt {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   align-items: center;

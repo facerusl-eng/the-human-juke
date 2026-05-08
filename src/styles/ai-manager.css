@@ -6,7 +6,7 @@
   right: max(1rem, env(safe-area-inset-right));
   inset-block-end: max(1rem, env(safe-area-inset-bottom));
   inset-inline-end: max(1rem, env(safe-area-inset-right));
-  z-index: 12000;
+  z-index: var(--z-ai);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -400,7 +400,7 @@
   position: fixed;
   left: max(0.75rem, env(safe-area-inset-left));
   bottom: max(0.75rem, env(safe-area-inset-bottom));
-  z-index: 11999;
+  z-index: var(--z-ai-bg);
   pointer-events: none;
   background: rgba(7, 13, 34, 0.92);
   border: 1px solid rgba(100, 160, 255, 0.4);
@@ -497,7 +497,7 @@
     inset-block-end: max(0.75rem, env(safe-area-inset-bottom));
     align-items: flex-end;
     justify-content: flex-end;
-    z-index: 12000 !important;
+    z-index: var(--z-ai) !important;
     display: flex !important;
     visibility: visible !important;
     pointer-events: none;
