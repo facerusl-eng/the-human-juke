@@ -5,6 +5,8 @@ import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from './authStore'
+import type { PendingOfflineSong } from '../lib/queueIdb'
+import { idbAddPendingSong, idbGetPendingSongs, idbRemovePendingSong } from '../lib/queueIdb'
 
 export type QueueSong = {
   id: string
@@ -166,6 +168,7 @@ export type QueueContextValue = {
   audienceConnectionStatus: 'connecting' | 'connected' | 'reconnecting' | 'offline'
   queueOperatingMode: 'normal' | 'degraded'
   queueHealthMessage: string | null
+  pendingOfflineSongs: PendingOfflineSong[]
   addSong: (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => Promise<void>
   setActiveEvent: (nextEventId: string) => Promise<void>
   endGig: (targetEventId: string) => Promise<void>
@@ -860,7 +863,9 @@ function QueueProvider({ children }: PropsWithChildren) {
   const [queueOperatingMode, setQueueOperatingMode] = useState<'normal' | 'degraded'>('normal')
   const [queueHealthMessage, setQueueHealthMessage] = useState<string | null>(null)
   const [audienceRefreshTick, setAudienceRefreshTick] = useState(0)
+  const [pendingOfflineSongs, setPendingOfflineSongs] = useState<PendingOfflineSong[]>([])
   const activeEventIdRef = useRef<string | null>(null)
+  const prevConnectionStatusRef = useRef<'connecting' | 'connected' | 'reconnecting' | 'offline'>('connecting')
 
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
@@ -909,6 +914,21 @@ function QueueProvider({ children }: PropsWithChildren) {
       updatedAt: Date.now(),
     } satisfies PersistedQueueSnapshot)
   }, [event, hostEvents, performedSongs, songs])
+
+  // Load any songs that were queued while offline for this event.
+  useEffect(() => {
+    if (!event?.id) {
+      return
+    }
+
+    idbGetPendingSongs(event.id).then((pending) => {
+      if (pending.length > 0) {
+        setPendingOfflineSongs(pending)
+      }
+    }).catch(() => {
+      // IDB unavailable — offline queue not supported in this environment.
+    })
+  }, [event?.id])
 
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
@@ -1401,6 +1421,65 @@ function QueueProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     fetchQueueSnapshotRef.current = fetchQueueSnapshot
   }, [fetchQueueSnapshot])
+
+  // When connection is restored after being offline, replay pending requests.
+  useEffect(() => {
+    const prevStatus = prevConnectionStatusRef.current
+    prevConnectionStatusRef.current = audienceConnectionStatus
+
+    const justReconnected = prevStatus === 'offline'
+      && (audienceConnectionStatus === 'connected' || audienceConnectionStatus === 'reconnecting')
+
+    if (!justReconnected || !event?.id || !user?.id) {
+      return
+    }
+
+    const targetEventId = event.id
+    const userId = user.id
+
+    void idbGetPendingSongs(targetEventId).then(async (pending) => {
+      if (pending.length === 0) {
+        return
+      }
+
+      for (const song of pending) {
+        try {
+          const { data: maxPos } = await supabase
+            .from('queue_songs')
+            .select('position')
+            .eq('event_id', targetEventId)
+            .eq('is_removed', false)
+            .order('position', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          const nextPosition = ((maxPos?.position as number | null) ?? -1) + 1
+
+          const { error } = await supabase.from('queue_songs').insert({
+            event_id: song.eventId,
+            title: song.title,
+            artist: song.artist,
+            is_explicit: song.isExplicit,
+            cover_url: song.coverUrl,
+            library_song_id: song.librarySongId,
+            audience_sings: song.performerMode === 'audience',
+            created_by: userId,
+            requester_name: song.requesterName || null,
+            position: nextPosition,
+          })
+
+          if (!error) {
+            await idbRemovePendingSong(song.id).catch(() => {})
+            setPendingOfflineSongs((prev) => prev.filter((p) => p.id !== song.id))
+          }
+        } catch {
+          // Keep in IDB for next reconnect attempt.
+        }
+      }
+
+      await fetchQueueSnapshotRef.current(targetEventId).catch(() => {})
+    }).catch(() => {})
+  }, [audienceConnectionStatus, event?.id, user?.id])
 
   useEffect(() => {
     let isCurrent = true
@@ -2054,6 +2133,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       performedSongs,
       loading,
       audienceConnectionStatus,
+      pendingOfflineSongs,
       queueOperatingMode,
       queueHealthMessage,
       addSong: async (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => {
@@ -2072,6 +2152,32 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         if (!normalizedTitle || !normalizedArtist) {
           throw new Error('Song title and artist are required.')
+        }
+
+        // If the device is offline, save to the IndexedDB pending queue and
+        // surface a friendly message. The request will be auto-replayed on reconnect.
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          const pendingSong: PendingOfflineSong = {
+            id: crypto.randomUUID(),
+            eventId: targetEventId,
+            title: normalizedTitle,
+            artist: normalizedArtist,
+            isExplicit,
+            coverUrl: options?.coverUrl ?? null,
+            librarySongId: options?.librarySongId ?? null,
+            performerMode: options?.performerMode,
+            requesterName: readCommittedAudienceName().trim(),
+            createdAt: Date.now(),
+          }
+
+          try {
+            await idbAddPendingSong(pendingSong)
+            setPendingOfflineSongs((prev) => [...prev, pendingSong])
+          } catch {
+            // IDB save failed — fall through and let the normal error surface.
+          }
+
+          throw new Error("You're offline. Your request has been saved and will submit automatically when you reconnect.")
         }
 
         const shouldBypassRules = options?.bypassEventRules || isHostSession
@@ -3391,6 +3497,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       performedSongs,
       loading,
       audienceConnectionStatus,
+      pendingOfflineSongs,
       queueOperatingMode,
       queueHealthMessage,
       user,
@@ -3398,6 +3505,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       isHostSession,
       refreshProfile,
       fetchQueueSnapshot,
+      setPendingOfflineSongs,
     ],
   )
 

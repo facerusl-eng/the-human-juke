@@ -649,6 +649,7 @@ function EventPage() {
     loading,
     upvoteSong,
     audienceConnectionStatus,
+    pendingOfflineSongs,
     queueOperatingMode,
     queueHealthMessage,
   } = useQueueStore()
@@ -2077,7 +2078,19 @@ function EventPage() {
           <div className="audience-connection-banner-head">
             <span className={`meta-badge connection-badge ${connectionBadgeClassName}`}>{connectionBadgeLabel}</span>
             {queueOperatingMode === 'degraded' ? <span className="meta-badge audience-degraded-badge">Fallback Mode</span> : null}
+            {pendingOfflineSongs.length > 0 ? (
+              <span className="meta-badge audience-pending-badge" title="These requests will submit automatically when you reconnect">
+                {pendingOfflineSongs.length} pending {pendingOfflineSongs.length === 1 ? 'request' : 'requests'}
+              </span>
+            ) : null}
           </div>
+          {pendingOfflineSongs.length > 0 && audienceConnectionStatus === 'offline' ? (
+            <p className="subcopy no-margin" role="status" aria-live="polite">
+              {pendingOfflineSongs.length === 1
+                ? `"${pendingOfflineSongs[0].title}" is queued and will submit when you're back online.`
+                : `${pendingOfflineSongs.length} requests are queued and will submit automatically when you reconnect.`}
+            </p>
+          ) : null}
           {queueHealthMessage ? <p className="subcopy no-margin">{queueHealthMessage}</p> : null}
         </section>
 

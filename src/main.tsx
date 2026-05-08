@@ -395,7 +395,7 @@ function scheduleNonCriticalStartupTasks() {
   const run = () => {
     setupBuildUpdateRefresh()
 
-    if (isIOSLikeDevice() && shouldBypassServiceWorkerCachingOnIOS()) {
+    if (isIOSLikeDevice() && !shouldBypassServiceWorkerCachingOnIOS()) {
       void disableServiceWorkerCachingOnIOS()
       return
     }

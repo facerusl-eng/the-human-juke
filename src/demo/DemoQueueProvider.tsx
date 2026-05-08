@@ -225,6 +225,7 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
       performedSongs,
       loading: false,
       audienceConnectionStatus: 'connected' as const,
+      pendingOfflineSongs: [],
       queueOperatingMode: 'normal' as const,
       queueHealthMessage: null,
       addSong,
