@@ -51,23 +51,114 @@ function buildPipelineContext(pipeline) {
   return lines.join('\n')
 }
 
+function resolveProviderCandidates(preferredProvider, groqApiKey, openAiApiKey) {
+  const hasGroq = Boolean(groqApiKey)
+  const hasOpenAi = Boolean(openAiApiKey)
+
+  if (preferredProvider === 'groq') {
+    return [
+      ...(hasGroq ? ['groq'] : []),
+      ...(hasOpenAi ? ['openai'] : []),
+    ]
+  }
+
+  if (preferredProvider === 'openai') {
+    return [
+      ...(hasOpenAi ? ['openai'] : []),
+      ...(hasGroq ? ['groq'] : []),
+    ]
+  }
+
+  return [
+    ...(hasGroq ? ['groq'] : []),
+    ...(hasOpenAi ? ['openai'] : []),
+  ]
+}
+
+async function callProvider({ provider, apiKey, model, messages }) {
+  const apiUrl = provider === 'groq' ? GROQ_API_URL : OPENAI_API_URL
+
+  let upstreamRes
+  try {
+    upstreamRes = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: 600,
+        temperature: 0.7,
+      }),
+    })
+  } catch {
+    return {
+      ok: false,
+      status: 502,
+      message: `Failed to reach ${provider}. Try again.`,
+    }
+  }
+
+  if (!upstreamRes.ok) {
+    const errText = await upstreamRes.text().catch(() => '')
+    if (upstreamRes.status === 401) {
+      return {
+        ok: false,
+        status: 502,
+        message: `${provider} API key is invalid or expired.`,
+      }
+    }
+
+    if (upstreamRes.status === 429) {
+      return {
+        ok: false,
+        status: 429,
+        message: `${provider} rate limit hit. Try again in a moment.`,
+      }
+    }
+
+    return {
+      ok: false,
+      status: 502,
+      message: `${provider} error ${upstreamRes.status}: ${errText.slice(0, 200)}`,
+    }
+  }
+
+  let data
+  try {
+    data = await upstreamRes.json()
+  } catch {
+    return {
+      ok: false,
+      status: 502,
+      message: `Invalid response from ${provider}.`,
+    }
+  }
+
+  const reply = data?.choices?.[0]?.message?.content?.trim()
+  if (!reply) {
+    return {
+      ok: false,
+      status: 502,
+      message: `Empty response from ${provider}.`,
+    }
+  }
+
+  return {
+    ok: true,
+    reply,
+  }
+}
+
 export default async function handler(req, res) {
   const openAiApiKey = process.env.OPENAI_API_KEY?.trim() || ''
   const groqApiKey = process.env.GROQ_API_KEY?.trim() || ''
   const preferredProvider = (process.env.AI_PROVIDER?.trim().toLowerCase() || 'auto')
-
-  const provider = preferredProvider === 'groq'
-    ? 'groq'
-    : preferredProvider === 'openai'
-    ? 'openai'
-    : groqApiKey
-    ? 'groq'
-    : 'openai'
-
-  const apiKey = provider === 'groq' ? groqApiKey : openAiApiKey
-  const model = process.env.AI_MODEL?.trim()
-    || (provider === 'groq' ? 'llama-3.1-8b-instant' : 'gpt-4o')
-  const apiUrl = provider === 'groq' ? GROQ_API_URL : OPENAI_API_URL
+  const providerCandidates = resolveProviderCandidates(preferredProvider, groqApiKey, openAiApiKey)
+  const provider = providerCandidates[0] || 'openai'
+  const model = process.env.AI_MODEL?.trim() || (provider === 'groq' ? 'llama-3.1-8b-instant' : 'gpt-4o')
 
   if (req.method === 'OPTIONS') {
     res.setHeader('Allow', 'GET, POST, OPTIONS')
@@ -77,7 +168,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     res.setHeader('Allow', 'GET, POST, OPTIONS')
-    res.status(200).json({ connected: Boolean(apiKey), provider, model })
+    res.status(200).json({ connected: providerCandidates.length > 0, provider, model, fallbackCount: Math.max(0, providerCandidates.length - 1) })
     return
   }
 
@@ -119,7 +210,7 @@ export default async function handler(req, res) {
   }
 
   // Graceful fallback when no API key is configured
-  if (!apiKey) {
+  if (providerCandidates.length === 0) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content?.toLowerCase() ?? ''
     let fallback = "I'm Brian Epstein, your booking manager. I'm not fully connected yet - add a free-tier GROQ_API_KEY (recommended) or OPENAI_API_KEY to enable AI replies. In the meantime: check your follow-up tasks and prioritise venues with a lead score above 50 that haven't been contacted yet."
     if (lastUserMsg.includes('email') || lastUserMsg.includes('draft')) {
@@ -139,51 +230,26 @@ export default async function handler(req, res) {
     ...messages.map(m => ({ role: m.role, content: m.content })),
   ]
 
-  let openAiRes
-  try {
-    openAiRes = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: openAiMessages,
-        max_tokens: 600,
-        temperature: 0.7,
-      }),
+  let lastError = { status: 502, message: 'AI provider unavailable.' }
+
+  for (const candidate of providerCandidates) {
+    const candidateApiKey = candidate === 'groq' ? groqApiKey : openAiApiKey
+    const candidateModel = process.env.AI_MODEL?.trim() || (candidate === 'groq' ? 'llama-3.1-8b-instant' : 'gpt-4o')
+
+    const result = await callProvider({
+      provider: candidate,
+      apiKey: candidateApiKey,
+      model: candidateModel,
+      messages: openAiMessages,
     })
-  } catch {
-    res.status(502).json({ error: `Failed to reach ${provider}. Try again.` })
-    return
-  }
 
-  if (!openAiRes.ok) {
-    const errText = await openAiRes.text().catch(() => '')
-    if (openAiRes.status === 401) {
-      res.status(502).json({ error: `${provider} API key is invalid or expired.` })
-    } else if (openAiRes.status === 429) {
-      res.status(429).json({ error: `${provider} rate limit hit. Try again in a moment.` })
-    } else {
-      res.status(502).json({ error: `${provider} error ${openAiRes.status}: ${errText.slice(0, 200)}` })
+    if (result.ok) {
+      res.status(200).json({ reply: result.reply, connected: true, provider: candidate, model: candidateModel })
+      return
     }
-    return
+
+    lastError = { status: result.status, message: result.message }
   }
 
-  let data
-  try {
-    data = await openAiRes.json()
-  } catch {
-    res.status(502).json({ error: 'Invalid response from OpenAI.' })
-    return
-  }
-
-  const reply = data?.choices?.[0]?.message?.content?.trim()
-  if (!reply) {
-    res.status(502).json({ error: 'Empty response from OpenAI.' })
-    return
-  }
-
-  res.status(200).json({ reply, connected: true, provider, model })
+  res.status(lastError.status).json({ error: lastError.message })
 }
