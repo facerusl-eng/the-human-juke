@@ -103,6 +103,61 @@ function isAbortLikeRejection(reason: unknown): boolean {
   return message.includes('aborted') || message.includes('aborterror') || message.includes('canceled')
 }
 
+function isIOSLikeDevice() {
+  if (typeof navigator === 'undefined') {
+    return false
+  }
+
+  const userAgent = navigator.userAgent || ''
+  const platform = navigator.platform || ''
+
+  if (/iPhone|iPad|iPod/i.test(userAgent)) {
+    return true
+  }
+
+  // iPadOS can report itself as Mac; detect via touch support.
+  return platform === 'MacIntel' && navigator.maxTouchPoints > 1
+}
+
+async function disableServiceWorkerCachingOnIOS() {
+  if (!import.meta.env.PROD || typeof window === 'undefined' || !('serviceWorker' in navigator) || !isIOSLikeDevice()) {
+    return
+  }
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+
+    if (registrations.length === 0 && !('caches' in window)) {
+      return
+    }
+
+    await Promise.all(
+      registrations.map(async (registration) => {
+        try {
+          await registration.unregister()
+        } catch {
+          // Ignore unregister failures and continue with remaining registrations.
+        }
+      }),
+    )
+
+    if ('caches' in window) {
+      try {
+        const cacheKeys = await caches.keys()
+        await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)))
+      } catch {
+        // Ignore cache cleanup failures.
+      }
+    }
+
+    if (navigator.serviceWorker.controller) {
+      window.location.reload()
+    }
+  } catch {
+    emitRuntimeNotice('iPhone cache cleanup hit an issue. The app will continue and retry later.')
+  }
+}
+
 async function cleanupLegacyServiceWorkers() {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return
@@ -319,6 +374,12 @@ function scheduleNonCriticalStartupTasks() {
 
   const run = () => {
     setupBuildUpdateRefresh()
+
+    if (isIOSLikeDevice()) {
+      void disableServiceWorkerCachingOnIOS()
+      return
+    }
+
     void cleanupLegacyServiceWorkers()
     void registerProductionServiceWorker()
   }
