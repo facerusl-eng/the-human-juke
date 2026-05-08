@@ -2319,8 +2319,6 @@ function MirrorPage() {
             <div className="mirror-countdown-card mirror-countdown-card-muted mirror-network-block-card" aria-label="Access rule">
               <p className="mirror-countdown-label">WiFi</p>
               <p className="mirror-countdown-value mirror-countdown-value-compact">Drifter 5G / Drifter 2,4</p>
-              <p className="mirror-countdown-label mirror-countdown-label-spaced">Adgangskode / Password</p>
-              <p className="mirror-countdown-value mirror-countdown-value-compact">Hallig6690?</p>
             </div>
           </div>
         </section>
