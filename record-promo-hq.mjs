@@ -6,7 +6,7 @@ import fs from 'fs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const videoDir = join(__dirname, 'public/videos');
 const targetUrl = 'http://localhost:5174/story-promo.html';
-const durationMs = 18000;
+const durationMs = 25000;
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -21,7 +21,7 @@ const durationMs = 18000;
   const page = await context.newPage();
   await page.goto(targetUrl, { waitUntil: 'networkidle' });
 
-  console.log('Recording concept promo in HQ for 18 seconds...');
+  console.log('Recording concept promo in HQ for 25 seconds...');
   await page.waitForTimeout(durationMs);
 
   const rawVideoPath = await page.video().path();

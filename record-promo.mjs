@@ -20,9 +20,9 @@ const videoDir = join(__dirname, 'public/videos');
   // Navigate to the promo
   await page.goto('http://localhost:5174/story-promo.html', { waitUntil: 'networkidle' });
   
-  // Wait for the entire promo to play (18 seconds)
-  console.log('Recording promo for 18 seconds...');
-  await new Promise(resolve => setTimeout(resolve, 18000));
+  // Wait for the entire promo to play (25 seconds)
+  console.log('Recording promo for 25 seconds...');
+  await new Promise(resolve => setTimeout(resolve, 25000));
   
   // Get video path before closing context
   const videoPath = await page.video().path();
