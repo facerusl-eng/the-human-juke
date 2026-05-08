@@ -22,6 +22,9 @@ const DB_NAME = 'human-jukebox-offline-v1'
 const DB_VERSION = 1
 const STORE_NAME = 'pending-songs'
 
+/** Pending entries older than this are considered stale and are pruned on load. */
+const MAX_AGE_MS = 6 * 60 * 60 * 1000 // 6 hours
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') {
@@ -57,6 +60,26 @@ export async function idbAddPendingSong(song: PendingOfflineSong): Promise<void>
 
 export async function idbGetPendingSongs(eventId: string): Promise<PendingOfflineSong[]> {
   const db = await openDb()
+  const cutoff = Date.now() - MAX_AGE_MS
+
+  // First pass: prune stale entries across all events.
+  await new Promise<void>((resolve) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    const store = tx.objectStore(STORE_NAME)
+    const index = store.index('createdAt')
+    const range = IDBKeyRange.upperBound(cutoff)
+    const req = index.openCursor(range)
+    req.onsuccess = () => {
+      const cursor = req.result as IDBCursorWithValue | null
+      if (cursor) {
+        cursor.delete()
+        cursor.continue()
+      }
+    }
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => resolve() // non-fatal
+  })
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly')
     const index = tx.objectStore(STORE_NAME).index('eventId')
