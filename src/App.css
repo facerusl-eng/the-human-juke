@@ -13238,20 +13238,6 @@ kbd {
   opacity: 1;
 }
 
-.ai-manager-modal-open {
-  overflow: hidden;
-}
-
-.ai-manager-backdrop {
-  position: fixed;
-  inset: 0;
-  border: 0;
-  background: rgba(3, 8, 18, 0.7);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  pointer-events: all;
-}
-
 .ai-manager-panel {
   pointer-events: all;
   width: min(420px, calc(100vw - 2rem));
@@ -13595,32 +13581,6 @@ kbd {
   font-size: 0.85rem;
 }
 
-.ai-manager-mobile-toggle {
-  display: none;
-  pointer-events: all;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  min-height: 3.2rem;
-  padding: 0.7rem 1rem;
-  border-radius: 999px;
-  border: 1px solid rgba(100, 160, 255, 0.42);
-  background: linear-gradient(135deg, rgba(31, 72, 167, 0.96) 0%, rgba(21, 45, 107, 0.94) 100%);
-  color: #f7fbff;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
-  font: inherit;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.ai-manager-mobile-toggle-open {
-  background: linear-gradient(135deg, rgba(23, 40, 83, 0.98) 0%, rgba(13, 25, 55, 0.96) 100%);
-}
-
-.ai-manager-mobile-toggle-text {
-  white-space: nowrap;
-}
-
 .admin-ai-diagnostics {
   position: fixed;
   left: max(0.75rem, env(safe-area-inset-left));
@@ -13721,13 +13681,13 @@ kbd {
 
   .ai-manager-root {
     position: fixed;
-    left: max(1rem, env(safe-area-inset-left));
-    right: max(1rem, env(safe-area-inset-right));
+    left: auto;
+    right: max(0.75rem, env(safe-area-inset-right));
     bottom: max(0.75rem, env(safe-area-inset-bottom));
-    inset-inline-start: max(1rem, env(safe-area-inset-left));
-    inset-inline-end: max(1rem, env(safe-area-inset-right));
+    inset-inline-start: auto;
+    inset-inline-end: max(0.75rem, env(safe-area-inset-right));
     inset-block-end: max(0.75rem, env(safe-area-inset-bottom));
-    align-items: center;
+    align-items: flex-end;
     justify-content: flex-end;
     z-index: 12000 !important;
     display: flex !important;
@@ -13736,22 +13696,16 @@ kbd {
   }
 
   .ai-manager-panel {
-    width: min(720px, calc(100vw - 3rem));
-    max-height: min(78vh, calc(100vh - 8rem));
+    width: min(430px, calc(100vw - 1.5rem));
+    max-height: min(72vh, calc(100vh - 7rem));
     pointer-events: all;
     display: flex !important;
     visibility: visible !important;
-    border-radius: 1.25rem;
+    border-radius: 1rem;
   }
 
   .ai-manager-fab {
-    display: none !important;
-  }
-
-  .ai-manager-mobile-toggle {
-    display: inline-flex;
-    align-self: center;
-    min-width: 12rem;
+    display: flex !important;
   }
 
   .admin-ai-diagnostics {
@@ -13864,20 +13818,20 @@ kbd {
   }
 
   .ai-manager-root {
-    left: max(0.5rem, env(safe-area-inset-left));
+    left: auto;
     right: max(0.5rem, env(safe-area-inset-right));
     bottom: max(0.5rem, env(safe-area-inset-bottom));
-    inset-inline-start: max(0.5rem, env(safe-area-inset-left));
+    inset-inline-start: auto;
     inset-inline-end: max(0.5rem, env(safe-area-inset-right));
     inset-block-end: max(0.5rem, env(safe-area-inset-bottom));
-    align-items: stretch;
+    align-items: flex-end;
     justify-content: flex-end;
   }
 
   .ai-manager-panel {
-    width: 100%;
-    max-height: min(84dvh, calc(100dvh - 5rem));
-    border-radius: 1.1rem;
+    width: min(360px, calc(100vw - 1rem));
+    max-height: min(68dvh, calc(100dvh - 5.2rem));
+    border-radius: 0.95rem;
   }
 
   .ai-manager-header {
@@ -13914,12 +13868,7 @@ kbd {
   }
 
   .ai-manager-fab {
-    display: none !important;
-  }
-
-  .ai-manager-mobile-toggle {
-    display: inline-flex;
-    width: 100%;
+    display: flex !important;
   }
 
   .admin-ai-diagnostics {
