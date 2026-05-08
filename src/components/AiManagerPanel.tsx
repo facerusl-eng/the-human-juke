@@ -40,12 +40,26 @@ type Props = {
   pipeline?: PipelineContext
 }
 
+type ManagerOption = {
+  id: 'brian' | 'parker' | 'grant'
+  name: string
+  subtitle: string
+}
+
 const STARTERS = [
   'What should I focus on today?',
   'Which venues should I follow up with?',
   'Draft an email for my best lead',
   'How is my pipeline looking?',
 ]
+
+const MANAGER_OPTIONS: ManagerOption[] = [
+  { id: 'brian', name: 'Brian Epstein', subtitle: 'The Beatles' },
+  { id: 'parker', name: 'Colonel Tom Parker', subtitle: 'Elvis Presley' },
+  { id: 'grant', name: 'Peter Grant', subtitle: 'Led Zeppelin' },
+]
+
+const MANAGER_STORAGE_KEY = 'human-jukebox-ai-manager-profile'
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10)
@@ -59,8 +73,27 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'not-connected'>('checking')
+  const [managerId, setManagerId] = useState<ManagerOption['id']>(() => {
+    if (typeof window === 'undefined') {
+      return 'brian'
+    }
+
+    const stored = window.localStorage.getItem(MANAGER_STORAGE_KEY)
+    return stored === 'parker' || stored === 'grant' ? stored : 'brian'
+  })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const selectedManager = MANAGER_OPTIONS.find(option => option.id === managerId) ?? MANAGER_OPTIONS[0]
+  const avatarSrc = managerId === 'brian' ? '/images/brian-epstein-avatar.png' : ''
+  const avatarFallback = managerId === 'parker' ? 'TP' : managerId === 'grant' ? 'PG' : 'BE'
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(MANAGER_STORAGE_KEY, managerId)
+  }, [managerId])
 
   useEffect(() => {
     if (open) {
@@ -121,6 +154,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
         body: JSON.stringify({
           messages: nextMessages.map(m => ({ role: m.role, content: m.content })),
           pipeline,
+          managerId,
         }),
       })
 
@@ -156,22 +190,37 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
           <div className="ai-manager-header">
             <div className="ai-manager-header-info">
               <span className="ai-manager-avatar" aria-hidden="true">
-                {!avatarBroken ? (
+                {!avatarBroken && avatarSrc ? (
                   <img
-                    src="/images/brian-epstein-avatar.png"
+                    src={avatarSrc}
                     alt=""
                     className="ai-manager-avatar-image"
                     onError={() => setAvatarBroken(true)}
                   />
                 ) : (
-                  <span className="ai-manager-avatar-fallback">BE</span>
+                  <span className="ai-manager-avatar-fallback">{avatarFallback}</span>
                 )}
               </span>
               <div>
-                <p className="ai-manager-name">Brian Epstein</p>
-                <p className="ai-manager-title">AI Booking Manager</p>
+                <p className="ai-manager-name">{selectedManager.name}</p>
+                <p className="ai-manager-title">AI Manager • {selectedManager.subtitle}</p>
               </div>
             </div>
+            <label className="ai-manager-profile-picker">
+              <span className="ai-manager-profile-picker-label">Manager</span>
+              <select
+                value={managerId}
+                onChange={(event) => setManagerId(event.target.value as ManagerOption['id'])}
+                className="ai-manager-profile-select"
+                aria-label="Select AI manager profile"
+              >
+                {MANAGER_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name} ({option.subtitle})
+                  </option>
+                ))}
+              </select>
+            </label>
             <span
               className={`ai-manager-status ai-manager-status-${connectionStatus}`}
               aria-live="polite"
@@ -191,7 +240,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
           <div className="ai-manager-messages">
             {messages.length === 0 && (
               <div className="ai-manager-empty">
-                <p className="ai-manager-empty-text">Hi, I'm Brian Epstein - your booking manager. Ask me anything about your pipeline, or pick a quick start:</p>
+                <p className="ai-manager-empty-text">Hi, I'm {selectedManager.name} - your booking manager. Ask me anything about your pipeline, or pick a quick start:</p>
                 <div className="ai-manager-starters">
                   {STARTERS.map(s => (
                     <button
@@ -240,7 +289,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Brian Epstein anything..."
+              placeholder={`Ask ${selectedManager.name} anything...`}
               rows={1}
               disabled={loading}
             />
@@ -264,15 +313,15 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
         aria-label={open ? 'Close AI manager' : 'Open AI booking manager'}
       >
         <span className="ai-manager-fab-icon" aria-hidden="true">
-          {!avatarBroken ? (
+          {!avatarBroken && avatarSrc ? (
             <img
-              src="/images/brian-epstein-avatar.png"
+              src={avatarSrc}
               alt=""
               className="ai-manager-fab-image"
               onError={() => setAvatarBroken(true)}
             />
           ) : (
-            <span className="ai-manager-avatar-fallback">BE</span>
+            <span className="ai-manager-avatar-fallback">{avatarFallback}</span>
           )}
         </span>
       </button>

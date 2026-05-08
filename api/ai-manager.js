@@ -1,14 +1,9 @@
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
-const SYSTEM_PROMPT = `You are Brian Epstein, the AI booking manager for The Human Jukebox - a live interactive music and karaoke entertainment act run by Harald.
+const CORE_PROMPT = `You are the AI booking manager for The Human Jukebox - a live interactive music and karaoke entertainment act run by Harald.
 
-Your job is to help Harald book more gigs by coaching him through venue outreach. You have access to his current pipeline data and venue list. You speak like a seasoned British music manager: direct, warm, practical, and encouraging. Never robotic.
-
-Voice and style:
-- Use light British humor occasionally (dry, classy, never cheesy, never overdone).
-- When relevant, briefly reference lessons from managing The Beatles (discipline, persistence, relationship-building, presentation, timing), and connect those lessons to Harald's current outreach decisions.
-- Keep the tone confident and human, like a trusted manager in the room.
+Your job is to help Harald book more gigs by coaching him through venue outreach.
 
 When giving advice:
 - Be specific about venues by name when possible.
@@ -19,8 +14,76 @@ When giving advice:
 
 Guardrails:
 - Never invent venue data or metrics - only use provided context.
-- Never invent historical Beatles facts. If unsure, keep references general and practical.
+- Never invent historical facts about artists or managers. If unsure, keep references general and practical.
+- Keep humor light and occasional, never mocking the user.
 - Focus on what helps Harald get booked.`
+
+const MANAGER_PROFILES = {
+  brian: {
+    id: 'brian',
+    name: 'Brian Epstein',
+    subtitle: 'The Beatles',
+    prompt: `Manager persona: Brian Epstein.
+
+Voice and style:
+- Warm, polished, and disciplined.
+- Light British humor, dry and tasteful.
+- Occasionally reference lessons from managing The Beatles: presentation, consistency, persistence, and relationship trust.
+
+Coaching focus:
+- Build long-term venue relationships.
+- Keep outreach classy, clear, and professional.
+- Prioritize follow-up reliability and reputation.`
+  },
+  parker: {
+    id: 'parker',
+    name: 'Colonel Tom Parker',
+    subtitle: 'Elvis Presley',
+    prompt: `Manager persona: Colonel Tom Parker.
+
+Voice and style:
+- Bold, persuasive, and commercially sharp.
+- A touch of showman humor and punchy one-liners.
+- Occasionally reference lessons from Elvis-era promotion: packaging, urgency, audience buzz, and making offers feel like events.
+
+Coaching focus:
+- Lead with commercial upside for venue owners.
+- Write subject lines and openings that sell outcomes quickly.
+- Push clear, low-friction calls to action and trial nights.
+
+Ethics:
+- Be assertive but fair. Avoid manipulative or deceptive tactics.`
+  },
+  grant: {
+    id: 'grant',
+    name: 'Peter Grant',
+    subtitle: 'Led Zeppelin',
+    prompt: `Manager persona: Peter Grant.
+
+Voice and style:
+- Straight-talking, confident, and no-nonsense.
+- Dry, slightly tough humor used sparingly.
+- Occasionally reference lessons from Led Zeppelin-era management: knowing your value, strong positioning, and protecting deal quality.
+
+Coaching focus:
+- Negotiate from strength and clarity.
+- Protect margins, terms, and operational simplicity.
+- Prioritize venues that respect quality and repeat business.`
+  },
+}
+
+function resolveManagerId(value) {
+  if (typeof value !== 'string') {
+    return 'brian'
+  }
+
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'brian' || normalized === 'parker' || normalized === 'grant') {
+    return normalized
+  }
+
+  return 'brian'
+}
 
 function toJsonBody(body) {
   if (!body) return {}
@@ -167,6 +230,7 @@ export default async function handler(req, res) {
   const providerCandidates = resolveProviderCandidates(preferredProvider, groqApiKey, openAiApiKey)
   const provider = providerCandidates[0] || 'openai'
   const model = process.env.AI_MODEL?.trim() || (provider === 'groq' ? 'llama-3.1-8b-instant' : 'gpt-4o')
+  const defaultManagerId = resolveManagerId(process.env.AI_MANAGER_DEFAULT || 'brian')
 
   if (req.method === 'OPTIONS') {
     res.setHeader('Allow', 'GET, POST, OPTIONS')
@@ -176,7 +240,18 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     res.setHeader('Allow', 'GET, POST, OPTIONS')
-    res.status(200).json({ connected: providerCandidates.length > 0, provider, model, fallbackCount: Math.max(0, providerCandidates.length - 1) })
+    res.status(200).json({
+      connected: providerCandidates.length > 0,
+      provider,
+      model,
+      fallbackCount: Math.max(0, providerCandidates.length - 1),
+      defaultManagerId,
+      managers: Object.values(MANAGER_PROFILES).map((manager) => ({
+        id: manager.id,
+        name: manager.name,
+        subtitle: manager.subtitle,
+      })),
+    })
     return
   }
 
@@ -190,6 +265,8 @@ export default async function handler(req, res) {
 
   const messages = Array.isArray(payload.messages) ? payload.messages : []
   const pipeline = payload.pipeline ?? null
+  const managerId = resolveManagerId(payload.managerId || defaultManagerId)
+  const managerProfile = MANAGER_PROFILES[managerId]
 
   if (!messages.length) {
     res.status(400).json({ error: 'messages array is required.' })
@@ -220,18 +297,19 @@ export default async function handler(req, res) {
   // Graceful fallback when no API key is configured
   if (providerCandidates.length === 0) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content?.toLowerCase() ?? ''
-    let fallback = "I'm Brian Epstein, your booking manager. I'm not fully connected yet - add a free-tier GROQ_API_KEY (recommended) or OPENAI_API_KEY to enable AI replies. In the meantime: check your follow-up tasks and prioritise venues with a lead score above 50 that haven't been contacted yet."
+    let fallback = `I'm ${managerProfile.name}, your booking manager. I'm not fully connected yet - add a free-tier GROQ_API_KEY (recommended) or OPENAI_API_KEY to enable AI replies. In the meantime: check your follow-up tasks and prioritise venues with a lead score above 50 that haven't been contacted yet.`
     if (lastUserMsg.includes('email') || lastUserMsg.includes('draft')) {
       fallback = "I'd love to draft that for you - I just need AI provider credentials first. Add GROQ_API_KEY (free-tier) or OPENAI_API_KEY in Vercel environment variables."
     }
-    res.status(200).json({ reply: fallback, connected: false, provider, model })
+    res.status(200).json({ reply: fallback, connected: false, provider, model, managerId, managerName: managerProfile.name })
     return
   }
 
   const pipelineContext = buildPipelineContext(pipeline)
+  const personaPrompt = `${CORE_PROMPT}\n\n${managerProfile.prompt}`
   const systemWithContext = pipelineContext
-    ? `${SYSTEM_PROMPT}\n\n--- CURRENT PIPELINE DATA ---\n${pipelineContext}\n--- END PIPELINE DATA ---`
-    : SYSTEM_PROMPT
+    ? `${personaPrompt}\n\n--- CURRENT PIPELINE DATA ---\n${pipelineContext}\n--- END PIPELINE DATA ---`
+    : personaPrompt
 
   const openAiMessages = [
     { role: 'system', content: systemWithContext },
@@ -252,7 +330,14 @@ export default async function handler(req, res) {
     })
 
     if (result.ok) {
-      res.status(200).json({ reply: result.reply, connected: true, provider: candidate, model: candidateModel })
+      res.status(200).json({
+        reply: result.reply,
+        connected: true,
+        provider: candidate,
+        model: candidateModel,
+        managerId,
+        managerName: managerProfile.name,
+      })
       return
     }
 

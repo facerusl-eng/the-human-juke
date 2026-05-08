@@ -13323,6 +13323,35 @@ kbd {
   border: 1px solid transparent;
 }
 
+.ai-manager-profile-picker {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 10.2rem;
+}
+
+.ai-manager-profile-picker-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(170, 200, 255, 0.72);
+}
+
+.ai-manager-profile-select {
+  min-height: 2rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(100, 160, 255, 0.35);
+  background: rgba(11, 20, 38, 0.92);
+  color: #dce8ff;
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.ai-manager-profile-select:focus-visible {
+  outline: 2px solid rgba(120, 180, 255, 0.5);
+  outline-offset: 1px;
+}
+
 .ai-manager-status-connected {
   color: #8ff2bf;
   background: rgba(20, 120, 70, 0.28);
@@ -13855,6 +13884,11 @@ kbd {
   .ai-manager-status {
     order: 3;
     margin-left: 0;
+  }
+
+  .ai-manager-profile-picker {
+    order: 3;
+    width: 100%;
   }
 
   .ai-manager-close {
