@@ -219,14 +219,6 @@ function isSpotifyAutoTransportEnabled() {
   return window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY) !== '0'
 }
 
-function isIphoneLikeDevice() {
-  if (typeof navigator === 'undefined') {
-    return false
-  }
-
-  return /iPhone|iPod/i.test(navigator.userAgent)
-}
-
 function isPrivateLanHostname(hostname: string) {
   if (!hostname) {
     return false
@@ -978,16 +970,6 @@ function MirrorPage() {
         }
 
         setIsMirrorNetworkAllowed(true)
-        setHasCheckedMirrorNetworkAccess(true)
-        return
-      }
-
-      if (isIphoneLikeDevice()) {
-        if (!isCurrent) {
-          return
-        }
-
-        setIsMirrorNetworkAllowed(false)
         setHasCheckedMirrorNetworkAccess(true)
         return
       }
