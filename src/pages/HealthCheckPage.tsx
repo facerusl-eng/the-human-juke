@@ -191,6 +191,7 @@ function HealthCheckPage() {
   const [results, setResults] = useState<Record<HealthCheckId, HealthCheckResult>>(buildDefaultResults)
   const [runningAll, setRunningAll] = useState(false)
   const [lastRunAt, setLastRunAt] = useState<string | null>(null)
+  const [lastSuccessfulRunAt, setLastSuccessfulRunAt] = useState<string | null>(null)
 
   const canRunMixerLanCheck = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -205,7 +206,7 @@ function HealthCheckPage() {
     [canRunMixerLanCheck],
   )
 
-  const runCheck = useCallback(async (checkId: HealthCheckId) => {
+  const runCheck = useCallback(async (checkId: HealthCheckId): Promise<boolean> => {
     const startedAt = performance.now()
 
     setResults((currentResults) => ({
@@ -282,7 +283,7 @@ function HealthCheckPage() {
                 },
               }))
 
-              return
+              return true
             }
 
             const detail = formatMixerAttemptDetail(retryAttempts)
@@ -305,7 +306,7 @@ function HealthCheckPage() {
             },
           }))
 
-          return
+          return true
         }
 
         case 'connectionStrength': {
@@ -350,7 +351,7 @@ function HealthCheckPage() {
               durationMs,
             },
           }))
-          return
+          return rttMeasured < 280
         }
 
         case 'deviceMemory': {
@@ -406,7 +407,7 @@ function HealthCheckPage() {
             throw new Error(detailParts.join(' · '))
           }
 
-          return
+          return true
         }
 
         case 'cpuCapacity': {
@@ -449,7 +450,7 @@ function HealthCheckPage() {
             throw new Error(detailParts.join(' · '))
           }
 
-          return
+          return true
         }
 
         case 'session': {
@@ -560,6 +561,8 @@ function HealthCheckPage() {
           durationMs,
         },
       }))
+
+      return true
     } catch (error) {
       const durationMs = Math.round(performance.now() - startedAt)
 
@@ -571,17 +574,25 @@ function HealthCheckPage() {
           durationMs,
         },
       }))
+
+      return false
     }
   }, [canRunMixerLanCheck, event?.id, user?.id])
 
   const runAllChecks = useCallback(async () => {
     setRunningAll(true)
+    let allPassed = true
 
     for (const check of availableChecks) {
-      await runCheck(check.id)
+      const passed = await runCheck(check.id)
+      allPassed = allPassed && passed
     }
 
-    setLastRunAt(new Date().toLocaleTimeString())
+    const completedAt = new Date().toLocaleTimeString()
+    setLastRunAt(completedAt)
+    if (allPassed) {
+      setLastSuccessfulRunAt(completedAt)
+    }
     setRunningAll(false)
   }, [availableChecks, runCheck])
 
@@ -623,7 +634,7 @@ function HealthCheckPage() {
             }}
             disabled={runningAll}
           >
-            {runningAll ? 'Running checks...' : 'Run all checks'}
+            {runningAll ? 'Running checks...' : lastRunAt ? 'Retry all checks' : 'Run all checks'}
           </button>
           <button type="button" className="secondary-button" onClick={() => navigate('/admin')}>
             Back to Dashboard
@@ -632,6 +643,7 @@ function HealthCheckPage() {
         <div className="toolbar-status">
           <span className={`status-badge ${summary.tone}`}>{summary.label}</span>
           {lastRunAt ? <span className="status-badge">Last run: {lastRunAt}</span> : null}
+          <span className="status-badge">Last successful: {lastSuccessfulRunAt ?? 'Not yet'}</span>
         </div>
       </section>
 
