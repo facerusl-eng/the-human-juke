@@ -275,7 +275,6 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
             <span className="ai-manager-avatar-fallback">BE</span>
           )}
         </span>
-        {!open && <span className="ai-manager-fab-label">Brian Epstein</span>}
       </button>
     </div>,
     document.body,

@@ -13547,6 +13547,14 @@ kbd {
   opacity: 1;
 }
 
+.ai-manager-fab:not(.ai-manager-fab-open) {
+  width: 3.15rem;
+  height: 3.15rem;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+}
+
 .ai-manager-fab:hover {
   background: rgba(60, 110, 220, 0.95);
   transform: translateY(-1px);
