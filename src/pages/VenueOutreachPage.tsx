@@ -741,6 +741,63 @@ function VenueOutreachPage() {
       .filter((contact): contact is { venueId: string; venueName: string; email: string; subject: string; messageText: string } => Boolean(contact))
   }
 
+  const runSendTestEmail = async () => {
+    setSendError(null)
+    setStatusText(null)
+
+    if (!senderEmail.trim()) {
+      setSendError('Sender email is required before sending a test email to yourself.')
+      return
+    }
+
+    if (!previewVenue || !previewDraft) {
+      setSendError('Pick or load a venue first so the test email has content to preview and send.')
+      return
+    }
+
+    if (!previewDraft.subject.trim() || !previewDraft.messageText.trim()) {
+      setSendError('Subject and message are required before sending a test email.')
+      return
+    }
+
+    setSendingMode('concept')
+
+    try {
+      const response = await fetch('/api/send-outreach', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          senderName,
+          senderEmail,
+          emailMode: 'concept',
+          subject: `[Test] ${previewDraft.subject}`,
+          messageText: previewDraft.messageText,
+          contacts: [{
+            venueId: previewVenue.id,
+            venueName: `${previewVenue.name} (test)`,
+            email: senderEmail.trim(),
+            subject: `[Test] ${previewDraft.subject}`,
+            messageText: previewDraft.messageText,
+          }],
+        }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(typeof payload?.error === 'string' ? payload.error : 'Failed to send test email.')
+      }
+
+      setStatusText(`Sent a test email to ${senderEmail.trim()}.`)
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'Failed to send test email.')
+    } finally {
+      setSendingMode(null)
+    }
+  }
+
   const runSend = async (mode: SendMode) => {
     setSendError(null)
     setStatusText(null)
@@ -1217,6 +1274,10 @@ function VenueOutreachPage() {
             <button type="button" className="venue-action-card venue-action-card-search" onClick={() => void runVenueSearch()} disabled={searching || Boolean(sendingMode)}>
               <span className="venue-action-card-title">{searching ? 'Searching…' : 'Find Nearby Venues'}</span>
               <span className="venue-action-card-copy">Refresh the list around {locationQuery} with the current filters.</span>
+            </button>
+            <button type="button" className="venue-action-card venue-action-card-secondary" onClick={() => void runSendTestEmail()} disabled={searching || Boolean(sendingMode)}>
+              <span className="venue-action-card-title">{sendingMode === 'concept' ? 'Sending Test…' : 'Send Test To Myself'}</span>
+              <span className="venue-action-card-copy">Send the current preview draft to your own reply-to email before contacting venues.</span>
             </button>
             <button type="button" className="venue-action-card venue-action-card-primary" onClick={() => void runSend('concept')} disabled={searching || Boolean(sendingMode)}>
               <span className="venue-action-card-title">

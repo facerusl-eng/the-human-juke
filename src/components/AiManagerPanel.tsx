@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+type AiViewportMode = 'mobile' | 'tablet' | 'desktop'
+
 type Message = {
   id: string
   role: 'user' | 'assistant'
@@ -51,15 +53,26 @@ function generateId() {
   return Math.random().toString(36).slice(2, 10)
 }
 
+function getAiViewportMode(): AiViewportMode {
+  if (typeof window === 'undefined') {
+    return 'desktop'
+  }
+
+  if (window.innerWidth <= 600) {
+    return 'mobile'
+  }
+
+  if (window.innerWidth <= 1024) {
+    return 'tablet'
+  }
+
+  return 'desktop'
+}
+
 export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [avatarBroken, setAvatarBroken] = useState(false)
-  const [open, setOpen] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false
-    }
-
-    return window.matchMedia('(max-width: 768px)').matches
-  })
+  const [viewportMode, setViewportMode] = useState<AiViewportMode>(() => getAiViewportMode())
+  const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -67,12 +80,42 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'not-connected'>('checking')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const isCompactViewport = viewportMode !== 'desktop'
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const updateViewportMode = () => {
+      setViewportMode(getAiViewportMode())
+    }
+
+    updateViewportMode()
+    window.addEventListener('resize', updateViewportMode)
+
+    return () => {
+      window.removeEventListener('resize', updateViewportMode)
+    }
+  }, [])
 
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 80)
     }
   }, [open])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    document.body.classList.toggle('ai-manager-modal-open', isCompactViewport && open)
+
+    return () => {
+      document.body.classList.remove('ai-manager-modal-open')
+    }
+  }, [isCompactViewport, open])
 
   useEffect(() => {
     if (open) {
@@ -156,9 +199,17 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   }
 
   return createPortal(
-    <div className="ai-manager-root" data-ai-manager-root="true">
-      {open && (
-        <div className="ai-manager-panel" role="dialog" aria-label="AI Booking Manager">
+    <div className={`ai-manager-root ai-manager-root-${viewportMode}`} data-ai-manager-root="true">
+      {open && isCompactViewport ? (
+        <button
+          type="button"
+          className="ai-manager-backdrop"
+          onClick={() => setOpen(false)}
+          aria-label="Close AI manager backdrop"
+        />
+      ) : null}
+      {open && isCompactViewport ? (
+        <div className={`ai-manager-panel ai-manager-panel-${viewportMode}`} role="dialog" aria-modal="true" aria-label="AI Booking Manager">
           <div className="ai-manager-header">
             <div className="ai-manager-header-info">
               <span className="ai-manager-avatar" aria-hidden="true">
@@ -261,28 +312,155 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
             </button>
           </div>
         </div>
-      )}
+      ) : open ? (
+        <div className={`ai-manager-panel ai-manager-panel-${viewportMode}`} role="dialog" aria-label="AI Booking Manager">
+          <div className="ai-manager-header">
+            <div className="ai-manager-header-info">
+              <span className="ai-manager-avatar" aria-hidden="true">
+                {!avatarBroken ? (
+                  <img
+                    src="/images/brian-epstein-avatar.png"
+                    alt=""
+                    className="ai-manager-avatar-image"
+                    onError={() => setAvatarBroken(true)}
+                  />
+                ) : (
+                  <span className="ai-manager-avatar-fallback">BE</span>
+                )}
+              </span>
+              <div>
+                <p className="ai-manager-name">Brian Epstein</p>
+                <p className="ai-manager-title">AI Booking Manager</p>
+              </div>
+            </div>
+            <span
+              className={`ai-manager-status ai-manager-status-${connectionStatus}`}
+              aria-live="polite"
+            >
+              {connectionStatus === 'connected' ? 'AI Connected' : connectionStatus === 'checking' ? 'Checking...' : 'AI Not Connected'}
+            </span>
+            <button
+              type="button"
+              className="ai-manager-close"
+              onClick={() => setOpen(false)}
+              aria-label="Close AI manager"
+            >
+              ×
+            </button>
+          </div>
 
-      <button
-        type="button"
-        className={`ai-manager-fab ${open ? 'ai-manager-fab-open' : ''}`}
-        onClick={() => setOpen(prev => !prev)}
-        aria-label={open ? 'Close AI manager' : 'Open AI booking manager'}
-      >
-        <span className="ai-manager-fab-icon" aria-hidden="true">
-          {!avatarBroken ? (
-            <img
-              src="/images/brian-epstein-avatar.png"
-              alt=""
-              className="ai-manager-fab-image"
-              onError={() => setAvatarBroken(true)}
+          <div className="ai-manager-messages">
+            {messages.length === 0 && (
+              <div className="ai-manager-empty">
+                <p className="ai-manager-empty-text">Hi, I'm Brian Epstein - your booking manager. Ask me anything about your pipeline, or pick a quick start:</p>
+                <div className="ai-manager-starters">
+                  {STARTERS.map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      className="ai-manager-starter"
+                      onClick={() => sendMessage(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {messages.map(msg => (
+              <div
+                key={msg.id}
+                className={`ai-manager-bubble ai-manager-bubble-${msg.role}`}
+              >
+                <p className="ai-manager-bubble-text">{msg.content}</p>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="ai-manager-bubble ai-manager-bubble-assistant ai-manager-bubble-loading">
+                <span className="ai-manager-typing-dot" />
+                <span className="ai-manager-typing-dot" />
+                <span className="ai-manager-typing-dot" />
+              </div>
+            )}
+
+            {error && (
+              <div className="ai-manager-error">
+                <p>{error}</p>
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="ai-manager-input-row">
+            <textarea
+              ref={inputRef}
+              className="ai-manager-input"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask Brian Epstein anything..."
+              rows={1}
+              disabled={loading}
             />
-          ) : (
-            <span className="ai-manager-avatar-fallback">BE</span>
-          )}
-        </span>
-        {!open && <span className="ai-manager-fab-label">Brian Epstein</span>}
-      </button>
+            <button
+              type="button"
+              className="ai-manager-send"
+              onClick={() => sendMessage(input)}
+              disabled={loading || !input.trim()}
+              aria-label="Send message"
+            >
+              ↑
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {isCompactViewport ? (
+        <button
+          type="button"
+          className={`ai-manager-mobile-toggle ${open ? 'ai-manager-mobile-toggle-open' : ''}`}
+          onClick={() => setOpen(prev => !prev)}
+          aria-label={open ? 'Close AI manager' : 'Open AI manager'}
+        >
+          <span className="ai-manager-fab-icon" aria-hidden="true">
+            {!avatarBroken ? (
+              <img
+                src="/images/brian-epstein-avatar.png"
+                alt=""
+                className="ai-manager-fab-image"
+                onError={() => setAvatarBroken(true)}
+              />
+            ) : (
+              <span className="ai-manager-avatar-fallback">BE</span>
+            )}
+          </span>
+          <span className="ai-manager-mobile-toggle-text">{open ? 'Close AI Manager' : 'AI Manager'}</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={`ai-manager-fab ${open ? 'ai-manager-fab-open' : ''}`}
+          onClick={() => setOpen(prev => !prev)}
+          aria-label={open ? 'Close AI manager' : 'Open AI booking manager'}
+        >
+          <span className="ai-manager-fab-icon" aria-hidden="true">
+            {!avatarBroken ? (
+              <img
+                src="/images/brian-epstein-avatar.png"
+                alt=""
+                className="ai-manager-fab-image"
+                onError={() => setAvatarBroken(true)}
+              />
+            ) : (
+              <span className="ai-manager-avatar-fallback">BE</span>
+            )}
+          </span>
+          {!open && <span className="ai-manager-fab-label">Brian Epstein</span>}
+        </button>
+      )}
     </div>,
     document.body,
   )

@@ -13238,6 +13238,20 @@ kbd {
   opacity: 1;
 }
 
+.ai-manager-modal-open {
+  overflow: hidden;
+}
+
+.ai-manager-backdrop {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  background: rgba(3, 8, 18, 0.7);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: all;
+}
+
 .ai-manager-panel {
   pointer-events: all;
   width: min(420px, calc(100vw - 2rem));
@@ -13581,6 +13595,32 @@ kbd {
   font-size: 0.85rem;
 }
 
+.ai-manager-mobile-toggle {
+  display: none;
+  pointer-events: all;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 3.2rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(100, 160, 255, 0.42);
+  background: linear-gradient(135deg, rgba(31, 72, 167, 0.96) 0%, rgba(21, 45, 107, 0.94) 100%);
+  color: #f7fbff;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ai-manager-mobile-toggle-open {
+  background: linear-gradient(135deg, rgba(23, 40, 83, 0.98) 0%, rgba(13, 25, 55, 0.96) 100%);
+}
+
+.ai-manager-mobile-toggle-text {
+  white-space: nowrap;
+}
+
 .admin-ai-diagnostics {
   position: fixed;
   left: max(0.75rem, env(safe-area-inset-left));
@@ -13620,16 +13660,75 @@ kbd {
   }
 }
 
-@media (max-width: 768px) {
+/* Tablet layout keeps the AI panel visible without covering the full screen. */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .app-shell,
+  .app-shell-wide {
+    width: min(100%, calc(100% - 2rem));
+    padding: 1rem;
+    gap: 0.9rem;
+  }
+
+  .site-nav {
+    width: 100%;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .mobile-nav-toggle {
+    display: none !important;
+  }
+
+  .site-nav-collapsible {
+    display: flex !important;
+    padding-bottom: 0.2rem;
+  }
+
+  .site-nav-collapsible.site-nav-open {
+    display: flex !important;
+    grid-template-columns: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .site-nav-admin {
+    width: 100%;
+  }
+
+  .site-nav-collapsible a,
+  .site-nav-admin a {
+    width: auto;
+    text-align: center;
+  }
+
+  .auth-strip {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .inline-auth-form {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    grid-template-columns: none;
+  }
+
+  .inline-auth-form input {
+    width: auto;
+    min-width: min(240px, 100%);
+  }
+
   .ai-manager-root {
     position: fixed;
-    left: max(0.75rem, env(safe-area-inset-left));
-    right: max(0.75rem, env(safe-area-inset-right));
+    left: max(1rem, env(safe-area-inset-left));
+    right: max(1rem, env(safe-area-inset-right));
     bottom: max(0.75rem, env(safe-area-inset-bottom));
-    inset-inline-start: max(0.75rem, env(safe-area-inset-left));
-    inset-inline-end: max(0.75rem, env(safe-area-inset-right));
+    inset-inline-start: max(1rem, env(safe-area-inset-left));
+    inset-inline-end: max(1rem, env(safe-area-inset-right));
     inset-block-end: max(0.75rem, env(safe-area-inset-bottom));
-    align-items: stretch;
+    align-items: center;
+    justify-content: flex-end;
     z-index: 12000 !important;
     display: flex !important;
     visibility: visible !important;
@@ -13637,18 +13736,198 @@ kbd {
   }
 
   .ai-manager-panel {
-    width: 100%;
-    max-height: min(68vh, calc(100vh - 6.5rem));
+    width: min(720px, calc(100vw - 3rem));
+    max-height: min(78vh, calc(100vh - 8rem));
     pointer-events: all;
     display: flex !important;
     visibility: visible !important;
+    border-radius: 1.25rem;
   }
 
   .ai-manager-fab {
-    align-self: flex-end;
-    pointer-events: all;
-    display: flex !important;
-    visibility: visible !important;
+    display: none !important;
+  }
+
+  .ai-manager-mobile-toggle {
+    display: inline-flex;
+    align-self: center;
+    min-width: 12rem;
+  }
+
+  .admin-ai-diagnostics {
+    max-width: min(42vw, 260px);
+    bottom: max(4.8rem, calc(env(safe-area-inset-bottom) + 4rem));
+  }
+}
+
+/* Mobile uses a full-width bottom sheet and an explicit AI Manager toggle. */
+@media (max-width: 600px) {
+  .app-shell,
+  .app-shell-wide {
+    width: min(100%, calc(100% - 1rem));
+    padding: 0.6rem;
+    gap: 0.75rem;
+  }
+
+  .topbar {
+    align-items: stretch;
+    padding-inline: 0.6rem;
+  }
+
+  .topbar-admin {
+    gap: 0.75rem;
+  }
+
+  .site-nav a,
+  .inline-auth-form .primary-button,
+  .auth-strip .ghost-button,
+  .mobile-nav-toggle {
+    min-height: 2.9rem;
+  }
+
+  .inline-auth-form input {
+    min-height: 2.9rem;
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+  }
+
+  .site-nav {
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+  }
+
+  .site-nav-collapsible {
+    display: none;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .site-nav-collapsible.site-nav-open {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid rgba(93, 215, 255, 0.22);
+    border-radius: 12px;
+    background: rgba(10, 16, 34, 0.72);
+  }
+
+  .site-nav-admin {
+    width: 100%;
+  }
+
+  .site-nav-collapsible a,
+  .site-nav-admin a {
+    width: 100%;
+    white-space: normal;
+    text-align: left;
+  }
+
+  .auth-strip {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .inline-auth-form {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .inline-auth-form input {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .inline-auth-form .primary-button,
+  .auth-strip .ghost-button,
+  .gig-control-actions .primary-button,
+  .gig-control-actions .secondary-button,
+  .gig-control-actions .ghost-button,
+  .queue-actions .secondary-button,
+  .queue-actions .primary-button {
+    width: 100%;
+  }
+
+  .site-nav a {
+    flex: 0 0 auto;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .ai-manager-root {
+    left: max(0.5rem, env(safe-area-inset-left));
+    right: max(0.5rem, env(safe-area-inset-right));
+    bottom: max(0.5rem, env(safe-area-inset-bottom));
+    inset-inline-start: max(0.5rem, env(safe-area-inset-left));
+    inset-inline-end: max(0.5rem, env(safe-area-inset-right));
+    inset-block-end: max(0.5rem, env(safe-area-inset-bottom));
+    align-items: stretch;
+    justify-content: flex-end;
+  }
+
+  .ai-manager-panel {
+    width: 100%;
+    max-height: min(84dvh, calc(100dvh - 5rem));
+    border-radius: 1.1rem;
+  }
+
+  .ai-manager-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .ai-manager-header-info {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .ai-manager-status {
+    order: 3;
+    margin-left: 0;
+  }
+
+  .ai-manager-close {
+    margin-left: auto;
+  }
+
+  .ai-manager-bubble {
+    max-width: 100%;
+  }
+
+  .ai-manager-input-row {
+    align-items: stretch;
+  }
+
+  .ai-manager-send {
+    width: 2.8rem;
+    height: auto;
+    min-height: 2.8rem;
+  }
+
+  .ai-manager-fab {
+    display: none !important;
+  }
+
+  .ai-manager-mobile-toggle {
+    display: inline-flex;
+    width: 100%;
+  }
+
+  .admin-ai-diagnostics {
+    left: auto;
+    right: max(0.5rem, env(safe-area-inset-right));
+    bottom: max(4.4rem, calc(env(safe-area-inset-bottom) + 4rem));
+    max-width: min(78vw, 220px);
+    font-size: 0.68rem;
   }
 }
 
