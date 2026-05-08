@@ -8,6 +8,7 @@ import { logCrashTelemetry } from './lib/crashTelemetry'
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const CHUNK_RECOVERY_LAST_ATTEMPT_KEY = 'human-jukebox-chunk-recovery-last-attempt'
 const CHUNK_RECOVERY_THROTTLE_MS = 15_000
+const IOS_SW_BYPASS_STORAGE_KEY = 'human-jukebox-ios-sw-cache-bypass'
 
 function emitRuntimeNotice(message: string) {
   if (typeof window === 'undefined') {
@@ -155,6 +156,24 @@ async function disableServiceWorkerCachingOnIOS() {
     }
   } catch {
     emitRuntimeNotice('iPhone cache cleanup hit an issue. The app will continue and retry later.')
+  }
+}
+
+function shouldBypassServiceWorkerCachingOnIOS() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const searchParams = new URLSearchParams(window.location.search)
+
+  if (searchParams.get('iosSwBypass') === '1') {
+    return true
+  }
+
+  try {
+    return window.localStorage.getItem(IOS_SW_BYPASS_STORAGE_KEY) === '1'
+  } catch {
+    return false
   }
 }
 
@@ -375,7 +394,7 @@ function scheduleNonCriticalStartupTasks() {
   const run = () => {
     setupBuildUpdateRefresh()
 
-    if (isIOSLikeDevice()) {
+    if (isIOSLikeDevice() && shouldBypassServiceWorkerCachingOnIOS()) {
       void disableServiceWorkerCachingOnIOS()
       return
     }

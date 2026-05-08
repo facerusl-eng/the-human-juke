@@ -93,3 +93,19 @@ Without anonymous auth enabled, new audience users on phones may remain stuck ou
 - `npm run dev`
 - `npm run build`
 - `npm run preview`
+- `npm run test:responsive` (requires the app running at `BASE_URL`, default `http://127.0.0.1:5173`)
+
+## Responsive Baseline
+
+- Mobile: `max-width: 600px`
+- Tablet: `601px - 1024px`
+- Desktop: `1025px+`
+
+CSS token references live in [src/index.css](src/index.css).
+
+Use this quick cross-device smoke test after UI changes:
+
+```bash
+npm run dev:web
+npm run test:responsive
+```

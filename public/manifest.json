@@ -5,7 +5,7 @@
   "background_color": "#090a17",
   "theme_color": "#090a17",
   "start_url": "/",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "icons": [
     {
       "src": "/icons/icon-192.svg",

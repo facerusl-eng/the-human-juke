@@ -39,6 +39,12 @@
   --radius-lg: 18px;
   --radius-xl: 24px;
 
+  /* Responsive breakpoint scale */
+  --bp-mobile-max: 600px;
+  --bp-tablet-min: 601px;
+  --bp-tablet-max: 1024px;
+  --bp-desktop-min: 1025px;
+
   /* Typography scale */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;

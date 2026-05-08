@@ -10,6 +10,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:responsive": "node scripts/responsive-smoke.mjs",
     "loadtest:audience": "node scripts/loadtest-audience-join.mjs",
     "mixer:preset:backing": "node scripts/apply-backing-preset.mjs",
     "mixer:mute": "node scripts/mixer-mute-hotkeys.mjs",
