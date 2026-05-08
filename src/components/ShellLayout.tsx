@@ -70,10 +70,8 @@ function isValidHexColor(value: string | null | undefined) {
 function ShellLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, profile, isHost, loading, signInHost, signOut } = useAuthStore()
+  const { user, profile, isHost, loading, signOut } = useAuthStore()
   const { event } = useQueueStore()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [errorText, setErrorText] = useState<string | null>(null)
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
   const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine)
