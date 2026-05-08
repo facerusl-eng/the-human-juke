@@ -915,3 +915,150 @@ ALTER TABLE public.events
 ALTER TABLE public.events
   ADD CONSTRAINT events_event_type_check
   CHECK (event_type IN ('halli-live', 'karaoke'));
+
+-- ─── Queue snapshots and transactional restore (May 2026) ─────────────────
+CREATE TABLE IF NOT EXISTS public.queue_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reason TEXT NOT NULL DEFAULT 'manual',
+  snapshot JSONB NOT NULL,
+  created_by UUID NULL REFERENCES auth.users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS queue_snapshots_event_created_idx
+  ON public.queue_snapshots (event_id, created_at DESC);
+
+ALTER TABLE public.queue_snapshots ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS queue_snapshots_select_host ON public.queue_snapshots;
+CREATE POLICY queue_snapshots_select_host ON public.queue_snapshots
+  FOR SELECT TO authenticated
+  USING (is_host_for_event(event_id));
+
+DROP POLICY IF EXISTS queue_snapshots_insert_host ON public.queue_snapshots;
+CREATE POLICY queue_snapshots_insert_host ON public.queue_snapshots
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    is_host_for_event(event_id)
+    AND (created_by IS NULL OR created_by = auth.uid())
+  );
+
+DROP POLICY IF EXISTS queue_snapshots_delete_host ON public.queue_snapshots;
+CREATE POLICY queue_snapshots_delete_host ON public.queue_snapshots
+  FOR DELETE TO authenticated
+  USING (is_host_for_event(event_id));
+
+CREATE OR REPLACE FUNCTION public.trim_queue_snapshots()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  DELETE FROM public.queue_snapshots
+  WHERE id IN (
+    SELECT id
+    FROM public.queue_snapshots
+    WHERE event_id = NEW.event_id
+    ORDER BY created_at DESC
+    OFFSET 20
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS queue_snapshots_trim_after_insert ON public.queue_snapshots;
+CREATE TRIGGER queue_snapshots_trim_after_insert
+AFTER INSERT ON public.queue_snapshots
+FOR EACH ROW
+EXECUTE FUNCTION public.trim_queue_snapshots();
+
+CREATE OR REPLACE FUNCTION public.restore_queue_snapshot(p_snapshot_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_snapshot RECORD;
+  v_queue JSONB;
+  v_restored_count INTEGER := 0;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  SELECT qs.*
+  INTO v_snapshot
+  FROM public.queue_snapshots qs
+  WHERE qs.id = p_snapshot_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Snapshot not found';
+  END IF;
+
+  IF NOT is_host_for_event(v_snapshot.event_id) THEN
+    RAISE EXCEPTION 'Not allowed to restore this snapshot';
+  END IF;
+
+  v_queue := COALESCE(v_snapshot.snapshot->'queue', '[]'::jsonb);
+
+  UPDATE public.queue_songs
+  SET is_removed = true
+  WHERE event_id = v_snapshot.event_id
+    AND is_removed = false;
+
+  INSERT INTO public.queue_songs (
+    event_id,
+    title,
+    artist,
+    votes_count,
+    is_explicit,
+    voting_locked,
+    is_removed,
+    cover_url,
+    library_song_id,
+    audience_sings,
+    requester_name,
+    created_by,
+    position
+  )
+  SELECT
+    v_snapshot.event_id,
+    COALESCE(item->>'title', ''),
+    COALESCE(item->>'artist', ''),
+    COALESCE((item->>'votes_count')::INTEGER, 0),
+    COALESCE((item->>'is_explicit')::BOOLEAN, false),
+    COALESCE((item->>'voting_locked')::BOOLEAN, false),
+    false,
+    NULLIF(item->>'cover_url', ''),
+    CASE
+      WHEN COALESCE(item->>'library_song_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+        THEN (item->>'library_song_id')::UUID
+      ELSE NULL
+    END,
+    COALESCE((item->>'audience_sings')::BOOLEAN, false),
+    NULLIF(item->>'createdByName', ''),
+    auth.uid(),
+    ordinality - 1
+  FROM jsonb_array_elements(v_queue) WITH ORDINALITY AS elements(item, ordinality);
+
+  GET DIAGNOSTICS v_restored_count = ROW_COUNT;
+
+  UPDATE public.events
+  SET
+    room_open = COALESCE((v_snapshot.snapshot->>'roomOpen')::BOOLEAN, room_open),
+    explicit_filter_enabled = COALESCE((v_snapshot.snapshot->>'explicitFilterEnabled')::BOOLEAN, explicit_filter_enabled)
+  WHERE id = v_snapshot.event_id;
+
+  RETURN jsonb_build_object(
+    'snapshot_id', p_snapshot_id,
+    'event_id', v_snapshot.event_id,
+    'restored_count', v_restored_count
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.restore_queue_snapshot(UUID) TO authenticated;

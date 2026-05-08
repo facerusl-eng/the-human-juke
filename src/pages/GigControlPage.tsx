@@ -8,7 +8,14 @@ import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { openMirrorScreen } from '../lib/openMirrorScreen'
 import { registerBackgroundSync } from '../lib/backgroundSync'
-import { captureQueueSnapshot, getLatestQueueSnapshot, getQueueSnapshots } from '../lib/queueSnapshots'
+import {
+  captureQueueSnapshot,
+  getLatestQueueSnapshot,
+  getQueueSnapshots,
+  getQueueSnapshotsFromDatabase,
+  restoreQueueSnapshotInDatabase,
+  saveQueueSnapshotToDatabase,
+} from '../lib/queueSnapshots'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { supabase } from '../lib/supabase'
@@ -671,7 +678,7 @@ function GigControlPage() {
       return false
     }
 
-    captureQueueSnapshot({
+    const snapshotPayload = {
       eventId: event.id,
       eventName: event.name,
       reason,
@@ -679,6 +686,11 @@ function GigControlPage() {
       explicitFilterEnabled: event.explicitFilterEnabled,
       queue: songs,
       performed: performedSongs,
+    }
+
+    captureQueueSnapshot(snapshotPayload)
+    void saveQueueSnapshotToDatabase(snapshotPayload).catch((error) => {
+      console.warn('GigControlPage: database snapshot save failed, using local snapshot fallback', error)
     })
 
     if (!silent) {
@@ -703,7 +715,20 @@ function GigControlPage() {
       return
     }
 
-    const latestSnapshot = getLatestQueueSnapshot(event.id)
+    let latestSnapshot = null
+    let databaseSnapshotAvailable = false
+
+    try {
+      const dbSnapshots = await getQueueSnapshotsFromDatabase(event.id, 1)
+      latestSnapshot = dbSnapshots[0] ?? null
+      databaseSnapshotAvailable = Boolean(latestSnapshot)
+    } catch (error) {
+      console.warn('GigControlPage: failed to load database snapshots, falling back to local', error)
+    }
+
+    if (!latestSnapshot) {
+      latestSnapshot = getLatestQueueSnapshot(event.id)
+    }
 
     if (!latestSnapshot) {
       setSnapshotStatusText('No snapshot found yet. Save one first.')
@@ -712,10 +737,12 @@ function GigControlPage() {
 
     const currentQueueCount = songs.length
     const snapshotQueueCount = latestSnapshot.queue.length
-    const snapshotsForEvent = getQueueSnapshots(event.id)
+    const snapshotsForEvent = databaseSnapshotAvailable
+      ? await getQueueSnapshotsFromDatabase(event.id, 20).catch(() => [])
+      : getQueueSnapshots(event.id)
     const snapshotIndex = Math.max(1, snapshotsForEvent.findIndex((snapshot) => snapshot.id === latestSnapshot.id) + 1)
     const confirmation = window.confirm(
-      `Restore snapshot #${snapshotIndex} from ${new Date(latestSnapshot.createdAt).toLocaleString()}?\n\nThis will replace the current queue.\nCurrent queue: ${currentQueueCount} songs\nSnapshot queue: ${snapshotQueueCount} songs\nReason: ${latestSnapshot.reason}`,
+      `Restore snapshot #${snapshotIndex} from ${new Date(latestSnapshot.createdAt).toLocaleString()}?\n\nThis will replace the current queue.\nCurrent queue: ${currentQueueCount} songs\nSnapshot queue: ${snapshotQueueCount} songs\nReason: ${latestSnapshot.reason}\nSource: ${databaseSnapshotAvailable ? 'Database (transactional restore)' : 'Local backup (fallback restore)'}`,
     )
 
     if (!confirmation) {
@@ -726,6 +753,12 @@ function GigControlPage() {
 
     try {
       saveQueueSnapshot('pre-restore-backup', true)
+
+      if (databaseSnapshotAvailable) {
+        const restored = await restoreQueueSnapshotInDatabase(latestSnapshot.id)
+        setSnapshotStatusText(`Snapshot restored transactionally. Queue replaced with ${restored.restoredCount} songs.`)
+        return
+      }
 
       const { error: clearError } = await supabase
         .from('queue_songs')
@@ -771,7 +804,7 @@ function GigControlPage() {
         await gigActions.runToggleExplicitFilter()
       }
 
-      setSnapshotStatusText(`Snapshot restored. Queue replaced with ${snapshotQueueCount} songs.`)
+      setSnapshotStatusText(`Snapshot restored from local backup. Queue replaced with ${snapshotQueueCount} songs.`)
     } catch (error) {
       console.warn('GigControlPage: snapshot restore failed', error)
       setSnapshotStatusText(error instanceof Error ? error.message : 'Snapshot restore failed. Try again.')
