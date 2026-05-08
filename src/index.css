@@ -144,3 +144,88 @@ h2 {
     --focus: #7fe3ff;
   }
 }
+
+/* App update notification banner */
+.app-update-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  background: linear-gradient(135deg, rgba(255, 79, 154, 0.24) 0%, rgba(162, 89, 255, 0.20) 50%, rgba(0, 194, 255, 0.16) 100%);
+  border-top: 2px solid rgba(255, 79, 154, 0.6);
+  backdrop-filter: blur(12px);
+  padding: 1rem;
+  animation: slideUpFromBottom 350ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.app-update-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  flex-wrap: wrap;
+}
+
+.app-update-banner-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.app-update-banner-title {
+  margin: 0 0 0.3rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #f7fbff;
+  letter-spacing: 0.02em;
+}
+
+.app-update-banner-message {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(240, 245, 255, 0.85);
+  line-height: 1.4;
+}
+
+.app-update-banner-button {
+  white-space: nowrap;
+  padding: 0.75rem 1.5rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes slideUpFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-update-banner {
+    padding: 0.85rem;
+  }
+
+  .app-update-banner-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .app-update-banner-button {
+    width: 100%;
+  }
+
+  .app-update-banner-text {
+    min-width: 100%;
+  }
+}

@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/react'
 import './index.css'
 import router from './App.tsx'
 import { logCrashTelemetry } from './lib/crashTelemetry'
+import { AppUpdateNotification } from './components/AppUpdateNotification'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const CHUNK_RECOVERY_LAST_ATTEMPT_KEY = 'human-jukebox-chunk-recovery-last-attempt'
@@ -445,6 +446,7 @@ if (!rootElement) {
     <>
       <RouterProvider router={router} />
       <Analytics />
+      <AppUpdateNotification />
     </>,
   )
   // Dismiss once the browser has painted the first React frame.
