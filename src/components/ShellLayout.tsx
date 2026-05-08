@@ -5,6 +5,7 @@ import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 import { demoMode } from '../demo/demoMode'
 import { DemoBanner } from '../demo/DemoBanner'
+import { AiManagerPanel } from './AiManagerPanel'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
@@ -536,6 +537,7 @@ function ShellLayout() {
         </section>
       ) : null}
       <Outlet />
+      {isHost && isAdminMode ? <AiManagerPanel /> : null}
       {!isAudienceSongListMode ? <footer className="site-legal-footer" aria-label="Copyright notice">
         <p>
           © {new Date().getFullYear()} Haraldur G Asmundsson. All rights reserved. The Human Jukebox name,

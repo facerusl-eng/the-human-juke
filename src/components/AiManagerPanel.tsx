@@ -30,8 +30,14 @@ type PipelineContext = {
   }>
 }
 
+const EMPTY_PIPELINE: PipelineContext = {
+  analytics: { sentCount: 0, contacted: 0, replyStages: 0, confirmed: 0 },
+  pendingTasks: [],
+  venues: [],
+}
+
 type Props = {
-  pipeline: PipelineContext
+  pipeline?: PipelineContext
 }
 
 const STARTERS = [
@@ -45,7 +51,7 @@ function generateId() {
   return Math.random().toString(36).slice(2, 10)
 }
 
-export function AiManagerPanel({ pipeline }: Props) {
+export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [avatarBroken, setAvatarBroken] = useState(false)
   const [open, setOpen] = useState(() => {
     if (typeof window === 'undefined') {
