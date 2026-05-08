@@ -274,7 +274,7 @@ function HomePage() {
           <div className="home-tv-bezel">
             <div className="home-tv-screen-wrapper" ref={tvWrapperRef}>
               <iframe
-                src="/mirror?demo=true&preview=1"
+                src="/mirror?demo=true&preview=1&mirrorAccess=force"
                 className="home-tv-screen"
                 title={copy.mirrorPreviewLabel}
                 loading="lazy"
