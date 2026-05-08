@@ -500,7 +500,7 @@ function ShellLayout() {
             >
               <input
                 type="email"
-                placeholder="halligunnar@icloud.com"
+                placeholder="harald@the-human-jukebox.org"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="username"

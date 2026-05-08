@@ -365,7 +365,7 @@ function VenueOutreachPage() {
     || 'We run a modern live music and karaoke concept where your guests can request songs live from their phones and vote in real time. We provide full host-led entertainment, energy, and a smooth setup for your venue.\n\nWould you be open to a test night or a recurring collaboration?',
   )
   const [senderName, setSenderName] = useState(savedSession?.senderName ?? 'Harald')
-  const [senderEmail, setSenderEmail] = useState(savedSession?.senderEmail ?? '')
+  const [senderEmail, setSenderEmail] = useState(savedSession?.senderEmail ?? 'harald@the-human-jukebox.org')
   const [venues, setVenues] = useState<Venue[]>(savedSession?.venues ?? [])
   const [searching, setSearching] = useState(false)
   const [sendingMode, setSendingMode] = useState<SendMode | null>(null)
@@ -1118,7 +1118,7 @@ function VenueOutreachPage() {
               </label>
               <label className="venue-outreach-form-span-full">
                 Reply-to email
-                <input type="email" value={senderEmail} onChange={(event) => setSenderEmail(event.target.value)} placeholder="you@example.com" className="queue-input" />
+                <input type="email" value={senderEmail} onChange={(event) => setSenderEmail(event.target.value)} placeholder="harald@the-human-jukebox.org" className="queue-input" />
               </label>
             </div>
 
