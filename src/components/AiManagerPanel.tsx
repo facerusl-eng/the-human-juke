@@ -85,7 +85,10 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const selectedManager = MANAGER_OPTIONS.find(option => option.id === managerId) ?? MANAGER_OPTIONS[0]
-  const avatarSrc = managerId === 'brian' ? '/images/brian-epstein-avatar.png' : ''
+  const avatarSrc =
+    managerId === 'brian' ? '/images/brian-epstein-avatar.png' :
+    managerId === 'parker' ? '/images/Colonel%20Tom%20Parker%20(Elvis%20Presley).png' :
+    managerId === 'grant' ? '/images/Peter%20Grant%20(Led%20Zeppelin).png' : ''
   const avatarFallback = managerId === 'parker' ? 'TP' : managerId === 'grant' ? 'PG' : 'BE'
 
   useEffect(() => {
@@ -94,6 +97,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     }
 
     window.localStorage.setItem(MANAGER_STORAGE_KEY, managerId)
+    setAvatarBroken(false)
   }, [managerId])
 
   useEffect(() => {
