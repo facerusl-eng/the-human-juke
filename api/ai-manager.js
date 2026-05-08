@@ -1,4 +1,5 @@
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 const SYSTEM_PROMPT = `You are Brian Epstein, the AI booking manager for The Human Jukebox — a live interactive music and karaoke entertainment act run by Harald.
 
@@ -51,7 +52,22 @@ function buildPipelineContext(pipeline) {
 }
 
 export default async function handler(req, res) {
-  const apiKey = process.env.OPENAI_API_KEY?.trim() || ''
+  const openAiApiKey = process.env.OPENAI_API_KEY?.trim() || ''
+  const groqApiKey = process.env.GROQ_API_KEY?.trim() || ''
+  const preferredProvider = (process.env.AI_PROVIDER?.trim().toLowerCase() || 'auto')
+
+  const provider = preferredProvider === 'groq'
+    ? 'groq'
+    : preferredProvider === 'openai'
+    ? 'openai'
+    : groqApiKey
+    ? 'groq'
+    : 'openai'
+
+  const apiKey = provider === 'groq' ? groqApiKey : openAiApiKey
+  const model = process.env.AI_MODEL?.trim()
+    || (provider === 'groq' ? 'llama-3.1-8b-instant' : 'gpt-4o')
+  const apiUrl = provider === 'groq' ? GROQ_API_URL : OPENAI_API_URL
 
   if (req.method === 'OPTIONS') {
     res.setHeader('Allow', 'GET, POST, OPTIONS')
@@ -61,7 +77,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     res.setHeader('Allow', 'GET, POST, OPTIONS')
-    res.status(200).json({ connected: Boolean(apiKey) })
+    res.status(200).json({ connected: Boolean(apiKey), provider, model })
     return
   }
 
@@ -105,11 +121,11 @@ export default async function handler(req, res) {
   // Graceful fallback when no API key is configured
   if (!apiKey) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content?.toLowerCase() ?? ''
-    let fallback = "I'm Brian Epstein, your booking manager. I'm not fully connected yet - ask Harald to add an OpenAI API key to get AI-powered advice. In the meantime: check your follow-up tasks and prioritise venues with a lead score above 50 that haven't been contacted yet."
+    let fallback = "I'm Brian Epstein, your booking manager. I'm not fully connected yet - add a free-tier GROQ_API_KEY (recommended) or OPENAI_API_KEY to enable AI replies. In the meantime: check your follow-up tasks and prioritise venues with a lead score above 50 that haven't been contacted yet."
     if (lastUserMsg.includes('email') || lastUserMsg.includes('draft')) {
-      fallback = "I'd love to draft that for you — I just need an OpenAI API key to be configured first. Ask Harald to add OPENAI_API_KEY to the Vercel environment variables."
+      fallback = "I'd love to draft that for you - I just need AI provider credentials first. Add GROQ_API_KEY (free-tier) or OPENAI_API_KEY in Vercel environment variables."
     }
-    res.status(200).json({ reply: fallback, connected: false })
+    res.status(200).json({ reply: fallback, connected: false, provider, model })
     return
   }
 
@@ -125,32 +141,32 @@ export default async function handler(req, res) {
 
   let openAiRes
   try {
-    openAiRes = await fetch(OPENAI_API_URL, {
+    openAiRes = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model,
         messages: openAiMessages,
         max_tokens: 600,
         temperature: 0.7,
       }),
     })
   } catch {
-    res.status(502).json({ error: 'Failed to reach OpenAI. Try again.' })
+    res.status(502).json({ error: `Failed to reach ${provider}. Try again.` })
     return
   }
 
   if (!openAiRes.ok) {
     const errText = await openAiRes.text().catch(() => '')
     if (openAiRes.status === 401) {
-      res.status(502).json({ error: 'OpenAI API key is invalid or expired.' })
+      res.status(502).json({ error: `${provider} API key is invalid or expired.` })
     } else if (openAiRes.status === 429) {
-      res.status(429).json({ error: 'OpenAI rate limit hit. Try again in a moment.' })
+      res.status(429).json({ error: `${provider} rate limit hit. Try again in a moment.` })
     } else {
-      res.status(502).json({ error: `OpenAI error ${openAiRes.status}: ${errText.slice(0, 200)}` })
+      res.status(502).json({ error: `${provider} error ${openAiRes.status}: ${errText.slice(0, 200)}` })
     }
     return
   }
@@ -169,5 +185,5 @@ export default async function handler(req, res) {
     return
   }
 
-  res.status(200).json({ reply, connected: true })
+  res.status(200).json({ reply, connected: true, provider, model })
 }
