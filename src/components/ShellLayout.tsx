@@ -89,6 +89,7 @@ function ShellLayout() {
   const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
+  const showAiDiagnostics = isAdminMode && (import.meta.env.DEV || new URLSearchParams(location.search).get('aiDiagnostics') === '1')
   const isGigNavActive = /^\/admin\/(gigs|create-gig|gig-control|gig-settings|venue-outreach)/.test(location.pathname)
   const showMobileMenu = !isAudienceMode
   const hasLiveGig = Boolean(event?.roomOpen)
@@ -248,7 +249,7 @@ function ShellLayout() {
   }, [])
 
   useEffect(() => {
-    if (!isAdminMode) {
+    if (!showAiDiagnostics) {
       return
     }
 
@@ -282,7 +283,7 @@ function ShellLayout() {
     return () => {
       cancelled = true
     }
-  }, [isAdminMode, location.pathname])
+  }, [showAiDiagnostics, location.pathname])
 
   useEffect(() => {
     if (location.pathname === '/callback') {
@@ -575,7 +576,7 @@ function ShellLayout() {
         </section>
       ) : null}
       <Outlet />
-      {isAdminMode ? (
+      {showAiDiagnostics ? (
         <aside className="admin-ai-diagnostics" role="status" aria-live="polite" aria-label="AI diagnostics">
           <p className="admin-ai-diagnostics-title">AI Diagnostics</p>
           <p>route: {isAdminMode ? 'admin' : 'non-admin'}</p>

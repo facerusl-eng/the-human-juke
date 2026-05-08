@@ -136,7 +136,7 @@ function parseOutreachSession(raw: string | null): OutreachSessionState | null {
       manualSubject: typeof parsed.manualSubject === 'string' ? parsed.manualSubject : 'Live music concept for your venue',
       conceptText: typeof parsed.conceptText === 'string' ? parsed.conceptText : '',
       senderName: typeof parsed.senderName === 'string' ? parsed.senderName : 'Harald',
-      senderEmail: typeof parsed.senderEmail === 'string' ? parsed.senderEmail : '',
+      senderEmail: typeof parsed.senderEmail === 'string' ? parsed.senderEmail : 'harald@the-human-jukebox.org',
       venues: Array.isArray(parsed.venues) ? parsed.venues as Venue[] : [],
       centerInfo,
     }
@@ -274,6 +274,8 @@ function buildBaseDraft({
   templateMode,
   manualSubject,
   conceptText,
+  senderName,
+  senderEmail,
 }: {
   venue: Venue
   mode: SendMode
@@ -281,6 +283,8 @@ function buildBaseDraft({
   templateMode: TemplateMode
   manualSubject: string
   conceptText: string
+  senderName: string
+  senderEmail: string
 }) {
   if (composerMode === 'manual') {
     return {
@@ -301,7 +305,9 @@ function buildBaseDraft({
     ? TEMPLATE_TEXT[resolvedTemplate]
     : TEMPLATE_TEXT[resolvedTemplate]
 
-  const withVenueName = `${baseMessage}\n\nVenue: ${venue.name}`
+  const signatureName = senderName.trim() || 'Harald'
+  const signatureEmail = senderEmail.trim() || 'harald@the-human-jukebox.org'
+  const withVenueName = `${baseMessage}\n\nVenue: ${venue.name}\n\nBest regards,\n${signatureName}\n${signatureEmail}`
   const messageText = mode === 'offer' ? buildOfferMessage(withVenueName) : withVenueName
   const subject = mode === 'offer'
     ? `Offer package for ${venue.name}`
@@ -320,6 +326,8 @@ function buildVenueDraft({
   templateMode,
   manualSubject,
   conceptText,
+  senderName,
+  senderEmail,
 }: {
   venue: Venue
   mode: SendMode
@@ -327,8 +335,10 @@ function buildVenueDraft({
   templateMode: TemplateMode
   manualSubject: string
   conceptText: string
+  senderName: string
+  senderEmail: string
 }) {
-  const baseDraft = buildBaseDraft({ venue, mode, composerMode, templateMode, manualSubject, conceptText })
+  const baseDraft = buildBaseDraft({ venue, mode, composerMode, templateMode, manualSubject, conceptText, senderName, senderEmail })
 
   if (!venue.useCustomContent) {
     return baseDraft
@@ -477,8 +487,10 @@ function VenueOutreachPage() {
       templateMode,
       manualSubject,
       conceptText,
+      senderName,
+      senderEmail,
     })
-  }, [previewVenue, composerMode, templateMode, manualSubject, conceptText])
+  }, [previewVenue, composerMode, templateMode, manualSubject, conceptText, senderName, senderEmail])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -728,6 +740,8 @@ function VenueOutreachPage() {
           templateMode,
           manualSubject,
           conceptText,
+          senderName,
+          senderEmail,
         })
 
         return {
