@@ -5,6 +5,7 @@ type PipelineStage = 'new' | 'contacted' | 'replied' | 'negotiating' | 'confirme
 type SortMode = 'score' | 'distance' | 'name'
 type TemplateMode = 'auto' | 'pub' | 'restaurant' | 'hotel' | 'corporate' | 'custom'
 type SendMode = 'concept' | 'offer'
+type ComposerMode = 'guided' | 'manual'
 
 type Venue = {
   id: string
@@ -62,7 +63,9 @@ type OutreachSessionState = {
   radiusKm: number
   sortMode: SortMode
   templateMode: TemplateMode
+  composerMode: ComposerMode
   campaignName: string
+  manualSubject: string
   conceptText: string
   senderName: string
   senderEmail: string
@@ -93,6 +96,7 @@ function parseOutreachSession(raw: string | null): OutreachSessionState | null {
       || parsed.templateMode === 'custom'
         ? parsed.templateMode
         : 'auto'
+    const composerMode: ComposerMode = parsed.composerMode === 'manual' ? 'manual' : 'guided'
 
     const center = parsed.centerInfo
     const centerInfo = center && typeof center === 'object'
@@ -115,7 +119,9 @@ function parseOutreachSession(raw: string | null): OutreachSessionState | null {
       radiusKm,
       sortMode,
       templateMode,
+      composerMode,
       campaignName: typeof parsed.campaignName === 'string' ? parsed.campaignName : 'Spring Outreach',
+      manualSubject: typeof parsed.manualSubject === 'string' ? parsed.manualSubject : 'Live music concept for your venue',
       conceptText: typeof parsed.conceptText === 'string' ? parsed.conceptText : '',
       senderName: typeof parsed.senderName === 'string' ? parsed.senderName : 'Harald',
       senderEmail: typeof parsed.senderEmail === 'string' ? parsed.senderEmail : '',
@@ -160,6 +166,11 @@ const TEMPLATE_MODE_OPTIONS: Array<{ value: TemplateMode; label: string; descrip
   { value: 'hotel', label: 'Hotel', description: 'Premium event-night framing.' },
   { value: 'corporate', label: 'Corporate', description: 'Professional private-event angle.' },
   { value: 'custom', label: 'Custom', description: 'Use the exact copy written below.' },
+]
+
+const COMPOSER_MODE_OPTIONS: Array<{ value: ComposerMode; label: string; description: string }> = [
+  { value: 'guided', label: 'Guided outreach', description: 'Use venue-aware subjects and assisted pitch copy.' },
+  { value: 'manual', label: 'Write it myself', description: 'Send the exact subject and email text you type below.' },
 ]
 
 function parseJsonArray<T>(raw: string | null): T[] {
@@ -257,7 +268,9 @@ function VenueOutreachPage() {
   const [radiusKm, setRadiusKm] = useState(savedSession?.radiusKm ?? 8)
   const [sortMode, setSortMode] = useState<SortMode>(savedSession?.sortMode ?? 'score')
   const [templateMode, setTemplateMode] = useState<TemplateMode>(savedSession?.templateMode ?? 'auto')
+  const [composerMode, setComposerMode] = useState<ComposerMode>(savedSession?.composerMode ?? 'guided')
   const [campaignName, setCampaignName] = useState(savedSession?.campaignName ?? 'Spring Outreach')
+  const [manualSubject, setManualSubject] = useState(savedSession?.manualSubject ?? 'Live music concept for your venue')
   const [conceptText, setConceptText] = useState(
     savedSession?.conceptText
     || 'We run a modern live music and karaoke concept where your guests can request songs live from their phones and vote in real time. We provide full host-led entertainment, energy, and a smooth setup for your venue.\n\nWould you be open to a test night or a recurring collaboration?',
@@ -357,7 +370,9 @@ function VenueOutreachPage() {
       radiusKm,
       sortMode,
       templateMode,
+      composerMode,
       campaignName,
+      manualSubject,
       conceptText,
       senderName,
       senderEmail,
@@ -366,7 +381,7 @@ function VenueOutreachPage() {
     }
 
     window.localStorage.setItem(OUTREACH_SESSION_STORAGE_KEY, JSON.stringify(sessionState))
-  }, [locationQuery, radiusKm, sortMode, templateMode, campaignName, conceptText, senderName, senderEmail, venues, centerInfo])
+  }, [locationQuery, radiusKm, sortMode, templateMode, composerMode, campaignName, manualSubject, conceptText, senderName, senderEmail, venues, centerInfo])
 
   const withSavedLog = (entries: OutreachLogEntry[]) => {
     setLogEntries(entries)
@@ -535,6 +550,16 @@ function VenueOutreachPage() {
           return null
         }
 
+        if (composerMode === 'manual') {
+          return {
+            venueId: venue.id,
+            venueName: venue.name,
+            email,
+            subject: manualSubject.trim(),
+            messageText: conceptText.trim(),
+          }
+        }
+
         const resolvedTemplate = templateMode === 'auto'
           ? inferTemplateModeFromVenueType(venue.type)
           : templateMode === 'custom'
@@ -577,6 +602,16 @@ function VenueOutreachPage() {
 
     if (!senderEmail.trim()) {
       setSendError('Sender email is required so venues can reply to you.')
+      return
+    }
+
+    if (!conceptText.trim()) {
+      setSendError(composerMode === 'manual' ? 'Write your email before sending.' : 'Message text is required before sending.')
+      return
+    }
+
+    if (composerMode === 'manual' && !manualSubject.trim()) {
+      setSendError('Add an email subject before sending your manual email.')
       return
     }
 
@@ -634,7 +669,11 @@ function VenueOutreachPage() {
           senderName,
           senderEmail,
           emailMode: mode,
-          subject: mode === 'offer' ? 'Live offer package' : 'Live music concept',
+          subject: composerMode === 'manual'
+            ? manualSubject
+            : mode === 'offer'
+            ? 'Live offer package'
+            : 'Live music concept',
           messageText: conceptText,
           contacts,
         }),
@@ -874,6 +913,26 @@ function VenueOutreachPage() {
               </label>
             </div>
 
+            <div className="venue-choice-group" aria-label="Composer mode choices">
+              <div className="venue-choice-group-head">
+                <h4>How do you want to write the email?</h4>
+                <span>{COMPOSER_MODE_OPTIONS.find((option) => option.value === composerMode)?.label}</span>
+              </div>
+              <div className="venue-choice-grid venue-choice-grid-compact">
+                {COMPOSER_MODE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`venue-choice-card ${composerMode === option.value ? 'is-active' : ''}`}
+                    onClick={() => setComposerMode(option.value)}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="venue-choice-group" aria-label="Template choices">
               <div className="venue-choice-group-head">
                 <h4>Template mode</h4>
@@ -881,7 +940,7 @@ function VenueOutreachPage() {
                   type="button"
                   className="secondary-button venue-inline-action"
                   onClick={applyTemplateToComposer}
-                  disabled={templateMode === 'auto' || templateMode === 'custom'}
+                  disabled={composerMode === 'manual' || templateMode === 'auto' || templateMode === 'custom'}
                 >
                   Load template copy
                 </button>
@@ -893,6 +952,7 @@ function VenueOutreachPage() {
                     type="button"
                     className={`venue-choice-card ${templateMode === option.value ? 'is-active' : ''}`}
                     onClick={() => setTemplateMode(option.value)}
+                    disabled={composerMode === 'manual'}
                   >
                     <strong>{option.label}</strong>
                     <span>{option.description}</span>
@@ -901,10 +961,27 @@ function VenueOutreachPage() {
               </div>
             </div>
 
+            {composerMode === 'manual' ? (
+              <label className="venue-outreach-composer-field">
+                Email subject
+                <input
+                  value={manualSubject}
+                  onChange={(event) => setManualSubject(event.target.value)}
+                  className="queue-input"
+                  placeholder="Write the subject line venues should receive"
+                />
+              </label>
+            ) : null}
+
             <label className="venue-outreach-composer-field">
-              Concept message
+              {composerMode === 'manual' ? 'Email message' : 'Concept message'}
               <textarea value={conceptText} onChange={(event) => setConceptText(event.target.value)} className="queue-input" rows={7} />
             </label>
+            <p className="subcopy no-margin-bottom">
+              {composerMode === 'manual'
+                ? 'Manual mode sends the subject and email text exactly as you write them.'
+                : 'Guided mode keeps the existing assisted outreach flow and adjusts subjects per venue.'}
+            </p>
           </section>
 
           <section className="venue-outreach-action-strip" aria-label="Search and send actions">
@@ -913,13 +990,25 @@ function VenueOutreachPage() {
               <span className="venue-action-card-copy">Refresh the list around {locationQuery} with the current filters.</span>
             </button>
             <button type="button" className="venue-action-card venue-action-card-primary" onClick={() => void runSend('concept')} disabled={searching || Boolean(sendingMode)}>
-              <span className="venue-action-card-title">{sendingMode === 'concept' ? 'Sending…' : `Send Concept (${selectedCount})`}</span>
-              <span className="venue-action-card-copy">Send the selected concept email to chosen venues.</span>
+              <span className="venue-action-card-title">
+                {sendingMode === 'concept'
+                  ? 'Sending…'
+                  : composerMode === 'manual'
+                  ? `Send Custom Email (${selectedCount})`
+                  : `Send Concept (${selectedCount})`}
+              </span>
+              <span className="venue-action-card-copy">
+                {composerMode === 'manual'
+                  ? 'Send your own subject and message to the selected venues.'
+                  : 'Send the selected concept email to chosen venues.'}
+              </span>
             </button>
-            <button type="button" className="venue-action-card venue-action-card-secondary" onClick={() => void runSend('offer')} disabled={searching || Boolean(sendingMode)}>
-              <span className="venue-action-card-title">{sendingMode === 'offer' ? 'Sending Offer…' : `Send Offer Package (${selectedCount})`}</span>
-              <span className="venue-action-card-copy">Use the more commercial package pitch when the venue is warm.</span>
-            </button>
+            {composerMode === 'guided' ? (
+              <button type="button" className="venue-action-card venue-action-card-secondary" onClick={() => void runSend('offer')} disabled={searching || Boolean(sendingMode)}>
+                <span className="venue-action-card-title">{sendingMode === 'offer' ? 'Sending Offer…' : `Send Offer Package (${selectedCount})`}</span>
+                <span className="venue-action-card-copy">Use the more commercial package pitch when the venue is warm.</span>
+              </button>
+            ) : null}
             <button type="button" className="venue-action-card venue-action-card-muted" onClick={toggleSelectAll} disabled={!venues.length || searching || Boolean(sendingMode)}>
               <span className="venue-action-card-title">Toggle Select All</span>
               <span className="venue-action-card-copy">Quickly include or clear every result in the current list.</span>
