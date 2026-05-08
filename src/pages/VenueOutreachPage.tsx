@@ -69,6 +69,7 @@ const OUTREACH_STAGE_STORAGE_KEY = 'human-jukebox-outreach-stage-map'
 const OUTREACH_TASKS_STORAGE_KEY = 'human-jukebox-outreach-tasks'
 const OUTREACH_SESSION_STORAGE_KEY = 'human-jukebox-outreach-session'
 const OUTREACH_TEMPLATE_STORAGE_KEY = 'human-jukebox-outreach-templates'
+const AI_MANAGER_OPEN_EVENT = 'human-jukebox-ai-manager-open'
 
 type OutreachSessionState = {
   locationQuery: string
@@ -363,6 +364,14 @@ function buildTemplateId() {
 }
 
 function VenueOutreachPage() {
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.matchMedia('(max-width: 600px)').matches
+  })
+
   const savedSession = useMemo(() => {
     if (typeof window === 'undefined') {
       return null
@@ -503,6 +512,34 @@ function VenueOutreachPage() {
       senderEmail,
     })
   }, [previewVenue, composerMode, templateMode, manualSubject, conceptText, senderName, senderEmail])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const mediaQuery = window.matchMedia('(max-width: 600px)')
+    const onViewportChange = (event: MediaQueryListEvent) => setIsMobileViewport(event.matches)
+
+    setIsMobileViewport(mediaQuery.matches)
+    mediaQuery.addEventListener('change', onViewportChange)
+
+    return () => {
+      mediaQuery.removeEventListener('change', onViewportChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    document.body.classList.add('venue-outreach-page-active')
+
+    return () => {
+      document.body.classList.remove('venue-outreach-page-active')
+    }
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -999,6 +1036,22 @@ function VenueOutreachPage() {
     )))
   }
 
+  const openAiManager = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.dispatchEvent(new CustomEvent(AI_MANAGER_OPEN_EVENT))
+  }
+
+  const scrollToSection = (id: string) => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <section className="create-gig-shell venue-outreach-shell" aria-label="Venue outreach manager">
       {/* Header Section */}
@@ -1015,10 +1068,7 @@ function VenueOutreachPage() {
           type="button"
           className="venue-outreach-action-btn primary-button"
           onClick={() => {
-            const venueListPanel = document.querySelector('.venue-outreach-venues-panel')
-            if (venueListPanel) {
-              venueListPanel.scrollIntoView({ behavior: 'smooth' })
-            }
+            scrollToSection('outreach-venues')
           }}
         >
           ➕ Add Venue
@@ -1042,6 +1092,13 @@ function VenueOutreachPage() {
           }}
         >
           📋 Manage Templates
+        </button>
+        <button
+          type="button"
+          className="venue-outreach-action-btn secondary-button venue-outreach-mobile-ai-button"
+          onClick={openAiManager}
+        >
+          Open AI Manager
         </button>
       </nav>
 
@@ -1072,12 +1129,15 @@ function VenueOutreachPage() {
         </article>
       </section>
 
-      <section className="queue-panel venue-outreach-campaign-panel">
+      <section className="queue-panel venue-outreach-campaign-panel venue-outreach-major-card" id="outreach-search">
         <div className="panel-head">
           <h2>Search & Campaign</h2>
         </div>
         <div className="venue-outreach-campaign-stack">
-          <section className="venue-outreach-control-card" aria-label="Search settings">
+          <section className="venue-outreach-control-card venue-outreach-major-card" aria-label="Search settings" id="outreach-search-settings">
+            <details className="venue-outreach-collapsible" {...(!isMobileViewport ? { open: true } : {})}>
+              <summary className="venue-outreach-collapsible-summary">Search</summary>
+              <div className="venue-outreach-collapsible-body">
             <div className="venue-outreach-section-lead">
               <span className="venue-outreach-section-tag">Venue discovery</span>
               <h3>Search area and filters</h3>
@@ -1144,9 +1204,14 @@ function VenueOutreachPage() {
                 ))}
               </div>
             </div>
+              </div>
+            </details>
           </section>
 
-          <section className="venue-outreach-control-card" aria-label="Campaign settings">
+          <section className="venue-outreach-control-card venue-outreach-major-card" aria-label="Campaign settings" id="outreach-campaign">
+            <details className="venue-outreach-collapsible" {...(!isMobileViewport ? { open: true } : {})}>
+              <summary className="venue-outreach-collapsible-summary">Campaign Setup</summary>
+              <div className="venue-outreach-collapsible-body">
             <div className="venue-outreach-section-lead">
               <span className="venue-outreach-section-tag">Campaign setup</span>
               <h3>Message and sender details</h3>
@@ -1217,7 +1282,10 @@ function VenueOutreachPage() {
             </div>
 
             {composerMode === 'guided' ? (
-              <section className="queue-panel" aria-label="Pub sales pitch form">
+              <section className="queue-panel venue-outreach-major-card" aria-label="Pub sales pitch form" id="outreach-pub-sales">
+                <details className="venue-outreach-collapsible" {...(!isMobileViewport ? { open: true } : {})}>
+                  <summary className="venue-outreach-collapsible-summary">Pub Sales Form</summary>
+                  <div className="venue-outreach-collapsible-body">
                 <div className="panel-head">
                   <h2>Pub Sales Form</h2>
                   <span className="meta-badge">Owner-focused pitch</span>
@@ -1265,6 +1333,8 @@ function VenueOutreachPage() {
                     Apply To Guided Pub Email
                   </button>
                 </div>
+                  </div>
+                </details>
               </section>
             ) : null}
 
@@ -1336,7 +1406,10 @@ function VenueOutreachPage() {
               </section>
             ) : null}
 
-            <section className="queue-panel" aria-label="Live email preview">
+            <section className="queue-panel venue-outreach-major-card" aria-label="Live email preview" id="outreach-preview">
+              <details className="venue-outreach-collapsible" {...(!isMobileViewport ? { open: true } : {})}>
+                <summary className="venue-outreach-collapsible-summary">Live Preview</summary>
+                <div className="venue-outreach-collapsible-body">
               <div className="panel-head">
                 <h2>Live Preview</h2>
                 <span className="meta-badge">{previewVenue ? previewVenue.name : 'No venue yet'}</span>
@@ -1365,7 +1438,11 @@ function VenueOutreachPage() {
               ) : (
                 <p className="subcopy no-margin-bottom">Pick a venue or run a search to preview the final email.</p>
               )}
+                </div>
+              </details>
             </section>
+              </div>
+            </details>
           </section>
 
           <section className="venue-outreach-action-strip" aria-label="Search and send actions">
@@ -1415,7 +1492,10 @@ function VenueOutreachPage() {
         {statusText ? <p className="subcopy">{statusText}</p> : null}
       </section>
 
-      <section className="queue-panel venue-outreach-analytics-panel" aria-label="Pipeline and analytics">
+      <section className="queue-panel venue-outreach-analytics-panel venue-outreach-major-card" aria-label="Pipeline and analytics" id="outreach-pipeline">
+        <details className="venue-outreach-collapsible" {...(!isMobileViewport ? { open: true } : {})}>
+          <summary className="venue-outreach-collapsible-summary">Pipeline</summary>
+          <div className="venue-outreach-collapsible-body">
         <div className="panel-head">
           <h2>Pipeline & Analytics</h2>
         </div>
@@ -1427,9 +1507,14 @@ function VenueOutreachPage() {
         <p className="subcopy">
           Sent: {analytics.sentCount} | Failed: {analytics.failedCount} | Success rate: {analytics.successRate}% | Replies+: {analytics.replyStages} | Confirmed: {analytics.confirmed} | Conversion: {analytics.conversionRate}%
         </p>
+          </div>
+        </details>
       </section>
 
-      <section className="queue-panel venue-outreach-tasks-panel" aria-label="Follow-up tasks">
+      <section className="queue-panel venue-outreach-tasks-panel venue-outreach-major-card" aria-label="Follow-up tasks" id="outreach-followups">
+        <details className="venue-outreach-collapsible" {...(!isMobileViewport ? { open: true } : {})}>
+          <summary className="venue-outreach-collapsible-summary">Follow-ups</summary>
+          <div className="venue-outreach-collapsible-body">
         <div className="panel-head">
           <h2>Follow-up Tasks</h2>
           <span className="meta-badge">{pendingTasks.length} open</span>
@@ -1460,9 +1545,11 @@ function VenueOutreachPage() {
             })}
           </ul>
         )}
+          </div>
+        </details>
       </section>
 
-      <section className="queue-panel venue-outreach-venues-panel" aria-label="Nearby venues">
+      <section className="queue-panel venue-outreach-venues-panel venue-outreach-major-card" aria-label="Nearby venues" id="outreach-venues">
         <div className="panel-head">
           <h2>Nearby Venues</h2>
           <span className="meta-badge">{venues.length} found</span>
@@ -1581,7 +1668,10 @@ function VenueOutreachPage() {
         )}
       </section>
 
-      <section className="queue-panel venue-outreach-log-panel" aria-label="Outreach log">
+      <section className="queue-panel venue-outreach-log-panel venue-outreach-major-card" aria-label="Outreach log" id="outreach-log">
+        <details className="venue-outreach-collapsible" {...(!isMobileViewport ? { open: true } : {})}>
+          <summary className="venue-outreach-collapsible-summary">Outreach Log</summary>
+          <div className="venue-outreach-collapsible-body">
         <div className="panel-head">
           <h2>Outreach Log</h2>
           <div className="hero-actions no-margin-bottom">
@@ -1612,7 +1702,16 @@ function VenueOutreachPage() {
             ))}
           </ul>
         )}
+          </div>
+        </details>
       </section>
+
+      <nav className="venue-outreach-mobile-nav" aria-label="Mobile outreach shortcuts">
+        <button type="button" className="venue-outreach-mobile-nav-button" onClick={() => scrollToSection('outreach-search-settings')}>Search</button>
+        <button type="button" className="venue-outreach-mobile-nav-button" onClick={() => scrollToSection('outreach-campaign')}>Campaign</button>
+        <button type="button" className="venue-outreach-mobile-nav-button" onClick={() => scrollToSection('outreach-preview')}>Preview</button>
+        <button type="button" className="venue-outreach-mobile-nav-button" onClick={openAiManager}>AI Manager</button>
+      </nav>
     </section>
   )
 }

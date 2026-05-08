@@ -60,6 +60,7 @@ const MANAGER_OPTIONS: ManagerOption[] = [
 ]
 
 const MANAGER_STORAGE_KEY = 'human-jukebox-ai-manager-profile'
+const AI_MANAGER_OPEN_EVENT = 'human-jukebox-ai-manager-open'
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10)
@@ -94,6 +95,19 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     window.localStorage.setItem(MANAGER_STORAGE_KEY, managerId)
   }, [managerId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const onExternalOpen = () => setOpen(true)
+    window.addEventListener(AI_MANAGER_OPEN_EVENT, onExternalOpen)
+
+    return () => {
+      window.removeEventListener(AI_MANAGER_OPEN_EVENT, onExternalOpen)
+    }
+  }, [])
 
   useEffect(() => {
     if (open) {
@@ -184,7 +198,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   }
 
   return createPortal(
-    <div className="ai-manager-root" data-ai-manager-root="true">
+    <div className="ai-manager-root" data-ai-manager-root="true" data-open={open ? 'true' : 'false'}>
       {open && (
         <div className="ai-manager-panel" role="dialog" aria-label="AI Booking Manager">
           <div className="ai-manager-header">

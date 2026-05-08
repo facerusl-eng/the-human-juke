@@ -13855,20 +13855,23 @@ kbd {
   }
 
   .ai-manager-root {
-    left: auto;
-    right: max(0.5rem, env(safe-area-inset-right));
-    bottom: max(0.5rem, env(safe-area-inset-bottom));
-    inset-inline-start: auto;
-    inset-inline-end: max(0.5rem, env(safe-area-inset-right));
-    inset-block-end: max(0.5rem, env(safe-area-inset-bottom));
-    align-items: flex-end;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    inset-inline-start: 0;
+    inset-inline-end: 0;
+    inset-block-end: 0;
+    align-items: center;
     justify-content: flex-end;
+    padding: 0.5rem;
   }
 
   .ai-manager-panel {
-    width: min(360px, calc(100vw - 1rem));
-    max-height: min(68dvh, calc(100dvh - 5.2rem));
-    border-radius: 0.95rem;
+    width: min(100%, calc(100vw - 1rem));
+    max-width: 100%;
+    min-height: min(80dvh, calc(100dvh - 2rem));
+    max-height: min(94dvh, calc(100dvh - 0.7rem));
+    border-radius: 1rem 1rem 0.7rem 0.7rem;
   }
 
   .ai-manager-header {
@@ -13911,6 +13914,10 @@ kbd {
 
   .ai-manager-fab {
     display: flex !important;
+  }
+
+  body.venue-outreach-page-active .ai-manager-root[data-open='false'] .ai-manager-fab {
+    display: none !important;
   }
 
   .admin-ai-diagnostics {
