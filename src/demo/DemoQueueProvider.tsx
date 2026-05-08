@@ -166,7 +166,7 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
     }
 
     setSongs((current) => [...current, newSong])
-  }, [songs.length])
+  }, [songs])
 
   const upvoteSong = useCallback(async (songId: string) => {
     // Only allow one vote per song per demo session.
