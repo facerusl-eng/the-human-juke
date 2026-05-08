@@ -19,74 +19,13 @@ const RUNTIME_THEME_PRESETS: Record<string, Record<string, string>> = {
     '--panel-border': 'rgba(162, 89, 255, 0.36)',
     '--ink': '#edf3ff',
     '--ink-soft': '#b5b2de',
-    '--ink-strong': '#f7f9ff',
-  },
-  neon: {
-    '--canvas': '#140620',
-    '--canvas-alt': '#1a0a2e',
-    '--panel': '#1f0f36',
-    '--panel-alt': '#2a1244',
-    '--panel-border': 'rgba(255, 0, 128, 0.42)',
-    '--ink': '#fff0fb',
-    '--ink-soft': '#efb7df',
-    '--ink-strong': '#ffffff',
-  },
-  pub: {
-    '--canvas': '#1f1a16',
-    '--canvas-alt': '#2a2420',
-    '--panel': '#332a24',
-    '--panel-alt': '#3d3128',
-    '--panel-border': 'rgba(212, 165, 116, 0.44)',
-    '--ink': '#fff5e9',
-    '--ink-soft': '#d7c5b2',
-    '--ink-strong': '#fffaf3',
-  },
-  clean: {
-    '--canvas': '#f1f6ff',
-    '--canvas-alt': '#e7efff',
-    '--panel': '#ffffff',
-    '--panel-alt': '#f6f9ff',
-    '--panel-border': 'rgba(26, 115, 232, 0.24)',
-    '--ink': '#17233a',
-    '--ink-soft': '#4a5c78',
-    '--ink-strong': '#0f1b2f',
-  },
-  highcontrast: {
-    '--canvas': '#000000',
-    '--canvas-alt': '#050505',
-    '--panel': '#0d0d0d',
-    '--panel-alt': '#151515',
-    '--panel-border': 'rgba(255, 255, 0, 0.68)',
-    '--ink': '#ffffff',
-    '--ink-soft': '#f0f0a8',
-    '--ink-strong': '#ffffff',
-  },
-}
+        {!isAudienceMode ? (
+        <div className="auth-strip">
+          {loading ? (
+            <span className="meta-badge">Checking session...</span>
+          ) : null}
 
-function isValidHexColor(value: string | null | undefined) {
-  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value.trim())
-}
-
-function ShellLayout() {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const { user, profile, isHost, loading, signInHost, signOut } = useAuthStore()
-  const { event } = useQueueStore()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [errorText, setErrorText] = useState<string | null>(null)
-  const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
-  const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine)
-  const [authActionBusy, setAuthActionBusy] = useState<null | 'sign-in' | 'sign-out'>(null)
-  const [hasAudienceAccess, setHasAudienceAccess] = useState(() => Boolean(readCommittedAudienceName()))
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
-  const [isGigMenuOpen, setIsGigMenuOpen] = useState(false)
-  const [isGigMenuForceClosed, setIsGigMenuForceClosed] = useState(false)
-  const [aiDiagnostics, setAiDiagnostics] = useState<'checking' | 'connected' | 'not-connected'>('checking')
-  const mobileNavToggleRef = useRef<HTMLButtonElement | null>(null)
-  const gigMenuRef = useRef<HTMLDivElement | null>(null)
-  const gigMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
-  const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
+          {!loading && user ? (
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
   const showAiDiagnostics = isAdminMode && (import.meta.env.DEV || new URLSearchParams(location.search).get('aiDiagnostics') === '1')
