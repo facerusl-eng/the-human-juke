@@ -164,10 +164,10 @@
     .trailer-bg-photo {
       position: absolute;
       inset: 0;
-      background-image: url('./images/photo-output (1).jpeg');
+      background-image: url('./images/promo-audience-welcome-hd.png');
       background-repeat: no-repeat;
-      background-position: center bottom;
-      background-size: contain;
+      background-position: center center;
+      background-size: cover;
       opacity: 0;
       z-index: 1;
       animation: trailerReveal 2.6s ease-out forwards;
@@ -276,10 +276,7 @@
 
     .app-gallery {
       position: relative;
-      width: 960px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
+      width: 920px;
       z-index: 2;
     }
 
@@ -290,21 +287,17 @@
       background: linear-gradient(165deg, rgba(13,21,52,0.92), rgba(5,8,20,0.94));
       box-shadow: 0 18px 44px rgba(0,0,0,0.45), 0 0 26px rgba(74,214,255,0.2);
       overflow: hidden;
+      height: 920px;
       animation: cardFloat 2.2s ease-in-out infinite alternate;
     }
 
-    .app-card.primary {
-      grid-column: span 2;
-      height: 560px;
-      animation-delay: 0.15s;
-    }
-
-    .app-card.secondary {
-      height: 360px;
-    }
-
-    .app-card.secondary.alt {
-      animation-delay: 0.45s;
+    .app-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.32) 72%, rgba(0,0,0,0.45) 100%);
+      pointer-events: none;
+      z-index: 2;
     }
 
     .app-card-header {
@@ -325,12 +318,46 @@
     }
 
     .app-shot {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
       pointer-events: none;
       filter: saturate(1.06) contrast(1.02);
       background: #070a18;
+      opacity: 0;
+      z-index: 1;
+      animation: showcaseFade 9s infinite;
+    }
+
+    .app-shot.welcome { animation-delay: 0s; }
+    .app-shot.queue { animation-delay: 3s; }
+    .app-shot.audience { animation-delay: 6s; }
+
+    @keyframes showcaseFade {
+      0%, 30% { opacity: 1; }
+      34%, 100% { opacity: 0; }
+    }
+
+    .showcase-caption {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 22px;
+      z-index: 4;
+      font-family: 'Inter', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,0.92);
+      text-transform: uppercase;
+      text-align: center;
+      background: rgba(8, 14, 38, 0.7);
+      border: 1px solid rgba(74,214,255,0.45);
+      border-radius: 999px;
+      padding: 12px 16px;
+      backdrop-filter: blur(4px);
     }
 
     .queue-select-overlay {
@@ -338,13 +365,15 @@
       inset: 56px 14px 14px;
       pointer-events: none;
       z-index: 3;
+      opacity: 0;
+      animation: queueOverlayFade 9s infinite;
     }
 
     .queue-select-overlay .queue-row {
       position: absolute;
       left: 0;
       right: 0;
-      height: 70px;
+      height: 62px;
       border-radius: 18px;
       border: 1px solid rgba(255,255,255,0.2);
       background: rgba(9, 16, 41, 0.62);
@@ -352,8 +381,8 @@
     }
 
     .queue-select-overlay .queue-row.one { top: 14px; }
-    .queue-select-overlay .queue-row.two { top: 102px; }
-    .queue-select-overlay .queue-row.three { top: 190px; }
+    .queue-select-overlay .queue-row.two { top: 90px; }
+    .queue-select-overlay .queue-row.three { top: 166px; }
 
     .queue-select-overlay .queue-row.selected {
       border-color: rgba(74,214,255,0.78);
@@ -391,18 +420,24 @@
     }
 
     @keyframes fingerTap {
-      0%, 8% { transform: translate(380px, 16px) scale(1); opacity: 0.95; }
-      16% { transform: translate(380px, 16px) scale(0.86); opacity: 1; }
-      28% { transform: translate(380px, 16px) scale(1); }
-      48%, 56% { transform: translate(220px, 104px) scale(1); opacity: 0.9; }
-      64% { transform: translate(220px, 104px) scale(0.86); opacity: 1; }
-      76% { transform: translate(220px, 104px) scale(1); }
-      100% { transform: translate(380px, 16px) scale(1); opacity: 0.95; }
+      0%, 8% { transform: translate(300px, 14px) scale(1); opacity: 0.95; }
+      16% { transform: translate(300px, 14px) scale(0.86); opacity: 1; }
+      28% { transform: translate(300px, 14px) scale(1); }
+      48%, 56% { transform: translate(170px, 88px) scale(1); opacity: 0.9; }
+      64% { transform: translate(170px, 88px) scale(0.86); opacity: 1; }
+      76% { transform: translate(170px, 88px) scale(1); }
+      100% { transform: translate(300px, 14px) scale(1); opacity: 0.95; }
     }
 
     @keyframes queueSelected {
       0%, 48%, 100% { transform: translateY(0); }
       50% { transform: translateY(-2px); }
+    }
+
+    @keyframes queueOverlayFade {
+      0%, 32% { opacity: 0; }
+      36%, 62% { opacity: 1; }
+      66%, 100% { opacity: 0; }
     }
 
     @keyframes cardFloat {
@@ -628,17 +663,11 @@
     <div class="audience-preview">
       <div class="app-glow"></div>
       <div class="app-gallery slide-up">
-        <div class="app-card primary">
-          <div class="app-card-header">Mirror: Show In Full Progress</div>
-          <img class="app-shot" src="./images/promo-mirror-live-hd.png" alt="Mirror screen in live show mode" />
-        </div>
-        <div class="app-card secondary">
-          <div class="app-card-header">Audience: Choose & Vote</div>
-          <img class="app-shot" src="./images/promo-audience-live-hd.png" alt="Audience app choosing and voting screen" />
-        </div>
-        <div class="app-card secondary alt">
-          <div class="app-card-header">Song Queue + Karaoke</div>
-          <img class="app-shot" src="./images/promo-queue-live-hd.png" alt="Song queue and karaoke screenshot" />
+        <div class="app-card">
+          <div class="app-card-header">Live App In Action</div>
+          <img class="app-shot welcome" src="./images/promo-audience-welcome-hd.png" alt="Audience welcome and join screen" />
+          <img class="app-shot queue" src="./images/promo-queue-welcome-hd.png" alt="Song queue and karaoke screenshot" />
+          <img class="app-shot audience" src="./images/promo-mirror-welcome-hd.png" alt="DJ mirror view showing live feedback" />
           <div class="queue-select-overlay" aria-hidden="true">
             <div class="queue-row one"></div>
             <div class="queue-row two selected"></div>
@@ -646,6 +675,7 @@
             <div class="queue-touch-finger"></div>
             <div class="queue-touch-note">Guest taps next song</div>
           </div>
+          <div class="showcase-caption">Join • Choose Songs • Vote • Queue • Karaoke</div>
         </div>
       </div>
       <div class="feature-pills slide-up" style="animation-delay:.2s">
