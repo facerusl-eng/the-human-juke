@@ -156,8 +156,13 @@ const STAGE_LABELS: Record<PipelineStage, string> = {
   lost: 'Lost',
 }
 
+const DEFAULT_PUB_OPENING_HOOK = 'I help pubs increase bar spend and keep guests longer with a live host-led music night that feels premium and easy to run.'
+const DEFAULT_PUB_ONE_PERSON_LINE = 'It is only me running the concept, and I both host and perform, so you get one accountable person on-site from start to finish.'
+const DEFAULT_PUB_APP_EDGE_LINE = 'Our ace up the sleeve is the Human Jukebox app: guests request songs from their phones, vote in real time, and stay engaged all evening.'
+const DEFAULT_PUB_CTA_LINE = 'Would you be open to a low-risk test night so we can prove it in your room and measure guest response and bar uplift?'
+
 const TEMPLATE_TEXT: Record<Exclude<TemplateMode, 'auto' | 'custom'>, string> = {
-  pub: 'We run an energetic live music and karaoke concept that keeps pub guests engaged all night with mobile song requests and live voting. We handle host flow, crowd energy, and smooth transitions.\n\nWould you be open to a test night at your pub?',
+  pub: `${DEFAULT_PUB_OPENING_HOOK}\n\n${DEFAULT_PUB_ONE_PERSON_LINE}\n\n${DEFAULT_PUB_APP_EDGE_LINE}\n\n${DEFAULT_PUB_CTA_LINE}`,
   restaurant: 'We provide a guest-friendly live music concept that adds atmosphere without disrupting service flow. Guests can request songs from their phones and interact in real time.\n\nWould you be interested in trying this on one of your busier evenings?',
   hotel: 'We offer a premium live entertainment concept ideal for hotel bars and event evenings, with interactive song requests, controlled host pacing, and family-friendly flexibility.\n\nCould we explore a pilot event at your hotel venue?',
   corporate: 'We deliver a polished interactive live music concept perfect for company nights and branded events. Guests request songs, vote live, and stay engaged throughout.\n\nWould you like a proposal for an upcoming corporate event?',
@@ -309,8 +314,11 @@ function buildBaseDraft({
   const signatureEmail = senderEmail.trim() || 'harald@the-human-jukebox.org'
   const withVenueName = `${baseMessage}\n\nVenue: ${venue.name}\n\nBest regards,\n${signatureName}\n${signatureEmail}`
   const messageText = mode === 'offer' ? buildOfferMessage(withVenueName) : withVenueName
+  const isPubTemplate = resolvedTemplate === 'pub'
   const subject = mode === 'offer'
     ? `Offer package for ${venue.name}`
+    : isPubTemplate
+    ? `Idea to increase guest spend at ${venue.name}`
     : `Live music concept for ${venue.name}`
 
   return {
@@ -374,6 +382,10 @@ function VenueOutreachPage() {
     savedSession?.conceptText
     || 'We run a modern live music and karaoke concept where your guests can request songs live from their phones and vote in real time. We provide full host-led entertainment, energy, and a smooth setup for your venue.\n\nWould you be open to a test night or a recurring collaboration?',
   )
+  const [pubOpeningHook, setPubOpeningHook] = useState(DEFAULT_PUB_OPENING_HOOK)
+  const [pubOnePersonLine, setPubOnePersonLine] = useState(DEFAULT_PUB_ONE_PERSON_LINE)
+  const [pubAppEdgeLine, setPubAppEdgeLine] = useState(DEFAULT_PUB_APP_EDGE_LINE)
+  const [pubCtaLine, setPubCtaLine] = useState(DEFAULT_PUB_CTA_LINE)
   const [senderName, setSenderName] = useState(savedSession?.senderName ?? 'Harald')
   const [senderEmail, setSenderEmail] = useState(savedSession?.senderEmail ?? 'harald@the-human-jukebox.org')
   const [venues, setVenues] = useState<Venue[]>(savedSession?.venues ?? [])
@@ -654,6 +666,26 @@ function VenueOutreachPage() {
     }
 
     setConceptText(TEMPLATE_TEXT[templateMode])
+  }
+
+  const applyPubSalesForm = () => {
+    const sections = [
+      pubOpeningHook.trim(),
+      pubOnePersonLine.trim(),
+      pubAppEdgeLine.trim(),
+      pubCtaLine.trim(),
+    ].filter(Boolean)
+
+    if (sections.length < 3) {
+      setSendError('Add at least opening, app edge, and a call-to-action in the pub sales form.')
+      return
+    }
+
+    setComposerMode('guided')
+    setTemplateMode('pub')
+    setConceptText(sections.join('\n\n'))
+    setStatusText('Applied pub sales form to guided outreach copy.')
+    setSendError(null)
   }
 
   const createFollowUpTasks = (successful: Array<{ venueName: string; email: string }>) => {
@@ -1183,6 +1215,58 @@ function VenueOutreachPage() {
                 ))}
               </div>
             </div>
+
+            {composerMode === 'guided' ? (
+              <section className="queue-panel" aria-label="Pub sales pitch form">
+                <div className="panel-head">
+                  <h2>Pub Sales Form</h2>
+                  <span className="meta-badge">Owner-focused pitch</span>
+                </div>
+                <div className="form-grid two-col venue-outreach-form-grid">
+                  <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                    Opening hook (business result first)
+                    <textarea
+                      value={pubOpeningHook}
+                      onChange={(event) => setPubOpeningHook(event.target.value)}
+                      className="queue-input"
+                      rows={2}
+                    />
+                  </label>
+                  <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                    Why you (one-person host + performer)
+                    <textarea
+                      value={pubOnePersonLine}
+                      onChange={(event) => setPubOnePersonLine(event.target.value)}
+                      className="queue-input"
+                      rows={2}
+                    />
+                  </label>
+                  <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                    Your app advantage (the ace up your sleeve)
+                    <textarea
+                      value={pubAppEdgeLine}
+                      onChange={(event) => setPubAppEdgeLine(event.target.value)}
+                      className="queue-input"
+                      rows={2}
+                    />
+                  </label>
+                  <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                    Call to action
+                    <textarea
+                      value={pubCtaLine}
+                      onChange={(event) => setPubCtaLine(event.target.value)}
+                      className="queue-input"
+                      rows={2}
+                    />
+                  </label>
+                </div>
+                <div className="hero-actions no-margin-bottom">
+                  <button type="button" className="primary-button" onClick={applyPubSalesForm}>
+                    Apply To Guided Pub Email
+                  </button>
+                </div>
+              </section>
+            ) : null}
 
             {composerMode === 'manual' ? (
               <div className="form-grid two-col venue-outreach-form-grid">
