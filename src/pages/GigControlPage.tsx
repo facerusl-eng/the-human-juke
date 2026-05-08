@@ -303,6 +303,7 @@ function GigControlPage() {
         cleanup()
         sendSpotifyTransportCommand('play')
         void sendSpotifyWebApiTransportCommand('play')
+  const showLiveMirrorNowPlaying = Boolean(event.roomOpen && nowPlaying?.id)
         resolve()
       }
 
@@ -324,7 +325,7 @@ function GigControlPage() {
       setSpotifyAccessToken(storedToken)
     }
 
-    const storedAutoTransport = window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY)
+                  {!showLiveMirrorNowPlaying && !isNowPlayingStarted ? (
     if (storedAutoTransport === '0') {
       setSpotifyAutoTransportEnabled(false)
     }

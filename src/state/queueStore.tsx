@@ -192,16 +192,16 @@ export type QueueContextValue = {
 export const QueueContext = createContext<QueueContextValue | null>(null)
 const DEFAULT_DB_TIMEOUT_MS = 18_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
-const HOST_QUEUE_POLL_INTERVAL_MS = 15_000
-const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 30_000
+const HOST_QUEUE_POLL_INTERVAL_MS = 20_000
+const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 45_000
 // How often the audience polls when connected to a live event (realtime handles most updates).
-const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 12_000
+const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 18_000
 // How often the audience checks for a new live gig when sitting on the no-gig screen.
-const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 8_000
+const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 12_000
 const DEGRADE_AFTER_CONSECUTIVE_FAILURES = 2
 // In degraded mode we poll faster because realtime is unhealthy.
 const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 6_000
-const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 5_000
+const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 6_000
 const REALTIME_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3
 const REALTIME_CIRCUIT_BREAKER_COOLDOWN_MS = 20_000
 const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
@@ -211,6 +211,26 @@ const TEST_GIG_MAP_STORAGE_KEY = 'human-jukebox-test-gig-map'
 const VENUE_LOGO_SCALE_MIN = 20
 const VENUE_LOGO_SCALE_MAX = 500
 const VENUE_LOGO_OFFSET_LIMIT = 100
+
+function getLiveDiscoveryPollInterval(operatingMode: 'normal' | 'degraded') {
+  return operatingMode === 'degraded'
+    ? DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS
+    : AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS
+}
+
+function getQueuePollInterval(options: {
+  isHostSession: boolean
+  isAdminGigsRoute: boolean
+  operatingMode: 'normal' | 'degraded'
+}) {
+  if (options.isHostSession) {
+    return options.isAdminGigsRoute ? HOST_GIGS_ROUTE_POLL_INTERVAL_MS : HOST_QUEUE_POLL_INTERVAL_MS
+  }
+
+  return options.operatingMode === 'degraded'
+    ? DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS
+    : AUDIENCE_QUEUE_POLL_INTERVAL_MS
+}
 
 function readTestGigMap() {
   const parsed = readFromLocalStorage(TEST_GIG_MAP_STORAGE_KEY) as Record<string, unknown> | null
@@ -871,6 +891,7 @@ function QueueProvider({ children }: PropsWithChildren) {
   const [pendingOfflineSongs, setPendingOfflineSongs] = useState<PendingOfflineSong[]>([])
   const activeEventIdRef = useRef<string | null>(null)
   const prevConnectionStatusRef = useRef<'connecting' | 'connected' | 'reconnecting' | 'offline'>('connecting')
+  const queueOperatingModeRef = useRef<'normal' | 'degraded'>('normal')
 
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
@@ -880,6 +901,10 @@ function QueueProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     isHostSessionRef.current = isHostSession
   }, [isHostSession])
+
+  useEffect(() => {
+    queueOperatingModeRef.current = queueOperatingMode
+  }, [queueOperatingMode])
 
   useEffect(() => {
     const snapshot = readFromLocalStorage<PersistedQueueSnapshot | null>(QUEUE_STATE_STORAGE_KEY, null)
@@ -1530,6 +1555,13 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
+    const clearAudiencePollTimer = () => {
+      if (audiencePollTimerId !== null) {
+        window.clearTimeout(audiencePollTimerId)
+        audiencePollTimerId = null
+      }
+    }
+
     const disconnectActiveChannel = () => {
       if (activeChannel) {
         void supabase.removeChannel(activeChannel)
@@ -1724,6 +1756,20 @@ function QueueProvider({ children }: PropsWithChildren) {
           setAudienceRefreshTick((currentTick) => currentTick + 1)
         }
 
+        const scheduleAudiencePoll = (callback: () => void, delayMs: number) => {
+          clearAudiencePollTimer()
+
+          audiencePollTimerId = window.setTimeout(() => {
+            audiencePollTimerId = null
+
+            if (!isCurrent) {
+              return
+            }
+
+            callback()
+          }, delayMs)
+        }
+
         const maybeReloadAudienceWhenLiveReturns = async () => {
           if (runAsHostSession) {
             return
@@ -1794,15 +1840,29 @@ function QueueProvider({ children }: PropsWithChildren) {
             activeChannelReconnectHandler = connectAudienceLiveWatchChannel
             connectAudienceLiveWatchChannel()
 
-            audiencePollTimerId = window.setInterval(() => {
-              if (document.hidden || !isCurrent) {
+            const runAudienceLiveDiscoveryPoll = () => {
+              if (!isCurrent) {
                 return
               }
 
-              void maybeReloadAudienceWhenLiveReturns()
-            }, queueOperatingMode === 'degraded'
-              ? DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS
-              : AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS)
+              const nextDelayMs = getLiveDiscoveryPollInterval(queueOperatingModeRef.current)
+
+              if (document.hidden) {
+                scheduleAudiencePoll(runAudienceLiveDiscoveryPoll, nextDelayMs)
+                return
+              }
+
+              void maybeReloadAudienceWhenLiveReturns().finally(() => {
+                if (isCurrent) {
+                  scheduleAudiencePoll(runAudienceLiveDiscoveryPoll, nextDelayMs)
+                }
+              })
+            }
+
+            scheduleAudiencePoll(
+              runAudienceLiveDiscoveryPoll,
+              getLiveDiscoveryPollInterval(queueOperatingModeRef.current),
+            )
           }
 
           return
@@ -2022,21 +2082,37 @@ function QueueProvider({ children }: PropsWithChildren) {
         activeChannelReconnectHandler = connectQueueLiveChannel
         connectQueueLiveChannel()
 
-        const pollIntervalMs = runAsHostSession
-          ? (isAdminGigsRoutePath() ? HOST_GIGS_ROUTE_POLL_INTERVAL_MS : HOST_QUEUE_POLL_INTERVAL_MS)
-          : queueOperatingMode === 'degraded'
-          ? DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS
-          : AUDIENCE_QUEUE_POLL_INTERVAL_MS
-
-        audiencePollTimerId = window.setInterval(() => {
-          if (document.hidden) {
+        const runQueuePoll = () => {
+          if (!isCurrent) {
             return
           }
 
-          if (isCurrent) {
-            void refreshSnapshot()
+          const nextDelayMs = getQueuePollInterval({
+            isHostSession: runAsHostSession,
+            isAdminGigsRoute: isAdminGigsRoutePath(),
+            operatingMode: queueOperatingModeRef.current,
+          })
+
+          if (document.hidden) {
+            scheduleAudiencePoll(runQueuePoll, nextDelayMs)
+            return
           }
-        }, pollIntervalMs)
+
+          void refreshSnapshot().finally(() => {
+            if (isCurrent) {
+              scheduleAudiencePoll(runQueuePoll, nextDelayMs)
+            }
+          })
+        }
+
+        scheduleAudiencePoll(
+          runQueuePoll,
+          getQueuePollInterval({
+            isHostSession: runAsHostSession,
+            isAdminGigsRoute: isAdminGigsRoutePath(),
+            operatingMode: queueOperatingModeRef.current,
+          }),
+        )
       } catch (error) {
         markSnapshotFailure(error)
         setAudienceConnectionStatus('reconnecting')
@@ -2114,44 +2190,10 @@ function QueueProvider({ children }: PropsWithChildren) {
       clearChannelReconnectTimer()
       activeChannelReconnectHandler = null
       disconnectActiveChannel()
-      if (audiencePollTimerId !== null) {
-        window.clearInterval(audiencePollTimerId)
-      }
+      clearAudiencePollTimer()
       clearChannelWatchdog()
     }
-  }, [user, eventId, isHostSession, routePathname, audienceRefreshTick, refreshProfile, fetchQueueSnapshot, queueOperatingMode])
-
-  useEffect(() => {
-    const refreshOnForeground = () => {
-      if (document.hidden) {
-        return
-      }
-
-      const currentEventId = activeEventIdRef.current
-
-      if (!currentEventId) {
-        return
-      }
-
-      void fetchQueueSnapshotRef.current(currentEventId)
-    }
-
-    const onVisibilityChange = () => {
-      if (!document.hidden) {
-        refreshOnForeground()
-      }
-    }
-
-    window.addEventListener('focus', refreshOnForeground)
-    window.addEventListener('online', refreshOnForeground)
-    document.addEventListener('visibilitychange', onVisibilityChange)
-
-    return () => {
-      window.removeEventListener('focus', refreshOnForeground)
-      window.removeEventListener('online', refreshOnForeground)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-    }
-  }, [fetchQueueSnapshot])
+  }, [user, eventId, isHostSession, routePathname, audienceRefreshTick, refreshProfile, fetchQueueSnapshot])
 
   useEffect(() => {
     if (!event?.id) {

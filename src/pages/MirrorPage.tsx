@@ -869,9 +869,10 @@ function MirrorPage() {
   const activeSong = playbackSong ?? nowPlaying
   // In demo mode, treat the first song as already playing so the now-playing
   // card shows album art + title instead of the "between songs" quote.
+  const liveSessionIsNowPlaying = Boolean(isLive && nowPlaying)
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
-    : Boolean(playbackState?.isStarted && playbackState.currentSongId)
+    : liveSessionIsNowPlaying || Boolean(playbackState?.isStarted && playbackState.currentSongId)
   const maxUpNextSongs = hideControlsForAudience ? 3 : 5
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
