@@ -198,8 +198,11 @@ const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 12_000
 // How often the audience checks for a new live gig when sitting on the no-gig screen.
 const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 8_000
 const DEGRADE_AFTER_CONSECUTIVE_FAILURES = 2
-const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 15_000
-const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 10_000
+// In degraded mode we poll faster because realtime is unhealthy.
+const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 6_000
+const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 5_000
+const REALTIME_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3
+const REALTIME_CIRCUIT_BREAKER_COOLDOWN_MS = 20_000
 const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
 const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
 const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
@@ -1495,9 +1498,17 @@ function QueueProvider({ children }: PropsWithChildren) {
     let snapshotInFlight = false
     let snapshotQueued = false
     let consecutiveLoadFailures = 0
+    let realtimeFailureStreak = 0
+    let realtimeCircuitOpenUntil = 0
 
     const markSnapshotSuccess = () => {
       consecutiveLoadFailures = 0
+
+      if (realtimeCircuitOpenUntil > Date.now()) {
+        setQueueOperatingMode('degraded')
+        return
+      }
+
       setQueueOperatingMode('normal')
       setQueueHealthMessage(null)
     }
@@ -1507,7 +1518,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
       if (consecutiveLoadFailures >= DEGRADE_AFTER_CONSECUTIVE_FAILURES) {
         setQueueOperatingMode('degraded')
-        setQueueHealthMessage(`Live sync is unstable. Running fallback mode: slower polling and auto-retries. (${getReadableErrorMessage(error)})`)
+        setQueueHealthMessage(`Live sync is unstable. Running fallback mode: short polling and auto-retries. (${getReadableErrorMessage(error)})`)
       }
     }
 
@@ -1525,10 +1536,39 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
+    const tripRealtimeCircuit = (reason: string) => {
+      const alreadyOpen = realtimeCircuitOpenUntil > Date.now()
+      realtimeCircuitOpenUntil = Date.now() + REALTIME_CIRCUIT_BREAKER_COOLDOWN_MS
+      realtimeFailureStreak = 0
+
+      setQueueOperatingMode('degraded')
+      if (!alreadyOpen) {
+        setQueueHealthMessage(`Realtime disconnected repeatedly. Switched to short polling for ${Math.round(REALTIME_CIRCUIT_BREAKER_COOLDOWN_MS / 1000)}s, then reconnecting automatically. (${reason})`)
+      }
+      setAudienceConnectionStatus('reconnecting')
+
+      clearChannelReconnectTimer()
+      disconnectActiveChannel()
+    }
+
     const scheduleChannelReconnect = () => {
       // For audience sessions, don't schedule reconnects when the tab is hidden
       // (saves battery on mobile). Host sessions must always reconnect.
       if (!isCurrent || (!isHostSession && document.hidden) || !activeChannelReconnectHandler || channelReconnectTimerId !== null) {
+        return
+      }
+
+      const now = Date.now()
+      if (realtimeCircuitOpenUntil > now) {
+        channelReconnectTimerId = window.setTimeout(() => {
+          channelReconnectTimerId = null
+
+          if (!isCurrent || !activeChannelReconnectHandler) {
+            return
+          }
+
+          activeChannelReconnectHandler()
+        }, realtimeCircuitOpenUntil - now)
         return
       }
 
@@ -1564,6 +1604,17 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
+    const registerRealtimeFailure = (reason: string) => {
+      realtimeFailureStreak += 1
+
+      if (realtimeFailureStreak >= REALTIME_CIRCUIT_BREAKER_FAILURE_THRESHOLD) {
+        clearChannelWatchdog()
+        tripRealtimeCircuit(reason)
+      }
+
+      scheduleChannelReconnect()
+    }
+
     const startChannelWatchdog = () => {
       clearChannelWatchdog()
 
@@ -1580,7 +1631,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         if (silenceMs >= REALTIME_SILENCE_THRESHOLD_MS) {
           console.warn(`queueStore: Realtime silent for ${silenceMs}ms — forcing reconnect`)
           lastRealtimeEventAt = Date.now()
-          scheduleChannelReconnect()
+          registerRealtimeFailure('watchdog silence timeout')
         }
       }, REALTIME_WATCHDOG_INTERVAL_MS)
     }
@@ -1725,6 +1776,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
                   if (status === 'SUBSCRIBED') {
                     channelReconnectAttempt = 0
+                    realtimeFailureStreak = 0
+                    realtimeCircuitOpenUntil = 0
                     setAudienceConnectionStatus('connected')
                     void maybeReloadAudienceWhenLiveReturns()
                     return
@@ -1732,7 +1785,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
                   if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
                     setAudienceConnectionStatus('reconnecting')
-                    scheduleChannelReconnect()
+                    registerRealtimeFailure(`audience live watch: ${status}`)
                   }
                 })
             }
@@ -1947,6 +2000,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
               if (status === 'SUBSCRIBED') {
                 channelReconnectAttempt = 0
+                realtimeFailureStreak = 0
+                realtimeCircuitOpenUntil = 0
                 lastRealtimeEventAt = Date.now()
                 setAudienceConnectionStatus('connected')
                 startChannelWatchdog()
@@ -1958,7 +2013,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
                 setAudienceConnectionStatus('reconnecting')
                 clearChannelWatchdog()
-                scheduleChannelReconnect()
+                registerRealtimeFailure(`queue live channel: ${status}`)
               }
             })
         }
