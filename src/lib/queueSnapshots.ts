@@ -1,13 +1,14 @@
 import type { PerformedSong, QueueSong } from '../state/queueStore'
 
 const SNAPSHOT_STORAGE_KEY = 'human-jukebox-queue-snapshots'
-const MAX_SNAPSHOTS_PER_EVENT = 10
+const MAX_SNAPSHOTS_PER_EVENT = 20
 
 export type QueueSnapshot = {
   id: string
   createdAt: string
   eventId: string
   eventName: string
+  reason: string
   roomOpen: boolean
   explicitFilterEnabled: boolean
   queue: QueueSong[]
@@ -48,11 +49,12 @@ function writeSnapshotMap(snapshotMap: SnapshotMap) {
   }
 }
 
-export function captureQueueSnapshot(snapshot: Omit<QueueSnapshot, 'id' | 'createdAt'>): QueueSnapshot {
+export function captureQueueSnapshot(snapshot: Omit<QueueSnapshot, 'id' | 'createdAt' | 'reason'> & { reason?: string }): QueueSnapshot {
   const nextSnapshot: QueueSnapshot = {
     ...snapshot,
     id: `${snapshot.eventId}-${Date.now()}`,
     createdAt: new Date().toISOString(),
+    reason: snapshot.reason?.trim() || 'manual',
     queue: snapshot.queue.map((song) => ({ ...song })),
     performed: snapshot.performed.map((song) => ({ ...song })),
   }
@@ -70,4 +72,9 @@ export function getLatestQueueSnapshot(eventId: string): QueueSnapshot | null {
   const snapshotMap = readSnapshotMap()
   const current = snapshotMap[eventId] ?? []
   return current[0] ?? null
+}
+
+export function getQueueSnapshots(eventId: string): QueueSnapshot[] {
+  const snapshotMap = readSnapshotMap()
+  return snapshotMap[eventId] ?? []
 }

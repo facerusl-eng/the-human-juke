@@ -8,7 +8,7 @@ import { useGigActions } from '../hooks/useGigActions'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { openMirrorScreen } from '../lib/openMirrorScreen'
 import { registerBackgroundSync } from '../lib/backgroundSync'
-import { captureQueueSnapshot, getLatestQueueSnapshot } from '../lib/queueSnapshots'
+import { captureQueueSnapshot, getLatestQueueSnapshot, getQueueSnapshots } from '../lib/queueSnapshots'
 import { BETWEEN_SONG_QUOTES, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { supabase } from '../lib/supabase'
@@ -131,6 +131,7 @@ function GigControlPage() {
   const [isTouchInput, setIsTouchInput] = useState(false)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const [snapshotStatusText, setSnapshotStatusText] = useState<string | null>(null)
+  const [snapshotRestoreBusy, setSnapshotRestoreBusy] = useState(false)
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
   const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
   const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
@@ -219,7 +220,7 @@ function GigControlPage() {
   }, [])
 
   const handleQueueDrop = useCallback(async (targetSongId: string) => {
-    if (!draggedSongId || draggedSongId === targetSongId || songActionBusyId) {
+    if (!event || !draggedSongId || draggedSongId === targetSongId || songActionBusyId) {
       return
     }
 
@@ -236,6 +237,15 @@ function GigControlPage() {
 
     try {
       const queueStartIndex = isNowPlayingStarted ? 1 : 0
+      captureQueueSnapshot({
+        eventId: event.id,
+        eventName: event.name,
+        reason: 'before-reorder',
+        roomOpen: event.roomOpen,
+        explicitFilterEnabled: event.explicitFilterEnabled,
+        queue: songs,
+        performed: performedSongs,
+      })
       await reorderSong(draggedSongId, targetIndex + queueStartIndex)
       await registerBackgroundSync(BACKGROUND_SYNC_TAG)
     } catch (error) {
@@ -246,7 +256,7 @@ function GigControlPage() {
       setDraggedSongId(null)
       setDragOverSongId(null)
     }
-  }, [draggedSongId, isNowPlayingStarted, reorderSong, songActionBusyId, upNext])
+  }, [draggedSongId, event, isNowPlayingStarted, performedSongs, reorderSong, songActionBusyId, songs, upNext])
 
   const sendSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
     if (!spotifyAutoTransportEnabled) {
@@ -653,26 +663,136 @@ function GigControlPage() {
     }
   }, [audienceConnectionStatus, event?.roomOpen, preflightBusy, runGoLivePreflight])
 
-  const saveQueueSnapshot = () => {
+  const saveQueueSnapshot = useCallback((reason = 'manual', silent = false) => {
     if (!event) {
-      setSnapshotStatusText('No active gig to snapshot.')
-      return
+      if (!silent) {
+        setSnapshotStatusText('No active gig to snapshot.')
+      }
+      return false
     }
 
     captureQueueSnapshot({
       eventId: event.id,
       eventName: event.name,
+      reason,
       roomOpen: event.roomOpen,
       explicitFilterEnabled: event.explicitFilterEnabled,
       queue: songs,
       performed: performedSongs,
     })
 
-    setSnapshotStatusText(`Snapshot saved at ${new Date().toLocaleTimeString()}.`)
+    if (!silent) {
+      setSnapshotStatusText(`Snapshot saved at ${new Date().toLocaleTimeString()}.`)
+    }
+
     registerBackgroundSync(BACKGROUND_SYNC_TAG).catch((error) => {
       console.warn('Failed to register background sync after snapshot save', error)
     })
-  }
+
+    return true
+  }, [event, performedSongs, songs])
+
+  const runWithSafetySnapshot = useCallback(async (reason: string, action: () => Promise<void>) => {
+    saveQueueSnapshot(reason, true)
+    await action()
+  }, [saveQueueSnapshot])
+
+  const restoreLatestSnapshot = useCallback(async () => {
+    if (!event) {
+      setSnapshotStatusText('No active gig to restore.')
+      return
+    }
+
+    const latestSnapshot = getLatestQueueSnapshot(event.id)
+
+    if (!latestSnapshot) {
+      setSnapshotStatusText('No snapshot found yet. Save one first.')
+      return
+    }
+
+    const currentQueueCount = songs.length
+    const snapshotQueueCount = latestSnapshot.queue.length
+    const snapshotsForEvent = getQueueSnapshots(event.id)
+    const snapshotIndex = Math.max(1, snapshotsForEvent.findIndex((snapshot) => snapshot.id === latestSnapshot.id) + 1)
+    const confirmation = window.confirm(
+      `Restore snapshot #${snapshotIndex} from ${new Date(latestSnapshot.createdAt).toLocaleString()}?\n\nThis will replace the current queue.\nCurrent queue: ${currentQueueCount} songs\nSnapshot queue: ${snapshotQueueCount} songs\nReason: ${latestSnapshot.reason}`,
+    )
+
+    if (!confirmation) {
+      return
+    }
+
+    setSnapshotRestoreBusy(true)
+
+    try {
+      saveQueueSnapshot('pre-restore-backup', true)
+
+      const { error: clearError } = await supabase
+        .from('queue_songs')
+        .update({ is_removed: true })
+        .eq('event_id', event.id)
+        .eq('is_removed', false)
+
+      if (clearError) {
+        throw clearError
+      }
+
+      const rows = latestSnapshot.queue.map((song, index) => ({
+        event_id: event.id,
+        title: song.title,
+        artist: song.artist,
+        votes_count: song.votes_count,
+        is_explicit: song.is_explicit,
+        voting_locked: song.voting_locked,
+        is_removed: false,
+        cover_url: song.cover_url,
+        library_song_id: song.library_song_id,
+        audience_sings: song.audience_sings,
+        requester_name: song.createdByName,
+        created_by: user?.id ?? null,
+        position: index,
+      }))
+
+      if (rows.length > 0) {
+        const { error: restoreError } = await supabase
+          .from('queue_songs')
+          .insert(rows)
+
+        if (restoreError) {
+          throw restoreError
+        }
+      }
+
+      if (event.roomOpen !== latestSnapshot.roomOpen) {
+        await gigActions.runToggleRoomOpen()
+      }
+
+      if (event.explicitFilterEnabled !== latestSnapshot.explicitFilterEnabled) {
+        await gigActions.runToggleExplicitFilter()
+      }
+
+      setSnapshotStatusText(`Snapshot restored. Queue replaced with ${snapshotQueueCount} songs.`)
+    } catch (error) {
+      console.warn('GigControlPage: snapshot restore failed', error)
+      setSnapshotStatusText(error instanceof Error ? error.message : 'Snapshot restore failed. Try again.')
+    } finally {
+      setSnapshotRestoreBusy(false)
+    }
+  }, [event, gigActions, saveQueueSnapshot, songs.length, user?.id])
+
+  useEffect(() => {
+    if (!event?.id) {
+      return
+    }
+
+    const timerId = window.setInterval(() => {
+      saveQueueSnapshot('auto-interval', true)
+    }, 5 * 60 * 1000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [event?.id, saveQueueSnapshot])
 
   const downloadLatestSnapshot = () => {
     if (!event) {
@@ -1092,13 +1212,15 @@ function GigControlPage() {
     }
 
     const finishedSong = await runPlaybackAction(async () => {
-      await markPlayed()
+      await runWithSafetySnapshot('before-mark-played', async () => {
+        await markPlayed()
+      })
     })
 
     if (finishedSong) {
       sendSpotifyTransportCommand('play')
     }
-  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, sendSpotifyTransportCommand, startCurrentSong])
+  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
 
   useEffect(() => {
     nowPlayingRef.current = nowPlaying
@@ -1510,8 +1632,26 @@ function GigControlPage() {
             {copiedAudienceLink ? 'Copied!' : 'Copy Audience Link'}
           </button>
           <div className="hero-actions no-margin-bottom">
-            <button type="button" className="secondary-button" title="Save a backup of the current queue to local storage" onClick={saveQueueSnapshot}>
+            <button
+              type="button"
+              className="secondary-button"
+              title="Save a backup of the current queue to local storage"
+              onClick={() => {
+                saveQueueSnapshot()
+              }}
+            >
               Save Queue Snapshot
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              title="Restore the most recent snapshot with a confirmation preview"
+              onClick={() => {
+                void restoreLatestSnapshot()
+              }}
+              disabled={snapshotRestoreBusy}
+            >
+              {snapshotRestoreBusy ? 'Restoring…' : 'Restore Latest Snapshot'}
             </button>
             <button type="button" className="ghost-button" title="Download the last saved queue snapshot as a JSON file" onClick={downloadLatestSnapshot}>
               Download Latest Snapshot
@@ -1628,7 +1768,9 @@ function GigControlPage() {
 
                     try {
                       const finishedSong = await runPlaybackAction(async () => {
-                        await markPlayed()
+                        await runWithSafetySnapshot('before-mark-played', async () => {
+                          await markPlayed()
+                        })
                       })
 
                       if (finishedSong) {
@@ -1658,7 +1800,9 @@ function GigControlPage() {
 
                     try {
                       await runPlaybackAction(async () => {
-                        await removeSong(nowPlaying.id)
+                        await runWithSafetySnapshot('before-remove-song', async () => {
+                          await removeSong(nowPlaying.id)
+                        })
                       })
                     } catch (error) {
                       console.warn('GigControlPage: skip song failed', error)
@@ -1799,7 +1943,9 @@ function GigControlPage() {
                           setSongActionBusyId(song.id)
 
                           try {
-                            await moveSong(song.id, 'up')
+                            await runWithSafetySnapshot('before-move-song-up', async () => {
+                              await moveSong(song.id, 'up')
+                            })
                             await registerBackgroundSync(BACKGROUND_SYNC_TAG)
                           } catch (error) {
                             console.warn('GigControlPage: move song up failed', error)
@@ -1824,7 +1970,9 @@ function GigControlPage() {
                           setSongActionBusyId(song.id)
 
                           try {
-                            await moveSong(song.id, 'down')
+                            await runWithSafetySnapshot('before-move-song-down', async () => {
+                              await moveSong(song.id, 'down')
+                            })
                             await registerBackgroundSync(BACKGROUND_SYNC_TAG)
                           } catch (error) {
                             console.warn('GigControlPage: move song down failed', error)
@@ -1851,7 +1999,9 @@ function GigControlPage() {
                       setSongActionBusyId(song.id)
 
                       try {
-                        await removeSong(song.id)
+                        await runWithSafetySnapshot('before-remove-song', async () => {
+                          await removeSong(song.id)
+                        })
                         await registerBackgroundSync(BACKGROUND_SYNC_TAG)
                       } catch {
                         setErrorText('Failed to remove.')
