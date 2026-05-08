@@ -7,6 +7,14 @@ type TemplateMode = 'auto' | 'pub' | 'restaurant' | 'hotel' | 'corporate' | 'cus
 type SendMode = 'concept' | 'offer'
 type ComposerMode = 'guided' | 'manual'
 
+type SavedOutreachTemplate = {
+  id: string
+  name: string
+  subject: string
+  body: string
+  createdAt: string
+}
+
 type Venue = {
   id: string
   name: string
@@ -23,6 +31,9 @@ type Venue = {
   distanceKm: number
   leadScore: number
   stage: PipelineStage
+  useCustomContent: boolean
+  customSubject: string
+  customMessage: string
 }
 
 type OutreachResult = {
@@ -57,6 +68,7 @@ const OUTREACH_LOG_STORAGE_KEY = 'human-jukebox-outreach-log'
 const OUTREACH_STAGE_STORAGE_KEY = 'human-jukebox-outreach-stage-map'
 const OUTREACH_TASKS_STORAGE_KEY = 'human-jukebox-outreach-tasks'
 const OUTREACH_SESSION_STORAGE_KEY = 'human-jukebox-outreach-session'
+const OUTREACH_TEMPLATE_STORAGE_KEY = 'human-jukebox-outreach-templates'
 
 type OutreachSessionState = {
   locationQuery: string
@@ -255,6 +267,83 @@ function formatVenueAddress(venue: Venue) {
   return `Location: ${venue.lat.toFixed(5)}, ${venue.lon.toFixed(5)}`
 }
 
+function buildBaseDraft({
+  venue,
+  mode,
+  composerMode,
+  templateMode,
+  manualSubject,
+  conceptText,
+}: {
+  venue: Venue
+  mode: SendMode
+  composerMode: ComposerMode
+  templateMode: TemplateMode
+  manualSubject: string
+  conceptText: string
+}) {
+  if (composerMode === 'manual') {
+    return {
+      subject: manualSubject.trim(),
+      messageText: conceptText.trim(),
+    }
+  }
+
+  const resolvedTemplate = templateMode === 'auto'
+    ? inferTemplateModeFromVenueType(venue.type)
+    : templateMode === 'custom'
+    ? 'pub'
+    : templateMode
+
+  const baseMessage = templateMode === 'custom'
+    ? conceptText
+    : templateMode === 'auto'
+    ? TEMPLATE_TEXT[resolvedTemplate]
+    : TEMPLATE_TEXT[resolvedTemplate]
+
+  const withVenueName = `${baseMessage}\n\nVenue: ${venue.name}`
+  const messageText = mode === 'offer' ? buildOfferMessage(withVenueName) : withVenueName
+  const subject = mode === 'offer'
+    ? `Offer package for ${venue.name}`
+    : `Live music concept for ${venue.name}`
+
+  return {
+    subject,
+    messageText,
+  }
+}
+
+function buildVenueDraft({
+  venue,
+  mode,
+  composerMode,
+  templateMode,
+  manualSubject,
+  conceptText,
+}: {
+  venue: Venue
+  mode: SendMode
+  composerMode: ComposerMode
+  templateMode: TemplateMode
+  manualSubject: string
+  conceptText: string
+}) {
+  const baseDraft = buildBaseDraft({ venue, mode, composerMode, templateMode, manualSubject, conceptText })
+
+  if (!venue.useCustomContent) {
+    return baseDraft
+  }
+
+  return {
+    subject: venue.customSubject.trim() || baseDraft.subject,
+    messageText: venue.customMessage.trim() || baseDraft.messageText,
+  }
+}
+
+function buildTemplateId() {
+  return `template-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 function VenueOutreachPage() {
   const savedSession = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -308,6 +397,15 @@ function VenueOutreachPage() {
 
     return parseJsonArray<FollowUpTask>(window.localStorage.getItem(OUTREACH_TASKS_STORAGE_KEY))
   })
+  const [savedTemplates, setSavedTemplates] = useState<SavedOutreachTemplate[]>(() => {
+    if (typeof window === 'undefined') {
+      return []
+    }
+
+    return parseJsonArray<SavedOutreachTemplate>(window.localStorage.getItem(OUTREACH_TEMPLATE_STORAGE_KEY))
+  })
+  const [templateName, setTemplateName] = useState('')
+  const [previewVenueId, setPreviewVenueId] = useState<string>('')
 
   const selectedCount = useMemo(() => venues.filter((venue) => venue.selected).length, [venues])
 
@@ -360,6 +458,28 @@ function VenueOutreachPage() {
     [followUpTasks],
   )
 
+  const previewVenue = useMemo(() => {
+    return venues.find((venue) => venue.id === previewVenueId)
+      || venues.find((venue) => venue.selected)
+      || sortedVenues[0]
+      || null
+  }, [previewVenueId, venues, sortedVenues])
+
+  const previewDraft = useMemo(() => {
+    if (!previewVenue) {
+      return null
+    }
+
+    return buildVenueDraft({
+      venue: previewVenue,
+      mode: composerMode === 'manual' ? 'concept' : 'concept',
+      composerMode,
+      templateMode,
+      manualSubject,
+      conceptText,
+    })
+  }, [previewVenue, composerMode, templateMode, manualSubject, conceptText])
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return
@@ -404,6 +524,14 @@ function VenueOutreachPage() {
 
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(OUTREACH_TASKS_STORAGE_KEY, JSON.stringify(entries))
+    }
+  }
+
+  const withSavedTemplates = (entries: SavedOutreachTemplate[]) => {
+    setSavedTemplates(entries)
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(OUTREACH_TEMPLATE_STORAGE_KEY, JSON.stringify(entries))
     }
   }
 
@@ -469,6 +597,9 @@ function VenueOutreachPage() {
             distanceKm,
             leadScore,
             stage,
+            useCustomContent: false,
+            customSubject: '',
+            customMessage: '',
           }
         })
         : []
@@ -541,6 +672,47 @@ function VenueOutreachPage() {
     withSavedTasks(next)
   }
 
+  const saveCurrentTemplate = () => {
+    const name = templateName.trim()
+    const subject = manualSubject.trim()
+    const body = conceptText.trim()
+
+    if (!name) {
+      setSendError('Give the template a name before saving it.')
+      return
+    }
+
+    if (!subject || !body) {
+      setSendError('Subject and message are required before saving a template.')
+      return
+    }
+
+    const nextTemplate: SavedOutreachTemplate = {
+      id: buildTemplateId(),
+      name,
+      subject,
+      body,
+      createdAt: new Date().toISOString(),
+    }
+
+    withSavedTemplates([nextTemplate, ...savedTemplates].slice(0, 40))
+    setTemplateName('')
+    setStatusText(`Saved template “${name}”.`)
+    setSendError(null)
+  }
+
+  const loadSavedTemplate = (template: SavedOutreachTemplate) => {
+    setComposerMode('manual')
+    setManualSubject(template.subject)
+    setConceptText(template.body)
+    setStatusText(`Loaded template “${template.name}”.`)
+    setSendError(null)
+  }
+
+  const deleteSavedTemplate = (templateId: string) => {
+    withSavedTemplates(savedTemplates.filter((template) => template.id !== templateId))
+  }
+
   const buildContactsPayload = (mode: SendMode, selectedVenues: Venue[]) => {
     return selectedVenues
       .map((venue) => {
@@ -549,41 +721,21 @@ function VenueOutreachPage() {
         if (!email) {
           return null
         }
-
-        if (composerMode === 'manual') {
-          return {
-            venueId: venue.id,
-            venueName: venue.name,
-            email,
-            subject: manualSubject.trim(),
-            messageText: conceptText.trim(),
-          }
-        }
-
-        const resolvedTemplate = templateMode === 'auto'
-          ? inferTemplateModeFromVenueType(venue.type)
-          : templateMode === 'custom'
-          ? 'pub'
-          : templateMode
-
-        const baseMessage = templateMode === 'custom'
-          ? conceptText
-          : templateMode === 'auto'
-          ? TEMPLATE_TEXT[resolvedTemplate]
-          : TEMPLATE_TEXT[resolvedTemplate]
-
-        const withVenueName = `${baseMessage}\n\nVenue: ${venue.name}`
-        const messageText = mode === 'offer' ? buildOfferMessage(withVenueName) : withVenueName
-        const subject = mode === 'offer'
-          ? `Offer package for ${venue.name}`
-          : `Live music concept for ${venue.name}`
+        const draft = buildVenueDraft({
+          venue,
+          mode,
+          composerMode,
+          templateMode,
+          manualSubject,
+          conceptText,
+        })
 
         return {
           venueId: venue.id,
           venueName: venue.name,
           email,
-          subject,
-          messageText,
+          subject: draft.subject,
+          messageText: draft.messageText,
         }
       })
       .filter((contact): contact is { venueId: string; venueName: string; email: string; subject: string; messageText: string } => Boolean(contact))
@@ -962,15 +1114,31 @@ function VenueOutreachPage() {
             </div>
 
             {composerMode === 'manual' ? (
-              <label className="venue-outreach-composer-field">
-                Email subject
-                <input
-                  value={manualSubject}
-                  onChange={(event) => setManualSubject(event.target.value)}
-                  className="queue-input"
-                  placeholder="Write the subject line venues should receive"
-                />
-              </label>
+              <div className="form-grid two-col venue-outreach-form-grid">
+                <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                  Email subject
+                  <input
+                    value={manualSubject}
+                    onChange={(event) => setManualSubject(event.target.value)}
+                    className="queue-input"
+                    placeholder="Write the subject line venues should receive"
+                  />
+                </label>
+                <label>
+                  Save current draft as template
+                  <input
+                    value={templateName}
+                    onChange={(event) => setTemplateName(event.target.value)}
+                    className="queue-input"
+                    placeholder="e.g. Warm intro for pubs"
+                  />
+                </label>
+                <div className="venue-actions-end hero-actions no-margin-bottom">
+                  <button type="button" className="secondary-button" onClick={saveCurrentTemplate}>
+                    Save Template
+                  </button>
+                </div>
+              </div>
             ) : null}
 
             <label className="venue-outreach-composer-field">
@@ -982,6 +1150,67 @@ function VenueOutreachPage() {
                 ? 'Manual mode sends the subject and email text exactly as you write them.'
                 : 'Guided mode keeps the existing assisted outreach flow and adjusts subjects per venue.'}
             </p>
+
+            {composerMode === 'manual' ? (
+              <section className="queue-panel" aria-label="Saved templates">
+                <div className="panel-head">
+                  <h2>Saved Templates</h2>
+                  <span className="meta-badge">{savedTemplates.length}</span>
+                </div>
+                {savedTemplates.length === 0 ? (
+                  <p className="subcopy no-margin-bottom">Save a manual draft once and reuse it later.</p>
+                ) : (
+                  <ul className="gig-management-list venue-outreach-list">
+                    {savedTemplates.map((template) => (
+                      <li key={template.id} className="gig-management-entry venue-outreach-item">
+                        <div className="gig-management-main">
+                          <div className="gig-management-title-row">
+                            <p className="gig-management-title">{template.name}</p>
+                            <span className="meta-badge">{new Date(template.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          <p className="gig-management-meta">{template.subject}</p>
+                          <div className="hero-actions venue-link-row">
+                            <button type="button" className="secondary-button" onClick={() => loadSavedTemplate(template)}>Load</button>
+                            <button type="button" className="secondary-button" onClick={() => deleteSavedTemplate(template.id)}>Delete</button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            ) : null}
+
+            <section className="queue-panel" aria-label="Live email preview">
+              <div className="panel-head">
+                <h2>Live Preview</h2>
+                <span className="meta-badge">{previewVenue ? previewVenue.name : 'No venue yet'}</span>
+              </div>
+              {venues.length > 0 ? (
+                <label className="venue-outreach-composer-field">
+                  Preview as venue
+                  <select value={previewVenue?.id ?? ''} onChange={(event) => setPreviewVenueId(event.target.value)} className="queue-input">
+                    {sortedVenues.map((venue) => (
+                      <option key={venue.id} value={venue.id}>{venue.name}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {previewDraft && previewVenue ? (
+                <div className="form-grid two-col venue-outreach-form-grid">
+                  <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                    Subject preview
+                    <input value={previewDraft.subject} readOnly className="queue-input" />
+                  </label>
+                  <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                    Body preview
+                    <textarea value={previewDraft.messageText} readOnly className="queue-input" rows={8} />
+                  </label>
+                </div>
+              ) : (
+                <p className="subcopy no-margin-bottom">Pick a venue or run a search to preview the final email.</p>
+              )}
+            </section>
           </section>
 
           <section className="venue-outreach-action-strip" aria-label="Search and send actions">
@@ -1143,6 +1372,41 @@ function VenueOutreachPage() {
                         />
                       </label>
                     </div>
+
+                    <div className="hero-actions venue-link-row">
+                      <label className="queue-toggle queue-toggle-compact">
+                        <input
+                          type="checkbox"
+                          checked={venue.useCustomContent}
+                          onChange={(event) => updateVenue(venue.id, { useCustomContent: event.target.checked })}
+                        />
+                        <span>Custom email for this venue</span>
+                      </label>
+                    </div>
+
+                    {venue.useCustomContent ? (
+                      <div className="form-grid two-col">
+                        <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                          Custom subject
+                          <input
+                            value={venue.customSubject}
+                            onChange={(event) => updateVenue(venue.id, { customSubject: event.target.value })}
+                            placeholder="Override the subject for this venue"
+                            className="queue-input"
+                          />
+                        </label>
+                        <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                          Custom message
+                          <textarea
+                            value={venue.customMessage}
+                            onChange={(event) => updateVenue(venue.id, { customMessage: event.target.value })}
+                            placeholder="Write a venue-specific variation here"
+                            className="queue-input"
+                            rows={6}
+                          />
+                        </label>
+                      </div>
+                    ) : null}
 
                     <div className="hero-actions venue-link-row">
                       <a className="secondary-button" href={mapUrl} target="_blank" rel="noreferrer">Map</a>
