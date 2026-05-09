@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
+import VideoEditor from '../components/VideoEditor'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { prepareFeedImage } from '../lib/feedImage'
 import { useQueueStore } from '../state/queueStore'
@@ -133,6 +134,7 @@ function PromoteEventPage() {
   const [facebookLinkCopied, setFacebookLinkCopied] = useState(false)
   const [facebookShareError, setFacebookShareError] = useState<string | null>(null)
   const [selectedPromotionEventId, setSelectedPromotionEventId] = useState('')
+  const [showVideoEditor, setShowVideoEditor] = useState(false)
   const [eventFilterQuery, setEventFilterQuery] = useState('')
   const [promotionSaved, setPromotionSaved] = useState(false)
   const [promotionSaveError, setPromotionSaveError] = useState<string | null>(null)
@@ -205,6 +207,12 @@ function PromoteEventPage() {
       setSelectedPromotionEventId(event.id)
     }
   }, [selectedPromotionEventId, event?.id])
+
+  useEffect(() => {
+    if (!selectedEventId) {
+      setShowVideoEditor(false)
+    }
+  }, [selectedEventId])
 
   useEffect(() => {
     if (!selectedEventId) {
@@ -1322,6 +1330,23 @@ function PromoteEventPage() {
             </select>
           </label>
 
+          <div className="promote-field promote-field-wide">
+            <span>Step 2: Video</span>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!selectedEventId}
+              onClick={() => setShowVideoEditor((current) => !current)}
+            >
+              {!selectedEventId
+                ? 'Select Event First'
+                : showVideoEditor
+                ? 'Hide Promo Video Editor'
+                : 'Create Promo Video'}
+            </button>
+            <p className="field-hint">Create a social-ready MP4 with AI suggestions, overlays, transitions, and music.</p>
+          </div>
+
           <label className="promote-field">
             <span>Format</span>
             <select value={format} onChange={(event) => setFormat(event.target.value as PostFormat)}>
@@ -1652,6 +1677,20 @@ function PromoteEventPage() {
 
         </div>
       </section>
+
+      {showVideoEditor && selectedEventId ? (
+        <section className="queue-panel promote-video-editor-panel" aria-label="Video editor">
+          <VideoEditor
+            eventId={selectedEventId}
+            eventName={eventName}
+            eventDate={eventDate}
+            venue={venue}
+            ctaText={ctaText}
+            defaultTheme={theme}
+            initialImageDataUrls={photoDataUrlRef.current ? [photoDataUrlRef.current] : []}
+          />
+        </section>
+      ) : null}
 
       <section className="queue-panel promote-preview-panel" aria-label="Promotional preview">
         <div className="panel-head">
