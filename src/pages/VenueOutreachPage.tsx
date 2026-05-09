@@ -238,7 +238,7 @@ const COMPOSER_MODE_OPTIONS: Array<{ value: ComposerMode; label: string; descrip
   { value: 'manual', label: 'Write it myself', description: 'Send the exact subject and email text you type below.' },
 ]
 
-const TAX_PRESET_OPTIONS = [0, 8, 22, 25, 38]
+const TAX_PRESET_OPTIONS = [0, 8, 22, 25, 38, 45, 50]
 const PAYMENT_AMOUNT_PRESET_OPTIONS = [1500, 2500, 3500, 4500, 6000]
 
 function parseJsonArray<T>(raw: string | null): T[] {
