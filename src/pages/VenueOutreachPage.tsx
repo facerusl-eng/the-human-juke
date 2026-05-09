@@ -239,6 +239,7 @@ const COMPOSER_MODE_OPTIONS: Array<{ value: ComposerMode; label: string; descrip
 ]
 
 const TAX_PRESET_OPTIONS = [0, 8, 22, 25, 38]
+const PAYMENT_AMOUNT_PRESET_OPTIONS = [1500, 2500, 3500, 4500, 6000]
 
 function parseJsonArray<T>(raw: string | null): T[] {
   if (!raw) {
@@ -529,6 +530,10 @@ function formatDkk(amount: number) {
     currency: 'DKK',
     maximumFractionDigits: 0,
   }).format(amount)
+}
+
+function formatDkkInputPreset(amount: number) {
+  return `DKK ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount)}`
 }
 
 function VenueOutreachPage() {
@@ -2355,6 +2360,23 @@ function VenueOutreachPage() {
                           className="queue-input"
                           placeholder="DKK 4,500"
                         />
+                        <div className="venue-choice-pills" aria-label="Payment amount quick presets">
+                          {PAYMENT_AMOUNT_PRESET_OPTIONS.map((amount) => {
+                            const label = formatDkkInputPreset(amount)
+                            const isActive = calendarDraft.paymentAmount.trim() === label
+
+                            return (
+                              <button
+                                key={amount}
+                                type="button"
+                                className={`venue-choice-pill ${isActive ? 'is-active' : ''}`}
+                                onClick={() => setCalendarDraft((current) => ({ ...current, paymentAmount: label }))}
+                              >
+                                {label}
+                              </button>
+                            )
+                          })}
+                        </div>
                       </label>
                       <label>
                         Paid Date
