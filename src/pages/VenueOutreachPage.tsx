@@ -477,8 +477,8 @@ function formatMonthIsoLabel(monthIso: string) {
   return new Date(year, monthIndex, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 }
 
-function parseCurrencyAmount(value: string) {
-  const trimmed = value.trim()
+function parseCurrencyAmount(value: unknown) {
+  const trimmed = typeof value === 'string' ? value.trim() : ''
   if (!trimmed) {
     return null
   }
