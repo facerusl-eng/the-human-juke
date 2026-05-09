@@ -33,30 +33,56 @@ function isIsoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
 
-function extractCalendarActions(reply) {
-  if (typeof reply !== 'string') {
-    return { cleanedReply: '', calendarActions: [] }
+function extractFirstJsonArray(text) {
+  if (typeof text !== 'string') {
+    return null
   }
 
-  const marker = 'CALENDAR_ACTIONS_JSON:'
-  const markerIndex = reply.lastIndexOf(marker)
-
-  if (markerIndex === -1) {
-    return { cleanedReply: reply.trim(), calendarActions: [] }
+  const start = text.indexOf('[')
+  if (start === -1) {
+    return null
   }
 
-  const before = reply.slice(0, markerIndex).trim()
-  const rawJson = reply.slice(markerIndex + marker.length).trim()
+  let depth = 0
+  let inString = false
+  let escaped = false
 
-  let parsed
-  try {
-    parsed = JSON.parse(rawJson)
-  } catch {
-    return { cleanedReply: reply.trim(), calendarActions: [] }
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i]
+
+    if (inString) {
+      if (escaped) {
+        escaped = false
+      } else if (ch === '\\') {
+        escaped = true
+      } else if (ch === '"') {
+        inString = false
+      }
+      continue
+    }
+
+    if (ch === '"') {
+      inString = true
+      continue
+    }
+
+    if (ch === '[') {
+      depth += 1
+    } else if (ch === ']') {
+      depth -= 1
+      if (depth === 0) {
+        return text.slice(start, i + 1)
+      }
+    }
   }
 
+  return null
+}
+
+function normalizeParsedCalendarActions(parsed) {
   const list = Array.isArray(parsed) ? parsed : []
-  const calendarActions = list
+
+  return list
     .map((entry) => {
       if (!entry || typeof entry !== 'object') {
         return null
@@ -83,6 +109,69 @@ function extractCalendarActions(reply) {
       }
     })
     .filter(Boolean)
+}
+
+function parseCalendarActionsFromUserIntent(text) {
+  if (typeof text !== 'string' || !text.trim()) {
+    return []
+  }
+
+  const dates = [...new Set(text.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [])]
+  if (dates.length === 0) {
+    return []
+  }
+
+  const lower = text.toLowerCase()
+  const action = /\b(delete|remove|clear|cancel)\b/.test(lower) ? 'delete' : 'upsert'
+  const status = /\b(booked|book|event|gig|confirmed)\b/.test(lower) ? 'booked' : 'free'
+  const venueMatch = text.match(/\b(?:at|@)\s+([^,\n]+)(?:,|$)/i)
+  const venueName = normalizeCalendarText(venueMatch?.[1] || '')
+
+  return dates.map((date) => ({
+    action,
+    date,
+    status,
+    venueName,
+    city: '',
+    contact: '',
+    fee: '',
+    notes: '',
+  }))
+}
+
+function extractCalendarActions(reply) {
+  if (typeof reply !== 'string') {
+    return { cleanedReply: '', calendarActions: [] }
+  }
+
+  const markerMatch = reply.match(/CALENDAR_ACTIONS_JSON\s*:\s*([\s\S]*)$/i)
+  const markerIndex = markerMatch?.index ?? -1
+
+  if (markerIndex === -1 || !markerMatch) {
+    return { cleanedReply: reply.trim(), calendarActions: [] }
+  }
+
+  const before = reply.slice(0, markerIndex).trim()
+  const rawTail = markerMatch[1].trim()
+  const normalizedTail = rawTail
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim()
+
+  const arrayCandidate = extractFirstJsonArray(normalizedTail) || extractFirstJsonArray(rawTail)
+
+  if (!arrayCandidate) {
+    return { cleanedReply: before || reply.trim(), calendarActions: [] }
+  }
+
+  let parsed
+  try {
+    parsed = JSON.parse(arrayCandidate)
+  } catch {
+    return { cleanedReply: before || reply.trim(), calendarActions: [] }
+  }
+
+  const calendarActions = normalizeParsedCalendarActions(parsed)
 
   return {
     cleanedReply: before || 'Updated your calendar plan.',
@@ -360,6 +449,7 @@ export default async function handler(req, res) {
   const pipeline = payload.pipeline ?? null
   const managerId = resolveManagerId(payload.managerId || defaultManagerId)
   const managerProfile = MANAGER_PROFILES[managerId]
+  const latestUserMessage = [...messages].reverse().find((msg) => msg.role === 'user')?.content ?? ''
 
   if (!messages.length) {
     res.status(400).json({ error: 'messages array is required.' })
@@ -424,9 +514,12 @@ export default async function handler(req, res) {
 
     if (result.ok) {
       const parsed = extractCalendarActions(result.reply)
+      const fallbackActions = parsed.calendarActions.length === 0
+        ? parseCalendarActionsFromUserIntent(latestUserMessage)
+        : []
       res.status(200).json({
         reply: parsed.cleanedReply,
-        calendarActions: parsed.calendarActions,
+        calendarActions: parsed.calendarActions.length > 0 ? parsed.calendarActions : fallbackActions,
         connected: true,
         provider: candidate,
         model: candidateModel,
