@@ -905,6 +905,10 @@
     padding: 1rem;
   }
 
+  .venue-outreach-info-box {
+    border-radius: 16px;
+  }
+
   .venue-outreach-shell .panel-head h2 {
     font-size: 1.05rem;
   }
@@ -931,6 +935,15 @@
 
   .venue-payment-metric-grid {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .venue-payment-controls {
+    gap: 0.55rem;
+  }
+
+  .venue-payment-card .venue-choice-pill {
+    flex: 1 1 calc(33.333% - 0.5rem);
   }
 
   .venue-outreach-shell .hero-actions,
@@ -978,6 +991,25 @@
 
   .venue-outreach-shell .gig-management-title {
     line-height: 1.25;
+  }
+
+  .venue-calendar-month,
+  .venue-calendar-editor,
+  .venue-calendar-list-card {
+    padding: 0.85rem;
+    border-radius: 12px;
+  }
+
+  .venue-calendar-day {
+    min-height: 3rem;
+  }
+
+  .venue-payment-metric {
+    padding: 0.6rem 0.65rem;
+  }
+
+  .venue-payment-metric-value {
+    font-size: 0.98rem;
   }
 
   .venue-outreach-item {
