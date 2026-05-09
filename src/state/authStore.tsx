@@ -599,6 +599,11 @@ function AuthProvider({ children }: PropsWithChildren) {
         }
 
         await applySessionState(null)
+
+        // Force a full navigation to home so mobile PWA/cached shells reset cleanly.
+        if (typeof window !== 'undefined') {
+          window.location.href = '/'
+        }
       },
     }),
     [user, session, profile, loading, authError, refreshProfile, applySessionState],
