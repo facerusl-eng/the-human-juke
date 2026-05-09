@@ -477,6 +477,46 @@ function formatMonthIsoLabel(monthIso: string) {
   return new Date(year, monthIndex, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 }
 
+function parseCurrencyAmount(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  let normalized = trimmed.replace(/[^\d,.-]/g, '')
+  if (!normalized) {
+    return null
+  }
+
+  const hasComma = normalized.includes(',')
+  const hasDot = normalized.includes('.')
+
+  if (hasComma && hasDot) {
+    if (normalized.lastIndexOf(',') > normalized.lastIndexOf('.')) {
+      normalized = normalized.replace(/\./g, '').replace(',', '.')
+    } else {
+      normalized = normalized.replace(/,/g, '')
+    }
+  } else if (hasComma) {
+    const parts = normalized.split(',')
+    const decimals = parts[parts.length - 1] || ''
+    normalized = decimals.length > 0 && decimals.length <= 2
+      ? normalized.replace(',', '.')
+      : normalized.replace(/,/g, '')
+  }
+
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function formatDkk(amount: number) {
+  return new Intl.NumberFormat('da-DK', {
+    style: 'currency',
+    currency: 'DKK',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
 function VenueOutreachPage() {
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') {
@@ -653,6 +693,64 @@ function VenueOutreachPage() {
     () => upcomingCalendarEntries.filter((entry) => entry.status === 'booked').slice(0, 12),
     [upcomingCalendarEntries],
   )
+
+  const paymentInsights = useMemo(() => {
+    const upcomingBookedAll = upcomingCalendarEntries.filter((entry) => entry.status === 'booked')
+
+    let outstandingAmount = 0
+    let paidAmount = 0
+    let unknownOutstandingCount = 0
+    let paidCount = 0
+    let partialCount = 0
+    let unpaidCount = 0
+
+    upcomingBookedAll.forEach((entry) => {
+      const expectedAmount = parseCurrencyAmount(entry.fee) ?? parseCurrencyAmount(entry.paymentAmount)
+      const paidEntryAmount = parseCurrencyAmount(entry.paymentAmount)
+
+      if (entry.paymentStatus === 'paid') {
+        paidCount += 1
+        if (paidEntryAmount != null) {
+          paidAmount += paidEntryAmount
+        } else if (expectedAmount != null) {
+          paidAmount += expectedAmount
+        }
+        return
+      }
+
+      if (entry.paymentStatus === 'partial') {
+        partialCount += 1
+        if (paidEntryAmount != null) {
+          paidAmount += paidEntryAmount
+        }
+
+        if (expectedAmount != null) {
+          outstandingAmount += Math.max(expectedAmount - (paidEntryAmount ?? 0), 0)
+        } else {
+          unknownOutstandingCount += 1
+        }
+        return
+      }
+
+      unpaidCount += 1
+      if (expectedAmount != null) {
+        outstandingAmount += expectedAmount
+      } else {
+        unknownOutstandingCount += 1
+      }
+    })
+
+    return {
+      upcomingBookedCount: upcomingBookedAll.length,
+      outstandingGigs: partialCount + unpaidCount,
+      paidCount,
+      partialCount,
+      unpaidCount,
+      outstandingAmount,
+      paidAmount,
+      unknownOutstandingCount,
+    }
+  }, [upcomingCalendarEntries])
 
   const pastBookedCount = useMemo(() => {
     const todayIso = toDayIso(new Date())
@@ -2230,6 +2328,22 @@ function VenueOutreachPage() {
                   <button type="button" className="secondary-button" onClick={exportCalendarCsv}>Export CSV</button>
                 </div>
                 <p className="subcopy no-margin-bottom">Next 30 days: {calendarInsights.bookedNextThirty} booked · {calendarInsights.freeNextThirty} free · {calendarInsights.totalTagged} tagged days.</p>
+              </article>
+
+              <article className="venue-calendar-list-card">
+                <h3>Payment Summary (Upcoming)</h3>
+                {paymentInsights.upcomingBookedCount === 0 ? (
+                  <p className="subcopy no-margin-bottom">No upcoming booked gigs to track yet.</p>
+                ) : (
+                  <>
+                    <p className="subcopy">Outstanding gigs: {paymentInsights.outstandingGigs} · Paid gigs: {paymentInsights.paidCount}</p>
+                    <p className="subcopy">Outstanding amount: {formatDkk(paymentInsights.outstandingAmount)} · Paid amount: {formatDkk(paymentInsights.paidAmount)}</p>
+                    <p className="subcopy no-margin-bottom">Status split: {paymentInsights.unpaidCount} unpaid · {paymentInsights.partialCount} partial · {paymentInsights.paidCount} paid</p>
+                    {paymentInsights.unknownOutstandingCount > 0 ? (
+                      <p className="subcopy no-margin-bottom">{paymentInsights.unknownOutstandingCount} outstanding gig(s) have no readable numeric amount yet.</p>
+                    ) : null}
+                  </>
+                )}
               </article>
 
               <article className="venue-calendar-list-card">
