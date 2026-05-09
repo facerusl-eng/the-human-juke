@@ -1559,15 +1559,11 @@ function PromoteEventPage() {
             <p className="field-hint">
               {selectedEventId
                 ? selectedHostEvent?.showInAudienceNoGig
-                <label className="promote-field promote-field-wide">
-                  <span>Description</span>
-                  <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
-                </label>
-
-                <label className="promote-field promote-field-wide">
-                  <span>CTA</span>
-                  <input value={ctaText} onChange={(event) => setCtaText(event.target.value)} />
-                </label>
+                  ? 'Audience fallback is enabled for this event.'
+                  : 'Audience fallback is disabled for this event.'
+                : 'Select an active event first to configure audience fallback visibility.'}
+            </p>
+          </div>
 
                 {photoUrl && (!isMobileViewport || showMobileAdvancedControls) ? (
                   <>
@@ -1749,47 +1745,9 @@ function PromoteEventPage() {
                     </div>
                   </>
                 ) : null}
-                <label className="promote-field promote-field-wide">
-                  <span>Headline</span>
-                  <input value={title} onChange={(event) => setTitle(event.target.value)} />
-                </label>
-
-                <label className="promote-field promote-field-wide">
-                  <span>Subheadline</span>
-                  <input value={subtitle} onChange={(event) => setSubtitle(event.target.value)} />
-                </label>
-
-                <label className="promote-field">
-                  <span>Event Name</span>
-                  <input value={eventName} onChange={(event) => setEventName(event.target.value)} />
-                </label>
-
-                <label className="promote-field">
-                  <span>Venue</span>
-                  <input value={venue} onChange={(event) => setVenue(event.target.value)} />
-                </label>
-
-                <label className="promote-field">
-                  <span>Date + Time</span>
-                  <input value={eventDate} onChange={(event) => setEventDate(event.target.value)} />
-                </label>
-
-                <label className="promote-field promote-field-wide">
-                  <span>Description</span>
-                  <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
-                </label>
-
-                <label className="promote-field promote-field-wide">
-                  <span>CTA</span>
-                  <input value={ctaText} onChange={(event) => setCtaText(event.target.value)} />
-                </label>
-            </div>
             {promotionSaveError ? <p className="error-text no-margin-bottom">{promotionSaveError}</p> : null}
             {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
           </div>
-
-          </div>
-        ) : null}
       </section>
 
       {isMobileViewport ? (
