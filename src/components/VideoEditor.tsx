@@ -103,7 +103,16 @@ const MUSIC_PRESETS: Array<{ id: MusicPresetId; name: string; bpm: number; rootH
 const MAX_UPLOAD_IMAGES = 12
 const PREVIEW_LOOP_SECONDS = 8
 const OVERLAY_SNAP_THRESHOLD = 0.02
-const OVERLAY_SNAP_POINTS = [0.12, 0.2, 1 / 3, 0.5, 2 / 3, 0.72, 0.82]
+const OVERLAY_SNAP_GUIDES = [
+  { point: 0.12, label: 'Top Safe Line' },
+  { point: 0.2, label: 'Upper Third' },
+  { point: 1 / 3, label: 'Top Third' },
+  { point: 0.5, label: 'Center' },
+  { point: 2 / 3, label: 'Bottom Third' },
+  { point: 0.72, label: 'Lower Third' },
+  { point: 0.82, label: 'Bottom Safe Line' },
+]
+const OVERLAY_SNAP_POINTS = OVERLAY_SNAP_GUIDES.map((guide) => guide.point)
 
 function createImageId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -142,6 +151,11 @@ function snapToGuide(value: number, points: number[], threshold = OVERLAY_SNAP_T
   }
 
   return snappedValue
+}
+
+function getSnapGuideLabel(value: number, threshold = 0.0001) {
+  const snappedGuide = OVERLAY_SNAP_GUIDES.find((guide) => Math.abs(guide.point - value) <= threshold)
+  return snappedGuide?.label ?? null
 }
 
 function parseAiSuggestion(reply: string): AiSuggestionPayload {
@@ -291,6 +305,7 @@ export default function VideoEditor({
   const [overlayAnchors, setOverlayAnchors] = useState({ titleY: 0.14, infoY: 0.7 })
   const [snapToGridEnabled, setSnapToGridEnabled] = useState(true)
   const [activeOverlayHandle, setActiveOverlayHandle] = useState<OverlayKey | null>(null)
+  const [activeSnapLabel, setActiveSnapLabel] = useState<string | null>(null)
   const [caption, setCaption] = useState('')
   const [script, setScript] = useState('')
   const [isDraggingFiles, setIsDraggingFiles] = useState(false)
@@ -515,8 +530,8 @@ export default function VideoEditor({
         ctx.save()
         ctx.lineWidth = 1
         ctx.setLineDash([5, 7])
-        OVERLAY_SNAP_POINTS.forEach((point) => {
-          const y = Math.round(H * point)
+        OVERLAY_SNAP_GUIDES.forEach((guide) => {
+          const y = Math.round(H * guide.point)
           ctx.strokeStyle = 'rgba(125, 211, 252, 0.28)'
           ctx.beginPath()
           ctx.moveTo(PAD * 0.35, y)
@@ -635,6 +650,12 @@ export default function VideoEditor({
     }
   }, [])
 
+  useEffect(() => {
+    if (!snapToGridEnabled) {
+      setActiveSnapLabel(null)
+    }
+  }, [snapToGridEnabled])
+
   const updateOverlayFromPointer = useCallback((pointerEvent: ReactPointerEvent<HTMLCanvasElement>) => {
     const canvas = previewCanvasRef.current
     const target = draggingOverlayRef.current
@@ -650,6 +671,7 @@ export default function VideoEditor({
 
     const yRatio = clamp((pointerEvent.clientY - rect.top) / rect.height, 0.08, 0.9)
     const nextY = snapToGridEnabled ? snapToGuide(yRatio, OVERLAY_SNAP_POINTS) : yRatio
+  setActiveSnapLabel(snapToGridEnabled ? getSnapGuideLabel(nextY) : null)
 
     setOverlayAnchors((current) => {
       if (target === 'title') {
@@ -699,6 +721,7 @@ export default function VideoEditor({
 
     draggingOverlayRef.current = null
     setActiveOverlayHandle(null)
+    setActiveSnapLabel(null)
   }, [])
 
   const runAiAssist = useCallback(async (autoAssemble: boolean) => {
@@ -1193,6 +1216,11 @@ export default function VideoEditor({
               </div>
             </label>
             <p className="field-hint video-editor-drag-hint">Drag "Title" and "Info + CTA" guide lines inside preview to reposition text overlays.</p>
+            {activeOverlayHandle ? (
+              <p className="field-hint video-editor-drag-hint">
+                {activeSnapLabel ? `Snapped: ${activeSnapLabel}` : 'Dragging free (no snap target)'}
+              </p>
+            ) : null}
             <label className="promote-field promote-field-wide">
               <span>Caption (AI or manual)</span>
               <textarea value={caption} rows={3} onChange={(event) => setCaption(event.target.value)} />
