@@ -117,8 +117,18 @@ type OutreachSessionState = {
   conceptText: string
   senderName: string
   senderEmail: string
+  taxPercent: number
   venues: Venue[]
   centerInfo: { label: string; address: string; provider: string; lat: number; lon: number } | null
+}
+
+function normalizeTaxPercent(value: unknown) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    return 0
+  }
+
+  return Math.min(100, Math.max(0, parsed))
 }
 
 function parseOutreachSession(raw: string | null): OutreachSessionState | null {
@@ -145,6 +155,7 @@ function parseOutreachSession(raw: string | null): OutreachSessionState | null {
         ? parsed.templateMode
         : 'auto'
     const composerMode: ComposerMode = parsed.composerMode === 'manual' ? 'manual' : 'guided'
+    const taxPercent = normalizeTaxPercent(parsed.taxPercent)
 
     const center = parsed.centerInfo
     const centerInfo = center && typeof center === 'object'
@@ -173,6 +184,7 @@ function parseOutreachSession(raw: string | null): OutreachSessionState | null {
       conceptText: typeof parsed.conceptText === 'string' ? parsed.conceptText : '',
       senderName: typeof parsed.senderName === 'string' ? parsed.senderName : 'Harald',
       senderEmail: typeof parsed.senderEmail === 'string' ? parsed.senderEmail : 'harald@the-human-jukebox.org',
+      taxPercent,
       venues: Array.isArray(parsed.venues) ? parsed.venues as Venue[] : [],
       centerInfo,
     }
@@ -551,6 +563,7 @@ function VenueOutreachPage() {
   const [pubCtaLine, setPubCtaLine] = useState(DEFAULT_PUB_CTA_LINE)
   const [senderName, setSenderName] = useState(savedSession?.senderName ?? 'Harald')
   const [senderEmail, setSenderEmail] = useState(savedSession?.senderEmail ?? 'harald@the-human-jukebox.org')
+  const [taxPercent, setTaxPercent] = useState(savedSession?.taxPercent ?? 0)
   const [venues, setVenues] = useState<Venue[]>(savedSession?.venues ?? [])
   const [searching, setSearching] = useState(false)
   const [sendingMode, setSendingMode] = useState<SendMode | null>(null)
@@ -740,6 +753,11 @@ function VenueOutreachPage() {
       }
     })
 
+    const knownTotalAmount = outstandingAmount + paidAmount
+    const paidCoveragePercent = knownTotalAmount > 0 ? Math.round((paidAmount / knownTotalAmount) * 100) : 0
+    const estimatedTaxOnPaid = paidAmount * (taxPercent / 100)
+    const netPaidAfterTax = Math.max(paidAmount - estimatedTaxOnPaid, 0)
+
     return {
       upcomingBookedCount: upcomingBookedAll.length,
       outstandingGigs: partialCount + unpaidCount,
@@ -749,8 +767,66 @@ function VenueOutreachPage() {
       outstandingAmount,
       paidAmount,
       unknownOutstandingCount,
+      paidCoveragePercent,
+      estimatedTaxOnPaid,
+      netPaidAfterTax,
     }
-  }, [upcomingCalendarEntries])
+  }, [upcomingCalendarEntries, taxPercent])
+
+  const monthlyPaymentInsights = useMemo(() => {
+    const bookedInMonth = calendarEntries.filter((entry) => entry.status === 'booked' && entry.date.startsWith(`${calendarMonth}-`))
+
+    let paidAmount = 0
+    let outstandingAmount = 0
+    let unknownAmountCount = 0
+
+    bookedInMonth.forEach((entry) => {
+      const expectedAmount = parseCurrencyAmount(entry.fee) ?? parseCurrencyAmount(entry.paymentAmount)
+      const paidEntryAmount = parseCurrencyAmount(entry.paymentAmount)
+
+      if (entry.paymentStatus === 'paid') {
+        if (paidEntryAmount != null) {
+          paidAmount += paidEntryAmount
+        } else if (expectedAmount != null) {
+          paidAmount += expectedAmount
+        } else {
+          unknownAmountCount += 1
+        }
+        return
+      }
+
+      if (entry.paymentStatus === 'partial') {
+        if (paidEntryAmount != null) {
+          paidAmount += paidEntryAmount
+        }
+
+        if (expectedAmount != null) {
+          outstandingAmount += Math.max(expectedAmount - (paidEntryAmount ?? 0), 0)
+        } else {
+          unknownAmountCount += 1
+        }
+        return
+      }
+
+      if (expectedAmount != null) {
+        outstandingAmount += expectedAmount
+      } else {
+        unknownAmountCount += 1
+      }
+    })
+
+    const estimatedTaxOnPaid = paidAmount * (taxPercent / 100)
+    const netPaidAfterTax = Math.max(paidAmount - estimatedTaxOnPaid, 0)
+
+    return {
+      bookedCount: bookedInMonth.length,
+      paidAmount,
+      outstandingAmount,
+      unknownAmountCount,
+      estimatedTaxOnPaid,
+      netPaidAfterTax,
+    }
+  }, [calendarEntries, calendarMonth, taxPercent])
 
   const pastBookedCount = useMemo(() => {
     const todayIso = toDayIso(new Date())
@@ -850,12 +926,13 @@ function VenueOutreachPage() {
       conceptText,
       senderName,
       senderEmail,
+      taxPercent,
       venues,
       centerInfo,
     }
 
     window.localStorage.setItem(OUTREACH_SESSION_STORAGE_KEY, JSON.stringify(sessionState))
-  }, [locationQuery, radiusKm, sortMode, templateMode, composerMode, campaignName, manualSubject, conceptText, senderName, senderEmail, venues, centerInfo])
+  }, [locationQuery, radiusKm, sortMode, templateMode, composerMode, campaignName, manualSubject, conceptText, senderName, senderEmail, taxPercent, venues, centerInfo])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -2336,11 +2413,30 @@ function VenueOutreachPage() {
                   <p className="subcopy no-margin-bottom">No upcoming booked gigs to track yet.</p>
                 ) : (
                   <>
+                    <label>
+                      Tax Percent
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        value={taxPercent}
+                        onChange={(event) => setTaxPercent(normalizeTaxPercent(event.target.value))}
+                        className="queue-input"
+                        placeholder="0"
+                      />
+                    </label>
                     <p className="subcopy">Outstanding gigs: {paymentInsights.outstandingGigs} · Paid gigs: {paymentInsights.paidCount}</p>
                     <p className="subcopy">Outstanding amount: {formatDkk(paymentInsights.outstandingAmount)} · Paid amount: {formatDkk(paymentInsights.paidAmount)}</p>
+                    <p className="subcopy">Paid coverage: {paymentInsights.paidCoveragePercent}% · Tax on paid: {formatDkk(paymentInsights.estimatedTaxOnPaid)} · Net paid after tax: {formatDkk(paymentInsights.netPaidAfterTax)}</p>
+                    <p className="subcopy">{formatMonthIsoLabel(calendarMonth)}: {formatDkk(monthlyPaymentInsights.paidAmount)} paid · {formatDkk(monthlyPaymentInsights.outstandingAmount)} outstanding · {formatDkk(monthlyPaymentInsights.netPaidAfterTax)} net after tax</p>
+                    <p className="subcopy">Month gigs: {monthlyPaymentInsights.bookedCount} booked · Estimated tax this month: {formatDkk(monthlyPaymentInsights.estimatedTaxOnPaid)}</p>
                     <p className="subcopy no-margin-bottom">Status split: {paymentInsights.unpaidCount} unpaid · {paymentInsights.partialCount} partial · {paymentInsights.paidCount} paid</p>
                     {paymentInsights.unknownOutstandingCount > 0 ? (
                       <p className="subcopy no-margin-bottom">{paymentInsights.unknownOutstandingCount} outstanding gig(s) have no readable numeric amount yet.</p>
+                    ) : null}
+                    {monthlyPaymentInsights.unknownAmountCount > 0 ? (
+                      <p className="subcopy no-margin-bottom">{monthlyPaymentInsights.unknownAmountCount} month gig(s) have no readable numeric amount yet.</p>
                     ) : null}
                   </>
                 )}
