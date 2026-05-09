@@ -1335,6 +1335,17 @@ function PromoteEventPage() {
         <p className="subcopy">
           Build a professional promo layout with your own photo, event details, and call-to-action.
         </p>
+        {isMobileViewport ? (
+          <div className="hero-actions venue-link-row no-margin-bottom">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setShowMobileAdvancedControls((current) => !current)}
+            >
+              {showMobileAdvancedControls ? 'Hide More Promo Settings' : 'Show More Promo Settings'}
+            </button>
+          </div>
+        ) : null}
 
         <div className="promote-control-grid">
           <label className="promote-field">
@@ -1500,44 +1511,6 @@ function PromoteEventPage() {
             <input type="file" accept="image/*" onChange={handleImageUpload} />
           </label>
 
-          {photoUrl ? (
-            <>
-              <label className="promote-field">
-                <span>Photo Brightness ({Math.round(photoBrightnessAdj * 100)}%)</span>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.05"
-                  value={photoBrightnessAdj}
-                  onChange={(event) => setPhotoBrightnessAdj(Number.parseFloat(event.target.value))}
-                />
-              </label>
-              <label className="promote-field">
-                <span>Photo Contrast ({Math.round(photoContrast * 100)}%)</span>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.05"
-                  value={photoContrast}
-                  onChange={(event) => setPhotoContrast(Number.parseFloat(event.target.value))}
-                />
-              </label>
-              <label className="promote-field">
-                <span>Photo Saturation ({Math.round(photoSaturation * 100)}%)</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.05"
-                  value={photoSaturation}
-                  onChange={(event) => setPhotoSaturation(Number.parseFloat(event.target.value))}
-                />
-              </label>
-            </>
-          ) : null}
-
           <label className="promote-field promote-field-wide">
             <span>Headline</span>
             <input value={title} onChange={(event) => setTitle(event.target.value)} />
@@ -1597,110 +1570,230 @@ function PromoteEventPage() {
             <p className="field-hint">
               {selectedEventId
                 ? selectedHostEvent?.showInAudienceNoGig
-                  ? 'Audience fallback is enabled for this event.'
-                  : 'Audience fallback is disabled for this event.'
-                : 'Select an active event first to configure audience fallback visibility.'}
-            </p>
-          </div>
-        </div>
+                <label className="promote-field promote-field-wide">
+                  <span>Description</span>
+                  <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+                </label>
 
-        {!isMobileViewport || showMobileAdvancedControls ? (
-          <div className="promote-export-panel">
+                <label className="promote-field promote-field-wide">
+                  <span>CTA</span>
+                  <input value={ctaText} onChange={(event) => setCtaText(event.target.value)} />
+                </label>
 
-          {/* ── Download image ── */}
-          <div className="promote-export-group">
-            <p className="promote-export-group-label">Download Image</p>
-            <div className="promote-export-buttons">
-              <button
-                type="button"
-                className="promote-export-btn promote-export-btn-png"
-                onClick={() => void exportImage('png')}
-                disabled={exportingImage || exportingVideo}
-              >
-                <span className="promote-export-btn-icon">⬇</span>
-                <span className="promote-export-btn-body">
-                  <strong>PNG</strong>
-                  <span>Best quality · {targetDimensions.width}×{targetDimensions.height}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                className="promote-export-btn promote-export-btn-jpg"
-                onClick={() => void exportImage('jpg')}
-                disabled={exportingImage || exportingVideo}
-              >
-                <span className="promote-export-btn-icon">⬇</span>
-                <span className="promote-export-btn-body">
-                  <strong>JPG</strong>
-                  <span>Smaller file · {targetDimensions.width}×{targetDimensions.height}</span>
-                </span>
-              </button>
-            </div>
-            {exportingImage ? <p className="promote-export-status">Generating image…</p> : null}
-            {exportStatus && !exportingImage ? <p className="promote-export-status">{exportStatus}</p> : null}
-            {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
-          </div>
+                {photoUrl && (!isMobileViewport || showMobileAdvancedControls) ? (
+                  <>
+                    <label className="promote-field">
+                      <span>Photo Brightness ({Math.round(photoBrightnessAdj * 100)}%)</span>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2"
+                        step="0.05"
+                        value={photoBrightnessAdj}
+                        onChange={(event) => setPhotoBrightnessAdj(Number.parseFloat(event.target.value))}
+                      />
+                    </label>
+                    <label className="promote-field">
+                      <span>Photo Contrast ({Math.round(photoContrast * 100)}%)</span>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2"
+                        step="0.05"
+                        value={photoContrast}
+                        onChange={(event) => setPhotoContrast(Number.parseFloat(event.target.value))}
+                      />
+                    </label>
+                    <label className="promote-field">
+                      <span>Photo Saturation ({Math.round(photoSaturation * 100)}%)</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.05"
+                        value={photoSaturation}
+                        onChange={(event) => setPhotoSaturation(Number.parseFloat(event.target.value))}
+                      />
+                    </label>
+                  </>
+                ) : null}
 
-          <div className="promote-export-group">
-            <p className="promote-export-group-label">Create Short Video</p>
-            <div className="promote-export-buttons promote-export-buttons-single">
-              <button
-                type="button"
-                className="promote-export-btn promote-export-btn-video"
-                onClick={() => void exportVideo()}
-                disabled={exportingImage || exportingVideo}
-              >
-                <span className="promote-export-btn-icon">▶</span>
-                <span className="promote-export-btn-body">
-                  <strong>30s WebM Video</strong>
-                  <span>Animated promo clip · {targetDimensions.width}×{targetDimensions.height}</span>
-                </span>
-              </button>
-            </div>
-            {exportingVideo ? <p className="promote-export-status">Recording video…</p> : null}
-            {videoStatus && !exportingVideo ? <p className="promote-export-status">{videoStatus}</p> : null}
-            {videoError ? <p className="error-text no-margin-bottom">{videoError}</p> : null}
-          </div>
+                {(!isMobileViewport || showMobileAdvancedControls) ? (
+                  <>
+                    <label className="promote-field">
+                      <span>Platform</span>
+                      <select value={platform} onChange={(event) => setPlatform(event.target.value as SocialPlatform)}>
+                        <option value="instagram">Instagram</option>
+                        <option value="facebook">Facebook</option>
+                      </select>
+                    </label>
 
-          {/* ── Share ── */}
-          <div className="promote-export-group">
-            <p className="promote-export-group-label">Share</p>
-            <div className="promote-export-share-row">
-              <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
-                📋 Copy Caption
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => { void copyFacebookShareLink() }}
-                disabled={!facebookShareUrl}
-              >
-                {facebookLinkCopied ? '✓ Copied Link' : '🔗 Copy Facebook Link'}
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={openFacebookShareDialog}
-                disabled={!facebookShareUrl}
-              >
-                ↗ Open Facebook Share
-              </button>
-            </div>
-            {facebookShareError ? <p className="error-text no-margin-bottom">{facebookShareError}</p> : null}
-          </div>
+                    <label className="promote-field">
+                      <span>Theme</span>
+                      <select value={theme} onChange={(event) => setTheme(event.target.value as ThemeKey)}>
+                        {THEMES.map((themeOption) => (
+                          <option key={themeOption.key} value={themeOption.key}>
+                            {themeOption.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-          {/* ── Event visibility & draft ── */}
-          <div className="promote-export-group">
-            <p className="promote-export-group-label">Settings</p>
-            <div className="promote-export-share-row">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={savePromotionDraft}
-                disabled={!selectedEventId || initializingDraftRef.current}
-              >
-                {promotionSaved ? '✓ Draft Saved' : '💾 Save Draft'}
-              </button>
+                    <label className="promote-field">
+                      <span>Headline Position</span>
+                      <select value={headlinePosition} onChange={(event) => handleHeadlinePositionPreset(event.target.value as HeadlinePosition)}>
+                        <option value="top">Top</option>
+                        <option value="center">Center</option>
+                        <option value="bottom">Bottom</option>
+                      </select>
+                    </label>
+
+                    <label className="promote-field">
+                      <span>Text Size ({Math.round(textScale * 100)}%)</span>
+                      <input
+                        type="range"
+                        min="0.8"
+                        max="1.4"
+                        step="0.05"
+                        value={textScale}
+                        onChange={(event) => {
+                          setTextScale(Number.parseFloat(event.target.value))
+                        }}
+                      />
+                    </label>
+
+                    <label className="promote-field">
+                      <span>Font</span>
+                      <select value={fontChoice} onChange={(event) => setFontChoice(event.target.value as FontChoice)}>
+                        <option value="default">Modern Sans</option>
+                        <option value="serif">Serif</option>
+                        <option value="slab">Slab Serif</option>
+                        <option value="mono">Monospace</option>
+                      </select>
+                    </label>
+
+                    <label className="promote-field">
+                      <span>Text Shadow</span>
+                      <select value={textShadow} onChange={(event) => setTextShadow(event.target.value as TextShadow)}>
+                        <option value="none">None</option>
+                        <option value="light">Light</option>
+                        <option value="medium">Medium</option>
+                        <option value="strong">Strong</option>
+                      </select>
+                    </label>
+
+                    <label className="promote-field">
+                      <span>Text Style</span>
+                      <div className="promote-checkbox-group">
+                        <input
+                          type="checkbox"
+                          id="bold-toggle"
+                          checked={textBold}
+                          onChange={(event) => setTextBold(event.target.checked)}
+                        />
+                        <label htmlFor="bold-toggle">Bold</label>
+                      </div>
+                    </label>
+
+                    <label className="promote-field">
+                      <span>Text Frame</span>
+                      <select value={textFrame} onChange={(event) => setTextFrame(event.target.value as TextFrame)}>
+                        <option value="auto">Auto (Smart Contrast)</option>
+                        <option value="none">None</option>
+                        <option value="light">Light Background</option>
+                        <option value="dark">Dark Background</option>
+                      </select>
+                      {autoFrameHint ? <p className="field-hint">{autoFrameHint}</p> : null}
+                    </label>
+
+                    {textFrame !== 'none' ? (
+                      <label className="promote-field">
+                        <span>Frame Padding ({Math.round((framePadding / 1.8) * 100)}%)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1.8"
+                          step="0.05"
+                          value={framePadding}
+                          onChange={(event) => setFramePadding(Number.parseFloat(event.target.value))}
+                        />
+                      </label>
+                    ) : null}
+
+                    <label className="promote-field">
+                      <span>Text Color</span>
+                      <input
+                        type="color"
+                        value={textColor}
+                        onChange={(event) => setTextColor(event.target.value)}
+                      />
+                    </label>
+
+                    <div className="promote-field promote-field-wide">
+                      <span>
+                        No-Live Audience Option
+                        {audienceVisibilitySaved ? <span className="meta-badge">Saved</span> : null}
+                      </span>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => {
+                          void toggleAudienceNoLiveVisibility()
+                        }}
+                        disabled={!selectedEventId || audienceVisibilitySaving}
+                      >
+                        {!selectedEventId
+                          ? 'No Active Event Selected'
+                          : audienceVisibilitySaving
+                          ? 'Saving...'
+                          : selectedHostEvent?.showInAudienceNoGig
+                          ? 'Hide This Event When No Gig Is Live'
+                          : 'Show This Event When No Gig Is Live'}
+                      </button>
+                      <p className="field-hint">
+                        {selectedEventId
+                          ? selectedHostEvent?.showInAudienceNoGig
+                            ? 'Audience fallback is enabled for this event.'
+                            : 'Audience fallback is disabled for this event.'
+                          : 'Select an active event first to configure audience fallback visibility.'}
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+                <label className="promote-field promote-field-wide">
+                  <span>Headline</span>
+                  <input value={title} onChange={(event) => setTitle(event.target.value)} />
+                </label>
+
+                <label className="promote-field promote-field-wide">
+                  <span>Subheadline</span>
+                  <input value={subtitle} onChange={(event) => setSubtitle(event.target.value)} />
+                </label>
+
+                <label className="promote-field">
+                  <span>Event Name</span>
+                  <input value={eventName} onChange={(event) => setEventName(event.target.value)} />
+                </label>
+
+                <label className="promote-field">
+                  <span>Venue</span>
+                  <input value={venue} onChange={(event) => setVenue(event.target.value)} />
+                </label>
+
+                <label className="promote-field">
+                  <span>Date + Time</span>
+                  <input value={eventDate} onChange={(event) => setEventDate(event.target.value)} />
+                </label>
+
+                <label className="promote-field promote-field-wide">
+                  <span>Description</span>
+                  <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
+                </label>
+
+                <label className="promote-field promote-field-wide">
+                  <span>CTA</span>
+                  <input value={ctaText} onChange={(event) => setCtaText(event.target.value)} />
+                </label>
             </div>
             {promotionSaveError ? <p className="error-text no-margin-bottom">{promotionSaveError}</p> : null}
             {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
