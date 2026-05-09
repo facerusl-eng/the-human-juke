@@ -3,7 +3,8 @@ import type { ChangeEvent, DragEvent, PointerEvent as ReactPointerEvent } from '
 import { transcodeWebmToMp4 } from '../lib/mp4Export'
 
 type VideoFormatId = 'instagram-story' | 'instagram-feed-square' | 'instagram-feed-portrait' | 'tiktok' | 'reels'
-type TemplateId = 'bold-neon' | 'sunset-clean' | 'studio-minimal'
+type TemplateId = 'bold-neon' | 'sunset-clean' | 'studio-minimal' | 'festival-fire' | 'ocean-breeze' | 'midnight-gold'
+type MotionTypeId = 'zoom-in' | 'zoom-out' | 'pan-left' | 'pan-right'
 type MusicSourceId = 'none' | 'preset' | 'upload'
 type MusicPresetId = 'upbeat-pop' | 'electro-night' | 'cinematic-rise'
 type OverlayKey = 'title' | 'info'
@@ -22,6 +23,7 @@ type EditorImage = {
   id: string
   name: string
   src: string
+  motionType: MotionTypeId
 }
 
 type VideoTemplate = {
@@ -92,6 +94,33 @@ const VIDEO_TEMPLATES: VideoTemplate[] = [
     titleFont: '700 76px system-ui, -apple-system, sans-serif',
     subtitleFont: '500 38px system-ui, -apple-system, sans-serif',
   },
+  {
+    id: 'festival-fire',
+    name: 'Festival Fire',
+    accent: '#fbbf24',
+    overlayTop: 'rgba(124, 30, 0, 0.30)',
+    overlayBottom: 'rgba(80, 10, 0, 0.75)',
+    titleFont: '800 82px system-ui, -apple-system, sans-serif',
+    subtitleFont: '600 42px system-ui, -apple-system, sans-serif',
+  },
+  {
+    id: 'ocean-breeze',
+    name: 'Ocean Breeze',
+    accent: '#7dd3fc',
+    overlayTop: 'rgba(3, 105, 161, 0.22)',
+    overlayBottom: 'rgba(1, 48, 87, 0.68)',
+    titleFont: '700 76px Georgia, serif',
+    subtitleFont: '500 38px Georgia, serif',
+  },
+  {
+    id: 'midnight-gold',
+    name: 'Midnight Gold',
+    accent: '#fde68a',
+    overlayTop: 'rgba(0, 0, 0, 0.42)',
+    overlayBottom: 'rgba(5, 2, 0, 0.82)',
+    titleFont: '700 78px Georgia, serif',
+    subtitleFont: '400 40px Georgia, serif',
+  },
 ]
 
 const MUSIC_PRESETS: Array<{ id: MusicPresetId; name: string; bpm: number; rootHz: number }> = [
@@ -103,6 +132,13 @@ const MUSIC_PRESETS: Array<{ id: MusicPresetId; name: string; bpm: number; rootH
 const MAX_UPLOAD_IMAGES = 12
 const PREVIEW_LOOP_SECONDS = 8
 const OVERLAY_SNAP_THRESHOLD = 0.02
+const MOTION_TYPES: Array<{ id: MotionTypeId; name: string }> = [
+  { id: 'zoom-in', name: 'Zoom In' },
+  { id: 'zoom-out', name: 'Zoom Out' },
+  { id: 'pan-left', name: 'Pan Left' },
+  { id: 'pan-right', name: 'Pan Right' },
+]
+const DEFAULT_MOTION_CYCLE: MotionTypeId[] = ['zoom-in', 'pan-right', 'zoom-out', 'pan-left']
 const OVERLAY_SNAP_GUIDES = [
   { point: 0.12, label: 'Top Safe Line' },
   { point: 0.2, label: 'Upper Third' },
@@ -132,6 +168,10 @@ function sanitizeSlug(value: string) {
 
 function easeInOut(t: number) {
   return t * t * (3 - 2 * t)
+}
+
+function scaleFontSize(fontString: string, scale: number) {
+  return fontString.replace(/(\d+)px/, (_, size) => `${Math.round(Number(size) * scale)}px`)
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -284,6 +324,7 @@ export default function VideoEditor({
   const [videoFormatId, setVideoFormatId] = useState<VideoFormatId>('instagram-story')
   const [durationSeconds, setDurationSeconds] = useState(15)
   const [transitionSeconds, setTransitionSeconds] = useState(0.6)
+  const [overlayScale, setOverlayScale] = useState(1.0)
   const [templateId, setTemplateId] = useState<TemplateId>(() => (
     defaultTheme === 'studio' ? 'studio-minimal' : defaultTheme === 'midnight' ? 'bold-neon' : 'sunset-clean'
   ))
@@ -295,6 +336,7 @@ export default function VideoEditor({
     id: createImageId(),
     name: `Image ${index + 1}`,
     src,
+    motionType: DEFAULT_MOTION_CYCLE[index % DEFAULT_MOTION_CYCLE.length],
   })))
   const [imageWeights, setImageWeights] = useState<Record<string, number>>({})
   const [activeImageIndex, setActiveImageIndex] = useState(0)
@@ -378,13 +420,14 @@ export default function VideoEditor({
       return
     }
 
-    const readers = imageFiles.map((file) => new Promise<EditorImage>((resolve, reject) => {
+    const readers = imageFiles.map((file, batchIndex) => new Promise<EditorImage>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => {
         resolve({
           id: createImageId(),
           name: file.name,
           src: typeof reader.result === 'string' ? reader.result : '',
+          motionType: DEFAULT_MOTION_CYCLE[(images.length + batchIndex) % DEFAULT_MOTION_CYCLE.length],
         })
       }
       reader.onerror = () => reject(new Error(`Failed to read ${file.name}`))
@@ -456,16 +499,33 @@ export default function VideoEditor({
         ? clamp((localT - transitionStart) / Math.max(1 - transitionStart, 0.0001), 0, 1)
         : 0
 
-      const drawCoverImage = (source: string, alpha: number, animationAmount: number) => {
+      const drawCoverImage = (source: string, alpha: number, animationAmount: number, motionType: MotionTypeId = 'zoom-in') => {
         const image = imageCacheRef.current.get(source)
         if (!image || !image.complete || image.naturalWidth === 0 || image.naturalHeight === 0) {
           return
         }
 
-        const scale = 1.02 + animationAmount * 0.04
+        let scale = 1.06
+        let offsetX = 0
+        const panAmount = W * 0.04
+        switch (motionType) {
+          case 'zoom-in':
+            scale = 1.02 + animationAmount * 0.06
+            break
+          case 'zoom-out':
+            scale = 1.08 - animationAmount * 0.06
+            break
+          case 'pan-left':
+            offsetX = panAmount * (1 - animationAmount)
+            break
+          case 'pan-right':
+            offsetX = -panAmount * (1 - animationAmount)
+            break
+        }
+
         const drawW = W * scale
         const drawH = H * scale
-        const dx = (W - drawW) / 2
+        const dx = (W - drawW) / 2 + offsetX
         const dy = (H - drawH) / 2
 
         ctx.save()
@@ -475,9 +535,9 @@ export default function VideoEditor({
       }
 
       const motion = easeInOut(localT)
-      drawCoverImage(currentSegment.image.src, 1, motion)
+      drawCoverImage(currentSegment.image.src, 1, motion, currentSegment.image.motionType)
       if (blend > 0) {
-        drawCoverImage(nextSegment.image.src, blend, 1 - motion)
+        drawCoverImage(nextSegment.image.src, blend, 1 - motion, nextSegment.image.motionType)
       }
     }
 
@@ -501,7 +561,7 @@ export default function VideoEditor({
 
     ctx.save()
     ctx.globalAlpha = titleAppear
-    ctx.font = activeTemplate.titleFont
+    ctx.font = scaleFontSize(activeTemplate.titleFont, overlayScale)
     ctx.fillStyle = '#f8fafc'
     ctx.textBaseline = 'top'
     ctx.fillText(eventNameOverlay || eventName, PAD, titleY, W - PAD * 2)
@@ -509,7 +569,7 @@ export default function VideoEditor({
 
     ctx.save()
     ctx.globalAlpha = bodyAppear
-    ctx.font = activeTemplate.subtitleFont
+    ctx.font = scaleFontSize(activeTemplate.subtitleFont, overlayScale)
     ctx.fillStyle = '#e2e8f0'
     ctx.textBaseline = 'top'
     ctx.fillText(eventDateOverlay || eventDate, PAD, infoY, W - PAD * 2)
@@ -520,7 +580,7 @@ export default function VideoEditor({
     ctx.fillStyle = activeTemplate.accent
     ctx.fillRect(PAD, ctaBoxY, W - PAD * 2, 72)
     ctx.fillStyle = '#0f172a'
-    ctx.font = '700 34px system-ui, -apple-system, sans-serif'
+    ctx.font = scaleFontSize('700 34px system-ui, -apple-system, sans-serif', overlayScale)
     ctx.textBaseline = 'middle'
     ctx.fillText(ctaTextValue, PAD + 22, ctaBoxY + 36, W - PAD * 2 - 44)
     ctx.restore()
@@ -579,6 +639,7 @@ export default function VideoEditor({
     eventDateOverlay,
     eventName,
     eventNameOverlay,
+    overlayScale,
     snapToGridEnabled,
     overlayAnchors.infoY,
     overlayAnchors.titleY,
@@ -982,6 +1043,28 @@ export default function VideoEditor({
     })
   }, [])
 
+  const moveImage = useCallback((id: string, direction: -1 | 1) => {
+    setImages((current) => {
+      const index = current.findIndex((entry) => entry.id === id)
+      if (index === -1) {
+        return current
+      }
+
+      const nextIndex = index + direction
+      if (nextIndex < 0 || nextIndex >= current.length) {
+        return current
+      }
+
+      const next = [...current]
+      ;[next[index], next[nextIndex]] = [next[nextIndex], next[index]]
+      return next
+    })
+  }, [])
+
+  const setImageMotionType = useCallback((id: string, motionType: MotionTypeId) => {
+    setImages((current) => current.map((img) => img.id === id ? { ...img, motionType } : img))
+  }, [])
+
   const onDropImages = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     setIsDraggingFiles(false)
@@ -1120,32 +1203,53 @@ export default function VideoEditor({
             </div>
             <div className="video-editor-image-list">
               {images.map((entry, index) => (
-                <button
+                <div
                   key={entry.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   className={`video-editor-thumb ${index === activeImageIndex ? 'video-editor-thumb-active' : ''}`}
                   onClick={() => setActiveImageIndex(index)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setActiveImageIndex(index)
+                    }
+                  }}
                 >
                   <img src={entry.src} alt={entry.name} />
                   <span>{entry.name}</span>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    className="video-editor-thumb-remove"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      removeImage(entry.id)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        removeImage(entry.id)
-                      }
-                    }}
-                  >
-                    Remove
-                  </span>
-                </button>
+                  <div className="video-editor-thumb-actions">
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="video-editor-thumb-btn"
+                      title="Move up"
+                      onClick={(event) => { event.stopPropagation(); moveImage(entry.id, -1) }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); moveImage(entry.id, -1) }
+                      }}
+                    >↑</span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="video-editor-thumb-btn"
+                      title="Move down"
+                      onClick={(event) => { event.stopPropagation(); moveImage(entry.id, 1) }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); moveImage(entry.id, 1) }
+                      }}
+                    >↓</span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="video-editor-thumb-remove"
+                      onClick={(event) => { event.stopPropagation(); removeImage(entry.id) }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); removeImage(entry.id) }
+                      }}
+                    >Remove</span>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -1168,20 +1272,33 @@ export default function VideoEditor({
             </div>
             <div className="video-editor-timeline-controls">
               {timelineSegments.map((segment, index) => (
-                <label key={segment.image.id} className="promote-field">
-                  <span>{`Clip ${index + 1}: ${segment.image.name} (${segment.duration.toFixed(1)}s)`}</span>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="6"
-                    step="0.1"
-                    value={imageWeights[segment.image.id] ?? 1}
-                    onChange={(event) => setImageWeights((current) => ({
-                      ...current,
-                      [segment.image.id]: Number.parseFloat(event.target.value),
-                    }))}
-                  />
-                </label>
+                <div key={segment.image.id} className="video-editor-clip-controls">
+                  <label className="promote-field">
+                    <span>{`Clip ${index + 1}: ${segment.image.name} (${segment.duration.toFixed(1)}s)`}</span>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="6"
+                      step="0.1"
+                      value={imageWeights[segment.image.id] ?? 1}
+                      onChange={(event) => setImageWeights((current) => ({
+                        ...current,
+                        [segment.image.id]: Number.parseFloat(event.target.value),
+                      }))}
+                    />
+                  </label>
+                  <label className="promote-field promote-field-inline">
+                    <span>Motion</span>
+                    <select
+                      value={segment.image.motionType}
+                      onChange={(event) => setImageMotionType(segment.image.id, event.target.value as MotionTypeId)}
+                    >
+                      {MOTION_TYPES.map((entry) => (
+                        <option key={entry.id} value={entry.id}>{entry.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
               ))}
             </div>
           </div>
@@ -1214,6 +1331,17 @@ export default function VideoEditor({
                 />
                 <label htmlFor="video-overlay-snap">Snap drag handles to thirds/center guides</label>
               </div>
+            </label>
+            <label className="promote-field">
+              <span>Text Size ({Math.round(overlayScale * 100)}%)</span>
+              <input
+                type="range"
+                min="0.6"
+                max="1.6"
+                step="0.05"
+                value={overlayScale}
+                onChange={(event) => setOverlayScale(Number.parseFloat(event.target.value))}
+              />
             </label>
             <p className="field-hint video-editor-drag-hint">Drag "Title" and "Info + CTA" guide lines inside preview to reposition text overlays.</p>
             {activeOverlayHandle ? (

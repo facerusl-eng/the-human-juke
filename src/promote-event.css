@@ -682,9 +682,52 @@
   box-shadow: 0 0 0 1px rgba(103, 232, 249, 0.4) inset;
 }
 
+.video-editor-thumb-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.video-editor-thumb-btn {
+  color: rgba(148, 163, 184, 0.9);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0 0.15rem;
+  line-height: 1;
+}
+
+.video-editor-thumb-btn:hover {
+  color: #67e8f9;
+}
+
 .video-editor-thumb-remove {
   color: rgba(253, 164, 175, 0.95);
   font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.video-editor-clip-controls {
+  display: grid;
+  gap: 0.3rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  padding-bottom: 0.5rem;
+}
+
+.video-editor-clip-controls:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.promote-field-inline {
+  grid-column: span 1 !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.promote-field-inline span {
+  white-space: nowrap;
 }
 
 .video-editor-text-fields {
