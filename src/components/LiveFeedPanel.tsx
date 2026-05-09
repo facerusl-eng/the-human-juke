@@ -193,6 +193,18 @@ function normalizeImageSource(value: string | null | undefined) {
   return normalizedValue
 }
 
+function shouldUsePollingOnlyForFeedRealtime() {
+  if (typeof navigator === 'undefined') {
+    return false
+  }
+
+  const userAgent = navigator.userAgent || ''
+  const isIos = /iPhone|iPad|iPod/i.test(userAgent)
+  const isWebKitEngine = /AppleWebKit/i.test(userAgent)
+
+  return isIos && isWebKitEngine
+}
+
 function LiveFeedPanel({
   mode,
   showComposer = true,
@@ -330,6 +342,7 @@ function LiveFeedPanel({
     let channel: ReturnType<typeof supabase.channel> | null = null
     let channelReconnectTimerId: number | null = null
     let channelReconnectAttempt = 0
+    const pollingOnlyMode = shouldUsePollingOnlyForFeedRealtime()
 
     const loadPosts = async (silent = false) => {
       if (isFetchingPostsRef.current) {
@@ -481,7 +494,9 @@ function LiveFeedPanel({
       }
     }
 
-    connectFeedChannel()
+    if (!pollingOnlyMode) {
+      connectFeedChannel()
+    }
 
     pollTimerId = window.setInterval(() => {
       if (isCurrent && !document.hidden) {
@@ -496,7 +511,9 @@ function LiveFeedPanel({
           return
         }
 
-        connectFeedChannel()
+        if (!pollingOnlyMode) {
+          connectFeedChannel()
+        }
         requestReload(true)
       }
     }

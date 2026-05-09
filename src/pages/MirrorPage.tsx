@@ -151,12 +151,12 @@ function isLowValueFact(fact: string) {
     || /artist name\s+"?.+"?\s+has\s+\d+\s+word/.test(normalizedFact)
 }
 
-async function fetchItunesSongFacts(title: string, artist: string, signal: AbortSignal) {
+async function fetchItunesSongFacts(title: string, artist: string, _signal: AbortSignal) {
   const searchTerm = `${title} ${artist}`.trim()
   const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=3`
 
   try {
-    const response = await fetch(searchUrl, { signal })
+    const response = await fetch(searchUrl)
 
     if (!response.ok) {
       return []
@@ -206,7 +206,11 @@ async function fetchItunesSongFacts(title: string, artist: string, signal: Abort
     ].filter((fact): fact is string => Boolean(fact))
 
     return facts.slice(0, 4)
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return []
+    }
+
     return []
   }
 }
@@ -243,6 +247,25 @@ function isPrivateLanHostname(hostname: string) {
   }
 
   return false
+}
+
+function shouldProbeRouterReachability(hostname: string) {
+  if (!hostname) {
+    return false
+  }
+
+  const normalizedHostname = hostname.trim().toLowerCase()
+
+  if (isPrivateLanHostname(normalizedHostname)) {
+    return false
+  }
+
+  // Public domains should not trigger local-router probe requests.
+  if (normalizedHostname.includes('.') && !normalizedHostname.endsWith('.local')) {
+    return false
+  }
+
+  return true
 }
 
 function probeRouterReachability(timeoutMs = 1400) {
@@ -977,7 +1000,12 @@ function MirrorPage() {
 
       const hostname = window.location.hostname
       const appearsOnPrivateLan = isPrivateLanHostname(hostname)
-      const routerReachable = appearsOnPrivateLan ? true : await probeRouterReachability()
+      const shouldProbeRouter = shouldProbeRouterReachability(hostname)
+      const routerReachable = appearsOnPrivateLan
+        ? true
+        : shouldProbeRouter
+        ? await probeRouterReachability()
+        : false
 
       if (!isCurrent) {
         return
