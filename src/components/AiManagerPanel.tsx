@@ -8,6 +8,7 @@ type Message = {
 }
 
 type CalendarAction = {
+  id: string
   action: 'upsert' | 'delete'
   date: string
   status?: 'free' | 'booked'
@@ -137,6 +138,7 @@ function normalizeCalendarActions(value: unknown): CalendarAction[] {
       }
 
       return {
+        id: generateId(),
         action,
         date,
         status: entry.status === 'booked' ? 'booked' : 'free',
@@ -245,6 +247,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pendingCalendarActions, setPendingCalendarActions] = useState<CalendarAction[]>([])
+  const [selectedCalendarActionIds, setSelectedCalendarActionIds] = useState<string[]>([])
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'not-connected'>('checking')
   const [managerId, setManagerId] = useState<ManagerOption['id']>(() => {
     if (typeof window === 'undefined') {
@@ -368,6 +371,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
       } else {
         const actions = normalizeCalendarActions(data.calendarActions)
         setPendingCalendarActions(actions)
+        setSelectedCalendarActionIds(actions.map((action) => action.id))
         setMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: data.reply! }])
       }
     } catch {
@@ -384,8 +388,10 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     }
   }
 
+  const selectedCalendarActions = pendingCalendarActions.filter((action) => selectedCalendarActionIds.includes(action.id))
+
   function applyCalendarActions() {
-    if (typeof window === 'undefined' || pendingCalendarActions.length === 0) {
+    if (typeof window === 'undefined' || selectedCalendarActions.length === 0) {
       return
     }
 
@@ -402,7 +408,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     const nowIso = new Date().toISOString()
 
-    pendingCalendarActions.forEach((action) => {
+    selectedCalendarActions.forEach((action) => {
       if (action.action === 'delete') {
         byDate.delete(action.date)
         return
@@ -427,8 +433,22 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     const nextEntries = [...byDate.values()].sort((a, b) => normalizeText(a.date).localeCompare(normalizeText(b.date)))
     window.localStorage.setItem(OUTREACH_CALENDAR_STORAGE_KEY, JSON.stringify(nextEntries))
     window.dispatchEvent(new CustomEvent(CALENDAR_UPDATED_EVENT))
-    setPendingCalendarActions([])
-    setMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: `Applied ${pendingCalendarActions.length} calendar update(s).` }])
+    const appliedIds = new Set(selectedCalendarActions.map((action) => action.id))
+    const remaining = pendingCalendarActions.filter((action) => !appliedIds.has(action.id))
+    setPendingCalendarActions(remaining)
+    setSelectedCalendarActionIds(remaining.map((action) => action.id))
+    setMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: `Applied ${selectedCalendarActions.length} calendar update(s).` }])
+  }
+
+  function dismissSelectedCalendarActions() {
+    if (selectedCalendarActions.length === 0) {
+      return
+    }
+
+    const selectedIds = new Set(selectedCalendarActions.map((action) => action.id))
+    const remaining = pendingCalendarActions.filter((action) => !selectedIds.has(action.id))
+    setPendingCalendarActions(remaining)
+    setSelectedCalendarActionIds(remaining.map((action) => action.id))
   }
 
   if (typeof document === 'undefined') {
@@ -533,10 +553,46 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
             {pendingCalendarActions.length > 0 && (
               <div className="ai-manager-calendar-actions">
-                <p className="ai-manager-empty-text">I prepared {pendingCalendarActions.length} calendar update(s).</p>
+                <p className="ai-manager-empty-text">I prepared {pendingCalendarActions.length} calendar update(s). Review and approve each one.</p>
+                <ul className="ai-manager-calendar-action-list">
+                  {pendingCalendarActions.map((action) => (
+                    <li key={action.id} className="ai-manager-calendar-action-item">
+                      <label className="queue-toggle queue-toggle-compact">
+                        <input
+                          type="checkbox"
+                          checked={selectedCalendarActionIds.includes(action.id)}
+                          onChange={(event) => {
+                            setSelectedCalendarActionIds((current) => {
+                              if (event.target.checked) {
+                                return current.includes(action.id) ? current : [...current, action.id]
+                              }
+
+                              return current.filter((id) => id !== action.id)
+                            })
+                          }}
+                        />
+                        <span>
+                          {action.action === 'delete'
+                            ? `Delete ${action.date}`
+                            : `${action.status === 'booked' ? 'Book' : 'Free'} ${action.date}${action.venueName ? ` · ${action.venueName}` : ''}`}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
                 <div className="ai-manager-starters">
-                  <button type="button" className="ai-manager-starter" onClick={applyCalendarActions}>Apply to calendar</button>
-                  <button type="button" className="ai-manager-starter" onClick={() => setPendingCalendarActions([])}>Dismiss</button>
+                  <button type="button" className="ai-manager-starter" onClick={applyCalendarActions} disabled={selectedCalendarActions.length === 0}>Apply selected</button>
+                  <button type="button" className="ai-manager-starter" onClick={dismissSelectedCalendarActions} disabled={selectedCalendarActions.length === 0}>Dismiss selected</button>
+                  <button
+                    type="button"
+                    className="ai-manager-starter"
+                    onClick={() => {
+                      setPendingCalendarActions([])
+                      setSelectedCalendarActionIds([])
+                    }}
+                  >
+                    Clear all
+                  </button>
                 </div>
               </div>
             )}

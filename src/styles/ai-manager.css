@@ -283,6 +283,21 @@
   padding: 0.65rem;
 }
 
+.ai-manager-calendar-action-list {
+  list-style: none;
+  margin: 0.6rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ai-manager-calendar-action-item {
+  border: 1px solid rgba(120, 220, 170, 0.25);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  background: rgba(20, 38, 35, 0.5);
+}
+
 .ai-manager-input-row {
   display: flex;
   align-items: flex-end;
