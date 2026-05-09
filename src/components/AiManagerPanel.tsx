@@ -16,6 +16,9 @@ type CalendarAction = {
   city?: string
   contact?: string
   fee?: string
+  paymentStatus?: 'unpaid' | 'partial' | 'paid'
+  paymentAmount?: string
+  paidAt?: string
   notes?: string
 }
 
@@ -51,6 +54,9 @@ type PipelineContext = {
       city: string
       contact: string
       fee: string
+      paymentStatus: string
+      paymentAmount: string
+      paidAt: string
       notes: string
       source: string
     }>
@@ -172,6 +178,9 @@ function normalizeCalendarActions(value: unknown): CalendarAction[] {
         city: normalizeText(entry.city),
         contact: normalizeText(entry.contact),
         fee: normalizeText(entry.fee),
+        paymentStatus: entry.paymentStatus === 'paid' || entry.paymentStatus === 'partial' ? entry.paymentStatus : 'unpaid',
+        paymentAmount: normalizeText(entry.paymentAmount),
+        paidAt: normalizeText(entry.paidAt),
         notes: normalizeText(entry.notes),
       } as CalendarAction
     })
@@ -229,6 +238,9 @@ function buildPipelineFromOutreachStorage(): PipelineContext {
       city: typeof entry.city === 'string' ? entry.city : '',
       contact: typeof entry.contact === 'string' ? entry.contact : '',
       fee: typeof entry.fee === 'string' ? entry.fee : '',
+      paymentStatus: typeof entry.paymentStatus === 'string' ? entry.paymentStatus : 'unpaid',
+      paymentAmount: typeof entry.paymentAmount === 'string' ? entry.paymentAmount : '',
+      paidAt: typeof entry.paidAt === 'string' ? entry.paidAt : '',
       notes: typeof entry.notes === 'string' ? entry.notes : '',
       source: typeof entry.source === 'string' ? entry.source : 'manual',
     }))
@@ -258,6 +270,9 @@ function buildPipelineFromOutreachStorage(): PipelineContext {
           city: entry.city,
           contact: entry.contact,
           fee: entry.fee,
+          paymentStatus: entry.paymentStatus,
+          paymentAmount: entry.paymentAmount,
+          paidAt: entry.paidAt,
           notes: entry.notes,
           source: entry.source,
         })),
@@ -454,6 +469,9 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
         contact: action.contact ?? '',
         fee: action.fee ?? '',
         source: 'ai-manager',
+        paymentAmount: action.paymentAmount || (typeof current?.paymentAmount === 'string' ? current.paymentAmount : ''),
+        paidAt: action.paidAt || (typeof current?.paidAt === 'string' ? current.paidAt : ''),
+        paymentStatus: action.paymentStatus || (typeof current?.paymentStatus === 'string' ? current.paymentStatus : 'unpaid'),
         notes: normalizedDate !== action.date
           ? `${action.notes ? `${action.notes} ` : ''}(AI date adjusted to upcoming year)`
           : (action.notes ?? ''),

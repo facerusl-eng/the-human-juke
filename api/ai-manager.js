@@ -21,7 +21,7 @@ Guardrails:
 Calendar operations:
 - If Harald clearly asks you to add, update, or remove calendar entries, include machine-readable actions.
 - Keep your normal human reply, then append exactly one final line:
-  CALENDAR_ACTIONS_JSON:[{"action":"upsert|delete","date":"YYYY-MM-DD","status":"free|booked","venueName":"","city":"","contact":"","fee":"","notes":""}]
+  CALENDAR_ACTIONS_JSON:[{"action":"upsert|delete","date":"YYYY-MM-DD","status":"free|booked","venueName":"","city":"","contact":"","fee":"","paymentStatus":"unpaid|partial|paid","paymentAmount":"","paidAt":"YYYY-MM-DD","notes":""}]
 - Use action=delete with date only when removing a date.
 - If no calendar change is requested, do not include CALENDAR_ACTIONS_JSON.`
 
@@ -105,6 +105,9 @@ function normalizeParsedCalendarActions(parsed) {
         city: normalizeCalendarText(entry.city),
         contact: normalizeCalendarText(entry.contact),
         fee: normalizeCalendarText(entry.fee),
+        paymentStatus: normalizeCalendarText(entry.paymentStatus),
+        paymentAmount: normalizeCalendarText(entry.paymentAmount),
+        paidAt: normalizeCalendarText(entry.paidAt),
         notes: normalizeCalendarText(entry.notes),
       }
     })
@@ -135,6 +138,9 @@ function parseCalendarActionsFromUserIntent(text) {
     city: '',
     contact: '',
     fee: '',
+    paymentStatus: 'unpaid',
+    paymentAmount: '',
+    paidAt: '',
     notes: '',
   }))
 }
@@ -289,7 +295,7 @@ function buildPipelineContext(pipeline) {
     if (booked.length) {
       lines.push('Booked dates (up to 20):')
       booked.slice(0, 20).forEach((entry) => {
-        lines.push(`  - ${entry.date} | ${entry.venueName || 'Booked gig'} | city: ${entry.city || 'n/a'} | contact: ${entry.contact || 'n/a'} | fee: ${entry.fee || 'n/a'} | source: ${entry.source || 'manual'}${entry.notes ? ` | notes: ${entry.notes}` : ''}`)
+        lines.push(`  - ${entry.date} | ${entry.venueName || 'Booked gig'} | city: ${entry.city || 'n/a'} | contact: ${entry.contact || 'n/a'} | fee: ${entry.fee || 'n/a'} | payment: ${entry.paymentStatus || 'unpaid'} ${entry.paymentAmount || ''}${entry.paidAt ? ` (paidAt ${entry.paidAt})` : ''} | source: ${entry.source || 'manual'}${entry.notes ? ` | notes: ${entry.notes}` : ''}`)
       })
     }
 

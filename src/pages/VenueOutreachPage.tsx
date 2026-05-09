@@ -65,6 +65,7 @@ type FollowUpTask = {
 }
 
 type CalendarEntryStatus = 'free' | 'booked'
+type PaymentStatus = 'unpaid' | 'partial' | 'paid'
 
 type CalendarEntry = {
   id: string
@@ -75,6 +76,9 @@ type CalendarEntry = {
   contact: string
   fee: string
   source: 'manual' | 'ai-manager'
+  paymentStatus: PaymentStatus
+  paymentAmount: string
+  paidAt: string
   notes: string
   createdAt: string
   updatedAt: string
@@ -87,6 +91,9 @@ type CalendarDraft = {
   contact: string
   fee: string
   source: 'manual' | 'ai-manager'
+  paymentStatus: PaymentStatus
+  paymentAmount: string
+  paidAt: string
   notes: string
 }
 
@@ -559,6 +566,9 @@ function VenueOutreachPage() {
     contact: '',
     fee: '',
     source: 'manual',
+    paymentStatus: 'unpaid',
+    paymentAmount: '',
+    paidAt: '',
     notes: '',
   })
   const [templateName, setTemplateName] = useState('')
@@ -784,6 +794,9 @@ function VenueOutreachPage() {
         contact: '',
         fee: '',
         source: 'manual',
+        paymentStatus: 'unpaid',
+        paymentAmount: '',
+        paidAt: '',
         notes: '',
       })
       return
@@ -796,6 +809,9 @@ function VenueOutreachPage() {
       contact: selectedCalendarEntry.contact || '',
       fee: selectedCalendarEntry.fee || '',
       source: selectedCalendarEntry.source || 'manual',
+      paymentStatus: selectedCalendarEntry.paymentStatus || 'unpaid',
+      paymentAmount: selectedCalendarEntry.paymentAmount || '',
+      paidAt: selectedCalendarEntry.paidAt || '',
       notes: selectedCalendarEntry.notes || '',
     })
   }, [selectedCalendarDate, selectedCalendarEntry])
@@ -1309,6 +1325,9 @@ function VenueOutreachPage() {
       contact: calendarDraft.contact.trim(),
       fee: calendarDraft.fee.trim(),
       source: calendarDraft.source,
+      paymentStatus: calendarDraft.status === 'booked' ? calendarDraft.paymentStatus : 'unpaid',
+      paymentAmount: calendarDraft.status === 'booked' ? calendarDraft.paymentAmount.trim() : '',
+      paidAt: calendarDraft.status === 'booked' ? calendarDraft.paidAt.trim() : '',
       notes: calendarDraft.notes.trim(),
       createdAt: selectedCalendarEntry?.createdAt || now,
       updatedAt: now,
@@ -1346,6 +1365,9 @@ function VenueOutreachPage() {
       contact: draft.contact.trim(),
       fee: draft.fee.trim(),
       source: nextSource,
+      paymentStatus: draft.status === 'booked' ? draft.paymentStatus : 'unpaid',
+      paymentAmount: draft.status === 'booked' ? draft.paymentAmount.trim() : '',
+      paidAt: draft.status === 'booked' ? draft.paidAt.trim() : '',
       notes: draft.notes.trim(),
       createdAt: current?.createdAt || now,
       updatedAt: now,
@@ -1389,6 +1411,9 @@ function VenueOutreachPage() {
         contact: existing?.contact || '',
         fee: existing?.fee || '',
         source: existing?.source || 'manual',
+        paymentStatus: existing?.paymentStatus || 'unpaid',
+        paymentAmount: existing?.paymentAmount || '',
+        paidAt: existing?.paidAt || '',
         notes: existing?.notes || 'Weekend slot marked free',
         createdAt: existing?.createdAt || now,
         updatedAt: now,
@@ -1420,7 +1445,7 @@ function VenueOutreachPage() {
     }
 
     const rows = [
-      ['date', 'status', 'venue_name', 'city', 'contact', 'fee', 'source', 'notes'],
+      ['date', 'status', 'venue_name', 'city', 'contact', 'fee', 'payment_status', 'payment_amount', 'paid_at', 'source', 'notes'],
       ...[...calendarEntries]
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((entry) => [
@@ -1430,6 +1455,9 @@ function VenueOutreachPage() {
           entry.city,
           entry.contact,
           entry.fee,
+          entry.paymentStatus,
+          entry.paymentAmount,
+          entry.paidAt,
           entry.source,
           entry.notes,
         ]),
@@ -1463,6 +1491,9 @@ function VenueOutreachPage() {
       contact,
       fee: '',
       source: 'manual',
+      paymentStatus: 'unpaid',
+      paymentAmount: '',
+      paidAt: '',
       notes: `Booked from outreach lead · stage: ${STAGE_LABELS[venue.stage]}`,
     }
 
@@ -2122,6 +2153,43 @@ function VenueOutreachPage() {
                       placeholder="DKK 4,500 + bar bonus"
                     />
                   </label>
+                  {calendarDraft.status === 'booked' ? (
+                    <>
+                      <label>
+                        Payment Status
+                        <select
+                          value={calendarDraft.paymentStatus}
+                          onChange={(event) => setCalendarDraft((current) => ({
+                            ...current,
+                            paymentStatus: event.target.value === 'paid' || event.target.value === 'partial' ? event.target.value : 'unpaid',
+                          }))}
+                          className="queue-input"
+                        >
+                          <option value="unpaid">Unpaid</option>
+                          <option value="partial">Partial</option>
+                          <option value="paid">Paid</option>
+                        </select>
+                      </label>
+                      <label>
+                        Payment Amount
+                        <input
+                          value={calendarDraft.paymentAmount}
+                          onChange={(event) => setCalendarDraft((current) => ({ ...current, paymentAmount: event.target.value }))}
+                          className="queue-input"
+                          placeholder="DKK 4,500"
+                        />
+                      </label>
+                      <label>
+                        Paid Date
+                        <input
+                          type="date"
+                          value={calendarDraft.paidAt}
+                          onChange={(event) => setCalendarDraft((current) => ({ ...current, paidAt: event.target.value }))}
+                          className="queue-input"
+                        />
+                      </label>
+                    </>
+                  ) : null}
                   <label>
                     Source
                     <select
@@ -2179,8 +2247,9 @@ function VenueOutreachPage() {
                           <div className="gig-management-title-row">
                             <p className="gig-management-title">{entry.date} · {entry.venueName || 'Booked gig'}</p>
                             <span className="meta-badge">{entry.city || 'No city'}</span>
+                            <span className="meta-badge">{entry.paymentStatus === 'paid' ? 'Paid' : entry.paymentStatus === 'partial' ? 'Part-paid' : 'Unpaid'}</span>
                           </div>
-                          <p className="gig-management-meta">Contact: {entry.contact || 'N/A'} · Fee: {entry.fee || 'N/A'}</p>
+                          <p className="gig-management-meta">Contact: {entry.contact || 'N/A'} · Fee: {entry.fee || 'N/A'} · Payment: {entry.paymentAmount || 'N/A'}{entry.paidAt ? ` · Paid on ${entry.paidAt}` : ''}</p>
                           {entry.notes ? <p className="gig-management-meta">{entry.notes}</p> : null}
                         </div>
                       </li>
