@@ -32,7 +32,7 @@ export default defineConfig({
             urlPattern: /\/assets\/.+\.[0-9a-f]{8,}\.(js|css)$/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'vite-immutable-assets-v2',
+              cacheName: 'vite-immutable-assets-v3',
               expiration: { maxAgeSeconds: 60 * 60 * 24 * 365 },
             },
           },
@@ -41,7 +41,7 @@ export default defineConfig({
             urlPattern: /\.(png|svg|webp|ico|woff2?)$/,
             handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'static-assets-v2',
+              cacheName: 'static-assets-v3',
               expiration: { maxAgeSeconds: 60 * 60 * 24 * 7 },
             },
           },
