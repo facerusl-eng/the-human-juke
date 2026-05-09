@@ -1600,7 +1600,14 @@ function GigControlPage() {
                       <div>
                         <p className="gig-mirror-preview-song">{nowPlaying?.title ?? 'Waiting for requests from brave volunteers...'}</p>
                         <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'Queue currently calm, suspiciously so'}</p>
-                        {nowPlaying?.audience_sings ? <span className="gig-mirror-preview-karaoke-tag">🎤 Karaoke Wish</span> : null}
+                        {nowPlaying?.audience_sings ? (
+                          <div className="gig-mirror-preview-karafun-block">
+                            <span className="gig-mirror-preview-karafun-title">KaraFun Request</span>
+                            <span className="gig-mirror-preview-karafun-meta">
+                              {nowPlaying?.createdByName ? `Chosen by ${nowPlaying.createdByName}` : 'Chosen from karaoke list'}
+                            </span>
+                          </div>
+                        ) : null}
                         {nowPlaying?.createdByName ? (
                           <span className="gig-mirror-preview-requested-by">
                             <span className="gig-mirror-preview-requested-by-label">Wished by:</span> {nowPlaying.createdByName}
@@ -1628,7 +1635,14 @@ function GigControlPage() {
                         <div className="gig-mirror-preview-list-copy">
                           <span className="gig-mirror-preview-list-song">{song.title}</span>
                           <span className="gig-mirror-preview-list-artist">{song.artist || 'Unknown Artist'}</span>
-                          {song.audience_sings ? <span className="gig-mirror-preview-list-karaoke">🎤 Karaoke Wish</span> : null}
+                          {song.audience_sings ? (
+                            <div className="gig-mirror-preview-list-karafun-block">
+                              <span className="gig-mirror-preview-list-karafun-title">KaraFun Request</span>
+                              <span className="gig-mirror-preview-list-karafun-meta">
+                                {chosenBy ? `Chosen by ${chosenBy}` : 'Chosen from karaoke list'}
+                              </span>
+                            </div>
+                          ) : null}
                           {chosenBy ? (
                             <span className="gig-mirror-preview-list-chosen-by">
                               <span className="gig-mirror-preview-list-chosen-by-label">Wished by:</span> {chosenBy}

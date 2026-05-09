@@ -4213,6 +4213,38 @@
   font-weight: 700;
 }
 
+.gig-mirror-preview-karafun-block,
+.gig-mirror-preview-list-karafun-block {
+  display: grid;
+  gap: 0.12rem;
+  width: fit-content;
+  margin-top: 0.28rem;
+  padding: 0.34rem 0.56rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 99, 121, 0.68);
+  background: linear-gradient(140deg, rgba(98, 15, 28, 0.92) 0%, rgba(54, 8, 20, 0.88) 100%);
+  box-shadow: 0 0 0 1px rgba(255, 123, 144, 0.26), 0 8px 16px rgba(44, 5, 14, 0.35);
+}
+
+.gig-mirror-preview-karafun-title,
+.gig-mirror-preview-list-karafun-title {
+  color: #ffdbe1;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.gig-mirror-preview-karafun-meta,
+.gig-mirror-preview-list-karafun-meta {
+  color: #ffecef;
+  font-size: 0.79rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
 @keyframes mirror-preview-quote-fade {
   from {
     opacity: 0;
