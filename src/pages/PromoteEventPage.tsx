@@ -99,6 +99,13 @@ const THEME_CLASS_MAP: Record<ThemeKey, string> = {
 
 function PromoteEventPage() {
   const { event, hostEvents, setEventAudienceNoGigVisibility } = useQueueStore()
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.matchMedia('(max-width: 720px)').matches
+  })
   const previewRef = useRef<HTMLElement | null>(null)
   const headlineRef = useRef<HTMLDivElement | null>(null)
   const dragActiveRef = useRef(false)
@@ -135,6 +142,7 @@ function PromoteEventPage() {
   const [facebookShareError, setFacebookShareError] = useState<string | null>(null)
   const [selectedPromotionEventId, setSelectedPromotionEventId] = useState('')
   const [showVideoEditor, setShowVideoEditor] = useState(false)
+  const [showMobileAdvancedControls, setShowMobileAdvancedControls] = useState(false)
   const [eventFilterQuery, setEventFilterQuery] = useState('')
   const [promotionSaved, setPromotionSaved] = useState(false)
   const [promotionSaveError, setPromotionSaveError] = useState<string | null>(null)
@@ -213,6 +221,28 @@ function PromoteEventPage() {
       setShowVideoEditor(false)
     }
   }, [selectedEventId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const mediaQuery = window.matchMedia('(max-width: 720px)')
+    const onViewportChange = (event: MediaQueryListEvent) => setIsMobileViewport(event.matches)
+
+    setIsMobileViewport(mediaQuery.matches)
+    mediaQuery.addEventListener('change', onViewportChange)
+
+    return () => {
+      mediaQuery.removeEventListener('change', onViewportChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isMobileViewport) {
+      setShowMobileAdvancedControls(false)
+    }
+  }, [isMobileViewport])
 
   useEffect(() => {
     if (!selectedEventId) {
@@ -1574,7 +1604,8 @@ function PromoteEventPage() {
           </div>
         </div>
 
-        <div className="promote-export-panel">
+        {!isMobileViewport || showMobileAdvancedControls ? (
+          <div className="promote-export-panel">
 
           {/* ── Download image ── */}
           <div className="promote-export-group">
@@ -1675,8 +1706,45 @@ function PromoteEventPage() {
             {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
           </div>
 
-        </div>
+          </div>
+        ) : null}
       </section>
+
+      {isMobileViewport ? (
+        <section className="queue-panel promote-mobile-advanced-panel" aria-label="Advanced promo controls">
+          <div className="panel-head">
+            <h2>More Tools</h2>
+            <span className="meta-badge">Optional</span>
+          </div>
+          <p className="subcopy no-margin-bottom">Keep the preview front and center, or open the advanced export and video tools when you need them.</p>
+          <div className="hero-actions venue-link-row no-margin-bottom">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setShowMobileAdvancedControls((current) => !current)}
+            >
+              {showMobileAdvancedControls ? 'Hide Advanced Tools' : 'Show Advanced Tools'}
+            </button>
+            {showVideoEditor && selectedEventId ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowVideoEditor(false)}
+              >
+                Hide Video Editor
+              </button>
+            ) : selectedEventId ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowVideoEditor(true)}
+              >
+                Open Video Editor
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {showVideoEditor && selectedEventId ? (
         <section className="queue-panel promote-video-editor-panel" aria-label="Video editor">
@@ -1730,6 +1798,47 @@ function PromoteEventPage() {
           </div>
         </article>
       </section>
+
+      {!isMobileViewport ? (
+        <section className="queue-panel promote-preview-panel" aria-label="Promotional preview">
+          <div className="panel-head">
+            <h2>Live Preview</h2>
+            <span className="meta-badge">Professional Style</span>
+          </div>
+
+          <article
+            ref={previewRef}
+            className={`promote-canvas ${FORMAT_CLASS_MAP[format]} ${THEME_CLASS_MAP[activeTheme.key]}`}
+          >
+            {photoUrl ? <img src={photoUrl} alt="Promo background" className="promote-photo" /> : null}
+            <div className="promote-overlay" aria-hidden="true"></div>
+
+            <div className="promote-chip">
+              The Human Jukebox
+            </div>
+
+            <div
+              ref={headlineRef}
+              className={`promote-content promote-content-${headlinePosition} ${headlineDragging ? 'promote-content-dragging' : ''} promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${resolvedTextFrame}`}
+              onPointerDown={startHeadlineDrag}
+              role="presentation"
+            >
+              <p className="promote-overline">{eventDate}</p>
+              <h3>{title}</h3>
+              <p className="promote-subtitle">{subtitle}</p>
+              <p className="promote-description">{description}</p>
+            </div>
+
+            <div className={`promote-footer promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${resolvedTextFrame}`}>
+              <div>
+                <p className="promote-event-name">{eventName}</p>
+                <p className="promote-event-meta">{venue}</p>
+              </div>
+              <p className="promote-cta">{ctaText}</p>
+            </div>
+          </article>
+        </section>
+      ) : null}
     </section>
   )
 }

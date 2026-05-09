@@ -527,8 +527,14 @@
     order: 1;
   }
 
-  .promote-video-editor-panel {
+  .promote-mobile-advanced-panel {
     order: 2;
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .promote-video-editor-panel {
+    order: 3;
   }
 
   .promote-control-grid {
