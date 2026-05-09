@@ -62,6 +62,7 @@ type SaveFilePickerWindow = Window & {
 }
 
 const PROMOTION_DRAFT_STORAGE_KEY_PREFIX = 'human-jukebox-promo-draft:'
+const PROMOTION_VIDEO_DURATION_SECONDS = 30
 
 const THEMES: Theme[] = [
   {
@@ -121,8 +122,11 @@ function PromoteEventPage() {
   )
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   const [exportingImage, setExportingImage] = useState(false)
+  const [exportingVideo, setExportingVideo] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<string | null>(null)
+  const [videoError, setVideoError] = useState<string | null>(null)
+  const [videoStatus, setVideoStatus] = useState<string | null>(null)
   const [audienceVisibilitySaving, setAudienceVisibilitySaving] = useState(false)
   const [audienceVisibilitySaved, setAudienceVisibilitySaved] = useState(false)
   const [audienceVisibilityError, setAudienceVisibilityError] = useState<string | null>(null)
@@ -606,12 +610,368 @@ function PromoteEventPage() {
     }
   }, [promotionSaved])
 
+  const loadPhotoImage = useCallback(async () => {
+    if (!photoDataUrlRef.current) {
+      return null
+    }
+
+    const img = new Image()
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve()
+      img.onerror = () => resolve()
+      img.src = photoDataUrlRef.current!
+    })
+
+    return img.naturalWidth > 0 ? img : null
+  }, [])
+
+  const drawPromoteFrame = useCallback((
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    photoImage: HTMLImageElement | null,
+    animationProgress = 1,
+  ) => {
+    const t = Math.min(1, Math.max(0, animationProgress))
+    const easeInOut = t * t * (3 - 2 * t)
+    const headlineAlpha = Math.min(1, Math.max(0, (t - 0.08) / 0.22))
+    const footerAlpha = Math.min(1, Math.max(0, (t - 0.22) / 0.25))
+    const chipAlpha = Math.min(1, Math.max(0, (t - 0.02) / 0.2))
+
+    const PAD = Math.round(W * 0.045)
+    const RADIUS = Math.round(W * 0.04)
+
+    ctx.clearRect(0, 0, W, H)
+
+    // Rounded clip so exported media matches the live preview silhouette.
+    ctx.beginPath()
+    ctx.moveTo(RADIUS, 0)
+    ctx.lineTo(W - RADIUS, 0)
+    ctx.quadraticCurveTo(W, 0, W, RADIUS)
+    ctx.lineTo(W, H - RADIUS)
+    ctx.quadraticCurveTo(W, H, W - RADIUS, H)
+    ctx.lineTo(RADIUS, H)
+    ctx.quadraticCurveTo(0, H, 0, H - RADIUS)
+    ctx.lineTo(0, RADIUS)
+    ctx.quadraticCurveTo(0, 0, RADIUS, 0)
+    ctx.closePath()
+    ctx.save()
+    ctx.clip()
+
+    const themeGradients: Record<ThemeKey, [string, string, string, number][]> = {
+      none: [['#0f172a', '#0f172a', '#0f172a', 0]],
+      sunset: [['#3c1f1e', '#8d3f2f', '#f18c57', 140]],
+      midnight: [['#111827', '#1e3a8a', '#2563eb', 140]],
+      studio: [['#1f2937', '#334155', '#06b6d4', 140]],
+    }
+
+    const tg = themeGradients[theme]
+    if (tg[0][0] === tg[0][1] && tg[0][1] === tg[0][2]) {
+      ctx.fillStyle = tg[0][0]
+      ctx.fillRect(0, 0, W, H)
+    } else {
+      const [c0, c1, c2, angleDeg] = tg[0]
+      const rad = (angleDeg * Math.PI) / 180
+      const gx1 = W / 2 - (Math.cos(rad) * W) / 2
+      const gy1 = H / 2 - (Math.sin(rad) * H) / 2
+      const gx2 = W / 2 + (Math.cos(rad) * W) / 2
+      const gy2 = H / 2 + (Math.sin(rad) * H) / 2
+      const bg = ctx.createLinearGradient(gx1, gy1, gx2, gy2)
+      bg.addColorStop(0, c0)
+      bg.addColorStop(0.45, c1)
+      bg.addColorStop(1, c2)
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, W, H)
+    }
+
+    if (photoImage) {
+      const baseScale = Math.max(W / photoImage.naturalWidth, H / photoImage.naturalHeight)
+      const zoom = 1.02 + 0.06 * easeInOut
+      const dw = photoImage.naturalWidth * baseScale * zoom
+      const dh = photoImage.naturalHeight * baseScale * zoom
+      const driftX = (0.5 - easeInOut) * W * 0.04
+      const driftY = (0.5 - easeInOut) * H * 0.02
+      const dx = (W - dw) / 2 + driftX
+      const dy = (H - dh) / 2 + driftY
+      ctx.save()
+      ctx.filter = `brightness(${photoBrightnessAdj}) contrast(${photoContrast}) saturate(${photoSaturation})`
+      ctx.drawImage(photoImage, dx, dy, dw, dh)
+      ctx.filter = 'none'
+      ctx.restore()
+    }
+
+    const overlay = ctx.createLinearGradient(0, 0, 0, H)
+    overlay.addColorStop(0, 'rgba(0,0,0,0)')
+    overlay.addColorStop(1, `rgba(0,0,0,${0.35 + 0.12 * easeInOut})`)
+    ctx.fillStyle = overlay
+    ctx.fillRect(0, 0, W, H)
+
+    const accentMap: Record<ThemeKey, string> = {
+      none: '#94a3b8',
+      sunset: '#ffd3a1',
+      midnight: '#93c5fd',
+      studio: '#a5f3fc',
+    }
+    const accent = accentMap[theme]
+
+    const fontFamilyMap: Record<FontChoice, string> = {
+      default: 'system-ui, -apple-system, sans-serif',
+      serif: 'Georgia, serif',
+      slab: '"Courier New", Courier, monospace',
+      mono: 'Monaco, monospace',
+    }
+    const ff = fontFamilyMap[fontChoice]
+    const fw = textBold ? '700' : '500'
+    const textColorResolved = textColor || '#f8fafc'
+
+    const shadowMap: Record<TextShadow, string | null> = {
+      none: null,
+      light: 'rgba(15,23,42,0.6)',
+      medium: 'rgba(15,23,42,0.75)',
+      strong: 'rgba(0,0,0,0.9)',
+    }
+    const shadowColor = shadowMap[textShadow]
+    if (shadowColor) {
+      ctx.shadowColor = shadowColor
+      ctx.shadowBlur = textShadow === 'strong' ? 18 : textShadow === 'medium' ? 12 : 8
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 2
+    }
+
+    const drawText = (
+      textValue: string,
+      x: number,
+      y: number,
+      fontSize: number,
+      maxWidth: number,
+      opts: { align?: CanvasTextAlign; color?: string; weight?: string } = {},
+    ) => {
+      if (!textValue) return
+      ctx.save()
+      ctx.font = `${opts.weight ?? fw} ${fontSize}px ${ff}`
+      ctx.fillStyle = opts.color ?? textColorResolved
+      ctx.textAlign = opts.align ?? 'left'
+      ctx.textBaseline = 'top'
+      const words = textValue.split(' ')
+      let line = ''
+      let lineY = y
+      const lineH = fontSize * 1.25
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word
+        if (ctx.measureText(test).width > maxWidth && line) {
+          ctx.fillText(line, x, lineY, maxWidth)
+          line = word
+          lineY += lineH
+        } else {
+          line = test
+        }
+      }
+      if (line) ctx.fillText(line, x, lineY, maxWidth)
+      ctx.restore()
+    }
+
+    const CHIP_FONT = Math.round(W * 0.028)
+    const CHIP_PX = Math.round(W * 0.022)
+    const CHIP_PY = Math.round(W * 0.014)
+    const chipLabel = 'The Human Jukebox'
+    ctx.save()
+    ctx.globalAlpha = chipAlpha
+    ctx.font = `500 ${CHIP_FONT}px ${ff}`
+    const chipW = ctx.measureText(chipLabel).width + CHIP_PX * 2
+    const chipH = CHIP_FONT + CHIP_PY * 2
+    const chipX = PAD
+    const chipY = PAD
+    ctx.strokeStyle = accent
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    const chipR = chipH / 2
+    ctx.moveTo(chipX + chipR, chipY)
+    ctx.lineTo(chipX + chipW - chipR, chipY)
+    ctx.quadraticCurveTo(chipX + chipW, chipY, chipX + chipW, chipY + chipR)
+    ctx.lineTo(chipX + chipW, chipY + chipH - chipR)
+    ctx.quadraticCurveTo(chipX + chipW, chipY + chipH, chipX + chipW - chipR, chipY + chipH)
+    ctx.lineTo(chipX + chipR, chipY + chipH)
+    ctx.quadraticCurveTo(chipX, chipY + chipH, chipX, chipY + chipH - chipR)
+    ctx.lineTo(chipX, chipY + chipR)
+    ctx.quadraticCurveTo(chipX, chipY, chipX + chipR, chipY)
+    ctx.closePath()
+    ctx.fillStyle = 'rgba(15,23,42,0.36)'
+    ctx.fill()
+    ctx.stroke()
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+    ctx.fillStyle = '#f8fafc'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(chipLabel, chipX + CHIP_PX, chipY + chipH / 2)
+    ctx.restore()
+
+    const CONTENT_W = W - PAD * 2
+    const drawFrame = (fx: number, fy: number, fw2: number, fh: number) => {
+      const tf = resolvedTextFrame
+      if (tf === 'none') return
+      ctx.save()
+      ctx.shadowColor = 'transparent'
+      ctx.shadowBlur = 0
+      const fr = Math.round(W * 0.025)
+      ctx.beginPath()
+      ctx.moveTo(fx + fr, fy)
+      ctx.lineTo(fx + fw2 - fr, fy)
+      ctx.quadraticCurveTo(fx + fw2, fy, fx + fw2, fy + fr)
+      ctx.lineTo(fx + fw2, fy + fh - fr)
+      ctx.quadraticCurveTo(fx + fw2, fy + fh, fx + fw2 - fr, fy + fh)
+      ctx.lineTo(fx + fr, fy + fh)
+      ctx.quadraticCurveTo(fx, fy + fh, fx, fy + fh - fr)
+      ctx.lineTo(fx, fy + fr)
+      ctx.quadraticCurveTo(fx, fy, fx + fr, fy)
+      ctx.closePath()
+      ctx.fillStyle = tf === 'light'
+        ? `rgba(255,255,255,${0.12 + framePadding * 0.12})`
+        : `rgba(0,0,0,${0.28 + framePadding * 0.18})`
+      ctx.fill()
+      ctx.restore()
+    }
+
+    const OVERLINE_SIZE = Math.round(W * 0.030 * textScale)
+    const TITLE_SIZE = Math.round(W * 0.082 * textScale)
+    const SUBTITLE_SIZE = Math.round(W * 0.037 * textScale)
+    const DESC_SIZE = Math.round(W * 0.033 * textScale)
+    const LINE_GAP = Math.round(W * 0.012)
+
+    const measureBlockHeight = () => {
+      let h = 0
+      if (eventDate) h += OVERLINE_SIZE * 1.25 + LINE_GAP
+      if (title) h += TITLE_SIZE * 1.25 + LINE_GAP
+      if (subtitle) h += SUBTITLE_SIZE * 1.25 + LINE_GAP
+      if (description) {
+        ctx.font = `${fw} ${DESC_SIZE}px ${ff}`
+        const words = description.split(' ')
+        let lines = 1
+        let line = ''
+        for (const word of words) {
+          const test = line ? `${line} ${word}` : word
+          if (ctx.measureText(test).width > CONTENT_W && line) {
+            lines++
+            line = word
+          } else {
+            line = test
+          }
+        }
+        h += lines * DESC_SIZE * 1.25
+      }
+      return h
+    }
+
+    const blockH = measureBlockHeight()
+    const anchorYFrac = headlineAnchor.y / 100
+    const enterOffset = Math.round((1 - easeInOut) * H * 0.06)
+    const blockTopY = Math.round(H * anchorYFrac - blockH / 2 + enterOffset)
+    const FRAME_PAD = Math.round(W * 0.025)
+
+    ctx.save()
+    ctx.globalAlpha = headlineAlpha
+    drawFrame(PAD - FRAME_PAD, blockTopY - FRAME_PAD, CONTENT_W + FRAME_PAD * 2, blockH + FRAME_PAD * 2)
+
+    let ty = blockTopY
+    if (eventDate) {
+      drawText(eventDate.toUpperCase(), PAD, ty, OVERLINE_SIZE, CONTENT_W)
+      ty += OVERLINE_SIZE * 1.25 + LINE_GAP
+    }
+    if (title) {
+      ctx.save()
+      ctx.font = `700 ${TITLE_SIZE}px ${ff}`
+      ctx.fillStyle = textColorResolved
+      ctx.textBaseline = 'top'
+      const words = title.split(' ')
+      let line = ''
+      const lineH = TITLE_SIZE * 1.15
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word
+        if (ctx.measureText(test).width > CONTENT_W && line) {
+          ctx.fillText(line, PAD, ty, CONTENT_W)
+          line = word
+          ty += lineH
+        } else {
+          line = test
+        }
+      }
+      if (line) {
+        ctx.fillText(line, PAD, ty, CONTENT_W)
+        ty += lineH
+      }
+      ctx.restore()
+      ty += LINE_GAP
+    }
+    if (subtitle) {
+      drawText(subtitle, PAD, ty, SUBTITLE_SIZE, CONTENT_W)
+      ty += SUBTITLE_SIZE * 1.25 + LINE_GAP
+    }
+    if (description) {
+      drawText(description, PAD, ty, DESC_SIZE, CONTENT_W, { color: `${textColorResolved}ee` })
+    }
+    ctx.restore()
+
+    const FOOT_NAME_SIZE = Math.round(W * 0.036 * textScale)
+    const FOOT_META_SIZE = Math.round(W * 0.030 * textScale)
+    const FOOT_H = FOOT_NAME_SIZE + FOOT_META_SIZE * 1.4 + Math.round(W * 0.02) + Math.round(W * 0.035)
+    const footerY = H - PAD - FOOT_H
+    const footTextY = footerY + Math.round(W * 0.018)
+
+    ctx.save()
+    ctx.globalAlpha = footerAlpha
+    ctx.strokeStyle = accent
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.moveTo(PAD, footerY)
+    ctx.lineTo(W - PAD, footerY)
+    ctx.stroke()
+
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+    ctx.font = `700 ${FOOT_NAME_SIZE}px ${ff}`
+    ctx.fillStyle = textColorResolved
+    ctx.textBaseline = 'top'
+    if (eventName) ctx.fillText(eventName, PAD, footTextY, CONTENT_W * 0.65)
+    ctx.font = `${fw} ${FOOT_META_SIZE}px ${ff}`
+    ctx.fillStyle = `${textColorResolved}ee`
+    if (venue) ctx.fillText(venue, PAD, footTextY + FOOT_NAME_SIZE * 1.3, CONTENT_W * 0.65)
+    if (ctaText) {
+      ctx.textAlign = 'right'
+      ctx.font = `${fw} ${FOOT_META_SIZE}px ${ff}`
+      ctx.fillStyle = accent
+      ctx.fillText(ctaText, W - PAD, footTextY + FOOT_NAME_SIZE * 0.3, CONTENT_W * 0.45)
+    }
+    ctx.restore()
+
+    ctx.restore()
+  }, [
+    ctaText,
+    description,
+    eventDate,
+    eventName,
+    fontChoice,
+    framePadding,
+    headlineAnchor.y,
+    photoBrightnessAdj,
+    photoContrast,
+    photoSaturation,
+    resolvedTextFrame,
+    textBold,
+    textColor,
+    textScale,
+    textShadow,
+    theme,
+    title,
+    subtitle,
+    venue,
+  ])
+
   const exportImage = async (type: 'png' | 'jpg') => {
-    if (exportingImage) {
+    if (exportingImage || exportingVideo) {
       return
     }
 
     setExportError(null)
+    setVideoError(null)
     setExportStatus(null)
     setExportingImage(true)
 
@@ -624,325 +984,14 @@ function PromoteEventPage() {
     try {
       const W = targetDimensions.width
       const H = targetDimensions.height
-      const PAD = Math.round(W * 0.045)
-      const RADIUS = Math.round(W * 0.04)
-
       const canvas = document.createElement('canvas')
       canvas.width = W
       canvas.height = H
       const ctx = canvas.getContext('2d')
       if (!ctx) throw new Error('Canvas not available on this device.')
 
-      // ── rounded clip ──────────────────────────────────────────────────────
-      ctx.beginPath()
-      ctx.moveTo(RADIUS, 0)
-      ctx.lineTo(W - RADIUS, 0)
-      ctx.quadraticCurveTo(W, 0, W, RADIUS)
-      ctx.lineTo(W, H - RADIUS)
-      ctx.quadraticCurveTo(W, H, W - RADIUS, H)
-      ctx.lineTo(RADIUS, H)
-      ctx.quadraticCurveTo(0, H, 0, H - RADIUS)
-      ctx.lineTo(0, RADIUS)
-      ctx.quadraticCurveTo(0, 0, RADIUS, 0)
-      ctx.closePath()
-      ctx.save()
-      ctx.clip()
-
-      // ── theme background ──────────────────────────────────────────────────
-      const themeGradients: Record<ThemeKey, [string, string, string, number][]> = {
-        none:     [['#0f172a', '#0f172a', '#0f172a', 0]],
-        sunset:   [['#3c1f1e', '#8d3f2f', '#f18c57', 140]],
-        midnight: [['#111827', '#1e3a8a', '#2563eb', 140]],
-        studio:   [['#1f2937', '#334155', '#06b6d4', 140]],
-      }
-      const tg = themeGradients[theme]
-      if (tg[0][0] === tg[0][1] && tg[0][1] === tg[0][2]) {
-        ctx.fillStyle = tg[0][0]
-        ctx.fillRect(0, 0, W, H)
-      } else {
-        const [c0, c1, c2, angleDeg] = tg[0]
-        const rad = (angleDeg * Math.PI) / 180
-        const gx1 = W / 2 - (Math.cos(rad) * W) / 2
-        const gy1 = H / 2 - (Math.sin(rad) * H) / 2
-        const gx2 = W / 2 + (Math.cos(rad) * W) / 2
-        const gy2 = H / 2 + (Math.sin(rad) * H) / 2
-        const bg = ctx.createLinearGradient(gx1, gy1, gx2, gy2)
-        bg.addColorStop(0, c0)
-        bg.addColorStop(0.45, c1)
-        bg.addColorStop(1, c2)
-        ctx.fillStyle = bg
-        ctx.fillRect(0, 0, W, H)
-      }
-
-      // ── photo ─────────────────────────────────────────────────────────────
-      if (photoDataUrlRef.current) {
-        const img = new Image()
-        await new Promise<void>((resolve) => {
-          img.onload = () => resolve()
-          img.onerror = () => resolve()   // continue even if photo fails
-          img.src = photoDataUrlRef.current!
-        })
-        if (img.naturalWidth > 0) {
-          // cover-fit
-          const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight)
-          const dw = img.naturalWidth * scale
-          const dh = img.naturalHeight * scale
-          const dx = (W - dw) / 2
-          const dy = (H - dh) / 2
-          ctx.save()
-          ctx.filter = `brightness(${photoBrightnessAdj}) contrast(${photoContrast}) saturate(${photoSaturation})`
-          ctx.drawImage(img, dx, dy, dw, dh)
-          ctx.filter = 'none'
-          ctx.restore()
-        }
-      }
-
-      // ── dark overlay ──────────────────────────────────────────────────────
-      const overlay = ctx.createLinearGradient(0, 0, 0, H)
-      overlay.addColorStop(0, 'rgba(0,0,0,0)')
-      overlay.addColorStop(1, 'rgba(0,0,0,0.45)')
-      ctx.fillStyle = overlay
-      ctx.fillRect(0, 0, W, H)
-
-      // ── theme accent colour ───────────────────────────────────────────────
-      const accentMap: Record<ThemeKey, string> = {
-        none:     '#94a3b8',
-        sunset:   '#ffd3a1',
-        midnight: '#93c5fd',
-        studio:   '#a5f3fc',
-      }
-      const accent = accentMap[theme]
-
-      // ── font helpers ──────────────────────────────────────────────────────
-      const fontFamilyMap: Record<FontChoice, string> = {
-        default: 'system-ui, -apple-system, sans-serif',
-        serif:   'Georgia, serif',
-        slab:    '"Courier New", Courier, monospace',
-        mono:    'Monaco, monospace',
-      }
-      const ff = fontFamilyMap[fontChoice]
-      const fw = textBold ? '700' : '500'
-      const textColorResolved = textColor || '#f8fafc'
-
-      const shadowMap: Record<TextShadow, string | null> = {
-        none:   null,
-        light:  'rgba(15,23,42,0.6)',
-        medium: 'rgba(15,23,42,0.75)',
-        strong: 'rgba(0,0,0,0.9)',
-      }
-      const shadowColor = shadowMap[textShadow]
-      if (shadowColor) {
-        ctx.shadowColor = shadowColor
-        ctx.shadowBlur = textShadow === 'strong' ? 18 : textShadow === 'medium' ? 12 : 8
-        ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = 2
-      }
-
-      const drawText = (
-        text: string,
-        x: number,
-        y: number,
-        fontSize: number,
-        maxWidth: number,
-        opts: { align?: CanvasTextAlign; color?: string; weight?: string } = {},
-      ) => {
-        if (!text) return
-        ctx.save()
-        ctx.font = `${opts.weight ?? fw} ${fontSize}px ${ff}`
-        ctx.fillStyle = opts.color ?? textColorResolved
-        ctx.textAlign = opts.align ?? 'left'
-        ctx.textBaseline = 'top'
-        // word-wrap
-        const words = text.split(' ')
-        let line = ''
-        let lineY = y
-        const lineH = fontSize * 1.25
-        for (const word of words) {
-          const test = line ? `${line} ${word}` : word
-          if (ctx.measureText(test).width > maxWidth && line) {
-            ctx.fillText(line, x, lineY, maxWidth)
-            line = word
-            lineY += lineH
-          } else {
-            line = test
-          }
-        }
-        if (line) ctx.fillText(line, x, lineY, maxWidth)
-        ctx.restore()
-      }
-
-      // ── chip (top-left badge) ─────────────────────────────────────────────
-      const CHIP_FONT = Math.round(W * 0.028)
-      const CHIP_PX = Math.round(W * 0.022)
-      const CHIP_PY = Math.round(W * 0.014)
-      const chipLabel = 'The Human Jukebox'
-      ctx.save()
-      ctx.font = `500 ${CHIP_FONT}px ${ff}`
-      const chipW = ctx.measureText(chipLabel).width + CHIP_PX * 2
-      const chipH = CHIP_FONT + CHIP_PY * 2
-      const chipX = PAD
-      const chipY = PAD
-      ctx.strokeStyle = accent
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      const chipR = chipH / 2
-      ctx.moveTo(chipX + chipR, chipY)
-      ctx.lineTo(chipX + chipW - chipR, chipY)
-      ctx.quadraticCurveTo(chipX + chipW, chipY, chipX + chipW, chipY + chipR)
-      ctx.lineTo(chipX + chipW, chipY + chipH - chipR)
-      ctx.quadraticCurveTo(chipX + chipW, chipY + chipH, chipX + chipW - chipR, chipY + chipH)
-      ctx.lineTo(chipX + chipR, chipY + chipH)
-      ctx.quadraticCurveTo(chipX, chipY + chipH, chipX, chipY + chipH - chipR)
-      ctx.lineTo(chipX, chipY + chipR)
-      ctx.quadraticCurveTo(chipX, chipY, chipX + chipR, chipY)
-      ctx.closePath()
-      ctx.fillStyle = 'rgba(15,23,42,0.36)'
-      ctx.fill()
-      ctx.stroke()
-      ctx.restore()
-      ctx.save()
-      ctx.shadowColor = 'transparent'
-      ctx.shadowBlur = 0
-      ctx.font = `500 ${CHIP_FONT}px ${ff}`
-      ctx.fillStyle = '#f8fafc'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(chipLabel, chipX + CHIP_PX, chipY + chipH / 2)
-      ctx.restore()
-      if (shadowColor) {
-        ctx.shadowColor = shadowColor
-        ctx.shadowBlur = textShadow === 'strong' ? 18 : textShadow === 'medium' ? 12 : 8
-      }
-
-      // ── text frame helper ─────────────────────────────────────────────────
-      const CONTENT_W = W - PAD * 2
-      const drawFrame = (fx: number, fy: number, fw2: number, fh: number) => {
-        const tf = resolvedTextFrame
-        if (tf === 'none') return
-        ctx.save()
-        ctx.shadowColor = 'transparent'
-        ctx.shadowBlur = 0
-        const fr = Math.round(W * 0.025)
-        ctx.beginPath()
-        ctx.moveTo(fx + fr, fy)
-        ctx.lineTo(fx + fw2 - fr, fy)
-        ctx.quadraticCurveTo(fx + fw2, fy, fx + fw2, fy + fr)
-        ctx.lineTo(fx + fw2, fy + fh - fr)
-        ctx.quadraticCurveTo(fx + fw2, fy + fh, fx + fw2 - fr, fy + fh)
-        ctx.lineTo(fx + fr, fy + fh)
-        ctx.quadraticCurveTo(fx, fy + fh, fx, fy + fh - fr)
-        ctx.lineTo(fx, fy + fr)
-        ctx.quadraticCurveTo(fx, fy, fx + fr, fy)
-        ctx.closePath()
-        ctx.fillStyle = tf === 'light'
-          ? `rgba(255,255,255,${0.12 + framePadding * 0.12})`
-          : `rgba(0,0,0,${0.28 + framePadding * 0.18})`
-        ctx.fill()
-        ctx.restore()
-      }
-
-      // ── headline block ────────────────────────────────────────────────────
-      const OVERLINE_SIZE  = Math.round(W * 0.030 * textScale)
-      const TITLE_SIZE     = Math.round(W * 0.082 * textScale)
-      const SUBTITLE_SIZE  = Math.round(W * 0.037 * textScale)
-      const DESC_SIZE      = Math.round(W * 0.033 * textScale)
-      const LINE_GAP       = Math.round(W * 0.012)
-
-      const measureBlockHeight = () => {
-        let h = 0
-        if (eventDate) h += OVERLINE_SIZE * 1.25 + LINE_GAP
-        if (title)     h += TITLE_SIZE * 1.25 + LINE_GAP
-        if (subtitle)  h += SUBTITLE_SIZE * 1.25 + LINE_GAP
-        if (description) {
-          ctx.font = `${fw} ${DESC_SIZE}px ${ff}`
-          const words = description.split(' ')
-          let lines = 1, line = ''
-          for (const word of words) {
-            const test = line ? `${line} ${word}` : word
-            if (ctx.measureText(test).width > CONTENT_W && line) { lines++; line = word } else { line = test }
-          }
-          h += lines * DESC_SIZE * 1.25
-        }
-        return h
-      }
-
-      const blockH = measureBlockHeight()
-      const anchorYFrac = headlineAnchor.y / 100
-      const blockTopY = Math.round(H * anchorYFrac - blockH / 2)
-      const FRAME_PAD = Math.round(W * 0.025)
-
-      drawFrame(PAD - FRAME_PAD, blockTopY - FRAME_PAD, CONTENT_W + FRAME_PAD * 2, blockH + FRAME_PAD * 2)
-
-      let ty = blockTopY
-      if (eventDate) {
-        drawText(eventDate.toUpperCase(), PAD, ty, OVERLINE_SIZE, CONTENT_W)
-        ty += OVERLINE_SIZE * 1.25 + LINE_GAP
-      }
-      if (title) {
-        ctx.save()
-        ctx.font = `700 ${TITLE_SIZE}px ${ff}`
-        ctx.fillStyle = textColorResolved
-        ctx.textBaseline = 'top'
-        // word-wrap title
-        const words = title.split(' ')
-        let line = ''
-        const lineH = TITLE_SIZE * 1.15
-        for (const word of words) {
-          const test = line ? `${line} ${word}` : word
-          if (ctx.measureText(test).width > CONTENT_W && line) {
-            ctx.fillText(line, PAD, ty, CONTENT_W)
-            line = word; ty += lineH
-          } else { line = test }
-        }
-        if (line) { ctx.fillText(line, PAD, ty, CONTENT_W); ty += lineH }
-        ctx.restore()
-        ty += LINE_GAP
-      }
-      if (subtitle) {
-        drawText(subtitle, PAD, ty, SUBTITLE_SIZE, CONTENT_W)
-        ty += SUBTITLE_SIZE * 1.25 + LINE_GAP
-      }
-      if (description) {
-        drawText(description, PAD, ty, DESC_SIZE, CONTENT_W, { color: `${textColorResolved}ee` })
-      }
-
-      // ── footer ────────────────────────────────────────────────────────────
-      ctx.shadowColor = 'transparent'
-      ctx.shadowBlur = 0
-      const FOOT_NAME_SIZE = Math.round(W * 0.036 * textScale)
-      const FOOT_META_SIZE = Math.round(W * 0.030 * textScale)
-      const FOOT_H = FOOT_NAME_SIZE + FOOT_META_SIZE * 1.4 + Math.round(W * 0.02) + Math.round(W * 0.035)
-      const footerY = H - PAD - FOOT_H
-
-      // footer divider line
-      ctx.save()
-      ctx.strokeStyle = accent
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.moveTo(PAD, footerY)
-      ctx.lineTo(W - PAD, footerY)
-      ctx.stroke()
-      ctx.restore()
-
-      const footTextY = footerY + Math.round(W * 0.018)
-      ctx.save()
-      ctx.shadowColor = 'transparent'
-      ctx.shadowBlur = 0
-      ctx.font = `700 ${FOOT_NAME_SIZE}px ${ff}`
-      ctx.fillStyle = textColorResolved
-      ctx.textBaseline = 'top'
-      if (eventName) ctx.fillText(eventName, PAD, footTextY, CONTENT_W * 0.65)
-      ctx.font = `${fw} ${FOOT_META_SIZE}px ${ff}`
-      ctx.fillStyle = `${textColorResolved}ee`
-      if (venue) ctx.fillText(venue, PAD, footTextY + FOOT_NAME_SIZE * 1.3, CONTENT_W * 0.65)
-      if (ctaText) {
-        ctx.textAlign = 'right'
-        ctx.font = `${fw} ${FOOT_META_SIZE}px ${ff}`
-        ctx.fillStyle = accent
-        ctx.fillText(ctaText, W - PAD, footTextY + FOOT_NAME_SIZE * 0.3, CONTENT_W * 0.45)
-      }
-      ctx.restore()
-
-      ctx.restore() // end clip
+      const photoImage = await loadPhotoImage()
+      drawPromoteFrame(ctx, W, H, photoImage, 1)
 
       // ── encode & download ─────────────────────────────────────────────────
       const mimeType = type === 'png' ? 'image/png' : 'image/jpeg'
@@ -1038,6 +1087,117 @@ function PromoteEventPage() {
       setExportError(error instanceof Error ? `Export failed: ${error.message}` : 'Could not export image — please try again.')
     } finally {
       setExportingImage(false)
+    }
+  }
+
+  const exportVideo = async () => {
+    if (exportingImage || exportingVideo) {
+      return
+    }
+
+    setVideoError(null)
+    setExportError(null)
+    setVideoStatus(null)
+    setExportStatus(null)
+    setExportingVideo(true)
+
+    const sanitizedEventName = eventName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'promote-event'
+
+    const fps = 24
+    const frameDelayMs = Math.round(1000 / fps)
+    const totalFrames = PROMOTION_VIDEO_DURATION_SECONDS * fps
+
+    try {
+      if (typeof MediaRecorder === 'undefined') {
+        throw new Error('Video recording is not supported on this browser/device. Use desktop Chrome or Edge.')
+      }
+
+      const W = targetDimensions.width
+      const H = targetDimensions.height
+      const canvas = document.createElement('canvas')
+      canvas.width = W
+      canvas.height = H
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        throw new Error('Canvas not available on this device.')
+      }
+
+      const photoImage = await loadPhotoImage()
+      drawPromoteFrame(ctx, W, H, photoImage, 0)
+
+      const mimeCandidates = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+      ]
+      const supportedMimeType = mimeCandidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? ''
+      const stream = canvas.captureStream(fps)
+      const recorder = supportedMimeType
+        ? new MediaRecorder(stream, { mimeType: supportedMimeType })
+        : new MediaRecorder(stream)
+
+      const chunks: BlobPart[] = []
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunks.push(event.data)
+        }
+      }
+
+      const finished = new Promise<void>((resolve, reject) => {
+        recorder.onstop = () => resolve()
+        recorder.onerror = (event) => {
+          reject(event.error ?? new Error('Video recorder failed unexpectedly.'))
+        }
+      })
+
+      recorder.start(1000)
+      setVideoStatus(`Recording ${PROMOTION_VIDEO_DURATION_SECONDS}s video... keep this tab open.`)
+
+      for (let frame = 0; frame < totalFrames; frame += 1) {
+        const progress = frame / Math.max(1, totalFrames - 1)
+        drawPromoteFrame(ctx, W, H, photoImage, progress)
+        await new Promise<void>((resolve) => {
+          window.setTimeout(() => resolve(), frameDelayMs)
+        })
+      }
+
+      recorder.stop()
+      await finished
+      stream.getTracks().forEach((track) => track.stop())
+
+      const mimeType = supportedMimeType || 'video/webm'
+      const blob = new Blob(chunks, { type: mimeType })
+      if (!blob.size) {
+        throw new Error('Video export produced an empty file. Please try again.')
+      }
+
+      const fileName = `${sanitizedEventName}-${platform}-${format}-${targetDimensions.width}x${targetDimensions.height}-${PROMOTION_VIDEO_DURATION_SECONDS}s.webm`
+      const objectUrl = URL.createObjectURL(blob)
+
+      try {
+        const link = document.createElement('a')
+        link.download = fileName
+        link.href = objectUrl
+        link.rel = 'noopener'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } finally {
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000)
+      }
+
+      setVideoStatus('Video download started — check your Downloads folder or browser bar.')
+      window.setTimeout(() => setVideoStatus(null), 6000)
+    } catch (error) {
+      console.warn('PromoteEventPage: video export failed', error)
+      setVideoError(error instanceof Error ? `Video export failed: ${error.message}` : 'Could not export video — please try again.')
+      setVideoStatus(null)
+    } finally {
+      setExportingVideo(false)
     }
   }
 
@@ -1399,7 +1559,7 @@ function PromoteEventPage() {
                 type="button"
                 className="promote-export-btn promote-export-btn-png"
                 onClick={() => void exportImage('png')}
-                disabled={exportingImage}
+                disabled={exportingImage || exportingVideo}
               >
                 <span className="promote-export-btn-icon">⬇</span>
                 <span className="promote-export-btn-body">
@@ -1411,7 +1571,7 @@ function PromoteEventPage() {
                 type="button"
                 className="promote-export-btn promote-export-btn-jpg"
                 onClick={() => void exportImage('jpg')}
-                disabled={exportingImage}
+                disabled={exportingImage || exportingVideo}
               >
                 <span className="promote-export-btn-icon">⬇</span>
                 <span className="promote-export-btn-body">
@@ -1423,6 +1583,27 @@ function PromoteEventPage() {
             {exportingImage ? <p className="promote-export-status">Generating image…</p> : null}
             {exportStatus && !exportingImage ? <p className="promote-export-status">{exportStatus}</p> : null}
             {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
+          </div>
+
+          <div className="promote-export-group">
+            <p className="promote-export-group-label">Create Short Video</p>
+            <div className="promote-export-buttons promote-export-buttons-single">
+              <button
+                type="button"
+                className="promote-export-btn promote-export-btn-video"
+                onClick={() => void exportVideo()}
+                disabled={exportingImage || exportingVideo}
+              >
+                <span className="promote-export-btn-icon">▶</span>
+                <span className="promote-export-btn-body">
+                  <strong>30s WebM Video</strong>
+                  <span>Animated promo clip · {targetDimensions.width}×{targetDimensions.height}</span>
+                </span>
+              </button>
+            </div>
+            {exportingVideo ? <p className="promote-export-status">Recording video…</p> : null}
+            {videoStatus && !exportingVideo ? <p className="promote-export-status">{videoStatus}</p> : null}
+            {videoError ? <p className="error-text no-margin-bottom">{videoError}</p> : null}
           </div>
 
           {/* ── Share ── */}
