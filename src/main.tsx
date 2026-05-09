@@ -243,6 +243,19 @@ async function registerProductionServiceWorker() {
     // a precache manifest of all Vite build artifacts for instant resume.
     const registration = await navigator.serviceWorker.register('/pwa-worker.js')
     console.info('Service worker registered', registration.scope)
+
+    // Eagerly check for a new SW version right after registration so mobile
+    // PWA users don't have to navigate away and back to trigger an update check.
+    void registration.update().catch(() => {
+      // Ignore update-check failures (offline, etc.).
+    })
+
+    // When skipWaiting causes a new SW to take control, reload so the new
+    // code is actually executed. Without this, clients keep running the old
+    // JS bundle even though the new SW is serving new assets.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload()
+    })
   } catch (error) {
     console.error('Service worker registration failed', error)
   }
