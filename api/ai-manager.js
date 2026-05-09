@@ -16,7 +16,79 @@ Guardrails:
 - Never invent venue data or metrics - only use provided context.
 - Never invent historical facts about artists or managers. If unsure, keep references general and practical.
 - Keep humor light and occasional, never mocking the user.
-- Focus on what helps Harald get booked.`
+- Focus on what helps Harald get booked.
+
+Calendar operations:
+- If Harald clearly asks you to add, update, or remove calendar entries, include machine-readable actions.
+- Keep your normal human reply, then append exactly one final line:
+  CALENDAR_ACTIONS_JSON:[{"action":"upsert|delete","date":"YYYY-MM-DD","status":"free|booked","venueName":"","city":"","contact":"","fee":"","notes":""}]
+- Use action=delete with date only when removing a date.
+- If no calendar change is requested, do not include CALENDAR_ACTIONS_JSON.`
+
+function normalizeCalendarText(value) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function isIsoDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+function extractCalendarActions(reply) {
+  if (typeof reply !== 'string') {
+    return { cleanedReply: '', calendarActions: [] }
+  }
+
+  const marker = 'CALENDAR_ACTIONS_JSON:'
+  const markerIndex = reply.lastIndexOf(marker)
+
+  if (markerIndex === -1) {
+    return { cleanedReply: reply.trim(), calendarActions: [] }
+  }
+
+  const before = reply.slice(0, markerIndex).trim()
+  const rawJson = reply.slice(markerIndex + marker.length).trim()
+
+  let parsed
+  try {
+    parsed = JSON.parse(rawJson)
+  } catch {
+    return { cleanedReply: reply.trim(), calendarActions: [] }
+  }
+
+  const list = Array.isArray(parsed) ? parsed : []
+  const calendarActions = list
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null
+      }
+
+      const action = entry.action === 'delete' ? 'delete' : 'upsert'
+      const date = normalizeCalendarText(entry.date)
+
+      if (!isIsoDate(date)) {
+        return null
+      }
+
+      const status = entry.status === 'booked' ? 'booked' : 'free'
+
+      return {
+        action,
+        date,
+        status,
+        venueName: normalizeCalendarText(entry.venueName),
+        city: normalizeCalendarText(entry.city),
+        contact: normalizeCalendarText(entry.contact),
+        fee: normalizeCalendarText(entry.fee),
+        notes: normalizeCalendarText(entry.notes),
+      }
+    })
+    .filter(Boolean)
+
+  return {
+    cleanedReply: before || 'Updated your calendar plan.',
+    calendarActions,
+  }
+}
 
 const MANAGER_PROFILES = {
   brian: {
@@ -351,8 +423,10 @@ export default async function handler(req, res) {
     })
 
     if (result.ok) {
+      const parsed = extractCalendarActions(result.reply)
       res.status(200).json({
-        reply: result.reply,
+        reply: parsed.cleanedReply,
+        calendarActions: parsed.calendarActions,
         connected: true,
         provider: candidate,
         model: candidateModel,

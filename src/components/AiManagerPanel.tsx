@@ -7,6 +7,17 @@ type Message = {
   content: string
 }
 
+type CalendarAction = {
+  action: 'upsert' | 'delete'
+  date: string
+  status?: 'free' | 'booked'
+  venueName?: string
+  city?: string
+  contact?: string
+  fee?: string
+  notes?: string
+}
+
 type PipelineContext = {
   analytics: {
     sentCount: number
@@ -81,6 +92,7 @@ const OUTREACH_STAGE_STORAGE_KEY = 'human-jukebox-outreach-stage-map'
 const OUTREACH_TASKS_STORAGE_KEY = 'human-jukebox-outreach-tasks'
 const OUTREACH_SESSION_STORAGE_KEY = 'human-jukebox-outreach-session'
 const OUTREACH_CALENDAR_STORAGE_KEY = 'human-jukebox-outreach-calendar'
+const CALENDAR_UPDATED_EVENT = 'human-jukebox-calendar-updated'
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10)
@@ -100,6 +112,42 @@ function safeParse(value: string | null) {
 
 function isIsoDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+function normalizeText(value: unknown) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeCalendarActions(value: unknown): CalendarAction[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null
+      }
+
+      const action = entry.action === 'delete' ? 'delete' : 'upsert'
+      const date = normalizeText(entry.date)
+
+      if (!isIsoDate(date)) {
+        return null
+      }
+
+      return {
+        action,
+        date,
+        status: entry.status === 'booked' ? 'booked' : 'free',
+        venueName: normalizeText(entry.venueName),
+        city: normalizeText(entry.city),
+        contact: normalizeText(entry.contact),
+        fee: normalizeText(entry.fee),
+        notes: normalizeText(entry.notes),
+      } as CalendarAction
+    })
+    .filter((entry): entry is CalendarAction => Boolean(entry))
 }
 
 function buildPipelineFromOutreachStorage(): PipelineContext {
@@ -196,6 +244,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingCalendarActions, setPendingCalendarActions] = useState<CalendarAction[]>([])
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'not-connected'>('checking')
   const [managerId, setManagerId] = useState<ManagerOption['id']>(() => {
     if (typeof window === 'undefined') {
@@ -312,11 +361,13 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
         }),
       })
 
-      const data: { reply?: string; error?: string } = await res.json()
+      const data: { reply?: string; error?: string; calendarActions?: unknown } = await res.json()
 
       if (!res.ok || !data.reply) {
         setError(data.error ?? 'Something went wrong. Try again.')
       } else {
+        const actions = normalizeCalendarActions(data.calendarActions)
+        setPendingCalendarActions(actions)
         setMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: data.reply! }])
       }
     } catch {
@@ -331,6 +382,53 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
       e.preventDefault()
       sendMessage(input)
     }
+  }
+
+  function applyCalendarActions() {
+    if (typeof window === 'undefined' || pendingCalendarActions.length === 0) {
+      return
+    }
+
+    const existingRaw = safeParse(window.localStorage.getItem(OUTREACH_CALENDAR_STORAGE_KEY))
+    const existing = Array.isArray(existingRaw) ? existingRaw as Array<Record<string, unknown>> : []
+    const byDate = new Map<string, Record<string, unknown>>()
+
+    existing.forEach((entry) => {
+      const date = normalizeText(entry.date)
+      if (isIsoDate(date)) {
+        byDate.set(date, entry)
+      }
+    })
+
+    const nowIso = new Date().toISOString()
+
+    pendingCalendarActions.forEach((action) => {
+      if (action.action === 'delete') {
+        byDate.delete(action.date)
+        return
+      }
+
+      const current = byDate.get(action.date)
+      byDate.set(action.date, {
+        id: typeof current?.id === 'string' ? current.id : `calendar-${action.date}`,
+        date: action.date,
+        status: action.status === 'booked' ? 'booked' : 'free',
+        venueName: action.venueName ?? '',
+        city: action.city ?? '',
+        contact: action.contact ?? '',
+        fee: action.fee ?? '',
+        source: 'ai-manager',
+        notes: action.notes ?? '',
+        createdAt: typeof current?.createdAt === 'string' ? current.createdAt : nowIso,
+        updatedAt: nowIso,
+      })
+    })
+
+    const nextEntries = [...byDate.values()].sort((a, b) => normalizeText(a.date).localeCompare(normalizeText(b.date)))
+    window.localStorage.setItem(OUTREACH_CALENDAR_STORAGE_KEY, JSON.stringify(nextEntries))
+    window.dispatchEvent(new CustomEvent(CALENDAR_UPDATED_EVENT))
+    setPendingCalendarActions([])
+    setMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: `Applied ${pendingCalendarActions.length} calendar update(s).` }])
   }
 
   if (typeof document === 'undefined') {
@@ -430,6 +528,16 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
             {error && (
               <div className="ai-manager-error">
                 <p>{error}</p>
+              </div>
+            )}
+
+            {pendingCalendarActions.length > 0 && (
+              <div className="ai-manager-calendar-actions">
+                <p className="ai-manager-empty-text">I prepared {pendingCalendarActions.length} calendar update(s).</p>
+                <div className="ai-manager-starters">
+                  <button type="button" className="ai-manager-starter" onClick={applyCalendarActions}>Apply to calendar</button>
+                  <button type="button" className="ai-manager-starter" onClick={() => setPendingCalendarActions([])}>Dismiss</button>
+                </div>
               </div>
             )}
 

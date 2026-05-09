@@ -276,6 +276,13 @@
   color: #ff9090;
 }
 
+.ai-manager-calendar-actions {
+  background: rgba(30, 58, 52, 0.4);
+  border: 1px solid rgba(120, 220, 170, 0.35);
+  border-radius: 0.65rem;
+  padding: 0.65rem;
+}
+
 .ai-manager-input-row {
   display: flex;
   align-items: flex-end;

@@ -97,6 +97,7 @@ const OUTREACH_SESSION_STORAGE_KEY = 'human-jukebox-outreach-session'
 const OUTREACH_TEMPLATE_STORAGE_KEY = 'human-jukebox-outreach-templates'
 const OUTREACH_CALENDAR_STORAGE_KEY = 'human-jukebox-outreach-calendar'
 const AI_MANAGER_OPEN_EVENT = 'human-jukebox-ai-manager-open'
+const CALENDAR_UPDATED_EVENT = 'human-jukebox-calendar-updated'
 
 type OutreachSessionState = {
   locationQuery: string
@@ -724,6 +725,24 @@ function VenueOutreachPage() {
 
     window.localStorage.setItem(OUTREACH_CALENDAR_STORAGE_KEY, JSON.stringify(calendarEntries))
   }, [calendarEntries])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const onCalendarUpdated = () => {
+      const entries = parseJsonArray<CalendarEntry>(window.localStorage.getItem(OUTREACH_CALENDAR_STORAGE_KEY))
+        .filter((entry) => normalizeIsoDate(entry.date))
+      setCalendarEntries(entries)
+    }
+
+    window.addEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated)
+
+    return () => {
+      window.removeEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated)
+    }
+  }, [])
 
   useEffect(() => {
     if (!selectedCalendarEntry) {
