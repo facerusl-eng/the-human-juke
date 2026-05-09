@@ -586,6 +586,8 @@ function summarizeBookedFinancials(bookedEntries: CalendarEntry[], taxPercent: n
   const paidCoveragePercent = knownTotalAmount > 0 ? Math.round((paidAmount / knownTotalAmount) * 100) : 0
   const estimatedTaxOnPaid = paidAmount * (taxPercent / 100)
   const netPaidAfterTax = Math.max(paidAmount - estimatedTaxOnPaid, 0)
+  const projectedTaxOnKnownTotal = knownTotalAmount * (taxPercent / 100)
+  const projectedNetAfterTax = Math.max(knownTotalAmount - projectedTaxOnKnownTotal, 0)
 
   return {
     bookedCount: bookedEntries.length,
@@ -599,6 +601,9 @@ function summarizeBookedFinancials(bookedEntries: CalendarEntry[], taxPercent: n
     paidCoveragePercent,
     estimatedTaxOnPaid,
     netPaidAfterTax,
+    knownTotalAmount,
+    projectedTaxOnKnownTotal,
+    projectedNetAfterTax,
   }
 }
 
@@ -2457,7 +2462,9 @@ function VenueOutreachPage() {
                     </div>
 
                     <p className="subcopy">Coverage: {paymentInsights.paidCoveragePercent}% paid · Outstanding gigs: {paymentInsights.outstandingGigs} · Paid gigs: {paymentInsights.paidCount}</p>
+                    <p className="subcopy venue-payment-trend">Projected upcoming outcome ({taxPercent}% tax): {formatDkk(paymentInsights.projectedNetAfterTax)} net from {formatDkk(paymentInsights.knownTotalAmount)} gross</p>
                     <p className="subcopy">{formatMonthIsoLabel(calendarMonth)}: {formatDkk(monthlyPaymentInsights.paidAmount)} paid · {formatDkk(monthlyPaymentInsights.outstandingAmount)} outstanding · {formatDkk(monthlyPaymentInsights.netPaidAfterTax)} net after tax</p>
+                    <p className="subcopy">Projected month outcome ({taxPercent}% tax): {formatDkk(monthlyPaymentInsights.projectedNetAfterTax)} net from {formatDkk(monthlyPaymentInsights.knownTotalAmount)} gross</p>
                     <p className="subcopy venue-payment-trend">MoM net change: {monthNetDelta >= 0 ? '+' : '-'}{formatDkk(Math.abs(monthNetDelta))} vs {formatMonthIsoLabel(shiftMonthIso(calendarMonth, -1))}</p>
                     <p className="subcopy">Month gigs: {monthlyPaymentInsights.bookedCount} booked · Estimated tax this month: {formatDkk(monthlyPaymentInsights.estimatedTaxOnPaid)}</p>
                     <p className="subcopy no-margin-bottom">Status split: {paymentInsights.unpaidCount} unpaid · {paymentInsights.partialCount} partial · {paymentInsights.paidCount} paid</p>
