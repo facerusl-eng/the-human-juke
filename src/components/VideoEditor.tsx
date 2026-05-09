@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent, DragEvent } from 'react'
+import type { ChangeEvent, DragEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { transcodeWebmToMp4 } from '../lib/mp4Export'
 
 type VideoFormatId = 'instagram-story' | 'instagram-feed-square' | 'instagram-feed-portrait' | 'tiktok' | 'reels'
 type TemplateId = 'bold-neon' | 'sunset-clean' | 'studio-minimal'
 type MusicSourceId = 'none' | 'preset' | 'upload'
 type MusicPresetId = 'upbeat-pop' | 'electro-night' | 'cinematic-rise'
+type OverlayKey = 'title' | 'info'
 
 type VideoEditorProps = {
   eventId: string
@@ -39,6 +40,13 @@ type VideoFormat = {
   width: number
   height: number
   ratioLabel: string
+}
+
+type TimelineSegment = {
+  image: EditorImage
+  start: number
+  end: number
+  duration: number
 }
 
 type AiSuggestionPayload = {
@@ -219,6 +227,14 @@ async function loadUploadedAudioEngine(
   }
 }
 
+function copyTextToClipboard(text: string) {
+  if (!text || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+    return Promise.reject(new Error('Clipboard is not available on this device.'))
+  }
+
+  return navigator.clipboard.writeText(text)
+}
+
 export default function VideoEditor({
   eventId,
   eventName,
@@ -232,6 +248,7 @@ export default function VideoEditor({
   const renderClockRef = useRef<number | null>(null)
   const uploadMusicObjectUrlRef = useRef<string | null>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
+  const draggingOverlayRef = useRef<OverlayKey | null>(null)
 
   const [videoFormatId, setVideoFormatId] = useState<VideoFormatId>('instagram-story')
   const [durationSeconds, setDurationSeconds] = useState(15)
@@ -248,11 +265,14 @@ export default function VideoEditor({
     name: `Image ${index + 1}`,
     src,
   })))
+  const [imageWeights, setImageWeights] = useState<Record<string, number>>({})
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [eventNameOverlay, setEventNameOverlay] = useState(eventName)
   const [eventDateOverlay, setEventDateOverlay] = useState(eventDate)
   const [venueOverlay, setVenueOverlay] = useState(venue)
   const [ctaOverlay, setCtaOverlay] = useState(ctaText)
+  const [overlayAnchors, setOverlayAnchors] = useState({ titleY: 0.14, infoY: 0.7 })
+  const [activeOverlayHandle, setActiveOverlayHandle] = useState<OverlayKey | null>(null)
   const [caption, setCaption] = useState('')
   const [script, setScript] = useState('')
   const [isDraggingFiles, setIsDraggingFiles] = useState(false)
@@ -261,6 +281,9 @@ export default function VideoEditor({
   const [exporting, setExporting] = useState(false)
   const [exportStatus, setExportStatus] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [shareStatus, setShareStatus] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [lastExportedFile, setLastExportedFile] = useState<File | null>(null)
 
   const activeFormat = useMemo(
     () => VIDEO_FORMATS.find((format) => format.id === videoFormatId) ?? VIDEO_FORMATS[0],
@@ -274,10 +297,49 @@ export default function VideoEditor({
 
   const hasMusic = musicSource === 'preset' || (musicSource === 'upload' && Boolean(musicUploadUrl))
 
+  useEffect(() => {
+    setImageWeights((current) => {
+      const next: Record<string, number> = {}
+      images.forEach((image) => {
+        next[image.id] = current[image.id] && current[image.id] > 0 ? current[image.id] : 1
+      })
+      return next
+    })
+  }, [images])
+
+  const timelineSegments = useMemo<TimelineSegment[]>(() => {
+    if (images.length === 0) {
+      return []
+    }
+
+    const safeWeights = images.map((image) => Math.max(0.25, imageWeights[image.id] ?? 1))
+    const totalWeight = safeWeights.reduce((sum, value) => sum + value, 0)
+    let cursor = 0
+
+    return images.map((image, index) => {
+      const duration = durationSeconds * (safeWeights[index] / Math.max(totalWeight, 0.0001))
+      const start = cursor
+      const end = start + duration
+      cursor = end
+      return { image, start, end, duration }
+    })
+  }, [durationSeconds, imageWeights, images])
+
+  const timelineTotal = useMemo(
+    () => timelineSegments.reduce((sum, segment) => sum + segment.duration, 0),
+    [timelineSegments],
+  )
+
   const appendImageFiles = useCallback((fileList: FileList | File[]) => {
+    const availableSlots = Math.max(0, MAX_UPLOAD_IMAGES - images.length)
+    if (availableSlots === 0) {
+      setExportError(`Maximum ${MAX_UPLOAD_IMAGES} images reached.`)
+      return
+    }
+
     const imageFiles = Array.from(fileList)
       .filter((file) => file.type.startsWith('image/'))
-      .slice(0, MAX_UPLOAD_IMAGES)
+      .slice(0, availableSlots)
 
     if (imageFiles.length === 0) {
       return
@@ -299,12 +361,16 @@ export default function VideoEditor({
     void Promise.all(readers)
       .then((loadedImages) => {
         const clean = loadedImages.filter((entry) => Boolean(entry.src))
-        setImages((current) => [...current, ...clean].slice(0, MAX_UPLOAD_IMAGES))
+        if (clean.length === 0) {
+          return
+        }
+
+        setImages((current) => [...current, ...clean])
       })
       .catch(() => {
         setExportError('Some images could not be loaded. Try another file.')
       })
-  }, [])
+  }, [images.length])
 
   const handleImageInput = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files) {
@@ -334,22 +400,27 @@ export default function VideoEditor({
     event.target.value = ''
   }, [])
 
-  const drawFrame = useCallback((ctx: CanvasRenderingContext2D, currentSecond: number) => {
+  const drawFrame = useCallback((ctx: CanvasRenderingContext2D, currentSecond: number, showGuides = false) => {
     const W = activeFormat.width
     const H = activeFormat.height
     const PAD = Math.round(W * 0.06)
+    const totalDuration = Math.max(timelineTotal, 0.0001)
 
     ctx.clearRect(0, 0, W, H)
     ctx.fillStyle = '#0f172a'
     ctx.fillRect(0, 0, W, H)
 
-    if (images.length > 0) {
-      const clipDuration = durationSeconds / images.length
-      const baseIndex = Math.min(images.length - 1, Math.floor(currentSecond / Math.max(clipDuration, 0.001)))
-      const nextIndex = (baseIndex + 1) % images.length
-      const localT = (currentSecond % Math.max(clipDuration, 0.001)) / Math.max(clipDuration, 0.001)
-      const transitionBlend = localT > (1 - transitionSeconds / Math.max(clipDuration, 0.001))
-        ? clamp((localT - (1 - transitionSeconds / Math.max(clipDuration, 0.001))) / Math.max(transitionSeconds / Math.max(clipDuration, 0.001), 0.001), 0, 1)
+    if (timelineSegments.length > 0) {
+      const normalizedSecond = ((currentSecond % totalDuration) + totalDuration) % totalDuration
+      const currentSegment = timelineSegments.find((segment) => normalizedSecond >= segment.start && normalizedSecond < segment.end)
+        ?? timelineSegments[timelineSegments.length - 1]
+      const currentIndex = timelineSegments.findIndex((segment) => segment.image.id === currentSegment.image.id)
+      const nextSegment = timelineSegments[(currentIndex + 1) % timelineSegments.length]
+      const localSecond = normalizedSecond - currentSegment.start
+      const localT = localSecond / Math.max(currentSegment.duration, 0.0001)
+      const transitionStart = clamp(1 - transitionSeconds / Math.max(currentSegment.duration, 0.0001), 0, 1)
+      const blend = localT > transitionStart
+        ? clamp((localT - transitionStart) / Math.max(1 - transitionStart, 0.0001), 0, 1)
         : 0
 
       const drawCoverImage = (source: string, alpha: number, animationAmount: number) => {
@@ -370,10 +441,10 @@ export default function VideoEditor({
         ctx.restore()
       }
 
-      const movement = easeInOut(localT)
-      drawCoverImage(images[baseIndex].src, 1, movement)
-      if (transitionBlend > 0 && images[nextIndex]) {
-        drawCoverImage(images[nextIndex].src, transitionBlend, 1 - movement)
+      const motion = easeInOut(localT)
+      drawCoverImage(currentSegment.image.src, 1, motion)
+      if (blend > 0) {
+        drawCoverImage(nextSegment.image.src, blend, 1 - motion)
       }
     }
 
@@ -389,15 +460,17 @@ export default function VideoEditor({
     ctx.fillStyle = bottomGradient
     ctx.fillRect(0, 0, W, H)
 
-    const titleAppear = clamp(currentSecond / Math.max(durationSeconds * 0.2, 0.001), 0, 1)
-    const bodyAppear = clamp((currentSecond - durationSeconds * 0.12) / Math.max(durationSeconds * 0.2, 0.001), 0, 1)
+    const titleAppear = clamp(currentSecond / Math.max(totalDuration * 0.2, 0.001), 0, 1)
+    const bodyAppear = clamp((currentSecond - totalDuration * 0.12) / Math.max(totalDuration * 0.2, 0.001), 0, 1)
+
+    const titleY = Math.round(H * overlayAnchors.titleY + (1 - titleAppear) * 40)
+    const infoY = Math.round(H * overlayAnchors.infoY + (1 - bodyAppear) * 20)
 
     ctx.save()
     ctx.globalAlpha = titleAppear
     ctx.font = activeTemplate.titleFont
     ctx.fillStyle = '#f8fafc'
     ctx.textBaseline = 'top'
-    const titleY = Math.round(H * 0.14 + (1 - titleAppear) * 40)
     ctx.fillText(eventNameOverlay || eventName, PAD, titleY, W - PAD * 2)
     ctx.restore()
 
@@ -406,11 +479,10 @@ export default function VideoEditor({
     ctx.font = activeTemplate.subtitleFont
     ctx.fillStyle = '#e2e8f0'
     ctx.textBaseline = 'top'
-    const infoY = Math.round(H * 0.70 + (1 - bodyAppear) * 20)
     ctx.fillText(eventDateOverlay || eventDate, PAD, infoY, W - PAD * 2)
     ctx.fillText(venueOverlay || venue, PAD, infoY + 52, W - PAD * 2)
 
-    const ctaBoxY = infoY + 124
+    const ctaBoxY = Math.min(H - 96, infoY + 124)
     const ctaTextValue = ctaOverlay || ctaText
     ctx.fillStyle = activeTemplate.accent
     ctx.fillRect(PAD, ctaBoxY, W - PAD * 2, 72)
@@ -419,18 +491,46 @@ export default function VideoEditor({
     ctx.textBaseline = 'middle'
     ctx.fillText(ctaTextValue, PAD + 22, ctaBoxY + 36, W - PAD * 2 - 44)
     ctx.restore()
+
+    if (showGuides) {
+      const drawGuide = (yRatio: number, key: OverlayKey, label: string) => {
+        const y = Math.round(H * yRatio)
+        ctx.save()
+        ctx.strokeStyle = activeOverlayHandle === key ? '#67e8f9' : 'rgba(148, 163, 184, 0.9)'
+        ctx.lineWidth = 2
+        ctx.setLineDash([8, 6])
+        ctx.beginPath()
+        ctx.moveTo(PAD * 0.6, y)
+        ctx.lineTo(W - PAD * 0.6, y)
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.fillStyle = activeOverlayHandle === key ? '#67e8f9' : 'rgba(226, 232, 240, 0.95)'
+        ctx.beginPath()
+        ctx.arc(W - PAD * 0.6, y, 8, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.font = '600 20px system-ui, -apple-system, sans-serif'
+        ctx.fillText(label, PAD * 0.6, y - 26)
+        ctx.restore()
+      }
+
+      drawGuide(overlayAnchors.titleY, 'title', 'Title')
+      drawGuide(overlayAnchors.infoY, 'info', 'Info + CTA')
+    }
   }, [
     activeFormat.height,
     activeFormat.width,
+    activeOverlayHandle,
     activeTemplate,
     ctaOverlay,
     ctaText,
-    durationSeconds,
     eventDate,
     eventDateOverlay,
     eventName,
     eventNameOverlay,
-    images,
+    overlayAnchors.infoY,
+    overlayAnchors.titleY,
+    timelineSegments,
+    timelineTotal,
     transitionSeconds,
     venue,
     venueOverlay,
@@ -474,7 +574,7 @@ export default function VideoEditor({
     const startMs = performance.now()
     const renderLoop = (now: number) => {
       const elapsedSeconds = ((now - startMs) / 1000) % PREVIEW_LOOP_SECONDS
-      drawFrame(ctx, (elapsedSeconds / PREVIEW_LOOP_SECONDS) * durationSeconds)
+      drawFrame(ctx, (elapsedSeconds / PREVIEW_LOOP_SECONDS) * Math.max(timelineTotal, durationSeconds), true)
       renderClockRef.current = window.requestAnimationFrame(renderLoop)
     }
 
@@ -486,7 +586,7 @@ export default function VideoEditor({
         renderClockRef.current = null
       }
     }
-  }, [activeFormat.height, activeFormat.width, drawFrame, durationSeconds])
+  }, [activeFormat.height, activeFormat.width, drawFrame, durationSeconds, timelineTotal])
 
   useEffect(() => {
     return () => {
@@ -495,6 +595,71 @@ export default function VideoEditor({
         uploadMusicObjectUrlRef.current = null
       }
     }
+  }, [])
+
+  const updateOverlayFromPointer = useCallback((pointerEvent: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = previewCanvasRef.current
+    const target = draggingOverlayRef.current
+
+    if (!canvas || !target) {
+      return
+    }
+
+    const rect = canvas.getBoundingClientRect()
+    if (rect.height <= 0) {
+      return
+    }
+
+    const yRatio = clamp((pointerEvent.clientY - rect.top) / rect.height, 0.08, 0.9)
+
+    setOverlayAnchors((current) => {
+      if (target === 'title') {
+        const titleY = clamp(yRatio, 0.08, current.infoY - 0.2)
+        return { ...current, titleY }
+      }
+
+      const infoY = clamp(yRatio, current.titleY + 0.2, 0.86)
+      return { ...current, infoY }
+    })
+  }, [])
+
+  const handlePreviewPointerDown = useCallback((pointerEvent: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = previewCanvasRef.current
+    if (!canvas) {
+      return
+    }
+
+    const rect = canvas.getBoundingClientRect()
+    const yRatio = clamp((pointerEvent.clientY - rect.top) / Math.max(rect.height, 1), 0, 1)
+    const titleDistance = Math.abs(yRatio - overlayAnchors.titleY)
+    const infoDistance = Math.abs(yRatio - overlayAnchors.infoY)
+    const target: OverlayKey = titleDistance <= infoDistance ? 'title' : 'info'
+
+    if (Math.min(titleDistance, infoDistance) > 0.08) {
+      return
+    }
+
+    draggingOverlayRef.current = target
+    setActiveOverlayHandle(target)
+    pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId)
+    updateOverlayFromPointer(pointerEvent)
+  }, [overlayAnchors.infoY, overlayAnchors.titleY, updateOverlayFromPointer])
+
+  const handlePreviewPointerMove = useCallback((pointerEvent: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!draggingOverlayRef.current) {
+      return
+    }
+
+    updateOverlayFromPointer(pointerEvent)
+  }, [updateOverlayFromPointer])
+
+  const handlePreviewPointerUp = useCallback((pointerEvent: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (draggingOverlayRef.current) {
+      pointerEvent.currentTarget.releasePointerCapture(pointerEvent.pointerId)
+    }
+
+    draggingOverlayRef.current = null
+    setActiveOverlayHandle(null)
   }, [])
 
   const runAiAssist = useCallback(async (autoAssemble: boolean) => {
@@ -602,6 +767,8 @@ export default function VideoEditor({
     setExporting(true)
     setExportError(null)
     setExportStatus('Preparing recording...')
+    setShareError(null)
+    setShareStatus(null)
 
     let audioContext: AudioContext | null = null
     let audioEngine: { start: () => Promise<void> | void; stop: () => void } | null = null
@@ -628,12 +795,7 @@ export default function VideoEditor({
       }
 
       const outputStream = new MediaStream(mediaTracks)
-
-      const mimeCandidates = [
-        'video/webm;codecs=vp9,opus',
-        'video/webm;codecs=vp8,opus',
-        'video/webm',
-      ]
+      const mimeCandidates = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
       const mimeType = mimeCandidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? 'video/webm'
 
       const recorder = new MediaRecorder(outputStream, { mimeType })
@@ -658,17 +820,18 @@ export default function VideoEditor({
       recorder.start(1000)
       setExportStatus('Recording video track...')
 
+      const timelineDuration = Math.max(timelineTotal, durationSeconds)
       const startMs = performance.now()
       await new Promise<void>((resolve) => {
         const tick = (now: number) => {
           const elapsed = (now - startMs) / 1000
-          if (elapsed >= durationSeconds) {
-            drawFrame(ctx, durationSeconds)
+          if (elapsed >= timelineDuration) {
+            drawFrame(ctx, timelineDuration, false)
             resolve()
             return
           }
 
-          drawFrame(ctx, elapsed)
+          drawFrame(ctx, elapsed, false)
           window.requestAnimationFrame(tick)
         }
 
@@ -697,9 +860,11 @@ export default function VideoEditor({
         },
       })
 
-      const fileName = `${sanitizeSlug(eventName)}-${activeFormat.ratioLabel.replace(':', 'x')}-${durationSeconds}s.mp4`
-      const fileUrl = URL.createObjectURL(mp4Blob)
+      const fileName = `${sanitizeSlug(eventName)}-${activeFormat.ratioLabel.replace(':', 'x')}-${Math.round(timelineDuration)}s.mp4`
+      const file = new File([mp4Blob], fileName, { type: 'video/mp4' })
+      setLastExportedFile(file)
 
+      const fileUrl = URL.createObjectURL(mp4Blob)
       try {
         const link = document.createElement('a')
         link.href = fileUrl
@@ -711,8 +876,8 @@ export default function VideoEditor({
         window.setTimeout(() => URL.revokeObjectURL(fileUrl), 30_000)
       }
 
-      setExportStatus('MP4 export completed. Check your downloads.')
-      window.setTimeout(() => setExportStatus(null), 6000)
+      setExportStatus('MP4 export completed. You can now share directly below.')
+      window.setTimeout(() => setExportStatus(null), 7000)
     } catch (error) {
       setExportError(error instanceof Error ? error.message : 'Video export failed.')
       setExportStatus(null)
@@ -729,7 +894,6 @@ export default function VideoEditor({
     }
   }, [
     activeFormat.ratioLabel,
-    ctaText,
     drawFrame,
     durationSeconds,
     eventName,
@@ -739,12 +903,19 @@ export default function VideoEditor({
     musicPresetId,
     musicSource,
     musicUploadUrl,
+    timelineTotal,
   ])
 
   const removeImage = useCallback((id: string) => {
     setImages((current) => {
       const next = current.filter((entry) => entry.id !== id)
       setActiveImageIndex((index) => clamp(index, 0, Math.max(0, next.length - 1)))
+      return next
+    })
+
+    setImageWeights((current) => {
+      const next = { ...current }
+      delete next[id]
       return next
     })
   }, [])
@@ -758,6 +929,54 @@ export default function VideoEditor({
 
     appendImageFiles(event.dataTransfer.files)
   }, [appendImageFiles])
+
+  const normalizeTimelineWeights = useCallback(() => {
+    setImageWeights(() => Object.fromEntries(images.map((image) => [image.id, 1])))
+  }, [images])
+
+  const shareExportedVideo = useCallback(async () => {
+    if (!lastExportedFile) {
+      setShareError('Export a video first before sharing.')
+      return
+    }
+
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') {
+      setShareError('Native share is not available on this device. Use the downloaded file to post manually.')
+      return
+    }
+
+    try {
+      if (!navigator.canShare({ files: [lastExportedFile] })) {
+        setShareError('This device cannot share files from the browser. Use the downloaded file manually.')
+        return
+      }
+
+      await navigator.share({
+        files: [lastExportedFile],
+        title: `${eventName} promo video`,
+        text: caption || ctaOverlay || ctaText,
+      })
+      setShareStatus('Share sheet opened successfully.')
+      setShareError(null)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+
+      setShareError(error instanceof Error ? error.message : 'Could not open share sheet.')
+    }
+  }, [caption, ctaOverlay, ctaText, eventName, lastExportedFile])
+
+  const copyCaption = useCallback(async () => {
+    const text = caption || `${eventName} - ${eventDate} at ${venue}. ${ctaOverlay || ctaText}`
+    try {
+      await copyTextToClipboard(text)
+      setShareStatus('Caption copied to clipboard.')
+      setShareError(null)
+    } catch (error) {
+      setShareError(error instanceof Error ? error.message : 'Could not copy caption.')
+    }
+  }, [caption, ctaOverlay, ctaText, eventDate, eventName, venue])
 
   return (
     <section className="video-editor-shell" aria-label="Promo video editor">
@@ -869,6 +1088,42 @@ export default function VideoEditor({
             </div>
           </div>
 
+          <div className="video-editor-timeline-wrap">
+            <div className="video-editor-section-row">
+              <span className="video-editor-section-title">Timeline Blocks</span>
+              <button type="button" className="ghost-button" onClick={normalizeTimelineWeights}>Auto Balance</button>
+            </div>
+            <div className="video-editor-timeline-bar">
+              {timelineSegments.map((segment, index) => (
+                <div
+                  key={segment.image.id}
+                  className="video-editor-timeline-segment"
+                  style={{ width: `${(segment.duration / Math.max(timelineTotal, 0.001)) * 100}%` }}
+                >
+                  <span>{index + 1}</span>
+                </div>
+              ))}
+            </div>
+            <div className="video-editor-timeline-controls">
+              {timelineSegments.map((segment, index) => (
+                <label key={segment.image.id} className="promote-field">
+                  <span>{`Clip ${index + 1}: ${segment.image.name} (${segment.duration.toFixed(1)}s)`}</span>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="6"
+                    step="0.1"
+                    value={imageWeights[segment.image.id] ?? 1}
+                    onChange={(event) => setImageWeights((current) => ({
+                      ...current,
+                      [segment.image.id]: Number.parseFloat(event.target.value),
+                    }))}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div className="video-editor-text-fields">
             <label className="promote-field promote-field-wide">
               <span>Event Name Overlay</span>
@@ -886,6 +1141,7 @@ export default function VideoEditor({
               <span>CTA Overlay</span>
               <input value={ctaOverlay} onChange={(event) => setCtaOverlay(event.target.value)} />
             </label>
+            <p className="field-hint video-editor-drag-hint">Drag "Title" and "Info + CTA" guide lines inside preview to reposition text overlays.</p>
             <label className="promote-field promote-field-wide">
               <span>Caption (AI or manual)</span>
               <textarea value={caption} rows={3} onChange={(event) => setCaption(event.target.value)} />
@@ -935,15 +1191,39 @@ export default function VideoEditor({
           </div>
           {exportStatus ? <p className="promote-export-status">{exportStatus}</p> : null}
           {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
+
+          <div className="video-editor-share-hooks">
+            <span className="video-editor-section-title">Share Hooks</span>
+            <div className="video-editor-share-actions">
+              <button type="button" className="secondary-button" onClick={() => void shareExportedVideo()} disabled={!lastExportedFile}>
+                Share Exported Video
+              </button>
+              <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
+                Copy Caption
+              </button>
+              <a className="secondary-button video-editor-link-btn" href="https://www.instagram.com/create/select/" target="_blank" rel="noreferrer noopener">Open Instagram Upload</a>
+              <a className="secondary-button video-editor-link-btn" href="https://www.tiktok.com/upload" target="_blank" rel="noreferrer noopener">Open TikTok Upload</a>
+              <a className="secondary-button video-editor-link-btn" href="https://www.facebook.com/reel/create" target="_blank" rel="noreferrer noopener">Open Facebook Reels</a>
+            </div>
+            {shareStatus ? <p className="field-hint">{shareStatus}</p> : null}
+            {shareError ? <p className="error-text no-margin-bottom">{shareError}</p> : null}
+          </div>
         </div>
 
         <div className="video-editor-preview-pane">
           <div className="video-editor-preview-header">
             <p>Preview</p>
-            <span>{activeFormat.width}x{activeFormat.height} • {activeFormat.ratioLabel}</span>
+            <span>{activeFormat.width}x{activeFormat.height} - {activeFormat.ratioLabel} - {timelineTotal.toFixed(1)}s</span>
           </div>
           <div className="video-editor-preview-frame">
-            <canvas ref={previewCanvasRef} className="video-editor-preview-canvas" />
+            <canvas
+              ref={previewCanvasRef}
+              className="video-editor-preview-canvas"
+              onPointerDown={handlePreviewPointerDown}
+              onPointerMove={handlePreviewPointerMove}
+              onPointerUp={handlePreviewPointerUp}
+              onPointerCancel={handlePreviewPointerUp}
+            />
           </div>
           <p className="field-hint">Tip: Use 9:16 for Stories, Reels, and TikTok. Use 1:1 or 4:5 for feed posts.</p>
           <p className="field-hint">Event ID: {eventId}</p>
