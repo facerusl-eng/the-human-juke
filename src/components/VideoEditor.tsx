@@ -102,6 +102,8 @@ const MUSIC_PRESETS: Array<{ id: MusicPresetId; name: string; bpm: number; rootH
 
 const MAX_UPLOAD_IMAGES = 12
 const PREVIEW_LOOP_SECONDS = 8
+const OVERLAY_SNAP_THRESHOLD = 0.02
+const OVERLAY_SNAP_POINTS = [0.12, 0.2, 1 / 3, 0.5, 2 / 3, 0.72, 0.82]
 
 function createImageId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -125,6 +127,21 @@ function easeInOut(t: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function snapToGuide(value: number, points: number[], threshold = OVERLAY_SNAP_THRESHOLD) {
+  let snappedValue = value
+  let bestDistance = threshold
+
+  for (const point of points) {
+    const distance = Math.abs(value - point)
+    if (distance <= bestDistance) {
+      snappedValue = point
+      bestDistance = distance
+    }
+  }
+
+  return snappedValue
 }
 
 function parseAiSuggestion(reply: string): AiSuggestionPayload {
@@ -272,6 +289,7 @@ export default function VideoEditor({
   const [venueOverlay, setVenueOverlay] = useState(venue)
   const [ctaOverlay, setCtaOverlay] = useState(ctaText)
   const [overlayAnchors, setOverlayAnchors] = useState({ titleY: 0.14, infoY: 0.7 })
+  const [snapToGridEnabled, setSnapToGridEnabled] = useState(true)
   const [activeOverlayHandle, setActiveOverlayHandle] = useState<OverlayKey | null>(null)
   const [caption, setCaption] = useState('')
   const [script, setScript] = useState('')
@@ -493,6 +511,21 @@ export default function VideoEditor({
     ctx.restore()
 
     if (showGuides) {
+      const drawSnapGrid = () => {
+        ctx.save()
+        ctx.lineWidth = 1
+        ctx.setLineDash([5, 7])
+        OVERLAY_SNAP_POINTS.forEach((point) => {
+          const y = Math.round(H * point)
+          ctx.strokeStyle = 'rgba(125, 211, 252, 0.28)'
+          ctx.beginPath()
+          ctx.moveTo(PAD * 0.35, y)
+          ctx.lineTo(W - PAD * 0.35, y)
+          ctx.stroke()
+        })
+        ctx.restore()
+      }
+
       const drawGuide = (yRatio: number, key: OverlayKey, label: string) => {
         const y = Math.round(H * yRatio)
         ctx.save()
@@ -513,6 +546,10 @@ export default function VideoEditor({
         ctx.restore()
       }
 
+      if (snapToGridEnabled) {
+        drawSnapGrid()
+      }
+
       drawGuide(overlayAnchors.titleY, 'title', 'Title')
       drawGuide(overlayAnchors.infoY, 'info', 'Info + CTA')
     }
@@ -527,6 +564,7 @@ export default function VideoEditor({
     eventDateOverlay,
     eventName,
     eventNameOverlay,
+    snapToGridEnabled,
     overlayAnchors.infoY,
     overlayAnchors.titleY,
     timelineSegments,
@@ -611,17 +649,18 @@ export default function VideoEditor({
     }
 
     const yRatio = clamp((pointerEvent.clientY - rect.top) / rect.height, 0.08, 0.9)
+    const nextY = snapToGridEnabled ? snapToGuide(yRatio, OVERLAY_SNAP_POINTS) : yRatio
 
     setOverlayAnchors((current) => {
       if (target === 'title') {
-        const titleY = clamp(yRatio, 0.08, current.infoY - 0.2)
+        const titleY = clamp(nextY, 0.08, current.infoY - 0.2)
         return { ...current, titleY }
       }
 
-      const infoY = clamp(yRatio, current.titleY + 0.2, 0.86)
+      const infoY = clamp(nextY, current.titleY + 0.2, 0.86)
       return { ...current, infoY }
     })
-  }, [])
+  }, [snapToGridEnabled])
 
   const handlePreviewPointerDown = useCallback((pointerEvent: ReactPointerEvent<HTMLCanvasElement>) => {
     const canvas = previewCanvasRef.current
@@ -1140,6 +1179,18 @@ export default function VideoEditor({
             <label className="promote-field promote-field-wide">
               <span>CTA Overlay</span>
               <input value={ctaOverlay} onChange={(event) => setCtaOverlay(event.target.value)} />
+            </label>
+            <label className="promote-field promote-field-wide">
+              <span>Overlay Snap</span>
+              <div className="promote-checkbox-group">
+                <input
+                  id="video-overlay-snap"
+                  type="checkbox"
+                  checked={snapToGridEnabled}
+                  onChange={(event) => setSnapToGridEnabled(event.target.checked)}
+                />
+                <label htmlFor="video-overlay-snap">Snap drag handles to thirds/center guides</label>
+              </div>
             </label>
             <p className="field-hint video-editor-drag-hint">Drag "Title" and "Info + CTA" guide lines inside preview to reposition text overlays.</p>
             <label className="promote-field promote-field-wide">
