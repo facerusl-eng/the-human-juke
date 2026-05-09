@@ -485,6 +485,125 @@
   margin-top: 0.6rem;
 }
 
+.venue-outreach-calendar-panel {
+  border-color: rgba(123, 220, 177, 0.26);
+}
+
+.venue-calendar-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1rem;
+}
+
+.venue-calendar-month,
+.venue-calendar-editor,
+.venue-calendar-list-card {
+  border: 1px solid rgba(153, 196, 255, 0.2);
+  border-radius: 14px;
+  padding: 0.9rem;
+  background: rgba(10, 15, 35, 0.72);
+}
+
+.venue-calendar-month-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.venue-calendar-month-picker {
+  display: grid;
+  gap: 0.35rem;
+  color: #dcecff;
+  font-weight: 600;
+}
+
+.venue-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0.4rem;
+}
+
+.venue-calendar-weekdays span {
+  text-align: center;
+  color: #9eb6da;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.venue-calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.venue-calendar-day {
+  min-height: 3.15rem;
+  border-radius: 12px;
+  border: 1px solid rgba(153, 196, 255, 0.2);
+  background: rgba(14, 20, 48, 0.84);
+  color: #d7e6fb;
+  font: inherit;
+  padding: 0.45rem 0.35rem;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.2rem;
+}
+
+.venue-calendar-day.outside-month {
+  opacity: 0.44;
+}
+
+.venue-calendar-day.is-free {
+  border-color: rgba(120, 220, 170, 0.5);
+  background: linear-gradient(145deg, rgba(10, 45, 34, 0.82) 0%, rgba(14, 20, 48, 0.82) 100%);
+}
+
+.venue-calendar-day.is-booked {
+  border-color: rgba(255, 176, 76, 0.6);
+  background: linear-gradient(145deg, rgba(58, 38, 14, 0.9) 0%, rgba(14, 20, 48, 0.82) 100%);
+}
+
+.venue-calendar-day.is-selected {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(93, 215, 255, 0.18);
+  border-color: rgba(93, 215, 255, 0.7);
+}
+
+.venue-calendar-day.is-today {
+  outline: 1px solid rgba(93, 215, 255, 0.68);
+  outline-offset: 1px;
+}
+
+.venue-calendar-day-number {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.venue-calendar-day-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.venue-calendar-editor h3,
+.venue-calendar-list-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.65rem;
+  color: #f3f8ff;
+}
+
+.venue-calendar-lists {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
 /* ============================================
    ANIMATIONS
    ============================================ */
@@ -606,8 +725,13 @@
 
   .venue-choice-grid,
   .venue-choice-grid-compact,
-  .venue-outreach-action-strip {
+  .venue-outreach-action-strip,
+  .venue-calendar-lists {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .venue-calendar-grid {
+    grid-template-columns: 1fr;
   }
 
   .venue-outreach-control-card label {
@@ -661,8 +785,19 @@
 
   .venue-outreach-campaign-stack,
   .venue-outreach-shell .form-grid.two-col,
-  .venue-outreach-shell .venue-outreach-form-grid {
+  .venue-outreach-shell .venue-outreach-form-grid,
+  .venue-calendar-grid,
+  .venue-calendar-lists {
     grid-template-columns: 1fr;
+  }
+
+  .venue-calendar-days {
+    gap: 0.35rem;
+  }
+
+  .venue-calendar-day {
+    min-height: 2.8rem;
+    padding: 0.35rem 0.25rem;
   }
 
   .venue-outreach-control-card,

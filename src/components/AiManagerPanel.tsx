@@ -28,6 +28,21 @@ type PipelineContext = {
     contactEmail: string
     email: string
   }>
+  calendar?: {
+    free: Array<{
+      date: string
+      notes: string
+    }>
+    booked: Array<{
+      date: string
+      venueName: string
+      city: string
+      contact: string
+      fee: string
+      notes: string
+      source: string
+    }>
+  }
 }
 
 const EMPTY_PIPELINE: PipelineContext = {
@@ -61,9 +76,117 @@ const MANAGER_OPTIONS: ManagerOption[] = [
 
 const MANAGER_STORAGE_KEY = 'human-jukebox-ai-manager-profile'
 const AI_MANAGER_OPEN_EVENT = 'human-jukebox-ai-manager-open'
+const OUTREACH_LOG_STORAGE_KEY = 'human-jukebox-outreach-log'
+const OUTREACH_STAGE_STORAGE_KEY = 'human-jukebox-outreach-stage-map'
+const OUTREACH_TASKS_STORAGE_KEY = 'human-jukebox-outreach-tasks'
+const OUTREACH_SESSION_STORAGE_KEY = 'human-jukebox-outreach-session'
+const OUTREACH_CALENDAR_STORAGE_KEY = 'human-jukebox-outreach-calendar'
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10)
+}
+
+function safeParse(value: string | null) {
+  if (!value) {
+    return null
+  }
+
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
+function isIsoDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+function buildPipelineFromOutreachStorage(): PipelineContext {
+  if (typeof window === 'undefined') {
+    return EMPTY_PIPELINE
+  }
+
+  const logEntries = Array.isArray(safeParse(window.localStorage.getItem(OUTREACH_LOG_STORAGE_KEY)))
+    ? safeParse(window.localStorage.getItem(OUTREACH_LOG_STORAGE_KEY)) as Array<Record<string, unknown>>
+    : []
+  const stageMap = safeParse(window.localStorage.getItem(OUTREACH_STAGE_STORAGE_KEY)) as Record<string, string> | null
+  const followUpTasks = Array.isArray(safeParse(window.localStorage.getItem(OUTREACH_TASKS_STORAGE_KEY)))
+    ? safeParse(window.localStorage.getItem(OUTREACH_TASKS_STORAGE_KEY)) as Array<Record<string, unknown>>
+    : []
+  const session = safeParse(window.localStorage.getItem(OUTREACH_SESSION_STORAGE_KEY)) as Record<string, unknown> | null
+  const calendarRaw = Array.isArray(safeParse(window.localStorage.getItem(OUTREACH_CALENDAR_STORAGE_KEY)))
+    ? safeParse(window.localStorage.getItem(OUTREACH_CALENDAR_STORAGE_KEY)) as Array<Record<string, unknown>>
+    : []
+
+  const sentCount = logEntries.filter((entry) => entry?.status === 'sent').length
+  const pipelineStages = Object.values(stageMap ?? {})
+  const contacted = pipelineStages.filter((stage) => ['contacted', 'replied', 'negotiating', 'confirmed', 'lost'].includes(stage)).length
+  const replyStages = pipelineStages.filter((stage) => ['replied', 'negotiating', 'confirmed'].includes(stage)).length
+  const confirmed = pipelineStages.filter((stage) => stage === 'confirmed').length
+
+  const pendingTasks = followUpTasks
+    .filter((task) => task && task.completed !== true)
+    .map((task) => ({
+      venueName: typeof task.venueName === 'string' ? task.venueName : 'Unknown venue',
+      type: typeof task.type === 'string' ? task.type : 'follow-up',
+      dueAt: typeof task.dueAt === 'string' ? task.dueAt : '',
+    }))
+
+  const venues = Array.isArray(session?.venues)
+    ? (session?.venues as Array<Record<string, unknown>>).slice(0, 30).map((venue) => ({
+      name: typeof venue.name === 'string' ? venue.name : 'Unknown venue',
+      type: typeof venue.type === 'string' ? venue.type : 'Unknown',
+      stage: typeof venue.stage === 'string' ? venue.stage : 'new',
+      leadScore: Number(venue.leadScore ?? 0),
+      distanceKm: Number(venue.distanceKm ?? 0),
+      contactEmail: typeof venue.contactEmail === 'string' ? venue.contactEmail : '',
+      email: typeof venue.email === 'string' ? venue.email : '',
+    }))
+    : []
+
+  const calendarEntries = calendarRaw
+    .map((entry) => ({
+      date: typeof entry.date === 'string' ? entry.date : '',
+      status: entry.status === 'booked' ? 'booked' : 'free',
+      venueName: typeof entry.venueName === 'string' ? entry.venueName : '',
+      city: typeof entry.city === 'string' ? entry.city : '',
+      contact: typeof entry.contact === 'string' ? entry.contact : '',
+      fee: typeof entry.fee === 'string' ? entry.fee : '',
+      notes: typeof entry.notes === 'string' ? entry.notes : '',
+      source: typeof entry.source === 'string' ? entry.source : 'manual',
+    }))
+    .filter((entry) => isIsoDate(entry.date))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  return {
+    analytics: {
+      sentCount,
+      contacted,
+      replyStages,
+      confirmed,
+    },
+    pendingTasks,
+    venues,
+    calendar: {
+      free: calendarEntries
+        .filter((entry) => entry.status === 'free')
+        .slice(0, 20)
+        .map((entry) => ({ date: entry.date, notes: entry.notes })),
+      booked: calendarEntries
+        .filter((entry) => entry.status === 'booked')
+        .slice(0, 20)
+        .map((entry) => ({
+          date: entry.date,
+          venueName: entry.venueName,
+          city: entry.city,
+          contact: entry.contact,
+          fee: entry.fee,
+          notes: entry.notes,
+          source: entry.source,
+        })),
+    },
+  }
 }
 
 export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
@@ -166,12 +289,25 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     setError(null)
 
     try {
+      const livePipeline = buildPipelineFromOutreachStorage()
+      const mergedPipeline: PipelineContext = {
+        analytics: {
+          sentCount: pipeline.analytics?.sentCount ?? livePipeline.analytics.sentCount,
+          contacted: pipeline.analytics?.contacted ?? livePipeline.analytics.contacted,
+          replyStages: pipeline.analytics?.replyStages ?? livePipeline.analytics.replyStages,
+          confirmed: pipeline.analytics?.confirmed ?? livePipeline.analytics.confirmed,
+        },
+        pendingTasks: pipeline.pendingTasks?.length ? pipeline.pendingTasks : livePipeline.pendingTasks,
+        venues: pipeline.venues?.length ? pipeline.venues : livePipeline.venues,
+        calendar: pipeline.calendar ?? livePipeline.calendar,
+      }
+
       const res = await fetch('/api/ai-manager', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: nextMessages.map(m => ({ role: m.role, content: m.content })),
-          pipeline,
+          pipeline: mergedPipeline,
           managerId,
         }),
       })

@@ -119,6 +119,27 @@ function buildPipelineContext(pipeline) {
     })
   }
 
+  if (pipeline.calendar && typeof pipeline.calendar === 'object') {
+    const booked = Array.isArray(pipeline.calendar.booked) ? pipeline.calendar.booked : []
+    const free = Array.isArray(pipeline.calendar.free) ? pipeline.calendar.free : []
+
+    lines.push(`\nAvailability calendar: ${booked.length} booked dates, ${free.length} marked free dates.`)
+
+    if (booked.length) {
+      lines.push('Booked dates (up to 20):')
+      booked.slice(0, 20).forEach((entry) => {
+        lines.push(`  - ${entry.date} | ${entry.venueName || 'Booked gig'} | city: ${entry.city || 'n/a'} | contact: ${entry.contact || 'n/a'} | fee: ${entry.fee || 'n/a'} | source: ${entry.source || 'manual'}${entry.notes ? ` | notes: ${entry.notes}` : ''}`)
+      })
+    }
+
+    if (free.length) {
+      lines.push('Free dates (up to 20):')
+      free.slice(0, 20).forEach((entry) => {
+        lines.push(`  - ${entry.date}${entry.notes ? ` | notes: ${entry.notes}` : ''}`)
+      })
+    }
+  }
+
   return lines.join('\n')
 }
 

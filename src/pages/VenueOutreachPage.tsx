@@ -64,11 +64,38 @@ type FollowUpTask = {
   completed: boolean
 }
 
+type CalendarEntryStatus = 'free' | 'booked'
+
+type CalendarEntry = {
+  id: string
+  date: string
+  status: CalendarEntryStatus
+  venueName: string
+  city: string
+  contact: string
+  fee: string
+  source: 'manual' | 'ai-manager'
+  notes: string
+  createdAt: string
+  updatedAt: string
+}
+
+type CalendarDraft = {
+  status: CalendarEntryStatus
+  venueName: string
+  city: string
+  contact: string
+  fee: string
+  source: 'manual' | 'ai-manager'
+  notes: string
+}
+
 const OUTREACH_LOG_STORAGE_KEY = 'human-jukebox-outreach-log'
 const OUTREACH_STAGE_STORAGE_KEY = 'human-jukebox-outreach-stage-map'
 const OUTREACH_TASKS_STORAGE_KEY = 'human-jukebox-outreach-tasks'
 const OUTREACH_SESSION_STORAGE_KEY = 'human-jukebox-outreach-session'
 const OUTREACH_TEMPLATE_STORAGE_KEY = 'human-jukebox-outreach-templates'
+const OUTREACH_CALENDAR_STORAGE_KEY = 'human-jukebox-outreach-calendar'
 const AI_MANAGER_OPEN_EVENT = 'human-jukebox-ai-manager-open'
 
 type OutreachSessionState = {
@@ -363,6 +390,79 @@ function buildTemplateId() {
   return `template-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+function normalizeIsoDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''
+}
+
+function toDayIso(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function toMonthIso(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
+}
+
+function buildCalendarEntryId(date: string) {
+  return `calendar-${date}`
+}
+
+function getMonthGridDays(monthIso: string) {
+  const [yearRaw, monthRaw] = monthIso.split('-')
+  const year = Number(yearRaw)
+  const monthIndex = Number(monthRaw) - 1
+
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    return [] as Array<{ dateIso: string; dayOfMonth: number; inMonth: boolean }>
+  }
+
+  const monthStart = new Date(year, monthIndex, 1)
+  const monthEnd = new Date(year, monthIndex + 1, 0)
+  const startWeekday = monthStart.getDay()
+  const gridStart = new Date(year, monthIndex, 1 - startWeekday)
+
+  const days: Array<{ dateIso: string; dayOfMonth: number; inMonth: boolean }> = []
+  for (let i = 0; i < 42; i += 1) {
+    const day = new Date(gridStart)
+    day.setDate(gridStart.getDate() + i)
+    days.push({
+      dateIso: toDayIso(day),
+      dayOfMonth: day.getDate(),
+      inMonth: day >= monthStart && day <= monthEnd,
+    })
+  }
+
+  return days
+}
+
+function shiftMonthIso(monthIso: string, delta: number) {
+  const [yearRaw, monthRaw] = monthIso.split('-')
+  const year = Number(yearRaw)
+  const monthIndex = Number(monthRaw) - 1
+
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) {
+    return toMonthIso(new Date())
+  }
+
+  return toMonthIso(new Date(year, monthIndex + delta, 1))
+}
+
+function formatMonthIsoLabel(monthIso: string) {
+  const [yearRaw, monthRaw] = monthIso.split('-')
+  const year = Number(yearRaw)
+  const monthIndex = Number(monthRaw) - 1
+
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) {
+    return monthIso
+  }
+
+  return new Date(year, monthIndex, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+}
+
 function VenueOutreachPage() {
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') {
@@ -435,6 +535,25 @@ function VenueOutreachPage() {
 
     return parseJsonArray<SavedOutreachTemplate>(window.localStorage.getItem(OUTREACH_TEMPLATE_STORAGE_KEY))
   })
+  const [calendarEntries, setCalendarEntries] = useState<CalendarEntry[]>(() => {
+    if (typeof window === 'undefined') {
+      return []
+    }
+
+    return parseJsonArray<CalendarEntry>(window.localStorage.getItem(OUTREACH_CALENDAR_STORAGE_KEY))
+      .filter((entry) => normalizeIsoDate(entry.date))
+  })
+  const [calendarMonth, setCalendarMonth] = useState(() => toMonthIso(new Date()))
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => toDayIso(new Date()))
+  const [calendarDraft, setCalendarDraft] = useState<CalendarDraft>({
+    status: 'free',
+    venueName: '',
+    city: '',
+    contact: '',
+    fee: '',
+    source: 'manual',
+    notes: '',
+  })
   const [templateName, setTemplateName] = useState('')
   const [previewVenueId, setPreviewVenueId] = useState<string>('')
 
@@ -487,6 +606,40 @@ function VenueOutreachPage() {
   const pendingTasks = useMemo(
     () => followUpTasks.filter((task) => !task.completed).sort((a, b) => a.dueAt.localeCompare(b.dueAt)),
     [followUpTasks],
+  )
+
+  const calendarEntryByDate = useMemo(() => {
+    const map = new Map<string, CalendarEntry>()
+    calendarEntries.forEach((entry) => {
+      if (normalizeIsoDate(entry.date)) {
+        map.set(entry.date, entry)
+      }
+    })
+    return map
+  }, [calendarEntries])
+
+  const selectedCalendarEntry = calendarEntryByDate.get(selectedCalendarDate) ?? null
+
+  const calendarMonthDays = useMemo(
+    () => getMonthGridDays(calendarMonth),
+    [calendarMonth],
+  )
+
+  const upcomingCalendarEntries = useMemo(() => {
+    const todayIso = toDayIso(new Date())
+    return [...calendarEntries]
+      .filter((entry) => normalizeIsoDate(entry.date) && entry.date >= todayIso)
+      .sort((a, b) => a.date.localeCompare(b.date))
+  }, [calendarEntries])
+
+  const upcomingBooked = useMemo(
+    () => upcomingCalendarEntries.filter((entry) => entry.status === 'booked').slice(0, 12),
+    [upcomingCalendarEntries],
+  )
+
+  const upcomingFree = useMemo(
+    () => upcomingCalendarEntries.filter((entry) => entry.status === 'free').slice(0, 12),
+    [upcomingCalendarEntries],
   )
 
   const previewVenue = useMemo(() => {
@@ -564,6 +717,39 @@ function VenueOutreachPage() {
     window.localStorage.setItem(OUTREACH_SESSION_STORAGE_KEY, JSON.stringify(sessionState))
   }, [locationQuery, radiusKm, sortMode, templateMode, composerMode, campaignName, manualSubject, conceptText, senderName, senderEmail, venues, centerInfo])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(OUTREACH_CALENDAR_STORAGE_KEY, JSON.stringify(calendarEntries))
+  }, [calendarEntries])
+
+  useEffect(() => {
+    if (!selectedCalendarEntry) {
+      setCalendarDraft({
+        status: 'free',
+        venueName: '',
+        city: '',
+        contact: '',
+        fee: '',
+        source: 'manual',
+        notes: '',
+      })
+      return
+    }
+
+    setCalendarDraft({
+      status: selectedCalendarEntry.status,
+      venueName: selectedCalendarEntry.venueName || '',
+      city: selectedCalendarEntry.city || '',
+      contact: selectedCalendarEntry.contact || '',
+      fee: selectedCalendarEntry.fee || '',
+      source: selectedCalendarEntry.source || 'manual',
+      notes: selectedCalendarEntry.notes || '',
+    })
+  }, [selectedCalendarDate, selectedCalendarEntry])
+
   const withSavedLog = (entries: OutreachLogEntry[]) => {
     setLogEntries(entries)
 
@@ -593,6 +779,14 @@ function VenueOutreachPage() {
 
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(OUTREACH_TEMPLATE_STORAGE_KEY, JSON.stringify(entries))
+    }
+  }
+
+  const withSavedCalendarEntries = (entries: CalendarEntry[]) => {
+    setCalendarEntries(entries)
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(OUTREACH_CALENDAR_STORAGE_KEY, JSON.stringify(entries))
     }
   }
 
@@ -1042,6 +1236,52 @@ function VenueOutreachPage() {
     }
 
     window.dispatchEvent(new CustomEvent(AI_MANAGER_OPEN_EVENT))
+  }
+
+  const saveCalendarDay = () => {
+    if (!normalizeIsoDate(selectedCalendarDate)) {
+      setSendError('Pick a valid date in the calendar first.')
+      return
+    }
+
+    if (calendarDraft.status === 'booked' && !calendarDraft.venueName.trim()) {
+      setSendError('Booked dates need a venue name so your AI manager can use the booking details.')
+      return
+    }
+
+    const now = new Date().toISOString()
+    const nextEntry: CalendarEntry = {
+      id: selectedCalendarEntry?.id || buildCalendarEntryId(selectedCalendarDate),
+      date: selectedCalendarDate,
+      status: calendarDraft.status,
+      venueName: calendarDraft.venueName.trim(),
+      city: calendarDraft.city.trim(),
+      contact: calendarDraft.contact.trim(),
+      fee: calendarDraft.fee.trim(),
+      source: calendarDraft.source,
+      notes: calendarDraft.notes.trim(),
+      createdAt: selectedCalendarEntry?.createdAt || now,
+      updatedAt: now,
+    }
+
+    const next = [
+      ...calendarEntries.filter((entry) => entry.date !== selectedCalendarDate),
+      nextEntry,
+    ].sort((a, b) => a.date.localeCompare(b.date))
+
+    withSavedCalendarEntries(next)
+    setStatusText(`Saved ${nextEntry.status} day on ${selectedCalendarDate}.`)
+    setSendError(null)
+  }
+
+  const clearCalendarDay = () => {
+    if (!selectedCalendarEntry) {
+      return
+    }
+
+    withSavedCalendarEntries(calendarEntries.filter((entry) => entry.date !== selectedCalendarDate))
+    setStatusText(`Cleared calendar day ${selectedCalendarDate}.`)
+    setSendError(null)
   }
 
   const scrollToSection = (id: string) => {
@@ -1549,6 +1789,223 @@ function VenueOutreachPage() {
         </details>
       </section>
 
+      <section className="queue-panel venue-outreach-calendar-panel venue-outreach-major-card" aria-label="Availability and bookings calendar" id="outreach-calendar">
+        <details className="venue-outreach-collapsible" {...(!isMobileViewport ? { open: true } : {})}>
+          <summary className="venue-outreach-collapsible-summary">Availability Calendar</summary>
+          <div className="venue-outreach-collapsible-body">
+            <div className="panel-head">
+              <h2>Availability & Bookings</h2>
+              <span className="meta-badge">Booked: {upcomingBooked.length} · Free: {upcomingFree.length}</span>
+            </div>
+
+            <p className="subcopy">Mark days you are free, add booked gigs with key details, and keep the schedule ready for your AI manager.</p>
+
+            <div className="venue-calendar-grid">
+              <section className="venue-calendar-month" aria-label="Calendar month view">
+                <div className="venue-calendar-month-head">
+                  <div className="venue-calendar-month-picker">
+                    <span>Month</span>
+                    <strong>{formatMonthIsoLabel(calendarMonth)}</strong>
+                  </div>
+                  <div className="hero-actions venue-link-row no-margin-bottom">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setCalendarMonth((current) => shiftMonthIso(current, -1))}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setCalendarMonth((current) => shiftMonthIso(current, 1))}
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      const today = new Date()
+                      setCalendarMonth(toMonthIso(today))
+                      setSelectedCalendarDate(toDayIso(today))
+                    }}
+                  >
+                    Today
+                  </button>
+                </div>
+
+                <div className="venue-calendar-weekdays" aria-hidden="true">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayName) => (
+                    <span key={dayName}>{dayName}</span>
+                  ))}
+                </div>
+
+                <div className="venue-calendar-days">
+                  {calendarMonthDays.map((day) => {
+                    const entry = calendarEntryByDate.get(day.dateIso)
+                    const isSelected = selectedCalendarDate === day.dateIso
+                    const isToday = day.dateIso === toDayIso(new Date())
+                    const stateClass = entry
+                      ? entry.status === 'booked'
+                        ? 'is-booked'
+                        : 'is-free'
+                      : 'is-empty'
+
+                    return (
+                      <button
+                        key={day.dateIso}
+                        type="button"
+                        className={`venue-calendar-day ${stateClass} ${day.inMonth ? 'in-month' : 'outside-month'} ${isSelected ? 'is-selected' : ''} ${isToday ? 'is-today' : ''}`}
+                        onClick={() => setSelectedCalendarDate(day.dateIso)}
+                      >
+                        <span className="venue-calendar-day-number">{day.dayOfMonth}</span>
+                        {entry ? (
+                          <span className="venue-calendar-day-label">{entry.status === 'booked' ? 'Booked' : 'Free'}</span>
+                        ) : null}
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+
+              <section className="venue-calendar-editor" aria-label="Selected date details">
+                <h3>Selected day: {selectedCalendarDate}</h3>
+
+                <div className="venue-choice-group" aria-label="Day status choice">
+                  <div className="venue-choice-group-head">
+                    <h4>Status</h4>
+                  </div>
+                  <div className="venue-choice-pills">
+                    <button
+                      type="button"
+                      className={`venue-choice-pill ${calendarDraft.status === 'free' ? 'is-active' : ''}`}
+                      onClick={() => setCalendarDraft((current) => ({ ...current, status: 'free' }))}
+                    >
+                      Free
+                    </button>
+                    <button
+                      type="button"
+                      className={`venue-choice-pill ${calendarDraft.status === 'booked' ? 'is-active' : ''}`}
+                      onClick={() => setCalendarDraft((current) => ({ ...current, status: 'booked' }))}
+                    >
+                      Booked
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-grid two-col venue-outreach-form-grid">
+                  <label>
+                    Venue / Event name
+                    <input
+                      value={calendarDraft.venueName}
+                      onChange={(event) => setCalendarDraft((current) => ({ ...current, venueName: event.target.value }))}
+                      className="queue-input"
+                      placeholder="Den Engelske Pub"
+                    />
+                  </label>
+                  <label>
+                    City / Area
+                    <input
+                      value={calendarDraft.city}
+                      onChange={(event) => setCalendarDraft((current) => ({ ...current, city: event.target.value }))}
+                      className="queue-input"
+                      placeholder="Kolding"
+                    />
+                  </label>
+                  <label>
+                    Contact
+                    <input
+                      value={calendarDraft.contact}
+                      onChange={(event) => setCalendarDraft((current) => ({ ...current, contact: event.target.value }))}
+                      className="queue-input"
+                      placeholder="booking@venue.com / +45..."
+                    />
+                  </label>
+                  <label>
+                    Fee / Deal
+                    <input
+                      value={calendarDraft.fee}
+                      onChange={(event) => setCalendarDraft((current) => ({ ...current, fee: event.target.value }))}
+                      className="queue-input"
+                      placeholder="DKK 4,500 + bar bonus"
+                    />
+                  </label>
+                  <label>
+                    Source
+                    <select
+                      value={calendarDraft.source}
+                      onChange={(event) => setCalendarDraft((current) => ({ ...current, source: event.target.value === 'ai-manager' ? 'ai-manager' : 'manual' }))}
+                      className="queue-input"
+                    >
+                      <option value="manual">Manual</option>
+                      <option value="ai-manager">AI manager</option>
+                    </select>
+                  </label>
+                  <label className="venue-outreach-form-span-full venue-outreach-composer-field">
+                    Notes
+                    <textarea
+                      value={calendarDraft.notes}
+                      onChange={(event) => setCalendarDraft((current) => ({ ...current, notes: event.target.value }))}
+                      className="queue-input"
+                      rows={4}
+                      placeholder="Important notes, setup needs, timings, who confirmed, etc."
+                    />
+                  </label>
+                </div>
+
+                <div className="hero-actions venue-link-row">
+                  <button type="button" className="primary-button" onClick={saveCalendarDay}>Save Day</button>
+                  <button type="button" className="secondary-button" onClick={clearCalendarDay} disabled={!selectedCalendarEntry}>Clear Day</button>
+                </div>
+              </section>
+            </div>
+
+            <div className="venue-calendar-lists">
+              <article className="venue-calendar-list-card">
+                <h3>Upcoming Booked Dates</h3>
+                {upcomingBooked.length === 0 ? <p className="subcopy no-margin-bottom">No booked dates yet.</p> : (
+                  <ul className="gig-management-list venue-outreach-list">
+                    {upcomingBooked.map((entry) => (
+                      <li key={entry.id} className="gig-management-entry venue-outreach-item">
+                        <div className="gig-management-main">
+                          <div className="gig-management-title-row">
+                            <p className="gig-management-title">{entry.date} · {entry.venueName || 'Booked gig'}</p>
+                            <span className="meta-badge">{entry.city || 'No city'}</span>
+                          </div>
+                          <p className="gig-management-meta">Contact: {entry.contact || 'N/A'} · Fee: {entry.fee || 'N/A'}</p>
+                          {entry.notes ? <p className="gig-management-meta">{entry.notes}</p> : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
+
+              <article className="venue-calendar-list-card">
+                <h3>Upcoming Free Dates</h3>
+                {upcomingFree.length === 0 ? <p className="subcopy no-margin-bottom">No free dates marked yet.</p> : (
+                  <ul className="gig-management-list venue-outreach-list">
+                    {upcomingFree.map((entry) => (
+                      <li key={entry.id} className="gig-management-entry venue-outreach-item">
+                        <div className="gig-management-main">
+                          <div className="gig-management-title-row">
+                            <p className="gig-management-title">{entry.date}</p>
+                            <span className="meta-badge">Free</span>
+                          </div>
+                          {entry.notes ? <p className="gig-management-meta">{entry.notes}</p> : <p className="gig-management-meta">Ready to book.</p>}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
+            </div>
+          </div>
+        </details>
+      </section>
+
       <section className="queue-panel venue-outreach-venues-panel venue-outreach-major-card" aria-label="Nearby venues" id="outreach-venues">
         <div className="panel-head">
           <h2>Nearby Venues</h2>
@@ -1709,6 +2166,7 @@ function VenueOutreachPage() {
       <nav className="venue-outreach-mobile-nav" aria-label="Mobile outreach shortcuts">
         <button type="button" className="venue-outreach-mobile-nav-button" onClick={() => scrollToSection('outreach-search-settings')}>Search</button>
         <button type="button" className="venue-outreach-mobile-nav-button" onClick={() => scrollToSection('outreach-campaign')}>Campaign</button>
+        <button type="button" className="venue-outreach-mobile-nav-button" onClick={() => scrollToSection('outreach-calendar')}>Calendar</button>
         <button type="button" className="venue-outreach-mobile-nav-button" onClick={() => scrollToSection('outreach-preview')}>Preview</button>
         <button type="button" className="venue-outreach-mobile-nav-button" onClick={openAiManager}>AI Manager</button>
       </nav>
