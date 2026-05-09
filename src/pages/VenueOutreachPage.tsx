@@ -238,6 +238,8 @@ const COMPOSER_MODE_OPTIONS: Array<{ value: ComposerMode; label: string; descrip
   { value: 'manual', label: 'Write it myself', description: 'Send the exact subject and email text you type below.' },
 ]
 
+const TAX_PRESET_OPTIONS = [0, 8, 22, 25, 38]
+
 function parseJsonArray<T>(raw: string | null): T[] {
   if (!raw) {
     return []
@@ -2426,6 +2428,18 @@ function VenueOutreachPage() {
                         placeholder="0"
                       />
                     </label>
+                    <div className="venue-choice-pills" aria-label="Tax quick presets">
+                      {TAX_PRESET_OPTIONS.map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`venue-choice-pill ${Math.abs(taxPercent - value) < 0.01 ? 'is-active' : ''}`}
+                          onClick={() => setTaxPercent(value)}
+                        >
+                          {value}%
+                        </button>
+                      ))}
+                    </div>
                     <p className="subcopy">Outstanding gigs: {paymentInsights.outstandingGigs} · Paid gigs: {paymentInsights.paidCount}</p>
                     <p className="subcopy">Outstanding amount: {formatDkk(paymentInsights.outstandingAmount)} · Paid amount: {formatDkk(paymentInsights.paidAmount)}</p>
                     <p className="subcopy">Paid coverage: {paymentInsights.paidCoveragePercent}% · Tax on paid: {formatDkk(paymentInsights.estimatedTaxOnPaid)} · Net paid after tax: {formatDkk(paymentInsights.netPaidAfterTax)}</p>
