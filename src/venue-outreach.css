@@ -846,16 +846,16 @@
   }
 
   .venue-outreach-header {
-    padding: 1.5rem 1rem;
+    padding: 1rem 0.85rem;
     border-radius: 16px;
   }
 
   .venue-outreach-header-title {
-    font-size: 1.8rem;
+    font-size: 1.45rem;
   }
 
   .venue-outreach-header-subtitle {
-    font-size: 1rem;
+    font-size: 0.93rem;
   }
 
   .venue-outreach-kpi-panel {
@@ -1021,6 +1021,73 @@
   .venue-outreach-shell textarea,
   .venue-outreach-shell input {
     font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .venue-outreach-header {
+    padding: 0.75rem 0.75rem;
+  }
+
+  .venue-outreach-header-title {
+    font-size: 1.25rem;
+  }
+
+  .venue-calendar-month,
+  .venue-calendar-editor,
+  .venue-calendar-list-card {
+    padding: 0.55rem;
+    border-radius: 10px;
+  }
+
+  .venue-calendar-days {
+    gap: 0.18rem;
+  }
+
+  .venue-calendar-day {
+    min-height: 2.3rem;
+    padding: 0.22rem 0.15rem;
+    font-size: 0.75rem;
+  }
+
+  .venue-payment-metric-grid {
+    gap: 0.3rem;
+  }
+
+  .venue-payment-metric {
+    padding: 0.38rem 0.45rem;
+  }
+
+  .venue-payment-metric-value {
+    font-size: 0.88rem;
+  }
+
+  .venue-payment-metric-label {
+    font-size: 0.68rem;
+  }
+
+  .venue-payment-controls {
+    gap: 0.4rem;
+  }
+
+  .venue-payment-card .venue-choice-pill {
+    flex: 1 1 calc(50% - 0.35rem);
+    font-size: 0.78rem;
+    padding: 0.4rem 0.3rem;
+  }
+
+  .venue-outreach-kpi-panel {
+    padding: 0.65rem;
+    gap: 0.65rem;
+  }
+
+  .venue-outreach-kpi-panel .venue-kpi-card {
+    padding: 0.75rem;
+  }
+
+  .venue-outreach-control-card,
+  .venue-outreach-action-strip {
+    padding: 0.65rem;
   }
 }
 
