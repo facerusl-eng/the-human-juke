@@ -11705,3 +11705,45 @@ kbd {
   border-color: #ffff00;
   box-shadow: none;
 }
+
+/* Extra phone-fit polish for the top shell/navigation menu */
+@media (max-width: 720px) {
+  .app-shell,
+  .app-shell-wide,
+  .app-shell-audience {
+    width: 100%;
+    max-width: none;
+    padding: 0.45rem;
+  }
+
+  .topbar {
+    padding: 0.5rem;
+    gap: 0.55rem;
+  }
+
+  .site-nav-collapsible.site-nav-open {
+    width: 100%;
+    gap: 0.4rem;
+    padding: 0.38rem;
+  }
+
+  .site-nav-collapsible a,
+  .site-nav-admin a,
+  .site-nav .nav-dropdown-trigger {
+    min-height: 2.65rem;
+    font-size: 0.98rem;
+    padding: 0.45rem 0.7rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .app-shell,
+  .app-shell-wide,
+  .app-shell-audience {
+    padding: 0.3rem;
+  }
+
+  .topbar {
+    padding: 0.4rem;
+  }
+}
