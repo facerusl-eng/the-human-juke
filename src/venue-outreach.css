@@ -604,6 +604,83 @@
   gap: 1rem;
 }
 
+.venue-payment-card {
+  background: linear-gradient(165deg, rgba(14, 30, 57, 0.82) 0%, rgba(9, 15, 34, 0.86) 100%);
+}
+
+.venue-payment-controls {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 0.75rem;
+}
+
+.venue-payment-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0.75rem 0;
+}
+
+.venue-payment-metric {
+  border: 1px solid rgba(153, 196, 255, 0.24);
+  border-radius: 12px;
+  padding: 0.65rem 0.7rem;
+  background: rgba(11, 22, 46, 0.72);
+  display: grid;
+  gap: 0.25rem;
+}
+
+.venue-payment-metric-label {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9eb6da;
+}
+
+.venue-payment-metric-value {
+  color: #f3f8ff;
+  font-size: 1.02rem;
+}
+
+.venue-payment-progress {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(153, 196, 255, 0.3);
+  background: rgba(10, 18, 40, 0.82);
+  margin: 0.6rem 0 0.75rem;
+}
+
+.venue-payment-progress-meter {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+}
+
+.venue-payment-progress-meter::-webkit-progress-bar {
+  background: transparent;
+  border-radius: inherit;
+}
+
+.venue-payment-progress-meter::-webkit-progress-value {
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(120, 220, 170, 0.92) 0%, rgba(93, 215, 255, 0.94) 100%);
+}
+
+.venue-payment-progress-meter::-moz-progress-bar {
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(120, 220, 170, 0.92) 0%, rgba(93, 215, 255, 0.94) 100%);
+}
+
+.venue-payment-trend {
+  color: #d9f7ef;
+  font-weight: 600;
+}
+
 /* ============================================
    ANIMATIONS
    ============================================ */
@@ -730,6 +807,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .venue-payment-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .venue-calendar-grid {
     grid-template-columns: 1fr;
   }
@@ -845,6 +926,10 @@
   .venue-choice-grid,
   .venue-choice-grid-compact,
   .venue-outreach-action-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .venue-payment-metric-grid {
     grid-template-columns: 1fr;
   }
 

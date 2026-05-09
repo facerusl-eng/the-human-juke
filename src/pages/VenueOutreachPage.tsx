@@ -536,6 +536,72 @@ function formatDkkInputPreset(amount: number) {
   return `DKK ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount)}`
 }
 
+function summarizeBookedFinancials(bookedEntries: CalendarEntry[], taxPercent: number) {
+  let outstandingAmount = 0
+  let paidAmount = 0
+  let unknownOutstandingCount = 0
+  let paidCount = 0
+  let partialCount = 0
+  let unpaidCount = 0
+
+  bookedEntries.forEach((entry) => {
+    const expectedAmount = parseCurrencyAmount(entry.fee) ?? parseCurrencyAmount(entry.paymentAmount)
+    const paidEntryAmount = parseCurrencyAmount(entry.paymentAmount)
+
+    if (entry.paymentStatus === 'paid') {
+      paidCount += 1
+      if (paidEntryAmount != null) {
+        paidAmount += paidEntryAmount
+      } else if (expectedAmount != null) {
+        paidAmount += expectedAmount
+      } else {
+        unknownOutstandingCount += 1
+      }
+      return
+    }
+
+    if (entry.paymentStatus === 'partial') {
+      partialCount += 1
+      if (paidEntryAmount != null) {
+        paidAmount += paidEntryAmount
+      }
+
+      if (expectedAmount != null) {
+        outstandingAmount += Math.max(expectedAmount - (paidEntryAmount ?? 0), 0)
+      } else {
+        unknownOutstandingCount += 1
+      }
+      return
+    }
+
+    unpaidCount += 1
+    if (expectedAmount != null) {
+      outstandingAmount += expectedAmount
+    } else {
+      unknownOutstandingCount += 1
+    }
+  })
+
+  const knownTotalAmount = outstandingAmount + paidAmount
+  const paidCoveragePercent = knownTotalAmount > 0 ? Math.round((paidAmount / knownTotalAmount) * 100) : 0
+  const estimatedTaxOnPaid = paidAmount * (taxPercent / 100)
+  const netPaidAfterTax = Math.max(paidAmount - estimatedTaxOnPaid, 0)
+
+  return {
+    bookedCount: bookedEntries.length,
+    outstandingGigs: partialCount + unpaidCount,
+    paidCount,
+    partialCount,
+    unpaidCount,
+    outstandingAmount,
+    paidAmount,
+    unknownOutstandingCount,
+    paidCoveragePercent,
+    estimatedTaxOnPaid,
+    netPaidAfterTax,
+  }
+}
+
 function VenueOutreachPage() {
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') {
@@ -716,124 +782,26 @@ function VenueOutreachPage() {
 
   const paymentInsights = useMemo(() => {
     const upcomingBookedAll = upcomingCalendarEntries.filter((entry) => entry.status === 'booked')
-
-    let outstandingAmount = 0
-    let paidAmount = 0
-    let unknownOutstandingCount = 0
-    let paidCount = 0
-    let partialCount = 0
-    let unpaidCount = 0
-
-    upcomingBookedAll.forEach((entry) => {
-      const expectedAmount = parseCurrencyAmount(entry.fee) ?? parseCurrencyAmount(entry.paymentAmount)
-      const paidEntryAmount = parseCurrencyAmount(entry.paymentAmount)
-
-      if (entry.paymentStatus === 'paid') {
-        paidCount += 1
-        if (paidEntryAmount != null) {
-          paidAmount += paidEntryAmount
-        } else if (expectedAmount != null) {
-          paidAmount += expectedAmount
-        }
-        return
-      }
-
-      if (entry.paymentStatus === 'partial') {
-        partialCount += 1
-        if (paidEntryAmount != null) {
-          paidAmount += paidEntryAmount
-        }
-
-        if (expectedAmount != null) {
-          outstandingAmount += Math.max(expectedAmount - (paidEntryAmount ?? 0), 0)
-        } else {
-          unknownOutstandingCount += 1
-        }
-        return
-      }
-
-      unpaidCount += 1
-      if (expectedAmount != null) {
-        outstandingAmount += expectedAmount
-      } else {
-        unknownOutstandingCount += 1
-      }
-    })
-
-    const knownTotalAmount = outstandingAmount + paidAmount
-    const paidCoveragePercent = knownTotalAmount > 0 ? Math.round((paidAmount / knownTotalAmount) * 100) : 0
-    const estimatedTaxOnPaid = paidAmount * (taxPercent / 100)
-    const netPaidAfterTax = Math.max(paidAmount - estimatedTaxOnPaid, 0)
-
     return {
       upcomingBookedCount: upcomingBookedAll.length,
-      outstandingGigs: partialCount + unpaidCount,
-      paidCount,
-      partialCount,
-      unpaidCount,
-      outstandingAmount,
-      paidAmount,
-      unknownOutstandingCount,
-      paidCoveragePercent,
-      estimatedTaxOnPaid,
-      netPaidAfterTax,
+      ...summarizeBookedFinancials(upcomingBookedAll, taxPercent),
     }
   }, [upcomingCalendarEntries, taxPercent])
 
   const monthlyPaymentInsights = useMemo(() => {
     const bookedInMonth = calendarEntries.filter((entry) => entry.status === 'booked' && entry.date.startsWith(`${calendarMonth}-`))
-
-    let paidAmount = 0
-    let outstandingAmount = 0
-    let unknownAmountCount = 0
-
-    bookedInMonth.forEach((entry) => {
-      const expectedAmount = parseCurrencyAmount(entry.fee) ?? parseCurrencyAmount(entry.paymentAmount)
-      const paidEntryAmount = parseCurrencyAmount(entry.paymentAmount)
-
-      if (entry.paymentStatus === 'paid') {
-        if (paidEntryAmount != null) {
-          paidAmount += paidEntryAmount
-        } else if (expectedAmount != null) {
-          paidAmount += expectedAmount
-        } else {
-          unknownAmountCount += 1
-        }
-        return
-      }
-
-      if (entry.paymentStatus === 'partial') {
-        if (paidEntryAmount != null) {
-          paidAmount += paidEntryAmount
-        }
-
-        if (expectedAmount != null) {
-          outstandingAmount += Math.max(expectedAmount - (paidEntryAmount ?? 0), 0)
-        } else {
-          unknownAmountCount += 1
-        }
-        return
-      }
-
-      if (expectedAmount != null) {
-        outstandingAmount += expectedAmount
-      } else {
-        unknownAmountCount += 1
-      }
-    })
-
-    const estimatedTaxOnPaid = paidAmount * (taxPercent / 100)
-    const netPaidAfterTax = Math.max(paidAmount - estimatedTaxOnPaid, 0)
-
-    return {
-      bookedCount: bookedInMonth.length,
-      paidAmount,
-      outstandingAmount,
-      unknownAmountCount,
-      estimatedTaxOnPaid,
-      netPaidAfterTax,
-    }
+    return summarizeBookedFinancials(bookedInMonth, taxPercent)
   }, [calendarEntries, calendarMonth, taxPercent])
+
+  const previousMonthPaymentInsights = useMemo(() => {
+    const previousMonth = shiftMonthIso(calendarMonth, -1)
+    const bookedInPreviousMonth = calendarEntries.filter((entry) => entry.status === 'booked' && entry.date.startsWith(`${previousMonth}-`))
+    return summarizeBookedFinancials(bookedInPreviousMonth, taxPercent)
+  }, [calendarEntries, calendarMonth, taxPercent])
+
+  const monthNetDelta = useMemo(() => {
+    return monthlyPaymentInsights.netPaidAfterTax - previousMonthPaymentInsights.netPaidAfterTax
+  }, [monthlyPaymentInsights.netPaidAfterTax, previousMonthPaymentInsights.netPaidAfterTax])
 
   const pastBookedCount = useMemo(() => {
     const todayIso = toDayIso(new Date())
@@ -2431,48 +2399,73 @@ function VenueOutreachPage() {
                 <p className="subcopy no-margin-bottom">Next 30 days: {calendarInsights.bookedNextThirty} booked · {calendarInsights.freeNextThirty} free · {calendarInsights.totalTagged} tagged days.</p>
               </article>
 
-              <article className="venue-calendar-list-card">
+              <article className="venue-calendar-list-card venue-payment-card">
                 <h3>Payment Summary (Upcoming)</h3>
                 {paymentInsights.upcomingBookedCount === 0 ? (
                   <p className="subcopy no-margin-bottom">No upcoming booked gigs to track yet.</p>
                 ) : (
                   <>
-                    <label>
-                      Tax Percent
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.1}
-                        value={taxPercent}
-                        onChange={(event) => setTaxPercent(normalizeTaxPercent(event.target.value))}
-                        className="queue-input"
-                        placeholder="0"
-                      />
-                    </label>
-                    <div className="venue-choice-pills" aria-label="Tax quick presets">
-                      {TAX_PRESET_OPTIONS.map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          className={`venue-choice-pill ${Math.abs(taxPercent - value) < 0.01 ? 'is-active' : ''}`}
-                          onClick={() => setTaxPercent(value)}
-                        >
-                          {value}%
-                        </button>
-                      ))}
+                    <div className="venue-payment-controls">
+                      <label>
+                        Tax Percent
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.1}
+                          value={taxPercent}
+                          onChange={(event) => setTaxPercent(normalizeTaxPercent(event.target.value))}
+                          className="queue-input"
+                          placeholder="0"
+                        />
+                      </label>
+                      <div className="venue-choice-pills" aria-label="Tax quick presets">
+                        {TAX_PRESET_OPTIONS.map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            className={`venue-choice-pill ${Math.abs(taxPercent - value) < 0.01 ? 'is-active' : ''}`}
+                            onClick={() => setTaxPercent(value)}
+                          >
+                            {value}%
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <p className="subcopy">Outstanding gigs: {paymentInsights.outstandingGigs} · Paid gigs: {paymentInsights.paidCount}</p>
-                    <p className="subcopy">Outstanding amount: {formatDkk(paymentInsights.outstandingAmount)} · Paid amount: {formatDkk(paymentInsights.paidAmount)}</p>
-                    <p className="subcopy">Paid coverage: {paymentInsights.paidCoveragePercent}% · Tax on paid: {formatDkk(paymentInsights.estimatedTaxOnPaid)} · Net paid after tax: {formatDkk(paymentInsights.netPaidAfterTax)}</p>
+
+                    <div className="venue-payment-metric-grid" aria-label="Payment financial snapshot">
+                      <div className="venue-payment-metric">
+                        <span className="venue-payment-metric-label">Outstanding</span>
+                        <strong className="venue-payment-metric-value">{formatDkk(paymentInsights.outstandingAmount)}</strong>
+                      </div>
+                      <div className="venue-payment-metric">
+                        <span className="venue-payment-metric-label">Paid</span>
+                        <strong className="venue-payment-metric-value">{formatDkk(paymentInsights.paidAmount)}</strong>
+                      </div>
+                      <div className="venue-payment-metric">
+                        <span className="venue-payment-metric-label">Tax On Paid</span>
+                        <strong className="venue-payment-metric-value">{formatDkk(paymentInsights.estimatedTaxOnPaid)}</strong>
+                      </div>
+                      <div className="venue-payment-metric">
+                        <span className="venue-payment-metric-label">Net After Tax</span>
+                        <strong className="venue-payment-metric-value">{formatDkk(paymentInsights.netPaidAfterTax)}</strong>
+                      </div>
+                    </div>
+
+                    <div className="venue-payment-progress" aria-label="Payment coverage">
+                      <progress className="venue-payment-progress-meter" value={paymentInsights.paidCoveragePercent} max={100} />
+                    </div>
+
+                    <p className="subcopy">Coverage: {paymentInsights.paidCoveragePercent}% paid · Outstanding gigs: {paymentInsights.outstandingGigs} · Paid gigs: {paymentInsights.paidCount}</p>
                     <p className="subcopy">{formatMonthIsoLabel(calendarMonth)}: {formatDkk(monthlyPaymentInsights.paidAmount)} paid · {formatDkk(monthlyPaymentInsights.outstandingAmount)} outstanding · {formatDkk(monthlyPaymentInsights.netPaidAfterTax)} net after tax</p>
+                    <p className="subcopy venue-payment-trend">MoM net change: {monthNetDelta >= 0 ? '+' : '-'}{formatDkk(Math.abs(monthNetDelta))} vs {formatMonthIsoLabel(shiftMonthIso(calendarMonth, -1))}</p>
                     <p className="subcopy">Month gigs: {monthlyPaymentInsights.bookedCount} booked · Estimated tax this month: {formatDkk(monthlyPaymentInsights.estimatedTaxOnPaid)}</p>
                     <p className="subcopy no-margin-bottom">Status split: {paymentInsights.unpaidCount} unpaid · {paymentInsights.partialCount} partial · {paymentInsights.paidCount} paid</p>
                     {paymentInsights.unknownOutstandingCount > 0 ? (
                       <p className="subcopy no-margin-bottom">{paymentInsights.unknownOutstandingCount} outstanding gig(s) have no readable numeric amount yet.</p>
                     ) : null}
-                    {monthlyPaymentInsights.unknownAmountCount > 0 ? (
-                      <p className="subcopy no-margin-bottom">{monthlyPaymentInsights.unknownAmountCount} month gig(s) have no readable numeric amount yet.</p>
+                    {monthlyPaymentInsights.unknownOutstandingCount > 0 ? (
+                      <p className="subcopy no-margin-bottom">{monthlyPaymentInsights.unknownOutstandingCount} month gig(s) have no readable numeric amount yet.</p>
                     ) : null}
                   </>
                 )}
