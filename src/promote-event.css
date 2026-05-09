@@ -513,6 +513,10 @@
     gap: 0.85rem;
   }
 
+  .promote-shell-intro {
+    display: none;
+  }
+
   .promote-preview-panel {
     order: -1;
   }
@@ -539,6 +543,23 @@
 
   .promote-control-grid {
     grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .promote-controls-panel {
+    padding: 0.9rem;
+  }
+
+  .promote-controls-panel .panel-head {
+    margin-bottom: 0.4rem;
+  }
+
+  .promote-field {
+    gap: 0.12rem;
+  }
+
+  .promote-field span {
+    font-size: 0.66rem;
   }
 
   .promote-field:nth-child(1),

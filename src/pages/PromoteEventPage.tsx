@@ -1332,20 +1332,9 @@ function PromoteEventPage() {
           <h1>Promote Event</h1>
           <span className="meta-badge">Designer</span>
         </div>
-        <p className="subcopy">
+        <p className="subcopy promote-shell-intro">
           Build a professional promo layout with your own photo, event details, and call-to-action.
         </p>
-        {isMobileViewport ? (
-          <div className="hero-actions venue-link-row no-margin-bottom">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => setShowMobileAdvancedControls((current) => !current)}
-            >
-              {showMobileAdvancedControls ? 'Hide More Promo Settings' : 'Show More Promo Settings'}
-            </button>
-          </div>
-        ) : null}
 
         <div className="promote-control-grid">
           <label className="promote-field">
