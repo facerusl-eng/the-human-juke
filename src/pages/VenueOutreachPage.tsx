@@ -638,6 +638,11 @@ function VenueOutreachPage() {
     [upcomingCalendarEntries],
   )
 
+  const pastBookedCount = useMemo(() => {
+    const todayIso = toDayIso(new Date())
+    return calendarEntries.filter((entry) => entry.status === 'booked' && entry.date < todayIso).length
+  }, [calendarEntries])
+
   const upcomingFree = useMemo(
     () => upcomingCalendarEntries.filter((entry) => entry.status === 'free').slice(0, 12),
     [upcomingCalendarEntries],
@@ -1984,7 +1989,12 @@ function VenueOutreachPage() {
             <div className="venue-calendar-lists">
               <article className="venue-calendar-list-card">
                 <h3>Upcoming Booked Dates</h3>
-                {upcomingBooked.length === 0 ? <p className="subcopy no-margin-bottom">No booked dates yet.</p> : (
+                {upcomingBooked.length === 0 ? (
+                  <>
+                    <p className="subcopy no-margin-bottom">No booked dates yet.</p>
+                    {pastBookedCount > 0 ? <p className="subcopy no-margin-bottom">You have {pastBookedCount} booked date(s) in the past. Add or update future dates to show them here.</p> : null}
+                  </>
+                ) : (
                   <ul className="gig-management-list venue-outreach-list">
                     {upcomingBooked.map((entry) => (
                       <li key={entry.id} className="gig-management-entry venue-outreach-item">

@@ -115,6 +115,32 @@ function isIsoDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value)
 }
 
+function moveDateToUpcomingYear(dateIso: string) {
+  if (!isIsoDate(dateIso)) {
+    return dateIso
+  }
+
+  const [yearPart, monthPart, dayPart] = dateIso.split('-')
+  const year = Number(yearPart)
+  const month = Number(monthPart)
+  const day = Number(dayPart)
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return dateIso
+  }
+
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const todayIso = `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+  const thisYearCandidate = `${currentYear}-${monthPart}-${dayPart}`
+  if (thisYearCandidate >= todayIso) {
+    return thisYearCandidate
+  }
+
+  return `${currentYear + 1}-${monthPart}-${dayPart}`
+}
+
 function normalizeText(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -414,17 +440,23 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
         return
       }
 
-      const current = byDate.get(action.date)
-      byDate.set(action.date, {
-        id: typeof current?.id === 'string' ? current.id : `calendar-${action.date}`,
-        date: action.date,
+      const normalizedDate = action.status === 'booked'
+        ? moveDateToUpcomingYear(action.date)
+        : action.date
+
+      const current = byDate.get(normalizedDate)
+      byDate.set(normalizedDate, {
+        id: typeof current?.id === 'string' ? current.id : `calendar-${normalizedDate}`,
+        date: normalizedDate,
         status: action.status === 'booked' ? 'booked' : 'free',
         venueName: action.venueName ?? '',
         city: action.city ?? '',
         contact: action.contact ?? '',
         fee: action.fee ?? '',
         source: 'ai-manager',
-        notes: action.notes ?? '',
+        notes: normalizedDate !== action.date
+          ? `${action.notes ? `${action.notes} ` : ''}(AI date adjusted to upcoming year)`
+          : (action.notes ?? ''),
         createdAt: typeof current?.createdAt === 'string' ? current.createdAt : nowIso,
         updatedAt: nowIso,
       })
