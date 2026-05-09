@@ -208,9 +208,45 @@ const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
 const QUEUE_STATE_STORAGE_KEY = 'human-jukebox-queue-state-snapshot'
 const QUEUE_STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000
 const TEST_GIG_MAP_STORAGE_KEY = 'human-jukebox-test-gig-map'
+const MISSING_COLUMNS_CACHE_KEY = 'human-jukebox-missing-columns-cache'
 const VENUE_LOGO_SCALE_MIN = 20
 const VENUE_LOGO_SCALE_MAX = 500
 const VENUE_LOGO_OFFSET_LIMIT = 100
+
+type MissingColumnsCache = {
+  venueLogoLayout?: boolean
+  performedAt?: boolean
+}
+
+function readMissingColumnsCache(): MissingColumnsCache {
+  const parsed = readFromLocalStorage(MISSING_COLUMNS_CACHE_KEY) as Record<string, unknown> | null
+
+  if (!parsed || typeof parsed !== 'object') {
+    return {}
+  }
+
+  return {
+    venueLogoLayout: parsed.venueLogoLayout === true,
+    performedAt: parsed.performedAt === true,
+  }
+}
+
+function markMissingColumnInCache(column: keyof MissingColumnsCache) {
+  const current = readMissingColumnsCache()
+
+  if (current[column] === true) {
+    return
+  }
+
+  saveToLocalStorage(MISSING_COLUMNS_CACHE_KEY, {
+    ...current,
+    [column]: true,
+  })
+}
+
+const missingColumnsCache = readMissingColumnsCache()
+let hasVenueLogoLayoutColumns = missingColumnsCache.venueLogoLayout !== true
+let hasPerformedAtColumn = missingColumnsCache.performedAt !== true
 
 function getLiveDiscoveryPollInterval(operatingMode: 'normal' | 'degraded') {
   return operatingMode === 'degraded'
@@ -1077,13 +1113,26 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const loadVenueLogoLayoutSettings = async (): Promise<{ venue_logo_scale: number; venue_logo_offset_x: number; venue_logo_offset_y: number }> => {
       try {
+        if (!hasVenueLogoLayoutColumns) {
+          return { venue_logo_scale: 100, venue_logo_offset_x: 0, venue_logo_offset_y: 0 }
+        }
+
         const { data, error } = await supabase
           .from('events')
           .select('venue_logo_scale, venue_logo_offset_x, venue_logo_offset_y')
           .eq('id', activeEventId)
           .single()
 
-        if (error || !data) {
+        if (error) {
+          if (isMissingVenueLogoLayoutColumnError(error)) {
+            hasVenueLogoLayoutColumns = false
+            markMissingColumnInCache('venueLogoLayout')
+          }
+
+          return { venue_logo_scale: 100, venue_logo_offset_x: 0, venue_logo_offset_y: 0 }
+        }
+
+        if (!data) {
           return { venue_logo_scale: 100, venue_logo_offset_x: 0, venue_logo_offset_y: 0 }
         }
 
@@ -1263,23 +1312,32 @@ function QueueProvider({ children }: PropsWithChildren) {
 
       let performedSongsData: Array<Record<string, unknown>> | null = null
 
-      const { data: performedWithPerformedAt, error: performedWithPerformedAtError } = await withTimeout(
-        supabase
-          .from('queue_songs')
-          .select(performedSongsSelectWithPerformedAt)
-          .eq('event_id', activeEventId)
-          .eq('is_removed', true)
-          .order('performed_at', { ascending: false, nullsFirst: false })
-          .limit(30),
-        DEFAULT_DB_TIMEOUT_MS,
-        'Loading played songs timed out. Please refresh and try again.',
-      )
+      if (hasPerformedAtColumn) {
+        const { data: performedWithPerformedAt, error: performedWithPerformedAtError } = await withTimeout(
+          supabase
+            .from('queue_songs')
+            .select(performedSongsSelectWithPerformedAt)
+            .eq('event_id', activeEventId)
+            .eq('is_removed', true)
+            .order('performed_at', { ascending: false, nullsFirst: false })
+            .limit(30),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Loading played songs timed out. Please refresh and try again.',
+        )
 
-      if (performedWithPerformedAtError && !isMissingPerformedAtColumnError(performedWithPerformedAtError)) {
-        throw performedWithPerformedAtError
+        if (performedWithPerformedAtError && !isMissingPerformedAtColumnError(performedWithPerformedAtError)) {
+          throw performedWithPerformedAtError
+        }
+
+        if (performedWithPerformedAtError && isMissingPerformedAtColumnError(performedWithPerformedAtError)) {
+          hasPerformedAtColumn = false
+          markMissingColumnInCache('performedAt')
+        } else {
+          performedSongsData = (performedWithPerformedAt ?? []) as Array<Record<string, unknown>>
+        }
       }
 
-      if (performedWithPerformedAtError && isMissingPerformedAtColumnError(performedWithPerformedAtError)) {
+      if (!performedSongsData) {
         const { data: performedWithoutPerformedAt, error: performedWithoutPerformedAtError } = await withTimeout(
           supabase
             .from('queue_songs')
@@ -1297,8 +1355,6 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         performedSongsData = (performedWithoutPerformedAt ?? []) as Array<Record<string, unknown>>
-      } else {
-        performedSongsData = (performedWithPerformedAt ?? []) as Array<Record<string, unknown>>
       }
 
       performedSongsSnapshot = (performedSongsData ?? []).map((song) => {
@@ -3516,9 +3572,11 @@ function QueueProvider({ children }: PropsWithChildren) {
             .eq('id', currentSong.id)
         }
 
-        const { error } = await updatePlayedState(true)
+        const { error } = await updatePlayedState(hasPerformedAtColumn)
 
         if (error && isMissingPerformedAtColumnError(error)) {
+          hasPerformedAtColumn = false
+          markMissingColumnInCache('performedAt')
           const { error: fallbackError } = await updatePlayedState(false)
 
           if (fallbackError) {
@@ -3576,9 +3634,11 @@ function QueueProvider({ children }: PropsWithChildren) {
             .eq('id', songId)
         }
 
-        const { error } = await updateUnplayedState(true)
+        const { error } = await updateUnplayedState(hasPerformedAtColumn)
 
         if (error && isMissingPerformedAtColumnError(error)) {
+          hasPerformedAtColumn = false
+          markMissingColumnInCache('performedAt')
           const { error: fallbackError } = await updateUnplayedState(false)
 
           if (fallbackError) {
