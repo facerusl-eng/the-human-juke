@@ -408,6 +408,12 @@ function toMonthIso(value: Date) {
   return `${year}-${month}`
 }
 
+function addDays(baseDate: Date, days: number) {
+  const next = new Date(baseDate)
+  next.setDate(baseDate.getDate() + days)
+  return next
+}
+
 function buildCalendarEntryId(date: string) {
   return `calendar-${date}`
 }
@@ -647,6 +653,26 @@ function VenueOutreachPage() {
     () => upcomingCalendarEntries.filter((entry) => entry.status === 'free').slice(0, 12),
     [upcomingCalendarEntries],
   )
+
+  const calendarInsights = useMemo(() => {
+    const today = new Date()
+    const horizon = addDays(today, 30)
+    const todayIso = toDayIso(today)
+    const horizonIso = toDayIso(horizon)
+
+    const nextThirty = calendarEntries.filter((entry) => entry.date >= todayIso && entry.date <= horizonIso)
+    const bookedNextThirty = nextThirty.filter((entry) => entry.status === 'booked').length
+    const freeNextThirty = nextThirty.filter((entry) => entry.status === 'free').length
+    const totalTagged = bookedNextThirty + freeNextThirty
+    const utilization = totalTagged > 0 ? Math.round((bookedNextThirty / totalTagged) * 100) : 0
+
+    return {
+      bookedNextThirty,
+      freeNextThirty,
+      utilization,
+      totalTagged,
+    }
+  }, [calendarEntries])
 
   const previewVenue = useMemo(() => {
     return venues.find((venue) => venue.id === previewVenueId)
@@ -1308,6 +1334,146 @@ function VenueOutreachPage() {
     setSendError(null)
   }
 
+  const upsertCalendarEntry = (date: string, draft: CalendarDraft, nextSource: CalendarEntry['source']) => {
+    const now = new Date().toISOString()
+    const current = calendarEntryByDate.get(date)
+    const nextEntry: CalendarEntry = {
+      id: current?.id || buildCalendarEntryId(date),
+      date,
+      status: draft.status,
+      venueName: draft.venueName.trim(),
+      city: draft.city.trim(),
+      contact: draft.contact.trim(),
+      fee: draft.fee.trim(),
+      source: nextSource,
+      notes: draft.notes.trim(),
+      createdAt: current?.createdAt || now,
+      updatedAt: now,
+    }
+
+    const nextEntries = [
+      ...calendarEntries.filter((entry) => entry.date !== date),
+      nextEntry,
+    ].sort((a, b) => a.date.localeCompare(b.date))
+
+    withSavedCalendarEntries(nextEntries)
+    return nextEntry
+  }
+
+  const markWeekendsFree = () => {
+    const start = new Date()
+    const nextEntries = [...calendarEntries]
+    const existingByDate = new Map(nextEntries.map((entry) => [entry.date, entry]))
+    const touched: string[] = []
+
+    for (let i = 0; i < 56; i += 1) {
+      const day = addDays(start, i)
+      const weekday = day.getDay()
+      if (weekday !== 5 && weekday !== 6) {
+        continue
+      }
+
+      const dayIso = toDayIso(day)
+      const existing = existingByDate.get(dayIso)
+      if (existing?.status === 'booked') {
+        continue
+      }
+
+      const now = new Date().toISOString()
+      const updated: CalendarEntry = {
+        id: existing?.id || buildCalendarEntryId(dayIso),
+        date: dayIso,
+        status: 'free',
+        venueName: existing?.venueName || '',
+        city: existing?.city || '',
+        contact: existing?.contact || '',
+        fee: existing?.fee || '',
+        source: existing?.source || 'manual',
+        notes: existing?.notes || 'Weekend slot marked free',
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
+      }
+
+      existingByDate.set(dayIso, updated)
+      touched.push(dayIso)
+    }
+
+    const merged = [...existingByDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+    withSavedCalendarEntries(merged)
+    setStatusText(`Marked ${touched.length} weekend date(s) as free for the next 8 weeks.`)
+    setSendError(null)
+  }
+
+  const clearPastFreeDates = () => {
+    const todayIso = toDayIso(new Date())
+    const beforeCount = calendarEntries.length
+    const nextEntries = calendarEntries.filter((entry) => !(entry.status === 'free' && entry.date < todayIso))
+    const removed = beforeCount - nextEntries.length
+    withSavedCalendarEntries(nextEntries)
+    setStatusText(removed > 0 ? `Removed ${removed} past free date(s).` : 'No past free dates to remove.')
+    setSendError(null)
+  }
+
+  const exportCalendarCsv = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const rows = [
+      ['date', 'status', 'venue_name', 'city', 'contact', 'fee', 'source', 'notes'],
+      ...[...calendarEntries]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((entry) => [
+          entry.date,
+          entry.status,
+          entry.venueName,
+          entry.city,
+          entry.contact,
+          entry.fee,
+          entry.source,
+          entry.notes,
+        ]),
+    ]
+
+    const escapeCell = (value: string) => `"${String(value ?? '').replace(/"/g, '""')}"`
+    const csv = rows.map((row) => row.map(escapeCell).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `outreach-calendar-${toDayIso(new Date())}.csv`
+    anchor.click()
+    window.URL.revokeObjectURL(url)
+    setStatusText('Exported calendar CSV.')
+    setSendError(null)
+  }
+
+  const quickBookVenueOnSelectedDate = (venue: Venue) => {
+    if (!normalizeIsoDate(selectedCalendarDate)) {
+      setSendError('Pick a date in the calendar first, then use quick book from a venue card.')
+      return
+    }
+
+    const cityGuess = venue.address.split(',').map((part) => part.trim()).filter(Boolean).pop() || ''
+    const contact = venue.contactEmail || venue.phone || ''
+    const draft: CalendarDraft = {
+      status: 'booked',
+      venueName: venue.name,
+      city: cityGuess,
+      contact,
+      fee: '',
+      source: 'manual',
+      notes: `Booked from outreach lead · stage: ${STAGE_LABELS[venue.stage]}`,
+    }
+
+    const saved = upsertCalendarEntry(selectedCalendarDate, draft, 'manual')
+    setCalendarDraft(draft)
+    setCalendarMonth(selectedCalendarDate.slice(0, 7))
+    setStatusText(`Booked ${saved.venueName || 'venue'} on ${saved.date} from outreach lead.`)
+    setSendError(null)
+    scrollToSection('outreach-calendar')
+  }
+
   const scrollToSection = (id: string) => {
     if (typeof document === 'undefined') {
       return
@@ -1819,7 +1985,7 @@ function VenueOutreachPage() {
           <div className="venue-outreach-collapsible-body">
             <div className="panel-head">
               <h2>Availability & Bookings</h2>
-              <span className="meta-badge">Booked: {upcomingBooked.length} · Free: {upcomingFree.length}</span>
+              <span className="meta-badge">Booked: {upcomingBooked.length} · Free: {upcomingFree.length} · 30d util: {calendarInsights.utilization}%</span>
             </div>
 
             <p className="subcopy">Mark days you are free, add booked gigs with key details, and keep the schedule ready for your AI manager.</p>
@@ -1988,6 +2154,17 @@ function VenueOutreachPage() {
 
             <div className="venue-calendar-lists">
               <article className="venue-calendar-list-card">
+                <h3>Calendar Power Tools</h3>
+                <p className="subcopy">Use quick actions to plan availability faster and keep your booking ops tidy.</p>
+                <div className="hero-actions venue-link-row">
+                  <button type="button" className="secondary-button" onClick={markWeekendsFree}>Mark Fri/Sat Free (8 weeks)</button>
+                  <button type="button" className="secondary-button" onClick={clearPastFreeDates}>Clear Past Free Dates</button>
+                  <button type="button" className="secondary-button" onClick={exportCalendarCsv}>Export CSV</button>
+                </div>
+                <p className="subcopy no-margin-bottom">Next 30 days: {calendarInsights.bookedNextThirty} booked · {calendarInsights.freeNextThirty} free · {calendarInsights.totalTagged} tagged days.</p>
+              </article>
+
+              <article className="venue-calendar-list-card">
                 <h3>Upcoming Booked Dates</h3>
                 {upcomingBooked.length === 0 ? (
                   <>
@@ -2141,6 +2318,7 @@ function VenueOutreachPage() {
                     ) : null}
 
                     <div className="hero-actions venue-link-row">
+                      <button type="button" className="secondary-button" onClick={() => quickBookVenueOnSelectedDate(venue)}>Book Selected Day</button>
                       <a className="secondary-button" href={mapUrl} target="_blank" rel="noreferrer">Map</a>
                       <a className="secondary-button" href={directionsUrl} target="_blank" rel="noreferrer">Route</a>
                       {venue.phone ? <a className="secondary-button" href={`tel:${venue.phone}`}>Call</a> : null}
