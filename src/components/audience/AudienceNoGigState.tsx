@@ -156,12 +156,14 @@ function AudienceNoGigState({
   upcomingEventsNotice = null,
   getEventHref,
   locale = 'en',
+  socialLinks = [],
 }: {
   upcomingEvents: AudienceUpcomingEvent[]
   loadingUpcomingEvents?: boolean
   upcomingEventsNotice?: string | null
   getEventHref?: (eventId: string) => string
   locale?: AudienceLocale
+  socialLinks?: { label: string; url: string }[]
 }) {
   const [showHowJukeboxWorks, setShowHowJukeboxWorks] = useState(false)
   const [showHowKaraokeWorks, setShowHowKaraokeWorks] = useState(false)
@@ -319,6 +321,16 @@ function AudienceNoGigState({
             {showHowJukeboxWorks ? copy.hideHowItWorks : copy.howItWorks}
           </button>
         </div>
+
+        {socialLinks.length > 0 ? (
+          <div className="audience-social-links-inline">
+            {socialLinks.map((link) => (
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="secondary-button">
+                {link.label}
+              </a>
+            ))}
+          </div>
+        ) : null}
 
         {showHowJukeboxWorks ? (
           <section id="audience-no-gig-how-it-works" className="audience-no-gig-how-it-works" aria-label={copy.howItWorksTitle}>

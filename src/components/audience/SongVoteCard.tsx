@@ -10,6 +10,7 @@ type SongVoteCardProps = {
   moveTick: number
   isVoting?: boolean
   disabled: boolean
+  myName?: string
   onVote: (songId: string) => Promise<void>
   normalizeCoverUrl: (coverUrl: string | null | undefined) => string | null
 }
@@ -22,9 +23,11 @@ function SongVoteCard({
   moveTick,
   isVoting = false,
   disabled,
+  myName,
   onVote,
   normalizeCoverUrl,
 }: SongVoteCardProps) {
+  const isOwnRequest = Boolean(myName && song.createdByName && song.createdByName === myName)
   const voteHeatPercent = useMemo(() => (
     hottestVoteCount > 0
       ? Math.round((song.votes_count / hottestVoteCount) * 100)
@@ -38,7 +41,7 @@ function SongVoteCard({
   const [showInfo, setShowInfo] = useState(false)
 
   return (
-    <li className={`audience-song-card queue-slide-in ${moveTick > 0 ? 'song-card-move' : ''}`}>
+    <li className={`audience-song-card queue-slide-in ${moveTick > 0 ? 'song-card-move' : ''}${isOwnRequest ? ' audience-song-card-own' : ''}`}>
       {showInfo && (
         <div
           className="song-info-overlay"
@@ -78,6 +81,7 @@ function SongVoteCard({
         <span className="queue-rank-chip" aria-label={`Rank ${rank}`}>
           #{rank}
         </span>
+        {isOwnRequest ? <span className="audience-song-own-badge">⭐ Yours</span> : null}
         <div className="queue-song-main audience-song-main">
           {song.cover_url ? (
             <img
@@ -102,12 +106,15 @@ function SongVoteCard({
         <IconButton icon="ⓘ" label={`More info about ${song.title}`} className="song-info-trigger" onClick={() => setShowInfo(true)} />
       </div>
 
-      <progress
-        className="vote-heat-track"
-        value={voteHeatPercent}
-        max={100}
-        aria-label={`Vote momentum ${voteHeatPercent}%`}
-      />
+      <div className="vote-heat-row">
+        <span className="vote-heat-icon" aria-hidden="true">🔥</span>
+        <progress
+          className="vote-heat-track"
+          value={voteHeatPercent}
+          max={100}
+          aria-label={`Vote momentum ${voteHeatPercent}%`}
+        />
+      </div>
 
       <div className="queue-actions audience-song-actions">
         <PrimaryButton

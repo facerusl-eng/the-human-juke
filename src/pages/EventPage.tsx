@@ -652,6 +652,7 @@ function EventPage() {
     performedSongs,
     loading,
     upvoteSong,
+    removeSong,
     audienceConnectionStatus,
     pendingOfflineSongs,
     queueOperatingMode,
@@ -678,6 +679,11 @@ function EventPage() {
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(false)
+  const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
+  const [shareSuccess, setShareSuccess] = useState(false)
+  const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
+  const confirmSignOutTimerRef = useRef<number | null>(null)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
   const upcomingNoticeTimerRef = useRef<number | null>(null)
   const upcomingNoticeValueRef = useRef<string | null>(null)
@@ -778,16 +784,16 @@ function EventPage() {
   const betweenSongQuote = isBetweenSongs
     ? BETWEEN_SONG_QUOTES[(playbackState?.quoteIndex ?? 0) % BETWEEN_SONG_QUOTES.length]
     : null
-  const connectionBadgeLabel = audienceConnectionStatus === 'connected'
+  const connectionBadgeLabel = visibleConnectionStatus === 'connected'
     ? 'Connected'
-    : audienceConnectionStatus === 'reconnecting'
+    : visibleConnectionStatus === 'reconnecting'
     ? 'Reconnecting'
-    : audienceConnectionStatus === 'offline'
+    : visibleConnectionStatus === 'offline'
     ? 'Offline'
     : 'Connecting'
-  const connectionBadgeClassName = audienceConnectionStatus === 'connected'
+  const connectionBadgeClassName = visibleConnectionStatus === 'connected'
     ? 'connection-online'
-    : audienceConnectionStatus === 'offline'
+    : visibleConnectionStatus === 'offline'
     ? 'connection-offline'
     : ''
   const hottestVoteCount = upNext.reduce((highestVotes, song) => Math.max(highestVotes, song.votes_count), 0)
@@ -999,6 +1005,25 @@ function EventPage() {
       if (tipThankYouTimerRef.current !== null) {
         window.clearTimeout(tipThankYouTimerRef.current)
         tipThankYouTimerRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (audienceConnectionStatus === 'connected') {
+      setVisibleConnectionStatus('connected')
+      return
+    }
+
+    const timer = window.setTimeout(() => setVisibleConnectionStatus(audienceConnectionStatus), 3000)
+    return () => window.clearTimeout(timer)
+  }, [audienceConnectionStatus])
+
+  useEffect(() => {
+    return () => {
+      if (confirmSignOutTimerRef.current !== null) {
+        window.clearTimeout(confirmSignOutTimerRef.current)
+        confirmSignOutTimerRef.current = null
       }
     }
   }, [])
@@ -1884,6 +1909,7 @@ function EventPage() {
         upcomingEventsNotice={upcomingEventsNotice ?? authError}
         getEventHref={(eventId) => `/audience?event=${encodeURIComponent(eventId)}&v=${audienceLinkVersionRef.current}`}
         locale={audienceLocale}
+        socialLinks={socialLinks}
       />
     )
   }
@@ -1997,6 +2023,26 @@ function EventPage() {
           <p className="subcopy audience-entry-copy">{copy.waitingCopy}</p>
           {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
           <p className="meta-badge audience-soon-badge">{copy.startingSoon}</p>
+          {event?.name ? (
+            <div className="audience-waiting-event-info">
+              <p className="audience-waiting-event-name">{event.name}</p>
+              {event.subtitle ? <p className="audience-waiting-event-subtitle">{event.subtitle}</p> : null}
+            </div>
+          ) : null}
+          {allTipLinks.length > 0 ? (
+            <a href={allTipLinks[0].url} target="_blank" rel="noopener noreferrer" className="secondary-button">
+              💸 {allTipLinks[0].label}
+            </a>
+          ) : null}
+          {socialLinks.length > 0 ? (
+            <div className="audience-social-links-inline">
+              {socialLinks.map((link) => (
+                <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="secondary-button">
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          ) : null}
           {hasRequestedEventParam ? (
             <button
               type="button"
@@ -2075,6 +2121,7 @@ function EventPage() {
           subtitle={event?.subtitle ?? null}
           logoSrc="/the-human-jukebox-logo.svg"
           locale={audienceLocale}
+          shareUrl={audienceShareUrl || null}
           onSignOut={handleSignOut}
         />
 
@@ -2105,6 +2152,20 @@ function EventPage() {
               <h2>Hi {audienceName}</h2>
             </div>
             <div className="audience-request-badges">
+              <div className="audience-language-inline" role="group" aria-label={copy.languageLabel}>
+                {audienceLanguageOptions.map((option) => (
+                  <button
+                    key={option.code}
+                    type="button"
+                    className={`audience-language-inline-btn${audienceLocale === option.code ? ' audience-language-inline-btn-active' : ''}`}
+                    onClick={() => { setAudienceLocale(option.code); commitAudienceLocale(option.code) }}
+                    title={option.label}
+                    aria-current={audienceLocale === option.code ? 'true' : undefined}
+                  >
+                    <img src={`https://flagcdn.com/20x15/${option.flagCode}.png`} alt={option.label} width="20" height="15" />
+                  </button>
+                ))}
+              </div>
               {isKaraokeEvent ? <span className="meta-badge">Karaoke Event</span> : null}
               <span className="meta-badge">{copy.roomOpen}</span>
             </div>
@@ -2235,14 +2296,38 @@ function EventPage() {
                   ? 'Your request is up next!'
                   : `Your request is #${queuedPosition} in the queue.`}
               </span>
-              <button
-                type="button"
-                className="audience-queued-banner-dismiss"
-                aria-label="Dismiss"
-                onClick={() => setShowQueuedBanner(false)}
-              >
-                ✕
-              </button>
+              <div className="audience-queued-banner-actions">
+                {audienceName ? (() => {
+                  const mySong = upNext.find((s) => s.createdByName === audienceName)
+                  return mySong && !isNowPlayingStarted ? (
+                    <button
+                      type="button"
+                      className="audience-queued-banner-cancel"
+                      aria-label="Cancel my request"
+                      disabled={cancellingRequestId === mySong.id}
+                      onClick={async () => {
+                        setCancellingRequestId(mySong.id)
+                        try {
+                          await removeSong(mySong.id)
+                          setShowQueuedBanner(false)
+                        } finally {
+                          setCancellingRequestId(null)
+                        }
+                      }}
+                    >
+                      {cancellingRequestId === mySong.id ? '…' : 'Cancel'}
+                    </button>
+                  ) : null
+                })() : null}
+                <button
+                  type="button"
+                  className="audience-queued-banner-dismiss"
+                  aria-label="Dismiss"
+                  onClick={() => setShowQueuedBanner(false)}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           ) : null}
           <p className="eyebrow"><span aria-hidden="true">🎤</span> {copy.nowPlaying}</p>
@@ -2294,6 +2379,7 @@ function EventPage() {
                 normalizeCoverUrl={normalizeCoverUrl}
                 disabled={!roomOpen || song.voting_locked || Boolean(votingSongIds[song.id])}
                 isVoting={Boolean(votingSongIds[song.id])}
+                myName={audienceName || undefined}
                 onVote={handleVoteSong}
               />
             ))}

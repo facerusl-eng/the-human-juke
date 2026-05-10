@@ -1383,3 +1383,120 @@
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 }
+
+/* ── Vote heat bar (#2) ─────────────────────────────────────── */
+.audience-karafun .vote-heat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audience-karafun .vote-heat-icon {
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ── Own-request highlight (#6 / #8) ───────────────────────── */
+.audience-karafun .audience-song-card-own {
+  border-color: rgba(103, 232, 249, 0.6);
+  background: rgba(103, 232, 249, 0.04);
+}
+
+.audience-karafun .audience-song-own-badge {
+  font-size: 0.7rem;
+  color: #67e8f9;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Karaoke card tint (#5) ────────────────────────────────── */
+.audience-karafun .audience-song-list-card-karaoke {
+  background: rgba(255, 79, 154, 0.07);
+  border-color: rgba(255, 79, 154, 0.25);
+}
+
+/* ── Sign-out confirm state (#13) ──────────────────────────── */
+.audience-karafun .audience-signout-confirm {
+  color: var(--kf-pink) !important;
+  border-color: var(--kf-pink) !important;
+}
+
+/* ── Cancel queued request (#12) ───────────────────────────── */
+.audience-karafun .audience-queued-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.audience-karafun .audience-queued-banner-cancel {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 79, 154, 0.5);
+  color: var(--kf-pink);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.audience-karafun .audience-queued-banner-cancel:hover {
+  background: rgba(255, 79, 154, 0.12);
+}
+
+.audience-karafun .audience-queued-banner-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Language toggle in live view (#9) ─────────────────────── */
+.audience-karafun .audience-language-inline {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.audience-karafun .audience-language-inline-btn {
+  padding: 0.15rem 0.25rem;
+  border-radius: 4px;
+  border: 1px solid var(--kf-border);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.audience-karafun .audience-language-inline-btn:hover {
+  opacity: 0.85;
+}
+
+.audience-karafun .audience-language-inline-btn-active {
+  opacity: 1;
+  border-color: var(--kf-purple);
+  box-shadow: 0 0 0 1px var(--kf-purple);
+}
+
+/* ── Waiting room event info teaser (#4) ───────────────────── */
+.audience-karafun .audience-waiting-event-info {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--kf-border);
+  text-align: center;
+}
+
+.audience-karafun .audience-waiting-event-name {
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.audience-karafun .audience-waiting-event-subtitle {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin: 0.25rem 0 0;
+}
