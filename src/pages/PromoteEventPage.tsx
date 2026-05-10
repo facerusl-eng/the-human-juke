@@ -107,6 +107,10 @@ function PromoteEventPage() {
     return window.matchMedia('(max-width: 1024px)').matches
   })
   const previewRef = useRef<HTMLElement | null>(null)
+  const controlsPanelRef = useRef<HTMLElement | null>(null)
+  const exportPanelRef = useRef<HTMLDivElement | null>(null)
+  const toolsPanelRef = useRef<HTMLElement | null>(null)
+  const videoPanelRef = useRef<HTMLElement | null>(null)
   const headlineRef = useRef<HTMLDivElement | null>(null)
   const dragActiveRef = useRef(false)
   const photoObjectUrlRef = useRef<string | null>(null)
@@ -1325,9 +1329,13 @@ function PromoteEventPage() {
     window.open(facebookShareUrl, '_blank', 'noopener,noreferrer')
   }
 
+  const scrollToSection = <T extends HTMLElement>(ref: React.RefObject<T | null>) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <section className="promote-shell" aria-label="Promote event designer">
-      <section className="queue-panel promote-controls-panel">
+      <section ref={controlsPanelRef} className="queue-panel promote-controls-panel">
         <div className="panel-head">
           <h1>Promote Event</h1>
           <span className="meta-badge">Designer</span>
@@ -1336,7 +1344,9 @@ function PromoteEventPage() {
           Build a professional promo layout with your own photo, event details, and call-to-action.
         </p>
 
-        <div className="promote-control-grid">
+        <details className="promote-collapsible" open={!isMobileViewport}>
+          <summary className="promote-collapsible-summary">Basics</summary>
+          <div className="promote-control-grid">
           <label className="promote-field">
             <span>Event</span>
             <input
@@ -1606,6 +1616,13 @@ function PromoteEventPage() {
                     </div>
                   </>
                 ) : null}
+          </div>
+        </details>
+
+        <div ref={exportPanelRef}>
+          <details className="promote-collapsible promote-collapsible-export" open={!isMobileViewport}>
+            <summary className="promote-collapsible-summary">Export &amp; Share</summary>
+            <div className="promote-control-grid promote-export-grid">
           <div className="promote-field promote-field-wide">
             <span>Save Draft</span>
             <button
@@ -1682,13 +1699,16 @@ function PromoteEventPage() {
             {facebookShareError ? <p className="error-text no-margin-bottom">{facebookShareError}</p> : null}
           </div>
 
-            {promotionSaveError ? <p className="error-text no-margin-bottom">{promotionSaveError}</p> : null}
-            {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
-          </div>
+            </div>
+          </details>
+        </div>
+
+        {promotionSaveError ? <p className="error-text no-margin-bottom">{promotionSaveError}</p> : null}
+        {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
       </section>
 
       {isMobileViewport ? (
-        <section className="queue-panel promote-mobile-advanced-panel" aria-label="Advanced promo controls">
+        <section ref={toolsPanelRef} className="queue-panel promote-mobile-advanced-panel" aria-label="Advanced promo controls">
           <div className="panel-head">
             <h2>More Tools</h2>
             <span className="meta-badge">Optional</span>
@@ -1724,7 +1744,7 @@ function PromoteEventPage() {
       ) : null}
 
       {showVideoEditor && selectedEventId ? (
-        <section className="queue-panel promote-video-editor-panel" aria-label="Video editor">
+        <section ref={videoPanelRef} className="queue-panel promote-video-editor-panel" aria-label="Video editor">
           <VideoEditor
             eventId={selectedEventId}
             eventName={eventName}
@@ -1775,6 +1795,38 @@ function PromoteEventPage() {
           </div>
         </article>
       </section>
+
+      {isMobileViewport ? (
+        <nav className="promote-mobile-dock" aria-label="Editor quick actions">
+          <button type="button" className="secondary-button" onClick={() => scrollToSection(previewRef)}>Preview</button>
+          <button type="button" className="secondary-button" onClick={() => scrollToSection(controlsPanelRef)}>Basics</button>
+          <button type="button" className="secondary-button" onClick={() => scrollToSection(exportPanelRef)}>Export</button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setShowMobileAdvancedControls(true)
+              scrollToSection(toolsPanelRef)
+            }}
+          >
+            Tools
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={!selectedEventId}
+            onClick={() => {
+              if (!selectedEventId) return
+              setShowVideoEditor(true)
+              window.setTimeout(() => {
+                scrollToSection(videoPanelRef)
+              }, 0)
+            }}
+          >
+            Video
+          </button>
+        </nav>
+      ) : null}
 
     </section>
   )
