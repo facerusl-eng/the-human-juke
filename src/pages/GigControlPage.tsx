@@ -160,6 +160,10 @@ function GigControlPage() {
   const [gigSummary, setGigSummary] = useState<{ totalPlayed: number; topSong: string | null; startedAt: number } | null>(null)
   const gigStartedAtRef = useRef<number>(Date.now())
   const [isBrbActive, setIsBrbActive] = useState(false)
+  const [brbCustomMessage, setBrbCustomMessage] = useState('')
+  const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
+  const [showEndGigHideConfirm, setShowEndGigHideConfirm] = useState(false)
+  const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -196,6 +200,8 @@ function GigControlPage() {
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
+  const nextUpSong = upNext[0] ?? null
+  const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
   const queuedLibrarySongIds = useMemo(() => (
     new Set(
       songs
@@ -734,21 +740,45 @@ function GigControlPage() {
       return
     }
 
-    const currentQueueCount = songs.length
     const snapshotQueueCount = latestSnapshot.queue.length
     const snapshotsForEvent = databaseSnapshotAvailable
       ? await getQueueSnapshotsFromDatabase(event.id, 20).catch(() => [])
       : getQueueSnapshots(event.id)
     const snapshotIndex = Math.max(1, snapshotsForEvent.findIndex((snapshot) => snapshot.id === latestSnapshot.id) + 1)
-    const confirmation = window.confirm(
-      `Restore snapshot #${snapshotIndex} from ${new Date(latestSnapshot.createdAt).toLocaleString()}?\n\nThis will replace the current queue.\nCurrent queue: ${currentQueueCount} songs\nSnapshot queue: ${snapshotQueueCount} songs\nReason: ${latestSnapshot.reason}\nSource: ${databaseSnapshotAvailable ? 'Database (transactional restore)' : 'Local backup (fallback restore)'}`,
-    )
+    setRestoreConfirmPayload({
+      snapshotId: latestSnapshot.id,
+      queueCount: snapshotQueueCount,
+      snapshotCount: snapshotIndex,
+      reason: latestSnapshot.reason,
+      at: new Date(latestSnapshot.createdAt).toLocaleString(),
+      source: databaseSnapshotAvailable ? 'database' : 'local',
+    })
+  }, [event, gigActions, saveQueueSnapshot, user?.id])
 
-    if (!confirmation) {
-      return
+  const confirmRestoreSnapshot = useCallback(async () => {
+    if (!restoreConfirmPayload || !event) return
+    setRestoreConfirmPayload(null)
+    setSnapshotRestoreBusy(true)
+
+    let latestSnapshot = null
+    const databaseSnapshotAvailable = restoreConfirmPayload.source === 'database'
+
+    try {
+      if (databaseSnapshotAvailable) {
+        const dbSnapshots = await getQueueSnapshotsFromDatabase(event.id, 1)
+        latestSnapshot = dbSnapshots[0] ?? null
+      } else {
+        latestSnapshot = getLatestQueueSnapshot(event.id)
+      }
+    } catch {
+      latestSnapshot = getLatestQueueSnapshot(event.id)
     }
 
-    setSnapshotRestoreBusy(true)
+    if (!latestSnapshot) {
+      setSnapshotStatusText('Snapshot not found. It may have expired.')
+      setSnapshotRestoreBusy(false)
+      return
+    }
 
     try {
       saveQueueSnapshot('pre-restore-backup', true)
@@ -756,6 +786,7 @@ function GigControlPage() {
       if (databaseSnapshotAvailable) {
         const restored = await restoreQueueSnapshotInDatabase(latestSnapshot.id)
         setSnapshotStatusText(`Snapshot restored transactionally. Queue replaced with ${restored.restoredCount} songs.`)
+        setSnapshotRestoreBusy(false)
         return
       }
 
@@ -803,14 +834,14 @@ function GigControlPage() {
         await gigActions.runToggleExplicitFilter()
       }
 
-      setSnapshotStatusText(`Snapshot restored from local backup. Queue replaced with ${snapshotQueueCount} songs.`)
+      setSnapshotStatusText(`Snapshot restored from local backup. Queue replaced with ${latestSnapshot.queue.length} songs.`)
     } catch (error) {
       console.warn('GigControlPage: snapshot restore failed', error)
       setSnapshotStatusText(error instanceof Error ? error.message : 'Snapshot restore failed. Try again.')
     } finally {
       setSnapshotRestoreBusy(false)
     }
-  }, [event, gigActions, saveQueueSnapshot, songs.length, user?.id])
+  }, [event, gigActions, restoreConfirmPayload, saveQueueSnapshot, user?.id])
 
   useEffect(() => {
     if (!event?.id) {
@@ -894,22 +925,7 @@ function GigControlPage() {
       return
     }
 
-    const shouldHideFromOfflineAudience = window.confirm(
-      'This gig has ended. Do you want to remove it from the offline Audience page?',
-    )
-
-    if (!shouldHideFromOfflineAudience) {
-      return
-    }
-
-    void (async () => {
-      try {
-        await setShowInAudienceNoGig(false)
-      } catch (error) {
-        console.warn('GigControlPage: failed to update offline audience visibility after gig end', error)
-        setErrorText(error instanceof Error ? error.message : 'Could not update offline audience visibility.')
-      }
-    })()
+    setShowEndGigHideConfirm(true)
   }, [event, performedSongs, setShowInAudienceNoGig])
 
   useEffect(() => {
@@ -1022,6 +1038,39 @@ function GigControlPage() {
       void supabase.removeChannel(channel)
     }
   }, [event?.id])
+
+  // Auto Live countdown display
+  useEffect(() => {
+    if (!event?.autoLiveEnabled || event.roomOpen) {
+      setAutoLiveCountdown(null)
+      return
+    }
+
+    const startAt = resolveGigStartAt(event.gigDate, event.gigStartTime)
+    if (!startAt) {
+      setAutoLiveCountdown(null)
+      return
+    }
+
+    const tick = () => {
+      const diffMs = startAt.getTime() - Date.now()
+      if (diffMs <= 0) {
+        setAutoLiveCountdown('Auto Live triggering...')
+        return
+      }
+
+      const totalSec = Math.floor(diffMs / 1000)
+      const h = Math.floor(totalSec / 3600)
+      const m = Math.floor((totalSec % 3600) / 60)
+      const s = totalSec % 60
+      const parts = h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`
+      setAutoLiveCountdown(`Auto Live in ${parts}`)
+    }
+
+    tick()
+    const timerId = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timerId)
+  }, [event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen])
 
   const resolveCoverUrlForSong = useCallback((songId: string | null) => {
     if (!songId) {
@@ -1419,7 +1468,7 @@ function GigControlPage() {
             isStarted: false,
             quoteIndex: quoteIndexRef.current,
             brbActive: nextBrb,
-            brbMessage: nextBrb ? 'Be right back — grabbing a pint of courage.' : null,
+            brbMessage: nextBrb ? (brbCustomMessage.trim() || 'Be right back — grabbing a pint of courage.') : null,
           })
         } catch (error) {
           setIsBrbActive(isBrbActive)
@@ -1506,6 +1555,28 @@ function GigControlPage() {
   return (
     <section className="gig-control-shell" aria-label="Gig control panel">
       {/* Gig header */}
+      {showEndGigHideConfirm ? (
+        <section className="queue-panel admin-inline-confirm-banner" role="alertdialog" aria-label="Gig ended">
+          <p className="subcopy">Gig ended. Remove this gig from the offline Audience page so visitors aren't confused?</p>
+          <div className="hero-actions no-margin-bottom">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void setShowInAudienceNoGig(false).catch((error: unknown) => {
+                  setErrorText(error instanceof Error ? error.message : 'Could not update visibility.')
+                })
+                setShowEndGigHideConfirm(false)
+              }}
+            >
+              Yes, Hide It
+            </button>
+            <button type="button" className="ghost-button" onClick={() => setShowEndGigHideConfirm(false)}>
+              Keep Visible
+            </button>
+          </div>
+        </section>
+      ) : null}
       <section className="gig-control-top-grid">
         <article className="gig-control-header gig-control-main-card">
           <div>
@@ -1550,6 +1621,16 @@ function GigControlPage() {
             {preflightStatusText ? (
               <p className="meta-badge" aria-live="polite">{preflightStatusText}</p>
             ) : null}
+            {autoLiveCountdown ? (
+              <p className="meta-badge gig-auto-live-countdown" aria-live="polite">⏱ {autoLiveCountdown}</p>
+            ) : null}
+            {nextUpSong ? (
+              <p className="subcopy gig-next-up-hint" aria-live="polite">
+                Next up: <strong>{nextUpSong.title}</strong> — {nextUpSong.artist}
+                {nextUpSong.createdByName ? ` · requested by ${nextUpSong.createdByName}` : ''}
+                {queueEstMinutes > 0 ? ` · ~${queueEstMinutes} min queue` : ''}
+              </p>
+            ) : null}
             <p className="subcopy gig-playback-note">
               Admin playback control is driven from this screen. Press Space to start the current song, then press
               Space again to move into the next quote transition. This applies to the full live queue for this gig,
@@ -1557,6 +1638,18 @@ function GigControlPage() {
             </p>
           </div>
           <ActionButtonGroup actions={headerActions} layoutClassName="gig-control-actions gig-control-primary-actions" />
+          <div className="gig-brb-input-block">
+            <label htmlFor="gig-brb-message" className="gig-switcher-label">BRB message (shown on mirror while paused)</label>
+            <input
+              id="gig-brb-message"
+              className="gig-switcher-select"
+              value={brbCustomMessage}
+              onChange={(changeEvent) => {
+                setBrbCustomMessage(changeEvent.target.value)
+              }}
+              placeholder="Be right back — grabbing a pint of courage."
+            />
+          </div>
         </article>
 
         <article className="gig-mirror-preview-card" aria-label="Live mirror preview">
@@ -1690,7 +1783,7 @@ function GigControlPage() {
             </button>
             <button
               type="button"
-              className="secondary-button"
+              className="primary-button gig-snapshot-restore-button"
               title="Restore the most recent snapshot with a confirmation preview"
               onClick={() => {
                 void restoreLatestSnapshot()
@@ -1705,6 +1798,24 @@ function GigControlPage() {
           </div>
           {snapshotStatusText ? <p className="subcopy no-margin">{snapshotStatusText}</p> : null}
           {workerHeartbeatText ? <p className="subcopy no-margin">{workerHeartbeatText}</p> : null}
+          {restoreConfirmPayload ? (
+            <div className="admin-inline-confirm" role="alertdialog" aria-label="Confirm snapshot restore">
+              <p className="subcopy">
+                Restore snapshot #{restoreConfirmPayload.snapshotCount} from {restoreConfirmPayload.at}?
+                {' '}This replaces the current queue ({restoreConfirmPayload.queueCount} songs).
+                {restoreConfirmPayload.reason ? ` Reason: ${restoreConfirmPayload.reason}.` : ''}
+                {' '}Source: {restoreConfirmPayload.source === 'database' ? 'Database (transactional)' : 'Local backup'}.
+              </p>
+              <div className="hero-actions no-margin-bottom">
+                <button type="button" className="primary-button" onClick={() => { void confirmRestoreSnapshot() }}>
+                  Confirm Restore
+                </button>
+                <button type="button" className="ghost-button" onClick={() => setRestoreConfirmPayload(null)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
         </article>
       </section>
 
@@ -1742,7 +1853,8 @@ function GigControlPage() {
               <h2>Spotify Automation</h2>
               <span className="meta-badge">{spotifyAutoTransportEnabled ? 'On' : 'Off'}</span>
             </div>
-            <label htmlFor="spotify-auto-transport-toggle" className="gig-switcher-label">
+            <label htmlFor="spotify-auto-transport-toggle" className="gig-switcher-label gig-spotify-status-label">
+              <span className="admin-spotify-status-dot admin-spotify-connected" aria-label="Spotify Connected" />
               <input
                 id="spotify-auto-transport-toggle"
                 type="checkbox"
@@ -1765,7 +1877,10 @@ function GigControlPage() {
         <section className="queue-panel" aria-label="Spotify login prompt">
           <div className="panel-head">
             <h2>Spotify Web Playback SDK</h2>
-            <span className="meta-badge">Disconnected</span>
+            <span className="meta-badge gig-spotify-status-label">
+              <span className="admin-spotify-status-dot admin-spotify-disconnected" aria-hidden="true" />
+              Disconnected
+            </span>
           </div>
           <p className="subcopy">Connect Spotify to enable play/pause and track skipping from Gig Control.</p>
           <div className="hero-actions no-margin-bottom">
@@ -1786,8 +1901,9 @@ function GigControlPage() {
 
       {/* Now Playing */}
       <section className="gig-now-playing">
-        <article className="now-playing-card">
+        <article className={`now-playing-card ${isNowPlayingStarted ? 'gig-now-playing-active' : ''}`}>
           <p className="eyebrow">Now Playing</p>
+          {queueEstMinutes > 0 ? <p className="subcopy no-margin">~{queueEstMinutes} min queue ahead</p> : null}
           {nowPlaying && isNowPlayingStarted ? (
             <>
               <div className="now-playing-media">

@@ -3552,6 +3552,33 @@
   border-radius: 14px;
 }
 
+.admin-stat-green strong {
+  color: #34d399;
+}
+
+.admin-stat-amber strong {
+  color: #fbbf24;
+}
+
+.admin-panic-voting-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.admin-top-voted-hint {
+  margin-top: 0.5rem;
+}
+
+.admin-inline-confirm,
+.admin-inline-confirm-banner {
+  margin-top: 0.6rem;
+  padding: 0.8rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 184, 107, 0.4);
+  background: rgba(48, 33, 14, 0.42);
+}
+
 .admin-mobile-inline-actions,
 .admin-mobile-action-grid {
   display: grid;
@@ -4328,6 +4355,39 @@
   padding: clamp(1rem, 3vw, 1.55rem);
 }
 
+.gig-now-playing-active {
+  border-color: rgba(52, 211, 153, 0.52) !important;
+  box-shadow:
+    0 0 0 2px rgba(52, 211, 153, 0.22),
+    0 14px 30px rgba(5, 8, 24, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  animation: gig-now-playing-pulse 2s ease-in-out infinite;
+}
+
+@keyframes gig-now-playing-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(52, 211, 153, 0.2),
+      0 14px 30px rgba(5, 8, 24, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(52, 211, 153, 0.15),
+      0 14px 30px rgba(5, 8, 24, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+}
+
+.gig-next-up-hint {
+  margin-top: 0.45rem;
+}
+
+.gig-auto-live-countdown {
+  margin-top: 0.45rem;
+}
+
 .gig-between-songs-hint {
   margin-top: 0.35rem;
   margin-bottom: 0;
@@ -5016,6 +5076,37 @@
   border-radius: 12px;
   border: 1px solid rgba(93, 215, 255, 0.2);
   background: rgba(8, 14, 34, 0.62);
+}
+
+.gig-brb-input-block {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.gig-snapshot-restore-button {
+  border-color: rgba(93, 215, 255, 0.58);
+  box-shadow: 0 10px 24px rgba(9, 28, 54, 0.42);
+}
+
+.gig-spotify-status-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.admin-spotify-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.admin-spotify-connected {
+  background: #34d399;
+}
+
+.admin-spotify-disconnected {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .gig-settings-playlist-option strong {

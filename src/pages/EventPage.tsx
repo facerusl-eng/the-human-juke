@@ -680,10 +680,7 @@ function EventPage() {
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(false)
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
-  const [confirmSignOut, setConfirmSignOut] = useState(false)
-  const [shareSuccess, setShareSuccess] = useState(false)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
-  const confirmSignOutTimerRef = useRef<number | null>(null)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
   const upcomingNoticeTimerRef = useRef<number | null>(null)
   const upcomingNoticeValueRef = useRef<string | null>(null)
@@ -801,6 +798,17 @@ function EventPage() {
   const eventSearchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
   const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
   const hasRequestedEventParam = Boolean(requestedEventId)
+  const audienceShareUrl = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    const shareUrl = new URL(window.location.href)
+    if (event?.id) {
+      shareUrl.searchParams.set('event', event.id)
+    }
+    return shareUrl.toString()
+  }, [event?.id])
   const queuedPositionParam = eventSearchParams.get('queued')
   const queuedPosition = queuedPositionParam ? parseInt(queuedPositionParam, 10) : null
   const [showQueuedBanner, setShowQueuedBanner] = useState(Boolean(queuedPosition && queuedPosition > 0))
@@ -1018,15 +1026,6 @@ function EventPage() {
     const timer = window.setTimeout(() => setVisibleConnectionStatus(audienceConnectionStatus), 3000)
     return () => window.clearTimeout(timer)
   }, [audienceConnectionStatus])
-
-  useEffect(() => {
-    return () => {
-      if (confirmSignOutTimerRef.current !== null) {
-        window.clearTimeout(confirmSignOutTimerRef.current)
-        confirmSignOutTimerRef.current = null
-      }
-    }
-  }, [])
 
   const setUpcomingNoticeDebounced = useCallback((nextNotice: string | null, delayMs = 300) => {
     if (upcomingNoticeValueRef.current === nextNotice) {

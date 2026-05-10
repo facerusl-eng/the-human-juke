@@ -221,6 +221,12 @@ function AdminDashboardContent({
   })
 
   const totalVotes = songs.reduce((sum, song) => sum + song.votes_count, 0)
+  const topVotedSong = useMemo(() => {
+    const active = songs.filter((s) => !s.is_removed)
+    if (active.length === 0) return null
+    return active.reduce((best, s) => s.votes_count > best.votes_count ? s : best)
+  }, [songs])
+  const queueEstMinutes = Math.round(songs.filter((s) => !s.is_removed).length * 3.5)
   const activeEventSummary = useMemo(
     () => hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null,
     [hostEvents, event?.id],
@@ -452,12 +458,17 @@ function AdminDashboardContent({
       onClick: openGigList,
     },
   ]
-  const settingsToolActions: ActionButtonConfig[] = [
+  const gigToolActions: ActionButtonConfig[] = [
     {
       id: 'open-gig-settings',
       label: 'Gig Settings',
       onClick: openGigSettings,
       disabled: !event,
+    },
+    {
+      id: 'open-create-gig',
+      label: 'Create Gig',
+      onClick: openCreateGig,
     },
     {
       id: 'open-admin-settings',
@@ -469,20 +480,17 @@ function AdminDashboardContent({
       label: 'Crash Telemetry',
       onClick: openCrashTelemetry,
     },
+  ]
+  const marketingToolActions: ActionButtonConfig[] = [
     {
-      id: 'open-create-gig',
-      label: 'Create Gig',
-      onClick: openCreateGig,
+      id: 'open-promote-event',
+      label: 'Promote Event',
+      onClick: openPromoteEvent,
     },
     {
       id: 'open-audience-feed',
       label: 'Open Audience Feed',
       onClick: openAudienceFeed,
-    },
-    {
-      id: 'open-promote-event',
-      label: 'Promote Event',
-      onClick: openPromoteEvent,
     },
     {
       id: 'open-received-bookings',
@@ -671,24 +679,31 @@ function AdminDashboardContent({
             </p>
 
             {event ? (
+              <>
               <ul className="stats admin-mobile-status-grid" aria-label="Current gig status">
-                <li>
+                <li className={event.roomOpen ? 'admin-stat-green' : 'admin-stat-amber'}>
                   <strong>{event.roomOpen ? 'Open' : 'Paused'}</strong>
                   <span>Gig Status</span>
                 </li>
                 <li>
-                  <strong>{songs.length}</strong>
-                  <span>Queued Tracks</span>
+                  <strong>{songs.filter((s) => !s.is_removed).length}</strong>
+                  <span>Queued · ~{queueEstMinutes} min</span>
                 </li>
                 <li>
                   <strong>{totalVotes}</strong>
                   <span>Total Votes</span>
                 </li>
-                <li>
+                <li className={event.explicitFilterEnabled ? 'admin-stat-amber' : ''}>
                   <strong>{event.explicitFilterEnabled ? 'On' : 'Off'}</strong>
                   <span>Explicit Filter</span>
                 </li>
               </ul>
+              {topVotedSong && topVotedSong.votes_count > 0 ? (
+                <p className="subcopy admin-top-voted-hint" aria-live="polite">
+                  🏆 Top request: <strong>{topVotedSong.title}</strong> — {topVotedSong.artist} ({topVotedSong.votes_count} votes)
+                </p>
+              ) : null}
+              </>
             ) : (
               <p className="subcopy no-margin-bottom">No active gig selected.</p>
             )}
@@ -702,7 +717,7 @@ function AdminDashboardContent({
             </div>
 
             <ActionButtonGroup actions={panicModeActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
-            <label className="subcopy no-margin-bottom" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+            <label className="subcopy no-margin-bottom admin-panic-voting-label">
               <input
                 type="checkbox"
                 checked={panicIncludeVotingLock}
@@ -721,6 +736,50 @@ function AdminDashboardContent({
             {quickActionError ? <p className="error-text">{quickActionError}</p> : null}
           </section>
 
+          <section className="queue-panel admin-mobile-block" aria-label="Audience active gig switcher">
+            <div className="panel-head admin-mobile-section-head">
+              <h2>Current Gig for Audience</h2>
+              <span className="meta-badge">Go live</span>
+            </div>
+
+            {hostEvents.length === 0 ? (
+              <p className="subcopy no-margin-bottom">No gigs yet. Create your first gig to get started.</p>
+            ) : (
+              <ul className="queue-list admin-mobile-switch-list">
+                {hostEvents.map((hostEvent) => {
+                  const isBusy = activeGigActions.activatingEventId === hostEvent.id
+
+                  return (
+                    <li key={hostEvent.id} className="admin-gig-switch-row admin-mobile-switch-row">
+                      <div>
+                        <p className="song">{hostEvent.name}</p>
+                        <p className="artist">{hostEvent.venue ?? 'No venue set'}</p>
+                        <p className="artist">
+                          {hostEvent.isActive ? 'Live for audience' : 'Not live for audience'}
+                          {event?.id === hostEvent.id ? ' · Open in your control panel' : ''}
+                        </p>
+                      </div>
+                      <div className="queue-actions admin-gig-switch-actions">
+                        <button
+                          type="button"
+                          className="secondary-button admin-mobile-cta"
+                          disabled={hostEvent.isActive || isBusy}
+                          onClick={async () => {
+                            await activeGigActions.switchActiveGig(hostEvent.id)
+                          }}
+                        >
+                          {hostEvent.isActive ? 'Live Now' : isBusy ? 'Switching...' : 'Set Live for Audience'}
+                        </button>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+
+            {activeSwitchError ? <p className="error-text">{activeSwitchError}</p> : null}
+          </section>
+
           <section className="queue-panel admin-mobile-block" aria-label="Setlist and queue shortcuts">
             <div className="panel-head admin-mobile-section-head">
               <h2>Setlist and Queue</h2>
@@ -729,12 +788,18 @@ function AdminDashboardContent({
             <ActionButtonGroup actions={queueShortcutActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
           </section>
 
-          <section className="queue-panel admin-mobile-block" aria-label="Settings and tools">
+          <section className="queue-panel admin-mobile-block" aria-label="Gig tools">
             <div className="panel-head admin-mobile-section-head">
-              <h2>Settings and Tools</h2>
+              <h2>Gig Tools</h2>
             </div>
+            <ActionButtonGroup actions={gigToolActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
+          </section>
 
-            <ActionButtonGroup actions={settingsToolActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
+          <section className="queue-panel admin-mobile-block" aria-label="Marketing tools">
+            <div className="panel-head admin-mobile-section-head">
+              <h2>Marketing &amp; Bookings</h2>
+            </div>
+            <ActionButtonGroup actions={marketingToolActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
           </section>
 
           <section className="queue-panel admin-mobile-block" aria-label="Profile and logout">
@@ -775,48 +840,7 @@ function AdminDashboardContent({
             {profileError ? <p className="error-text">{profileError}</p> : null}
           </section>
 
-          <section className="queue-panel admin-mobile-block" aria-label="Audience active gig switcher">
-            <div className="panel-head admin-mobile-section-head">
-              <h2>Current Gig for Audience</h2>
-            </div>
-
-            {hostEvents.length === 0 ? (
-              <p className="subcopy no-margin-bottom">No gigs yet. Create your first gig to get started.</p>
-            ) : (
-              <ul className="queue-list admin-mobile-switch-list">
-                {hostEvents.map((hostEvent) => {
-                  const isBusy = activeGigActions.activatingEventId === hostEvent.id
-
-                  return (
-                    <li key={hostEvent.id} className="admin-gig-switch-row admin-mobile-switch-row">
-                      <div>
-                        <p className="song">{hostEvent.name}</p>
-                        <p className="artist">{hostEvent.venue ?? 'No venue set'}</p>
-                        <p className="artist">
-                          {hostEvent.isActive ? 'Live for audience' : 'Not live for audience'}
-                          {event?.id === hostEvent.id ? ' · Open in your control panel' : ''}
-                        </p>
-                      </div>
-                      <div className="queue-actions admin-gig-switch-actions">
-                        <button
-                          type="button"
-                          className="secondary-button admin-mobile-cta"
-                          disabled={hostEvent.isActive || isBusy}
-                          onClick={async () => {
-                            await activeGigActions.switchActiveGig(hostEvent.id)
-                          }}
-                        >
-                          {hostEvent.isActive ? 'Live Now' : isBusy ? 'Switching...' : 'Set Live for Audience'}
-                        </button>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-
-            {activeSwitchError ? <p className="error-text">{activeSwitchError}</p> : null}
-
+          <section className="queue-panel admin-mobile-block" aria-label="Dashboard retry">
             <ActionButtonGroup actions={retryDashboardActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
           </section>
 
