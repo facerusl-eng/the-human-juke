@@ -6,6 +6,7 @@ import { DEMO_EVENT } from './demoEvent'
 import { DEMO_INITIAL_QUEUE } from './demoQueue'
 import { DEMO_NOW_PLAYING } from './demoNowPlaying'
 import { batchFetchDemoArtwork } from './demoArtwork'
+import { readCommittedAudienceName } from '../lib/audienceIdentity'
 
 let _demoIdCounter = 1000
 const DEMO_DEFAULT_COVER_URL = '/the-human-jukebox-logo.png'
@@ -162,7 +163,7 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
       library_song_id: options?.librarySongId ?? null,
       audience_sings: options?.performerMode === 'audience',
       position: songs.length,
-      createdByName: 'You',
+      createdByName: readCommittedAudienceName().trim() || 'You',
     }
 
     setSongs((current) => [...current, newSong])
