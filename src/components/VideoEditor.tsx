@@ -1168,14 +1168,29 @@ export default function VideoEditor({
             />
           </label>
 
-          <label className="promote-field">
-            <span>Template</span>
-            <select value={templateId} onChange={(event) => setTemplateId(event.target.value as TemplateId)}>
+          <div className="video-template-picker">
+            <span className="video-editor-section-title">Template</span>
+            <div className="video-template-grid">
               {VIDEO_TEMPLATES.map((entry) => (
-                <option key={entry.id} value={entry.id}>{entry.name}</option>
+                <button
+                  key={entry.id}
+                  type="button"
+                  className={`video-template-card${templateId === entry.id ? ' video-template-card-active' : ''}`}
+                  onClick={() => setTemplateId(entry.id)}
+                  aria-label={`${entry.name}${templateId === entry.id ? ' (selected)' : ''}`}
+                  title={entry.name}
+                >
+                  <span
+                    className="video-template-swatch"
+                    data-template={entry.id}
+                  >
+                    <span className="video-template-accent" data-template={entry.id} />
+                  </span>
+                  <span className="video-template-card-name">{entry.name}</span>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
 
           <div className="video-editor-ai-row">
             <button type="button" className="secondary-button" onClick={() => void runAiAssist(false)} disabled={aiLoading}>
