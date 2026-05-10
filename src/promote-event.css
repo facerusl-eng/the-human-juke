@@ -715,9 +715,41 @@
   .promote-mobile-dock .secondary-button {
     min-height: 2.2rem;
     border-radius: 10px;
-    font-size: 0.76rem;
-    padding: 0.3rem 0.2rem;
+    font-size: 0.68rem;
+    padding: 0.28rem 0.2rem;
     box-shadow: none;
+  }
+
+  .promote-dock-btn {
+    display: grid;
+    place-items: center;
+    gap: 0.1rem;
+    line-height: 1;
+    border-color: rgba(110, 170, 255, 0.42);
+    background: rgba(18, 28, 58, 0.78);
+  }
+
+  .promote-dock-btn-icon {
+    font-size: 0.96rem;
+  }
+
+  .promote-dock-btn-label {
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    opacity: 0.88;
+  }
+
+  .promote-dock-btn-active {
+    border-color: rgba(130, 230, 255, 0.8);
+    background: linear-gradient(180deg, rgba(41, 82, 158, 0.9), rgba(24, 53, 112, 0.94));
+    color: #f3fbff;
+  }
+
+  .promote-dock-btn:disabled {
+    opacity: 0.55;
+    border-color: rgba(118, 136, 176, 0.42);
+    background: rgba(25, 31, 50, 0.65);
   }
 
   .promote-preview-panel .panel-head {
@@ -816,7 +848,16 @@
 
   .promote-mobile-dock .secondary-button {
     min-height: 2.05rem;
-    font-size: 0.72rem;
+    font-size: 0.66rem;
+  }
+
+  .promote-dock-btn-icon {
+    font-size: 0.9rem;
+  }
+
+  .promote-dock-btn-label {
+    font-size: 0.54rem;
+    letter-spacing: 0.04em;
   }
 }
 

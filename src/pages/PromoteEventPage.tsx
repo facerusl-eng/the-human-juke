@@ -159,6 +159,7 @@ function PromoteEventPage() {
   const [photoContrast, setPhotoContrast] = useState(1.15)
   const [photoBrightnessAdj, setPhotoBrightnessAdj] = useState(1.25)
   const [photoSaturation, setPhotoSaturation] = useState(1.1)
+  const [mobileDockActive, setMobileDockActive] = useState<'preview' | 'basics' | 'export' | 'tools' | 'video'>('preview')
   const [photoBrightness, setPhotoBrightness] = useState<number | null>(null)
   const [photoBusyness, setPhotoBusyness] = useState<number | null>(null)
 
@@ -1718,7 +1719,10 @@ function PromoteEventPage() {
             <button
               type="button"
               className="secondary-button"
-              onClick={() => setShowMobileAdvancedControls((current) => !current)}
+              onClick={() => {
+                setShowMobileAdvancedControls((current) => !current)
+                setMobileDockActive('tools')
+              }}
             >
               {showMobileAdvancedControls ? 'Hide Advanced Tools' : 'Show Advanced Tools'}
             </button>
@@ -1726,7 +1730,10 @@ function PromoteEventPage() {
               <button
                 type="button"
                 className="secondary-button"
-                onClick={() => setShowVideoEditor(false)}
+                onClick={() => {
+                  setShowVideoEditor(false)
+                  setMobileDockActive('tools')
+                }}
               >
                 Hide Video Editor
               </button>
@@ -1734,7 +1741,10 @@ function PromoteEventPage() {
               <button
                 type="button"
                 className="secondary-button"
-                onClick={() => setShowVideoEditor(true)}
+                onClick={() => {
+                  setShowVideoEditor(true)
+                  setMobileDockActive('video')
+                }}
               >
                 Open Video Editor
               </button>
@@ -1798,32 +1808,66 @@ function PromoteEventPage() {
 
       {isMobileViewport ? (
         <nav className="promote-mobile-dock" aria-label="Editor quick actions">
-          <button type="button" className="secondary-button" onClick={() => scrollToSection(previewRef)}>Preview</button>
-          <button type="button" className="secondary-button" onClick={() => scrollToSection(controlsPanelRef)}>Basics</button>
-          <button type="button" className="secondary-button" onClick={() => scrollToSection(exportPanelRef)}>Export</button>
           <button
             type="button"
-            className="secondary-button"
+            className={`secondary-button promote-dock-btn${mobileDockActive === 'preview' ? ' promote-dock-btn-active' : ''}`}
             onClick={() => {
+              setMobileDockActive('preview')
+              scrollToSection(previewRef)
+            }}
+          >
+            <span className="promote-dock-btn-icon" aria-hidden="true">🖼️</span>
+            <span className="promote-dock-btn-label">Preview</span>
+          </button>
+          <button
+            type="button"
+            className={`secondary-button promote-dock-btn${mobileDockActive === 'basics' ? ' promote-dock-btn-active' : ''}`}
+            onClick={() => {
+              setMobileDockActive('basics')
+              scrollToSection(controlsPanelRef)
+            }}
+          >
+            <span className="promote-dock-btn-icon" aria-hidden="true">✍️</span>
+            <span className="promote-dock-btn-label">Basics</span>
+          </button>
+          <button
+            type="button"
+            className={`secondary-button promote-dock-btn${mobileDockActive === 'export' ? ' promote-dock-btn-active' : ''}`}
+            onClick={() => {
+              setMobileDockActive('export')
+              scrollToSection(exportPanelRef)
+            }}
+          >
+            <span className="promote-dock-btn-icon" aria-hidden="true">⬇️</span>
+            <span className="promote-dock-btn-label">Export</span>
+          </button>
+          <button
+            type="button"
+            className={`secondary-button promote-dock-btn${mobileDockActive === 'tools' ? ' promote-dock-btn-active' : ''}`}
+            onClick={() => {
+              setMobileDockActive('tools')
               setShowMobileAdvancedControls(true)
               scrollToSection(toolsPanelRef)
             }}
           >
-            Tools
+            <span className="promote-dock-btn-icon" aria-hidden="true">🎚️</span>
+            <span className="promote-dock-btn-label">Tools</span>
           </button>
           <button
             type="button"
-            className="secondary-button"
+            className={`secondary-button promote-dock-btn${mobileDockActive === 'video' ? ' promote-dock-btn-active' : ''}`}
             disabled={!selectedEventId}
             onClick={() => {
               if (!selectedEventId) return
+              setMobileDockActive('video')
               setShowVideoEditor(true)
               window.setTimeout(() => {
                 scrollToSection(videoPanelRef)
               }, 0)
             }}
           >
-            Video
+            <span className="promote-dock-btn-icon" aria-hidden="true">🎬</span>
+            <span className="promote-dock-btn-label">Video</span>
           </button>
         </nav>
       ) : null}
