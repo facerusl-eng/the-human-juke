@@ -1632,9 +1632,8 @@ function GigControlPage() {
               </p>
             ) : null}
             <p className="subcopy gig-playback-note">
-              Admin playback control is driven from this screen. Press Space to start the current song, then press
-              Space again to move into the next quote transition. This applies to the full live queue for this gig,
-              across every playlist attached to it.
+              Playback is controlled from this screen. Press Space to start the current song, then Space again to
+              move to the quote transition before the next request.
             </p>
           </div>
           <ActionButtonGroup actions={headerActions} layoutClassName="gig-control-actions gig-control-primary-actions" />
@@ -1835,7 +1834,7 @@ function GigControlPage() {
 
       <section className="queue-panel gig-manual-add-panel" aria-label="Admin add song controls">
         <div className="panel-head">
-          <h2>Add Song To Queue</h2>
+          <h2>Add Song to Queue</h2>
           <span className="meta-badge">Playlist + Custom</span>
         </div>
         <AddSongTabs

@@ -738,7 +738,7 @@ function AdminDashboardContent({
 
           <section className="queue-panel admin-mobile-block" aria-label="Audience active gig switcher">
             <div className="panel-head admin-mobile-section-head">
-              <h2>Current Gig for Audience</h2>
+              <h2>Audience Live Gig</h2>
               <span className="meta-badge">Go live</span>
             </div>
 
@@ -782,7 +782,7 @@ function AdminDashboardContent({
 
           <section className="queue-panel admin-mobile-block" aria-label="Setlist and queue shortcuts">
             <div className="panel-head admin-mobile-section-head">
-              <h2>Setlist and Queue</h2>
+              <h2>Setlist &amp; Queue</h2>
             </div>
 
             <ActionButtonGroup actions={queueShortcutActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
@@ -804,7 +804,7 @@ function AdminDashboardContent({
 
           <section className="queue-panel admin-mobile-block" aria-label="Profile and logout">
             <div className="panel-head admin-mobile-section-head">
-              <h2>Profile and Logout</h2>
+              <h2>Profile &amp; Logout</h2>
               <span className="meta-badge">{isHost ? 'Admin session' : 'User session'}</span>
             </div>
 

@@ -3568,6 +3568,7 @@
 
 .admin-top-voted-hint {
   margin-top: 0.5rem;
+  margin-bottom: 0;
 }
 
 .admin-inline-confirm,
@@ -4382,10 +4383,12 @@
 
 .gig-next-up-hint {
   margin-top: 0.45rem;
+  margin-bottom: 0;
 }
 
 .gig-auto-live-countdown {
   margin-top: 0.45rem;
+  margin-bottom: 0;
 }
 
 .gig-between-songs-hint {
@@ -5081,6 +5084,7 @@
 .gig-brb-input-block {
   display: grid;
   gap: 0.35rem;
+  margin-top: 0.15rem;
 }
 
 .gig-snapshot-restore-button {
