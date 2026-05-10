@@ -1745,6 +1745,82 @@ function PromoteEventPage() {
                     </div>
                   </>
                 ) : null}
+          <div className="promote-field promote-field-wide">
+            <span>Save Draft</span>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={savePromotionDraft}
+              disabled={!selectedEventId}
+            >
+              {promotionSaved ? 'Draft Saved!' : 'Save Draft'}
+            </button>
+          </div>
+
+          <div className="promote-field promote-field-wide">
+            <span>Export Image</span>
+            <div className="hero-actions no-margin-bottom">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void exportImage('png')}
+                disabled={exportingImage || exportingVideo || !selectedEventId}
+              >
+                {exportingImage ? 'Exporting…' : 'Download PNG'}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void exportImage('jpg')}
+                disabled={exportingImage || exportingVideo || !selectedEventId}
+              >
+                {exportingImage ? 'Exporting…' : 'Download JPG'}
+              </button>
+            </div>
+            {exportStatus ? <p className="field-hint">{exportStatus}</p> : null}
+            {exportError ? <p className="error-text no-margin-bottom">{exportError}</p> : null}
+          </div>
+
+          <div className="promote-field promote-field-wide">
+            <span>Export Video</span>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => void exportVideo()}
+              disabled={exportingImage || exportingVideo || !selectedEventId}
+            >
+              {exportingVideo ? 'Rendering…' : 'Download MP4'}
+            </button>
+            {videoStatus ? <p className="field-hint">{videoStatus}</p> : null}
+            {videoError ? <p className="error-text no-margin-bottom">{videoError}</p> : null}
+          </div>
+
+          <div className="promote-field promote-field-wide">
+            <span>Caption &amp; Share</span>
+            <div className="hero-actions no-margin-bottom">
+              <button type="button" className="secondary-button" onClick={() => void copyCaption()}>
+                Copy Caption
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => void copyFacebookShareLink()}
+                disabled={!facebookShareUrl}
+              >
+                {facebookLinkCopied ? 'Link Copied!' : 'Copy Facebook Link'}
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={openFacebookShareDialog}
+                disabled={!facebookShareUrl}
+              >
+                Share on Facebook
+              </button>
+            </div>
+            {facebookShareError ? <p className="error-text no-margin-bottom">{facebookShareError}</p> : null}
+          </div>
+
             {promotionSaveError ? <p className="error-text no-margin-bottom">{promotionSaveError}</p> : null}
             {audienceVisibilityError ? <p className="error-text no-margin-bottom">{audienceVisibilityError}</p> : null}
           </div>
