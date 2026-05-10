@@ -12,6 +12,7 @@ type HeadlinePosition = 'top' | 'center' | 'bottom'
 type TextShadow = 'none' | 'light' | 'medium' | 'strong'
 type FontChoice = 'default' | 'serif' | 'slab' | 'mono'
 type TextFrame = 'none' | 'light' | 'dark' | 'auto'
+type MobileDockSection = 'preview' | 'basics' | 'export' | 'tools' | 'video'
 
 type HeadlineAnchor = {
   x: number
@@ -159,7 +160,7 @@ function PromoteEventPage() {
   const [photoContrast, setPhotoContrast] = useState(1.15)
   const [photoBrightnessAdj, setPhotoBrightnessAdj] = useState(1.25)
   const [photoSaturation, setPhotoSaturation] = useState(1.1)
-  const [mobileDockActive, setMobileDockActive] = useState<'preview' | 'basics' | 'export' | 'tools' | 'video'>('preview')
+  const [mobileDockActive, setMobileDockActive] = useState<MobileDockSection>('preview')
   const [photoBrightness, setPhotoBrightness] = useState<number | null>(null)
   const [photoBusyness, setPhotoBusyness] = useState<number | null>(null)
 
@@ -248,6 +249,77 @@ function PromoteEventPage() {
       setShowMobileAdvancedControls(false)
     }
   }, [isMobileViewport])
+
+  useEffect(() => {
+    if (!isMobileViewport || typeof window === 'undefined') {
+      return
+    }
+
+    let rafId = 0
+
+    const updateActiveDockFromScroll = () => {
+      rafId = 0
+      const viewportAnchor = Math.round(window.innerHeight * 0.26)
+
+      const sections: Array<{ key: MobileDockSection; ref: React.RefObject<HTMLElement | null> }> = [
+        { key: 'preview', ref: previewRef },
+        { key: 'basics', ref: controlsPanelRef },
+        { key: 'export', ref: exportPanelRef },
+        { key: 'tools', ref: toolsPanelRef },
+      ]
+
+      if (showVideoEditor && selectedEventId) {
+        sections.push({ key: 'video', ref: videoPanelRef })
+      }
+
+      let bestSection: MobileDockSection = mobileDockActive
+      let bestDistance = Number.POSITIVE_INFINITY
+
+      for (const section of sections) {
+        const sectionNode = section.ref.current
+
+        if (!sectionNode) {
+          continue
+        }
+
+        const rect = sectionNode.getBoundingClientRect()
+        const sectionTop = rect.top
+        const sectionBottom = rect.bottom
+        const isInViewportBand = sectionTop <= viewportAnchor && sectionBottom >= viewportAnchor
+        const distance = isInViewportBand ? 0 : Math.min(Math.abs(sectionTop - viewportAnchor), Math.abs(sectionBottom - viewportAnchor))
+
+        if (distance < bestDistance) {
+          bestDistance = distance
+          bestSection = section.key
+        }
+      }
+
+      if (bestSection !== mobileDockActive) {
+        setMobileDockActive(bestSection)
+      }
+    }
+
+    const queueUpdate = () => {
+      if (rafId) {
+        return
+      }
+
+      rafId = window.requestAnimationFrame(updateActiveDockFromScroll)
+    }
+
+    queueUpdate()
+    window.addEventListener('scroll', queueUpdate, { passive: true })
+    window.addEventListener('resize', queueUpdate)
+
+    return () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId)
+      }
+
+      window.removeEventListener('scroll', queueUpdate)
+      window.removeEventListener('resize', queueUpdate)
+    }
+  }, [isMobileViewport, mobileDockActive, selectedEventId, showVideoEditor])
 
   useEffect(() => {
     if (!selectedEventId) {
