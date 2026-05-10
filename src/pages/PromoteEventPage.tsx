@@ -1694,7 +1694,7 @@ function PromoteEventPage() {
             <span className="meta-badge">Optional</span>
           </div>
             <p className="subcopy no-margin-bottom">Quick workflow: fill basics, export, and only open advanced tools when needed.</p>
-          <div className="hero-actions venue-link-row no-margin-bottom">
+          <div className="hero-actions promote-tool-row no-margin-bottom">
             <button
               type="button"
               className="secondary-button"
