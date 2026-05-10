@@ -104,7 +104,7 @@ function PromoteEventPage() {
       return false
     }
 
-    return window.matchMedia('(max-width: 720px)').matches
+    return window.matchMedia('(max-width: 1024px)').matches
   })
   const previewRef = useRef<HTMLElement | null>(null)
   const headlineRef = useRef<HTMLDivElement | null>(null)
@@ -227,7 +227,7 @@ function PromoteEventPage() {
       return
     }
 
-    const mediaQuery = window.matchMedia('(max-width: 720px)')
+    const mediaQuery = window.matchMedia('(max-width: 1024px)')
     const onViewportChange = (event: MediaQueryListEvent) => setIsMobileViewport(event.matches)
 
     setIsMobileViewport(mediaQuery.matches)
@@ -1386,115 +1386,6 @@ function PromoteEventPage() {
             </select>
           </label>
 
-          <label className="promote-field">
-            <span>Platform</span>
-            <select value={platform} onChange={(event) => setPlatform(event.target.value as SocialPlatform)}>
-              <option value="instagram">Instagram</option>
-              <option value="facebook">Facebook</option>
-            </select>
-          </label>
-
-          <label className="promote-field">
-            <span>Theme</span>
-            <select value={theme} onChange={(event) => setTheme(event.target.value as ThemeKey)}>
-              {THEMES.map((themeOption) => (
-                <option key={themeOption.key} value={themeOption.key}>
-                  {themeOption.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="promote-field">
-            <span>Headline Position</span>
-            <select value={headlinePosition} onChange={(event) => handleHeadlinePositionPreset(event.target.value as HeadlinePosition)}>
-              <option value="top">Top</option>
-              <option value="center">Center</option>
-              <option value="bottom">Bottom</option>
-            </select>
-          </label>
-
-          <label className="promote-field">
-            <span>Text Size ({Math.round(textScale * 100)}%)</span>
-            <input
-              type="range"
-              min="0.8"
-              max="1.4"
-              step="0.05"
-              value={textScale}
-              onChange={(event) => {
-                setTextScale(Number.parseFloat(event.target.value))
-              }}
-            />
-          </label>
-
-          <label className="promote-field">
-            <span>Font</span>
-            <select value={fontChoice} onChange={(event) => setFontChoice(event.target.value as FontChoice)}>
-              <option value="default">Modern Sans</option>
-              <option value="serif">Serif</option>
-              <option value="slab">Slab Serif</option>
-              <option value="mono">Monospace</option>
-            </select>
-          </label>
-
-          <label className="promote-field">
-            <span>Text Shadow</span>
-            <select value={textShadow} onChange={(event) => setTextShadow(event.target.value as TextShadow)}>
-              <option value="none">None</option>
-              <option value="light">Light</option>
-              <option value="medium">Medium</option>
-              <option value="strong">Strong</option>
-            </select>
-          </label>
-
-          <label className="promote-field">
-            <span>Text Style</span>
-            <div className="promote-checkbox-group">
-              <input
-                type="checkbox"
-                id="bold-toggle"
-                checked={textBold}
-                onChange={(event) => setTextBold(event.target.checked)}
-              />
-              <label htmlFor="bold-toggle">Bold</label>
-            </div>
-          </label>
-
-          <label className="promote-field">
-            <span>Text Frame</span>
-            <select value={textFrame} onChange={(event) => setTextFrame(event.target.value as TextFrame)}>
-              <option value="auto">Auto (Smart Contrast)</option>
-              <option value="none">None</option>
-              <option value="light">Light Background</option>
-              <option value="dark">Dark Background</option>
-            </select>
-            {autoFrameHint ? <p className="field-hint">{autoFrameHint}</p> : null}
-          </label>
-
-          {textFrame !== 'none' ? (
-            <label className="promote-field">
-              <span>Frame Padding ({Math.round((framePadding / 1.8) * 100)}%)</span>
-              <input
-                type="range"
-                min="0"
-                max="1.8"
-                step="0.05"
-                value={framePadding}
-                onChange={(event) => setFramePadding(Number.parseFloat(event.target.value))}
-              />
-            </label>
-          ) : null}
-
-          <label className="promote-field">
-            <span>Text Color</span>
-            <input
-              type="color"
-              value={textColor}
-              onChange={(event) => setTextColor(event.target.value)}
-            />
-          </label>
-
           <label className="promote-field promote-field-wide">
             <span>Upload Photo</span>
             <input type="file" accept="image/*" onChange={handleImageUpload} />
@@ -1534,36 +1425,6 @@ function PromoteEventPage() {
             <span>CTA</span>
             <input value={ctaText} onChange={(event) => setCtaText(event.target.value)} />
           </label>
-
-          <div className="promote-field promote-field-wide">
-            <span>
-              No-Live Audience Option
-              {audienceVisibilitySaved ? <span className="meta-badge">Saved</span> : null}
-            </span>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                void toggleAudienceNoLiveVisibility()
-              }}
-              disabled={!selectedEventId || audienceVisibilitySaving}
-            >
-              {!selectedEventId
-                ? 'No Active Event Selected'
-                : audienceVisibilitySaving
-                ? 'Saving...'
-                : selectedHostEvent?.showInAudienceNoGig
-                ? 'Hide This Event When No Gig Is Live'
-                : 'Show This Event When No Gig Is Live'}
-            </button>
-            <p className="field-hint">
-              {selectedEventId
-                ? selectedHostEvent?.showInAudienceNoGig
-                  ? 'Audience fallback is enabled for this event.'
-                  : 'Audience fallback is disabled for this event.'
-                : 'Select an active event first to configure audience fallback visibility.'}
-            </p>
-          </div>
 
                 {photoUrl && (!isMobileViewport || showMobileAdvancedControls) ? (
                   <>
@@ -1832,7 +1693,7 @@ function PromoteEventPage() {
             <h2>More Tools</h2>
             <span className="meta-badge">Optional</span>
           </div>
-          <p className="subcopy no-margin-bottom">Keep the preview front and center, or open the advanced export and video tools when you need them.</p>
+            <p className="subcopy no-margin-bottom">Quick workflow: fill basics, export, and only open advanced tools when needed.</p>
           <div className="hero-actions venue-link-row no-margin-bottom">
             <button
               type="button"
@@ -1915,46 +1776,6 @@ function PromoteEventPage() {
         </article>
       </section>
 
-      {!isMobileViewport ? (
-        <section className="queue-panel promote-preview-panel" aria-label="Promotional preview">
-          <div className="panel-head">
-            <h2>Live Preview</h2>
-            <span className="meta-badge">Professional Style</span>
-          </div>
-
-          <article
-            ref={previewRef}
-            className={`promote-canvas ${FORMAT_CLASS_MAP[format]} ${THEME_CLASS_MAP[activeTheme.key]}`}
-          >
-            {photoUrl ? <img src={photoUrl} alt="Promo background" className="promote-photo" /> : null}
-            <div className="promote-overlay" aria-hidden="true"></div>
-
-            <div className="promote-chip">
-              The Human Jukebox
-            </div>
-
-            <div
-              ref={headlineRef}
-              className={`promote-content promote-content-${headlinePosition} ${headlineDragging ? 'promote-content-dragging' : ''} promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${resolvedTextFrame}`}
-              onPointerDown={startHeadlineDrag}
-              role="presentation"
-            >
-              <p className="promote-overline">{eventDate}</p>
-              <h3>{title}</h3>
-              <p className="promote-subtitle">{subtitle}</p>
-              <p className="promote-description">{description}</p>
-            </div>
-
-            <div className={`promote-footer promote-font-${fontChoice} ${textBold ? 'promote-text-bold' : ''} promote-shadow-${textShadow} promote-frame-${resolvedTextFrame}`}>
-              <div>
-                <p className="promote-event-name">{eventName}</p>
-                <p className="promote-event-meta">{venue}</p>
-              </div>
-              <p className="promote-cta">{ctaText}</p>
-            </div>
-          </article>
-        </section>
-      ) : null}
     </section>
   )
 }

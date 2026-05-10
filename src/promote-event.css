@@ -508,7 +508,7 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1024px) {
   .promote-shell {
     gap: 0.85rem;
   }
@@ -572,7 +572,16 @@
   }
 
   .promote-export-btn {
-    padding: 0.75rem 0.9rem;
+    padding: 0.85rem 0.9rem;
+    min-height: 46px;
+  }
+
+  .promote-field input,
+  .promote-field select,
+  .promote-field textarea,
+  .promote-controls-panel .secondary-button,
+  .promote-controls-panel .primary-button {
+    min-height: 44px;
   }
 
   .promote-export-btn-body strong {
