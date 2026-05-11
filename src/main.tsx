@@ -192,13 +192,13 @@ function applyViewportZoomPreference() {
     return
   }
 
-  let zoomUnlocked = false
-
-  try {
-    zoomUnlocked = window.localStorage.getItem(MOBILE_ZOOM_UNLOCK_STORAGE_KEY) === '1'
-  } catch {
-    zoomUnlocked = false
-  }
+  const zoomUnlocked = (() => {
+    try {
+      return window.localStorage.getItem(MOBILE_ZOOM_UNLOCK_STORAGE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })()
 
   viewportMeta.setAttribute('content', zoomUnlocked ? VIEWPORT_CONTENT_ACCESSIBLE : VIEWPORT_CONTENT_LOCKED)
 }

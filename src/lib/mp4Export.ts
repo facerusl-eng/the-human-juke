@@ -5,8 +5,17 @@ type Mp4TranscodeOptions = {
   onStatus?: (message: string) => void
 }
 
+type FfmpegLike = {
+  load: (config: { coreURL: string, wasmURL: string }) => Promise<void>
+  writeFile: (path: string, data: Uint8Array) => Promise<void>
+  on: (event: string, callback: (entry: { message?: string }) => void) => void
+  exec: (args: string[]) => Promise<number>
+  readFile: (path: string) => Promise<Uint8Array>
+  deleteFile: (path: string) => Promise<void>
+}
+
 let ffmpegInstancePromise: Promise<{
-  ffmpeg: any
+  ffmpeg: FfmpegLike
 }> | null = null
 
 async function getFfmpeg() {
