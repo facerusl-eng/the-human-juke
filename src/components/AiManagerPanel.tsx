@@ -145,6 +145,37 @@ async function copyTextToClipboard(text: string) {
   document.body.removeChild(textarea)
 }
 
+function detectFixPriority(params: {
+  connectionStatus: 'checking' | 'connected' | 'not-connected'
+  queueHealthMessage: string | null
+  audienceConnectionStatus: string
+  pendingOfflineSongs: number
+}) {
+  const health = (params.queueHealthMessage ?? '').toLowerCase()
+  const audience = params.audienceConnectionStatus.toLowerCase()
+
+  if (
+    params.connectionStatus === 'not-connected'
+    || health.includes('red')
+    || health.includes('degraded')
+    || health.includes('critical')
+    || audience.includes('offline')
+    || audience.includes('disconnected')
+  ) {
+    return 'urgent' as const
+  }
+
+  if (
+    health.includes('yellow')
+    || health.includes('warning')
+    || params.pendingOfflineSongs > 0
+  ) {
+    return 'high' as const
+  }
+
+  return 'normal' as const
+}
+
 function safeParse(value: string | null) {
   if (!value) {
     return null
@@ -678,8 +709,18 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     }
   }
 
-  const copyCopilotHandoff = async () => {
-    const issueTitle = helpTitle.trim() || 'General app support request'
+  const copyCopilotHandoff = async (mode: 'general' | 'fix' = 'general') => {
+    const autoPriority = detectFixPriority({
+      connectionStatus,
+      queueHealthMessage,
+      audienceConnectionStatus,
+      pendingOfflineSongs: pendingOfflineSongs.length,
+    })
+    const issueTitle = helpTitle.trim() || (mode === 'fix' ? 'App needs fixing' : 'General app support request')
+    const priority = mode === 'fix' ? (helpPriority === 'normal' ? autoPriority : helpPriority) : helpPriority
+    const focusRequest = mode === 'fix'
+      ? 'Please diagnose and provide a smallest-safe fix sequence. Prioritize stability first, then reliability improvements.'
+      : (input.trim() || 'Please describe the issue and next action.')
     const recentMessages = messages.slice(-6)
     const recentConversation = recentMessages.length
       ? recentMessages.map((msg) => `${msg.role === 'user' ? 'User' : selectedManager.name}: ${msg.content}`).join('\n')
@@ -690,7 +731,8 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
       '',
       'Help request:',
       `- Title: ${issueTitle}`,
-      `- Priority: ${helpPriority}`,
+      `- Priority: ${priority}`,
+      `- Request type: ${mode === 'fix' ? 'App Fix' : 'General Support'}`,
       '',
       'Current app snapshot:',
       `- AI connection: ${connectionStatus}`,
@@ -704,7 +746,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
       `- Pending offline songs: ${pendingOfflineSongs.length}`,
       '',
       'What I need help with:',
-      input.trim() || 'Please describe the issue and next action.',
+      focusRequest,
       '',
       'Recent in-app AI conversation:',
       recentConversation,
@@ -712,7 +754,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     try {
       await copyTextToClipboard(handoffText)
-      setHandoffStatus('Copied handoff. Paste it in VS Code Copilot chat.')
+      setHandoffStatus(mode === 'fix' ? 'Copied fix request. Paste it in VS Code Copilot chat.' : 'Copied handoff. Paste it in VS Code Copilot chat.')
       setHelpDialogOpen(false)
       setHelpTitle('')
       setHelpPriority('normal')
@@ -737,6 +779,22 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     await applyAppActions([{ id: generateId(), action: 'open_health_check' }], 'auto')
     void sendMessage('Panic recovery mode: diagnose current app state, prioritise stability, and propose the smallest safe recovery sequence to restore normal operation. Include app actions where appropriate.')
+  }
+
+  const copyFixRequestForCopilot = async () => {
+    const suggestedPriority = detectFixPriority({
+      connectionStatus,
+      queueHealthMessage,
+      audienceConnectionStatus,
+      pendingOfflineSongs: pendingOfflineSongs.length,
+    })
+
+    if (!helpTitle.trim()) {
+      setHelpTitle('App needs fixing')
+    }
+
+    setHelpPriority(suggestedPriority)
+    await copyCopilotHandoff('fix')
   }
 
   const selectedCalendarActions = pendingCalendarActions.filter((action) => selectedCalendarActionIds.includes(action.id))
@@ -1131,6 +1189,16 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
                   <button
                     type="button"
                     className="ai-manager-starter"
+                    onClick={() => {
+                      void copyFixRequestForCopilot()
+                    }}
+                    disabled={loading}
+                  >
+                    Send App Fix Request To VS Code Copilot
+                  </button>
+                  <button
+                    type="button"
+                    className="ai-manager-starter"
                     onClick={runDailySelfCheck}
                     disabled={loading || appActionBusy}
                   >
@@ -1318,6 +1386,16 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
                   disabled={loading}
                 >
                   Need VS Code Copilot help
+                </button>
+                <button
+                  type="button"
+                  className="ai-manager-handoff-button ai-manager-handoff-button-alert"
+                  onClick={() => {
+                    void copyFixRequestForCopilot()
+                  }}
+                  disabled={loading}
+                >
+                  App needs fixing: Send to VS Code Copilot
                 </button>
                 <button
                   type="button"

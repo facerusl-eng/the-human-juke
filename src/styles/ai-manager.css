@@ -373,6 +373,17 @@
   border-color: rgba(128, 173, 255, 0.62);
 }
 
+.ai-manager-handoff-button-alert {
+  background: rgba(126, 37, 37, 0.45);
+  border-color: rgba(252, 129, 129, 0.5);
+  color: #ffe6e6;
+}
+
+.ai-manager-handoff-button-alert:hover:not(:disabled) {
+  background: rgba(150, 40, 40, 0.58);
+  border-color: rgba(252, 129, 129, 0.72);
+}
+
 .ai-manager-handoff-button:hover:not(:disabled) {
   background: rgba(32, 107, 102, 0.5);
   border-color: rgba(90, 205, 189, 0.65);
