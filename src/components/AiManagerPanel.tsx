@@ -112,6 +112,14 @@ const OUTREACH_SESSION_STORAGE_KEY = 'human-jukebox-outreach-session'
 const OUTREACH_CALENDAR_STORAGE_KEY = 'human-jukebox-outreach-calendar'
 const CALENDAR_UPDATED_EVENT = 'human-jukebox-calendar-updated'
 const AI_MANAGER_ASSIST_MODE_STORAGE_KEY = 'human-jukebox-ai-manager-assist-mode'
+const AI_MANAGER_AUTO_RUN_SAFE_ACTIONS_STORAGE_KEY = 'human-jukebox-ai-manager-auto-run-safe-actions'
+
+function isSafeAppAction(action: AppAction) {
+  return action.action === 'navigate'
+    || action.action === 'set_room_open'
+    || action.action === 'set_no_live_visibility'
+    || action.action === 'choose_gig'
+}
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10)
@@ -360,6 +368,13 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     return window.localStorage.getItem(AI_MANAGER_ASSIST_MODE_STORAGE_KEY) === '1'
   })
+  const [autoRunSafeActions, setAutoRunSafeActions] = useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.localStorage.getItem(AI_MANAGER_AUTO_RUN_SAFE_ACTIONS_STORAGE_KEY) === '1'
+  })
   const [appActionBusy, setAppActionBusy] = useState(false)
   const [pendingCalendarActions, setPendingCalendarActions] = useState<CalendarAction[]>([])
   const [selectedCalendarActionIds, setSelectedCalendarActionIds] = useState<string[]>([])
@@ -399,6 +414,14 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     window.localStorage.setItem(AI_MANAGER_ASSIST_MODE_STORAGE_KEY, assistModeEnabled ? '1' : '0')
   }, [assistModeEnabled])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(AI_MANAGER_AUTO_RUN_SAFE_ACTIONS_STORAGE_KEY, autoRunSafeActions ? '1' : '0')
+  }, [autoRunSafeActions])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -602,8 +625,8 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     setSelectedCalendarActionIds(remaining.map((action) => action.id))
   }
 
-  async function applyAppActions() {
-    if (selectedAppActions.length === 0 || appActionBusy) {
+  async function applyAppActions(actionsToApply = selectedAppActions, sourceLabel: 'manual' | 'auto' = 'manual') {
+    if (actionsToApply.length === 0 || appActionBusy) {
       return
     }
 
@@ -611,7 +634,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     const appliedIds = new Set<string>()
     const failures: string[] = []
 
-    for (const action of selectedAppActions) {
+    for (const action of actionsToApply) {
       try {
         if (action.action === 'navigate') {
           if (!action.route) {
@@ -711,8 +734,8 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
         id: generateId(),
         role: 'assistant',
         content: failures.length
-          ? `Applied ${appliedIds.size} app action(s). Some failed: ${failures.join(' | ')}`
-          : `Applied ${appliedIds.size} app action(s).`,
+          ? `${sourceLabel === 'auto' ? 'Auto-applied' : 'Applied'} ${appliedIds.size} app action(s). Some failed: ${failures.join(' | ')}`
+          : `${sourceLabel === 'auto' ? 'Auto-applied' : 'Applied'} ${appliedIds.size} app action(s).`,
       }])
     } else if (failures.length > 0) {
       setError(failures.join(' | '))
@@ -731,6 +754,20 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     setPendingAppActions(remaining)
     setSelectedAppActionIds(remaining.map((action) => action.id))
   }
+
+  useEffect(() => {
+    if (!assistModeEnabled || !autoRunSafeActions || appActionBusy || loading || pendingAppActions.length === 0) {
+      return
+    }
+
+    const safeActions = pendingAppActions.filter((action) => isSafeAppAction(action))
+
+    if (safeActions.length === 0) {
+      return
+    }
+
+    void applyAppActions(safeActions, 'auto')
+  }, [assistModeEnabled, autoRunSafeActions, appActionBusy, loading, pendingAppActions])
 
   if (typeof document === 'undefined') {
     return null
@@ -774,13 +811,22 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
                 ))}
               </select>
             </label>
-            <label className="queue-toggle queue-toggle-compact" title="Allow AI Manager to prepare app control actions you can approve.">
+            <label className="queue-toggle queue-toggle-compact" title="Allow AI Manager to prepare app control actions.">
               <input
                 type="checkbox"
                 checked={assistModeEnabled}
                 onChange={(event) => setAssistModeEnabled(event.target.checked)}
               />
               <span>Assist Mode</span>
+            </label>
+            <label className="queue-toggle queue-toggle-compact" title="Auto-run non-destructive AI actions. Risky actions still require manual approval.">
+              <input
+                type="checkbox"
+                checked={autoRunSafeActions}
+                disabled={!assistModeEnabled}
+                onChange={(event) => setAutoRunSafeActions(event.target.checked)}
+              />
+              <span>Auto-Run Safe</span>
             </label>
             <span
               className={`ai-manager-status ai-manager-status-${connectionStatus}`}
@@ -842,7 +888,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
             {pendingAppActions.length > 0 && (
               <div className="ai-manager-calendar-actions">
-                <p className="ai-manager-empty-text">I prepared {pendingAppActions.length} app assist action(s). Review and approve each one.</p>
+                <p className="ai-manager-empty-text">I prepared {pendingAppActions.length} app assist action(s). Safe actions can auto-run if enabled; risky actions require approval.</p>
                 <ul className="ai-manager-calendar-action-list">
                   {pendingAppActions.map((action) => (
                     <li key={action.id} className="ai-manager-calendar-action-item">
