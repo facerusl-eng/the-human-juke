@@ -390,6 +390,9 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [handoffStatus, setHandoffStatus] = useState<string | null>(null)
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false)
+  const [helpTitle, setHelpTitle] = useState('')
+  const [helpPriority, setHelpPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal')
   const [isDesktopFabDragEnabled, setIsDesktopFabDragEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') {
       return false
@@ -688,6 +691,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   }
 
   const copyCopilotHandoff = async () => {
+    const issueTitle = helpTitle.trim() || 'General app support request'
     const recentMessages = messages.slice(-6)
     const recentConversation = recentMessages.length
       ? recentMessages.map((msg) => `${msg.role === 'user' ? 'User' : selectedManager.name}: ${msg.content}`).join('\n')
@@ -695,6 +699,10 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     const handoffText = [
       'I need help in The Human Jukebox app.',
+      '',
+      'Help request:',
+      `- Title: ${issueTitle}`,
+      `- Priority: ${helpPriority}`,
       '',
       'Current app snapshot:',
       `- AI connection: ${connectionStatus}`,
@@ -717,6 +725,9 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     try {
       await copyTextToClipboard(handoffText)
       setHandoffStatus('Copied handoff. Paste it in VS Code Copilot chat.')
+      setHelpDialogOpen(false)
+      setHelpTitle('')
+      setHelpPriority('normal')
       setTimeout(() => setHandoffStatus(null), 3000)
     } catch {
       setError('Could not copy handoff text. Please try again.')
@@ -1309,16 +1320,28 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
           <div className="ai-manager-input-row">
             <div className="ai-manager-handoff-row">
-              <button
-                type="button"
-                className="ai-manager-handoff-button"
-                onClick={() => {
-                  void copyCopilotHandoff()
-                }}
-                disabled={loading}
-              >
-                Need VS Code Copilot help: Copy handoff
-              </button>
+              <div className="ai-manager-handoff-actions">
+                <button
+                  type="button"
+                  className="ai-manager-handoff-button"
+                  onClick={() => {
+                    setHelpDialogOpen(true)
+                  }}
+                  disabled={loading}
+                >
+                  Need VS Code Copilot help
+                </button>
+                <button
+                  type="button"
+                  className="ai-manager-handoff-button ai-manager-handoff-button-secondary"
+                  onClick={() => {
+                    void copyCopilotHandoff()
+                  }}
+                  disabled={loading}
+                >
+                  Quick copy handoff
+                </button>
+              </div>
               {handoffStatus ? <p className="ai-manager-handoff-status">{handoffStatus}</p> : null}
             </div>
             <textarea
@@ -1341,6 +1364,65 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
               ↑
             </button>
           </div>
+
+          {helpDialogOpen && (
+            <div className="ai-manager-help-overlay" role="dialog" aria-label="Copilot help request">
+              <div className="ai-manager-help-dialog">
+                <div className="ai-manager-help-header">
+                  <h3>Send Help Request</h3>
+                  <button
+                    type="button"
+                    className="ai-manager-close"
+                    onClick={() => setHelpDialogOpen(false)}
+                    aria-label="Close help request"
+                  >
+                    ×
+                  </button>
+                </div>
+                <label className="ai-manager-help-label">
+                  Issue title
+                  <input
+                    type="text"
+                    className="ai-manager-help-input"
+                    value={helpTitle}
+                    onChange={(event) => setHelpTitle(event.target.value)}
+                    placeholder="Example: Queue stuck after song ends"
+                  />
+                </label>
+                <label className="ai-manager-help-label">
+                  Priority
+                  <select
+                    className="ai-manager-help-input"
+                    value={helpPriority}
+                    onChange={(event) => setHelpPriority(event.target.value as 'low' | 'normal' | 'high' | 'urgent')}
+                  >
+                    <option value="low">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </label>
+                <div className="ai-manager-help-actions">
+                  <button
+                    type="button"
+                    className="ai-manager-starter"
+                    onClick={() => setHelpDialogOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="ai-manager-starter"
+                    onClick={() => {
+                      void copyCopilotHandoff()
+                    }}
+                  >
+                    Copy and ask VS Code Copilot
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
