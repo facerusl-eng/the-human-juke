@@ -984,38 +984,17 @@ function MirrorPage() {
   useEffect(() => {
     let isCurrent = true
 
-    const runAccessCheck = async () => {
-      const searchParams = new URLSearchParams(window.location.search)
-      const forceAccess = searchParams.get(MIRROR_PROTECTED_INFO_FORCE_QUERY_PARAM)?.trim().toLowerCase() === 'force'
-
-      if (forceAccess) {
-        if (!isCurrent) {
-          return
-        }
-
-        setIsMirrorNetworkAllowed(true)
-        setHasCheckedMirrorNetworkAccess(true)
-        return
-      }
-
-      const hostname = window.location.hostname
-      const appearsOnPrivateLan = isPrivateLanHostname(hostname)
-      const shouldProbeRouter = shouldProbeRouterReachability(hostname)
-      const routerReachable = appearsOnPrivateLan
-        ? true
-        : shouldProbeRouter
-        ? await probeRouterReachability()
-        : false
-
+    const runAccessCheck = () => {
       if (!isCurrent) {
         return
       }
 
-      setIsMirrorNetworkAllowed(routerReachable)
+      // Network gate removed — mirror is accessible from any connection.
+      setIsMirrorNetworkAllowed(true)
       setHasCheckedMirrorNetworkAccess(true)
     }
 
-    void runAccessCheck()
+    runAccessCheck()
 
     const onOnlineOrFocus = () => {
       void runAccessCheck()
