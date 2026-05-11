@@ -100,7 +100,11 @@ export async function transcodeWebmToMp4(inputBlob: Blob, options: Mp4TranscodeO
   }
 
   const outputBytes = await ffmpeg.readFile(outputName)
-  const outputBlobPart = typeof outputBytes === 'string' ? outputBytes : Uint8Array.from(outputBytes)
+  const outputBlobPart = typeof outputBytes === 'string'
+    ? outputBytes
+    : outputBytes.buffer instanceof ArrayBuffer
+      ? new Uint8Array(outputBytes.buffer, outputBytes.byteOffset, outputBytes.byteLength)
+      : Uint8Array.from(outputBytes)
 
   await Promise.allSettled([
     ffmpeg.deleteFile(inputName),
