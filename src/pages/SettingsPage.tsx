@@ -32,6 +32,8 @@ type UndoRedoState = SettingsState & {
 }
 
 const MAX_UNDO_STATES = 20
+const MOBILE_ZOOM_UNLOCK_STORAGE_KEY = 'human-jukebox-mobile-zoom-unlock'
+const MOBILE_ZOOM_PREF_EVENT = 'human-jukebox-mobile-zoom-preference-changed'
 
 const DEFAULTS: SettingsState = {
   display_name: '',
@@ -98,6 +100,17 @@ function SettingsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [advancedNotice, setAdvancedNotice] = useState<string | null>(null)
+  const [mobileZoomUnlocked, setMobileZoomUnlocked] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    try {
+      return window.localStorage.getItem(MOBILE_ZOOM_UNLOCK_STORAGE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
   const {
     saveStatus,
     cancelAutosave,
@@ -109,6 +122,21 @@ function SettingsPage() {
     autosaveDelayMs: 2000,
     savedResetDelayMs: 2000,
   })
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      window.localStorage.setItem(MOBILE_ZOOM_UNLOCK_STORAGE_KEY, mobileZoomUnlocked ? '1' : '0')
+      window.dispatchEvent(new CustomEvent(MOBILE_ZOOM_PREF_EVENT, {
+        detail: { unlocked: mobileZoomUnlocked },
+      }))
+    } catch {
+      // Ignore local preference persistence failures.
+    }
+  }, [mobileZoomUnlocked])
 
   useEffect(() => {
     if (!user) {
@@ -898,6 +926,22 @@ function SettingsPage() {
           collapsedToggleLabel="›"
           dataSection
         >
+          <div className="field-row">
+            <label>
+              <span>Mobile Zoom Accessibility (This Device)</span>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setMobileZoomUnlocked((current) => !current)}
+              >
+                {mobileZoomUnlocked ? 'Zoom Enabled (Accessibility)' : 'Zoom Locked'}
+              </button>
+            </label>
+            <p className="field-hint">
+              Keep zoom locked for performance, or enable pinch/input zoom if needed for accessibility on this device.
+            </p>
+          </div>
+
           <div className="advanced-actions">
             <button
               type="button"

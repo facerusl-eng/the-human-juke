@@ -10,6 +10,10 @@ const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const CHUNK_RECOVERY_LAST_ATTEMPT_KEY = 'human-jukebox-chunk-recovery-last-attempt'
 const CHUNK_RECOVERY_THROTTLE_MS = 15_000
 const IOS_SW_BYPASS_STORAGE_KEY = 'human-jukebox-ios-sw-cache-bypass'
+const MOBILE_ZOOM_UNLOCK_STORAGE_KEY = 'human-jukebox-mobile-zoom-unlock'
+const MOBILE_ZOOM_PREF_EVENT = 'human-jukebox-mobile-zoom-preference-changed'
+const VIEWPORT_CONTENT_LOCKED = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
+const VIEWPORT_CONTENT_ACCESSIBLE = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
 
 function emitRuntimeNotice(message: string) {
   if (typeof window === 'undefined') {
@@ -176,6 +180,45 @@ function shouldBypassServiceWorkerCachingOnIOS() {
   } catch {
     return false
   }
+}
+
+function applyViewportZoomPreference() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return
+  }
+
+  const viewportMeta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null
+  if (!viewportMeta) {
+    return
+  }
+
+  let zoomUnlocked = false
+
+  try {
+    zoomUnlocked = window.localStorage.getItem(MOBILE_ZOOM_UNLOCK_STORAGE_KEY) === '1'
+  } catch {
+    zoomUnlocked = false
+  }
+
+  viewportMeta.setAttribute('content', zoomUnlocked ? VIEWPORT_CONTENT_ACCESSIBLE : VIEWPORT_CONTENT_LOCKED)
+}
+
+function installViewportZoomPreferenceSync() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  applyViewportZoomPreference()
+
+  window.addEventListener(MOBILE_ZOOM_PREF_EVENT, () => {
+    applyViewportZoomPreference()
+  })
+
+  window.addEventListener('storage', (event) => {
+    if (event.key === MOBILE_ZOOM_UNLOCK_STORAGE_KEY) {
+      applyViewportZoomPreference()
+    }
+  })
 }
 
 async function cleanupLegacyServiceWorkers() {
@@ -431,6 +474,7 @@ function scheduleNonCriticalStartupTasks() {
 
 installGlobalRuntimeHooks()
 scheduleNonCriticalStartupTasks()
+installViewportZoomPreferenceSync()
 
 function dismissSplash() {
   const splash = document.getElementById('app-splash')
