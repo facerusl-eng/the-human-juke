@@ -34,10 +34,11 @@ const APP_ACTIONS_PROMPT = `
 App assist operations:
 - If assist mode is enabled and Harald clearly asks you to control the app, include machine-readable actions.
 - Keep your normal human reply, then append exactly one final line:
-  APP_ACTIONS_JSON:[{"action":"navigate|open_health_check|reload_app|set_room_open|set_no_live_visibility|mark_played|skip_current_song|choose_gig|end_current_gig","route":"","open":true,"visible":true,"gigName":""}]
+  APP_ACTIONS_JSON:[{"action":"navigate|open_health_check|reload_app|set_room_open|set_no_live_visibility|mark_played|skip_current_song|choose_gig|end_current_gig|commit_and_push","route":"","open":true,"visible":true,"gigName":"","commitMessage":""}]
 - Only output actions that are strictly needed for the request.
 - Prefer action=open_health_check when Harald asks to fix runtime/build-up errors.
 - Use only these routes when action=navigate: /admin, /admin/gigs, /admin/gig-control, /admin/health-check, /admin/create-gig, /audience
+- For commit_and_push action: use the commitMessage field. Generate conventional commit format if possible (e.g., "feat: description" or "fix: description").
 - If assist mode is disabled or no app control is requested, do not include APP_ACTIONS_JSON.`
 
 function normalizeCalendarText(value) {
@@ -222,6 +223,7 @@ function normalizeParsedAppActions(parsed) {
         'skip_current_song',
         'choose_gig',
         'end_current_gig',
+        'commit_and_push',
       ].includes(action)) {
         return null
       }
@@ -238,6 +240,7 @@ function normalizeParsedAppActions(parsed) {
         open: Boolean(entry.open),
         visible: Boolean(entry.visible),
         gigName: normalizeCalendarText(entry.gigName),
+        commitMessage: normalizeCalendarText(entry.commitMessage),
       }
     })
     .filter(Boolean)
@@ -320,6 +323,10 @@ function parseAppActionsFromUserIntent(text) {
 
   if (/\bskip\b/.test(lower) && /\bsong\b/.test(lower)) {
     return [{ action: 'skip_current_song', route: '', open: false, visible: false, gigName: '' }]
+  }
+
+  if (/\b(commit|save|push|sync|upload)\b/.test(lower) && /\b(changes?|code|repo|git)\b/.test(lower)) {
+    return [{ action: 'commit_and_push', route: '', open: false, visible: false, gigName: '', commitMessage: 'Auto-commit: app improvements' }]
   }
 
   return []

@@ -26,11 +26,12 @@ type CalendarAction = {
 
 type AppAction = {
   id: string
-  action: 'navigate' | 'open_health_check' | 'reload_app' | 'set_room_open' | 'set_no_live_visibility' | 'mark_played' | 'skip_current_song' | 'choose_gig' | 'end_current_gig'
+  action: 'navigate' | 'open_health_check' | 'reload_app' | 'set_room_open' | 'set_no_live_visibility' | 'mark_played' | 'skip_current_song' | 'choose_gig' | 'end_current_gig' | 'commit_and_push'
   route?: '/admin' | '/admin/gigs' | '/admin/gig-control' | '/admin/health-check' | '/admin/create-gig' | '/audience'
   open?: boolean
   visible?: boolean
   gigName?: string
+  commitMessage?: string
 }
 
 type PipelineContext = {
@@ -235,6 +236,7 @@ function normalizeAppActions(value: unknown): AppAction[] {
       'skip_current_song',
       'choose_gig',
       'end_current_gig',
+      'commit_and_push',
     ].includes(action)) {
       return
     }
@@ -248,6 +250,7 @@ function normalizeAppActions(value: unknown): AppAction[] {
       open: Boolean(entry.open),
       visible: Boolean(entry.visible),
       gigName: normalizeText(entry.gigName),
+      commitMessage: normalizeText(entry.commitMessage),
     })
   })
 
@@ -874,6 +877,25 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
           }
 
           await endGig(event.id)
+          appliedIds.add(action.id)
+          continue
+        }
+
+        if (action.action === 'commit_and_push') {
+          const message = (action.commitMessage || 'Auto-commit: app improvements').trim()
+
+          const res = await fetch('/api/git-operations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'stage-commit-push', message }),
+          })
+
+          const data: { ok?: boolean; error?: string; message?: string; files?: string[] } = await res.json()
+
+          if (!res.ok || !data.ok) {
+            throw new Error(data.error ?? 'Git commit/push failed.')
+          }
+
           appliedIds.add(action.id)
           continue
         }
