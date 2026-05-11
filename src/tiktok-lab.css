@@ -1,0 +1,126 @@
+/* TikTok Lab - simple responsive layout for desktop, iPad and mobile */
+
+.tiktok-lab-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.tiktok-lab-header {
+  display: grid;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, rgba(0, 203, 255, 0.08), rgba(255, 63, 143, 0.08));
+  border: 1px solid rgba(120, 200, 255, 0.25);
+}
+
+.tiktok-lab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.tiktok-lab-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: 1fr;
+}
+
+.tiktok-card {
+  background: rgba(12, 24, 38, 0.8);
+  border: 1px solid rgba(120, 170, 255, 0.2);
+  border-radius: 14px;
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.tiktok-card h2,
+.tiktok-card h3 {
+  margin: 0;
+}
+
+.tiktok-card ul,
+.tiktok-card ol {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.tiktok-form-card {
+  grid-column: 1 / -1;
+}
+
+.tiktok-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+.tiktok-form-grid label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.84rem;
+  color: rgba(228, 240, 255, 0.92);
+}
+
+.tiktok-form-grid input,
+.tiktok-form-grid textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(125, 175, 255, 0.35);
+  background: rgba(7, 15, 28, 0.9);
+  color: #e8f0ff;
+  font: inherit;
+  padding: 0.55rem 0.65rem;
+}
+
+.tiktok-form-grid input:focus-visible,
+.tiktok-form-grid textarea:focus-visible {
+  outline: 2px solid rgba(125, 200, 255, 0.6);
+  outline-offset: 1px;
+}
+
+.tiktok-hashtags {
+  margin: 0;
+  line-height: 1.6;
+  color: #9aeaff;
+}
+
+.tiktok-ab-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+
+.tiktok-ab-grid > div {
+  border: 1px dashed rgba(125, 175, 255, 0.35);
+  border-radius: 10px;
+  padding: 0.55rem;
+  background: rgba(8, 18, 31, 0.7);
+}
+
+@media (min-width: 720px) {
+  .tiktok-lab-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tiktok-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tiktok-form-grid label:nth-child(4),
+  .tiktok-form-grid label:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1100px) {
+  .tiktok-lab-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tiktok-export-card,
+  .tiktok-ab-card {
+    grid-column: span 1;
+  }
+}

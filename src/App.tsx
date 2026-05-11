@@ -5,6 +5,7 @@ import './gig-settings.css'
 import './admin-settings.css'
 import './promote-event.css'
 import './book-show.css'
+import './tiktok-lab.css'
 import './components/ui/ui.css'
 import './styles/ai-manager.css'
 import './styles/mirror.css'
@@ -76,6 +77,7 @@ const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
 const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
 const PromoteEventPage = lazyWithChunkReload(() => import('./pages/PromoteEventPage'))
+const TikTokLabPage = lazyWithChunkReload(() => import('./pages/TikTokLabPage'))
 const ReceivedBookingsPage = lazyWithChunkReload(() => import('./pages/ReceivedBookingsPage'))
 const VenueOutreachPage = lazyWithChunkReload(() => import('./pages/VenueOutreachPage'))
 const SettingsPage = lazyWithChunkReload(() => import('./pages/SettingsPage'))
@@ -325,6 +327,17 @@ const router = createBrowserRouter([
             'Admin',
             <RequireHost>
               <PromoteEventPage />
+            </RequireHost>,
+          ),
+        ),
+      },
+      {
+        path: 'admin/tiktok-lab',
+        element: withSuspense(
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <TikTokLabPage />
             </RequireHost>,
           ),
         ),

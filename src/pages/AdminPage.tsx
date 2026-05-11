@@ -270,6 +270,9 @@ function AdminDashboardContent({
   const openVenueOutreach = useCallback(() => {
     navigate('/admin/venue-outreach')
   }, [navigate])
+  const openTikTokLab = useCallback(() => {
+    navigate('/admin/tiktok-lab')
+  }, [navigate])
 
   useEffect(() => {
     if (!loading) {
@@ -482,6 +485,11 @@ function AdminDashboardContent({
     },
   ]
   const marketingToolActions: ActionButtonConfig[] = [
+    {
+      id: 'open-tiktok-lab',
+      label: 'TikTok Lab',
+      onClick: openTikTokLab,
+    },
     {
       id: 'open-promote-event',
       label: 'Promote Event',
