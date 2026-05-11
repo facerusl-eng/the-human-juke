@@ -880,6 +880,11 @@
     display: none !important;
   }
 
+  body.promote-event-page-active .ai-manager-root[data-open='false'] {
+    bottom: max(5.35rem, calc(env(safe-area-inset-bottom) + 5rem));
+    inset-block-end: max(5.35rem, calc(env(safe-area-inset-bottom) + 5rem));
+  }
+
   .admin-ai-diagnostics {
     left: auto;
     right: max(0.5rem, env(safe-area-inset-right));

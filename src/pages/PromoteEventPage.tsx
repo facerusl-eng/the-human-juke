@@ -255,6 +255,18 @@ function PromoteEventPage() {
   }, [isMobileViewport])
 
   useEffect(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    document.body.classList.add('promote-event-page-active')
+
+    return () => {
+      document.body.classList.remove('promote-event-page-active')
+    }
+  }, [])
+
+  useEffect(() => {
     if (!isMobileViewport || typeof window === 'undefined') {
       return
     }
