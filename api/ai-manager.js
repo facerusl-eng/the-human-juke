@@ -662,10 +662,14 @@ async function callProvider({ provider, apiKey, model, messages }) {
     }
 
     if (upstreamRes.status === 429) {
+      // Parse retry-after header if present
+      const retryAfter = upstreamRes.headers.get('retry-after') || upstreamRes.headers.get('x-ratelimit-reset-requests') || ''
+      const waitHint = retryAfter ? ` (retry after ${retryAfter}s)` : ''
       return {
         ok: false,
         status: 429,
-        message: `${provider} rate limit hit. Try again in a moment.`,
+        retryable: true,
+        message: `${provider} rate limit hit${waitHint}. Try again in a moment.`,
       }
     }
 
@@ -843,6 +847,20 @@ export default async function handler(req, res) {
 
       lastError = { status: result.status, message: result.message }
     }
+  }
+
+  // On rate limit, return a graceful reply instead of an error so the chat
+  // panel shows a readable message rather than "api error".
+  if (lastError.status === 429) {
+    res.status(200).json({
+      reply: `I'm hitting my request limit right now — give it a few seconds and try again. (${lastError.message})`,
+      connected: true,
+      provider,
+      model,
+      managerId,
+      managerName: managerProfile.name,
+    })
+    return
   }
 
   res.status(lastError.status).json({ error: lastError.message })
