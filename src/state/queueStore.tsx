@@ -335,7 +335,8 @@ function isAudienceRoutePath() {
     return false
   }
 
-  return window.location.pathname.startsWith('/audience')
+  const pathname = window.location.pathname
+  return pathname.startsWith('/audience') || pathname.startsWith('/a/') || pathname.startsWith('/j/')
 }
 
 function isTestAudiencePreviewMode() {
@@ -686,7 +687,7 @@ function readRequestedEventIdFromUrl() {
     .split('/')
     .filter(Boolean)
 
-  if (pathSegments[0] === 'a') {
+  if (pathSegments[0] === 'a' || pathSegments[0] === 'j') {
     const compactEventId = decodeURIComponent(pathSegments[1] ?? '').trim()
 
     if (compactEventId) {
@@ -1976,7 +1977,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           markSnapshotSuccess()
         } catch (error) {
           markSnapshotFailure(error)
-          const canFallbackToLatestActive = !runAsHostSession
+          const canFallbackToLatestActive = !runAsHostSession && !requestedEventId
 
           if (!canFallbackToLatestActive) {
             console.warn('queueStore: failed to load requested event snapshot', error)
