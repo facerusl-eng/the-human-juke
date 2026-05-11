@@ -714,6 +714,13 @@ function GigControlPage() {
     await action()
   }, [saveQueueSnapshot])
 
+  // Keep a stable ref so the 5-minute auto-interval useEffect below doesn't
+  // restart every time the queue changes (which would reset the timer).
+  const saveQueueSnapshotRef = useRef(saveQueueSnapshot)
+  useEffect(() => {
+    saveQueueSnapshotRef.current = saveQueueSnapshot
+  }, [saveQueueSnapshot])
+
   const restoreLatestSnapshot = useCallback(async () => {
     if (!event) {
       setSnapshotStatusText('No active gig to restore.')
@@ -849,13 +856,13 @@ function GigControlPage() {
     }
 
     const timerId = window.setInterval(() => {
-      saveQueueSnapshot('auto-interval', true)
+      saveQueueSnapshotRef.current('auto-interval', true)
     }, 5 * 60 * 1000)
 
     return () => {
       window.clearInterval(timerId)
     }
-  }, [event?.id, saveQueueSnapshot])
+  }, [event?.id])
 
   const downloadLatestSnapshot = () => {
     if (!event) {
@@ -1464,7 +1471,7 @@ function GigControlPage() {
         try {
           await writeSharedPlaybackState(event.id, {
             currentSongId: nowPlaying?.id ?? null,
-            currentSongCoverUrl: null,
+            currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
             isStarted: false,
             quoteIndex: quoteIndexRef.current,
             brbActive: nextBrb,
