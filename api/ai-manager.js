@@ -29,9 +29,10 @@ const APP_ACTIONS_PROMPT = `
 App assist operations:
 - If assist mode is enabled and Harald clearly asks you to control the app, include machine-readable actions.
 - Keep your normal human reply, then append exactly one final line:
-  APP_ACTIONS_JSON:[{"action":"navigate|set_room_open|set_no_live_visibility|mark_played|skip_current_song|choose_gig|end_current_gig","route":"","open":true,"visible":true,"gigName":""}]
+  APP_ACTIONS_JSON:[{"action":"navigate|open_health_check|reload_app|set_room_open|set_no_live_visibility|mark_played|skip_current_song|choose_gig|end_current_gig","route":"","open":true,"visible":true,"gigName":""}]
 - Only output actions that are strictly needed for the request.
-- Use only these routes when action=navigate: /admin, /admin/gigs, /admin/gig-control, /admin/create-gig, /audience
+- Prefer action=open_health_check when Harald asks to fix runtime/build-up errors.
+- Use only these routes when action=navigate: /admin, /admin/gigs, /admin/gig-control, /admin/health-check, /admin/create-gig, /audience
 - If assist mode is disabled or no app control is requested, do not include APP_ACTIONS_JSON.`
 
 function normalizeCalendarText(value) {
@@ -196,7 +197,7 @@ function extractCalendarActions(reply) {
 
 function normalizeParsedAppActions(parsed) {
   const list = Array.isArray(parsed) ? parsed : []
-  const allowedRoutes = new Set(['/admin', '/admin/gigs', '/admin/gig-control', '/admin/create-gig', '/audience'])
+  const allowedRoutes = new Set(['/admin', '/admin/gigs', '/admin/gig-control', '/admin/health-check', '/admin/create-gig', '/audience'])
 
   return list
     .map((entry) => {
@@ -208,6 +209,8 @@ function normalizeParsedAppActions(parsed) {
 
       if (![
         'navigate',
+        'open_health_check',
+        'reload_app',
         'set_room_open',
         'set_no_live_visibility',
         'mark_played',
@@ -284,6 +287,14 @@ function parseAppActionsFromUserIntent(text) {
 
   if (/\b(open|go to|navigate)\b/.test(lower) && /\bgig control\b/.test(lower)) {
     return [{ action: 'navigate', route: '/admin/gig-control', open: false, visible: false, gigName: '' }]
+  }
+
+  if (/\b(open|go to|navigate|check)\b/.test(lower) && /\b(health|errors?)\b/.test(lower)) {
+    return [{ action: 'open_health_check', route: '', open: false, visible: false, gigName: '' }]
+  }
+
+  if (/\b(fix|repair|recover)\b/.test(lower) && /\b(error|issues?|build[-\s]?up)\b/.test(lower)) {
+    return [{ action: 'open_health_check', route: '', open: false, visible: false, gigName: '' }]
   }
 
   if (/\b(open|go to|navigate)\b/.test(lower) && /\bgigs\b/.test(lower)) {
@@ -433,6 +444,7 @@ function buildAppContext(app) {
 
   const lines = []
   lines.push(`Current app state: gig=${app.currentGigName || 'none'} | roomOpen=${String(app.roomOpen)} | showInAudienceNoGig=${String(app.showInAudienceNoGig)} | queueLength=${Number(app.queueLength || 0)} | currentSong=${app.currentSongTitle || 'none'}`)
+  lines.push(`Queue health: operatingMode=${app.queueOperatingMode || 'unknown'} | connection=${app.audienceConnectionStatus || 'unknown'} | pendingOfflineSongs=${Number(app.pendingOfflineSongs || 0)}${app.queueHealthMessage ? ` | message=${app.queueHealthMessage}` : ''}`)
 
   if (Array.isArray(app.hostGigs) && app.hostGigs.length) {
     lines.push('Host gigs (up to 30):')

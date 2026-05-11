@@ -26,8 +26,8 @@ type CalendarAction = {
 
 type AppAction = {
   id: string
-  action: 'navigate' | 'set_room_open' | 'set_no_live_visibility' | 'mark_played' | 'skip_current_song' | 'choose_gig' | 'end_current_gig'
-  route?: '/admin' | '/admin/gigs' | '/admin/gig-control' | '/admin/create-gig' | '/audience'
+  action: 'navigate' | 'open_health_check' | 'reload_app' | 'set_room_open' | 'set_no_live_visibility' | 'mark_played' | 'skip_current_song' | 'choose_gig' | 'end_current_gig'
+  route?: '/admin' | '/admin/gigs' | '/admin/gig-control' | '/admin/health-check' | '/admin/create-gig' | '/audience'
   open?: boolean
   visible?: boolean
   gigName?: string
@@ -116,6 +116,7 @@ const AI_MANAGER_AUTO_RUN_SAFE_ACTIONS_STORAGE_KEY = 'human-jukebox-ai-manager-a
 
 function isSafeAppAction(action: AppAction) {
   return action.action === 'navigate'
+    || action.action === 'open_health_check'
     || action.action === 'set_room_open'
     || action.action === 'set_no_live_visibility'
     || action.action === 'choose_gig'
@@ -212,7 +213,7 @@ function normalizeAppActions(value: unknown): AppAction[] {
     return []
   }
 
-  const allowedRoutes = new Set(['/admin', '/admin/gigs', '/admin/gig-control', '/admin/create-gig', '/audience'])
+  const allowedRoutes = new Set(['/admin', '/admin/gigs', '/admin/gig-control', '/admin/health-check', '/admin/create-gig', '/audience'])
   const normalized: AppAction[] = []
 
   value.forEach((entry) => {
@@ -224,6 +225,8 @@ function normalizeAppActions(value: unknown): AppAction[] {
 
     if (![
       'navigate',
+      'open_health_check',
+      'reload_app',
       'set_room_open',
       'set_no_live_visibility',
       'mark_played',
@@ -348,6 +351,10 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     event,
     hostEvents,
     songs,
+    audienceConnectionStatus,
+    queueOperatingMode,
+    queueHealthMessage,
+    pendingOfflineSongs,
     setActiveEvent,
     toggleRoomOpen,
     setShowInAudienceNoGig,
@@ -514,6 +521,10 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
             showInAudienceNoGig: event?.showInAudienceNoGig ?? null,
             queueLength: songs.length,
             currentSongTitle: songs[0]?.title ?? null,
+            queueOperatingMode,
+            queueHealthMessage,
+            audienceConnectionStatus,
+            pendingOfflineSongs: pendingOfflineSongs.length,
             hostGigs: hostEvents.slice(0, 50).map((hostEvent) => ({
               name: hostEvent.name,
               isActive: hostEvent.isActive,
@@ -642,6 +653,21 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
           }
 
           navigate(action.route)
+          appliedIds.add(action.id)
+          continue
+        }
+
+        if (action.action === 'open_health_check') {
+          navigate('/admin/health-check')
+          appliedIds.add(action.id)
+          continue
+        }
+
+        if (action.action === 'reload_app') {
+          if (typeof window !== 'undefined') {
+            window.location.reload()
+          }
+
           appliedIds.add(action.id)
           continue
         }
@@ -909,6 +935,10 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
                         <span>
                           {action.action === 'navigate'
                             ? `Navigate to ${action.route ?? 'unknown route'}`
+                            : action.action === 'open_health_check'
+                            ? 'Open health-check page'
+                            : action.action === 'reload_app'
+                            ? 'Reload app'
                             : action.action === 'set_room_open'
                             ? `${action.open ? 'Open' : 'Close'} audience room`
                             : action.action === 'set_no_live_visibility'
