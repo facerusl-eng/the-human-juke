@@ -91,10 +91,11 @@ type ManagerOption = {
 }
 
 const STARTERS = [
+  'Is the app healthy right now?',
   'What should I focus on today?',
+  'Fix build-up errors now',
   'Which venues should I follow up with?',
-  'Draft an email for my best lead',
-  'How is my pipeline looking?',
+  'Open health-check and suggest fixes',
 ]
 
 const MANAGER_OPTIONS: ManagerOption[] = [
@@ -987,7 +988,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   return createPortal(
     <div ref={rootRef} className="ai-manager-root" data-ai-manager-root="true" data-open={open ? 'true' : 'false'}>
       {open && (
-        <div className="ai-manager-panel" role="dialog" aria-label="AI Booking Manager">
+        <div className="ai-manager-panel" role="dialog" aria-label="AI Manager">
           <div className="ai-manager-header">
             <div className="ai-manager-header-info">
               <span className="ai-manager-avatar" aria-hidden="true">
@@ -1058,7 +1059,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
           <div className="ai-manager-messages">
             {messages.length === 0 && (
               <div className="ai-manager-empty">
-                <p className="ai-manager-empty-text">Hi, I'm {selectedManager.name} - your booking manager. Ask me anything about your pipeline, or pick a quick start:</p>
+                <p className="ai-manager-empty-text">Hi, I'm {selectedManager.name} - your AI manager. I can help with app health, live control, and bookings. Pick a quick start:</p>
                 <div className="ai-manager-starters">
                   {STARTERS.map(s => (
                     <button
@@ -1260,7 +1261,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
           setOpen(prev => !prev)
         }}
-        aria-label={open ? 'Close AI manager' : 'Open AI booking manager'}
+        aria-label={open ? 'Close AI manager' : 'Open AI manager'}
       >
         <span className="ai-manager-fab-icon" aria-hidden="true">
           {!avatarBroken && avatarSrc ? (
