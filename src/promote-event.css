@@ -134,6 +134,69 @@
   border-radius: 10px;
 }
 
+.promote-inshot-studio {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid rgba(97, 218, 251, 0.25);
+  border-radius: 14px;
+  padding: 0.65rem;
+  background: linear-gradient(130deg, rgba(12, 32, 58, 0.6), rgba(17, 41, 35, 0.58));
+}
+
+.promote-inshot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.promote-inshot-title {
+  margin: 0;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(210, 245, 252, 0.96);
+}
+
+.promote-inshot-mode-switch {
+  display: inline-flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.promote-inshot-mode-switch .secondary-button {
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+}
+
+.promote-inshot-mode-active {
+  border-color: rgba(97, 218, 251, 0.75) !important;
+  background: rgba(33, 113, 166, 0.45) !important;
+}
+
+.promote-inshot-toolbar {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.promote-inshot-toolbar .secondary-button {
+  min-height: 2.3rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+}
+
+.promote-inshot-tool-active {
+  border-color: rgba(93, 215, 255, 0.7) !important;
+  background: linear-gradient(130deg, rgba(22, 61, 103, 0.75), rgba(20, 91, 86, 0.58)) !important;
+  color: #e5f8ff;
+}
+
 /* ── Export panel ─────────────────────────────────────────────────────────── */
 .promote-export-panel {
   display: grid;
@@ -1289,6 +1352,10 @@
 }
 
 @media (max-width: 980px) {
+  .promote-inshot-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .video-editor-layout {
     grid-template-columns: 1fr;
   }

@@ -13,6 +13,8 @@ type TextShadow = 'none' | 'light' | 'medium' | 'strong'
 type FontChoice = 'default' | 'serif' | 'slab' | 'mono'
 type TextFrame = 'none' | 'light' | 'dark' | 'auto'
 type MobileDockSection = 'preview' | 'basics' | 'export' | 'tools' | 'video'
+type EditorFlow = 'inshot' | 'classic'
+type QuickStudioTool = 'timeline' | 'canvas' | 'text' | 'filters' | 'music' | 'export'
 
 type HeadlineAnchor = {
   x: number
@@ -163,6 +165,8 @@ function PromoteEventPage() {
   const [mobileDockActive, setMobileDockActive] = useState<MobileDockSection>('preview')
   const [photoBrightness, setPhotoBrightness] = useState<number | null>(null)
   const [photoBusyness, setPhotoBusyness] = useState<number | null>(null)
+  const [editorFlow, setEditorFlow] = useState<EditorFlow>('inshot')
+  const [activeQuickTool, setActiveQuickTool] = useState<QuickStudioTool>('timeline')
 
   const filteredHostEvents = useMemo(() => {
     const normalizedQuery = eventFilterQuery.trim().toLowerCase()
@@ -1406,6 +1410,38 @@ function PromoteEventPage() {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const activateQuickStudioTool = (tool: QuickStudioTool) => {
+    setActiveQuickTool(tool)
+
+    if (tool === 'timeline' || tool === 'music') {
+      if (!selectedEventId) {
+        return
+      }
+
+      setShowVideoEditor(true)
+      window.setTimeout(() => {
+        scrollToSection(videoPanelRef)
+      }, 0)
+      return
+    }
+
+    if (tool === 'canvas') {
+      scrollToSection(previewRef)
+      return
+    }
+
+    if (tool === 'text' || tool === 'filters') {
+      if (isMobileViewport) {
+        setShowMobileAdvancedControls(true)
+      }
+
+      scrollToSection(controlsPanelRef)
+      return
+    }
+
+    scrollToSection(exportPanelRef)
+  }
+
   return (
     <section className="promote-shell" aria-label="Promote event designer">
       <section ref={controlsPanelRef} className="queue-panel promote-controls-panel">
@@ -1416,6 +1452,83 @@ function PromoteEventPage() {
         <p className="subcopy promote-shell-intro">
           Build a professional promo layout with your own photo, event details, and call-to-action.
         </p>
+
+        <section className="promote-inshot-studio" aria-label="InShot style quick studio">
+          <div className="promote-inshot-header">
+            <p className="promote-inshot-title">InShot-style Studio</p>
+            <div className="promote-inshot-mode-switch" role="group" aria-label="Editor mode">
+              <button
+                type="button"
+                className={`secondary-button${editorFlow === 'inshot' ? ' promote-inshot-mode-active' : ''}`}
+                onClick={() => setEditorFlow('inshot')}
+              >
+                InShot Mode
+              </button>
+              <button
+                type="button"
+                className={`secondary-button${editorFlow === 'classic' ? ' promote-inshot-mode-active' : ''}`}
+                onClick={() => setEditorFlow('classic')}
+              >
+                Classic Mode
+              </button>
+            </div>
+          </div>
+          {editorFlow === 'inshot' ? (
+            <>
+              <p className="field-hint no-margin-bottom">
+                Timeline-first workflow: pick an event, open the timeline, then jump between text, filters, music, and export.
+              </p>
+              <div className="promote-inshot-toolbar">
+                <button
+                  type="button"
+                  className={`secondary-button${activeQuickTool === 'timeline' ? ' promote-inshot-tool-active' : ''}`}
+                  onClick={() => activateQuickStudioTool('timeline')}
+                  disabled={!selectedEventId}
+                >
+                  Timeline
+                </button>
+                <button
+                  type="button"
+                  className={`secondary-button${activeQuickTool === 'canvas' ? ' promote-inshot-tool-active' : ''}`}
+                  onClick={() => activateQuickStudioTool('canvas')}
+                >
+                  Canvas
+                </button>
+                <button
+                  type="button"
+                  className={`secondary-button${activeQuickTool === 'text' ? ' promote-inshot-tool-active' : ''}`}
+                  onClick={() => activateQuickStudioTool('text')}
+                >
+                  Text
+                </button>
+                <button
+                  type="button"
+                  className={`secondary-button${activeQuickTool === 'filters' ? ' promote-inshot-tool-active' : ''}`}
+                  onClick={() => activateQuickStudioTool('filters')}
+                >
+                  Filters
+                </button>
+                <button
+                  type="button"
+                  className={`secondary-button${activeQuickTool === 'music' ? ' promote-inshot-tool-active' : ''}`}
+                  onClick={() => activateQuickStudioTool('music')}
+                  disabled={!selectedEventId}
+                >
+                  Music
+                </button>
+                <button
+                  type="button"
+                  className={`secondary-button${activeQuickTool === 'export' ? ' promote-inshot-tool-active' : ''}`}
+                  onClick={() => activateQuickStudioTool('export')}
+                >
+                  Export
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="field-hint no-margin-bottom">Classic mode keeps the detailed form-first layout.</p>
+          )}
+        </section>
 
         <details className="promote-collapsible" open={!isMobileViewport}>
           <summary className="promote-collapsible-summary">Basics</summary>
