@@ -782,11 +782,33 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     try {
       await copyTextToClipboard(handoffText)
-      setHandoffStatus(mode === 'fix' ? 'Copied fix request. Paste it in VS Code Copilot chat.' : 'Copied handoff. Paste it in VS Code Copilot chat.')
+
+      if (mode === 'fix') {
+        // Also auto-create a GitHub Issue so it's tracked even when away from the computer
+        setHandoffStatus('Creating GitHub issue…')
+        try {
+          const response = await fetch('/api/report-issue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: issueTitle, details: handoffText, priority }),
+          })
+          if (response.ok) {
+            const data = await response.json() as { issueUrl?: string; issueNumber?: number }
+            setHandoffStatus(`Issue #${data.issueNumber ?? '?'} created — also copied to clipboard.`)
+          } else {
+            setHandoffStatus('Copied to clipboard (issue creation failed — check GITHUB_TOKEN).')
+          }
+        } catch {
+          setHandoffStatus('Copied to clipboard (could not reach issue reporter).')
+        }
+      } else {
+        setHandoffStatus('Copied handoff. Paste it in VS Code Copilot chat.')
+      }
+
       setHelpDialogOpen(false)
       setHelpTitle('')
       setHelpPriority('normal')
-      setTimeout(() => setHandoffStatus(null), 3000)
+      setTimeout(() => setHandoffStatus(null), 5000)
     } catch {
       setError('Could not copy handoff text. Please try again.')
     }
