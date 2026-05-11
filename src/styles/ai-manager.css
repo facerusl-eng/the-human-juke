@@ -814,11 +814,23 @@
     padding: 0.5rem;
   }
 
+  .ai-manager-root[data-open='true'] {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    inset-inline-start: 0 !important;
+    inset-inline-end: 0 !important;
+    inset-block-start: auto !important;
+    inset-block-end: 0 !important;
+    padding: 0.35rem 0.35rem max(0.45rem, env(safe-area-inset-bottom));
+  }
+
   .ai-manager-panel {
-    width: min(100%, calc(100vw - 1rem));
+    width: min(100%, calc(100vw - 0.7rem));
     max-width: 100%;
-    min-height: min(80dvh, calc(100dvh - 2rem));
-    max-height: min(94dvh, calc(100dvh - 0.7rem));
+    min-height: min(78dvh, calc(100dvh - 1.1rem));
+    max-height: min(92dvh, calc(100dvh - 0.45rem));
     border-radius: 1rem 1rem 0.7rem 0.7rem;
   }
 

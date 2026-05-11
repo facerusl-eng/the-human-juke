@@ -523,7 +523,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
       return
     }
 
-    if (!isFabDragEnabled || !fabPosition) {
+    if (open || !isFabDragEnabled || !fabPosition) {
       root.style.left = ''
       root.style.top = ''
       root.style.right = ''
@@ -543,7 +543,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     root.style.insetBlockStart = `${fabPosition.y}px`
     root.style.insetInlineEnd = 'auto'
     root.style.insetBlockEnd = 'auto'
-  }, [fabPosition, isFabDragEnabled])
+  }, [fabPosition, isFabDragEnabled, open])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
