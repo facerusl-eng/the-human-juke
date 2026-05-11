@@ -1204,7 +1204,7 @@ function MirrorPage() {
 
     const fetchPromise = (async () => {
       const wikipediaFacts = await fetchWikipediaSummarySentences(song.title, song.artist, signal)
-      const itunesFacts = await fetchItunesSongFacts(song.title, song.artist)
+      const itunesFacts = await fetchItunesSongFacts(song.title, song.artist, signal)
       const fallbackFacts = wikipediaFacts.length + itunesFacts.length >= 3
         ? []
         : await fetchMusicBrainzFallbackFacts(song.title, song.artist, signal)

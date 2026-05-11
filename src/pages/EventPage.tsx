@@ -222,11 +222,7 @@ function isLowValueFact(fact: string) {
     || /artist name\s+"?.+"?\s+has\s+\d+\s+word/.test(normalizedFact)
 }
 
-<<<<<<< HEAD
 async function fetchItunesSongFacts(title: string, artist: string, signal: AbortSignal) {
-=======
-async function fetchItunesSongFacts(title: string, artist: string) {
->>>>>>> c78d3b7 (Fix audience mobile behavior and session logout flow)
   const searchTerm = `${title} ${artist}`.trim()
   const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=3`
 
@@ -1097,7 +1093,7 @@ function EventPage() {
 
     const fetchPromise = (async () => {
       const wikipediaFacts = await fetchWikipediaSummarySentences(song.title, song.artist, signal)
-      const itunesFacts = await fetchItunesSongFacts(song.title, song.artist)
+      const itunesFacts = await fetchItunesSongFacts(song.title, song.artist, signal)
       const fallbackFacts = wikipediaFacts.length + itunesFacts.length >= 3
         ? []
         : await fetchMusicBrainzFallbackFacts(song.title, song.artist, signal)

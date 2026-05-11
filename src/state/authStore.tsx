@@ -31,7 +31,18 @@ function isAdminRoutePath() {
 }
 
 function shouldAutoCreateAudienceSession() {
-  return !isAdminRoutePath()
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  if (isAdminRoutePath()) {
+    return false
+  }
+
+  const { pathname } = window.location
+  return pathname.startsWith('/audience')
+    || pathname.startsWith('/feed')
+    || pathname.startsWith('/a/')
 }
 
 type Role = 'guest' | 'host'

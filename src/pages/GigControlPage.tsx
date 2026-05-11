@@ -496,6 +496,22 @@ function GigControlPage() {
       throw new Error('Device is offline. Connect to the internet before going live.')
     }
 
+    const keepWarmController = new AbortController()
+    const keepWarmTimeoutId = window.setTimeout(() => {
+      keepWarmController.abort()
+    }, 1800)
+
+    const keepWarmPromise = fetch('/api/keepwarm', {
+      method: 'GET',
+      cache: 'no-store',
+      signal: keepWarmController.signal,
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        window.clearTimeout(keepWarmTimeoutId)
+      })
+
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
     if (sessionError) {
       throw new Error(`Session check failed: ${sessionError.message}`)
@@ -516,7 +532,7 @@ function GigControlPage() {
 
     const testChannel = supabase.channel(`go-live-preflight-${Date.now()}`)
     const realtimeStatus = await new Promise<string>((resolve) => {
-      const timeoutId = window.setTimeout(() => resolve('TIMED_OUT'), 3500)
+      const timeoutId = window.setTimeout(() => resolve('TIMED_OUT'), 1800)
 
       testChannel
         .on('postgres_changes', {
@@ -545,9 +561,9 @@ function GigControlPage() {
       throw new Error('Audience share link could not be generated.')
     }
 
-    const keepWarmResponse = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' })
-    if (!keepWarmResponse.ok) {
-      throw new Error(`Warm-up endpoint failed (${keepWarmResponse.status}).`)
+    const keepWarmOk = await keepWarmPromise
+    if (!keepWarmOk) {
+      console.warn('GigControlPage: keepwarm preflight did not return OK, continuing with Go Live.')
     }
   }, [event])
 
