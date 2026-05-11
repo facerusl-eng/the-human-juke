@@ -76,8 +76,6 @@ const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_BANNER_STORAGE_KEY = 'human-jukebox-mirror-banner-text'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
-const MIRROR_PROTECTED_INFO_FORCE_QUERY_PARAM = 'mirrorAccess'
-const MIRROR_ROUTER_PROBE_URL = 'http://192.168.10.1/favicon.ico'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
 
@@ -221,86 +219,6 @@ function isSpotifyAutoTransportEnabled() {
   }
 
   return window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY) !== '0'
-}
-
-function isPrivateLanHostname(hostname: string) {
-  if (!hostname) {
-    return false
-  }
-
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
-    return true
-  }
-
-  if (/^192\.168\./.test(hostname)) {
-    return true
-  }
-
-  if (/^10\./.test(hostname)) {
-    return true
-  }
-
-  const match = hostname.match(/^172\.(\d{1,3})\./)
-  if (match) {
-    const secondOctet = Number.parseInt(match[1], 10)
-    return Number.isFinite(secondOctet) && secondOctet >= 16 && secondOctet <= 31
-  }
-
-  return false
-}
-
-function shouldProbeRouterReachability(hostname: string) {
-  if (!hostname) {
-    return false
-  }
-
-  const normalizedHostname = hostname.trim().toLowerCase()
-
-  if (isPrivateLanHostname(normalizedHostname)) {
-    return false
-  }
-
-  // Public domains should not trigger local-router probe requests.
-  if (normalizedHostname.includes('.') && !normalizedHostname.endsWith('.local')) {
-    return false
-  }
-
-  return true
-}
-
-function probeRouterReachability(timeoutMs = 1400) {
-  return new Promise<boolean>((resolve) => {
-    if (typeof window === 'undefined') {
-      resolve(false)
-      return
-    }
-
-    const probeImage = new Image()
-    let settled = false
-
-    const complete = (result: boolean) => {
-      if (settled) {
-        return
-      }
-
-      settled = true
-      resolve(result)
-    }
-
-    const timer = window.setTimeout(() => complete(false), timeoutMs)
-
-    probeImage.onload = () => {
-      window.clearTimeout(timer)
-      complete(true)
-    }
-
-    probeImage.onerror = () => {
-      window.clearTimeout(timer)
-      complete(false)
-    }
-
-    probeImage.src = `${MIRROR_ROUTER_PROBE_URL}?mirror-probe=${Date.now()}`
-  })
 }
 
 async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {

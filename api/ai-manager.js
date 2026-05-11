@@ -25,6 +25,15 @@ Calendar operations:
 - Use action=delete with date only when removing a date.
 - If no calendar change is requested, do not include CALENDAR_ACTIONS_JSON.`
 
+const APP_ACTIONS_PROMPT = `
+App assist operations:
+- If assist mode is enabled and Harald clearly asks you to control the app, include machine-readable actions.
+- Keep your normal human reply, then append exactly one final line:
+  APP_ACTIONS_JSON:[{"action":"navigate|set_room_open|set_no_live_visibility|mark_played|skip_current_song|choose_gig|end_current_gig","route":"","open":true,"visible":true,"gigName":""}]
+- Only output actions that are strictly needed for the request.
+- Use only these routes when action=navigate: /admin, /admin/gigs, /admin/gig-control, /admin/create-gig, /audience
+- If assist mode is disabled or no app control is requested, do not include APP_ACTIONS_JSON.`
+
 function normalizeCalendarText(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -185,6 +194,113 @@ function extractCalendarActions(reply) {
   }
 }
 
+function normalizeParsedAppActions(parsed) {
+  const list = Array.isArray(parsed) ? parsed : []
+  const allowedRoutes = new Set(['/admin', '/admin/gigs', '/admin/gig-control', '/admin/create-gig', '/audience'])
+
+  return list
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null
+      }
+
+      const action = normalizeCalendarText(entry.action)
+
+      if (![
+        'navigate',
+        'set_room_open',
+        'set_no_live_visibility',
+        'mark_played',
+        'skip_current_song',
+        'choose_gig',
+        'end_current_gig',
+      ].includes(action)) {
+        return null
+      }
+
+      const route = normalizeCalendarText(entry.route)
+
+      if (action === 'navigate' && !allowedRoutes.has(route)) {
+        return null
+      }
+
+      return {
+        action,
+        route,
+        open: Boolean(entry.open),
+        visible: Boolean(entry.visible),
+        gigName: normalizeCalendarText(entry.gigName),
+      }
+    })
+    .filter(Boolean)
+}
+
+function extractAppActions(reply) {
+  if (typeof reply !== 'string') {
+    return { cleanedReply: '', appActions: [] }
+  }
+
+  const markerMatch = reply.match(/APP_ACTIONS_JSON\s*:\s*([\s\S]*)$/i)
+  const markerIndex = markerMatch?.index ?? -1
+
+  if (markerIndex === -1 || !markerMatch) {
+    return { cleanedReply: reply.trim(), appActions: [] }
+  }
+
+  const before = reply.slice(0, markerIndex).trim()
+  const rawTail = markerMatch[1].trim()
+  const normalizedTail = rawTail
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim()
+
+  const arrayCandidate = extractFirstJsonArray(normalizedTail) || extractFirstJsonArray(rawTail)
+
+  if (!arrayCandidate) {
+    return { cleanedReply: before || reply.trim(), appActions: [] }
+  }
+
+  let parsed
+  try {
+    parsed = JSON.parse(arrayCandidate)
+  } catch {
+    return { cleanedReply: before || reply.trim(), appActions: [] }
+  }
+
+  const appActions = normalizeParsedAppActions(parsed)
+
+  return {
+    cleanedReply: before || 'Prepared app assist actions.',
+    appActions,
+  }
+}
+
+function parseAppActionsFromUserIntent(text) {
+  if (typeof text !== 'string' || !text.trim()) {
+    return []
+  }
+
+  const lower = text.toLowerCase()
+
+  if (/\b(open|go to|navigate)\b/.test(lower) && /\bgig control\b/.test(lower)) {
+    return [{ action: 'navigate', route: '/admin/gig-control', open: false, visible: false, gigName: '' }]
+  }
+
+  if (/\b(open|go to|navigate)\b/.test(lower) && /\bgigs\b/.test(lower)) {
+    return [{ action: 'navigate', route: '/admin/gigs', open: false, visible: false, gigName: '' }]
+  }
+
+  if (/\b(mark|set)\b/.test(lower) && /\bplayed\b/.test(lower)) {
+    return [{ action: 'mark_played', route: '', open: false, visible: false, gigName: '' }]
+  }
+
+  if (/\bskip\b/.test(lower) && /\bsong\b/.test(lower)) {
+    return [{ action: 'skip_current_song', route: '', open: false, visible: false, gigName: '' }]
+  }
+
+  return []
+}
+
 const MANAGER_PROFILES = {
   brian: {
     id: 'brian',
@@ -305,6 +421,24 @@ function buildPipelineContext(pipeline) {
         lines.push(`  - ${entry.date}${entry.notes ? ` | notes: ${entry.notes}` : ''}`)
       })
     }
+  }
+
+  return lines.join('\n')
+}
+
+function buildAppContext(app) {
+  if (!app || typeof app !== 'object') {
+    return ''
+  }
+
+  const lines = []
+  lines.push(`Current app state: gig=${app.currentGigName || 'none'} | roomOpen=${String(app.roomOpen)} | showInAudienceNoGig=${String(app.showInAudienceNoGig)} | queueLength=${Number(app.queueLength || 0)} | currentSong=${app.currentSongTitle || 'none'}`)
+
+  if (Array.isArray(app.hostGigs) && app.hostGigs.length) {
+    lines.push('Host gigs (up to 30):')
+    app.hostGigs.slice(0, 30).forEach((gig) => {
+      lines.push(`  - ${gig.name} | active: ${gig.isActive ? 'yes' : 'no'} | shownNoLive: ${gig.showInAudienceNoGig ? 'yes' : 'no'}`)
+    })
   }
 
   return lines.join('\n')
@@ -453,7 +587,9 @@ export default async function handler(req, res) {
 
   const messages = Array.isArray(payload.messages) ? payload.messages : []
   const pipeline = payload.pipeline ?? null
+  const app = payload.app ?? null
   const managerId = resolveManagerId(payload.managerId || defaultManagerId)
+  const assistModeEnabled = payload.assistMode === true
   const managerProfile = MANAGER_PROFILES[managerId]
   const latestUserMessage = [...messages].reverse().find((msg) => msg.role === 'user')?.content ?? ''
 
@@ -495,10 +631,19 @@ export default async function handler(req, res) {
   }
 
   const pipelineContext = buildPipelineContext(pipeline)
-  const personaPrompt = `${CORE_PROMPT}\n\n${managerProfile.prompt}`
-  const systemWithContext = pipelineContext
-    ? `${personaPrompt}\n\n--- CURRENT PIPELINE DATA ---\n${pipelineContext}\n--- END PIPELINE DATA ---`
-    : personaPrompt
+  const appContext = buildAppContext(app)
+  const personaPrompt = `${CORE_PROMPT}\n\n${managerProfile.prompt}${assistModeEnabled ? APP_ACTIONS_PROMPT : ''}`
+  const sections = [personaPrompt]
+
+  if (pipelineContext) {
+    sections.push(`--- CURRENT PIPELINE DATA ---\n${pipelineContext}\n--- END PIPELINE DATA ---`)
+  }
+
+  if (appContext) {
+    sections.push(`--- CURRENT APP DATA ---\n${appContext}\n--- END CURRENT APP DATA ---`)
+  }
+
+  const systemWithContext = sections.join('\n\n')
 
   const openAiMessages = [
     { role: 'system', content: systemWithContext },
@@ -519,13 +664,18 @@ export default async function handler(req, res) {
     })
 
     if (result.ok) {
-      const parsed = extractCalendarActions(result.reply)
+      const appParsed = extractAppActions(result.reply)
+      const parsed = extractCalendarActions(appParsed.cleanedReply)
       const fallbackActions = parsed.calendarActions.length === 0
         ? parseCalendarActionsFromUserIntent(latestUserMessage)
+        : []
+      const fallbackAppActions = assistModeEnabled && appParsed.appActions.length === 0
+        ? parseAppActionsFromUserIntent(latestUserMessage)
         : []
       res.status(200).json({
         reply: parsed.cleanedReply,
         calendarActions: parsed.calendarActions.length > 0 ? parsed.calendarActions : fallbackActions,
+        appActions: appParsed.appActions.length > 0 ? appParsed.appActions : fallbackAppActions,
         connected: true,
         provider: candidate,
         model: candidateModel,

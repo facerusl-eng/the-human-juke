@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
+import { useQueueStore } from '../state/queueStore'
 
 type Message = {
   id: string
@@ -20,6 +22,15 @@ type CalendarAction = {
   paymentAmount?: string
   paidAt?: string
   notes?: string
+}
+
+type AppAction = {
+  id: string
+  action: 'navigate' | 'set_room_open' | 'set_no_live_visibility' | 'mark_played' | 'skip_current_song' | 'choose_gig' | 'end_current_gig'
+  route?: '/admin' | '/admin/gigs' | '/admin/gig-control' | '/admin/create-gig' | '/audience'
+  open?: boolean
+  visible?: boolean
+  gigName?: string
 }
 
 type PipelineContext = {
@@ -100,6 +111,7 @@ const OUTREACH_TASKS_STORAGE_KEY = 'human-jukebox-outreach-tasks'
 const OUTREACH_SESSION_STORAGE_KEY = 'human-jukebox-outreach-session'
 const OUTREACH_CALENDAR_STORAGE_KEY = 'human-jukebox-outreach-calendar'
 const CALENDAR_UPDATED_EVENT = 'human-jukebox-calendar-updated'
+const AI_MANAGER_ASSIST_MODE_STORAGE_KEY = 'human-jukebox-ai-manager-assist-mode'
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10)
@@ -185,6 +197,48 @@ function normalizeCalendarActions(value: unknown): CalendarAction[] {
       } as CalendarAction
     })
     .filter((entry): entry is CalendarAction => Boolean(entry))
+}
+
+function normalizeAppActions(value: unknown): AppAction[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const allowedRoutes = new Set(['/admin', '/admin/gigs', '/admin/gig-control', '/admin/create-gig', '/audience'])
+  const normalized: AppAction[] = []
+
+  value.forEach((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return
+    }
+
+    const action = normalizeText(entry.action) as AppAction['action']
+
+    if (![
+      'navigate',
+      'set_room_open',
+      'set_no_live_visibility',
+      'mark_played',
+      'skip_current_song',
+      'choose_gig',
+      'end_current_gig',
+    ].includes(action)) {
+      return
+    }
+
+    const route = normalizeText(entry.route)
+
+    normalized.push({
+      id: generateId(),
+      action,
+      route: allowedRoutes.has(route) ? route as AppAction['route'] : undefined,
+      open: Boolean(entry.open),
+      visible: Boolean(entry.visible),
+      gigName: normalizeText(entry.gigName),
+    })
+  })
+
+  return normalized
 }
 
 function buildPipelineFromOutreachStorage(): PipelineContext {
@@ -281,14 +335,36 @@ function buildPipelineFromOutreachStorage(): PipelineContext {
 }
 
 export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
+  const navigate = useNavigate()
+  const {
+    event,
+    hostEvents,
+    songs,
+    setActiveEvent,
+    toggleRoomOpen,
+    setShowInAudienceNoGig,
+    markPlayed,
+    removeSong,
+    endGig,
+  } = useQueueStore()
   const [avatarBroken, setAvatarBroken] = useState(false)
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [assistModeEnabled, setAssistModeEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.localStorage.getItem(AI_MANAGER_ASSIST_MODE_STORAGE_KEY) === '1'
+  })
+  const [appActionBusy, setAppActionBusy] = useState(false)
   const [pendingCalendarActions, setPendingCalendarActions] = useState<CalendarAction[]>([])
   const [selectedCalendarActionIds, setSelectedCalendarActionIds] = useState<string[]>([])
+  const [pendingAppActions, setPendingAppActions] = useState<AppAction[]>([])
+  const [selectedAppActionIds, setSelectedAppActionIds] = useState<string[]>([])
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'not-connected'>('checking')
   const [managerId, setManagerId] = useState<ManagerOption['id']>(() => {
     if (typeof window === 'undefined') {
@@ -315,6 +391,14 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     window.localStorage.setItem(MANAGER_STORAGE_KEY, managerId)
     setAvatarBroken(false)
   }, [managerId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(AI_MANAGER_ASSIST_MODE_STORAGE_KEY, assistModeEnabled ? '1' : '0')
+  }, [assistModeEnabled])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -401,18 +485,34 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
         body: JSON.stringify({
           messages: nextMessages.map(m => ({ role: m.role, content: m.content })),
           pipeline: mergedPipeline,
+          app: {
+            currentGigName: event?.name ?? null,
+            roomOpen: event?.roomOpen ?? null,
+            showInAudienceNoGig: event?.showInAudienceNoGig ?? null,
+            queueLength: songs.length,
+            currentSongTitle: songs[0]?.title ?? null,
+            hostGigs: hostEvents.slice(0, 50).map((hostEvent) => ({
+              name: hostEvent.name,
+              isActive: hostEvent.isActive,
+              showInAudienceNoGig: hostEvent.showInAudienceNoGig,
+            })),
+          },
           managerId,
+          assistMode: assistModeEnabled,
         }),
       })
 
-      const data: { reply?: string; error?: string; calendarActions?: unknown } = await res.json()
+      const data: { reply?: string; error?: string; calendarActions?: unknown; appActions?: unknown } = await res.json()
 
       if (!res.ok || !data.reply) {
         setError(data.error ?? 'Something went wrong. Try again.')
       } else {
         const actions = normalizeCalendarActions(data.calendarActions)
+        const appActions = normalizeAppActions(data.appActions)
         setPendingCalendarActions(actions)
         setSelectedCalendarActionIds(actions.map((action) => action.id))
+        setPendingAppActions(appActions)
+        setSelectedAppActionIds(appActions.map((action) => action.id))
         setMessages(prev => [...prev, { id: generateId(), role: 'assistant', content: data.reply! }])
       }
     } catch {
@@ -430,6 +530,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   }
 
   const selectedCalendarActions = pendingCalendarActions.filter((action) => selectedCalendarActionIds.includes(action.id))
+  const selectedAppActions = pendingAppActions.filter((action) => selectedAppActionIds.includes(action.id))
 
   function applyCalendarActions() {
     if (typeof window === 'undefined' || selectedCalendarActions.length === 0) {
@@ -501,6 +602,136 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     setSelectedCalendarActionIds(remaining.map((action) => action.id))
   }
 
+  async function applyAppActions() {
+    if (selectedAppActions.length === 0 || appActionBusy) {
+      return
+    }
+
+    setAppActionBusy(true)
+    const appliedIds = new Set<string>()
+    const failures: string[] = []
+
+    for (const action of selectedAppActions) {
+      try {
+        if (action.action === 'navigate') {
+          if (!action.route) {
+            throw new Error('Missing route for navigate action.')
+          }
+
+          navigate(action.route)
+          appliedIds.add(action.id)
+          continue
+        }
+
+        if (action.action === 'set_room_open') {
+          if (!event) {
+            throw new Error('No active gig selected.')
+          }
+
+          if (event.roomOpen !== Boolean(action.open)) {
+            await toggleRoomOpen()
+          }
+
+          appliedIds.add(action.id)
+          continue
+        }
+
+        if (action.action === 'set_no_live_visibility') {
+          if (!event) {
+            throw new Error('No active gig selected.')
+          }
+
+          const nextVisible = Boolean(action.visible)
+          if (event.showInAudienceNoGig !== nextVisible) {
+            await setShowInAudienceNoGig(nextVisible)
+          }
+
+          appliedIds.add(action.id)
+          continue
+        }
+
+        if (action.action === 'mark_played') {
+          if (songs.length === 0) {
+            throw new Error('No queued song to mark as played.')
+          }
+
+          await markPlayed()
+          appliedIds.add(action.id)
+          continue
+        }
+
+        if (action.action === 'skip_current_song') {
+          const currentSong = songs[0]
+          if (!currentSong) {
+            throw new Error('No queued song to skip.')
+          }
+
+          await removeSong(currentSong.id)
+          appliedIds.add(action.id)
+          continue
+        }
+
+        if (action.action === 'choose_gig') {
+          const requestedName = (action.gigName || '').trim().toLowerCase()
+          const target = requestedName
+            ? hostEvents.find((hostEvent) => hostEvent.name.trim().toLowerCase() === requestedName)
+              ?? hostEvents.find((hostEvent) => hostEvent.name.trim().toLowerCase().includes(requestedName))
+            : null
+
+          if (!target) {
+            throw new Error(action.gigName ? `Could not find gig "${action.gigName}".` : 'No gig name provided.')
+          }
+
+          await setActiveEvent(target.id)
+          navigate('/admin/gig-control')
+          appliedIds.add(action.id)
+          continue
+        }
+
+        if (action.action === 'end_current_gig') {
+          if (!event) {
+            throw new Error('No active gig selected.')
+          }
+
+          await endGig(event.id)
+          appliedIds.add(action.id)
+          continue
+        }
+      } catch (actionError) {
+        failures.push(actionError instanceof Error ? actionError.message : 'Action failed.')
+      }
+    }
+
+    const remaining = pendingAppActions.filter((action) => !appliedIds.has(action.id))
+    setPendingAppActions(remaining)
+    setSelectedAppActionIds(remaining.map((action) => action.id))
+
+    if (appliedIds.size > 0) {
+      setMessages((prev) => [...prev, {
+        id: generateId(),
+        role: 'assistant',
+        content: failures.length
+          ? `Applied ${appliedIds.size} app action(s). Some failed: ${failures.join(' | ')}`
+          : `Applied ${appliedIds.size} app action(s).`,
+      }])
+    } else if (failures.length > 0) {
+      setError(failures.join(' | '))
+    }
+
+    setAppActionBusy(false)
+  }
+
+  function dismissSelectedAppActions() {
+    if (selectedAppActions.length === 0) {
+      return
+    }
+
+    const selectedIds = new Set(selectedAppActions.map((action) => action.id))
+    const remaining = pendingAppActions.filter((action) => !selectedIds.has(action.id))
+    setPendingAppActions(remaining)
+    setSelectedAppActionIds(remaining.map((action) => action.id))
+  }
+
   if (typeof document === 'undefined') {
     return null
   }
@@ -542,6 +773,14 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="queue-toggle queue-toggle-compact" title="Allow AI Manager to prepare app control actions you can approve.">
+              <input
+                type="checkbox"
+                checked={assistModeEnabled}
+                onChange={(event) => setAssistModeEnabled(event.target.checked)}
+              />
+              <span>Assist Mode</span>
             </label>
             <span
               className={`ai-manager-status ai-manager-status-${connectionStatus}`}
@@ -598,6 +837,76 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
             {error && (
               <div className="ai-manager-error">
                 <p>{error}</p>
+              </div>
+            )}
+
+            {pendingAppActions.length > 0 && (
+              <div className="ai-manager-calendar-actions">
+                <p className="ai-manager-empty-text">I prepared {pendingAppActions.length} app assist action(s). Review and approve each one.</p>
+                <ul className="ai-manager-calendar-action-list">
+                  {pendingAppActions.map((action) => (
+                    <li key={action.id} className="ai-manager-calendar-action-item">
+                      <label className="queue-toggle queue-toggle-compact">
+                        <input
+                          type="checkbox"
+                          checked={selectedAppActionIds.includes(action.id)}
+                          onChange={(event) => {
+                            setSelectedAppActionIds((current) => {
+                              if (event.target.checked) {
+                                return current.includes(action.id) ? current : [...current, action.id]
+                              }
+
+                              return current.filter((id) => id !== action.id)
+                            })
+                          }}
+                        />
+                        <span>
+                          {action.action === 'navigate'
+                            ? `Navigate to ${action.route ?? 'unknown route'}`
+                            : action.action === 'set_room_open'
+                            ? `${action.open ? 'Open' : 'Close'} audience room`
+                            : action.action === 'set_no_live_visibility'
+                            ? `${action.visible ? 'Show' : 'Hide'} current gig on no-live audience page`
+                            : action.action === 'mark_played'
+                            ? 'Mark current song as played'
+                            : action.action === 'skip_current_song'
+                            ? 'Skip current song'
+                            : action.action === 'choose_gig'
+                            ? `Choose gig${action.gigName ? `: ${action.gigName}` : ''}`
+                            : 'End current gig'}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <div className="ai-manager-starters">
+                  <button
+                    type="button"
+                    className="ai-manager-starter"
+                    onClick={() => {
+                      void applyAppActions()
+                    }}
+                    disabled={selectedAppActions.length === 0 || appActionBusy}
+                  >
+                    {appActionBusy ? 'Applying...' : 'Apply selected app actions'}
+                  </button>
+                  <button type="button" className="ai-manager-starter" onClick={dismissSelectedAppActions} disabled={selectedAppActions.length === 0 || appActionBusy}>Dismiss selected</button>
+                  <button
+                    type="button"
+                    className="ai-manager-starter"
+                    onClick={() => {
+                      if (appActionBusy) {
+                        return
+                      }
+
+                      setPendingAppActions([])
+                      setSelectedAppActionIds([])
+                    }}
+                    disabled={appActionBusy}
+                  >
+                    Clear all
+                  </button>
+                </div>
               </div>
             )}
 
