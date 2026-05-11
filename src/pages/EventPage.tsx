@@ -136,7 +136,7 @@ async function fetchUpcomingEventRows() {
 const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 const LIVE_GIG_POLL_INTERVAL_MS = 12000
-const PLAYBACK_SYNC_POLL_INTERVAL_MS = 10000
+const PLAYBACK_SYNC_POLL_INTERVAL_MS = 30000
 const LIVE_GIG_API_POLLING_ENABLED = import.meta.env.VITE_ENABLE_LIVE_GIG_API?.trim() === '1'
 const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
@@ -1143,12 +1143,22 @@ function EventPage() {
     }
   }, [])
 
+  // Prefetch facts for the next few songs only (not the entire queue) so we
+  // don't hammer Wikipedia/iTunes/MusicBrainz on every queue change.
+  const PREFETCH_AHEAD_COUNT = 3
+
   useEffect(() => {
     const abortController = new AbortController()
 
     const prefetchFacts = async () => {
-      for (const song of factEligibleSongs) {
+      const songsToPreload = factEligibleSongs.slice(0, PREFETCH_AHEAD_COUNT)
+      for (const song of songsToPreload) {
         if (abortController.signal.aborted) {
+          return
+        }
+
+        // Don't burn bandwidth while the tab is in the background.
+        if (document.hidden) {
           return
         }
 
