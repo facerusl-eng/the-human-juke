@@ -335,9 +335,9 @@ function parseAppActionsFromUserIntent(text) {
 const MANAGER_PROFILES = {
   copilot: {
     id: 'copilot',
-    name: 'GitHub Copilot',
-    subtitle: 'AI App Helper',
-    prompt: `Technical ops persona: GitHub Copilot app helper.
+    name: 'JukeOps Copilot',
+    subtitle: 'Embedded AI Chief Engineer',
+    prompt: `Technical ops persona: JukeOps Copilot.
 
 Voice and style:
 - Direct, practical, and precise.
@@ -348,7 +348,7 @@ Focus areas:
 - App diagnostics and runtime stability.
 - Live control actions and recovery workflows.
 - Code-change validation, commit quality, and deployment confidence.
-- Acting like an embedded technical helper for Harald.`
+- Acting like Harald's embedded technical helper inside the app.`
   },
   brian: {
     id: 'brian',

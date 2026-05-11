@@ -86,7 +86,7 @@ type Props = {
 }
 
 type ManagerOption = {
-  id: 'copilot' | 'brian' | 'parker' | 'grant'
+  id: 'copilot'
   name: string
   subtitle: string
 }
@@ -100,10 +100,7 @@ const STARTERS = [
 ]
 
 const MANAGER_OPTIONS: ManagerOption[] = [
-  { id: 'copilot', name: 'GitHub Copilot', subtitle: 'AI App Helper' },
-  { id: 'brian', name: 'Brian Epstein', subtitle: 'Systems Architect' },
-  { id: 'parker', name: 'Colonel Tom Parker', subtitle: 'Live Operations Lead' },
-  { id: 'grant', name: 'Peter Grant', subtitle: 'Performance Engineer' },
+  { id: 'copilot', name: 'JukeOps Copilot', subtitle: 'Embedded AI Chief Engineer' },
 ]
 
 const MANAGER_STORAGE_KEY = 'human-jukebox-ai-manager-profile'
@@ -413,14 +410,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [pendingAppActions, setPendingAppActions] = useState<AppAction[]>([])
   const [selectedAppActionIds, setSelectedAppActionIds] = useState<string[]>([])
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'not-connected'>('checking')
-  const [managerId, setManagerId] = useState<ManagerOption['id']>(() => {
-    if (typeof window === 'undefined') {
-      return 'copilot'
-    }
-
-    const stored = window.localStorage.getItem(MANAGER_STORAGE_KEY)
-    return stored === 'copilot' || stored === 'brian' || stored === 'parker' || stored === 'grant' ? stored : 'copilot'
-  })
+  const [managerId] = useState<ManagerOption['id']>('copilot')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -437,12 +427,8 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     moved: boolean
   } | null>(null)
   const selectedManager = MANAGER_OPTIONS.find(option => option.id === managerId) ?? MANAGER_OPTIONS[0]
-  const avatarSrc =
-    managerId === 'copilot' ? '' :
-    managerId === 'brian' ? '/images/brian-epstein-avatar.png' :
-    managerId === 'parker' ? '/images/Colonel%20Tom%20Parker%20(Elvis%20Presley).png' :
-    managerId === 'grant' ? '/images/Peter%20Grant%20(Led%20Zeppelin).png' : ''
-  const avatarFallback = managerId === 'copilot' ? 'CP' : managerId === 'parker' ? 'TP' : managerId === 'grant' ? 'PG' : 'BE'
+  const avatarSrc = ''
+  const avatarFallback = 'JX'
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1029,10 +1015,10 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   return createPortal(
     <div ref={rootRef} className="ai-manager-root" data-ai-manager-root="true" data-open={open ? 'true' : 'false'}>
       {open && (
-        <div className="ai-manager-panel" role="dialog" aria-label="AI Manager">
+        <div className="ai-manager-panel" role="dialog" aria-label="JukeOps Copilot">
           <div className="ai-manager-header">
             <div className="ai-manager-header-info">
-              <span className="ai-manager-avatar" aria-hidden="true">
+              <span className="ai-manager-avatar ai-manager-avatar-copilot" aria-hidden="true">
                 {!avatarBroken && avatarSrc ? (
                   <img
                     src={avatarSrc}
@@ -1041,29 +1027,15 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
                     onError={() => setAvatarBroken(true)}
                   />
                 ) : (
-                  <span className="ai-manager-avatar-fallback">{avatarFallback}</span>
+                  <span className="ai-manager-avatar-fallback ai-manager-avatar-fallback-copilot">{avatarFallback}</span>
                 )}
               </span>
               <div>
                 <p className="ai-manager-name">{selectedManager.name}</p>
-                <p className="ai-manager-title">AI Manager • {selectedManager.subtitle}</p>
+                <p className="ai-manager-title">AI Copilot • {selectedManager.subtitle}</p>
               </div>
             </div>
-            <label className="ai-manager-profile-picker">
-              <span className="ai-manager-profile-picker-label">Manager</span>
-              <select
-                value={managerId}
-                onChange={(event) => setManagerId(event.target.value as ManagerOption['id'])}
-                className="ai-manager-profile-select"
-                aria-label="Select AI manager profile"
-              >
-                {MANAGER_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name} ({option.subtitle})
-                  </option>
-                ))}
-              </select>
-            </label>
+            <span className="ai-manager-profile-badge">Copilot Embedded</span>
             <label className="queue-toggle queue-toggle-compact" title="Allow AI Manager to prepare app control actions.">
               <input
                 type="checkbox"
@@ -1091,7 +1063,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
               type="button"
               className="ai-manager-close"
               onClick={() => setOpen(false)}
-              aria-label="Close AI manager"
+              aria-label="Close JukeOps Copilot"
             >
               ×
             </button>
@@ -1320,9 +1292,9 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
           setOpen(prev => !prev)
         }}
-        aria-label={open ? 'Close AI manager' : 'Open AI manager'}
+        aria-label={open ? 'Close JukeOps Copilot' : 'Open JukeOps Copilot'}
       >
-        <span className="ai-manager-fab-icon" aria-hidden="true">
+        <span className="ai-manager-fab-icon ai-manager-fab-icon-copilot" aria-hidden="true">
           {!avatarBroken && avatarSrc ? (
             <img
               src={avatarSrc}
@@ -1331,7 +1303,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
               onError={() => setAvatarBroken(true)}
             />
           ) : (
-            <span className="ai-manager-avatar-fallback">{avatarFallback}</span>
+            <span className="ai-manager-avatar-fallback ai-manager-avatar-fallback-copilot">{avatarFallback}</span>
           )}
         </span>
       </button>
