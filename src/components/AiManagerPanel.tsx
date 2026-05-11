@@ -393,13 +393,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [helpDialogOpen, setHelpDialogOpen] = useState(false)
   const [helpTitle, setHelpTitle] = useState('')
   const [helpPriority, setHelpPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal')
-  const [isDesktopFabDragEnabled, setIsDesktopFabDragEnabled] = useState<boolean>(() => {
-    if (typeof window === 'undefined') {
-      return false
-    }
-
-    return window.innerWidth > 600
-  })
+  const [isFabDragEnabled] = useState<boolean>(true)
   const [fabDragging, setFabDragging] = useState(false)
   const [fabPosition, setFabPosition] = useState<{ x: number; y: number } | null>(() => {
     if (typeof window === 'undefined') {
@@ -496,13 +490,6 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     }
 
     const onResize = () => {
-      const desktopEnabled = window.innerWidth > 600
-      setIsDesktopFabDragEnabled(desktopEnabled)
-
-      if (!desktopEnabled) {
-        return
-      }
-
       if (!fabPosition) {
         return
       }
@@ -523,6 +510,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     }
 
     window.addEventListener('resize', onResize)
+    onResize()
 
     return () => {
       window.removeEventListener('resize', onResize)
@@ -535,7 +523,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
       return
     }
 
-    if (!isDesktopFabDragEnabled || !fabPosition) {
+    if (!isFabDragEnabled || !fabPosition) {
       root.style.left = ''
       root.style.top = ''
       root.style.right = ''
@@ -555,7 +543,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     root.style.insetBlockStart = `${fabPosition.y}px`
     root.style.insetInlineEnd = 'auto'
     root.style.insetBlockEnd = 'auto'
-  }, [fabPosition, isDesktopFabDragEnabled])
+  }, [fabPosition, isFabDragEnabled])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1007,7 +995,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   }
 
   const handleFabPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (!isDesktopFabDragEnabled || open || event.button !== 0) {
+    if (!isFabDragEnabled || open || event.button !== 0) {
       return
     }
 
@@ -1429,7 +1417,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
       <button
         ref={fabRef}
         type="button"
-        className={`ai-manager-fab ${open ? 'ai-manager-fab-open' : ''}${isDesktopFabDragEnabled && !open ? ' ai-manager-fab-draggable' : ''}${fabDragging ? ' ai-manager-fab-dragging' : ''}`}
+        className={`ai-manager-fab ${open ? 'ai-manager-fab-open' : ''}${isFabDragEnabled && !open ? ' ai-manager-fab-draggable' : ''}${fabDragging ? ' ai-manager-fab-dragging' : ''}`}
         onPointerDown={handleFabPointerDown}
         onPointerMove={handleFabPointerMove}
         onPointerUp={handleFabPointerEnd}
