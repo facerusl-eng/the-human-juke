@@ -671,9 +671,9 @@ export default async function handler(req, res) {
   // Graceful fallback when no API key is configured
   if (providerCandidates.length === 0) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content?.toLowerCase() ?? ''
-    let fallback = `I'm ${managerProfile.name}, your booking manager. I'm not fully connected yet - add a free-tier GROQ_API_KEY (recommended) or OPENAI_API_KEY to enable AI replies. In the meantime: check your follow-up tasks and prioritise venues with a lead score above 50 that haven't been contacted yet.`
-    if (lastUserMsg.includes('email') || lastUserMsg.includes('draft')) {
-      fallback = "I'd love to draft that for you - I just need AI provider credentials first. Add GROQ_API_KEY (free-tier) or OPENAI_API_KEY in Vercel environment variables."
+    let fallback = `I'm ${managerProfile.name}, your app operations assistant. I'm not fully connected yet — add a free-tier GROQ_API_KEY (recommended) or OPENAI_API_KEY to environment variables to enable AI replies. In the meantime, you can still check your app health, queue status, and perform manual actions.`
+    if (lastUserMsg.includes('commit') || lastUserMsg.includes('push') || lastUserMsg.includes('code')) {
+      fallback = "I'd love to help with that git operation — I just need AI provider credentials first. Add GROQ_API_KEY (free-tier) or OPENAI_API_KEY in Vercel environment variables to enable smart commit messages."
     }
     res.status(200).json({ reply: fallback, connected: false, provider, model, managerId, managerName: managerProfile.name })
     return
