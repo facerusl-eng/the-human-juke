@@ -11619,6 +11619,30 @@ kbd {
   }
 }
 
+@media (min-width: 768px) and (max-width: 1199px) {
+  .audience-no-gig-card {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-motion,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-entry-eyebrow,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-card > h1,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-countdown,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-copy,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-guide-actions,
+  .audience-no-gig-card:has(.audience-no-gig-how-it-works) .audience-no-gig-how-it-works,
+  .audience-no-gig-events,
+  .audience-no-gig-card > .meta-badge,
+  .audience-no-gig-card > .subcopy[role='status'] {
+    grid-column: 1 / -1;
+  }
+
+  .audience-no-gig-how-it-works {
+    min-height: 0;
+  }
+}
+
 /* iPad / large-tablet polish (portrait + landscape) */
 @media (min-width: 768px) and (max-width: 1366px) and (hover: none) and (pointer: coarse) {
   .app-shell {

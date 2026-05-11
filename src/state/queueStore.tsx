@@ -1180,7 +1180,11 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const resolvedEventId = String((eventData as Record<string, unknown>).id ?? '')
     const isTestGig = readTestGigMap()[resolvedEventId] ?? false
-    const canViewPrivateTestGig = isHostSessionRef.current && (!isAudienceRoutePath() || isTestAudiencePreviewMode())
+    const requestedEventIdFromUrl = readRequestedEventIdFromUrl()
+    const isExplicitTestPreviewRequest = isAudienceRoutePath()
+      && isTestAudiencePreviewMode()
+      && requestedEventIdFromUrl === resolvedEventId
+    const canViewPrivateTestGig = isHostSessionRef.current || isExplicitTestPreviewRequest
 
     if (isTestGig && !canViewPrivateTestGig) {
       throw new Error('This test gig is private to the host account.')
