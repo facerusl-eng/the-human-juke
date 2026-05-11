@@ -47,6 +47,8 @@ function CreateGigPage() {
   const [gigName, setGigName] = useState('')
   const [venue, setVenue] = useState('')
   const [gigDate, setGigDate] = useState('')
+  const [repeatDateInput, setRepeatDateInput] = useState('')
+  const [additionalGigDates, setAdditionalGigDates] = useState<string[]>([])
   const [gigStartTime, setGigStartTime] = useState('')
   const [gigEndTime, setGigEndTime] = useState('')
   const [description, setDescription] = useState('')
@@ -266,6 +268,32 @@ function CreateGigPage() {
     setStep('datetime')
   }
 
+  const addAdditionalGigDate = () => {
+    const normalizedDate = repeatDateInput.trim()
+
+    if (!normalizedDate) {
+      return
+    }
+
+    if (normalizedDate === gigDate) {
+      setErrorText('That date is already set as the main gig date.')
+      return
+    }
+
+    if (additionalGigDates.includes(normalizedDate)) {
+      setErrorText('That repeat date is already added.')
+      return
+    }
+
+    setAdditionalGigDates((currentDates) => [...currentDates, normalizedDate].sort((a, b) => a.localeCompare(b)))
+    setRepeatDateInput('')
+    setErrorText(null)
+  }
+
+  const removeAdditionalGigDate = (targetDate: string) => {
+    setAdditionalGigDates((currentDates) => currentDates.filter((date) => date !== targetDate))
+  }
+
   const doCreate = async (includeDatetime: boolean) => {
     if (busy) {
       return
@@ -274,37 +302,56 @@ function CreateGigPage() {
     setErrorText(null)
     setBusy(true)
 
-    const eventOptions = includeDatetime
-      ? {
-          gigDate: gigDate || undefined,
-          gigStartTime: gigStartTime || undefined,
-          gigEndTime: gigEndTime || undefined,
-          showInAudienceNoGig: isTestGig ? false : showInAudienceNoGig,
-          coverImageUrl: coverImageDataUrl,
-          subtitle: description.trim() || undefined,
-          eventType,
-          karafunUrl: karafunUrl.trim() || undefined,
-          artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
-          audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
-          autoLiveEnabled,
-          introAudioUrl,
-          isTestGig,
-        }
-      : {
-          showInAudienceNoGig: isTestGig ? false : showInAudienceNoGig,
-          coverImageUrl: coverImageDataUrl,
-          subtitle: description.trim() || undefined,
-          eventType,
-          karafunUrl: karafunUrl.trim() || undefined,
-          artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
-          audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
-          autoLiveEnabled,
-          introAudioUrl,
-          isTestGig,
-        }
+    const createOptionsBase = {
+      gigStartTime: gigStartTime || undefined,
+      gigEndTime: gigEndTime || undefined,
+      showInAudienceNoGig: isTestGig ? false : showInAudienceNoGig,
+      coverImageUrl: coverImageDataUrl,
+      subtitle: description.trim() || undefined,
+      eventType,
+      karafunUrl: karafunUrl.trim() || undefined,
+      artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
+      audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
+      autoLiveEnabled,
+      introAudioUrl,
+      isTestGig,
+    }
+
+    const uniqueRepeatDates = additionalGigDates
+      .filter((date) => date && date !== gigDate)
+      .filter((date, index, allDates) => allDates.indexOf(date) === index)
+
+    if (includeDatetime && uniqueRepeatDates.length > 0 && !gigDate) {
+      setErrorText('Set the main gig date before adding repeat dates.')
+      setBusy(false)
+      return
+    }
 
     try {
-      await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), eventOptions))
+      if (includeDatetime) {
+        const datesToCreate = gigDate
+          ? [...uniqueRepeatDates, gigDate]
+          : []
+
+        if (datesToCreate.length > 0) {
+          for (const nextDate of datesToCreate) {
+            await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), {
+              ...createOptionsBase,
+              gigDate: nextDate,
+            }))
+          }
+        } else {
+          await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), {
+            ...createOptionsBase,
+            gigDate: gigDate || undefined,
+          }))
+        }
+      } else {
+        await withSubmitTimeout(runCreateWithLockRetry(gigName.trim(), venue.trim(), {
+          ...createOptionsBase,
+        }))
+      }
+
       navigate('/admin/gig-control')
     } catch (error) {
       if (!isMountedRef.current) {
@@ -519,8 +566,49 @@ function CreateGigPage() {
                   id="gig-date"
                   type="date"
                   value={gigDate}
-                  onChange={(e) => setGigDate(e.target.value)}
+                  onChange={(e) => {
+                    const nextMainDate = e.target.value
+                    setGigDate(nextMainDate)
+                    setAdditionalGigDates((currentDates) => currentDates.filter((date) => date !== nextMainDate))
+                  }}
                 />
+              </div>
+
+              <div className="field-row">
+                <label htmlFor="gig-repeat-date">Add repeat dates (optional)</label>
+                <div className="create-gig-time-row">
+                  <input
+                    id="gig-repeat-date"
+                    type="date"
+                    value={repeatDateInput}
+                    onChange={(e) => setRepeatDateInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={busy || !gigDate || !repeatDateInput}
+                    onClick={addAdditionalGigDate}
+                  >
+                    Add date
+                  </button>
+                </div>
+                <p className="field-hint">Set the main date first, then add more dates. The app will create a gig clone for each added date using the same settings.</p>
+                {additionalGigDates.length > 0 ? (
+                  <div className="create-gig-repeat-dates-list">
+                    {additionalGigDates.map((date) => (
+                      <button
+                        key={date}
+                        type="button"
+                        className="secondary-button"
+                        disabled={busy}
+                        onClick={() => removeAdditionalGigDate(date)}
+                        title="Remove repeat date"
+                      >
+                        {date} ×
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               <div className="create-gig-time-row">
