@@ -127,6 +127,24 @@ function generateId() {
   return Math.random().toString(36).slice(2, 10)
 }
 
+async function copyTextToClipboard(text: string) {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', 'true')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  textarea.style.pointerEvents = 'none'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  document.body.removeChild(textarea)
+}
+
 function safeParse(value: string | null) {
   if (!value) {
     return null
@@ -371,6 +389,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [handoffStatus, setHandoffStatus] = useState<string | null>(null)
   const [isDesktopFabDragEnabled, setIsDesktopFabDragEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') {
       return false
@@ -665,6 +684,42 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       sendMessage(input)
+    }
+  }
+
+  const copyCopilotHandoff = async () => {
+    const recentMessages = messages.slice(-6)
+    const recentConversation = recentMessages.length
+      ? recentMessages.map((msg) => `${msg.role === 'user' ? 'User' : selectedManager.name}: ${msg.content}`).join('\n')
+      : 'No prior in-app messages.'
+
+    const handoffText = [
+      'I need help in The Human Jukebox app.',
+      '',
+      'Current app snapshot:',
+      `- AI connection: ${connectionStatus}`,
+      `- Current gig: ${event?.name ?? 'None selected'}`,
+      `- Room open: ${event?.roomOpen ? 'Yes' : 'No'}`,
+      `- Queue length: ${songs.length}`,
+      `- Current song: ${songs[0]?.title ?? 'None'}`,
+      `- Queue mode: ${queueOperatingMode}`,
+      `- Queue health: ${queueHealthMessage}`,
+      `- Audience connection: ${audienceConnectionStatus}`,
+      `- Pending offline songs: ${pendingOfflineSongs.length}`,
+      '',
+      'What I need help with:',
+      input.trim() || 'Please describe the issue and next action.',
+      '',
+      'Recent in-app AI conversation:',
+      recentConversation,
+    ].join('\n')
+
+    try {
+      await copyTextToClipboard(handoffText)
+      setHandoffStatus('Copied handoff. Paste it in VS Code Copilot chat.')
+      setTimeout(() => setHandoffStatus(null), 3000)
+    } catch {
+      setError('Could not copy handoff text. Please try again.')
     }
   }
 
@@ -1253,6 +1308,19 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
           </div>
 
           <div className="ai-manager-input-row">
+            <div className="ai-manager-handoff-row">
+              <button
+                type="button"
+                className="ai-manager-handoff-button"
+                onClick={() => {
+                  void copyCopilotHandoff()
+                }}
+                disabled={loading}
+              >
+                Need VS Code Copilot help: Copy handoff
+              </button>
+              {handoffStatus ? <p className="ai-manager-handoff-status">{handoffStatus}</p> : null}
+            </div>
             <textarea
               ref={inputRef}
               className="ai-manager-input"
