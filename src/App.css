@@ -7444,6 +7444,10 @@
   display: block;
 }
 
+.audience-playlist-choice-cover-jukebox {
+  object-position: center 34%;
+}
+
 .audience-playlist-choice-overlay {
   position: absolute;
   inset: 0;

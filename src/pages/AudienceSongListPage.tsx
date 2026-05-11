@@ -742,7 +742,7 @@ function AudienceSongListPage() {
             className="audience-playlist-choice audience-playlist-choice-jukebox"
             onClick={() => setActiveSetlist('human_jukebox')}
           >
-            <img src="/images/playlist-human-jukebox.svg" alt="Human Jukebox playlist cover" className="audience-playlist-choice-cover" />
+            <img src="/images/playlist-karaoke.jpg" alt="Human Jukebox playlist cover" className="audience-playlist-choice-cover audience-playlist-choice-cover-jukebox" />
             <div className="audience-playlist-choice-overlay">
               <strong className="audience-playlist-choice-title">Human Jukebox</strong>
               <span className="audience-playlist-choice-sub">{copy.hostPlays}</span>
