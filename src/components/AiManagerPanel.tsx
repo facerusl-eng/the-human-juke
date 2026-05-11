@@ -93,16 +93,16 @@ type ManagerOption = {
 
 const STARTERS = [
   'Is the app healthy right now?',
-  'What should I focus on today?',
+  'What needs fixing?',
   'Fix build-up errors now',
-  'Which venues should I follow up with?',
   'Open health-check and suggest fixes',
+  'Commit and push latest changes',
 ]
 
 const MANAGER_OPTIONS: ManagerOption[] = [
-  { id: 'brian', name: 'Brian Epstein', subtitle: 'The Beatles' },
-  { id: 'parker', name: 'Colonel Tom Parker', subtitle: 'Elvis Presley' },
-  { id: 'grant', name: 'Peter Grant', subtitle: 'Led Zeppelin' },
+  { id: 'brian', name: 'Brian Epstein', subtitle: 'Systems Architect' },
+  { id: 'parker', name: 'Colonel Tom Parker', subtitle: 'Live Operations Lead' },
+  { id: 'grant', name: 'Peter Grant', subtitle: 'Performance Engineer' },
 ]
 
 const MANAGER_STORAGE_KEY = 'human-jukebox-ai-manager-profile'
@@ -1098,7 +1098,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
           <div className="ai-manager-messages">
             {messages.length === 0 && (
               <div className="ai-manager-empty">
-                <p className="ai-manager-empty-text">Hi, I'm {selectedManager.name} - your AI manager. I can help with app health, live control, and bookings. Pick a quick start:</p>
+                <p className="ai-manager-empty-text">Hi, I'm {selectedManager.name}. I help keep the app healthy, diagnose issues, and support live control. What do you need?</p>
                 <div className="ai-manager-starters">
                   <button
                     type="button"
