@@ -1,3 +1,5 @@
+import type { FFmpeg } from '@ffmpeg/ffmpeg'
+
 type Mp4TranscodeOptions = {
   inputName?: string
   outputName?: string
@@ -5,17 +7,8 @@ type Mp4TranscodeOptions = {
   onStatus?: (message: string) => void
 }
 
-type FfmpegLike = {
-  load: (config: { coreURL: string, wasmURL: string }) => Promise<boolean | void>
-  writeFile: (path: string, data: Uint8Array) => Promise<void>
-  on: (event: string, callback: (entry: { message?: string }) => void) => void
-  exec: (args: string[]) => Promise<number>
-  readFile: (path: string) => Promise<Uint8Array>
-  deleteFile: (path: string) => Promise<void>
-}
-
 let ffmpegInstancePromise: Promise<{
-  ffmpeg: FfmpegLike
+  ffmpeg: FFmpeg
 }> | null = null
 
 async function getFfmpeg() {
@@ -107,12 +100,12 @@ export async function transcodeWebmToMp4(inputBlob: Blob, options: Mp4TranscodeO
   }
 
   const outputBytes = await ffmpeg.readFile(outputName)
-  const outputBytesCopy = Uint8Array.from(outputBytes)
+  const outputBlobPart = typeof outputBytes === 'string' ? outputBytes : Uint8Array.from(outputBytes)
 
   await Promise.allSettled([
     ffmpeg.deleteFile(inputName),
     ffmpeg.deleteFile(outputName),
   ])
 
-  return new Blob([outputBytesCopy], { type: 'video/mp4' })
+  return new Blob([outputBlobPart], { type: 'video/mp4' })
 }
