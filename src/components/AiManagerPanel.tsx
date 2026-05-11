@@ -1445,7 +1445,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
                   }}
                   disabled={loading}
                 >
-                  App needs fixing: Send to VS Code Copilot
+                  Send to GitHub Copilot
                 </button>
                 <button
                   type="button"
