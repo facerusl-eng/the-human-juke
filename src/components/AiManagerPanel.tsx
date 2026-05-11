@@ -114,6 +114,8 @@ const CALENDAR_UPDATED_EVENT = 'human-jukebox-calendar-updated'
 const AI_MANAGER_ASSIST_MODE_STORAGE_KEY = 'human-jukebox-ai-manager-assist-mode'
 const AI_MANAGER_AUTO_RUN_SAFE_ACTIONS_STORAGE_KEY = 'human-jukebox-ai-manager-auto-run-safe-actions'
 const AI_MANAGER_FAB_POSITION_STORAGE_KEY = 'human-jukebox-ai-manager-fab-position'
+const MOBILE_ZOOM_UNLOCK_STORAGE_KEY = 'human-jukebox-mobile-zoom-unlock'
+const MOBILE_ZOOM_PREF_EVENT = 'human-jukebox-mobile-zoom-preference-changed'
 
 function isSafeAppAction(action: AppAction) {
   return action.action === 'navigate'
@@ -424,6 +426,17 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [helpDialogOpen, setHelpDialogOpen] = useState(false)
   const [helpTitle, setHelpTitle] = useState('')
   const [helpPriority, setHelpPriority] = useState<'low' | 'normal' | 'high' | 'urgent'>('normal')
+  const [mobileZoomUnlocked, setMobileZoomUnlocked] = useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    try {
+      return window.localStorage.getItem(MOBILE_ZOOM_UNLOCK_STORAGE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
   const [isFabDragEnabled] = useState<boolean>(true)
   const [fabDragging, setFabDragging] = useState(false)
   const [fabPosition, setFabPosition] = useState<{ x: number; y: number } | null>(() => {
@@ -501,6 +514,21 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     window.localStorage.setItem(AI_MANAGER_AUTO_RUN_SAFE_ACTIONS_STORAGE_KEY, autoRunSafeActions ? '1' : '0')
   }, [autoRunSafeActions])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      window.localStorage.setItem(MOBILE_ZOOM_UNLOCK_STORAGE_KEY, mobileZoomUnlocked ? '1' : '0')
+      window.dispatchEvent(new CustomEvent(MOBILE_ZOOM_PREF_EVENT, {
+        detail: { unlocked: mobileZoomUnlocked },
+      }))
+    } catch {
+      // Ignore local preference write failures.
+    }
+  }, [mobileZoomUnlocked])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1406,6 +1434,13 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
                   disabled={loading}
                 >
                   Quick copy handoff
+                </button>
+                <button
+                  type="button"
+                  className="ai-manager-handoff-button ai-manager-handoff-button-secondary"
+                  onClick={() => setMobileZoomUnlocked((current) => !current)}
+                >
+                  Mobile zoom: {mobileZoomUnlocked ? 'Enabled' : 'Locked'}
                 </button>
               </div>
               {handoffStatus ? <p className="ai-manager-handoff-status">{handoffStatus}</p> : null}

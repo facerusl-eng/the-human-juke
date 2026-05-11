@@ -373,6 +373,11 @@
   border-color: rgba(128, 173, 255, 0.62);
 }
 
+.ai-manager-handoff-button-secondary:focus-visible {
+  outline: 2px solid rgba(128, 173, 255, 0.62);
+  outline-offset: 1px;
+}
+
 .ai-manager-handoff-button-alert {
   background: rgba(126, 37, 37, 0.45);
   border-color: rgba(252, 129, 129, 0.5);
