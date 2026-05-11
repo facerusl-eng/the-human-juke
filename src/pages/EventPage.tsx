@@ -1300,6 +1300,9 @@ function EventPage() {
     let isCurrent = true
     let pollTimerId: number | null = null
 
+    // Let the no-gig screen render immediately; the probe keeps running in the background.
+    setHasCompletedInitialLiveGigProbe(true)
+
     const checkLiveGig = async () => {
       if (liveGigApiUnavailableRef.current) {
         if (isCurrent) {
