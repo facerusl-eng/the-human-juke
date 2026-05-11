@@ -7430,8 +7430,8 @@
 }
 
 .audience-playlist-choice-jukebox .audience-playlist-choice-cover {
-  object-fit: contain;
-  object-position: center;
+  object-fit: cover;
+  object-position: center 36%;
 }
 
 .audience-playlist-choice-karaoke {
