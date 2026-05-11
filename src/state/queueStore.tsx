@@ -338,6 +338,15 @@ function isAudienceRoutePath() {
   return window.location.pathname.startsWith('/audience')
 }
 
+function isTestAudiencePreviewMode() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const queryParams = new URLSearchParams(window.location.search)
+  return queryParams.get('test') === '1'
+}
+
 function isAuthLockContentionError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
   return /lock broken|steal option|navigatorlockacquiretimeouterror|auth-token/i.test(message)
@@ -1171,7 +1180,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const resolvedEventId = String((eventData as Record<string, unknown>).id ?? '')
     const isTestGig = readTestGigMap()[resolvedEventId] ?? false
-    const canViewPrivateTestGig = isHostSessionRef.current && !isAudienceRoutePath()
+    const canViewPrivateTestGig = isHostSessionRef.current && (!isAudienceRoutePath() || isTestAudiencePreviewMode())
 
     if (isTestGig && !canViewPrivateTestGig) {
       throw new Error('This test gig is private to the host account.')

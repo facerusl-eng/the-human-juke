@@ -202,6 +202,8 @@ function GigControlPage() {
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
   const nextUpSong = upNext[0] ?? null
   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
+  const activeHostEvent = hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null
+  const isCurrentTestGig = activeHostEvent?.isTestGig ?? event?.isTestGig ?? false
   const queuedLibrarySongIds = useMemo(() => (
     new Set(
       songs
@@ -209,7 +211,10 @@ function GigControlPage() {
         .filter((songId): songId is string => Boolean(songId)),
     )
   ), [songs])
-  const joinUrl = getAudienceUrl(event?.id, { compact: true })
+  const joinUrl = isCurrentTestGig
+    ? getAudienceUrl(event?.id, { compact: false, mode: 'test' })
+    : getAudienceUrl(event?.id, { compact: true })
+  const testJoinUrl = getAudienceUrl(event?.id, { compact: false, mode: 'test' })
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
@@ -463,6 +468,18 @@ function GigControlPage() {
     }
   }
 
+  const copyTestJoinUrl = async () => {
+    const copiedSuccessfully = await copyText(
+      testJoinUrl,
+      'Copy failed. You can still select and copy the test audience link manually.',
+    )
+
+    if (copiedSuccessfully) {
+      setErrorText(null)
+      setCopyError(null)
+    }
+  }
+
   const connectSpotify = useCallback(async () => {
     try {
       const token = await refreshSpotifyAccessToken()
@@ -556,7 +573,9 @@ function GigControlPage() {
       throw new Error(`Realtime subscription failed (${realtimeStatus}).`)
     }
 
-    const nextJoinUrl = getAudienceUrl(event.id, { compact: true })
+    const nextJoinUrl = event.isTestGig
+      ? getAudienceUrl(event.id, { compact: false, mode: 'test' })
+      : getAudienceUrl(event.id, { compact: true })
     if (!nextJoinUrl.startsWith('http')) {
       throw new Error('Audience share link could not be generated.')
     }
@@ -1625,6 +1644,7 @@ function GigControlPage() {
                 >
                   {hostEvents.map((hostEvent) => (
                     <option key={hostEvent.id} value={hostEvent.id}>
+                      {hostEvent.isTestGig ? '[TEST] ' : ''}
                       {hostEvent.name}{hostEvent.venue ? ` - ${hostEvent.venue}` : ''}
                     </option>
                   ))}
@@ -1632,6 +1652,7 @@ function GigControlPage() {
               </div>
             ) : null}
             <h1>{event.name}</h1>
+            {isCurrentTestGig ? <p className="meta-badge">Test Gig (Private)</p> : null}
             {event.venue ? <p className="subcopy no-margin">{event.venue}</p> : null}
             {event.subtitle ? <p className="subcopy gig-event-subtitle">{event.subtitle}</p> : null}
             <p className="gig-audience-count-badge" aria-live="polite">
@@ -1778,21 +1799,47 @@ function GigControlPage() {
         </article>
 
         <article className="qr-card gig-control-qr-card" aria-label="Audience join tools">
-          <p className="gig-control-card-label">Audience Join QR</p>
+          <p className="gig-control-card-label">{isCurrentTestGig ? 'Test Audience QR' : 'Audience Join QR'}</p>
           <div className="gig-control-qr-frame">
-            <img src={qrUrl} alt="QR code for audience join page" className="qr-image" />
+            <img src={qrUrl} alt={isCurrentTestGig ? 'QR code for test audience page' : 'QR code for audience join page'} className="qr-image" />
           </div>
-          <p className="subcopy">Show this on your mirror screen so guests can scan and join.</p>
+          <p className="subcopy">
+            {isCurrentTestGig
+              ? 'Private test mode: use this Test Audience page while signed in as host.'
+              : 'Show this on your mirror screen so guests can scan and join.'}
+          </p>
           <button
             type="button"
             className="secondary-button"
-            title="Copy the audience join link to share with your guests"
+            title={isCurrentTestGig ? 'Copy the test audience link for host preview' : 'Copy the audience join link to share with your guests'}
             onClick={async () => {
               await copyJoinUrl()
             }}
           >
-            {copiedAudienceLink ? 'Copied!' : 'Copy Audience Link'}
+            {copiedAudienceLink ? 'Copied!' : isCurrentTestGig ? 'Copy Test Audience Link' : 'Copy Audience Link'}
           </button>
+          <button
+            type="button"
+            className="ghost-button"
+            title="Open the host-only Test Audience page for this gig"
+            onClick={() => {
+              window.open(testJoinUrl, '_blank', 'noopener,noreferrer')
+            }}
+          >
+            Open Test Audience Page
+          </button>
+          {!isCurrentTestGig ? (
+            <button
+              type="button"
+              className="ghost-button"
+              title="Copy the host-only Test Audience link"
+              onClick={async () => {
+                await copyTestJoinUrl()
+              }}
+            >
+              Copy Test Audience Link
+            </button>
+          ) : null}
           <div className="hero-actions no-margin-bottom">
             <button
               type="button"

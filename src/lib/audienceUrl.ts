@@ -4,6 +4,7 @@ const AUDIENCE_LINK_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim()
 type AudienceUrlOptions = {
   compact?: boolean
   includeVersion?: boolean
+  mode?: 'public' | 'test'
 }
 
 function isLocalHostName(hostname: string) {
@@ -18,6 +19,7 @@ export function getAudienceUrl(eventId?: string | null, options: AudienceUrlOpti
   const normalizedEventId = eventId?.trim()
   const useCompactPath = options.compact ?? false
   const includeVersion = options.includeVersion ?? !useCompactPath
+  const mode = options.mode ?? 'public'
 
   const buildAudienceUrl = (origin: string) => {
     const audiencePath = useCompactPath && normalizedEventId
@@ -27,6 +29,10 @@ export function getAudienceUrl(eventId?: string | null, options: AudienceUrlOpti
 
     if (normalizedEventId && !useCompactPath) {
       audienceUrl.searchParams.set('event', normalizedEventId)
+    }
+
+    if (mode === 'test') {
+      audienceUrl.searchParams.set('test', '1')
     }
 
     if (includeVersion) {
