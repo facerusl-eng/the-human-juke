@@ -677,6 +677,23 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     }
   }
 
+  const runDailySelfCheck = () => {
+    if (loading || appActionBusy) {
+      return
+    }
+
+    void sendMessage('Run a daily self-check now. Verify app health, queue operating mode, connection status, pending offline songs, and live-control readiness. Give me a short green/yellow/red status plus top 3 actions. Open health-check if needed.')
+  }
+
+  const runPanicRecovery = async () => {
+    if (loading || appActionBusy) {
+      return
+    }
+
+    await applyAppActions([{ id: generateId(), action: 'open_health_check' }], 'auto')
+    void sendMessage('Panic recovery mode: diagnose current app state, prioritise stability, and propose the smallest safe recovery sequence to restore normal operation. Include app actions where appropriate.')
+  }
+
   const selectedCalendarActions = pendingCalendarActions.filter((action) => selectedCalendarActionIds.includes(action.id))
   const selectedAppActions = pendingAppActions.filter((action) => selectedAppActionIds.includes(action.id))
 
@@ -1061,6 +1078,24 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
               <div className="ai-manager-empty">
                 <p className="ai-manager-empty-text">Hi, I'm {selectedManager.name} - your AI manager. I can help with app health, live control, and bookings. Pick a quick start:</p>
                 <div className="ai-manager-starters">
+                  <button
+                    type="button"
+                    className="ai-manager-starter"
+                    onClick={runDailySelfCheck}
+                    disabled={loading || appActionBusy}
+                  >
+                    Daily Self-Check
+                  </button>
+                  <button
+                    type="button"
+                    className="ai-manager-starter"
+                    onClick={() => {
+                      void runPanicRecovery()
+                    }}
+                    disabled={loading || appActionBusy}
+                  >
+                    Panic Recovery
+                  </button>
                   {STARTERS.map(s => (
                     <button
                       key={s}

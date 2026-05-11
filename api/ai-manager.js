@@ -290,6 +290,14 @@ function parseAppActionsFromUserIntent(text) {
 
   const lower = text.toLowerCase()
 
+  if (/\b(daily|self[-\s]?check|health check)\b/.test(lower) && /\b(run|check|status|verify)\b/.test(lower)) {
+    return [{ action: 'open_health_check', route: '', open: false, visible: false, gigName: '' }]
+  }
+
+  if (/\b(panic|emergency|recover|recovery)\b/.test(lower) && /\b(mode|now|fix|errors?|issues?)\b/.test(lower)) {
+    return [{ action: 'open_health_check', route: '', open: false, visible: false, gigName: '' }]
+  }
+
   if (/\b(open|go to|navigate)\b/.test(lower) && /\bgig control\b/.test(lower)) {
     return [{ action: 'navigate', route: '/admin/gig-control', open: false, visible: false, gigName: '' }]
   }
