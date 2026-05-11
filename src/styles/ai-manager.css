@@ -389,6 +389,16 @@
   transform: translateY(-1px);
 }
 
+.ai-manager-fab-draggable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.ai-manager-fab-dragging {
+  cursor: grabbing;
+  transform: none;
+}
+
 .ai-manager-fab-open {
   padding: 0.6rem;
   border-radius: 50%;

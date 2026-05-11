@@ -113,6 +113,7 @@ const OUTREACH_CALENDAR_STORAGE_KEY = 'human-jukebox-outreach-calendar'
 const CALENDAR_UPDATED_EVENT = 'human-jukebox-calendar-updated'
 const AI_MANAGER_ASSIST_MODE_STORAGE_KEY = 'human-jukebox-ai-manager-assist-mode'
 const AI_MANAGER_AUTO_RUN_SAFE_ACTIONS_STORAGE_KEY = 'human-jukebox-ai-manager-auto-run-safe-actions'
+const AI_MANAGER_FAB_POSITION_STORAGE_KEY = 'human-jukebox-ai-manager-fab-position'
 
 function isSafeAppAction(action: AppAction) {
   return action.action === 'navigate'
@@ -368,6 +369,25 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDesktopFabDragEnabled, setIsDesktopFabDragEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.innerWidth > 600
+  })
+  const [fabDragging, setFabDragging] = useState(false)
+  const [fabPosition, setFabPosition] = useState<{ x: number; y: number } | null>(() => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    const parsed = safeParse(window.localStorage.getItem(AI_MANAGER_FAB_POSITION_STORAGE_KEY)) as { x?: unknown; y?: unknown } | null
+    const x = typeof parsed?.x === 'number' ? parsed.x : Number.NaN
+    const y = typeof parsed?.y === 'number' ? parsed.y : Number.NaN
+
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null
+  })
   const [assistModeEnabled, setAssistModeEnabled] = useState<boolean>(() => {
     if (typeof window === 'undefined') {
       return false
@@ -398,6 +418,19 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const fabRef = useRef<HTMLButtonElement>(null)
+  const suppressFabToggleRef = useRef(false)
+  const fabDragRef = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+    width: number
+    height: number
+    moved: boolean
+  } | null>(null)
   const selectedManager = MANAGER_OPTIONS.find(option => option.id === managerId) ?? MANAGER_OPTIONS[0]
   const avatarSrc =
     managerId === 'brian' ? '/images/brian-epstein-avatar.png' :
@@ -429,6 +462,86 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
     window.localStorage.setItem(AI_MANAGER_AUTO_RUN_SAFE_ACTIONS_STORAGE_KEY, autoRunSafeActions ? '1' : '0')
   }, [autoRunSafeActions])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    if (!fabPosition) {
+      window.localStorage.removeItem(AI_MANAGER_FAB_POSITION_STORAGE_KEY)
+      return
+    }
+
+    window.localStorage.setItem(AI_MANAGER_FAB_POSITION_STORAGE_KEY, JSON.stringify(fabPosition))
+  }, [fabPosition])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const onResize = () => {
+      const desktopEnabled = window.innerWidth > 600
+      setIsDesktopFabDragEnabled(desktopEnabled)
+
+      if (!desktopEnabled) {
+        return
+      }
+
+      if (!fabPosition) {
+        return
+      }
+
+      const width = fabRef.current?.offsetWidth ?? 52
+      const height = fabRef.current?.offsetHeight ?? 52
+      const minX = 8
+      const minY = 8
+      const maxX = Math.max(minX, window.innerWidth - width - 8)
+      const maxY = Math.max(minY, window.innerHeight - height - 8)
+
+      const clampedX = Math.min(Math.max(fabPosition.x, minX), maxX)
+      const clampedY = Math.min(Math.max(fabPosition.y, minY), maxY)
+
+      if (clampedX !== fabPosition.x || clampedY !== fabPosition.y) {
+        setFabPosition({ x: clampedX, y: clampedY })
+      }
+    }
+
+    window.addEventListener('resize', onResize)
+
+    return () => {
+      window.removeEventListener('resize', onResize)
+    }
+  }, [fabPosition])
+
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) {
+      return
+    }
+
+    if (!isDesktopFabDragEnabled || !fabPosition) {
+      root.style.left = ''
+      root.style.top = ''
+      root.style.right = ''
+      root.style.bottom = ''
+      root.style.insetInlineStart = ''
+      root.style.insetBlockStart = ''
+      root.style.insetInlineEnd = ''
+      root.style.insetBlockEnd = ''
+      return
+    }
+
+    root.style.left = `${fabPosition.x}px`
+    root.style.top = `${fabPosition.y}px`
+    root.style.right = 'auto'
+    root.style.bottom = 'auto'
+    root.style.insetInlineStart = `${fabPosition.x}px`
+    root.style.insetBlockStart = `${fabPosition.y}px`
+    root.style.insetInlineEnd = 'auto'
+    root.style.insetBlockEnd = 'auto'
+  }, [fabPosition, isDesktopFabDragEnabled])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -799,8 +912,80 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     return null
   }
 
+  const handleFabPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isDesktopFabDragEnabled || open || event.button !== 0) {
+      return
+    }
+
+    const target = fabRef.current
+    const rect = target?.getBoundingClientRect()
+
+    if (!target || !rect) {
+      return
+    }
+
+    fabDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: rect.left,
+      originY: rect.top,
+      width: rect.width,
+      height: rect.height,
+      moved: false,
+    }
+
+    target.setPointerCapture(event.pointerId)
+    setFabDragging(true)
+  }
+
+  const handleFabPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = fabDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return
+    }
+
+    const dx = event.clientX - drag.startX
+    const dy = event.clientY - drag.startY
+
+    if (!drag.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+      drag.moved = true
+    }
+
+    if (!drag.moved) {
+      return
+    }
+
+    const minX = 8
+    const minY = 8
+    const maxX = Math.max(minX, window.innerWidth - drag.width - 8)
+    const maxY = Math.max(minY, window.innerHeight - drag.height - 8)
+
+    const nextX = Math.min(Math.max(drag.originX + dx, minX), maxX)
+    const nextY = Math.min(Math.max(drag.originY + dy, minY), maxY)
+    setFabPosition({ x: nextX, y: nextY })
+  }
+
+  const handleFabPointerEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = fabDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return
+    }
+
+    if (drag.moved) {
+      suppressFabToggleRef.current = true
+    }
+
+    if (fabRef.current?.hasPointerCapture(event.pointerId)) {
+      fabRef.current.releasePointerCapture(event.pointerId)
+    }
+
+    fabDragRef.current = null
+    setFabDragging(false)
+  }
+
   return createPortal(
-    <div className="ai-manager-root" data-ai-manager-root="true" data-open={open ? 'true' : 'false'}>
+    <div ref={rootRef} className="ai-manager-root" data-ai-manager-root="true" data-open={open ? 'true' : 'false'}>
       {open && (
         <div className="ai-manager-panel" role="dialog" aria-label="AI Booking Manager">
           <div className="ai-manager-header">
@@ -1060,9 +1245,21 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
       )}
 
       <button
+        ref={fabRef}
         type="button"
-        className={`ai-manager-fab ${open ? 'ai-manager-fab-open' : ''}`}
-        onClick={() => setOpen(prev => !prev)}
+        className={`ai-manager-fab ${open ? 'ai-manager-fab-open' : ''}${isDesktopFabDragEnabled && !open ? ' ai-manager-fab-draggable' : ''}${fabDragging ? ' ai-manager-fab-dragging' : ''}`}
+        onPointerDown={handleFabPointerDown}
+        onPointerMove={handleFabPointerMove}
+        onPointerUp={handleFabPointerEnd}
+        onPointerCancel={handleFabPointerEnd}
+        onClick={() => {
+          if (suppressFabToggleRef.current) {
+            suppressFabToggleRef.current = false
+            return
+          }
+
+          setOpen(prev => !prev)
+        }}
         aria-label={open ? 'Close AI manager' : 'Open AI booking manager'}
       >
         <span className="ai-manager-fab-icon" aria-hidden="true">
