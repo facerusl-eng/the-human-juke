@@ -427,7 +427,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     moved: boolean
   } | null>(null)
   const selectedManager = MANAGER_OPTIONS.find(option => option.id === managerId) ?? MANAGER_OPTIONS[0]
-  const avatarSrc = ''
+  const avatarSrc = '/images/Copilot_20260507_214120.png'
   const avatarFallback = 'JX'
 
   useEffect(() => {
