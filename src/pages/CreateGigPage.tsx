@@ -534,6 +534,12 @@ function CreateGigPage() {
   }
 
   if (step === 'datetime') {
+    const uniqueRepeatDatesCount = additionalGigDates
+      .filter((date) => date && date !== gigDate)
+      .filter((date, index, allDates) => allDates.indexOf(date) === index)
+      .length
+    const totalGigsToCreate = gigDate ? uniqueRepeatDatesCount + 1 : 1
+
     return (
       <section className="create-gig-shell" aria-label="Set gig date and time">
         <section className="hero-card create-gig-card">
@@ -641,6 +647,7 @@ function CreateGigPage() {
               >
                 {busy ? 'Creating…' : 'Create Gig with Date & Time'}
               </button>
+              <p className="field-hint">This will create {totalGigsToCreate} gig{totalGigsToCreate === 1 ? '' : 's'} in your calendar.</p>
             </div>
           </div>
 
