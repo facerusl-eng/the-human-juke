@@ -553,6 +553,78 @@ function resolveModelCandidates(provider) {
   ])
 }
 
+function normalizeInputImages(rawImages) {
+  if (!Array.isArray(rawImages)) {
+    return []
+  }
+
+  const allowedMimeTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+
+  return rawImages
+    .slice(0, 4)
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null
+      }
+
+      const name = typeof entry.name === 'string' ? entry.name.slice(0, 120) : 'image'
+      const mimeType = typeof entry.mimeType === 'string' ? entry.mimeType.toLowerCase() : ''
+      const dataUrl = typeof entry.dataUrl === 'string' ? entry.dataUrl : ''
+
+      if (!allowedMimeTypes.has(mimeType)) {
+        return null
+      }
+
+      if (!dataUrl.startsWith(`data:${mimeType};base64,`)) {
+        return null
+      }
+
+      // Keep payload size bounded for serverless execution.
+      if (dataUrl.length > 5_500_000) {
+        return null
+      }
+
+      return {
+        name,
+        mimeType,
+        dataUrl,
+      }
+    })
+    .filter(Boolean)
+}
+
+function buildProviderMessages(systemWithContext, messages, inputImages) {
+  const lastUserIndex = (() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i].role === 'user') {
+        return i
+      }
+    }
+    return -1
+  })()
+
+  return [
+    { role: 'system', content: systemWithContext },
+    ...messages.map((message, index) => {
+      if (inputImages.length > 0 && index === lastUserIndex) {
+        const text = message.content.trim() || 'Please analyze the attached image(s).'
+        return {
+          role: message.role,
+          content: [
+            { type: 'text', text },
+            ...inputImages.map((image) => ({
+              type: 'image_url',
+              image_url: { url: image.dataUrl },
+            })),
+          ],
+        }
+      }
+
+      return { role: message.role, content: message.content }
+    }),
+  ]
+}
+
 async function callProvider({ provider, apiKey, model, messages }) {
   const apiUrl = provider === 'groq' ? GROQ_API_URL : OPENAI_API_URL
 
@@ -671,6 +743,7 @@ export default async function handler(req, res) {
   const payload = toJsonBody(req.body)
 
   const messages = Array.isArray(payload.messages) ? payload.messages : []
+  const inputImages = normalizeInputImages(payload.inputImages)
   const pipeline = payload.pipeline ?? null
   const app = payload.app ?? null
   const managerId = resolveManagerId(payload.managerId || defaultManagerId)
@@ -730,10 +803,7 @@ export default async function handler(req, res) {
 
   const systemWithContext = sections.join('\n\n')
 
-  const openAiMessages = [
-    { role: 'system', content: systemWithContext },
-    ...messages.map(m => ({ role: m.role, content: m.content })),
-  ]
+  const openAiMessages = buildProviderMessages(systemWithContext, messages, inputImages)
 
   let lastError = { status: 502, message: 'AI provider unavailable.' }
 

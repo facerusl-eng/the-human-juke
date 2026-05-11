@@ -9,6 +9,13 @@ type Message = {
   content: string
 }
 
+type UploadedImage = {
+  id: string
+  name: string
+  mimeType: string
+  dataUrl: string
+}
+
 type CalendarAction = {
   id: string
   action: 'upsert' | 'delete'
@@ -127,6 +134,21 @@ function isSafeAppAction(action: AppAction) {
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10)
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+      } else {
+        reject(new Error('Could not read file'))
+      }
+    }
+    reader.onerror = () => reject(new Error('Could not read file'))
+    reader.readAsDataURL(file)
+  })
 }
 
 async function copyTextToClipboard(text: string) {
@@ -420,6 +442,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
+  const [pendingImages, setPendingImages] = useState<UploadedImage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [handoffStatus, setHandoffStatus] = useState<string | null>(null)
@@ -473,6 +496,7 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [managerId] = useState<ManagerOption['id']>('copilot')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const fabRef = useRef<HTMLButtonElement>(null)
   const suppressFabToggleRef = useRef(false)
@@ -660,12 +684,16 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
 
   async function sendMessage(text: string) {
     const trimmed = text.trim()
-    if (!trimmed || loading) return
+    if ((!trimmed && pendingImages.length === 0) || loading) return
 
-    const userMsg: Message = { id: generateId(), role: 'user', content: trimmed }
+    const payloadImages = [...pendingImages]
+    const userContent = trimmed || `Please analyze the ${payloadImages.length} attached image${payloadImages.length === 1 ? '' : 's'}.`
+
+    const userMsg: Message = { id: generateId(), role: 'user', content: userContent }
     const nextMessages = [...messages, userMsg]
     setMessages(nextMessages)
     setInput('')
+    setPendingImages([])
     setLoading(true)
     setError(null)
 
@@ -688,6 +716,11 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: nextMessages.map(m => ({ role: m.role, content: m.content })),
+          inputImages: payloadImages.map((image) => ({
+            name: image.name,
+            mimeType: image.mimeType,
+            dataUrl: image.dataUrl,
+          })),
           pipeline: mergedPipeline,
           app: {
             currentGigName: event?.name ?? null,
@@ -735,6 +768,57 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
       e.preventDefault()
       sendMessage(input)
     }
+  }
+
+  async function handleImageSelection(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? [])
+    if (files.length === 0) {
+      return
+    }
+
+    const currentCount = pendingImages.length
+    const availableSlots = Math.max(0, 4 - currentCount)
+    if (availableSlots === 0) {
+      setError('Maximum 4 images per message.')
+      event.target.value = ''
+      return
+    }
+
+    const selected = files.slice(0, availableSlots)
+    const next: UploadedImage[] = []
+
+    try {
+      for (const file of selected) {
+        if (!file.type.startsWith('image/')) {
+          continue
+        }
+
+        if (file.size > 4 * 1024 * 1024) {
+          setError(`Image ${file.name} is too large. Max 4 MB.`)
+          continue
+        }
+
+        const dataUrl = await readFileAsDataUrl(file)
+        next.push({
+          id: generateId(),
+          name: file.name,
+          mimeType: file.type,
+          dataUrl,
+        })
+      }
+
+      if (next.length > 0) {
+        setPendingImages((current) => [...current, ...next])
+      }
+    } catch {
+      setError('Could not read selected image. Please try again.')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  function removePendingImage(id: string) {
+    setPendingImages((current) => current.filter((image) => image.id !== id))
   }
 
   const copyCopilotHandoff = async (mode: 'general' | 'fix' = 'general') => {
@@ -1477,11 +1561,46 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
               rows={1}
               disabled={loading}
             />
+            <div className="ai-manager-attachments-row">
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageSelection}
+                className="ai-manager-image-input"
+              />
+              <button
+                type="button"
+                className="ai-manager-handoff-button ai-manager-handoff-button-secondary ai-manager-attach-button"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={loading || pendingImages.length >= 4}
+              >
+                Attach image
+              </button>
+              {pendingImages.length > 0 ? (
+                <div className="ai-manager-attachment-list">
+                  {pendingImages.map((image) => (
+                    <div key={image.id} className="ai-manager-attachment-chip">
+                      <span>{image.name}</span>
+                      <button
+                        type="button"
+                        className="ai-manager-attachment-remove"
+                        onClick={() => removePendingImage(image.id)}
+                        aria-label={`Remove ${image.name}`}
+                      >
+                        x
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <button
               type="button"
               className="ai-manager-send"
               onClick={() => sendMessage(input)}
-              disabled={loading || !input.trim()}
+              disabled={loading || (!input.trim() && pendingImages.length === 0)}
               aria-label="Send message"
             >
               ↑
