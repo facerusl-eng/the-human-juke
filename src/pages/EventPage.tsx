@@ -142,6 +142,8 @@ const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim(
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 const UPCOMING_EVENTS_CACHE_KEY = 'human-jukebox-upcoming-events-cache-v1'
 const UPCOMING_EVENTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5
+const UPCOMING_FALLBACK_TIMEOUT_MS = 4500
+const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
 const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v3'
@@ -541,6 +543,22 @@ function saveUpcomingEventsCache(events: AudienceUpcomingEvent[]) {
   } catch {
     // Ignore localStorage write failures.
   }
+}
+
+function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  let timeoutId: number | null = null
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage))
+    }, timeoutMs)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId)
+    }
+  }) as Promise<T>
 }
 
 function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlaybackState | null) {
@@ -1595,7 +1613,11 @@ function EventPage() {
           if (!isExpectedApiFallbackError(apiError)) {
             console.warn('EventPage: /events fetch failed, falling back to Supabase', apiError)
           }
-          const eventRows = await fetchUpcomingEventRows()
+          const eventRows = await withPromiseTimeout(
+            fetchUpcomingEventRows(),
+            UPCOMING_FALLBACK_TIMEOUT_MS,
+            'EventPage: upcoming events fallback timed out',
+          )
           mappedEvents = mapUpcomingEvents(eventRows)
         }
 
@@ -1613,7 +1635,11 @@ function EventPage() {
             // Keep first paint fast: do the auth retry + refetch in background.
             void (async () => {
               try {
-                const { error: signInError } = await supabase.auth.signInAnonymously()
+                const { error: signInError } = await withPromiseTimeout(
+                  supabase.auth.signInAnonymously(),
+                  UPCOMING_AUTH_RETRY_TIMEOUT_MS,
+                  'EventPage: anonymous sign-in retry timed out',
+                )
 
                 if (signInError) {
                   throw signInError
@@ -1624,7 +1650,11 @@ function EventPage() {
                 try {
                   refreshedEvents = await fetchUpcomingEventsFromApi()
                 } catch {
-                  const eventRows = await fetchUpcomingEventRows()
+                  const eventRows = await withPromiseTimeout(
+                    fetchUpcomingEventRows(),
+                    UPCOMING_FALLBACK_TIMEOUT_MS,
+                    'EventPage: upcoming events fallback timed out',
+                  )
                   refreshedEvents = mapUpcomingEvents(eventRows)
                 }
 
@@ -1651,7 +1681,11 @@ function EventPage() {
 
         if (isAuthSessionError(error) && !user) {
           try {
-            const { error: signInError } = await supabase.auth.signInAnonymously()
+            const { error: signInError } = await withPromiseTimeout(
+              supabase.auth.signInAnonymously(),
+              UPCOMING_AUTH_RETRY_TIMEOUT_MS,
+              'EventPage: anonymous sign-in retry timed out',
+            )
 
             if (signInError) {
               throw signInError
@@ -1662,7 +1696,11 @@ function EventPage() {
             try {
               mappedEvents = await fetchUpcomingEventsFromApi()
             } catch {
-              const eventRows = await fetchUpcomingEventRows()
+              const eventRows = await withPromiseTimeout(
+                fetchUpcomingEventRows(),
+                UPCOMING_FALLBACK_TIMEOUT_MS,
+                'EventPage: upcoming events fallback timed out',
+              )
               mappedEvents = mapUpcomingEvents(eventRows)
             }
 
