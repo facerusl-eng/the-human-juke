@@ -41,21 +41,14 @@
 
 /* Neon jukebox stage-lighting theme overrides (Audience + Mirror first surfaces) */
 .audience-shell-modern,
-
 .mirror-shell {
   --mirror-cyan-rgb: 93, 215, 255;
   --mirror-soft-text: rgba(184, 210, 255, 0.82);
   --mirror-cyan-soft-border: rgba(var(--mirror-cyan-rgb), 0.22);
   --mirror-cyan-soft-bg: rgba(var(--mirror-cyan-rgb), 0.1);
   --mirror-cyan-soft-bg-hover: rgba(var(--mirror-cyan-rgb), 0.18);
-  width: 100vw;
-  height: 100dvh;
-  max-width: 100vw;
-  max-height: 100dvh;
   min-height: 0;
   aspect-ratio: auto;
-  display: grid;
-  grid-template-rows: auto auto auto 1fr;
   background:
     radial-gradient(circle at 12% 8%, rgba(74, 214, 255, 0.28) 0%, transparent 35%),
     radial-gradient(circle at 86% 10%, rgba(255, 79, 152, 0.26) 0%, transparent 34%),
@@ -66,7 +59,24 @@
   gap: clamp(0.5rem, 0.9vw, 0.95rem);
   margin: 0;
   box-sizing: border-box;
+}
+
+.mirror-shell {
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100vw;
+  max-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
   overflow: hidden;
+}
+
+.audience-shell-modern {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .mirror-shell-hide-controls {

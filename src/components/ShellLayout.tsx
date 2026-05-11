@@ -481,6 +481,7 @@ function ShellLayout() {
 
                   try {
                     await signOut()
+                    navigate('/', { replace: true })
                   } catch (error) {
                     console.warn('ShellLayout: sign-out failed', error)
                     setErrorText('Sign out failed.')

@@ -222,7 +222,11 @@ function isLowValueFact(fact: string) {
     || /artist name\s+"?.+"?\s+has\s+\d+\s+word/.test(normalizedFact)
 }
 
+<<<<<<< HEAD
 async function fetchItunesSongFacts(title: string, artist: string, signal: AbortSignal) {
+=======
+async function fetchItunesSongFacts(title: string, artist: string) {
+>>>>>>> c78d3b7 (Fix audience mobile behavior and session logout flow)
   const searchTerm = `${title} ${artist}`.trim()
   const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=3`
 
@@ -645,7 +649,7 @@ function normalizeExternalLink(url: string | null | undefined) {
 function EventPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { authError, loading: authLoading, user } = useAuthStore()
+  const { authError, loading: authLoading, user, signOut } = useAuthStore()
   const {
     event,
     songs,
@@ -1093,7 +1097,7 @@ function EventPage() {
 
     const fetchPromise = (async () => {
       const wikipediaFacts = await fetchWikipediaSummarySentences(song.title, song.artist, signal)
-      const itunesFacts = await fetchItunesSongFacts(song.title, song.artist, signal)
+      const itunesFacts = await fetchItunesSongFacts(song.title, song.artist)
       const fallbackFacts = wikipediaFacts.length + itunesFacts.length >= 3
         ? []
         : await fetchMusicBrainzFallbackFacts(song.title, song.artist, signal)
@@ -1854,12 +1858,19 @@ function EventPage() {
     }
   }
 
-  const handleSignOut = useCallback(() => {
+  const handleSignOut = useCallback(async () => {
     clearAudienceIdentity()
     setAudienceName('')
     setAudienceNameInput('')
+
+    try {
+      await signOut()
+    } catch (error) {
+      console.warn('EventPage: audience sign-out failed', error)
+    }
+
     navigate('/audience', { replace: true })
-  }, [navigate])
+  }, [navigate, signOut])
 
   if (loading && !event && upcomingEvents.length === 0) {
     return (

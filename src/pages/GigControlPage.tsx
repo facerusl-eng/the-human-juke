@@ -760,7 +760,7 @@ function GigControlPage() {
       at: new Date(latestSnapshot.createdAt).toLocaleString(),
       source: databaseSnapshotAvailable ? 'database' : 'local',
     })
-  }, [event, gigActions, saveQueueSnapshot, user?.id])
+  }, [event])
 
   const confirmRestoreSnapshot = useCallback(async () => {
     if (!restoreConfirmPayload || !event) return
