@@ -1547,6 +1547,11 @@
   position: relative;
   overflow-x: clip;
   overflow-y: visible;
+  /* align-self: start prevents the 1fr grid row in app-shell from capping the
+     element's height to 100dvh. Without this, overflow-x: clip causes
+     overflow-y to be computed as clip/auto (CSS spec), which silently clips
+     everything below the first screenful on mobile. */
+  align-self: start;
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
   gap: 1rem;
