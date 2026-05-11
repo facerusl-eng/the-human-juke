@@ -144,6 +144,7 @@ function GigsPage() {
   const navigate = useNavigate()
   const { event, hostEvents, setActiveEvent, endGig, deleteEvent, setEventAudienceNoGigVisibility } = useQueueStore()
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
+  const [bulkDeletingHiddenGigs, setBulkDeletingHiddenGigs] = useState(false)
   const [endingEventId, setEndingEventId] = useState<string | null>(null)
   const [togglingAudienceFallbackEventId, setTogglingAudienceFallbackEventId] = useState<string | null>(null)
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -201,6 +202,40 @@ function GigsPage() {
       setErrorText(error instanceof Error ? error.message : 'Failed to delete gig. Please try again.')
     } finally {
       setDeletingEventId(null)
+    }
+  }
+
+  const removeHiddenNoLiveGigs = async () => {
+    const hiddenNoLiveGigs = hostEvents.filter((hostEvent) => !hostEvent.showInAudienceNoGig && !hostEvent.isActive)
+
+    if (hiddenNoLiveGigs.length === 0) {
+      setErrorText('No hidden no-live gigs to delete.')
+      return
+    }
+
+    const previewNames = hiddenNoLiveGigs.slice(0, 5).map((hostEvent) => `- ${hostEvent.name}`).join('\n')
+    const moreCount = hiddenNoLiveGigs.length > 5 ? `\n...and ${hiddenNoLiveGigs.length - 5} more.` : ''
+    const confirmed = window.confirm(
+      `Delete ${hiddenNoLiveGigs.length} gig(s) hidden from the no-live audience page?\n\n${previewNames}${moreCount}\n\nThis removes queue, feed posts, and mirror state for each gig.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setErrorText(null)
+    setBulkDeletingHiddenGigs(true)
+
+    try {
+      for (const hostEvent of hiddenNoLiveGigs) {
+        setDeletingEventId(hostEvent.id)
+        await deleteEvent(hostEvent.id)
+      }
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Failed while deleting hidden no-live gigs. Please try again.')
+    } finally {
+      setDeletingEventId(null)
+      setBulkDeletingHiddenGigs(false)
     }
   }
 
@@ -325,7 +360,19 @@ function GigsPage() {
       <section className="queue-panel gigs-list-panel" aria-label="Created gigs list">
         <div className="panel-head">
           <h2>Saved Gigs</h2>
-          <span className="meta-badge">{hostEvents.length} total</span>
+          <div className="hero-actions no-margin-bottom">
+            <span className="meta-badge">{hostEvents.length} total</span>
+            <button
+              type="button"
+              className="ghost-button danger-button"
+              disabled={bulkDeletingHiddenGigs || hostEvents.every((hostEvent) => hostEvent.showInAudienceNoGig || hostEvent.isActive)}
+              onClick={() => {
+                void removeHiddenNoLiveGigs()
+              }}
+            >
+              {bulkDeletingHiddenGigs ? 'Deleting Hidden Gigs…' : 'Delete Hidden No-Live Gigs'}
+            </button>
+          </div>
         </div>
 
         {hostEvents.length === 0 ? (
@@ -338,7 +385,7 @@ function GigsPage() {
               const isDeleting = deletingEventId === hostEvent.id
               const isEnding = endingEventId === hostEvent.id
               const isUpdatingNoLiveVisibility = togglingAudienceFallbackEventId === hostEvent.id
-              const isBusy = isActivating || isDeleting || isEnding || isUpdatingNoLiveVisibility
+              const isBusy = isActivating || isDeleting || isEnding || isUpdatingNoLiveVisibility || bulkDeletingHiddenGigs
 
               return (
                 <li key={hostEvent.id} className="gig-management-entry">
