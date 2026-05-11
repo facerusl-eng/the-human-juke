@@ -517,6 +517,42 @@ function resolveProviderCandidates(preferredProvider, groqApiKey, openAiApiKey) 
   ]
 }
 
+function uniqueNonEmpty(values) {
+  return [...new Set(values.filter((value) => typeof value === 'string' && value.trim()))]
+}
+
+function isLikelyOpenAiModel(model) {
+  if (typeof model !== 'string') {
+    return false
+  }
+
+  const normalized = model.trim().toLowerCase()
+  return normalized.startsWith('gpt-') || normalized.startsWith('o1') || normalized.startsWith('o3') || normalized.startsWith('o4')
+}
+
+function resolveModelCandidates(provider) {
+  const sharedModel = process.env.AI_MODEL?.trim() || ''
+
+  if (provider === 'groq') {
+    const groqModel = process.env.AI_MODEL_GROQ?.trim() || ''
+    return uniqueNonEmpty([
+      groqModel,
+      sharedModel,
+      'llama-3.3-70b-versatile',
+      'llama-3.1-8b-instant',
+    ])
+  }
+
+  const openAiModel = process.env.AI_MODEL_OPENAI?.trim() || ''
+  const sharedOpenAiModel = isLikelyOpenAiModel(sharedModel) ? sharedModel : ''
+  return uniqueNonEmpty([
+    openAiModel,
+    sharedOpenAiModel,
+    'gpt-4o-mini',
+    'gpt-4o',
+  ])
+}
+
 async function callProvider({ provider, apiKey, model, messages }) {
   const apiUrl = provider === 'groq' ? GROQ_API_URL : OPENAI_API_URL
 
@@ -600,7 +636,7 @@ export default async function handler(req, res) {
   const preferredProvider = (process.env.AI_PROVIDER?.trim().toLowerCase() || 'auto')
   const providerCandidates = resolveProviderCandidates(preferredProvider, groqApiKey, openAiApiKey)
   const provider = providerCandidates[0] || 'openai'
-  const model = process.env.AI_MODEL?.trim() || (provider === 'groq' ? 'llama-3.1-8b-instant' : 'gpt-4o')
+  const model = resolveModelCandidates(provider)[0] || (provider === 'groq' ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini')
   const defaultManagerId = resolveManagerId(process.env.AI_MANAGER_DEFAULT || 'brian')
 
   if (req.method === 'OPTIONS') {
@@ -703,38 +739,40 @@ export default async function handler(req, res) {
 
   for (const candidate of providerCandidates) {
     const candidateApiKey = candidate === 'groq' ? groqApiKey : openAiApiKey
-    const candidateModel = process.env.AI_MODEL?.trim() || (candidate === 'groq' ? 'llama-3.1-8b-instant' : 'gpt-4o')
+    const candidateModels = resolveModelCandidates(candidate)
 
-    const result = await callProvider({
-      provider: candidate,
-      apiKey: candidateApiKey,
-      model: candidateModel,
-      messages: openAiMessages,
-    })
-
-    if (result.ok) {
-      const appParsed = extractAppActions(result.reply)
-      const parsed = extractCalendarActions(appParsed.cleanedReply)
-      const fallbackActions = parsed.calendarActions.length === 0
-        ? parseCalendarActionsFromUserIntent(latestUserMessage)
-        : []
-      const fallbackAppActions = assistModeEnabled && appParsed.appActions.length === 0
-        ? parseAppActionsFromUserIntent(latestUserMessage)
-        : []
-      res.status(200).json({
-        reply: parsed.cleanedReply,
-        calendarActions: parsed.calendarActions.length > 0 ? parsed.calendarActions : fallbackActions,
-        appActions: appParsed.appActions.length > 0 ? appParsed.appActions : fallbackAppActions,
-        connected: true,
+    for (const candidateModel of candidateModels) {
+      const result = await callProvider({
         provider: candidate,
+        apiKey: candidateApiKey,
         model: candidateModel,
-        managerId,
-        managerName: managerProfile.name,
+        messages: openAiMessages,
       })
-      return
-    }
 
-    lastError = { status: result.status, message: result.message }
+      if (result.ok) {
+        const appParsed = extractAppActions(result.reply)
+        const parsed = extractCalendarActions(appParsed.cleanedReply)
+        const fallbackActions = parsed.calendarActions.length === 0
+          ? parseCalendarActionsFromUserIntent(latestUserMessage)
+          : []
+        const fallbackAppActions = assistModeEnabled && appParsed.appActions.length === 0
+          ? parseAppActionsFromUserIntent(latestUserMessage)
+          : []
+        res.status(200).json({
+          reply: parsed.cleanedReply,
+          calendarActions: parsed.calendarActions.length > 0 ? parsed.calendarActions : fallbackActions,
+          appActions: appParsed.appActions.length > 0 ? appParsed.appActions : fallbackAppActions,
+          connected: true,
+          provider: candidate,
+          model: candidateModel,
+          managerId,
+          managerName: managerProfile.name,
+        })
+        return
+      }
+
+      lastError = { status: result.status, message: result.message }
+    }
   }
 
   res.status(lastError.status).json({ error: lastError.message })
