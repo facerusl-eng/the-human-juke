@@ -140,6 +140,8 @@ const PLAYBACK_SYNC_POLL_INTERVAL_MS = 30000
 const LIVE_GIG_API_POLLING_ENABLED = import.meta.env.VITE_ENABLE_LIVE_GIG_API?.trim() === '1'
 const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
+const UPCOMING_EVENTS_CACHE_KEY = 'human-jukebox-upcoming-events-cache-v1'
+const UPCOMING_EVENTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
 const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v3'
@@ -438,15 +440,31 @@ function makeCacheBustedUrl(path: string) {
   return requestUrl.toString()
 }
 
-async function fetchJsonNoStore(path: string) {
-  const response = await fetch(makeCacheBustedUrl(path), {
-    cache: 'no-store',
-    headers: {
-      'cache-control': 'no-cache, no-store, max-age=0',
-      pragma: 'no-cache',
-      accept: 'application/json',
-    },
-  })
+async function fetchJsonNoStore(path: string, timeoutMs = 6000) {
+  const abortController = new AbortController()
+  const timeoutId = window.setTimeout(() => abortController.abort(), timeoutMs)
+
+  let response: Response
+
+  try {
+    response = await fetch(makeCacheBustedUrl(path), {
+      cache: 'no-store',
+      headers: {
+        'cache-control': 'no-cache, no-store, max-age=0',
+        pragma: 'no-cache',
+        accept: 'application/json',
+      },
+      signal: abortController.signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(`${EXPECTED_API_FALLBACK_ERROR_PREFIX} request timed out (${timeoutMs}ms)`)
+    }
+
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 
   if (!response.ok) {
     throw new Error(`${EXPECTED_API_FALLBACK_ERROR_PREFIX} request failed (${response.status})`)
@@ -482,6 +500,47 @@ function getExpectedApiFallbackStatusCode(error: unknown): number | null {
 
   const parsedStatus = Number(statusMatch[1])
   return Number.isFinite(parsedStatus) ? parsedStatus : null
+}
+
+function readUpcomingEventsCache(): AudienceUpcomingEvent[] {
+  if (typeof window === 'undefined') {
+    return []
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(UPCOMING_EVENTS_CACHE_KEY)
+
+    if (!rawCache) {
+      return []
+    }
+
+    const parsedCache = JSON.parse(rawCache) as { updatedAt?: unknown; events?: unknown }
+    const updatedAt = typeof parsedCache?.updatedAt === 'number' ? parsedCache.updatedAt : 0
+    const events = Array.isArray(parsedCache?.events) ? parsedCache.events : []
+
+    if (!updatedAt || Date.now() - updatedAt > UPCOMING_EVENTS_CACHE_MAX_AGE_MS) {
+      return []
+    }
+
+    return mapUpcomingEvents(events as Array<Record<string, unknown>>)
+  } catch {
+    return []
+  }
+}
+
+function saveUpcomingEventsCache(events: AudienceUpcomingEvent[]) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(UPCOMING_EVENTS_CACHE_KEY, JSON.stringify({
+      updatedAt: Date.now(),
+      events,
+    }))
+  } catch {
+    // Ignore localStorage write failures.
+  }
 }
 
 function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlaybackState | null) {
@@ -565,7 +624,7 @@ function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomi
 }
 
 async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
-  const payload = await fetchJsonNoStore('/events')
+  const payload = await fetchJsonNoStore('/events', 5000)
 
   if (!payload) {
     return []
@@ -675,8 +734,8 @@ function EventPage() {
   const [currentSongFactIndex, setCurrentSongFactIndex] = useState(0)
   const tipThankYouTimerRef = useRef<number | null>(null)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
-  const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>([])
-  const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(false)
+  const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>(() => readUpcomingEventsCache())
+  const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(() => readUpcomingEventsCache().length === 0)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(false)
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
@@ -1312,7 +1371,7 @@ function EventPage() {
       }
 
       try {
-        const payload = await fetchJsonNoStore('/api/live-gig')
+        const payload = await fetchJsonNoStore('/api/live-gig', 3500)
         const liveGigId = getLiveGigIdFromApiPayload(payload)
 
         if (!isCurrent) {
@@ -1540,33 +1599,50 @@ function EventPage() {
           mappedEvents = mapUpcomingEvents(eventRows)
         }
 
-        if (mappedEvents.length === 0 && !user) {
-          try {
-            const { error: signInError } = await supabase.auth.signInAnonymously()
-
-            if (signInError) {
-              throw signInError
-            }
-
-            try {
-              mappedEvents = await fetchUpcomingEventsFromApi()
-            } catch {
-              const eventRows = await fetchUpcomingEventRows()
-              mappedEvents = mapUpcomingEvents(eventRows)
-            }
-          } catch (signInError) {
-            console.warn('EventPage: anonymous sign-in retry failed for upcoming events', signInError)
-          }
-        }
-
         if (!isCurrent) {
           return
         }
 
         setUpcomingEvents(mappedEvents)
+        saveUpcomingEventsCache(mappedEvents)
 
         if (mappedEvents.length === 0) {
           setUpcomingNoticeDebounced('No upcoming gigs have been posted yet.', 250)
+
+          if (!user) {
+            // Keep first paint fast: do the auth retry + refetch in background.
+            void (async () => {
+              try {
+                const { error: signInError } = await supabase.auth.signInAnonymously()
+
+                if (signInError) {
+                  throw signInError
+                }
+
+                let refreshedEvents: AudienceUpcomingEvent[] = []
+
+                try {
+                  refreshedEvents = await fetchUpcomingEventsFromApi()
+                } catch {
+                  const eventRows = await fetchUpcomingEventRows()
+                  refreshedEvents = mapUpcomingEvents(eventRows)
+                }
+
+                if (!isCurrent) {
+                  return
+                }
+
+                setUpcomingEvents(refreshedEvents)
+                saveUpcomingEventsCache(refreshedEvents)
+
+                if (refreshedEvents.length > 0) {
+                  setUpcomingNoticeDebounced(null, 300)
+                }
+              } catch (signInError) {
+                console.warn('EventPage: anonymous sign-in retry failed for upcoming events', signInError)
+              }
+            })()
+          }
         } else {
           setUpcomingNoticeDebounced(null, 1800)
         }
@@ -1592,6 +1668,7 @@ function EventPage() {
 
             if (isCurrent) {
               setUpcomingEvents(mappedEvents)
+              saveUpcomingEventsCache(mappedEvents)
 
               if (mappedEvents.length === 0) {
                 setUpcomingNoticeDebounced('No upcoming gigs have been posted yet.', 250)
