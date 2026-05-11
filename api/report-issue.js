@@ -85,6 +85,7 @@ export default async function handler(req, res) {
         title: safeTitle,
         body: issueBody,
         labels,
+        assignees: ['Copilot'],
       }),
     })
 
