@@ -86,7 +86,7 @@ type Props = {
 }
 
 type ManagerOption = {
-  id: 'brian' | 'parker' | 'grant'
+  id: 'copilot' | 'brian' | 'parker' | 'grant'
   name: string
   subtitle: string
 }
@@ -100,6 +100,7 @@ const STARTERS = [
 ]
 
 const MANAGER_OPTIONS: ManagerOption[] = [
+  { id: 'copilot', name: 'GitHub Copilot', subtitle: 'AI App Helper' },
   { id: 'brian', name: 'Brian Epstein', subtitle: 'Systems Architect' },
   { id: 'parker', name: 'Colonel Tom Parker', subtitle: 'Live Operations Lead' },
   { id: 'grant', name: 'Peter Grant', subtitle: 'Performance Engineer' },
@@ -414,11 +415,11 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'not-connected'>('checking')
   const [managerId, setManagerId] = useState<ManagerOption['id']>(() => {
     if (typeof window === 'undefined') {
-      return 'brian'
+      return 'copilot'
     }
 
     const stored = window.localStorage.getItem(MANAGER_STORAGE_KEY)
-    return stored === 'parker' || stored === 'grant' ? stored : 'brian'
+    return stored === 'copilot' || stored === 'brian' || stored === 'parker' || stored === 'grant' ? stored : 'copilot'
   })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -437,10 +438,11 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
   } | null>(null)
   const selectedManager = MANAGER_OPTIONS.find(option => option.id === managerId) ?? MANAGER_OPTIONS[0]
   const avatarSrc =
+    managerId === 'copilot' ? '' :
     managerId === 'brian' ? '/images/brian-epstein-avatar.png' :
     managerId === 'parker' ? '/images/Colonel%20Tom%20Parker%20(Elvis%20Presley).png' :
     managerId === 'grant' ? '/images/Peter%20Grant%20(Led%20Zeppelin).png' : ''
-  const avatarFallback = managerId === 'parker' ? 'TP' : managerId === 'grant' ? 'PG' : 'BE'
+  const avatarFallback = managerId === 'copilot' ? 'CP' : managerId === 'parker' ? 'TP' : managerId === 'grant' ? 'PG' : 'BE'
 
   useEffect(() => {
     if (typeof window === 'undefined') {

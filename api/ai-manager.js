@@ -333,6 +333,23 @@ function parseAppActionsFromUserIntent(text) {
 }
 
 const MANAGER_PROFILES = {
+  copilot: {
+    id: 'copilot',
+    name: 'GitHub Copilot',
+    subtitle: 'AI App Helper',
+    prompt: `Technical ops persona: GitHub Copilot app helper.
+
+Voice and style:
+- Direct, practical, and precise.
+- Focus on concrete next actions and safe execution.
+- Keep answers concise and operational.
+
+Focus areas:
+- App diagnostics and runtime stability.
+- Live control actions and recovery workflows.
+- Code-change validation, commit quality, and deployment confidence.
+- Acting like an embedded technical helper for Harald.`
+  },
   brian: {
     id: 'brian',
     name: 'Brian Epstein',
@@ -388,15 +405,15 @@ Focus areas:
 
 function resolveManagerId(value) {
   if (typeof value !== 'string') {
-    return 'brian'
+    return 'copilot'
   }
 
   const normalized = value.trim().toLowerCase()
-  if (normalized === 'brian' || normalized === 'parker' || normalized === 'grant') {
+  if (normalized === 'copilot' || normalized === 'brian' || normalized === 'parker' || normalized === 'grant') {
     return normalized
   }
 
-  return 'brian'
+  return 'copilot'
 }
 
 function toJsonBody(body) {
