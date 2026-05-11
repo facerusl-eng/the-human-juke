@@ -7429,6 +7429,11 @@
   box-shadow: 0 4px 24px rgba(93, 215, 255, 0.18);
 }
 
+.audience-playlist-choice-jukebox .audience-playlist-choice-cover {
+  object-fit: contain;
+  object-position: center;
+}
+
 .audience-playlist-choice-karaoke {
   box-shadow: 0 4px 24px rgba(180, 130, 255, 0.18);
 }
