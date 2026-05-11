@@ -222,12 +222,12 @@ function isLowValueFact(fact: string) {
     || /artist name\s+"?.+"?\s+has\s+\d+\s+word/.test(normalizedFact)
 }
 
-async function fetchItunesSongFacts(title: string, artist: string, _signal: AbortSignal) {
+async function fetchItunesSongFacts(title: string, artist: string, signal: AbortSignal) {
   const searchTerm = `${title} ${artist}`.trim()
   const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=3`
 
   try {
-    const response = await fetch(searchUrl)
+    const response = await fetch(searchUrl, { signal })
 
     if (!response.ok) {
       return []

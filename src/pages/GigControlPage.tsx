@@ -767,19 +767,20 @@ function GigControlPage() {
     setRestoreConfirmPayload(null)
     setSnapshotRestoreBusy(true)
 
-    let latestSnapshot = null
     const databaseSnapshotAvailable = restoreConfirmPayload.source === 'database'
 
-    try {
-      if (databaseSnapshotAvailable) {
-        const dbSnapshots = await getQueueSnapshotsFromDatabase(event.id, 1)
-        latestSnapshot = dbSnapshots[0] ?? null
-      } else {
-        latestSnapshot = getLatestQueueSnapshot(event.id)
+    const latestSnapshot = await (async () => {
+      try {
+        if (databaseSnapshotAvailable) {
+          const dbSnapshots = await getQueueSnapshotsFromDatabase(event.id, 1)
+          return dbSnapshots[0] ?? null
+        }
+
+        return getLatestQueueSnapshot(event.id)
+      } catch {
+        return getLatestQueueSnapshot(event.id)
       }
-    } catch {
-      latestSnapshot = getLatestQueueSnapshot(event.id)
-    }
+    })()
 
     if (!latestSnapshot) {
       setSnapshotStatusText('Snapshot not found. It may have expired.')
