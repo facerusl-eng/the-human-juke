@@ -213,6 +213,16 @@
   opacity: 0.35;
 }
 
+@media (max-width: 430px) {
+  .audience-karafun .audience-start-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .audience-karafun .audience-start-actions .primary-button {
+    grid-column: auto;
+  }
+}
+
 /* Custom event button */
 .audience-karafun .audience-start-actions .audience-custom-button {
   background: linear-gradient(135deg, var(--kf-pink) 0%, var(--kf-purple) 100%);
