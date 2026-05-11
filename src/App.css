@@ -1548,9 +1548,9 @@
   overflow-x: hidden;
   overflow-y: visible;
   /* align-self: start prevents the 1fr grid row in app-shell from capping the
-     element's height to 100dvh. Without this, overflow-x: clip causes
-     overflow-y to be computed as clip/auto (CSS spec), which silently clips
-     everything below the first screenful on mobile. */
+     element's height to 100dvh. Without this, non-visible x-axis overflow can
+     force y-axis clipping in some mobile browsers and hide content below the
+     first screenful. */
   align-self: start;
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
@@ -1566,18 +1566,6 @@
   box-shadow:
     0 20px 50px rgba(20, 20, 52, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-@supports (overflow: clip) {
-  .audience-shell {
-    overflow-x: clip;
-  }
-}
-
-@supports (-webkit-touch-callout: none) {
-  .audience-shell {
-    overflow-x: hidden;
-  }
 }
 
 .audience-shell-compact {
