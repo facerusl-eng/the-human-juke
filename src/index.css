@@ -146,6 +146,12 @@ h2 {
   :root {
     font-size: 16px;
   }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
