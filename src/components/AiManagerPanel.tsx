@@ -880,7 +880,9 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
             const data = await response.json() as { issueUrl?: string; issueNumber?: number }
             setHandoffStatus(`Issue #${data.issueNumber ?? '?'} created — also copied to clipboard.`)
           } else {
-            setHandoffStatus('Copied to clipboard (issue creation failed — check GITHUB_TOKEN).')
+            const failData = await response.json().catch(() => ({})) as { error?: string; status?: number }
+            const details = failData.error ? `: ${failData.error}` : ''
+            setHandoffStatus(`Copied to clipboard (issue creation failed${details}).`)
           }
         } catch {
           setHandoffStatus('Copied to clipboard (could not reach issue reporter).')

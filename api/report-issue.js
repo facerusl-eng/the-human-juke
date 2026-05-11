@@ -64,6 +64,8 @@ export default async function handler(req, res) {
     '',
     `**Priority:** ${safePriority}`,
     '',
+    '@github-copilot please investigate and propose a fix PR.',
+    '',
     '---',
     '',
     safeDetails,
@@ -85,7 +87,6 @@ export default async function handler(req, res) {
         title: safeTitle,
         body: issueBody,
         labels,
-        assignees: ['Copilot'],
       }),
     })
 
@@ -96,6 +97,27 @@ export default async function handler(req, res) {
     }
 
     const issue = await ghRes.json()
+
+    // Best effort: assign Copilot-style handles if available for this repository.
+    // Do not fail issue creation if assignment is unsupported.
+    try {
+      await fetch(`${GITHUB_API}/repos/${REPO_OWNER}/${REPO_NAME}/issues/${issue.number}/assignees`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'human-jukebox-app/1.0',
+        },
+        body: JSON.stringify({
+          assignees: ['github-copilot[bot]', 'Copilot'],
+        }),
+      })
+    } catch (assignmentError) {
+      console.warn('Copilot assignment skipped', assignmentError)
+    }
+
     return res.status(200).json({ issueUrl: issue.html_url, issueNumber: issue.number })
   } catch (err) {
     console.error('report-issue fetch error', err)
