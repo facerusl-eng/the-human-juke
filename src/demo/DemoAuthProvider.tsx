@@ -20,6 +20,13 @@ export function DemoAuthProvider({ children }: PropsWithChildren) {
     signInHost: async () => {
       // No-op in demo mode — login is hidden in the UI
     },
+    isPasskeySupported: false,
+    signInHostWithPasskey: async () => {
+      // No-op in demo mode
+    },
+    registerHostPasskey: async () => {
+      // No-op in demo mode
+    },
     refreshProfile: async () => {
       // No-op in demo mode
     },

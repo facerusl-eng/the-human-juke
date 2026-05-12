@@ -63,6 +63,9 @@ type AuthContextValue = {
   loading: boolean
   authError: string | null
   signInHost: (email: string, password: string) => Promise<void>
+  isPasskeySupported: boolean
+  signInHostWithPasskey: () => Promise<void>
+  registerHostPasskey: (friendlyName?: string) => Promise<void>
   refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
 }
@@ -133,6 +136,32 @@ function mapHostSignInError(error: unknown) {
   }
 
   return error instanceof Error ? error.message : 'Admin sign-in failed.'
+}
+
+function mapPasskeyError(error: unknown, fallbackMessage: string) {
+  const text = getErrorText(error)
+
+  if (text.includes('not supported') || text.includes('webauthn')) {
+    return 'Face ID passkeys are not supported on this device/browser yet.'
+  }
+
+  if (text.includes('not found') || text.includes('no verified passkey')) {
+    return 'No Face ID passkey is registered for this account on this device.'
+  }
+
+  if (text.includes('abort') || text.includes('cancel')) {
+    return 'Face ID request was cancelled.'
+  }
+
+  return error instanceof Error ? error.message : fallbackMessage
+}
+
+function supportsWebAuthn() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return typeof window.PublicKeyCredential !== 'undefined'
 }
 
 async function retryTransientAuthOperation<T>(operation: () => Promise<T>, attempts = AUTH_TRANSIENT_RETRY_COUNT) {
@@ -545,6 +574,7 @@ function AuthProvider({ children }: PropsWithChildren) {
       isHost: profile?.role === 'host',
       loading,
       authError,
+      isPasskeySupported: supportsWebAuthn(),
       signInHost: async (email: string, password: string) => {
         const normalizedEmail = email.trim().toLowerCase()
 
@@ -612,6 +642,90 @@ function AuthProvider({ children }: PropsWithChildren) {
         }
 
         throw new Error(mapHostSignInError(signInResult.error))
+      },
+      signInHostWithPasskey: async () => {
+        if (!supportsWebAuthn()) {
+          throw new Error('Face ID passkeys are not supported on this device/browser yet.')
+        }
+
+        isHostSignInInProgressRef.current = true
+
+        try {
+          const { data: factorsData, error: factorsError } = await withTimeout(
+            supabase.auth.mfa.listFactors(),
+            AUTH_REQUEST_TIMEOUT_MS,
+            'Face ID setup timed out while loading factors.',
+          )
+
+          if (factorsError) {
+            throw factorsError
+          }
+
+          const passkeyFactor = (factorsData?.all ?? []).find((factor) => (
+            factor.factor_type === 'webauthn' && factor.status === 'verified'
+          ))
+
+          if (!passkeyFactor) {
+            throw new Error('No verified passkey found for this account.')
+          }
+
+          const { error: authErrorResult } = await withTimeout(
+            supabase.auth.mfa.webauthn.authenticate({
+              factorId: passkeyFactor.id,
+            }),
+            AUTH_HOST_SIGN_IN_TIMEOUT_MS,
+            'Face ID sign-in timed out. Please try again.',
+          )
+
+          if (authErrorResult) {
+            throw authErrorResult
+          }
+
+          const { data: sessionData } = await withTimeout(
+            supabase.auth.getSession(),
+            AUTH_REQUEST_TIMEOUT_MS,
+            'Session sync timed out after Face ID sign-in.',
+          )
+
+          await applySessionState(sessionData.session ?? null)
+        } catch (error) {
+          throw new Error(mapPasskeyError(error, 'Face ID sign-in failed.'), { cause: error })
+        } finally {
+          isHostSignInInProgressRef.current = false
+        }
+      },
+      registerHostPasskey: async (friendlyName = 'iPhone Face ID') => {
+        if (!supportsWebAuthn()) {
+          throw new Error('Face ID passkeys are not supported on this device/browser yet.')
+        }
+
+        isHostSignInInProgressRef.current = true
+
+        try {
+          const { error } = await withTimeout(
+            supabase.auth.mfa.webauthn.register({
+              friendlyName,
+            }),
+            AUTH_HOST_SIGN_IN_TIMEOUT_MS,
+            'Face ID setup timed out. Please try again.',
+          )
+
+          if (error) {
+            throw error
+          }
+
+          const { data: sessionData } = await withTimeout(
+            supabase.auth.getSession(),
+            AUTH_REQUEST_TIMEOUT_MS,
+            'Session sync timed out after Face ID setup.',
+          )
+
+          await applySessionState(sessionData.session ?? null)
+        } catch (error) {
+          throw new Error(mapPasskeyError(error, 'Face ID setup failed.'), { cause: error })
+        } finally {
+          isHostSignInInProgressRef.current = false
+        }
       },
       refreshProfile,
       signOut: async () => {
