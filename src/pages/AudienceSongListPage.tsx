@@ -786,7 +786,7 @@ function AudienceSongListPage() {
             className="audience-playlist-choice audience-playlist-choice-jukebox"
             onClick={() => setActiveSetlist('human_jukebox')}
           >
-            <img src="/images/Harald%20Live.png" alt="Harald Live playlist cover" className="audience-playlist-choice-cover audience-playlist-choice-cover-jukebox" />
+            <img src="/images/Human%20jukebox%20Live%20playlist.png" alt="Human Jukebox playlist cover" className="audience-playlist-choice-cover audience-playlist-choice-cover-jukebox" />
             <div className="audience-playlist-choice-overlay">
               <strong className="audience-playlist-choice-title">Human Jukebox</strong>
               <span className="audience-playlist-choice-sub">{copy.hostPlays}</span>
@@ -798,7 +798,7 @@ function AudienceSongListPage() {
             className="audience-playlist-choice audience-playlist-choice-karaoke"
             onClick={() => setActiveSetlist('karaoke')}
           >
-            <img src="/images/playlist-karaoke.jpg" alt="Karaoke playlist cover" className="audience-playlist-choice-cover" />
+            <img src="/images/Karaoke%20live%20playlist.png" alt="Karaoke playlist cover" className="audience-playlist-choice-cover" />
             <div className="audience-playlist-choice-overlay">
               <strong className="audience-playlist-choice-title">Karaoke</strong>
               <span className="audience-playlist-choice-sub">{copy.youSing}</span>

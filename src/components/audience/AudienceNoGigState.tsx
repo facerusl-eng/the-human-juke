@@ -161,22 +161,25 @@ function getUpcomingEventFallbackCoverUrl(event: AudienceUpcomingEvent) {
     : 'human-jukebox'
 
   if (resolvedTheme === 'karaoke') {
-    return '/images/playlist-karaoke.jpg'
+    return '/images/Karaoke%20live%20playlist.png'
   }
 
   if (resolvedTheme === 'harald-live') {
-    return '/images/Harald%20Live.png'
+    return '/images/Harald%20Live%20playlist.png'
   }
 
-  return '/images/playlist-human-jukebox.jpg'
+  return '/images/Human%20jukebox%20Live%20playlist.png'
 }
 
 function isKnownPlaylistCover(url: string): boolean {
   const normalized = decodeURIComponent(url).toLowerCase()
 
   return normalized.includes('/images/playlist-karaoke.jpg')
+    || normalized.includes('/images/karaoke live playlist.png')
     || normalized.includes('/images/playlist-human-jukebox.jpg')
+    || normalized.includes('/images/human jukebox live playlist.png')
     || normalized.includes('/images/harald live.png')
+    || normalized.includes('/images/harald live playlist.png')
 }
 
 function resolveUpcomingEventCoverUrl(event: AudienceUpcomingEvent): string {

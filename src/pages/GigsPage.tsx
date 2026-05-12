@@ -50,14 +50,14 @@ function formatEventTypeLabel(eventType: 'halli-live' | 'karaoke' | 'build-self'
 
 function getGigPlaylistImageUrl(eventType: 'halli-live' | 'karaoke' | 'build-self') {
   if (eventType === 'karaoke') {
-    return '/images/playlist-karaoke.jpg'
+    return '/images/Karaoke%20live%20playlist.png'
   }
 
   if (eventType === 'halli-live') {
-    return '/images/Harald%20Live.png'
+    return '/images/Harald%20Live%20playlist.png'
   }
 
-  return '/images/playlist-human-jukebox.jpg'
+  return '/images/Human%20jukebox%20Live%20playlist.png'
 }
 
 function resolveGigStartAt(gigDate: string | null, gigStartTime: string | null) {
