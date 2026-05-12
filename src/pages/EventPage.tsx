@@ -202,6 +202,7 @@ const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 18000
 const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
 const UPCOMING_COVER_FETCH_TIMEOUT_MS = 12000
 const UPCOMING_COVER_FETCH_MAX_EVENTS = 10
+const UPCOMING_ERROR_LOG_THROTTLE_MS = 60000
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
 const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v3'
@@ -713,6 +714,52 @@ function isSupabaseStatementTimeout(error: unknown): boolean {
   )
 }
 
+function isAbortLikeError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return true
+  }
+
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as { name?: unknown; message?: unknown }
+  const name = typeof normalizedError.name === 'string' ? normalizedError.name.toLowerCase() : ''
+  const message = typeof normalizedError.message === 'string' ? normalizedError.message.toLowerCase() : ''
+
+  return name.includes('abort')
+    || message.includes('abort')
+    || message.includes('timed out')
+    || message.includes('err_aborted')
+}
+
+function isExpectedUpcomingEventsTransientError(error: unknown): boolean {
+  return isAbortLikeError(error) || isSupabaseStatementTimeout(error)
+}
+
+function buildUpcomingErrorLogKey(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim().toLowerCase()
+  }
+
+  if (typeof error === 'string' && error.trim()) {
+    return error.trim().toLowerCase()
+  }
+
+  if (error && typeof error === 'object') {
+    const normalizedError = error as { code?: unknown; name?: unknown }
+    const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+    const name = typeof normalizedError.name === 'string' ? normalizedError.name : ''
+    const fallbackKey = `${code}:${name}`.toLowerCase().trim()
+
+    if (fallbackKey !== ':') {
+      return fallbackKey
+    }
+  }
+
+  return 'unknown-upcoming-events-error'
+}
+
 async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
   try {
     const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
@@ -827,6 +874,7 @@ function EventPage() {
   const upcomingCoverFetchAttemptedRef = useRef<Set<string>>(new Set())
   const upcomingNoticeTimerRef = useRef<number | null>(null)
   const upcomingNoticeValueRef = useRef<string | null>(null)
+  const upcomingErrorLogMapRef = useRef<Map<string, number>>(new Map())
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -1778,7 +1826,18 @@ function EventPage() {
           setUpcomingNoticeDebounced(null, 1800)
         }
       } catch (error) {
-        console.warn('EventPage: failed to load upcoming no-gig events', error)
+        const shouldSkipLog = isExpectedUpcomingEventsTransientError(error)
+
+        if (!shouldSkipLog) {
+          const now = Date.now()
+          const errorKey = buildUpcomingErrorLogKey(error)
+          const lastLogAt = upcomingErrorLogMapRef.current.get(errorKey) ?? 0
+
+          if (now - lastLogAt >= UPCOMING_ERROR_LOG_THROTTLE_MS) {
+            console.warn('EventPage: failed to load upcoming no-gig events', error)
+            upcomingErrorLogMapRef.current.set(errorKey, now)
+          }
+        }
 
         if (isAuthSessionError(error) && !user) {
           try {
