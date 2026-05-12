@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     return
   }
 
-  const apiUrl = `${supabaseUrl}/rest/v1/events?select=id,name,venue&id=eq.${encodeURIComponent(eventId)}&limit=1`
+  const apiUrl = `${supabaseUrl}/rest/v1/events?select=id,name,venue,gig_date,gig_start_time,gig_end_time&id=eq.${encodeURIComponent(eventId)}&limit=1`
 
   try {
     const response = await fetch(apiUrl, {
@@ -84,39 +84,10 @@ export default async function handler(req, res) {
       return
     }
 
-    // Fetch additional event details in a second query if needed
-    const range = event.gig_date ? buildDateRange(event.gig_date, event.gig_start_time, event.gig_end_time) : null
-    if (!range && event.gig_date) {
+    const range = buildDateRange(event.gig_date, event.gig_start_time, event.gig_end_time)
+    if (!range) {
       res.status(422).send('Event date/time is invalid')
       return
-    }
-
-    // If we don't have date/time info yet, fetch it separately
-    if (!range) {
-      const dateUrl = `${supabaseUrl}/rest/v1/events?select=gig_date,gig_start_time,gig_end_time&id=eq.${encodeURIComponent(eventId)}&limit=1`
-      try {
-        const dateResponse = await fetch(dateUrl, {
-          headers: {
-            apikey: publishableKey,
-            Authorization: `Bearer ${publishableKey}`,
-            Accept: 'application/json',
-          },
-        })
-        if (dateResponse.ok) {
-          const datePayload = await dateResponse.json().catch(() => ({}))
-          const dateEvent = Array.isArray(datePayload) ? datePayload[0] : datePayload
-          if (dateEvent?.gig_date) {
-            const dateRange = buildDateRange(dateEvent.gig_date, dateEvent.gig_start_time, dateEvent.gig_end_time)
-            if (dateRange) {
-              event.gig_date = dateEvent.gig_date
-              event.gig_start_time = dateEvent.gig_start_time
-              event.gig_end_time = dateEvent.gig_end_time
-            }
-          }
-        }
-      } catch {
-        // Silently fail - we'll use the event data we have
-      }
     }
 
     const name = sanitizeText(event.name) || 'Human Jukebox Event'
