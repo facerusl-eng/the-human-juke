@@ -779,6 +779,7 @@ function MirrorPage() {
   const isLive = event?.roomOpen ?? false
   const isKaraokeEvent = event?.eventType === 'karaoke'
   const isBuildSelfEvent = event?.eventType === 'build-self'
+  const isHaraldLiveEvent = event?.eventType === 'halli-live'
   const audienceVotingEnabled = event?.audienceVotingEnabled ?? true
   const mirrorKarafunUrl = event?.karafunUrl?.trim() || null
   const mirrorKarafunLink = mirrorKarafunUrl
@@ -2525,6 +2526,21 @@ function MirrorPage() {
                     </div>
                     )}
                   </div>
+                ) : isHaraldLiveEvent ? (
+                  <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Harald Live Show">
+                    <div className="mirror-now-playing-meta">
+                      <h1 className="mirror-title">{event?.artistName ?? event?.name ?? 'Live Show'}</h1>
+                      {event?.artistName ? <p className="mirror-artist">{event.name}</p> : null}
+                      {event?.subtitle ? <p className="mirror-picked-by">{event.subtitle}</p> : null}
+                      <p className="mirror-picked-by">🎸 Harald Live</p>
+                    </div>
+                    {!isEmbeddedPreview && (
+                    <div className="mirror-now-playing-qr-slot">
+                      <img src={qrUrl} alt="Scan to view" className="mirror-now-playing-qr" />
+                      <p className="mirror-qr-cta">Scan to view</p>
+                    </div>
+                    )}
+                  </div>
                 ) : !isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     {/* Middle: quote-only between songs state to match Gig Control preview */}
@@ -2591,7 +2607,7 @@ function MirrorPage() {
                 <LiveFeedPanel mode="mirror" showComposer={false} title="Community Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
               </section>
 
-              {!isKaraokeEvent && !(isBuildSelfEvent && !audienceVotingEnabled) ? (
+              {!isKaraokeEvent && !(isBuildSelfEvent && !audienceVotingEnabled) && !isHaraldLiveEvent ? (
               <section className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`} aria-label="Song queue frame">
                 <p className="mirror-up-next-label">Queue</p>
                 {upNext.length > 0 ? (
