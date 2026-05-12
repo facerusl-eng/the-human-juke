@@ -281,28 +281,28 @@
 
 /* Mirror screen backgrounds by event type */
 .mirror-shell-bg-harald-live {
-  background-image: url(/images/Harald\ live\ Mirror\ background.png) !important;
+  background-image: url(/images/Harald%20live%20Mirror%20background.png) !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
 }
 
 .mirror-shell-bg-human-jukebox {
-  background-image: url(/images/Human\ Jukebox\ Mirror\ background.png) !important;
+  background-image: url(/images/Human%20Jukebox%20Mirror%20background.png) !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
 }
 
 .mirror-shell-bg-karaoke {
-  background-image: url(/images/Karaoke\ BAckground\ mirror\ screen.png) !important;
+  background-image: url(/images/Karaoke%20BAckground%20mirror%20screen.png) !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
 }
 
 .mirror-shell-bg-build-self {
-  background-image: url(/images/Human\ Jukebox\ Mirror\ background.png) !important;
+  background-image: url(/images/Human%20Jukebox%20Mirror%20background.png) !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
