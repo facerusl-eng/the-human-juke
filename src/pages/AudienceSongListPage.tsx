@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { readCommittedAudienceLocale, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { fetchSongArtwork } from '../lib/songArtwork'
@@ -17,68 +17,20 @@ type CuratedSong = {
   cover_url: string | null
   is_explicit: boolean
   fromKaraokeSetlist: boolean
+  searchText: string
+}
+
+type SongRow = {
+  song: CuratedSong
+  title: string
+  artist: string
+  sectionLabel: string | null
 }
 
 type PerformerMode = 'performer' | 'audience'
 type PlaylistType = 'human_jukebox' | 'karaoke'
 
 type EventPlaylistRow = {
-  playlist_id: string
-  playlists: {
-    id: string
-    name: string
-    playlist_type: string | null
-  } | {
-    id: string
-    name: string
-    playlist_type: string | null
-  }[] | null
-}
-
-function isMissingPlaylistTypeColumnError(error: unknown) {
-  if (!error || typeof error !== 'object') {
-    return false
-  }
-
-  const normalizedError = error as {
-    code?: unknown
-    message?: unknown
-    details?: unknown
-    hint?: unknown
-  }
-
-  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
-  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
-    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
-    .join(' ')
-
-  return (code === '42703' || code === 'PGRST204') && text.includes('playlist_type')
-}
-
-function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined): PlaylistType {
-  if (rawType === 'karaoke') {
-    return 'karaoke'
-  }
-
-  if ((playlistName ?? '').toLowerCase().includes('karaoke')) {
-    return 'karaoke'
-  }
-
-  return 'human_jukebox'
-}
-
-function sortSongs(left: CuratedSong, right: CuratedSong) {
-  const leftHasCover = Boolean(left.cover_url && left.cover_url.trim())
-  const rightHasCover = Boolean(right.cover_url && right.cover_url.trim())
-
-  if (leftHasCover !== rightHasCover) {
-    return leftHasCover ? -1 : 1
-  }
-
-  return left.title.localeCompare(right.title)
-}
-
-function buildSongRows(songs: CuratedSong[]) {
   return songs.map((song, index) => {
     const title = normalizeDisplayText(song.title, 'Untitled Song')
     const artist = normalizeDisplayText(song.artist, 'Unknown Artist')
@@ -95,6 +47,20 @@ function buildSongRows(songs: CuratedSong[]) {
     }
   })
 }
+
+function buildSongSearchText(title: string, artist: string) {
+  return `${title} ${artist}`.toLowerCase()
+}
+
+function decorateCuratedSong(song: Omit<CuratedSong, 'searchText'>): CuratedSong {
+  return {
+    ...song,
+    searchText: buildSongSearchText(song.title, song.artist),
+  }
+}
+
+const SONG_ROW_HEIGHT = 112
+const SONG_LIST_OVERSCAN = 4
 
 function normalizeCoverUrl(coverUrl: string | null | undefined) {
   if (!coverUrl) {
@@ -113,6 +79,62 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
 function normalizeDisplayText(value: string | null | undefined, fallback: string) {
   const trimmedValue = value?.trim()
   return trimmedValue || fallback
+}
+
+function SongListRow({ data, index, style }: { data: SongListRowProps, index: number, style: CSSProperties }) {`n  const { rows, isKaraokeSetlist, iSingLabel, explicitLabel, selectedLabel, queuedLibrarySongIds, onSelectSong } = data; const { ariaAttributes, explicitLabel, iSingLabel, isKaraokeSetlist, onSelectSong, queuedLibrarySongIds, rows, selectedLabel } = data;
+  ariaAttributes,
+  explicitLabel,
+  iSingLabel,
+  index,
+  isKaraokeSetlist,
+  onSelectSong,
+  queuedLibrarySongIds,
+  rows,
+  selectedLabel,
+  style,
+}: {
+  ariaAttributes: { 'aria-posinset': number; 'aria-setsize': number; role: 'listitem' }
+  explicitLabel: string
+  iSingLabel: string
+  index: number
+  isKaraokeSetlist: boolean
+  onSelectSong: (song: CuratedSong) => void
+  queuedLibrarySongIds: Set<string>
+  rows: SongRow[]
+  selectedLabel: string
+  style: CSSProperties
+}) {
+  const { song, title, artist, sectionLabel } = rows[index]
+
+  return (
+    <li {...ariaAttributes} style={style} className="audience-song-list-item">
+      {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
+      <button
+        type="button"
+        className={`audience-song-list-card${isKaraokeSetlist ? ' audience-song-list-card-karaoke' : ''}`}
+        onClick={() => onSelectSong(song)}
+      >
+        {song.cover_url ? (
+          <img
+            src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
+            alt={`Cover art for ${title}`}
+            className="audience-song-list-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
+        )}
+        <span className="audience-song-list-copy">
+          <span className="audience-song-list-title">{title}</span>
+          <span className="audience-song-list-artist">{artist}</span>
+          {isKaraokeSetlist ? <span className="karaoke-tag">{iSingLabel}</span> : null}
+          {song.is_explicit ? <span className="curated-pick-meta">{explicitLabel}</span> : null}
+          {queuedLibrarySongIds.has(song.id) ? <span className="audience-song-queued-badge">✓ {selectedLabel}</span> : null}
+        </span>
+      </button>
+    </li>
+  )
 }
 
 function AudienceSongListPage() {
@@ -134,6 +156,7 @@ function AudienceSongListPage() {
   const [submittingMode, setSubmittingMode] = useState<PerformerMode | null>(null)
   const [activeSetlist, setActiveSetlist] = useState<'human_jukebox' | 'karaoke' | null>(null)
   const [karaokeConfirmPending, setKaraokeConfirmPending] = useState(false)
+  const [songListScrollTop, setSongListScrollTop] = useState(0)
 
   const audienceName = readCommittedAudienceName()
   const audienceLocale = readCommittedAudienceLocale()
@@ -271,7 +294,7 @@ function AudienceSongListPage() {
     }
 
     return curatedSongs.filter((song) => (
-      `${song.title} ${song.artist}`.toLowerCase().includes(normalizedSearchQuery)
+      song.searchText.includes(normalizedSearchQuery)
     ))
   }, [curatedSongs, normalizedSearchQuery])
 
@@ -344,7 +367,7 @@ function AudienceSongListPage() {
       setErrorText(null)
 
       if (demoMode) {
-        const sorted = [...DEMO_CURATED_SONGS].sort(sortSongs)
+        const sorted = [...DEMO_CURATED_SONGS].map(decorateCuratedSong).sort(sortSongs)
         if (isCurrent) {
           setHasKaraokePlaylist(true)
           setHasHumanJukeboxPlaylist(true)
@@ -382,8 +405,8 @@ function AudienceSongListPage() {
           return
         }
 
-        const nextSongsSource = ((coveredFallbackSongs ?? []) as Omit<CuratedSong, 'fromKaraokeSetlist'>[])
-          .map((song) => ({ ...song, fromKaraokeSetlist: false }))
+        const nextSongsSource = ((coveredFallbackSongs ?? []) as Array<Omit<CuratedSong, 'fromKaraokeSetlist' | 'searchText'>>)
+          .map((song) => decorateCuratedSong({ ...song, fromKaraokeSetlist: false }))
 
         if (nextSongsSource.length === 0) {
           const { data: fallbackSongs, error: fallbackSongsError } = await supabase
@@ -400,8 +423,8 @@ function AudienceSongListPage() {
           }
 
           if (isCurrent) {
-            const nextSongs = ((fallbackSongs ?? []) as Omit<CuratedSong, 'fromKaraokeSetlist'>[])
-              .map((song) => ({ ...song, fromKaraokeSetlist: false }))
+            const nextSongs = ((fallbackSongs ?? []) as Array<Omit<CuratedSong, 'fromKaraokeSetlist' | 'searchText'>>)
+              .map((song) => decorateCuratedSong({ ...song, fromKaraokeSetlist: false }))
               .sort(sortSongs)
             setCuratedSongs(nextSongs)
           }
@@ -565,11 +588,13 @@ function AudienceSongListPage() {
         if (isCurrent) {
           const dedupedSongs = new Map<string, CuratedSong>()
 
-          for (const song of (librarySongs ?? []) as Omit<CuratedSong, 'fromKaraokeSetlist'>[]) {
+          for (const song of (librarySongs ?? []) as Array<Omit<CuratedSong, 'fromKaraokeSetlist' | 'searchText'>>) {
             if (!dedupedSongs.has(song.id)) {
               dedupedSongs.set(song.id, {
-                ...song,
-                fromKaraokeSetlist: karaokeSongIds.has(song.id),
+                ...decorateCuratedSong({
+                  ...song,
+                  fromKaraokeSetlist: karaokeSongIds.has(song.id),
+                }),
               })
             }
           }
@@ -702,6 +727,25 @@ function AudienceSongListPage() {
   const effectiveSetlist = activeSetlist ?? (hasKaraokePlaylist && !hasHumanJukeboxPlaylist ? 'karaoke' : 'human_jukebox')
   const showPlaylistPicker = !loadingSongs && hasBothSetlists && activeSetlist === null
   const activeRows = effectiveSetlist === 'karaoke' ? karaokeRows : humanJukeboxRows
+  const songListViewportHeight = typeof window !== 'undefined'
+    ? Math.max(360, Math.min(window.innerHeight - 320, 760))
+    : 560
+  const handleSelectSong = useCallback((song: CuratedSong) => {
+    setSelectedSong(song)
+    setKaraokeConfirmPending(audienceLocale === 'is' && song.fromKaraokeSetlist)
+    setErrorText(null)
+  }, [audienceLocale])
+  useEffect(() => {
+    setSongListScrollTop(0)
+  }, [effectiveSetlist, normalizedSearchQuery])
+
+  const totalSongListHeight = activeRows.length * SONG_ROW_HEIGHT
+  const visibleSongStartIndex = Math.max(0, Math.floor(songListScrollTop / SONG_ROW_HEIGHT) - SONG_LIST_OVERSCAN)
+  const visibleSongStopIndex = Math.min(
+    activeRows.length,
+    Math.ceil((songListScrollTop + songListViewportHeight) / SONG_ROW_HEIGHT) + SONG_LIST_OVERSCAN,
+  )
+  const visibleSongRows = activeRows.slice(visibleSongStartIndex, visibleSongStopIndex)
 
   return (
     <section className="audience-song-list-shell audience-karafun" aria-label="Song list page">
@@ -785,39 +829,61 @@ function AudienceSongListPage() {
               {activeRows.length} {copy.songs} {copy.availableSuffix}
             </p>
             <div className="audience-song-list-section">
-              <ul className="audience-song-list-grid" aria-label={effectiveSetlist === 'karaoke' ? copy.karaokeSongsLabel : copy.jukeboxSongsLabel}>
-                {activeRows.map(({ song, title, artist, sectionLabel }) => (
-                  <li key={song.id} className="audience-song-list-item">
-                    {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
-                    <button
-                      type="button"
-                      className={`audience-song-list-card${effectiveSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}`}
-                      onClick={() => {
-                        setSelectedSong(song)
-                        setKaraokeConfirmPending(audienceLocale === 'is' && song.fromKaraokeSetlist)
-                        setErrorText(null)
-                      }}
-                    >
-                      {song.cover_url ? (
-                        <img
-                          src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
-                          alt={`Cover art for ${title}`}
-                          className="audience-song-list-cover"
-                        />
-                      ) : (
-                        <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
-                      )}
-                      <span className="audience-song-list-copy">
-                        <span className="audience-song-list-title">{title}</span>
-                        <span className="audience-song-list-artist">{artist}</span>
-                        {effectiveSetlist === 'karaoke' ? <span className="karaoke-tag">{copy.iSing}</span> : null}
-                        {song.is_explicit ? <span className="curated-pick-meta">{copy.explicit}</span> : null}
-                        {queuedLibrarySongIds.has(song.id) ? <span className="audience-song-queued-badge">✓ {copy.selected}</span> : null}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div
+                className="audience-song-list-viewport"
+                aria-label={effectiveSetlist === 'karaoke' ? copy.karaokeSongsLabel : copy.jukeboxSongsLabel}
+                onScroll={(event) => setSongListScrollTop(event.currentTarget.scrollTop)}
+                style={{ height: songListViewportHeight, overflowY: 'auto' }}
+              >
+                <div
+                  className="audience-song-list-grid"
+                  style={{ height: totalSongListHeight, position: 'relative' }}
+                >
+                  {visibleSongRows.map((row, offsetIndex) => {
+                    const absoluteIndex = visibleSongStartIndex + offsetIndex
+
+                    return (
+                      <li
+                        key={row.song.id}
+                        className="audience-song-list-item"
+                        style={{
+                          position: 'absolute',
+                          top: absoluteIndex * SONG_ROW_HEIGHT,
+                          left: 0,
+                          right: 0,
+                          height: SONG_ROW_HEIGHT,
+                        }}
+                      >
+                        {row.sectionLabel ? <p className="curated-section-label" aria-hidden="true">{row.sectionLabel}</p> : null}
+                        <button
+                          type="button"
+                          className={`audience-song-list-card${effectiveSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}`}
+                          onClick={() => handleSelectSong(row.song)}
+                        >
+                          {row.song.cover_url ? (
+                            <img
+                              src={normalizeCoverUrl(row.song.cover_url) ?? row.song.cover_url}
+                              alt={`Cover art for ${row.title}`}
+                              className="audience-song-list-cover"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
+                          )}
+                          <span className="audience-song-list-copy">
+                            <span className="audience-song-list-title">{row.title}</span>
+                            <span className="audience-song-list-artist">{row.artist}</span>
+                            {effectiveSetlist === 'karaoke' ? <span className="karaoke-tag">{copy.iSing}</span> : null}
+                            {row.song.is_explicit ? <span className="curated-pick-meta">{copy.explicit}</span> : null}
+                            {queuedLibrarySongIds.has(row.song.id) ? <span className="audience-song-queued-badge">✓ {copy.selected}</span> : null}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </div>
+              </div>
               {!activeRows.length ? (
                 <p className="subcopy">
                   {curatedSongs.length ? copy.allMatchingQueued : copy.noSongsAssigned}
@@ -937,3 +1003,4 @@ function AudienceSongListPage() {
 }
 
 export default AudienceSongListPage
+

@@ -7441,8 +7441,8 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  gap: 0.45rem;
+  display: block;
+  gap: 0;
 }
 
 .audience-song-list-section {
