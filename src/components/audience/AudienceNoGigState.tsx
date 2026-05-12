@@ -150,6 +150,19 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
   return locale === 'da' ? `Slutter ${formatClockTime(gigEndTime as string)}` : `Ends ${formatClockTime(gigEndTime as string)}`
 }
 
+function getUpcomingEventFallbackCoverUrl(event: AudienceUpcomingEvent) {
+  if (event.eventType === 'karaoke') {
+    return '/images/playlist-karaoke.jpg'
+  }
+
+  const normalizedName = event.name.trim().toLowerCase()
+  if (normalizedName.includes('harald')) {
+    return '/images/Harald%20Live.png'
+  }
+
+  return '/images/playlist-human-jukebox.jpg'
+}
+
 function buildCalendarLinks(event: AudienceUpcomingEvent): { icsUrl: string } | null {
   if (!event.gigDate) return null
 
@@ -399,15 +412,12 @@ function AudienceNoGigState({
                 const timeRangeLabel = formatUpcomingEventTimeRange(upcomingEvent.gigStartTime, upcomingEvent.gigEndTime, locale)
                 const eventHref = getEventHref ? getEventHref(upcomingEvent.id) : null
                 const calLinks = buildCalendarLinks(upcomingEvent)
+                const eventCoverImageUrl = upcomingEvent.coverImageUrl ?? getUpcomingEventFallbackCoverUrl(upcomingEvent)
 
                 return (
                   <article key={upcomingEvent.id} className="audience-no-gig-event-card">
                     <div className="audience-no-gig-event-art" aria-hidden="true">
-                      {upcomingEvent.coverImageUrl ? (
-                        <img src={upcomingEvent.coverImageUrl} alt="" loading="lazy" />
-                      ) : (
-                        <span>♪</span>
-                      )}
+                      <img src={eventCoverImageUrl} alt="" loading="lazy" />
                     </div>
                     <div className="audience-no-gig-event-body">
                       <p className="audience-no-gig-event-title">{upcomingEvent.name}</p>
