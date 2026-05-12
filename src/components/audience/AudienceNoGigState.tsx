@@ -229,6 +229,7 @@ function AudienceNoGigState({
         halliBadge: 'Halli Playing Music',
         openKarafun: 'Åbn KaraFun playliste',
         addToCalendar: 'Tilføj til kalender',
+        confirmAddToCalendar: 'Er du sikker på, at du vil tilføje "{event}" til din kalender?',
         countdownLabel: 'Næste show starter om',
         countdownFor: 'til',
         howItWorks: 'Sådan virker Human Jukebox',
@@ -265,6 +266,7 @@ function AudienceNoGigState({
         halliBadge: 'Halli Playing Music',
         openKarafun: 'Opna KaraFun lista',
         addToCalendar: 'Bæta við dagatal',
+        confirmAddToCalendar: 'Ertu viss um að þú viljir bæta "{event}" við dagatalið?',
         countdownLabel: 'Naesta show hefst eftir',
         countdownFor: 'fyrir',
         howItWorks: 'Svona virkar Human Jukebox',
@@ -300,6 +302,7 @@ function AudienceNoGigState({
         halliBadge: 'Halli Playing Music',
         openKarafun: 'Open KaraFun playlist',
         addToCalendar: 'Add to Calendar',
+        confirmAddToCalendar: 'Are you sure you want to add "{event}" to your calendar?',
         countdownLabel: 'Next show starts in',
         countdownFor: 'for',
         howItWorks: 'How Human Jukebox Works',
@@ -322,6 +325,30 @@ function AudienceNoGigState({
         ],
         karafunNote: 'Karaoke is powered by KaraFun.',
       }
+
+  const handleAddToCalendar = (upcomingEvent: AudienceUpcomingEvent, calLinks: { googleUrl: string; icsDataUri: string }) => {
+    const confirmationMessage = copy.confirmAddToCalendar.replace('{event}', upcomingEvent.name)
+
+    if (!window.confirm(confirmationMessage)) {
+      return
+    }
+
+    const isMobileDevice = /android|iphone|ipad|ipod/i.test(navigator.userAgent)
+    const safeFileName = `${upcomingEvent.name.replace(/[\\/:*?"<>|]+/g, '').trim() || 'event'}.ics`
+
+    if (isMobileDevice) {
+      const downloadLink = document.createElement('a')
+      downloadLink.href = calLinks.icsDataUri
+      downloadLink.download = safeFileName
+      downloadLink.rel = 'noopener noreferrer'
+      document.body.appendChild(downloadLink)
+      downloadLink.click()
+      document.body.removeChild(downloadLink)
+      return
+    }
+
+    window.open(calLinks.googleUrl, '_blank', 'noopener,noreferrer')
+  }
 
   return (
     <section className="audience-entry-shell audience-no-gig-shell" aria-label="Audience app no live gig state">
@@ -458,9 +485,13 @@ function AudienceNoGigState({
                       ) : null}
                       {calLinks ? (
                         <p className="audience-no-gig-event-meta audience-no-gig-event-cal-links">
-                          <a href={calLinks.icsDataUri} download={`${upcomingEvent.name}.ics`}>📅 {copy.addToCalendar}</a>
-                          {' · '}
-                          <a href={calLinks.googleUrl} target="_blank" rel="noopener noreferrer">Google</a>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() => handleAddToCalendar(upcomingEvent, calLinks)}
+                          >
+                            📅 {copy.addToCalendar}
+                          </button>
                         </p>
                       ) : null}
                     </div>
