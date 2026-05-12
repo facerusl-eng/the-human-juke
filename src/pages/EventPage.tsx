@@ -160,6 +160,32 @@ async function fetchUpcomingEventRows(timeoutMs = 4500) {
   }
 }
 
+async function fetchUpcomingEventCoverById(eventId: string, timeoutMs = 3500): Promise<string | null> {
+  const abortController = new AbortController()
+  let didTimeout = false
+  const timeoutId = window.setTimeout(() => {
+    didTimeout = true
+    abortController.abort()
+  }, timeoutMs)
+
+  try {
+    const { data, error } = await supabase
+      .from('events')
+      .select('id, cover_image_url')
+      .eq('id', eventId)
+      .maybeSingle()
+      .abortSignal(abortController.signal)
+
+    if (didTimeout || error) {
+      return null
+    }
+
+    return normalizeCoverUrl((data as { cover_image_url?: string | null } | null)?.cover_image_url ?? null)
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 const LIVE_GIG_POLL_INTERVAL_MS = 12000
@@ -172,6 +198,8 @@ const UPCOMING_EVENTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5
 const UPCOMING_FALLBACK_TIMEOUT_MS = 9000
 const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 18000
 const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
+const UPCOMING_COVER_FETCH_TIMEOUT_MS = 3500
+const UPCOMING_COVER_FETCH_MAX_EVENTS = 10
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
 const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v3'
@@ -1110,6 +1138,63 @@ function EventPage() {
   useEffect(() => {
     upcomingEventsRef.current = upcomingEvents
   }, [upcomingEvents])
+
+  useEffect(() => {
+    if (event || upcomingEvents.length === 0) {
+      return
+    }
+
+    const missingCoverEvents = upcomingEvents
+      .filter((upcomingEvent) => !upcomingEvent.coverImageUrl)
+      .slice(0, UPCOMING_COVER_FETCH_MAX_EVENTS)
+
+    if (missingCoverEvents.length === 0) {
+      return
+    }
+
+    let isCurrent = true
+
+    const hydrateCovers = async () => {
+      for (const upcomingEvent of missingCoverEvents) {
+        if (!isCurrent) {
+          return
+        }
+
+        try {
+          const coverImageUrl = await fetchUpcomingEventCoverById(upcomingEvent.id, UPCOMING_COVER_FETCH_TIMEOUT_MS)
+
+          if (!isCurrent || !coverImageUrl) {
+            continue
+          }
+
+          setUpcomingEvents((previousEvents) => {
+            const index = previousEvents.findIndex((eventRow) => eventRow.id === upcomingEvent.id)
+
+            if (index < 0 || previousEvents[index].coverImageUrl) {
+              return previousEvents
+            }
+
+            const updatedEvents = [...previousEvents]
+            updatedEvents[index] = {
+              ...updatedEvents[index],
+              coverImageUrl,
+            }
+
+            saveUpcomingEventsCache(updatedEvents)
+            return updatedEvents
+          })
+        } catch {
+          // Best effort only - keep text-first cards if an image cannot be fetched quickly.
+        }
+      }
+    }
+
+    void hydrateCovers()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [event, upcomingEvents])
 
   useEffect(() => {
     return () => {
