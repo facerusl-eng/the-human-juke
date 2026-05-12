@@ -481,7 +481,7 @@ async function fetchJsonNoStore(path: string, timeoutMs = 6000) {
     })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(`${EXPECTED_API_FALLBACK_ERROR_PREFIX} request timed out (${timeoutMs}ms)`)
+      throw new Error(`${EXPECTED_API_FALLBACK_ERROR_PREFIX} request timed out (${timeoutMs}ms)`, { cause: error })
     }
 
     throw error
