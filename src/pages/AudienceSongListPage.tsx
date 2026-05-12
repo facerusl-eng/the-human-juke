@@ -31,6 +31,19 @@ type PerformerMode = 'performer' | 'audience'
 type PlaylistType = 'human_jukebox' | 'karaoke'
 
 type EventPlaylistRow = {
+  playlist_id: string
+  playlists: Array<{
+    id: string
+    name: string | null
+    playlist_type: string | null
+  }> | {
+    id: string
+    name: string | null
+    playlist_type: string | null
+  } | null
+}
+
+function buildSongRows(songs: CuratedSong[]): SongRow[] {
   return songs.map((song, index) => {
     const title = normalizeDisplayText(song.title, 'Untitled Song')
     const artist = normalizeDisplayText(song.artist, 'Unknown Artist')
@@ -81,60 +94,46 @@ function normalizeDisplayText(value: string | null | undefined, fallback: string
   return trimmedValue || fallback
 }
 
-function SongListRow({ data, index, style }: { data: SongListRowProps, index: number, style: CSSProperties }) {`n  const { rows, isKaraokeSetlist, iSingLabel, explicitLabel, selectedLabel, queuedLibrarySongIds, onSelectSong } = data; const { ariaAttributes, explicitLabel, iSingLabel, isKaraokeSetlist, onSelectSong, queuedLibrarySongIds, rows, selectedLabel } = data;
-  ariaAttributes,
-  explicitLabel,
-  iSingLabel,
-  index,
-  isKaraokeSetlist,
-  onSelectSong,
-  queuedLibrarySongIds,
-  rows,
-  selectedLabel,
-  style,
-}: {
-  ariaAttributes: { 'aria-posinset': number; 'aria-setsize': number; role: 'listitem' }
-  explicitLabel: string
-  iSingLabel: string
-  index: number
-  isKaraokeSetlist: boolean
-  onSelectSong: (song: CuratedSong) => void
-  queuedLibrarySongIds: Set<string>
-  rows: SongRow[]
-  selectedLabel: string
-  style: CSSProperties
-}) {
-  const { song, title, artist, sectionLabel } = rows[index]
+function sortSongs(left: CuratedSong, right: CuratedSong) {
+  const titleComparison = left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
 
-  return (
-    <li {...ariaAttributes} style={style} className="audience-song-list-item">
-      {sectionLabel ? <p className="curated-section-label" aria-hidden="true">{sectionLabel}</p> : null}
-      <button
-        type="button"
-        className={`audience-song-list-card${isKaraokeSetlist ? ' audience-song-list-card-karaoke' : ''}`}
-        onClick={() => onSelectSong(song)}
-      >
-        {song.cover_url ? (
-          <img
-            src={normalizeCoverUrl(song.cover_url) ?? song.cover_url}
-            alt={`Cover art for ${title}`}
-            className="audience-song-list-cover"
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
-        )}
-        <span className="audience-song-list-copy">
-          <span className="audience-song-list-title">{title}</span>
-          <span className="audience-song-list-artist">{artist}</span>
-          {isKaraokeSetlist ? <span className="karaoke-tag">{iSingLabel}</span> : null}
-          {song.is_explicit ? <span className="curated-pick-meta">{explicitLabel}</span> : null}
-          {queuedLibrarySongIds.has(song.id) ? <span className="audience-song-queued-badge">✓ {selectedLabel}</span> : null}
-        </span>
-      </button>
-    </li>
-  )
+  if (titleComparison !== 0) {
+    return titleComparison
+  }
+
+  return left.artist.localeCompare(right.artist, undefined, { sensitivity: 'base' })
+}
+
+function isMissingPlaylistTypeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('playlist_type')
+}
+
+function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined): PlaylistType {
+  if (rawType === 'karaoke') {
+    return 'karaoke'
+  }
+
+  if ((playlistName ?? '').toLowerCase().includes('karaoke')) {
+    return 'karaoke'
+  }
+
+  return 'human_jukebox'
 }
 
 function AudienceSongListPage() {

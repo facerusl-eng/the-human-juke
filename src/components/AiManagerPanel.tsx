@@ -1182,7 +1182,9 @@ export function AiManagerPanel({ pipeline = EMPTY_PIPELINE }: Props) {
     }
 
     void applyAppActions(safeActions, 'auto')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistModeEnabled, autoRunSafeActions, appActionBusy, loading, pendingAppActions])
+
 
   if (typeof document === 'undefined') {
     return null

@@ -98,7 +98,7 @@ function isAuthSessionError(error: unknown) {
     || text.includes('auth session missing')
 }
 
-async function fetchUpcomingEventRows(timeoutMs = 4500) {
+async function fetchUpcomingEventRows(timeoutMs = 12000) {
   const abortController = new AbortController()
   let didTimeout = false
   const timeoutId = window.setTimeout(() => {
@@ -160,7 +160,7 @@ async function fetchUpcomingEventRows(timeoutMs = 4500) {
   }
 }
 
-async function fetchUpcomingEventCoverById(eventId: string, timeoutMs = 3500): Promise<string | null> {
+async function fetchUpcomingEventCoverById(eventId: string, timeoutMs = 8000): Promise<string | null> {
   const abortController = new AbortController()
   let didTimeout = false
   const timeoutId = window.setTimeout(() => {
