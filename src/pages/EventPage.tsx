@@ -109,7 +109,7 @@ async function fetchUpcomingEventRows(timeoutMs = 4500) {
   try {
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, cover_image_url, event_type, karafun_url')
+      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
       .abortSignal(abortController.signal)
       .eq('show_in_audience_no_gig', true)
       .order('gig_date', { ascending: true, nullsFirst: false })
