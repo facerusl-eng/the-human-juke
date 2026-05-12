@@ -1062,3 +1062,13 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.restore_queue_snapshot(UUID) TO authenticated;
+
+-- ─── Audience voting, auto-live, intro audio, artist name, venue logo (May 2026) ─
+-- Columns used by updateEventSettings / createEvent that were never formally migrated.
+-- Safe to run multiple times; ADD COLUMN IF NOT EXISTS is idempotent.
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS venue_logo_url TEXT,
+  ADD COLUMN IF NOT EXISTS audience_voting_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS auto_live_enabled BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS intro_audio_url TEXT,
+  ADD COLUMN IF NOT EXISTS event_artist_name TEXT;

@@ -491,6 +491,32 @@ function isMissingVenueLogoLayoutColumnError(error: unknown) {
     && (text.includes('venue_logo_scale') || text.includes('venue_logo_offset_x') || text.includes('venue_logo_offset_y'))
 }
 
+function isMissingNewerEventColumnsError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204')
+    && (
+      text.includes('venue_logo_url')
+      || text.includes('auto_live_enabled')
+      || text.includes('intro_audio_url')
+      || text.includes('event_artist_name')
+    )
+}
+
 function isMissingPerformedAtColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -2858,7 +2884,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingNewerEventColumnsError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -2882,6 +2908,13 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.venue_logo_scale
             delete fallbackPayload.venue_logo_offset_x
             delete fallbackPayload.venue_logo_offset_y
+          }
+
+          if (isMissingNewerEventColumnsError(error)) {
+            delete fallbackPayload.venue_logo_url
+            delete fallbackPayload.auto_live_enabled
+            delete fallbackPayload.intro_audio_url
+            delete fallbackPayload.event_artist_name
           }
 
           const { error: fallbackError } = await withTimeout(
@@ -3454,9 +3487,17 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while creating gig. Please try again.',
         )
 
-        if (insertError && isMissingCoverImageColumnError(insertError)) {
-          const fallbackPayload = { ...newEventPayload }
-          delete (fallbackPayload as { cover_image_url?: string | null }).cover_image_url
+        if (insertError && (isMissingCoverImageColumnError(insertError) || isMissingNewerEventColumnsError(insertError))) {
+          const fallbackPayload = { ...newEventPayload } as Record<string, unknown>
+          if (isMissingCoverImageColumnError(insertError)) {
+            delete fallbackPayload.cover_image_url
+          }
+          if (isMissingNewerEventColumnsError(insertError)) {
+            delete fallbackPayload.venue_logo_url
+            delete fallbackPayload.auto_live_enabled
+            delete fallbackPayload.intro_audio_url
+            delete fallbackPayload.event_artist_name
+          }
           const { data: insertedWithoutCover, error: fallbackInsertError } = await withTimeout(
             withAuthLockRetry(() =>
               supabase
