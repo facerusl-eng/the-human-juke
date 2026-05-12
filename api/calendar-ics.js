@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     return
   }
 
-  const apiUrl = `${supabaseUrl}/rest/v1/events?select=id,name,venue,gig_date,gig_start_time,gig_end_time&id=eq.${encodeURIComponent(eventId)}&limit=1`
+  const apiUrl = `${supabaseUrl}/rest/v1/events?select=*&id=eq.${encodeURIComponent(eventId)}&limit=1`
 
   try {
     const response = await fetch(apiUrl, {
