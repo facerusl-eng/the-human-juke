@@ -676,6 +676,10 @@ function isSupabaseStatementTimeout(error: unknown): boolean {
     e.code === '57014'
     || e.code === 57014
     || (typeof e.message === 'string' && e.message.toLowerCase().includes('statement timeout'))
+    // PGRST002: PostgREST schema cache rebuilding after a migration — treat as transient
+    || e.code === 'PGRST002'
+    // 503 / service unavailable during schema reload
+    || (typeof e.message === 'string' && e.message.toLowerCase().includes('schema cache'))
   )
 }
 
