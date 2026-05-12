@@ -163,7 +163,8 @@ const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim(
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 const UPCOMING_EVENTS_CACHE_KEY = 'human-jukebox-upcoming-events-cache-v1'
 const UPCOMING_EVENTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5
-const UPCOMING_FALLBACK_TIMEOUT_MS = 4500
+const UPCOMING_FALLBACK_TIMEOUT_MS = 9000
+const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 18000
 const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
@@ -663,8 +664,19 @@ function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomi
 }
 
 async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
-  const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
-  return mapUpcomingEvents(eventRows)
+  try {
+    const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
+    return mapUpcomingEvents(eventRows)
+  } catch (error) {
+    const isTimeoutError = error instanceof Error && error.message.includes('timed out')
+
+    if (!isTimeoutError) {
+      throw error
+    }
+
+    const retryRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_RETRY_TIMEOUT_MS)
+    return mapUpcomingEvents(retryRows)
+  }
 }
 
 function hasUnsafeControlChars(value: string) {
