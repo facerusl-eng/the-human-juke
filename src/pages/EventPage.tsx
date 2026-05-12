@@ -169,18 +169,20 @@ async function fetchUpcomingEventCoverById(eventId: string, timeoutMs = 3500): P
   }, timeoutMs)
 
   try {
-    const { data, error } = await supabase
-      .from('events')
-      .select('id, cover_image_url')
-      .abortSignal(abortController.signal)
-      .eq('id', eventId)
-      .maybeSingle()
+    const response = await fetch(`/api/event-cover?id=${encodeURIComponent(eventId)}`, {
+      method: 'GET',
+      signal: abortController.signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    })
 
-    if (didTimeout || error) {
+    if (didTimeout || !response.ok) {
       return null
     }
 
-    return normalizeCoverUrl((data as { cover_image_url?: string | null } | null)?.cover_image_url ?? null)
+    const payload = await response.json().catch(() => null)
+    return normalizeCoverUrl((payload as { coverImageUrl?: string | null } | null)?.coverImageUrl ?? null)
   } finally {
     window.clearTimeout(timeoutId)
   }
@@ -198,7 +200,7 @@ const UPCOMING_EVENTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5
 const UPCOMING_FALLBACK_TIMEOUT_MS = 9000
 const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 18000
 const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
-const UPCOMING_COVER_FETCH_TIMEOUT_MS = 3500
+const UPCOMING_COVER_FETCH_TIMEOUT_MS = 12000
 const UPCOMING_COVER_FETCH_MAX_EVENTS = 10
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
@@ -822,6 +824,7 @@ function EventPage() {
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
+  const upcomingCoverFetchAttemptedRef = useRef<Set<string>>(new Set())
   const upcomingNoticeTimerRef = useRef<number | null>(null)
   const upcomingNoticeValueRef = useRef<string | null>(null)
 
@@ -1146,6 +1149,7 @@ function EventPage() {
 
     const missingCoverEvents = upcomingEvents
       .filter((upcomingEvent) => !upcomingEvent.coverImageUrl)
+      .filter((upcomingEvent) => !upcomingCoverFetchAttemptedRef.current.has(upcomingEvent.id))
       .slice(0, UPCOMING_COVER_FETCH_MAX_EVENTS)
 
     if (missingCoverEvents.length === 0) {
@@ -1159,6 +1163,8 @@ function EventPage() {
         if (!isCurrent) {
           return
         }
+
+        upcomingCoverFetchAttemptedRef.current.add(upcomingEvent.id)
 
         try {
           const coverImageUrl = await fetchUpcomingEventCoverById(upcomingEvent.id, UPCOMING_COVER_FETCH_TIMEOUT_MS)
