@@ -663,41 +663,8 @@ function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomi
 }
 
 async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
-  const payload = await fetchJsonNoStore('/events', 3500)
-
-  if (!payload) {
-    return []
-  }
-
-  if (Array.isArray(payload)) {
-    return mapUpcomingEvents(payload as Array<Record<string, unknown>>)
-  }
-
-  if (typeof payload === 'object') {
-    const normalizedPayload = payload as { events?: unknown; data?: unknown }
-    const candidateRows = Array.isArray(normalizedPayload.events)
-      ? normalizedPayload.events
-      : Array.isArray(normalizedPayload.data)
-      ? normalizedPayload.data
-      : []
-
-    return mapUpcomingEvents(candidateRows as Array<Record<string, unknown>>)
-  }
-
-  return []
-}
-
-async function fetchUpcomingEventsFast(): Promise<AudienceUpcomingEvent[]> {
-  try {
-    return await fetchUpcomingEventsFromApi()
-  } catch (apiError) {
-    if (!isExpectedApiFallbackError(apiError)) {
-      console.warn('EventPage: /events fetch failed, falling back to Supabase', apiError)
-    }
-
-    const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
-    return mapUpcomingEvents(eventRows)
-  }
+  const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
+  return mapUpcomingEvents(eventRows)
 }
 
 function hasUnsafeControlChars(value: string) {
@@ -1639,7 +1606,7 @@ function EventPage() {
       }
 
       try {
-        const mappedEvents = await fetchUpcomingEventsFast()
+        const mappedEvents = await fetchUpcomingEventsFromApi()
 
         if (!isCurrent) {
           return
@@ -1665,7 +1632,7 @@ function EventPage() {
                   throw signInError
                 }
 
-                const refreshedEvents = await fetchUpcomingEventsFast()
+                const refreshedEvents = await fetchUpcomingEventsFromApi()
 
                 if (!isCurrent) {
                   return
@@ -1700,7 +1667,7 @@ function EventPage() {
               throw signInError
             }
 
-            const mappedEvents = await fetchUpcomingEventsFast()
+            const mappedEvents = await fetchUpcomingEventsFromApi()
 
             if (isCurrent) {
               setUpcomingEvents(mappedEvents)
