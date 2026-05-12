@@ -150,6 +150,52 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
   return locale === 'da' ? `Slutter ${formatClockTime(gigEndTime as string)}` : `Ends ${formatClockTime(gigEndTime as string)}`
 }
 
+function buildCalendarLinks(event: AudienceUpcomingEvent): { googleUrl: string; icsDataUri: string } | null {
+  if (!event.gigDate) return null
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  function toIcsDate(d: Date): string {
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`
+  }
+
+  const startDate = parseEventDate(event.gigDate, event.gigStartTime)
+  if (!startDate) return null
+
+  let endDate: Date
+  if (event.gigEndTime) {
+    const norm = normalizeTimeForDate(event.gigEndTime)
+    const candidate = new Date(`${event.gigDate}T${norm}:00`)
+    endDate = Number.isNaN(candidate.getTime()) ? new Date(startDate.getTime() + 2 * 60 * 60 * 1000) : candidate
+  } else {
+    endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000)
+  }
+
+  const dtStart = toIcsDate(startDate)
+  const dtEnd = toIcsDate(endDate)
+  const venue = event.venue?.trim() || ''
+
+  const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.name)}&dates=${dtStart}%2F${dtEnd}${venue ? `&location=${encodeURIComponent(venue)}` : ''}`
+
+  const icsLines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Human Jukebox//EN',
+    'BEGIN:VEVENT',
+    `UID:${event.id}@humanjukebox.dk`,
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${event.name.replace(/[\r\n]/g, ' ')}`,
+    venue ? `LOCATION:${venue.replace(/[\r\n]/g, ' ')}` : null,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n')
+
+  return {
+    googleUrl,
+    icsDataUri: `data:text/calendar;charset=utf-8,${encodeURIComponent(icsLines)}`,
+  }
+}
+
 function AudienceNoGigState({
   upcomingEvents,
   loadingUpcomingEvents = false,
@@ -182,6 +228,7 @@ function AudienceNoGigState({
         karaokeBadge: 'Karaoke Event',
         halliBadge: 'Halli Playing Music',
         openKarafun: 'Åbn KaraFun playliste',
+        addToCalendar: 'Tilføj til kalender',
         countdownLabel: 'Næste show starter om',
         countdownFor: 'til',
         howItWorks: 'Sådan virker Human Jukebox',
@@ -217,6 +264,7 @@ function AudienceNoGigState({
         karaokeBadge: 'Karaoke vidburdur',
         halliBadge: 'Halli Playing Music',
         openKarafun: 'Opna KaraFun lista',
+        addToCalendar: 'Bæta við dagatal',
         countdownLabel: 'Naesta show hefst eftir',
         countdownFor: 'fyrir',
         howItWorks: 'Svona virkar Human Jukebox',
@@ -251,6 +299,7 @@ function AudienceNoGigState({
         karaokeBadge: 'Karaoke Event',
         halliBadge: 'Halli Playing Music',
         openKarafun: 'Open KaraFun playlist',
+        addToCalendar: 'Add to Calendar',
         countdownLabel: 'Next show starts in',
         countdownFor: 'for',
         howItWorks: 'How Human Jukebox Works',
@@ -374,6 +423,7 @@ function AudienceNoGigState({
                 const dateLabel = formatUpcomingEventDate(upcomingEvent.gigDate, upcomingEvent.gigStartTime, locale)
                 const timeRangeLabel = formatUpcomingEventTimeRange(upcomingEvent.gigStartTime, upcomingEvent.gigEndTime, locale)
                 const eventHref = getEventHref ? getEventHref(upcomingEvent.id) : null
+                const calLinks = buildCalendarLinks(upcomingEvent)
 
                 return (
                   <article key={upcomingEvent.id} className="audience-no-gig-event-card">
@@ -404,6 +454,13 @@ function AudienceNoGigState({
                       {eventHref ? (
                         <p className="audience-no-gig-event-meta">
                           <a href={eventHref}>{copy.openEvent}</a>
+                        </p>
+                      ) : null}
+                      {calLinks ? (
+                        <p className="audience-no-gig-event-meta audience-no-gig-event-cal-links">
+                          <a href={calLinks.icsDataUri} download={`${upcomingEvent.name}.ics`}>📅 {copy.addToCalendar}</a>
+                          {' · '}
+                          <a href={calLinks.googleUrl} target="_blank" rel="noopener noreferrer">Google</a>
                         </p>
                       ) : null}
                     </div>
