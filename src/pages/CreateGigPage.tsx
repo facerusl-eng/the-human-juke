@@ -209,6 +209,7 @@ function CreateGigPage() {
       showInAudienceNoGig?: boolean
       coverImageUrl?: string | null
       eventType?: 'halli-live' | 'karaoke' | 'build-self'
+      eventTheme?: 'harald-live' | 'human-jukebox' | 'karaoke'
       karafunUrl?: string
       artistName?: string | null
       audienceVotingEnabled?: boolean
@@ -304,6 +305,8 @@ function CreateGigPage() {
 
     const persistedEventType: 'halli-live' | 'karaoke' | 'build-self' =
       eventType === 'harald-live' ? 'halli-live' : eventType
+    const persistedEventTheme: 'harald-live' | 'human-jukebox' | 'karaoke' =
+      eventType === 'karaoke' ? 'karaoke' : eventType === 'harald-live' ? 'harald-live' : 'human-jukebox'
 
     const createOptionsBase = {
       gigStartTime: gigStartTime || undefined,
@@ -312,6 +315,7 @@ function CreateGigPage() {
       coverImageUrl: coverImageDataUrl,
       subtitle: description.trim() || undefined,
       eventType: persistedEventType,
+      eventTheme: persistedEventTheme,
       karafunUrl: karafunUrl.trim() || undefined,
       artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
       audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,

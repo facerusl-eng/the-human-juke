@@ -35,6 +35,8 @@ type AddSongOptions = {
   bypassEventRules?: boolean
 }
 
+type EventTheme = 'harald-live' | 'human-jukebox' | 'karaoke'
+
 type EventSettingsUpdates = {
   name: string
   venue: string
@@ -72,6 +74,7 @@ type EventSettingsUpdates = {
   tipThankYouMessageDA: string | null
   tipThankYouMessageEN: string | null
   eventType: 'halli-live' | 'karaoke' | 'build-self'
+  eventTheme: EventTheme
   karafunUrl: string | null
   artistName: string | null
   audienceVotingEnabled: boolean
@@ -118,6 +121,7 @@ type EventState = {
   tipThankYouMessageDA: string | null
   tipThankYouMessageEN: string | null
   eventType: 'halli-live' | 'karaoke' | 'build-self'
+  eventTheme: EventTheme
   karafunUrl: string | null
   artistName: string | null
   audienceVotingEnabled: boolean
@@ -135,6 +139,7 @@ type CreateEventOptions = {
   showInAudienceNoGig?: boolean
   coverImageUrl?: string | null
   eventType?: 'halli-live' | 'karaoke' | 'build-self'
+  eventTheme?: EventTheme
   karafunUrl?: string | null
   artistName?: string | null
   audienceVotingEnabled?: boolean
@@ -152,6 +157,7 @@ export type HostEventSummary = {
   showInAudienceNoGig: boolean
   createdAt: string
   eventType: 'halli-live' | 'karaoke' | 'build-self'
+  eventTheme: EventTheme
   gigDate: string | null
   gigStartTime: string | null
   autoLiveEnabled: boolean
@@ -190,7 +196,7 @@ export type QueueContextValue = {
 }
 
 export const QueueContext = createContext<QueueContextValue | null>(null)
-const DEFAULT_DB_TIMEOUT_MS = 18_000
+const DEFAULT_DB_TIMEOUT_MS = 30_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
 const HOST_QUEUE_POLL_INTERVAL_MS = 20_000
 const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 45_000
@@ -514,7 +520,20 @@ function isMissingNewerEventColumnsError(error: unknown) {
       || text.includes('auto_live_enabled')
       || text.includes('intro_audio_url')
       || text.includes('event_artist_name')
+      || text.includes('event_theme')
     )
+}
+
+function resolveEventTheme(rawTheme: string | null | undefined, eventType: 'halli-live' | 'karaoke' | 'build-self'): EventTheme {
+  if (rawTheme === 'karaoke' || rawTheme === 'harald-live' || rawTheme === 'human-jukebox') {
+    return rawTheme
+  }
+
+  if (eventType === 'karaoke') {
+    return 'karaoke'
+  }
+
+  return 'human-jukebox'
 }
 
 function isMissingPerformedAtColumnError(error: unknown) {
@@ -752,7 +771,7 @@ async function fetchHostEvents(hostId: string) {
   const { data, error } = await withTimeout(
     supabase
       .from('events')
-      .select('id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type, gig_date, gig_start_time, auto_live_enabled, intro_audio_url')
+      .select('id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type, event_theme, gig_date, gig_start_time, auto_live_enabled, intro_audio_url')
       .eq('host_id', hostId)
       .order('created_at', { ascending: false }),
     DEFAULT_DB_TIMEOUT_MS,
@@ -768,6 +787,7 @@ async function fetchHostEvents(hostId: string) {
   return ((data ?? []) as Array<Record<string, unknown>>).map((eventData) => {
     const eventId = String(eventData.id ?? '')
     const rawEventType = eventData.event_type as string | null
+    const resolvedEventType = (rawEventType === 'karaoke' ? 'karaoke' : rawEventType === 'build-self' ? 'build-self' : 'halli-live') as 'halli-live' | 'karaoke' | 'build-self'
     return {
       id: eventId,
       name: (eventData.name as string | null) ?? 'Untitled Gig',
@@ -775,7 +795,8 @@ async function fetchHostEvents(hostId: string) {
       isActive: ((eventData.is_active as boolean | null) ?? false),
       showInAudienceNoGig: ((eventData.show_in_audience_no_gig as boolean | null) ?? false),
       createdAt: (eventData.created_at as string | null) ?? '',
-      eventType: (rawEventType === 'karaoke' ? 'karaoke' : rawEventType === 'build-self' ? 'build-self' : 'halli-live') as 'halli-live' | 'karaoke' | 'build-self',
+      eventType: resolvedEventType,
+      eventTheme: resolveEventTheme((eventData.event_theme as string | null) ?? null, resolvedEventType),
       gigDate: (eventData.gig_date as string | null) ?? null,
       gigStartTime: (eventData.gig_start_time as string | null) ?? null,
       autoLiveEnabled: ((eventData.auto_live_enabled as boolean | null) ?? false),
@@ -1093,16 +1114,16 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     // Separately fetch event type settings (columns added via migration — graceful fallback).
-    const loadEventTypeSettings = async (): Promise<{ event_type: 'halli-live' | 'karaoke' | 'build-self'; karafun_url: string | null; artist_name: string | null; audience_voting_enabled: boolean; auto_live_enabled: boolean; intro_audio_url: string | null }> => {
+    const loadEventTypeSettings = async (): Promise<{ event_type: 'halli-live' | 'karaoke' | 'build-self'; event_theme: EventTheme; karafun_url: string | null; artist_name: string | null; audience_voting_enabled: boolean; auto_live_enabled: boolean; intro_audio_url: string | null }> => {
       try {
         const { data, error } = await supabase
           .from('events')
-          .select('event_type, karafun_url, event_artist_name, audience_voting_enabled, auto_live_enabled, intro_audio_url')
+          .select('event_type, event_theme, karafun_url, event_artist_name, audience_voting_enabled, auto_live_enabled, intro_audio_url')
           .eq('id', activeEventId)
           .single()
 
         if (error || !data) {
-          return { event_type: 'halli-live', karafun_url: null, artist_name: null, audience_voting_enabled: true, auto_live_enabled: false, intro_audio_url: null }
+          return { event_type: 'halli-live', event_theme: 'human-jukebox', karafun_url: null, artist_name: null, audience_voting_enabled: true, auto_live_enabled: false, intro_audio_url: null }
         }
 
         const row = data as Record<string, unknown>
@@ -1111,6 +1132,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           rawType === 'karaoke' ? 'karaoke' : rawType === 'build-self' ? 'build-self' : 'halli-live'
         return {
           event_type: resolvedType,
+          event_theme: resolveEventTheme((row.event_theme as string | null) ?? null, resolvedType),
           karafun_url: (row.karafun_url as string | null) ?? null,
           artist_name: (row.event_artist_name as string | null) ?? null,
           audience_voting_enabled: (row.audience_voting_enabled as boolean | null) ?? true,
@@ -1118,7 +1140,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           intro_audio_url: (row.intro_audio_url as string | null) ?? null,
         }
       } catch {
-        return { event_type: 'halli-live', karafun_url: null, artist_name: null, audience_voting_enabled: true, auto_live_enabled: false, intro_audio_url: null }
+        return { event_type: 'halli-live', event_theme: 'human-jukebox', karafun_url: null, artist_name: null, audience_voting_enabled: true, auto_live_enabled: false, intro_audio_url: null }
       }
     }
 
@@ -1494,6 +1516,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       tipThankYouMessageDA: tipMessages.tip_thank_you_message_da,
       tipThankYouMessageEN: tipMessages.tip_thank_you_message_en,
       eventType: eventTypeSettings.event_type,
+      eventTheme: eventTypeSettings.event_theme,
       karafunUrl: eventTypeSettings.karafun_url,
       artistName: eventTypeSettings.artist_name,
       audienceVotingEnabled: eventTypeSettings.audience_voting_enabled,
@@ -2865,6 +2888,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           tip_thank_you_message_da: updates.tipThankYouMessageDA || null,
           tip_thank_you_message_en: updates.tipThankYouMessageEN || null,
           event_type: updates.eventType ?? 'halli-live',
+          event_theme: updates.eventTheme ?? ((updates.eventType ?? 'halli-live') === 'karaoke' ? 'karaoke' : 'human-jukebox'),
           karafun_url: updates.karafunUrl ?? null,
           event_artist_name: updates.artistName ?? null,
           audience_voting_enabled: updates.audienceVotingEnabled ?? true,
@@ -2915,6 +2939,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.auto_live_enabled
             delete fallbackPayload.intro_audio_url
             delete fallbackPayload.event_artist_name
+            delete fallbackPayload.event_theme
           }
 
           const { error: fallbackError } = await withTimeout(
@@ -2988,6 +3013,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             venue: updates.venue || null,
             showInAudienceNoGig: updates.showInAudienceNoGig,
             eventType: updates.eventType,
+            eventTheme: updates.eventTheme,
           }
         }))
 
@@ -3336,6 +3362,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           tipThankYouMessageDA: null,
           tipThankYouMessageEN: null,
           eventType: options?.eventType ?? 'halli-live',
+          eventTheme: options?.eventTheme ?? ((options?.eventType ?? 'halli-live') === 'karaoke' ? 'karaoke' : 'human-jukebox'),
           karafunUrl: options?.karafunUrl ?? null,
           artistName: options?.artistName ?? null,
           audienceVotingEnabled: options?.audienceVotingEnabled ?? true,
@@ -3401,6 +3428,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               .from('events')
               .update({
                 event_type: options?.eventType ?? 'halli-live',
+                event_theme: options?.eventTheme ?? ((options?.eventType ?? 'halli-live') === 'karaoke' ? 'karaoke' : 'human-jukebox'),
                 karafun_url: options?.karafunUrl ?? null,
                 subtitle: options?.subtitle ?? null,
                 event_artist_name: options?.artistName ?? null,
@@ -3423,6 +3451,7 @@ function QueueProvider({ children }: PropsWithChildren) {
               showInAudienceNoGig: resolvedShowInAudienceNoGig,
               createdAt: createdAtIso,
               eventType: options?.eventType ?? 'halli-live',
+              eventTheme: options?.eventTheme ?? ((options?.eventType ?? 'halli-live') === 'karaoke' ? 'karaoke' : 'human-jukebox'),
               gigDate: options?.gigDate ?? null,
               gigStartTime: options?.gigStartTime ?? null,
               autoLiveEnabled: options?.autoLiveEnabled ?? false,
@@ -3467,6 +3496,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           show_in_audience_no_gig: resolvedShowInAudienceNoGig,
           cover_image_url: options?.coverImageUrl ?? null,
           event_type: options?.eventType ?? 'halli-live',
+          event_theme: options?.eventTheme ?? ((options?.eventType ?? 'halli-live') === 'karaoke' ? 'karaoke' : 'human-jukebox'),
           karafun_url: options?.karafunUrl ?? null,
           event_artist_name: options?.artistName ?? null,
           auto_live_enabled: options?.autoLiveEnabled ?? false,
@@ -3497,6 +3527,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.auto_live_enabled
             delete fallbackPayload.intro_audio_url
             delete fallbackPayload.event_artist_name
+            delete fallbackPayload.event_theme
           }
           const { data: insertedWithoutCover, error: fallbackInsertError } = await withTimeout(
             withAuthLockRetry(() =>

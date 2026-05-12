@@ -910,11 +910,35 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS karafun_url TEXT;
 
 ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS event_theme TEXT NOT NULL DEFAULT 'human-jukebox';
+
+UPDATE public.events
+SET event_theme = CASE
+  WHEN event_type = 'karaoke' THEN 'karaoke'
+  ELSE 'human-jukebox'
+END
+WHERE event_theme IS NULL
+  OR event_theme NOT IN ('harald-live', 'human-jukebox', 'karaoke');
+
+ALTER TABLE public.events
   DROP CONSTRAINT IF EXISTS events_event_type_check;
 
 ALTER TABLE public.events
   ADD CONSTRAINT events_event_type_check
   CHECK (event_type IN ('halli-live', 'karaoke'));
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'events_event_theme_check'
+  ) THEN
+    ALTER TABLE public.events
+      ADD CONSTRAINT events_event_theme_check
+      CHECK (event_theme IN ('harald-live', 'human-jukebox', 'karaoke'));
+  END IF;
+END $$;
 
 -- ─── Queue snapshots and transactional restore (May 2026) ─────────────────
 CREATE TABLE IF NOT EXISTS public.queue_snapshots (

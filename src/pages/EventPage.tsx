@@ -72,6 +72,26 @@ function isMissingCoverImageColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes('cover_image_url')
 }
 
+function isMissingEventThemeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('event_theme')
+}
+
 function isAuthSessionError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -109,7 +129,7 @@ async function fetchUpcomingEventRows(timeoutMs = 12000) {
   try {
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
+      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, event_theme, karafun_url')
       .abortSignal(abortController.signal)
       .eq('show_in_audience_no_gig', true)
       .order('gig_date', { ascending: true, nullsFirst: false })
@@ -125,7 +145,7 @@ async function fetchUpcomingEventRows(timeoutMs = 12000) {
       throw new Error('EventPage: upcoming events fallback timed out (db)')
     }
 
-    if (error && isMissingCoverImageColumnError(error)) {
+    if (error && (isMissingCoverImageColumnError(error) || isMissingEventThemeColumnError(error))) {
       const { data: fallbackData, error: fallbackError } = await supabase
         .from('events')
         .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
@@ -147,6 +167,7 @@ async function fetchUpcomingEventRows(timeoutMs = 12000) {
       return (fallbackData ?? []).map((eventData) => ({
         ...(eventData as Record<string, unknown>),
         cover_image_url: null,
+        event_theme: null,
       }))
     }
 
@@ -701,6 +722,11 @@ function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomi
       ?? null,
     ),
     eventType: (eventData.event_type as string | null) === 'karaoke' ? 'karaoke' : 'halli-live',
+    eventTheme: (eventData.event_theme as string | null) === 'karaoke'
+      ? 'karaoke'
+      : (eventData.event_theme as string | null) === 'harald-live'
+      ? 'harald-live'
+      : 'human-jukebox',
     karafunUrl: normalizeExternalLink((eventData.karafun_url as string | null) ?? (eventData.karafunUrl as string | null) ?? null),
   }))
 }
@@ -1618,7 +1644,7 @@ function EventPage() {
         }
 
         if (liveGigId) {
-          if (requestedEventId !== liveGigId) {
+          if (!requestedEventId && requestedEventId !== liveGigId) {
             navigate(`/audience?event=${encodeURIComponent(liveGigId)}&v=${audienceLinkVersionRef.current}`, {
               replace: true,
             })
@@ -1627,10 +1653,6 @@ function EventPage() {
           setUpcomingEventsNotice('A live show just started. Connecting now...')
           setHasCompletedInitialLiveGigProbe(true)
           return
-        }
-
-        if (requestedEventId) {
-          navigate(`/audience?v=${audienceLinkVersionRef.current}`, { replace: true })
         }
 
         setHasCompletedInitialLiveGigProbe(true)

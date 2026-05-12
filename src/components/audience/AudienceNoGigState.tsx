@@ -10,6 +10,7 @@ type AudienceUpcomingEvent = {
   gigEndTime: string | null
   coverImageUrl: string | null
   eventType: 'halli-live' | 'karaoke'
+  eventTheme: 'harald-live' | 'human-jukebox' | 'karaoke'
   karafunUrl: string | null
 }
 
@@ -151,12 +152,11 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
 }
 
 function getUpcomingEventFallbackCoverUrl(event: AudienceUpcomingEvent) {
-  if (event.eventType === 'karaoke') {
+  if (event.eventTheme === 'karaoke') {
     return '/images/playlist-karaoke.jpg'
   }
 
-  const normalizedName = event.name.trim().toLowerCase()
-  if (normalizedName.includes('harald')) {
+  if (event.eventTheme === 'harald-live') {
     return '/images/Harald%20Live.png'
   }
 

@@ -1974,8 +1974,9 @@
 }
 
 .audience-no-gig-event-art {
-  width: 3rem;
-  height: 3rem;
+  width: 5rem;
+  height: auto;
+  aspect-ratio: 5 / 4;
   display: grid;
   place-items: center;
   border-radius: 14px;
@@ -3388,8 +3389,9 @@
   }
 
   .audience-no-gig-event-art {
-    width: 2.6rem;
-    height: 2.6rem;
+    width: 4.2rem;
+    height: auto;
+    aspect-ratio: 5 / 4;
   }
 }
 
@@ -7469,13 +7471,13 @@
   position: relative;
   display: block;
   width: 100%;
-  border-radius: 999px;
+  border-radius: 18px;
   border: none;
   overflow: hidden;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.12s, box-shadow 0.12s;
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 5 / 4;
   background: #0a1228;
   padding: 0;
   text-align: left;
@@ -7500,7 +7502,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: 999px;
+  border-radius: 18px;
   object-fit: cover;
   object-position: center top;
   display: block;
@@ -9506,10 +9508,11 @@
 
 .audience-entry-cover-image {
   width: 100%;
+  aspect-ratio: 5 / 4;
   border-radius: 0.75rem;
   margin-bottom: 1rem;
   object-fit: cover;
-  max-height: 220px;
+  max-height: none;
 }
 
 .audience-entry-meta-badge {

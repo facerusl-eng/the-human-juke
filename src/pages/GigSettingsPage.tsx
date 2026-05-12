@@ -232,14 +232,30 @@ function normalizeEventTypeForSave(eventType: SettingsState['eventType']): 'hall
   return eventType === 'harald-live' ? 'halli-live' : eventType
 }
 
+function normalizeEventThemeForSave(eventType: SettingsState['eventType']): 'harald-live' | 'human-jukebox' | 'karaoke' {
+  if (eventType === 'karaoke') {
+    return 'karaoke'
+  }
+
+  if (eventType === 'harald-live') {
+    return 'harald-live'
+  }
+
+  return 'human-jukebox'
+}
+
 function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: GigSettingsFormProps) {
   const { user } = useAuthStore()
 
   // Form State
+  const resolvedInitialEventType: SettingsState['eventType'] = event.eventTheme === 'harald-live'
+    ? 'harald-live'
+    : (event.eventType === 'halli-live' ? 'halli-live' : (event.eventType ?? 'halli-live'))
+
   const [state, setState] = useState<SettingsState>({
     gigName: event.name,
     venue: event.venue ?? '',
-    eventType: event.eventType === 'halli-live' ? 'harald-live' : (event.eventType ?? 'halli-live'),
+    eventType: resolvedInitialEventType,
     karafunUrl: event.karafunUrl ?? '',
     artistName: event.artistName ?? '',
     audienceVotingEnabled: event.audienceVotingEnabled ?? true,
@@ -627,6 +643,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         name: saveState.gigName.trim(),
         venue: saveState.venue.trim(),
         eventType: normalizeEventTypeForSave(saveState.eventType),
+        eventTheme: normalizeEventThemeForSave(saveState.eventType),
         karafunUrl: saveState.karafunUrl.trim() || null,
         artistName: saveState.artistName.trim() || null,
         audienceVotingEnabled: saveState.audienceVotingEnabled,
@@ -1055,6 +1072,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const isModified = state.gigName !== event.name
     || state.venue !== (event.venue ?? '')
     || normalizeEventTypeForSave(state.eventType) !== (event.eventType ?? 'halli-live')
+    || normalizeEventThemeForSave(state.eventType) !== (event.eventTheme ?? (event.eventType === 'karaoke' ? 'karaoke' : 'human-jukebox'))
     || state.karafunUrl !== (event.karafunUrl ?? '')
     || state.gigDate !== (event.gigDate ?? '')
     || state.gigStartTime !== normalizeTimeValue(event.gigStartTime)

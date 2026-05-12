@@ -40,6 +40,7 @@ export const DEMO_EVENT = {
   tipThankYouMessageDA: 'Tak for dit tip! 🙏',
   tipThankYouMessageEN: 'Thanks for the tip! 🙏',
   eventType: 'halli-live',
+  eventTheme: 'human-jukebox',
   karafunUrl: null,
   artistName: null,
   audienceVotingEnabled: true,
