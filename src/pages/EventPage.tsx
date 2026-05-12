@@ -1689,8 +1689,10 @@ function EventPage() {
         if (isCurrent) {
           if (upcomingEventsRef.current.length === 0) {
             setUpcomingEvents([])
+            setUpcomingNoticeDebounced('Could not load upcoming gigs right now. Retrying in the background...', 250)
+          } else {
+            setUpcomingNoticeDebounced(null, 0)
           }
-          setUpcomingNoticeDebounced('Could not load upcoming gigs right now. Retrying in the background...', 250)
         }
       } finally {
         if (isCurrent && showLoading) {
