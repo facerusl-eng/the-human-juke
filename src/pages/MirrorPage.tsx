@@ -2215,6 +2215,26 @@ function MirrorPage() {
     return spotlight
   }, [eventId, spotlight])
 
+  const mirrorBackgroundClass = useMemo(() => {
+    if (!event?.eventType) {
+      return 'mirror-shell-bg-human-jukebox'
+    }
+
+    if (event.eventType === 'karaoke') {
+      return 'mirror-shell-bg-karaoke'
+    }
+
+    if (event.eventType === 'halli-live') {
+      return 'mirror-shell-bg-harald-live'
+    }
+
+    if (event.eventType === 'build-self') {
+      return 'mirror-shell-bg-build-self'
+    }
+
+    return 'mirror-shell-bg-human-jukebox'
+  }, [event?.eventType])
+
   if (loading) {
     return (
       <div className="mirror-shell">
@@ -2254,7 +2274,7 @@ function MirrorPage() {
   }
 
   return (
-    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
+    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${mirrorBackgroundClass} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
       {showFullscreenPrompt && !isFullscreen && (
         <button
           type="button"
