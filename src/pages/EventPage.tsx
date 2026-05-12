@@ -219,8 +219,8 @@ const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim(
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 const UPCOMING_EVENTS_CACHE_KEY = 'human-jukebox-upcoming-events-cache-v1'
 const UPCOMING_EVENTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5
-const UPCOMING_FALLBACK_TIMEOUT_MS = 9000
-const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 18000
+const UPCOMING_FALLBACK_TIMEOUT_MS = 2500
+const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 5000
 const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
 const UPCOMING_COVER_FETCH_TIMEOUT_MS = 12000
 const UPCOMING_COVER_FETCH_MAX_EVENTS = 10
@@ -911,7 +911,7 @@ function EventPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>(() => readUpcomingEventsCache())
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(() => readUpcomingEventsCache().length === 0)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
-  const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(false)
+  const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(true)
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
@@ -1228,7 +1228,8 @@ function EventPage() {
       return
     }
 
-    setHasCompletedInitialLiveGigProbe(false)
+    // Keep the no-gig screen responsive; live-gig probe continues in the background.
+    setHasCompletedInitialLiveGigProbe(true)
   }, [hasRequestedEventParam])
 
   useEffect(() => {
@@ -2250,7 +2251,7 @@ function EventPage() {
     navigate('/audience', { replace: true })
   }, [navigate, signOut])
 
-  if (loading && !event && upcomingEvents.length === 0) {
+  if (loading && hasRequestedEventParam && !event && upcomingEvents.length === 0) {
     return (
       <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
         <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
