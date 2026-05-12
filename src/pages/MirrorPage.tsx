@@ -2238,7 +2238,7 @@ function MirrorPage() {
     }
 
     return 'mirror-shell-bg-human-jukebox'
-  }, [demoMode, event?.eventType])
+  }, [event?.eventType])
 
   if (loading) {
     return (

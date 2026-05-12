@@ -48,6 +48,18 @@ function formatEventTypeLabel(eventType: 'halli-live' | 'karaoke' | 'build-self'
   return 'Halli Playing Music'
 }
 
+function getGigPlaylistImageUrl(eventType: 'halli-live' | 'karaoke' | 'build-self') {
+  if (eventType === 'karaoke') {
+    return '/images/playlist-karaoke.jpg'
+  }
+
+  if (eventType === 'halli-live') {
+    return '/images/Harald%20Live.png'
+  }
+
+  return '/images/playlist-human-jukebox.jpg'
+}
+
 function resolveGigStartAt(gigDate: string | null, gigStartTime: string | null) {
   if (!gigDate || !gigStartTime) {
     return null
@@ -389,6 +401,13 @@ function GigsPage() {
 
               return (
                 <li key={hostEvent.id} className="gig-management-entry">
+                  <div className="gig-management-image">
+                    <img
+                      src={getGigPlaylistImageUrl(hostEvent.eventType)}
+                      alt={`${formatEventTypeLabel(hostEvent.eventType)} playlist`}
+                      className="gig-playlist-thumbnail"
+                    />
+                  </div>
                   <div className="gig-management-main">
                     <div className="gig-management-title-row">
                       <p className="gig-management-title">{hostEvent.name}</p>
