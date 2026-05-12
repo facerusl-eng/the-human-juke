@@ -98,39 +98,60 @@ function isAuthSessionError(error: unknown) {
     || text.includes('auth session missing')
 }
 
-async function fetchUpcomingEventRows() {
-  const { data, error } = await supabase
-    .from('events')
-    .select('id, name, venue, gig_date, gig_start_time, gig_end_time, cover_image_url, event_type, karafun_url')
-    .eq('show_in_audience_no_gig', true)
-    .order('gig_date', { ascending: true, nullsFirst: false })
-    .order('gig_start_time', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: true })
+async function fetchUpcomingEventRows(timeoutMs = 4500) {
+  const abortController = new AbortController()
+  let didTimeout = false
+  const timeoutId = window.setTimeout(() => {
+    didTimeout = true
+    abortController.abort()
+  }, timeoutMs)
 
-  if (error && isMissingCoverImageColumnError(error)) {
-    const { data: fallbackData, error: fallbackError } = await supabase
+  try {
+    const { data, error } = await supabase
       .from('events')
-      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
+      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, cover_image_url, event_type, karafun_url')
+      .abortSignal(abortController.signal)
       .eq('show_in_audience_no_gig', true)
       .order('gig_date', { ascending: true, nullsFirst: false })
       .order('gig_start_time', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
 
-    if (fallbackError) {
-      throw fallbackError
+    if (didTimeout) {
+      throw new Error('EventPage: upcoming events fallback timed out')
     }
 
-    return (fallbackData ?? []).map((eventData) => ({
-      ...(eventData as Record<string, unknown>),
-      cover_image_url: null,
-    }))
-  }
+    if (error && isMissingCoverImageColumnError(error)) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('events')
+        .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
+        .abortSignal(abortController.signal)
+        .eq('show_in_audience_no_gig', true)
+        .order('gig_date', { ascending: true, nullsFirst: false })
+        .order('gig_start_time', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
 
-  if (error) {
-    throw error
-  }
+      if (didTimeout) {
+        throw new Error('EventPage: upcoming events fallback timed out')
+      }
 
-  return (data ?? []) as Array<Record<string, unknown>>
+      if (fallbackError) {
+        throw fallbackError
+      }
+
+      return (fallbackData ?? []).map((eventData) => ({
+        ...(eventData as Record<string, unknown>),
+        cover_image_url: null,
+      }))
+    }
+
+    if (error) {
+      throw error
+    }
+
+    return (data ?? []) as Array<Record<string, unknown>>
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 }
 
 const MAX_AUDIENCE_NAME_LENGTH = 40
@@ -642,7 +663,7 @@ function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomi
 }
 
 async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
-  const payload = await fetchJsonNoStore('/events', 5000)
+  const payload = await fetchJsonNoStore('/events', 3500)
 
   if (!payload) {
     return []
@@ -667,31 +688,15 @@ async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
 }
 
 async function fetchUpcomingEventsFast(): Promise<AudienceUpcomingEvent[]> {
-  const apiPromise = (async () => {
-    try {
-      return await fetchUpcomingEventsFromApi()
-    } catch (apiError) {
-      if (!isExpectedApiFallbackError(apiError)) {
-        console.warn('EventPage: /events fetch failed, falling back to Supabase', apiError)
-      }
-      throw apiError
-    }
-  })()
-
-  const fallbackPromise = withPromiseTimeout(
-    fetchUpcomingEventRows(),
-    UPCOMING_FALLBACK_TIMEOUT_MS,
-    'EventPage: upcoming events fallback timed out',
-  ).then((eventRows) => mapUpcomingEvents(eventRows))
-
   try {
-    return await Promise.any([apiPromise, fallbackPromise])
-  } catch (error) {
-    if (error instanceof AggregateError && Array.isArray(error.errors) && error.errors.length > 0) {
-      throw error.errors[0]
+    return await fetchUpcomingEventsFromApi()
+  } catch (apiError) {
+    if (!isExpectedApiFallbackError(apiError)) {
+      console.warn('EventPage: /events fetch failed, falling back to Supabase', apiError)
     }
 
-    throw error
+    const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
+    return mapUpcomingEvents(eventRows)
   }
 }
 
