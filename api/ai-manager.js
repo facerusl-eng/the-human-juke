@@ -846,6 +846,11 @@ export default async function handler(req, res) {
       }
 
       lastError = { status: result.status, message: result.message }
+
+      // Rate limits are account-wide — no point trying other models on the same provider.
+      if (result.status === 429) {
+        break
+      }
     }
   }
 
