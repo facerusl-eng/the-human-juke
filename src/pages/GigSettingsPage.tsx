@@ -51,7 +51,7 @@ type PlaylistArtworkRow = {
 type SettingsState = {
   gigName: string
   venue: string
-  eventType: 'halli-live' | 'karaoke' | 'build-self'
+  eventType: 'halli-live' | 'harald-live' | 'karaoke' | 'build-self'
   karafunUrl: string
   gigDate: string
   gigStartTime: string
@@ -228,6 +228,10 @@ function normalizeRequestCapValue(value: number | string | null | undefined): st
   return ''
 }
 
+function normalizeEventTypeForSave(eventType: SettingsState['eventType']): 'halli-live' | 'karaoke' | 'build-self' {
+  return eventType === 'harald-live' ? 'halli-live' : eventType
+}
+
 function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: GigSettingsFormProps) {
   const { user } = useAuthStore()
 
@@ -235,7 +239,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [state, setState] = useState<SettingsState>({
     gigName: event.name,
     venue: event.venue ?? '',
-    eventType: event.eventType ?? 'halli-live',
+    eventType: event.eventType === 'halli-live' ? 'harald-live' : (event.eventType ?? 'halli-live'),
     karafunUrl: event.karafunUrl ?? '',
     artistName: event.artistName ?? '',
     audienceVotingEnabled: event.audienceVotingEnabled ?? true,
@@ -622,7 +626,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       await updateEventSettings({
         name: saveState.gigName.trim(),
         venue: saveState.venue.trim(),
-        eventType: saveState.eventType,
+        eventType: normalizeEventTypeForSave(saveState.eventType),
         karafunUrl: saveState.karafunUrl.trim() || null,
         artistName: saveState.artistName.trim() || null,
         audienceVotingEnabled: saveState.audienceVotingEnabled,
@@ -1050,7 +1054,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
   const isModified = state.gigName !== event.name
     || state.venue !== (event.venue ?? '')
-    || state.eventType !== (event.eventType ?? 'halli-live')
+    || normalizeEventTypeForSave(state.eventType) !== (event.eventType ?? 'halli-live')
     || state.karafunUrl !== (event.karafunUrl ?? '')
     || state.gigDate !== (event.gigDate ?? '')
     || state.gigStartTime !== normalizeTimeValue(event.gigStartTime)
@@ -1185,9 +1189,10 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               value={state.eventType}
               onChange={(e) => {
                 pushUndoState()
-                updateState({ eventType: e.target.value as 'halli-live' | 'karaoke' | 'build-self' })
+                updateState({ eventType: e.target.value as 'halli-live' | 'harald-live' | 'karaoke' | 'build-self' })
               }}
             >
+              <option value="harald-live">Harald Live</option>
               <option value="halli-live">The Human Jukebox</option>
               <option value="karaoke">Karaoke Event</option>
               <option value="build-self">Build Self Gig</option>

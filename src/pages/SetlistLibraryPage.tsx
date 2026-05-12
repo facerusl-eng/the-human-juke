@@ -15,6 +15,7 @@ type Playlist = {
 }
 
 type PlaylistType = 'human_jukebox' | 'karaoke'
+type CreatePlaylistType = PlaylistType | 'harald_live'
 
 type PlaylistSongRecord = {
   id: string
@@ -78,6 +79,10 @@ function inferPlaylistType(rawType: string | null | undefined, playlistName: str
   }
 
   return 'human_jukebox'
+}
+
+function toPersistedPlaylistType(playlistType: CreatePlaylistType): 'human_jukebox' | 'karaoke' {
+  return playlistType === 'harald_live' ? 'human_jukebox' : playlistType
 }
 
 function readFileAsDataUrl(file: File) {
@@ -318,7 +323,7 @@ function SetlistLibraryPage() {
   const [searchText, setSearchText] = useState('')
   const [playlistName, setPlaylistName] = useState('')
   const [playlistDescription, setPlaylistDescription] = useState('')
-  const [playlistType, setPlaylistType] = useState<PlaylistType>('human_jukebox')
+  const [playlistType, setPlaylistType] = useState<CreatePlaylistType>('human_jukebox')
   const [draftPlaylistName, setDraftPlaylistName] = useState('')
   const [songTitle, setSongTitle] = useState('')
   const [artistName, setArtistName] = useState('')
@@ -667,7 +672,7 @@ function SetlistLibraryPage() {
           user_id: userId,
           name: playlistName.trim(),
           description: playlistDescription.trim() || null,
-          playlist_type: playlistType,
+          playlist_type: toPersistedPlaylistType(playlistType),
         })
         .select('id, name, description, created_at, playlist_type')
         .single()
@@ -1120,8 +1125,9 @@ function SetlistLibraryPage() {
             <select
               aria-label="Playlist type"
               value={playlistType}
-              onChange={(event) => setPlaylistType(event.target.value as PlaylistType)}
+              onChange={(event) => setPlaylistType(event.target.value as CreatePlaylistType)}
             >
+              <option value="harald_live">Harald Live Setlist</option>
               <option value="human_jukebox">Human Jukebox Setlist</option>
               <option value="karaoke">Karaoke Setlist</option>
             </select>

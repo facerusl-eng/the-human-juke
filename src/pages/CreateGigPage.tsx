@@ -6,7 +6,7 @@ import { useQueueStore } from '../state/queueStore'
 import { supabase } from '../lib/supabase'
 
 type Step = 'info' | 'datetime'
-type EventType = 'halli-live' | 'karaoke' | 'build-self'
+type EventType = 'halli-live' | 'harald-live' | 'karaoke' | 'build-self'
 
 type IntroAudioLibraryItem = {
   path: string
@@ -52,7 +52,7 @@ function CreateGigPage() {
   const [gigStartTime, setGigStartTime] = useState('')
   const [gigEndTime, setGigEndTime] = useState('')
   const [description, setDescription] = useState('')
-  const [eventType, setEventType] = useState<EventType>('halli-live')
+  const [eventType, setEventType] = useState<EventType>('harald-live')
   const [karafunUrl, setKarafunUrl] = useState('')
   const [artistName, setArtistName] = useState('')
   const [audienceVotingEnabled, setAudienceVotingEnabled] = useState(true)
@@ -208,7 +208,7 @@ function CreateGigPage() {
       gigEndTime?: string
       showInAudienceNoGig?: boolean
       coverImageUrl?: string | null
-      eventType?: EventType
+      eventType?: 'halli-live' | 'karaoke' | 'build-self'
       karafunUrl?: string
       artistName?: string | null
       audienceVotingEnabled?: boolean
@@ -302,13 +302,16 @@ function CreateGigPage() {
     setErrorText(null)
     setBusy(true)
 
+    const persistedEventType: 'halli-live' | 'karaoke' | 'build-self' =
+      eventType === 'harald-live' ? 'halli-live' : eventType
+
     const createOptionsBase = {
       gigStartTime: gigStartTime || undefined,
       gigEndTime: gigEndTime || undefined,
       showInAudienceNoGig: isTestGig ? false : showInAudienceNoGig,
       coverImageUrl: coverImageDataUrl,
       subtitle: description.trim() || undefined,
-      eventType,
+      eventType: persistedEventType,
       karafunUrl: karafunUrl.trim() || undefined,
       artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
       audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
@@ -716,6 +719,7 @@ function CreateGigPage() {
               value={eventType}
               onChange={(e) => setEventType(e.target.value as EventType)}
             >
+              <option value="harald-live">Harald Live</option>
               <option value="halli-live">The Human Jukebox</option>
               <option value="karaoke">Karaoke Event</option>
               <option value="build-self">Build Self Gig</option>
