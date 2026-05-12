@@ -338,11 +338,65 @@ function AudienceNoGigState({
         karafunNote: 'Karaoke is powered by KaraFun.',
       }
 
-  const handleAddToCalendar = (calLinks: { icsUrl: string }) => {
-    // Open the single-event ICS directly so mobile calendars import an event
-    // instead of creating a read-only subscribed calendar.
-    window.location.assign(calLinks.icsUrl)
+function isMobileOrTablet(): boolean {
+  if (typeof window === 'undefined') return false
+  const ua = navigator.userAgent || navigator.vendor || (window as unknown as { opera?: string }).opera || ''
+  return /mobile|android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua.toLowerCase())
+}
+
+function handleAddToCalendar(calLinks: { icsUrl: string }, eventName: string = 'Upcoming Event') {
+  const isMobile = isMobileOrTablet()
+  const icsUrl = calLinks.icsUrl
+  const icsDownloadUrl = `${icsUrl}&download=1`
+
+  if (!isMobile) {
+    // Desktop: direct ICS download
+    window.location.assign(icsDownloadUrl)
+    return
   }
+
+  // Mobile: Show calendar app options
+  const calendarApps = [
+    {
+      label: '📱 Add to Phone Calendar',
+      action: () => {
+        // Try native ICS handler first
+        window.location.assign(icsUrl)
+      },
+    },
+    {
+      label: '🔵 Google Calendar',
+      action: () => {
+        // Google Calendar web create
+        const params = new URLSearchParams({
+          action: 'TEMPLATE',
+          text: eventName,
+          dates: '20260101T000000Z/20260102T000000Z',
+        })
+        window.open(`https://calendar.google.com/calendar/render?${params.toString()}`, '_blank')
+      },
+    },
+    {
+      label: '🔴 Outlook',
+      action: () => {
+        // Outlook web
+        window.open(`https://outlook.com/calendar`, '_blank')
+      },
+    },
+    {
+      label: '📥 Download ICS',
+      action: () => {
+        window.location.assign(icsDownloadUrl)
+      },
+    },
+  ]
+
+  // Create simple menu: try first option (native calendar) immediately, with fallback to other options
+  const userChoice = confirm(`Add "${eventName}" to your calendar?\n\nTap OK to add to your default calendar app.`)
+  if (userChoice) {
+    calendarApps[0].action()
+  }
+}
 
   return (
     <section className="audience-entry-shell audience-no-gig-shell" aria-label="Audience app no live gig state">
@@ -479,7 +533,7 @@ function AudienceNoGigState({
                           <button
                             type="button"
                             className="secondary-button"
-                            onClick={() => handleAddToCalendar(calLinks)}
+                            onClick={() => handleAddToCalendar(calLinks, upcomingEvent.name)}
                           >
                             📅 {copy.addToCalendar}
                           </button>
