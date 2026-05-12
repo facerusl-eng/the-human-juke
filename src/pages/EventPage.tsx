@@ -115,9 +115,14 @@ async function fetchUpcomingEventRows(timeoutMs = 4500) {
       .order('gig_date', { ascending: true, nullsFirst: false })
       .order('gig_start_time', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
+      .limit(50)
 
     if (didTimeout) {
       throw new Error('EventPage: upcoming events fallback timed out')
+    }
+
+    if (error && isSupabaseStatementTimeout(error)) {
+      throw new Error('EventPage: upcoming events fallback timed out (db)')
     }
 
     if (error && isMissingCoverImageColumnError(error)) {
@@ -129,6 +134,7 @@ async function fetchUpcomingEventRows(timeoutMs = 4500) {
         .order('gig_date', { ascending: true, nullsFirst: false })
         .order('gig_start_time', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
+        .limit(50)
 
       if (didTimeout) {
         throw new Error('EventPage: upcoming events fallback timed out')
@@ -663,12 +669,24 @@ function mapUpcomingEvents(rows: Array<Record<string, unknown>>): AudienceUpcomi
   }))
 }
 
+function isSupabaseStatementTimeout(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const e = error as { code?: unknown; message?: unknown }
+  return (
+    e.code === '57014'
+    || e.code === 57014
+    || (typeof e.message === 'string' && e.message.toLowerCase().includes('statement timeout'))
+  )
+}
+
 async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
   try {
     const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
     return mapUpcomingEvents(eventRows)
   } catch (error) {
-    const isTimeoutError = error instanceof Error && error.message.includes('timed out')
+    const isTimeoutError =
+      (error instanceof Error && error.message.includes('timed out'))
+      || isSupabaseStatementTimeout(error)
 
     if (!isTimeoutError) {
       throw error
