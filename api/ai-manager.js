@@ -846,6 +846,12 @@ export default async function handler(req, res) {
       }
 
       lastError = { status: result.status, message: result.message }
+
+      // Skip remaining models on this provider if it's rate-limited — they
+      // will all fail the same way and only add latency before fallback.
+      if (result.status === 429) {
+        break
+      }
     }
   }
 
