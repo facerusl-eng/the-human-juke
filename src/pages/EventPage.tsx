@@ -190,6 +190,7 @@ async function fetchUpcomingEventCoverById(eventId: string, timeoutMs = 3500): P
 
 const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
+const UPCOMING_EVENTS_DEGRADED_POLL_INTERVAL_MS = 60000
 const LIVE_GIG_POLL_INTERVAL_MS = 12000
 const PLAYBACK_SYNC_POLL_INTERVAL_MS = 30000
 const LIVE_GIG_API_POLLING_ENABLED = import.meta.env.VITE_ENABLE_LIVE_GIG_API?.trim() === '1'
@@ -894,6 +895,7 @@ function EventPage() {
   const upcomingLoadInFlightRef = useRef(false)
   const upcomingNextRefreshAtRef = useRef(0)
   const upcomingFailureCountRef = useRef(0)
+  const upcomingBaseFetchHealthyRef = useRef(false)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -1211,6 +1213,10 @@ function EventPage() {
 
   useEffect(() => {
     if (event || upcomingEvents.length === 0) {
+      return
+    }
+
+    if (!upcomingBaseFetchHealthyRef.current) {
       return
     }
 
@@ -1778,6 +1784,7 @@ function EventPage() {
     if (event) {
       setUpcomingEvents([])
       upcomingEventsRef.current = []
+      upcomingBaseFetchHealthyRef.current = false
       setUpcomingEventsLoading(false)
       setUpcomingNoticeDebounced(null, 0)
       return
@@ -1820,6 +1827,7 @@ function EventPage() {
         saveUpcomingEventsCache(mappedEvents)
         upcomingFailureCountRef.current = 0
         upcomingNextRefreshAtRef.current = 0
+        upcomingBaseFetchHealthyRef.current = true
 
         if (mappedEvents.length === 0) {
           setUpcomingNoticeDebounced('No upcoming gigs have been posted yet.', 250)
@@ -1891,6 +1899,7 @@ function EventPage() {
               saveUpcomingEventsCache(mappedEvents)
               upcomingFailureCountRef.current = 0
               upcomingNextRefreshAtRef.current = 0
+              upcomingBaseFetchHealthyRef.current = true
 
               if (mappedEvents.length === 0) {
                 setUpcomingNoticeDebounced('No upcoming gigs have been posted yet.', 250)
@@ -1909,6 +1918,7 @@ function EventPage() {
           upcomingFailureCountRef.current += 1
           const retryDelay = getUpcomingRetryDelayMs(upcomingFailureCountRef.current)
           upcomingNextRefreshAtRef.current = Date.now() + retryDelay
+          upcomingBaseFetchHealthyRef.current = false
 
           const staleCachedEvents = readUpcomingEventsCache({ allowStale: true })
 
@@ -1959,13 +1969,23 @@ function EventPage() {
         }
       })
 
-    pollTimerId = window.setInterval(() => {
-      if (document.hidden) {
-        return
-      }
+    const scheduleNextPoll = () => {
+      const intervalMs = upcomingFailureCountRef.current > 0
+        ? UPCOMING_EVENTS_DEGRADED_POLL_INTERVAL_MS
+        : UPCOMING_EVENTS_POLL_INTERVAL_MS
 
-      void loadUpcomingEvents({ showLoading: false })
-    }, UPCOMING_EVENTS_POLL_INTERVAL_MS)
+      pollTimerId = window.setTimeout(() => {
+        if (!document.hidden) {
+          void loadUpcomingEvents({ showLoading: false })
+        }
+
+        if (isCurrent) {
+          scheduleNextPoll()
+        }
+      }, intervalMs)
+    }
+
+    scheduleNextPoll()
 
     return () => {
       isCurrent = false
@@ -1973,7 +1993,7 @@ function EventPage() {
         void supabase.removeChannel(channel)
       }
       if (pollTimerId !== null) {
-        window.clearInterval(pollTimerId)
+        window.clearTimeout(pollTimerId)
       }
     }
   }, [event, authLoading, user, setUpcomingNoticeDebounced])

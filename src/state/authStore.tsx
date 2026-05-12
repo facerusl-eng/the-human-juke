@@ -11,6 +11,7 @@ const AUTH_PROFILE_REQUEST_TIMEOUT_MS = 20_000
 const AUTH_PROFILE_RETRY_COUNT = 3
 const AUTH_HOST_SIGN_IN_TIMEOUT_MS = 25_000
 const AUTH_HOST_SIGN_IN_RETRY_COUNT = 3
+const AUTH_TRANSIENT_WARN_THROTTLE_MS = 60_000
 const AUTH_SESSION_STORAGE_KEY = 'human-jukebox-auth-session-snapshot'
 const AUTH_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
@@ -221,6 +222,7 @@ function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
   const isHostSignInInProgressRef = useRef(false)
+  const transientProfileWarnAtRef = useRef(0)
 
   useEffect(() => {
     const snapshot = readFromLocalStorage<PersistedAuthSession | null>(AUTH_SESSION_STORAGE_KEY, null)
@@ -350,7 +352,16 @@ function AuthProvider({ children }: PropsWithChildren) {
             )
             setProfile(nextProfile)
           } catch (error) {
-            console.warn('authStore: failed to refresh profile for active session', error)
+            if (isTransientAuthError(error)) {
+              const now = Date.now()
+
+              if (now - transientProfileWarnAtRef.current >= AUTH_TRANSIENT_WARN_THROTTLE_MS) {
+                console.warn('authStore: failed to refresh profile for active session', error)
+                transientProfileWarnAtRef.current = now
+              }
+            } else {
+              console.warn('authStore: failed to refresh profile for active session', error)
+            }
             // Keep the current profile when profile reload fails.
           }
         })()
