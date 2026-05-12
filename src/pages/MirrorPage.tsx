@@ -2216,6 +2216,11 @@ function MirrorPage() {
   }, [eventId, spotlight])
 
   const mirrorBackgroundClass = useMemo(() => {
+    // Demo mode always uses Human Jukebox background
+    if (demoMode) {
+      return 'mirror-shell-bg-human-jukebox'
+    }
+
     if (!event?.eventType) {
       return 'mirror-shell-bg-human-jukebox'
     }
@@ -2233,7 +2238,7 @@ function MirrorPage() {
     }
 
     return 'mirror-shell-bg-human-jukebox'
-  }, [event?.eventType])
+  }, [demoMode, event?.eventType])
 
   if (loading) {
     return (
