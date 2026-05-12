@@ -150,7 +150,7 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
   return locale === 'da' ? `Slutter ${formatClockTime(gigEndTime as string)}` : `Ends ${formatClockTime(gigEndTime as string)}`
 }
 
-function buildCalendarLinks(event: AudienceUpcomingEvent): { icsUrl: string; webcalUrl: string } | null {
+function buildCalendarLinks(event: AudienceUpcomingEvent): { icsUrl: string } | null {
   if (!event.gigDate) return null
 
   const startDate = parseEventDate(event.gigDate, event.gigStartTime)
@@ -158,9 +158,8 @@ function buildCalendarLinks(event: AudienceUpcomingEvent): { icsUrl: string; web
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.the-human-jukebox.org'
   const icsUrl = `${origin}/api/calendar-ics?event=${encodeURIComponent(event.id)}`
-  const webcalUrl = icsUrl.replace(/^https?:\/\//i, 'webcal://')
 
-  return { icsUrl, webcalUrl }
+  return { icsUrl }
 }
 
 function AudienceNoGigState({
@@ -293,14 +292,10 @@ function AudienceNoGigState({
         karafunNote: 'Karaoke is powered by KaraFun.',
       }
 
-  const handleAddToCalendar = (calLinks: { icsUrl: string; webcalUrl: string }) => {
-    // Try opening the user's default calendar app first.
-    // Browsers that don't support webcal:// will fall back to the hosted ICS URL.
-    window.location.assign(calLinks.webcalUrl)
-
-    window.setTimeout(() => {
-      window.location.assign(calLinks.icsUrl)
-    }, 1200)
+  const handleAddToCalendar = (calLinks: { icsUrl: string }) => {
+    // Open the single-event ICS directly so mobile calendars import an event
+    // instead of creating a read-only subscribed calendar.
+    window.location.assign(calLinks.icsUrl)
   }
 
   return (
