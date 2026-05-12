@@ -51,7 +51,9 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = clean(process.env.VITE_SUPABASE_URL)
-  const publishableKey = clean(process.env.VITE_SUPABASE_PUBLISHABLE_KEY)
+  const supabaseAnonKey = clean(process.env.VITE_SUPABASE_ANON_KEY)
+  const supabasePublishableKey = clean(process.env.VITE_SUPABASE_PUBLISHABLE_KEY)
+  const publishableKey = supabaseAnonKey || supabasePublishableKey
 
   if (!supabaseUrl || !publishableKey) {
     res.status(500).send('Supabase env vars not configured')

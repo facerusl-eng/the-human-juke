@@ -133,7 +133,9 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim() || ''
-  const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY?.trim() || ''
+  const supabasePublishableKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
+  const supabaseKey = supabaseAnonKey || supabasePublishableKey
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
   const toEmail = process.env.BOOKING_TO_EMAIL?.trim() || ''
   const fromEmail = process.env.BOOKING_FROM_EMAIL?.trim() || 'The Human Jukebox <onboarding@resend.dev>'

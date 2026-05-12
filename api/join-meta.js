@@ -37,7 +37,9 @@ function toAbsoluteOrigin(req) {
 
 async function fetchEventMeta(eventId) {
   const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim() || ''
-  const publishableKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY?.trim() || ''
+  const supabasePublishableKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
+  const publishableKey = supabaseAnonKey || supabasePublishableKey
 
   if (!supabaseUrl || !publishableKey || !eventId) {
     return null
