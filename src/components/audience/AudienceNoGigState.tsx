@@ -293,13 +293,7 @@ function AudienceNoGigState({
         karafunNote: 'Karaoke is powered by KaraFun.',
       }
 
-  const handleAddToCalendar = (upcomingEvent: AudienceUpcomingEvent, calLinks: { icsUrl: string; webcalUrl: string }) => {
-    const confirmationMessage = copy.confirmAddToCalendar.replace('{event}', upcomingEvent.name)
-
-    if (!window.confirm(confirmationMessage)) {
-      return
-    }
-
+  const handleAddToCalendar = (calLinks: { icsUrl: string; webcalUrl: string }) => {
     // Try opening the user's default calendar app first.
     // Browsers that don't support webcal:// will fall back to the hosted ICS URL.
     window.location.assign(calLinks.webcalUrl)
@@ -447,7 +441,7 @@ function AudienceNoGigState({
                           <button
                             type="button"
                             className="secondary-button"
-                            onClick={() => handleAddToCalendar(upcomingEvent, calLinks)}
+                            onClick={() => handleAddToCalendar(calLinks)}
                           >
                             📅 {copy.addToCalendar}
                           </button>
