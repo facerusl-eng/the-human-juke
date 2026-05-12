@@ -12,7 +12,40 @@ function normalizeTimeForDate(value) {
 
 function toIcsDate(date) {
   const pad = (n) => String(n).padStart(2, '0')
+  // Floating local time (no timezone suffix) — appears at correct clock time in any calendar
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}T${pad(date.getHours())}${pad(date.getMinutes())}00`
+}
+
+function toIcsUtcDate(date) {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}00Z`
+}
+
+/** Escape ICS TEXT values per RFC 5545 §3.3.11 */
+function escapeText(value) {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r\n?|\n/g, '\\n')
+}
+
+/** Fold long lines per RFC 5545 §3.1 — max 75 octets per line */
+function foldLine(line) {
+  const MAX = 75
+  if (line.length <= MAX) return line
+  let folded = ''
+  let pos = 0
+  while (pos < line.length) {
+    if (pos === 0) {
+      folded += line.slice(0, MAX)
+      pos = MAX
+    } else {
+      folded += '\r\n ' + line.slice(pos, pos + MAX - 1)
+      pos += MAX - 1
+    }
+  }
+  return folded
 }
 
 function buildDateRange(gigDate, gigStartTime, gigEndTime) {
@@ -92,22 +125,28 @@ export default async function handler(req, res) {
 
     const name = sanitizeText(event.name) || 'Human Jukebox Event'
     const venue = sanitizeText(event.venue)
+    const eventUrl = `https://www.the-human-jukebox.org/audience?event=${encodeURIComponent(event.id)}`
+    const dtstamp = toIcsUtcDate(new Date())
 
     const icsLines = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//Human Jukebox//EN',
+      'PRODID:-//Human Jukebox//Human Jukebox App 1.0//EN',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
+      'X-WR-CALNAME:Human Jukebox Events',
+      'X-WR-TIMEZONE:Europe/Copenhagen',
       'BEGIN:VEVENT',
       `UID:${event.id}@the-human-jukebox.org`,
+      `DTSTAMP:${dtstamp}`,
       `DTSTART:${toIcsDate(range.startDate)}`,
       `DTEND:${toIcsDate(range.endDate)}`,
-      `SUMMARY:${name}`,
-      venue ? `LOCATION:${venue}` : null,
+      `SUMMARY:${escapeText(name)}`,
+      venue ? `LOCATION:${escapeText(venue)}` : null,
+      `URL:${eventUrl}`,
       'END:VEVENT',
       'END:VCALENDAR',
-    ].filter(Boolean).join('\r\n')
+    ].filter(Boolean).map(foldLine).join('\r\n')
 
     const fileName = `${name.replace(/[^a-z0-9\-_. ]/gi, '').trim() || 'event'}.ics`
 

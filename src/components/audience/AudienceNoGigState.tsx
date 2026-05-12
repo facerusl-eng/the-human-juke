@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { AudienceLocale } from '../../lib/audienceIdentity'
+import AddToCalendarButton from '../AddToCalendarButton'
 
 type AudienceUpcomingEvent = {
   id: string
@@ -196,17 +197,7 @@ function resolveUpcomingEventCoverUrl(event: AudienceUpcomingEvent): string {
   return event.coverImageUrl
 }
 
-function buildCalendarLinks(event: AudienceUpcomingEvent): { icsUrl: string } | null {
-  if (!event.gigDate) return null
 
-  const startDate = parseEventDate(event.gigDate, event.gigStartTime)
-  if (!startDate) return null
-
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.the-human-jukebox.org'
-  const icsUrl = `${origin}/api/calendar-ics?event=${encodeURIComponent(event.id)}`
-
-  return { icsUrl }
-}
 
 function AudienceNoGigState({
   upcomingEvents,
@@ -338,66 +329,6 @@ function AudienceNoGigState({
         karafunNote: 'Karaoke is powered by KaraFun.',
       }
 
-function isMobileOrTablet(): boolean {
-  if (typeof window === 'undefined') return false
-  const ua = navigator.userAgent || navigator.vendor || (window as unknown as { opera?: string }).opera || ''
-  return /mobile|android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua.toLowerCase())
-}
-
-function handleAddToCalendar(calLinks: { icsUrl: string }, eventName: string = 'Upcoming Event') {
-  const isMobile = isMobileOrTablet()
-  const icsUrl = calLinks.icsUrl
-  const icsDownloadUrl = `${icsUrl}&download=1`
-
-  if (!isMobile) {
-    // Desktop: direct ICS download
-    window.location.assign(icsDownloadUrl)
-    return
-  }
-
-  // Mobile: Show calendar app options
-  const calendarApps = [
-    {
-      label: '📱 Add to Phone Calendar',
-      action: () => {
-        // Try native ICS handler first
-        window.location.assign(icsUrl)
-      },
-    },
-    {
-      label: '🔵 Google Calendar',
-      action: () => {
-        // Google Calendar web create
-        const params = new URLSearchParams({
-          action: 'TEMPLATE',
-          text: eventName,
-          dates: '20260101T000000Z/20260102T000000Z',
-        })
-        window.open(`https://calendar.google.com/calendar/render?${params.toString()}`, '_blank')
-      },
-    },
-    {
-      label: '🔴 Outlook',
-      action: () => {
-        // Outlook web
-        window.open(`https://outlook.com/calendar`, '_blank')
-      },
-    },
-    {
-      label: '📥 Download ICS',
-      action: () => {
-        window.location.assign(icsDownloadUrl)
-      },
-    },
-  ]
-
-  // Create simple menu: try first option (native calendar) immediately, with fallback to other options
-  const userChoice = confirm(`Add "${eventName}" to your calendar?\n\nTap OK to add to your default calendar app.`)
-  if (userChoice) {
-    calendarApps[0].action()
-  }
-}
-
   return (
     <section className="audience-entry-shell audience-no-gig-shell" aria-label="Audience app no live gig state">
       <article className="queue-panel audience-entry-card audience-no-gig-card">
@@ -498,7 +429,7 @@ function handleAddToCalendar(calLinks: { icsUrl: string }, eventName: string = '
                 const dateLabel = formatUpcomingEventDate(upcomingEvent.gigDate, upcomingEvent.gigStartTime, locale)
                 const timeRangeLabel = formatUpcomingEventTimeRange(upcomingEvent.gigStartTime, upcomingEvent.gigEndTime, locale)
                 const eventHref = getEventHref ? getEventHref(upcomingEvent.id) : null
-                const calLinks = buildCalendarLinks(upcomingEvent)
+                const hasDate = Boolean(upcomingEvent.gigDate)
                 const eventCoverImageUrl = resolveUpcomingEventCoverUrl(upcomingEvent)
 
                 return (
@@ -528,15 +459,13 @@ function handleAddToCalendar(calLinks: { icsUrl: string }, eventName: string = '
                           <a href={eventHref}>{copy.openEvent}</a>
                         </p>
                       ) : null}
-                      {calLinks ? (
+                      {hasDate ? (
                         <p className="audience-no-gig-event-meta audience-no-gig-event-cal-links">
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={() => handleAddToCalendar(calLinks, upcomingEvent.name)}
-                          >
-                            📅 {copy.addToCalendar}
-                          </button>
+                          <AddToCalendarButton
+                            event={upcomingEvent}
+                            label={`📅 ${copy.addToCalendar}`}
+                            successLabel={locale === 'da' ? '✓ Tilføjet!' : locale === 'is' ? '✓ Bætt við!' : '✓ Added!'}
+                          />
                         </p>
                       ) : null}
                     </div>

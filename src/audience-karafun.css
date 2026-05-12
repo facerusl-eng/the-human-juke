@@ -1395,6 +1395,13 @@
   }
 }
 
+/* ── Add to Calendar button ─────────────────────────────────── */
+.add-to-calendar-success {
+  opacity: 0.75;
+  pointer-events: none;
+  cursor: default;
+}
+
 /* ── Vote heat bar (#2) ─────────────────────────────────────── */
 .audience-karafun .vote-heat-row {
   display: flex;
