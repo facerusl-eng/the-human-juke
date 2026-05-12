@@ -172,9 +172,9 @@ async function fetchUpcomingEventCoverById(eventId: string, timeoutMs = 3500): P
     const { data, error } = await supabase
       .from('events')
       .select('id, cover_image_url')
+      .abortSignal(abortController.signal)
       .eq('id', eventId)
       .maybeSingle()
-      .abortSignal(abortController.signal)
 
     if (didTimeout || error) {
       return null
