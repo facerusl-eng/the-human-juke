@@ -197,11 +197,11 @@ const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 45_000
 // How often the audience polls when connected to a live event (realtime handles most updates).
 const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 18_000
 // How often the audience checks for a new live gig when sitting on the no-gig screen.
-const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 12_000
+const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 30_000
 const DEGRADE_AFTER_CONSECUTIVE_FAILURES = 2
 // In degraded mode we poll faster because realtime is unhealthy.
 const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 6_000
-const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 6_000
+const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 15_000
 const REALTIME_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3
 const REALTIME_CIRCUIT_BREAKER_COOLDOWN_MS = 20_000
 const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3

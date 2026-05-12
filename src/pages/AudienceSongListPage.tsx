@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { readCommittedAudienceLocale, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { fetchSongArtwork } from '../lib/songArtwork'
@@ -254,7 +254,8 @@ function AudienceSongListPage() {
         unableToLoadSongs: 'Unable to load song choices right now. Please try again.',
         unableToAddRequest: 'Unable to add this request right now.',
       }
-  const normalizedSearchQuery = songSearchQuery.trim().toLowerCase()
+  const deferredSongSearchQuery = useDeferredValue(songSearchQuery)
+  const normalizedSearchQuery = deferredSongSearchQuery.trim().toLowerCase()
 
   const queuedLibrarySongIds = useMemo(() => (
     new Set(
