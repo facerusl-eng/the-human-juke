@@ -666,6 +666,35 @@ async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
   return []
 }
 
+async function fetchUpcomingEventsFast(): Promise<AudienceUpcomingEvent[]> {
+  const apiPromise = (async () => {
+    try {
+      return await fetchUpcomingEventsFromApi()
+    } catch (apiError) {
+      if (!isExpectedApiFallbackError(apiError)) {
+        console.warn('EventPage: /events fetch failed, falling back to Supabase', apiError)
+      }
+      throw apiError
+    }
+  })()
+
+  const fallbackPromise = withPromiseTimeout(
+    fetchUpcomingEventRows(),
+    UPCOMING_FALLBACK_TIMEOUT_MS,
+    'EventPage: upcoming events fallback timed out',
+  ).then((eventRows) => mapUpcomingEvents(eventRows))
+
+  try {
+    return await Promise.any([apiPromise, fallbackPromise])
+  } catch (error) {
+    if (error instanceof AggregateError && Array.isArray(error.errors) && error.errors.length > 0) {
+      throw error.errors[0]
+    }
+
+    throw error
+  }
+}
+
 function hasUnsafeControlChars(value: string) {
   for (let index = 0; index < value.length; index += 1) {
     const charCode = value.charCodeAt(index)
@@ -1605,21 +1634,7 @@ function EventPage() {
       }
 
       try {
-        let mappedEvents: AudienceUpcomingEvent[] = []
-
-        try {
-          mappedEvents = await fetchUpcomingEventsFromApi()
-        } catch (apiError) {
-          if (!isExpectedApiFallbackError(apiError)) {
-            console.warn('EventPage: /events fetch failed, falling back to Supabase', apiError)
-          }
-          const eventRows = await withPromiseTimeout(
-            fetchUpcomingEventRows(),
-            UPCOMING_FALLBACK_TIMEOUT_MS,
-            'EventPage: upcoming events fallback timed out',
-          )
-          mappedEvents = mapUpcomingEvents(eventRows)
-        }
+        const mappedEvents = await fetchUpcomingEventsFast()
 
         if (!isCurrent) {
           return
@@ -1645,18 +1660,7 @@ function EventPage() {
                   throw signInError
                 }
 
-                let refreshedEvents: AudienceUpcomingEvent[] = []
-
-                try {
-                  refreshedEvents = await fetchUpcomingEventsFromApi()
-                } catch {
-                  const eventRows = await withPromiseTimeout(
-                    fetchUpcomingEventRows(),
-                    UPCOMING_FALLBACK_TIMEOUT_MS,
-                    'EventPage: upcoming events fallback timed out',
-                  )
-                  refreshedEvents = mapUpcomingEvents(eventRows)
-                }
+                const refreshedEvents = await fetchUpcomingEventsFast()
 
                 if (!isCurrent) {
                   return
@@ -1691,18 +1695,7 @@ function EventPage() {
               throw signInError
             }
 
-            let mappedEvents: AudienceUpcomingEvent[] = []
-
-            try {
-              mappedEvents = await fetchUpcomingEventsFromApi()
-            } catch {
-              const eventRows = await withPromiseTimeout(
-                fetchUpcomingEventRows(),
-                UPCOMING_FALLBACK_TIMEOUT_MS,
-                'EventPage: upcoming events fallback timed out',
-              )
-              mappedEvents = mapUpcomingEvents(eventRows)
-            }
+            const mappedEvents = await fetchUpcomingEventsFast()
 
             if (isCurrent) {
               setUpcomingEvents(mappedEvents)
@@ -2020,7 +2013,7 @@ function EventPage() {
 
     // If auth is still in progress (no user yet), show the loading skeleton.
     // Showing "no live show" while auth reconnects after a retry is misleading.
-    if (authLoading && !user) {
+    if (authLoading && !user && upcomingEventsLoading && upcomingEvents.length === 0) {
       return (
         <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
           <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
