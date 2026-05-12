@@ -150,50 +150,17 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
   return locale === 'da' ? `Slutter ${formatClockTime(gigEndTime as string)}` : `Ends ${formatClockTime(gigEndTime as string)}`
 }
 
-function buildCalendarLinks(event: AudienceUpcomingEvent): { googleUrl: string; icsDataUri: string } | null {
+function buildCalendarLinks(event: AudienceUpcomingEvent): { icsUrl: string; webcalUrl: string } | null {
   if (!event.gigDate) return null
-
-  const pad = (n: number) => String(n).padStart(2, '0')
-  function toIcsDate(d: Date): string {
-    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`
-  }
 
   const startDate = parseEventDate(event.gigDate, event.gigStartTime)
   if (!startDate) return null
 
-  let endDate: Date
-  if (event.gigEndTime) {
-    const norm = normalizeTimeForDate(event.gigEndTime)
-    const candidate = new Date(`${event.gigDate}T${norm}:00`)
-    endDate = Number.isNaN(candidate.getTime()) ? new Date(startDate.getTime() + 2 * 60 * 60 * 1000) : candidate
-  } else {
-    endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000)
-  }
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.the-human-jukebox.org'
+  const icsUrl = `${origin}/api/calendar-ics?event=${encodeURIComponent(event.id)}`
+  const webcalUrl = icsUrl.replace(/^https?:\/\//i, 'webcal://')
 
-  const dtStart = toIcsDate(startDate)
-  const dtEnd = toIcsDate(endDate)
-  const venue = event.venue?.trim() || ''
-
-  const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.name)}&dates=${dtStart}%2F${dtEnd}${venue ? `&location=${encodeURIComponent(venue)}` : ''}`
-
-  const icsLines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Human Jukebox//EN',
-    'BEGIN:VEVENT',
-    `UID:${event.id}@humanjukebox.dk`,
-    `DTSTART:${dtStart}`,
-    `DTEND:${dtEnd}`,
-    `SUMMARY:${event.name.replace(/[\r\n]/g, ' ')}`,
-    venue ? `LOCATION:${venue.replace(/[\r\n]/g, ' ')}` : null,
-    'END:VEVENT',
-    'END:VCALENDAR',
-  ].filter(Boolean).join('\r\n')
-
-  return {
-    googleUrl,
-    icsDataUri: `data:text/calendar;charset=utf-8,${encodeURIComponent(icsLines)}`,
-  }
+  return { icsUrl, webcalUrl }
 }
 
 function AudienceNoGigState({
@@ -326,28 +293,20 @@ function AudienceNoGigState({
         karafunNote: 'Karaoke is powered by KaraFun.',
       }
 
-  const handleAddToCalendar = (upcomingEvent: AudienceUpcomingEvent, calLinks: { googleUrl: string; icsDataUri: string }) => {
+  const handleAddToCalendar = (upcomingEvent: AudienceUpcomingEvent, calLinks: { icsUrl: string; webcalUrl: string }) => {
     const confirmationMessage = copy.confirmAddToCalendar.replace('{event}', upcomingEvent.name)
 
     if (!window.confirm(confirmationMessage)) {
       return
     }
 
-    const isMobileDevice = /android|iphone|ipad|ipod/i.test(navigator.userAgent)
-    const safeFileName = `${upcomingEvent.name.replace(/[\\/:*?"<>|]+/g, '').trim() || 'event'}.ics`
+    // Try opening the user's default calendar app first.
+    // Browsers that don't support webcal:// will fall back to the hosted ICS URL.
+    window.location.assign(calLinks.webcalUrl)
 
-    if (isMobileDevice) {
-      const downloadLink = document.createElement('a')
-      downloadLink.href = calLinks.icsDataUri
-      downloadLink.download = safeFileName
-      downloadLink.rel = 'noopener noreferrer'
-      document.body.appendChild(downloadLink)
-      downloadLink.click()
-      document.body.removeChild(downloadLink)
-      return
-    }
-
-    window.open(calLinks.googleUrl, '_blank', 'noopener,noreferrer')
+    window.setTimeout(() => {
+      window.location.assign(calLinks.icsUrl)
+    }, 1200)
   }
 
   return (
