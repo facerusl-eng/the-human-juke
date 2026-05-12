@@ -203,6 +203,9 @@ const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
 const UPCOMING_COVER_FETCH_TIMEOUT_MS = 12000
 const UPCOMING_COVER_FETCH_MAX_EVENTS = 10
 const UPCOMING_ERROR_LOG_THROTTLE_MS = 60000
+const UPCOMING_RETRY_BASE_DELAY_MS = 8000
+const UPCOMING_RETRY_MAX_DELAY_MS = 120000
+const UPCOMING_RETRY_JITTER_MS = 2000
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
 const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v3'
@@ -760,6 +763,19 @@ function buildUpcomingErrorLogKey(error: unknown): string {
   return 'unknown-upcoming-events-error'
 }
 
+function getUpcomingRetryDelayMs(failureCount: number): number {
+  if (failureCount <= 0) {
+    return 0
+  }
+
+  const exponentialFactor = Math.min(failureCount - 1, 5)
+  const baseDelay = UPCOMING_RETRY_BASE_DELAY_MS * (2 ** exponentialFactor)
+  const clampedDelay = Math.min(baseDelay, UPCOMING_RETRY_MAX_DELAY_MS)
+  const jitter = Math.floor(Math.random() * UPCOMING_RETRY_JITTER_MS)
+
+  return clampedDelay + jitter
+}
+
 async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
   try {
     const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
@@ -875,6 +891,9 @@ function EventPage() {
   const upcomingNoticeTimerRef = useRef<number | null>(null)
   const upcomingNoticeValueRef = useRef<string | null>(null)
   const upcomingErrorLogMapRef = useRef<Map<string, number>>(new Map())
+  const upcomingLoadInFlightRef = useRef(false)
+  const upcomingNextRefreshAtRef = useRef(0)
+  const upcomingFailureCountRef = useRef(0)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -1774,6 +1793,18 @@ function EventPage() {
     let pollTimerId: number | null = null
 
     const loadUpcomingEvents = async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
+      const now = Date.now()
+
+      if (upcomingLoadInFlightRef.current) {
+        return
+      }
+
+      if (!showLoading && now < upcomingNextRefreshAtRef.current) {
+        return
+      }
+
+      upcomingLoadInFlightRef.current = true
+
       if (showLoading && upcomingEventsRef.current.length === 0) {
         setUpcomingEventsLoading(true)
       }
@@ -1787,6 +1818,8 @@ function EventPage() {
 
         setUpcomingEvents(mappedEvents)
         saveUpcomingEventsCache(mappedEvents)
+        upcomingFailureCountRef.current = 0
+        upcomingNextRefreshAtRef.current = 0
 
         if (mappedEvents.length === 0) {
           setUpcomingNoticeDebounced('No upcoming gigs have been posted yet.', 250)
@@ -1856,6 +1889,8 @@ function EventPage() {
             if (isCurrent) {
               setUpcomingEvents(mappedEvents)
               saveUpcomingEventsCache(mappedEvents)
+              upcomingFailureCountRef.current = 0
+              upcomingNextRefreshAtRef.current = 0
 
               if (mappedEvents.length === 0) {
                 setUpcomingNoticeDebounced('No upcoming gigs have been posted yet.', 250)
@@ -1871,6 +1906,10 @@ function EventPage() {
         }
 
         if (isCurrent) {
+          upcomingFailureCountRef.current += 1
+          const retryDelay = getUpcomingRetryDelayMs(upcomingFailureCountRef.current)
+          upcomingNextRefreshAtRef.current = Date.now() + retryDelay
+
           const staleCachedEvents = readUpcomingEventsCache({ allowStale: true })
 
           if (staleCachedEvents.length > 0) {
@@ -1887,6 +1926,8 @@ function EventPage() {
           }
         }
       } finally {
+        upcomingLoadInFlightRef.current = false
+
         if (isCurrent && showLoading) {
           setUpcomingEventsLoading(false)
         }
