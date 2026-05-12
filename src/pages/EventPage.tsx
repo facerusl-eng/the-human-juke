@@ -203,6 +203,7 @@ const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 18000
 const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
 const UPCOMING_COVER_FETCH_TIMEOUT_MS = 12000
 const UPCOMING_COVER_FETCH_MAX_EVENTS = 10
+const UPCOMING_COVER_RETRY_DELAY_MS = 30000
 const UPCOMING_ERROR_LOG_THROTTLE_MS = 60000
 const UPCOMING_RETRY_BASE_DELAY_MS = 8000
 const UPCOMING_RETRY_MAX_DELAY_MS = 120000
@@ -888,7 +889,8 @@ function EventPage() {
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
-  const upcomingCoverFetchAttemptedRef = useRef<Set<string>>(new Set())
+  const upcomingCoverFetchInFlightRef = useRef<Set<string>>(new Set())
+  const upcomingCoverFetchRetryAfterRef = useRef<Map<string, number>>(new Map())
   const upcomingNoticeTimerRef = useRef<number | null>(null)
   const upcomingNoticeValueRef = useRef<string | null>(null)
   const upcomingErrorLogMapRef = useRef<Map<string, number>>(new Map())
@@ -1220,9 +1222,23 @@ function EventPage() {
       return
     }
 
+    const now = Date.now()
+    const eventIds = new Set(upcomingEvents.map((upcomingEvent) => upcomingEvent.id))
+
+    // Prune retry state for events no longer in view.
+    for (const trackedEventId of upcomingCoverFetchRetryAfterRef.current.keys()) {
+      if (!eventIds.has(trackedEventId)) {
+        upcomingCoverFetchRetryAfterRef.current.delete(trackedEventId)
+      }
+    }
+
     const missingCoverEvents = upcomingEvents
       .filter((upcomingEvent) => !upcomingEvent.coverImageUrl)
-      .filter((upcomingEvent) => !upcomingCoverFetchAttemptedRef.current.has(upcomingEvent.id))
+      .filter((upcomingEvent) => !upcomingCoverFetchInFlightRef.current.has(upcomingEvent.id))
+      .filter((upcomingEvent) => {
+        const retryAfter = upcomingCoverFetchRetryAfterRef.current.get(upcomingEvent.id) ?? 0
+        return retryAfter <= now
+      })
       .slice(0, UPCOMING_COVER_FETCH_MAX_EVENTS)
 
     if (missingCoverEvents.length === 0) {
@@ -1237,14 +1253,17 @@ function EventPage() {
           return
         }
 
-        upcomingCoverFetchAttemptedRef.current.add(upcomingEvent.id)
+        upcomingCoverFetchInFlightRef.current.add(upcomingEvent.id)
 
         try {
           const coverImageUrl = await fetchUpcomingEventCoverById(upcomingEvent.id, UPCOMING_COVER_FETCH_TIMEOUT_MS)
 
           if (!isCurrent || !coverImageUrl) {
+            upcomingCoverFetchRetryAfterRef.current.set(upcomingEvent.id, Date.now() + UPCOMING_COVER_RETRY_DELAY_MS)
             continue
           }
+
+          upcomingCoverFetchRetryAfterRef.current.delete(upcomingEvent.id)
 
           setUpcomingEvents((previousEvents) => {
             const index = previousEvents.findIndex((eventRow) => eventRow.id === upcomingEvent.id)
@@ -1264,6 +1283,9 @@ function EventPage() {
           })
         } catch {
           // Best effort only - keep text-first cards if an image cannot be fetched quickly.
+          upcomingCoverFetchRetryAfterRef.current.set(upcomingEvent.id, Date.now() + UPCOMING_COVER_RETRY_DELAY_MS)
+        } finally {
+          upcomingCoverFetchInFlightRef.current.delete(upcomingEvent.id)
         }
       }
     }
