@@ -152,15 +152,45 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
 }
 
 function getUpcomingEventFallbackCoverUrl(event: AudienceUpcomingEvent) {
-  if (event.eventTheme === 'karaoke') {
+  const resolvedTheme = event.eventTheme === 'karaoke'
+    ? 'karaoke'
+    : event.eventTheme === 'harald-live'
+    ? 'harald-live'
+    : event.eventType === 'karaoke'
+    ? 'karaoke'
+    : 'human-jukebox'
+
+  if (resolvedTheme === 'karaoke') {
     return '/images/playlist-karaoke.jpg'
   }
 
-  if (event.eventTheme === 'harald-live') {
+  if (resolvedTheme === 'harald-live') {
     return '/images/Harald%20Live.png'
   }
 
   return '/images/playlist-human-jukebox.jpg'
+}
+
+function isKnownPlaylistCover(url: string): boolean {
+  const normalized = decodeURIComponent(url).toLowerCase()
+
+  return normalized.includes('/images/playlist-karaoke.jpg')
+    || normalized.includes('/images/playlist-human-jukebox.jpg')
+    || normalized.includes('/images/harald live.png')
+}
+
+function resolveUpcomingEventCoverUrl(event: AudienceUpcomingEvent): string {
+  const fallbackCoverUrl = getUpcomingEventFallbackCoverUrl(event)
+
+  if (!event.coverImageUrl) {
+    return fallbackCoverUrl
+  }
+
+  if (isKnownPlaylistCover(event.coverImageUrl)) {
+    return fallbackCoverUrl
+  }
+
+  return event.coverImageUrl
 }
 
 function buildCalendarLinks(event: AudienceUpcomingEvent): { icsUrl: string } | null {
@@ -412,7 +442,7 @@ function AudienceNoGigState({
                 const timeRangeLabel = formatUpcomingEventTimeRange(upcomingEvent.gigStartTime, upcomingEvent.gigEndTime, locale)
                 const eventHref = getEventHref ? getEventHref(upcomingEvent.id) : null
                 const calLinks = buildCalendarLinks(upcomingEvent)
-                const eventCoverImageUrl = upcomingEvent.coverImageUrl ?? getUpcomingEventFallbackCoverUrl(upcomingEvent)
+                const eventCoverImageUrl = resolveUpcomingEventCoverUrl(upcomingEvent)
 
                 return (
                   <article key={upcomingEvent.id} className="audience-no-gig-event-card">

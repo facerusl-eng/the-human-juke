@@ -2468,7 +2468,7 @@ function MirrorPage() {
       ) : null}
 
       <main className={`mirror-stage ${isLive ? 'mirror-stage-live' : ''}`}>
-        {!isLive && !nowPlaying ? (
+        {!isLive && !nowPlaying && !demoMode ? (
           <section
             className={`mirror-pre-show ${showCountdown ? 'mirror-pre-show-has-countdown' : ''}`.trim()}
             aria-label="Pre-show welcome"
@@ -2632,7 +2632,7 @@ function MirrorPage() {
                 <LiveFeedPanel mode="mirror" showComposer={false} title="Community Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
               </section>
 
-              {!isKaraokeEvent && !(isBuildSelfEvent && !audienceVotingEnabled) && !isHaraldLiveEvent ? (
+              {(demoMode || (!isKaraokeEvent && !(isBuildSelfEvent && !audienceVotingEnabled) && !isHaraldLiveEvent)) ? (
               <section className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`} aria-label="Song queue frame">
                 <p className="mirror-up-next-label">Queue</p>
                 {upNext.length > 0 ? (
