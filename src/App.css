@@ -1811,6 +1811,23 @@
   gap: 0.75rem;
 }
 
+.audience-no-gig-guide-actions .secondary-button,
+.audience-no-gig-guide-actions a.secondary-button,
+.audience-social-links-inline .secondary-button,
+.audience-social-links-inline a.secondary-button {
+  background: color-mix(in srgb, var(--panel-alt) 86%, var(--accent) 14%);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--panel-border) 56%);
+  color: var(--ink-strong);
+}
+
+.audience-no-gig-guide-actions .secondary-button:hover,
+.audience-no-gig-guide-actions a.secondary-button:hover,
+.audience-social-links-inline .secondary-button:hover,
+.audience-social-links-inline a.secondary-button:hover {
+  background: color-mix(in srgb, var(--panel-alt) 72%, var(--accent) 28%);
+  border-color: color-mix(in srgb, var(--accent) 66%, var(--panel-border) 34%);
+}
+
 @media (max-width: 560px) {
   .page-logo-loader-shell .secondary-button,
   .page-logo-loader-shell a.secondary-button {
