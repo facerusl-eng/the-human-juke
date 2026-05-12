@@ -526,7 +526,7 @@ function getExpectedApiFallbackStatusCode(error: unknown): number | null {
   return Number.isFinite(parsedStatus) ? parsedStatus : null
 }
 
-function readUpcomingEventsCache(): AudienceUpcomingEvent[] {
+function readUpcomingEventsCache({ allowStale = false }: { allowStale?: boolean } = {}): AudienceUpcomingEvent[] {
   if (typeof window === 'undefined') {
     return []
   }
@@ -542,7 +542,7 @@ function readUpcomingEventsCache(): AudienceUpcomingEvent[] {
     const updatedAt = typeof parsedCache?.updatedAt === 'number' ? parsedCache.updatedAt : 0
     const events = Array.isArray(parsedCache?.events) ? parsedCache.events : []
 
-    if (!updatedAt || Date.now() - updatedAt > UPCOMING_EVENTS_CACHE_MAX_AGE_MS) {
+    if (!allowStale && (!updatedAt || Date.now() - updatedAt > UPCOMING_EVENTS_CACHE_MAX_AGE_MS)) {
       return []
     }
 
@@ -1699,6 +1699,14 @@ function EventPage() {
         }
 
         if (isCurrent) {
+          const staleCachedEvents = readUpcomingEventsCache({ allowStale: true })
+
+          if (staleCachedEvents.length > 0) {
+            setUpcomingEvents(staleCachedEvents)
+            setUpcomingNoticeDebounced('Refreshing upcoming gigs...', 250)
+            return
+          }
+
           if (upcomingEventsRef.current.length === 0) {
             setUpcomingEvents([])
             setUpcomingNoticeDebounced('Refreshing upcoming gigs...', 250)
