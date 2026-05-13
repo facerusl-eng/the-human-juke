@@ -11,6 +11,7 @@ import '../styles/home-landing.css'
 type HomeLang = 'en' | 'da'
 
 const BOOKING_MANAGER_URL = import.meta.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
+const INTERNAL_BOOKING_ENDPOINT = '/api/book-show'
 const EXTERNAL_BOOKING_WEBHOOK_URL = 'https://preview--book-jukebox.base44.app/api/webhook/receiveExternalBooking'
 const EXTERNAL_BOOKING_PAYLOAD = {
   venue_name: 'The Blue Note',
@@ -27,7 +28,7 @@ const COPY = {
     h1Line1: 'Your crowd picks the songs.',
     h1Line2: 'Your pub becomes',
     h1Accent: 'the place to be.',
-    subtitle: 'I\'m Harald — a live performer who brings an interactive jukebox show to your pub. Your guests request songs, vote the queue, and sing along in karaoke mode. All on a shared screen your whole bar can see.',
+    subtitle: 'I\'m Harald - a live performer who brings an interactive jukebox show to your pub. Your guests request songs, vote the queue, and sing along in karaoke mode. All on a shared screen your whole bar can see.',
     bookCta: 'Book the show',
     demoCta: 'See how it works',
     stats: [
@@ -50,7 +51,7 @@ const COPY = {
     ],
     ctaEyebrow: 'Ready to give your pub a night they\'ll talk about?',
     ctaHeading: "Book The Human Jukebox for your pub's next event",
-    ctaSub: 'Pubs, bars, restaurants, private parties and festivals. One message is all it takes — I\'ll handle the rest.',
+    ctaSub: 'Pubs, bars, restaurants, private parties and festivals. One message is all it takes - I\'ll handle the rest.',
     ctaBook: 'Book the show',
     ctaDemo: 'Try the demo first',
     signupLabel: 'Get availability updates by email',
@@ -59,38 +60,38 @@ const COPY = {
   },
   da: {
     eyebrow: 'Live musikshow til din pub',
-    h1Line1: 'Dine gæster vælger sangene.',
+    h1Line1: 'Dine gaester vaelger sangene.',
     h1Line2: 'Din pub bliver',
     h1Accent: 'stedet alle taler om.',
-    subtitle: 'Jeg hedder Harald — en live performer der bringer en interaktiv jukebox til din pub. Dine gæster ønsker sange, stemmer på køen og synger med i karaoke. Alt på en fælles skærm hele baren kan se.',
+    subtitle: 'Jeg hedder Harald - en live performer der bringer en interaktiv jukebox til din pub. Dine gaester onsker sange, stemmer pa koen og synger med i karaoke. Alt pa en faelles skaerm hele baren kan se.',
     bookCta: 'Book showet',
     demoCta: 'Se hvordan det virker',
     stats: [
-      { value: '500+', label: 'Sangønsker per show' },
-      { value: '100%', label: 'Publikumsstyret sætliste' },
-      { value: '0', label: 'Apps gæsterne skal installere' },
+      { value: '500+', label: 'Sangonsker per show' },
+      { value: '100%', label: 'Publikumsstyret saetliste' },
+      { value: '0', label: 'Apps gaesterne skal installere' },
       { value: '40+', label: 'Spillesteder underholdt' },
     ],
-    featuresTitle: 'Sådan virker det',
+    featuresTitle: 'Sadan virker det',
     features: [
-      { icon: 'building', label: 'Du booker showet', copy: 'Én besked er alt, der skal til. Jeg møder op fuldt klar til at spille.' },
-      { icon: 'phone', label: 'Gæster scanner og deltager', copy: 'Ingen app at installere. Gæster ønsker og stemmer fra enhver telefon.' },
-      { icon: 'chat', label: 'Publikum styrer sættet', copy: 'Live ønsker og stemmer flytter køen i realtid hele aftenen.' },
+      { icon: 'building', label: 'Du booker showet', copy: 'En besked er alt, der skal til. Jeg moder op fuldt klar til at spille.' },
+      { icon: 'phone', label: 'Gaester scanner og deltager', copy: 'Ingen app at installere. Gaester onsker og stemmer fra enhver telefon.' },
+      { icon: 'chat', label: 'Publikum styrer saettet', copy: 'Live onsker og stemmer flytter koen i realtid hele aftenen.' },
     ],
     socialTitle: 'Booket af steder der vil have fuldt hus',
     socialProof: [
-      { quote: 'Gæsterne blev længere og brugte mere, fordi de var investeret i køen.', name: 'Pubejer, København' },
-      { quote: 'Det nemmeste livekoncept vi har kørt. Opsætning var gnidningsfri.', name: 'Barmanager, Reykjavik' },
-      { quote: 'Ingen app-friktion. Folk var i gang med det samme og stemte hele aftenen.', name: 'Eventvært, Aarhus' },
+      { quote: 'Gaesterne blev laengere og brugte mere, fordi de var investeret i koen.', name: 'Pubejer, Kobenhavn' },
+      { quote: 'Det nemmeste livekoncept vi har kort. Opsaetning var gnidningsfri.', name: 'Barmanager, Reykjavik' },
+      { quote: 'Ingen app-friktion. Folk var i gang med det samme og stemte hele aftenen.', name: 'Eventvaert, Aarhus' },
     ],
     ctaEyebrow: 'Klar til at give din pub en aften de taler om?',
-    ctaHeading: 'Book The Human Jukebox til din pubs næste event',
-    ctaSub: 'Pubber, barer, restauranter, private fester og festivaler. Én besked er nok — jeg klarer resten.',
+    ctaHeading: 'Book The Human Jukebox til din pubs naeste event',
+    ctaSub: 'Pubber, barer, restauranter, private fester og festivaler. En besked er nok - jeg klarer resten.',
     ctaBook: 'Book showet',
-    ctaDemo: 'Prøv demo først',
-    signupLabel: 'Få ledige datoer på email',
+    ctaDemo: 'Prov demo forst',
+    signupLabel: 'Fa ledige datoer pa email',
     signupPlaceholder: 'dig@spillested.dk',
-    signupCta: 'Få updates',
+    signupCta: 'Fa updates',
   },
 }
 
@@ -130,13 +131,22 @@ function HomePage() {
 
     void (async () => {
       try {
-        const response = await fetch(EXTERNAL_BOOKING_WEBHOOK_URL, {
+        let response = await fetch(INTERNAL_BOOKING_ENDPOINT, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(EXTERNAL_BOOKING_PAYLOAD),
         })
+
+        if (!response.ok) {
+          response = await fetch(EXTERNAL_BOOKING_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(EXTERNAL_BOOKING_PAYLOAD),
+          })
+        }
 
         if (!response.ok) {
           throw new Error(`Webhook failed with status ${response.status}`)
@@ -145,7 +155,7 @@ function HomePage() {
         setBookingNotice(lang === 'da' ? 'Booking sendt. Vi kontakter dig snart.' : 'Booking sent. We will contact you shortly.')
       } catch (error) {
         console.warn('HomePage: failed to send booking webhook', error)
-        setBookingNotice(lang === 'da' ? 'Booking kunne ikke sendes. Prøv igen.' : 'Booking could not be sent. Please try again.')
+        setBookingNotice(lang === 'da' ? 'Booking kunne ikke sendes. Prov igen.' : 'Booking could not be sent. Please try again.')
       } finally {
         setBookingBusy(false)
       }
@@ -228,54 +238,35 @@ function HomePage() {
               </button>
             </div>
             <div className="lp-hero-cta" aria-label="Primary actions">
-              <PrimaryButton onClick={openBookingFlow}>{copy.bookCta}</PrimaryButton>
-              <PrimaryButton variant="secondary" onClick={openAudienceDemo}>{copy.demoCta}</PrimaryButton>
-              <button type="button" className="lp-admin-btn" onClick={openAdminLogin}>Admin Login</button>
+              <PrimaryButton onClick={openBookingFlow} disabled={bookingBusy}>
+                {bookingBusy ? (lang === 'da' ? 'Sender...' : 'Sending...') : copy.bookCta}
+              </PrimaryButton>
+              <PrimaryButton variant="secondary" onClick={openAudienceDemo}>
+                {copy.demoCta}
+              </PrimaryButton>
             </div>
-            {bookingNotice ? <p className="subcopy" role="status">{bookingNotice}</p> : null}
+            {bookingNotice ? <p className="lp-booking-notice">{bookingNotice}</p> : null}
           </div>
-
-          <div className="lp-hero-mirror" aria-label="Mirror screen preview">
+          <aside className="lp-hero-card" aria-label="Live mirror preview">
             <iframe
+              title="Human Jukebox mirror preview"
               src="/mirror?demo=true&mirrorAccess=force"
-              title="Mirror screen preview"
               loading="lazy"
-              className="lp-hero-mirror-frame"
-              allow="fullscreen"
-              allowFullScreen
-              sandbox="allow-scripts allow-same-origin"
+              className="lp-preview-frame"
             />
-            <div className="lp-hero-mirror-actions">
-              <a
-                href="/mirror?demo=true&mirrorAccess=force&launchFullscreen=1"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="lp-mirror-fullscreen-link"
-              >
-                Full Screen
-              </a>
-            </div>
-          </div>
+          </aside>
         </div>
       </section>
 
-      <section className="lp-stats" aria-label="Stats bar">
-        {copy.stats.map((stat) => (
-          <article key={stat.label} className="lp-stat-card">
-            <p className="lp-stat-value">{stat.value}</p>
-            <p className="lp-stat-label">{stat.label}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="lp-section" aria-label="Features section">
-        <h2 className="lp-section-title">{copy.featuresTitle}</h2>
-        <div className="lp-features-grid" role="list">
+      <section className="lp-features" aria-label={copy.featuresTitle}>
+        <h2>{copy.featuresTitle}</h2>
+        <div className="lp-feature-grid">
           {copy.features.map((feature) => {
             const Icon = iconMap[feature.icon as keyof typeof iconMap]
+
             return (
-              <article key={feature.label} className="lp-feature-card" role="listitem">
-                <Icon size={22} strokeWidth={2.1} aria-hidden="true" />
+              <article key={feature.label} className="lp-feature-card">
+                <Icon size={22} aria-hidden="true" />
                 <h3>{feature.label}</h3>
                 <p>{feature.copy}</p>
               </article>
@@ -284,52 +275,51 @@ function HomePage() {
         </div>
       </section>
 
-      <section className="lp-section" aria-label="Social proof section">
-        <h2 className="lp-section-title">{copy.socialTitle}</h2>
-        <div className="lp-social-grid" role="list">
+      <section className="lp-social" aria-label={copy.socialTitle}>
+        <h2>{copy.socialTitle}</h2>
+        <div className="lp-social-grid">
           {copy.socialProof.map((item) => (
-            <article key={item.name} className="lp-social-card" role="listitem">
-              <p className="lp-quote">“{item.quote}”</p>
-              <p className="lp-author">{item.name}</p>
-            </article>
+            <blockquote key={item.name} className="lp-quote-card">
+              <p>"{item.quote}"</p>
+              <cite>{item.name}</cite>
+            </blockquote>
           ))}
         </div>
       </section>
 
-      <section className="lp-cta" aria-label="CTA section">
-        <div className="lp-cta-copy">
-          <p className="lp-eyebrow">{copy.ctaEyebrow}</p>
-          <h2 className="lp-section-title">{copy.ctaHeading}</h2>
-          <p>{copy.ctaSub}</p>
+      <section className="lp-cta-band" aria-label="Book now">
+        <p>{copy.ctaEyebrow}</p>
+        <h2>{copy.ctaHeading}</h2>
+        <p className="lp-cta-sub">{copy.ctaSub}</p>
+        <div className="lp-hero-cta">
+          <PrimaryButton onClick={openBookingFlow} disabled={bookingBusy}>
+            {bookingBusy ? (lang === 'da' ? 'Sender...' : 'Sending...') : copy.ctaBook}
+          </PrimaryButton>
+          <PrimaryButton variant="secondary" onClick={openAudienceDemo}>
+            {copy.ctaDemo}
+          </PrimaryButton>
         </div>
         <form className="lp-signup" onSubmit={submitAvailabilitySignup}>
-          <label htmlFor="home-signup-email">{copy.signupLabel}</label>
+          <label htmlFor="lp-signup-email">{copy.signupLabel}</label>
           <div className="lp-signup-row">
             <input
-              id="home-signup-email"
+              id="lp-signup-email"
               type="email"
-              placeholder={copy.signupPlaceholder}
+              inputMode="email"
               autoComplete="email"
+              placeholder={copy.signupPlaceholder}
               value={signupEmail}
-              onChange={(changeEvent) => {
-                setSignupEmail(changeEvent.target.value)
-                if (signupError) {
-                  setSignupError(null)
-                }
-              }}
-              required
-              aria-invalid={signupError ? 'true' : 'false'}
+              onChange={(event) => setSignupEmail(event.target.value)}
             />
-            <button type="submit" className="lp-signup-btn">
+            <PrimaryButton type="submit">
               {copy.signupCta}
-            </button>
+            </PrimaryButton>
           </div>
-          {signupError ? <p className="subcopy" role="alert">{signupError}</p> : null}
-          <div className="lp-cta-actions">
-            <PrimaryButton onClick={openBookingFlow}>{copy.ctaBook}</PrimaryButton>
-            <PrimaryButton variant="secondary" onClick={openAudienceDemo}>{copy.ctaDemo}</PrimaryButton>
-          </div>
+          {signupError ? <p className="lp-signup-error">{signupError}</p> : null}
         </form>
+        <button type="button" className="lp-admin-link" onClick={openAdminLogin}>
+          Admin login
+        </button>
       </section>
     </section>
   )
