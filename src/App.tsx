@@ -308,14 +308,20 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: 'mirror',
-        element: withSuspense(withCrashBoundary('Mirror', <MirrorPage />)),
-      },
-      {
         path: '*',
         element: <Navigate to="/" replace />,
       },
     ],
+  },
+  {
+    path: '/mirror',
+    element: withCrashBoundary(
+      'Mirror',
+      demoMode
+        ? <DemoAuthProvider><DemoQueueProvider>{withSuspense(<MirrorPage />)}</DemoQueueProvider></DemoAuthProvider>
+        : <AuthProvider><QueueProvider>{withSuspense(<MirrorPage />)}</QueueProvider></AuthProvider>,
+    ),
+    errorElement: <RouteErrorFallback />,
   },
 ])
 
