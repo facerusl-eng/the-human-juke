@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   LayoutDashboard,
   MessageSquare,
   Music4,
@@ -557,7 +559,7 @@ function ShellLayout() {
               aria-label={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               onClick={() => setIsDesktopSidebarCollapsed((collapsed) => !collapsed)}
             >
-              {isDesktopSidebarCollapsed ? '›' : '‹'}
+              {isDesktopSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             </button>
           </div>
         ) : null}
