@@ -91,6 +91,18 @@
   box-sizing: border-box;
 }
 
+/* Keep scroll behavior but hide scrollbar chrome globally. */
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
