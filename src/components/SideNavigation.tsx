@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, ListMusic, MessageSquareMore, PlusCircle, Settings, Sliders, Tv } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, ListMusic, LogOut, MessageSquareMore, PlusCircle, Settings, Sliders, Tv } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 
@@ -333,6 +333,17 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
 
               {authError ? <p className="mt-2 text-xs text-rose-300">{authError}</p> : null}
             </div>
+          ) : user ? (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={Boolean(authBusy)}
+              title="Sign Out"
+              className="mt-1 flex h-10 w-full items-center justify-center rounded-xl text-zinc-400 transition-all duration-200 hover:bg-zinc-900 hover:text-rose-300 hover:shadow-[0_0_14px_rgba(255,0,255,0.20)] disabled:opacity-60"
+              aria-label="Sign Out"
+            >
+              <LogOut size={18} />
+            </button>
           ) : null}
         </div>
       </div>
