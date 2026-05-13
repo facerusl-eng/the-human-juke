@@ -752,6 +752,7 @@ function MirrorPage() {
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
   const activeSong = playbackSong ?? nowPlaying
+  const useLiveSongCardsInDemo = demoMode
   // In demo mode, treat the first song as already playing so the now-playing
   // card shows album art + title instead of the "between songs" quote.
   const liveSessionIsNowPlaying = Boolean(isLive && nowPlaying)
@@ -2248,7 +2249,6 @@ function MirrorPage() {
       {demoMode ? (
         <div className="mirror-demo-exit-bar">
           <span className="mirror-demo-exit-label">Demo Preview</span>
-          <a href="/" className="mirror-demo-exit-button">← Exit Demo</a>
         </div>
       ) : null}
       <header className="mirror-header">
@@ -2470,7 +2470,7 @@ function MirrorPage() {
         ) : (
           <section className="mirror-kiosk-columns" aria-label="Now playing and live queue/feed">
             <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
-                {isKaraokeEvent ? (
+                {!useLiveSongCardsInDemo && isKaraokeEvent ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Karaoke Night">
                     <div className="mirror-now-playing-meta">
                       <h1 className="mirror-title">🎤 Karaoke Night</h1>
@@ -2483,7 +2483,7 @@ function MirrorPage() {
                       ) : null}
                     </div>
                   </div>
-                ) : isBuildSelfEvent && !audienceVotingEnabled ? (
+                ) : !useLiveSongCardsInDemo && isBuildSelfEvent && !audienceVotingEnabled ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Build Self Gig">
                     <div className="mirror-now-playing-meta">
                       <h1 className="mirror-title">{event?.artistName ?? event?.name ?? 'Live Show'}</h1>
@@ -2492,7 +2492,7 @@ function MirrorPage() {
                       <p className="mirror-picked-by">🎵 Setlist Show</p>
                     </div>
                   </div>
-                ) : isHaraldLiveEvent ? (
+                ) : !useLiveSongCardsInDemo && isHaraldLiveEvent ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Harald Live Show">
                     <div className="mirror-now-playing-meta">
                       <h1 className="mirror-title">{event?.artistName ?? event?.name ?? 'Live Show'}</h1>
