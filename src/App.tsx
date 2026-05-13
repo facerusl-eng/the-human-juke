@@ -3,11 +3,7 @@ import './App.css'
 import './setlist-library.css'
 import './gig-settings.css'
 import './admin-settings.css'
-import './promote-event.css'
-import './book-show.css'
-import './tiktok-lab.css'
 import './components/ui/ui.css'
-import './styles/ai-manager.css'
 import './styles/mirror.css'
 import { Suspense, lazy, useEffect } from 'react'
 import { Navigate, createBrowserRouter, isRouteErrorResponse, useNavigate, useRouteError, useParams } from 'react-router-dom'
@@ -72,14 +68,9 @@ const GigSettingsPage = lazyWithChunkReload(() => import('./pages/GigSettingsPag
 const GigsPage = lazyWithChunkReload(() => import('./pages/GigsPage'))
 const HealthCheckPage = lazyWithChunkReload(() => import('./pages/HealthCheckPage'))
 const HomePage = lazyWithChunkReload(() => import('./pages/HomePage'))
-const BookShowPage = lazyWithChunkReload(() => import('./pages/BookShowPage'))
 const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
 const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
-const PromoteEventPage = lazyWithChunkReload(() => import('./pages/PromoteEventPage'))
-const TikTokLabPage = lazyWithChunkReload(() => import('./pages/TikTokLabPage'))
-const ReceivedBookingsPage = lazyWithChunkReload(() => import('./pages/ReceivedBookingsPage'))
-const VenueOutreachPage = lazyWithChunkReload(() => import('./pages/VenueOutreachPage'))
 const SettingsPage = lazyWithChunkReload(() => import('./pages/SettingsPage'))
 const SpotifyCallbackPage = lazyWithChunkReload(() => import('./pages/SpotifyCallbackPage'))
 
@@ -173,10 +164,6 @@ const router = createBrowserRouter([
       {
         index: true,
         element: withSuspense(<HomePage />),
-      },
-      {
-        path: 'book-show',
-        element: withSuspense(<BookShowPage />),
       },
       {
         path: 'audience',
@@ -321,66 +308,14 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: 'admin/promote-event',
-        element: withSuspense(
-          withCrashBoundary(
-            'Admin',
-            <RequireHost>
-              <PromoteEventPage />
-            </RequireHost>,
-          ),
-        ),
-      },
-      {
-        path: 'admin/tiktok-lab',
-        element: withSuspense(
-          withCrashBoundary(
-            'Admin',
-            <RequireHost>
-              <TikTokLabPage />
-            </RequireHost>,
-          ),
-        ),
-      },
-      {
-        path: 'admin/received-bookings',
-        element: withSuspense(
-          withCrashBoundary(
-            'Admin',
-            <RequireHost>
-              <ReceivedBookingsPage />
-            </RequireHost>,
-          ),
-        ),
-      },
-      {
-        path: 'admin/venue-outreach',
-        element: withSuspense(
-          withCrashBoundary(
-            'Admin',
-            <RequireHost>
-              <VenueOutreachPage />
-            </RequireHost>,
-          ),
-        ),
+        path: 'mirror',
+        element: withSuspense(withCrashBoundary('Mirror', <MirrorPage />)),
       },
       {
         path: '*',
         element: <Navigate to="/" replace />,
       },
     ],
-  },
-  {
-    path: '/mirror',
-    element: withSuspense(
-      withCrashBoundary(
-        'Mirror',
-        demoMode
-          ? <DemoAuthProvider><DemoQueueProvider><MirrorPage /></DemoQueueProvider></DemoAuthProvider>
-          : <AuthProvider><QueueProvider><MirrorPage /></QueueProvider></AuthProvider>,
-      ),
-    ),
-    errorElement: <RouteErrorFallback />,
   },
 ])
 

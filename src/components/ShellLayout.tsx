@@ -1,24 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  LayoutDashboard,
-  MessageSquare,
-  Music4,
-  Settings2,
-  ShieldCheck,
-  Users,
-} from 'lucide-react'
-import { AUDIENCE_NAME_COMMITTED_EVENT, readCommittedAudienceName } from '../lib/audienceIdentity'
+import { useEffect, useState } from 'react'
+import { Outlet } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
-import { useQueueStore } from '../state/queueStore'
 import { demoMode } from '../demo/demoMode'
 import { DemoBanner } from '../demo/DemoBanner'
+import SideNavigation from './SideNavigation'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
-const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const DESKTOP_SIDEBAR_COLLAPSED_STORAGE_KEY = 'human-jukebox-desktop-sidebar-collapsed'
 
 const RUNTIME_THEME_PRESETS: Record<string, Record<string, string>> = {
@@ -79,16 +66,15 @@ function isValidHexColor(value: string | null | undefined) {
 }
 
 function ShellLayout() {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const { user, profile, isHost, loading, signOut } = useAuthStore()
-  const { event } = useQueueStore()
-  const [errorText, setErrorText] = useState<string | null>(null)
+  const { profile, user, loading } = useAuthStore()
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
-  const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine)
-  const [authActionBusy, setAuthActionBusy] = useState<null | 'sign-in' | 'sign-out'>(null)
-  const [hasAudienceAccess, setHasAudienceAccess] = useState(() => Boolean(readCommittedAudienceName()))
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.matchMedia('(max-width: 1024px)').matches
+  })
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(() => {
     try {
       return window.localStorage.getItem(DESKTOP_SIDEBAR_COLLAPSED_STORAGE_KEY) === '1'
@@ -96,88 +82,6 @@ function ShellLayout() {
       return false
     }
   })
-  const [isGigMenuOpen, setIsGigMenuOpen] = useState(false)
-  const [isGigMenuForceClosed, setIsGigMenuForceClosed] = useState(false)
-  const mobileNavToggleRef = useRef<HTMLButtonElement | null>(null)
-  const gigMenuRef = useRef<HTMLDivElement | null>(null)
-  const gigMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
-  const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
-  const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
-  const isAdminMode = location.pathname.startsWith('/admin')
-  const isGigNavActive = /^\/admin\/(gigs|create-gig|gig-control|gig-settings)/.test(location.pathname)
-  const showMobileMenu = !isAudienceMode
-  const hasLiveGig = Boolean(event?.roomOpen)
-  const canOpenFeed = isHost || (hasAudienceAccess && hasLiveGig)
-  const shellClassName = isAudienceSongListMode
-    ? 'app-shell app-shell-audience-fullscreen'
-    : location.pathname.startsWith('/admin/setlist-library')
-    ? `app-shell app-shell-wide app-shell-rail ${isDesktopSidebarCollapsed ? 'app-shell-sidebar-collapsed' : ''}`.trim()
-    : isAudienceMode
-    ? 'app-shell app-shell-audience'
-    : `app-shell app-shell-rail ${isDesktopSidebarCollapsed ? 'app-shell-sidebar-collapsed' : ''}`.trim()
-  const topbarClassName = [
-    'topbar',
-    isAdminMode ? 'topbar-admin' : '',
-    'topbar-rail',
-    isDesktopSidebarCollapsed ? 'topbar-rail-collapsed' : '',
-  ].filter(Boolean).join(' ')
-  const siteNavClassName = [
-    'site-nav',
-    isAdminMode ? 'site-nav-admin' : '',
-    showMobileMenu ? 'site-nav-collapsible' : '',
-    isMobileNavOpen ? 'site-nav-open' : '',
-  ].filter(Boolean).join(' ')
-  const showMobileBottomNav = !isAudienceMode && !isAudienceSongListMode
-  const feedUnreadCount = canOpenFeed && !location.pathname.startsWith('/feed') && runtimeNotice ? 1 : 0
-  const mobileRouteTitle = location.pathname.startsWith('/admin/gig-control')
-    ? 'Gig Control'
-    : location.pathname.startsWith('/admin/gig-settings')
-    ? 'Gig Settings'
-    : location.pathname.startsWith('/admin/gigs')
-    ? 'All Gigs'
-    : location.pathname.startsWith('/admin/create-gig')
-    ? 'Create Gig'
-    : location.pathname.startsWith('/admin/setlist-library')
-    ? 'Setlist Library'
-    : location.pathname.startsWith('/admin')
-    ? 'Admin'
-    : location.pathname.startsWith('/audience')
-    ? 'Audience'
-    : location.pathname.startsWith('/feed')
-    ? 'Live Feed'
-    : 'Home'
-  const mobileBottomNavItems = [
-    { to: '/', label: 'Home', show: true },
-    { to: '/audience', label: 'Audience', show: true },
-    { to: '/feed', label: 'Feed', show: canOpenFeed },
-    { to: '/admin', label: 'Admin', show: isHost || !demoMode },
-    { to: '/admin/gig-control', label: 'Gig', show: isHost },
-  ].filter((item) => item.show)
-
-  const closeGigMenuAfterNavigation = () => {
-    setIsGigMenuOpen(false)
-    setIsGigMenuForceClosed(true)
-
-    // Prevent :focus-within from keeping the dropdown expanded after click navigation.
-    window.requestAnimationFrame(() => {
-      const activeElement = document.activeElement
-
-      if (activeElement instanceof HTMLElement) {
-        activeElement.blur()
-      }
-    })
-  }
-
-  const closeGigMenu = (focusTrigger = false) => {
-    setIsGigMenuOpen(false)
-    setIsGigMenuForceClosed(true)
-
-    if (focusTrigger) {
-      window.requestAnimationFrame(() => {
-        gigMenuTriggerRef.current?.focus()
-      })
-    }
-  }
 
   useEffect(() => {
     try {
@@ -188,71 +92,30 @@ function ShellLayout() {
   }, [isDesktopSidebarCollapsed])
 
   useEffect(() => {
-    const syncAudienceAccess = () => {
-      setHasAudienceAccess(Boolean(readCommittedAudienceName()))
+    if (typeof window === 'undefined') {
+      return
     }
 
-    syncAudienceAccess()
-    window.addEventListener('storage', syncAudienceAccess)
-    window.addEventListener(AUDIENCE_NAME_COMMITTED_EVENT, syncAudienceAccess)
+    const mediaQuery = window.matchMedia('(max-width: 1024px)')
+    const onViewportChange = (event: MediaQueryListEvent) => {
+      setIsMobileViewport(event.matches)
+    }
+
+    setIsMobileViewport(mediaQuery.matches)
+    mediaQuery.addEventListener('change', onViewportChange)
 
     return () => {
-      window.removeEventListener('storage', syncAudienceAccess)
-      window.removeEventListener(AUDIENCE_NAME_COMMITTED_EVENT, syncAudienceAccess)
+      mediaQuery.removeEventListener('change', onViewportChange)
     }
   }, [])
 
   useEffect(() => {
-    setIsMobileNavOpen(false)
-    setIsGigMenuOpen(false)
-    setIsGigMenuForceClosed(false)
-  }, [location.pathname])
-
-  useEffect(() => {
-    if (!isMobileNavOpen && !isGigMenuOpen) {
+    if (!isMobileViewport) {
       return
     }
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return
-      }
-
-      if (isGigMenuOpen) {
-        event.preventDefault()
-        closeGigMenu(true)
-        return
-      }
-
-      if (isMobileNavOpen) {
-        event.preventDefault()
-        setIsMobileNavOpen(false)
-        window.requestAnimationFrame(() => {
-          mobileNavToggleRef.current?.focus()
-        })
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [isGigMenuOpen, isMobileNavOpen])
-
-  useEffect(() => {
-    if (!authActionBusy) {
-      return
-    }
-
-    const busyTimeoutId = window.setTimeout(() => {
-      setAuthActionBusy(null)
-      setErrorText('Auth request timed out. Please try again.')
-    }, 30000)
-
-    return () => {
-      window.clearTimeout(busyTimeoutId)
-    }
-  }, [authActionBusy])
+    setIsDesktopSidebarCollapsed(true)
+  }, [isMobileViewport])
 
   useEffect(() => {
     const root = document.documentElement
@@ -288,295 +151,18 @@ function ShellLayout() {
     }
   }, [])
 
-  useEffect(() => {
-    const onOnline = () => setNetworkOnline(true)
-    const onOffline = () => setNetworkOnline(false)
-
-    window.addEventListener('online', onOnline)
-    window.addEventListener('offline', onOffline)
-
-    return () => {
-      window.removeEventListener('online', onOnline)
-      window.removeEventListener('offline', onOffline)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (location.pathname === '/callback') {
-      return
-    }
-
-    const searchParams = new URLSearchParams(location.search)
-    const spotifyCode = searchParams.get('code')
-    const spotifyAuthError = searchParams.get('error')
-
-    if (!spotifyCode && !spotifyAuthError) {
-      return
-    }
-
-    if (spotifyAuthError) {
-      setRuntimeNotice('Spotify authorization was cancelled or denied.')
-      return
-    }
-
-    let cancelled = false
-
-    setRuntimeNotice('Finishing Spotify login...')
-
-    void (async () => {
-      try {
-        const response = await fetch(`/api/spotify/callback?code=${encodeURIComponent(spotifyCode as string)}`)
-        const payload = await response.json().catch(() => ({}))
-
-        if (!response.ok || typeof payload.access_token !== 'string') {
-          throw new Error(payload.error || 'Spotify login failed.')
-        }
-
-        window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
-
-        if (!cancelled) {
-          setRuntimeNotice('Spotify connected. Redirecting to Gig Control...')
-          navigate('/admin/gig-control', { replace: true })
-        }
-      } catch (error) {
-        if (cancelled) {
-          return
-        }
-
-        setRuntimeNotice(error instanceof Error ? error.message : 'Spotify callback failed.')
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [location.pathname, location.search, navigate])
-
   return (
-    <main className={[shellClassName, demoMode ? 'app-shell-demo' : ''].filter(Boolean).join(' ')}>
+    <main className="min-h-screen">
       {demoMode ? <DemoBanner /> : null}
-      {!isAudienceMode ? <header className={topbarClassName}>
-        <div className="sidebar-brand-row">
-          <NavLink to="/" className="brand" aria-label="Go to Home page">
-            <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
-            <span className="sidebar-link-label sidebar-brand-label sidebar-brand-label-stack">
-              <span>The Human</span>
-              <span>Jukebox</span>
-            </span>
-          </NavLink>
-          <p className="mobile-header-title" aria-live="polite">{mobileRouteTitle}</p>
-          <span className={`meta-badge connection-badge ${networkOnline ? 'connection-online' : 'connection-offline'}`}>
-            {networkOnline ? 'Online' : 'Offline'}
-          </span>
-        </div>
-        {showMobileMenu ? (
-          <button
-            type="button"
-            ref={mobileNavToggleRef}
-            className="mobile-nav-toggle"
-            aria-controls="primary-site-nav"
-            aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            onClick={() => setIsMobileNavOpen((open) => !open)}
-          >
-            {isMobileNavOpen ? 'Close menu' : 'Menu'}
-          </button>
-        ) : null}
-        {!isAudienceMode ? <p className="site-nav-heading"><span className="sidebar-link-label">Navigation</span></p> : null}
-        <nav
-          id="primary-site-nav"
-          className={siteNavClassName}
-          aria-label="Primary navigation"
-          onClick={(event) => {
-            const clickTarget = event.target as HTMLElement
-
-            if (showMobileMenu && isMobileNavOpen && clickTarget.closest('a')) {
-              setIsMobileNavOpen(false)
-            }
-          }}
-        >
-          {isAudienceMode ? (
-            <>
-              <NavLink to="/audience">Audience</NavLink>
-              {canOpenFeed ? <NavLink to="/feed">Feed</NavLink> : null}
-              {isHost ? <NavLink to="/admin/gig-control">Back to Admin</NavLink> : null}
-            </>
-          ) : (
-            <>
-              <NavLink to="/" end>
-                <LayoutDashboard size={16} className="sidebar-link-icon" aria-hidden="true" />
-                <span className="sidebar-link-label">Home</span>
-              </NavLink>
-              <NavLink to="/audience">
-                <Users size={16} className="sidebar-link-icon" aria-hidden="true" />
-                <span className="sidebar-link-label">Audience</span>
-              </NavLink>
-              {canOpenFeed ? (
-                <NavLink to="/feed">
-                  <MessageSquare size={16} className="sidebar-link-icon" aria-hidden="true" />
-                  <span className="sidebar-link-label">Feed</span>
-                  {feedUnreadCount > 0 ? <span className="sidebar-unread-badge">{feedUnreadCount}</span> : null}
-                </NavLink>
-              ) : null}
-              {isHost ? (
-                <>
-                  <NavLink to="/admin" end>
-                    <LayoutDashboard size={16} className="sidebar-link-icon" aria-hidden="true" />
-                    <span className="sidebar-link-label">Dashboard</span>
-                  </NavLink>
-                  <div
-                    ref={gigMenuRef}
-                    className={[
-                      'nav-dropdown',
-                      'gigs-nav-dropdown',
-                      isGigMenuOpen ? 'nav-dropdown-open' : '',
-                      isGigMenuForceClosed ? 'nav-dropdown-force-closed' : '',
-                    ].filter(Boolean).join(' ')}
-                    onMouseEnter={() => {
-                      if (isGigMenuForceClosed) {
-                        return
-                      }
-
-                      setIsGigMenuOpen(true)
-                    }}
-                    onMouseLeave={() => {
-                      setIsGigMenuOpen(false)
-                      setIsGigMenuForceClosed(false)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key !== 'Escape') {
-                        return
-                      }
-
-                      event.preventDefault()
-                      closeGigMenu(true)
-                    }}
-                  >
-                    <button
-                      type="button"
-                      ref={gigMenuTriggerRef}
-                      className={`nav-dropdown-trigger ${isGigNavActive ? 'active' : ''}`.trim()}
-                      aria-label="Open gig navigation"
-                      aria-haspopup="true"
-                      aria-controls="gig-nav-menu"
-                      onKeyDown={(event) => {
-                        if (event.key !== 'ArrowDown') {
-                          return
-                        }
-
-                        event.preventDefault()
-                        setIsGigMenuForceClosed(false)
-                        setIsGigMenuOpen(true)
-
-                        window.requestAnimationFrame(() => {
-                          const firstMenuLink = gigMenuRef.current?.querySelector<HTMLAnchorElement>('.nav-dropdown-menu a')
-                          firstMenuLink?.focus()
-                        })
-                      }}
-                      onClick={() => {
-                        setIsGigMenuForceClosed(false)
-                        setIsGigMenuOpen((open) => !open)
-                      }}
-                    >
-                      <CalendarDays size={16} className="sidebar-link-icon" aria-hidden="true" />
-                      <span className="sidebar-link-label">Gigs</span>
-                    </button>
-                    <div id="gig-nav-menu" className="nav-dropdown-menu" aria-label="Gig navigation menu">
-                      <NavLink to="/admin/gigs" onClick={closeGigMenuAfterNavigation}>All Gigs</NavLink>
-                      <NavLink to="/admin/create-gig" onClick={closeGigMenuAfterNavigation}>New Gig</NavLink>
-                      <NavLink to="/admin/gig-control" onClick={closeGigMenuAfterNavigation}>Gig Control</NavLink>
-                      <NavLink to="/admin/gig-settings" onClick={closeGigMenuAfterNavigation}>Gig Settings</NavLink>
-                    </div>
-                  </div>
-                  <NavLink to="/admin/health-check">
-                    <ShieldCheck size={16} className="sidebar-link-icon" aria-hidden="true" />
-                    <span className="sidebar-link-label">Health Check</span>
-                  </NavLink>
-                  <NavLink to="/admin/setlist-library">
-                    <Music4 size={16} className="sidebar-link-icon" aria-hidden="true" />
-                    <span className="sidebar-link-label">Setlist</span>
-                  </NavLink>
-                  <NavLink to="/admin/settings">
-                    <Settings2 size={16} className="sidebar-link-icon" aria-hidden="true" />
-                    <span className="sidebar-link-label">Settings</span>
-                  </NavLink>
-                </>
-              ) : (
-                !demoMode ? (
-                  <NavLink to="/admin">
-                    <ShieldCheck size={16} className="sidebar-link-icon" aria-hidden="true" />
-                    <span className="sidebar-link-label">Admin</span>
-                  </NavLink>
-                ) : null
-              )}
-            </>
-          )}
-        </nav>
-        {!isAudienceMode ? <p className="site-nav-footnote"><span className="sidebar-link-label">The Human Jukebox App</span></p> : null}
-
-        {!isAudienceMode ? (
-        <div className="auth-strip">
-          {loading ? (
-            <span className="meta-badge">Checking session...</span>
-          ) : null}
-
-          {!loading && user ? (
-            <>
-              <span className="meta-badge">Session: {isHost ? 'Admin' : 'User'}</span>
-              <button
-                type="button"
-                className="ghost-button"
-                disabled={Boolean(authActionBusy)}
-                onClick={async () => {
-                  if (authActionBusy) {
-                    return
-                  }
-
-                  setErrorText(null)
-                  setAuthActionBusy('sign-out')
-
-                  try {
-                    await signOut()
-                    navigate('/', { replace: true })
-                  } catch (error) {
-                    console.warn('ShellLayout: sign-out failed', error)
-                    setErrorText('Sign out failed.')
-                  } finally {
-                    setAuthActionBusy(null)
-                  }
-                }}
-              >
-                {authActionBusy === 'sign-out' ? 'Signing out...' : 'Sign Out'}
-              </button>
-            </>
-          ) : null}
-
-          {errorText ? <p className="error-text">{errorText}</p> : null}
-        </div>
-        ) : null}
-        {!isAudienceMode ? (
-          <div className="sidebar-desktop-footer" aria-label="Sidebar controls">
-            <span className="sidebar-version-tag sidebar-link-label">Booking Manager v1.0</span>
-            <button
-              type="button"
-              className="sidebar-collapse-toggle"
-              aria-label={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              onClick={() => setIsDesktopSidebarCollapsed((collapsed) => !collapsed)}
-            >
-              {isDesktopSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-            </button>
-          </div>
-        ) : null}
-      </header> : null}
-      {showMobileMenu && isMobileNavOpen ? (
-        <button
-          type="button"
-          className="mobile-nav-backdrop"
-          aria-label="Close navigation menu"
-          onClick={() => setIsMobileNavOpen(false)}
+      <div className="flex min-h-screen">
+        <SideNavigation
+          collapsed={isDesktopSidebarCollapsed}
+          onToggleCollapsed={() => setIsDesktopSidebarCollapsed((collapsed) => !collapsed)}
+          currentPath={typeof window === 'undefined' ? '/' : window.location.pathname}
         />
-      ) : null}
-      <section className={`app-main-content ${showMobileBottomNav ? 'app-main-content-mobile-pad' : ''}`}>
-        {runtimeNotice && !isAudienceSongListMode ? (
+
+        <section className="app-main-content flex-1">
+          {runtimeNotice ? (
           <section className="queue-panel" role="status" aria-live="polite">
             <div className="hero-actions no-margin-bottom">
               <p className="subcopy no-margin">{runtimeNotice}</p>
@@ -591,29 +177,26 @@ function ShellLayout() {
           </section>
         ) : null}
         <Outlet />
-        {!isAudienceSongListMode ? <footer className="site-legal-footer" aria-label="Copyright notice">
+        <footer className="site-legal-footer" aria-label="Copyright notice">
           <p>
-            © {new Date().getFullYear()} Haraldur G Asmundsson. All rights reserved. The Human Jukebox name,
+            Copyright {new Date().getFullYear()} Haraldur G Asmundsson. All rights reserved. The Human Jukebox name,
             branding, and related content are proprietary. Unauthorized use, reproduction, or distribution is
             prohibited.
           </p>
-        </footer> : null}
-      </section>
-      {showMobileBottomNav ? (
-        <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
-          {mobileBottomNavItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) => `mobile-bottom-nav-link ${isActive ? 'active' : ''}`}
-              onClick={() => setIsMobileNavOpen(false)}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-      ) : null}
+        </footer>
+        </section>
+
+        {isMobileViewport && isDesktopSidebarCollapsed && !user && !loading ? (
+          <button
+            type="button"
+            className="fixed bottom-4 right-4 z-50 h-11 rounded-full border border-fuchsia-400/35 bg-[#0A0A0A] px-4 text-sm font-semibold text-cyan-200 shadow-[0_0_18px_rgba(255,0,255,0.25)] transition-all duration-200 hover:shadow-[0_0_24px_rgba(255,0,255,0.35)]"
+            onClick={() => setIsDesktopSidebarCollapsed(false)}
+            aria-label="Open admin login"
+          >
+            Admin Login
+          </button>
+        ) : null}
+      </div>
     </main>
   )
 }

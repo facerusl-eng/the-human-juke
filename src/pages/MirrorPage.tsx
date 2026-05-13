@@ -150,67 +150,10 @@ function isLowValueFact(fact: string) {
 }
 
 async function fetchItunesSongFacts(title: string, artist: string, signal: AbortSignal) {
-  const searchTerm = `${title} ${artist}`.trim()
-  const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=3`
-
-  try {
-    const response = await fetch(searchUrl, { signal })
-
-    if (!response.ok) {
-      return []
-    }
-
-    const payload = await response.json() as {
-      results?: Array<{
-        trackName?: string
-        artistName?: string
-        collectionName?: string
-        releaseDate?: string
-        trackTimeMillis?: number
-        primaryGenreName?: string
-      }>
-    }
-
-    const exactMatch = payload.results?.find((track) => (
-      (track.trackName ?? '').trim().toLowerCase() === title.trim().toLowerCase()
-      && (track.artistName ?? '').trim().toLowerCase() === artist.trim().toLowerCase()
-    ))
-
-    const track = exactMatch ?? payload.results?.[0]
-
-    if (!track) {
-      return []
-    }
-
-    const releaseYear = track.releaseDate?.slice(0, 4)
-    const durationMs = track.trackTimeMillis ?? 0
-    const durationMinutes = durationMs > 0 ? Math.floor(durationMs / 60000) : 0
-    const durationSeconds = durationMs > 0 ? String(Math.round((durationMs % 60000) / 1000)).padStart(2, '0') : '00'
-    const durationLabel = durationMs > 0 ? `${durationMinutes}:${durationSeconds}` : null
-
-    const facts = [
-      track.collectionName
-        ? `iTunes metadata: this track is listed on the release "${track.collectionName}".`
-        : null,
-      releaseYear
-        ? `iTunes metadata: release year is ${releaseYear}.`
-        : null,
-      track.primaryGenreName
-        ? `iTunes metadata tags this song as ${track.primaryGenreName}.`
-        : null,
-      durationLabel
-        ? `iTunes metadata runtime is about ${durationLabel}.`
-        : null,
-    ].filter((fact): fact is string => Boolean(fact))
-
-    return facts.slice(0, 4)
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return []
-    }
-
-    return []
-  }
+  void title
+  void artist
+  void signal
+  return []
 }
 
 function isSpotifyAutoTransportEnabled() {
@@ -899,6 +842,11 @@ function MirrorPage() {
   const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
   const shouldShowAdminElements = isHost
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
+  const mirrorVenueName = normalizeMirrorText(event?.venue ?? event?.name ?? 'The Human Jukebox', 'The Human Jukebox')
+  const mirrorTagline = normalizeMirrorText(event?.subtitle ?? 'Your requests keep the party alive.', 'Your requests keep the party alive.')
+  const mirrorPerformerTag = isHaraldLiveEvent
+    ? 'Harald Live'
+    : normalizeMirrorText(event?.artistName ?? event?.name ?? 'Live Show', 'Live Show')
 
   useEffect(() => {
     let isCurrent = true
@@ -2304,44 +2252,49 @@ function MirrorPage() {
         </div>
       ) : null}
       <header className="mirror-header">
-        <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
-          {event?.venueLogoUrl ? (
-            <p className="mirror-venue-logo" aria-label="Venue logo">
-              <img
-                src={event.venueLogoUrl}
-                alt={`${event.venue || 'Venue'} logo`}
-                className="mirror-venue-logo-image"
-              />
+        <div className="mirror-header-kiosk-row">
+          <div className="mirror-header-main">
+            <p className="mirror-brand" aria-label="The Human Jukebox">
+              <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
             </p>
-          ) : (
-            <p className="mirror-venue-logo-placeholder" aria-label="Venue logo placeholder">
-              <span className="mirror-venue-logo-placeholder-title">Your Logo</span>
-              <span className="mirror-venue-logo-placeholder-copy">Designed to sit here</span>
-            </p>
-          )}
-        </div>
-        <div className="mirror-header-main">
-          <p className="mirror-brand" aria-label="The Human Jukebox">
-            <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
-          </p>
-          {event ? (
-            <div>
-              <p className="mirror-event-name">
-                {normalizeMirrorText(event.name, 'Live Event')}
+            <h1 className="mirror-kiosk-venue-name">{mirrorVenueName}</h1>
+            <p className="mirror-kiosk-tagline">{mirrorTagline}</p>
+            <p className="mirror-kiosk-performer">{mirrorPerformerTag}</p>
+          </div>
+
+          <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
+            {event?.venueLogoUrl ? (
+              <p className="mirror-venue-logo" aria-label="Venue logo">
+                <img
+                  src={event.venueLogoUrl}
+                  alt={`${event.venue || 'Venue'} logo`}
+                  className="mirror-venue-logo-image"
+                />
               </p>
-              {event.subtitle ? <p className="mirror-event-subtitle">{normalizeMirrorText(event.subtitle, '')}</p> : null}
-            </div>
-          ) : null}
-        </div>
-        <div className="mirror-header-meta">
-          {mirrorWarning ? (
-            <p className="mirror-warning" role="status">{mirrorWarning}</p>
-          ) : (
-            <p className="mirror-warning mirror-warning-hidden">\u00a0</p>
-          )}
-          <span className={`mirror-status ${event?.roomOpen ? 'mirror-open' : 'mirror-paused'}`}>
-            {event?.roomOpen ? '● Live' : '● Paused'}
-          </span>
+            ) : (
+              <p className="mirror-venue-logo-placeholder" aria-label="Venue logo placeholder">
+                <span className="mirror-venue-logo-placeholder-title">Your Logo</span>
+                <span className="mirror-venue-logo-placeholder-copy">Designed to sit here</span>
+              </p>
+            )}
+          </div>
+
+          <div className="mirror-header-live-stack">
+            <span className={`mirror-status ${event?.roomOpen ? 'mirror-open live-pulse' : 'mirror-paused'}`.trim()}>
+              {event?.roomOpen ? '● Live' : '● Paused'}
+            </span>
+            {!isEmbeddedPreview ? (
+              <div className="mirror-header-qr" aria-label="Scan to join">
+                <img src={qrUrl} alt="Scan to view" className="mirror-header-qr-image" />
+                <p className="mirror-header-qr-caption">Scan to view</p>
+              </div>
+            ) : null}
+            {mirrorWarning ? (
+              <p className="mirror-warning" role="status">{mirrorWarning}</p>
+            ) : (
+              <p className="mirror-warning mirror-warning-hidden" aria-hidden="true">Placeholder</p>
+            )}
+          </div>
         </div>
         {shouldShowEditorControls ? (
           <div className="mirror-editor-controls" aria-label="Mirror editor controls">
@@ -2515,7 +2468,7 @@ function MirrorPage() {
 
           </section>
         ) : (
-          <>
+          <section className="mirror-kiosk-columns" aria-label="Now playing and live queue/feed">
             <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
                 {isKaraokeEvent ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Karaoke Night">
@@ -2529,12 +2482,6 @@ function MirrorPage() {
                         </p>
                       ) : null}
                     </div>
-                    {!isEmbeddedPreview && (
-                    <div className="mirror-now-playing-qr-slot">
-                      <img src={qrUrl} alt="Scan to join" className="mirror-now-playing-qr" />
-                      <p className="mirror-qr-cta">Scan to join</p>
-                    </div>
-                    )}
                   </div>
                 ) : isBuildSelfEvent && !audienceVotingEnabled ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Build Self Gig">
@@ -2544,12 +2491,6 @@ function MirrorPage() {
                       {event?.subtitle ? <p className="mirror-picked-by">{event.subtitle}</p> : null}
                       <p className="mirror-picked-by">🎵 Setlist Show</p>
                     </div>
-                    {!isEmbeddedPreview && (
-                    <div className="mirror-now-playing-qr-slot">
-                      <img src={qrUrl} alt="Scan to view" className="mirror-now-playing-qr" />
-                      <p className="mirror-qr-cta">Scan to view</p>
-                    </div>
-                    )}
                   </div>
                 ) : isHaraldLiveEvent ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Harald Live Show">
@@ -2559,30 +2500,15 @@ function MirrorPage() {
                       {event?.subtitle ? <p className="mirror-picked-by">{event.subtitle}</p> : null}
                       <p className="mirror-picked-by">🎸 Harald Live</p>
                     </div>
-                    {!isEmbeddedPreview && (
-                    <div className="mirror-now-playing-qr-slot">
-                      <img src={qrUrl} alt="Scan to view" className="mirror-now-playing-qr" />
-                      <p className="mirror-qr-cta">Scan to view</p>
-                    </div>
-                    )}
                   </div>
                 ) : !isNowPlayingStarted || !activeSong ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
-                    {/* Middle: quote-only between songs state to match Gig Control preview */}
                     <div className="mirror-now-playing-meta">
                       <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
                     </div>
-                    {/* Far right: QR code */}
-                    {!isEmbeddedPreview && (
-                    <div className="mirror-now-playing-qr-slot">
-                      <img src={qrUrl} alt="Scan to join" className="mirror-now-playing-qr" />
-                      <p className="mirror-qr-cta">Scan to request</p>
-                    </div>
-                    )}
                   </div>
                 ) : (
                   <div className="mirror-now-playing-track">
-                    {/* Left: album art */}
                     <div className="mirror-now-playing-artwork-slot">
                       {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
                         <img
@@ -2597,7 +2523,6 @@ function MirrorPage() {
                         <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">♪</span>
                       )}
                     </div>
-                    {/* Middle: title, artist, chosen-by */}
                     <div className="mirror-now-playing-meta">
                       <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests…')}</h1>
                       <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune.')}</p>
@@ -2606,33 +2531,18 @@ function MirrorPage() {
                           {activeSongChosenByLine}
                         </p>
                       ) : null}
-                    </div>
-                    {/* Right: fun fact */}
-                    <div className="mirror-now-playing-facts" aria-live="polite">
                       <div className="mirror-song-fact-box" aria-live="polite">
-                        <p className="mirror-song-fact-label">Song fact</p>
+                        <p className="mirror-song-fact-label">Now Playing</p>
                         <p key={`${activeSong.id}-${currentFactIndex}`} className="mirror-song-fact">
                           {currentSongFact}
                         </p>
                       </div>
                     </div>
-                    {/* Far right: QR code */}
-                    {!isEmbeddedPreview && (
-                    <div className="mirror-now-playing-qr-slot">
-                      <img src={qrUrl} alt="Scan to join" className="mirror-now-playing-qr" />
-                      <p className="mirror-qr-cta">Scan to request</p>
-                    </div>
-                    )}
                   </div>
                 )}
             </section>
 
-            <section className="mirror-frames-lower" aria-label="Live feed and queue frames">
-              <section className="mirror-live-feed-frame mirror-frame" aria-label="Live feed frame">
-                <LiveFeedPanel mode="mirror" showComposer={false} title="Community Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
-              </section>
-
-              {(demoMode || (!isKaraokeEvent && !(isBuildSelfEvent && !audienceVotingEnabled) && !isHaraldLiveEvent)) ? (
+            <section className="mirror-kiosk-right" aria-label="Queue and community feed">
               <section className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`} aria-label="Song queue frame">
                 <p className="mirror-up-next-label">Queue</p>
                 {upNext.length > 0 ? (
@@ -2674,9 +2584,12 @@ function MirrorPage() {
                   <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
                 ) : null}
               </section>
-              ) : null}
+
+              <section className="mirror-live-feed-frame mirror-frame" aria-label="Live feed frame">
+                <LiveFeedPanel mode="mirror" showComposer={false} title="Live Community Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
+              </section>
             </section>
-          </>
+          </section>
         )}
       </main>
 
