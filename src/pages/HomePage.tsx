@@ -171,7 +171,7 @@ function HomePage() {
 
           <div className="lp-hero-mirror" aria-label="Mirror screen preview">
             <iframe
-              src="/mirror?demo=true&preview=1&mirrorAccess=force&launchFullscreen=1"
+              src="/mirror?demo=true&preview=1&mirrorAccess=force"
               title="Mirror screen preview"
               loading="lazy"
               className="lp-hero-mirror-frame"
@@ -186,7 +186,7 @@ function HomePage() {
                 rel="noopener noreferrer"
                 className="lp-mirror-fullscreen-link"
               >
-                Open Mirror Fullscreen
+                Full Screen
               </a>
             </div>
           </div>
