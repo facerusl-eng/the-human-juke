@@ -359,7 +359,10 @@ function ShellLayout() {
         <div className="sidebar-brand-row">
           <NavLink to="/" className="brand" aria-label="Go to Home page">
             <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
-            <span className="sidebar-link-label sidebar-brand-label">The Human Jukebox</span>
+            <span className="sidebar-link-label sidebar-brand-label sidebar-brand-label-stack">
+              <span>The Human</span>
+              <span>Jukebox</span>
+            </span>
           </NavLink>
           <p className="mobile-header-title" aria-live="polite">{mobileRouteTitle}</p>
           <span className={`meta-badge connection-badge ${networkOnline ? 'connection-online' : 'connection-offline'}`}>
@@ -552,7 +555,7 @@ function ShellLayout() {
         ) : null}
         {!isAudienceMode ? (
           <div className="sidebar-desktop-footer" aria-label="Sidebar controls">
-            <span className="sidebar-version-tag sidebar-link-label">Desktop Nav</span>
+            <span className="sidebar-version-tag sidebar-link-label">Booking Manager v1.0</span>
             <button
               type="button"
               className="sidebar-collapse-toggle"
