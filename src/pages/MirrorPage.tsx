@@ -78,6 +78,7 @@ const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
@@ -103,6 +104,10 @@ function buildInitials(text: string) {
 
 function containsFeatToken(text: string) {
   return /\b(feat\.?|ft\.?)\b/i.test(text)
+}
+
+function isUuidLikeEventId(eventId: string | null) {
+  return Boolean(eventId && UUID_PATTERN.test(eventId.trim()))
 }
 
 function truncateFact(value: string, maxLength = SONG_FACT_MAX_LENGTH) {
@@ -1872,7 +1877,7 @@ function MirrorPage() {
   }, [])
 
   useEffect(() => {
-    if (!eventId || !showSpotlight) {
+    if (!eventId || !showSpotlight || !isUuidLikeEventId(eventId)) {
       spotlightQueueRef.current = []
       spotlightBusyRef.current = false
       seenSpotlightPostIdsRef.current = new Set()
