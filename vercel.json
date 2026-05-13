@@ -57,15 +57,6 @@
           "value": "no-store, no-cache, must-revalidate"
         }
       ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "x-vercel-enable-rewrite-caching",
-          "value": "1"
-        }
-      ]
     }
   ],
   "redirects": [
