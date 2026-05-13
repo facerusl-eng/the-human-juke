@@ -10,8 +10,6 @@ import '../styles/home-landing.css'
 
 type HomeLang = 'en' | 'da'
 
-const BOOKING_MANAGER_URL = import.meta.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
-
 const COPY = {
   en: {
     eyebrow: 'The live music experience pubs love',
@@ -110,11 +108,7 @@ function HomePage() {
   }
 
   const openBookingFlow = () => {
-    if (typeof window !== 'undefined') {
-      window.location.assign(BOOKING_MANAGER_URL)
-      return
-    }
-    navigate('/audience')
+    navigate('/booking')
   }
 
   const openAdminLogin = () => {
@@ -139,15 +133,15 @@ function HomePage() {
     setSignupError(null)
 
     if (typeof window !== 'undefined') {
-      const bookingUrl = new URL(BOOKING_MANAGER_URL)
-      bookingUrl.searchParams.set('email', normalizedEmail)
-      bookingUrl.searchParams.set('intent', 'availability-updates')
-      bookingUrl.searchParams.set('source', 'home-signup')
-      window.location.assign(bookingUrl.toString())
+      const bookingSearchParams = new URLSearchParams()
+      bookingSearchParams.set('email', normalizedEmail)
+      bookingSearchParams.set('intent', 'availability-updates')
+      bookingSearchParams.set('source', 'home-signup')
+      window.location.assign(`/booking?${bookingSearchParams.toString()}`)
       return
     }
 
-    navigate('/audience')
+    navigate('/booking?intent=availability-updates&source=home-signup')
   }
 
   useEffect(() => {
