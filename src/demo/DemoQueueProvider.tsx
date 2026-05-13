@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { QueueContext } from '../state/queueStore'
 import type { QueueSong, PerformedSong } from '../state/queueStore'
@@ -10,11 +10,121 @@ import { readCommittedAudienceName } from '../lib/audienceIdentity'
 
 let _demoIdCounter = 1000
 const DEMO_DEFAULT_COVER_URL = '/the-human-jukebox-logo.png'
+const DEMO_QUEUE_STORAGE_KEY = 'human-jukebox-demo-queue-state-v1'
+const DEMO_QUEUE_BROADCAST_CHANNEL = 'human-jukebox-demo-queue-sync'
 
 type DemoAddSongOptions = {
   coverUrl?: string | null
   librarySongId?: string | null
   performerMode?: 'performer' | 'audience'
+}
+
+type DemoQueueState = {
+  songs: QueueSong[]
+  performedSongs: PerformedSong[]
+  updatedAt: number
+}
+
+const DEFAULT_DEMO_SONGS: QueueSong[] = [DEMO_NOW_PLAYING, ...DEMO_INITIAL_QUEUE]
+const DEFAULT_DEMO_PERFORMED_SONGS: PerformedSong[] = [
+  {
+    id: 'demo-played-001',
+    event_id: DEMO_EVENT.id,
+    title: 'Dancing in the Moonlight',
+    artist: 'Toploader',
+    votes_count: 9,
+    is_explicit: false,
+    voting_locked: true,
+    is_removed: false,
+    cover_url: DEMO_DEFAULT_COVER_URL,
+    library_song_id: null,
+    audience_sings: false,
+    position: 0,
+    createdByName: 'Oliver R.',
+    performedAt: '2026-05-04T20:15:00.000Z',
+  },
+  {
+    id: 'demo-played-002',
+    event_id: DEMO_EVENT.id,
+    title: 'I Wanna Dance with Somebody',
+    artist: 'Whitney Houston',
+    votes_count: 8,
+    is_explicit: false,
+    voting_locked: true,
+    is_removed: false,
+    cover_url: DEMO_DEFAULT_COVER_URL,
+    library_song_id: null,
+    audience_sings: false,
+    position: 0,
+    createdByName: 'Emma T.',
+    performedAt: '2026-05-04T19:58:00.000Z',
+  },
+  {
+    id: 'demo-played-003',
+    event_id: DEMO_EVENT.id,
+    title: 'Shut Up and Dance',
+    artist: 'WALK THE MOON',
+    votes_count: 7,
+    is_explicit: false,
+    voting_locked: true,
+    is_removed: false,
+    cover_url: DEMO_DEFAULT_COVER_URL,
+    library_song_id: null,
+    audience_sings: false,
+    position: 0,
+    createdByName: 'Noah V.',
+    performedAt: '2026-05-04T19:41:00.000Z',
+  },
+]
+
+function readDemoQueueState(): DemoQueueState | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(DEMO_QUEUE_STORAGE_KEY)
+
+    if (!rawValue) {
+      return null
+    }
+
+    const parsedValue = JSON.parse(rawValue) as DemoQueueState
+
+    if (!Array.isArray(parsedValue?.songs) || !Array.isArray(parsedValue?.performedSongs)) {
+      return null
+    }
+
+    return {
+      songs: parsedValue.songs,
+      performedSongs: parsedValue.performedSongs,
+      updatedAt: Number.isFinite(parsedValue.updatedAt) ? parsedValue.updatedAt : Date.now(),
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeDemoQueueState(state: DemoQueueState) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(DEMO_QUEUE_STORAGE_KEY, JSON.stringify(state))
+}
+
+function broadcastDemoQueueState(state: DemoQueueState) {
+  if (typeof window === 'undefined' || !('BroadcastChannel' in window)) {
+    return
+  }
+
+  try {
+    const channel = new BroadcastChannel(DEMO_QUEUE_BROADCAST_CHANNEL)
+    channel.postMessage(state)
+    channel.close()
+  } catch {
+    // Ignore BroadcastChannel runtime failures.
+  }
 }
 
 function generateDemoId() {
@@ -33,63 +143,78 @@ function generateDemoId() {
  * no-ops because demo users are always guests.
  */
 export function DemoQueueProvider({ children }: PropsWithChildren) {
+  const initialDemoQueueStateRef = useRef<DemoQueueState | null>(readDemoQueueState())
+  const initialDemoQueueState = initialDemoQueueStateRef.current
+  const initialDemoSongs = initialDemoQueueState?.songs ?? DEFAULT_DEMO_SONGS
   // Prepend the now-playing song so songs[0] becomes the active track.
-  const [songs, setSongs] = useState<QueueSong[]>([DEMO_NOW_PLAYING, ...DEMO_INITIAL_QUEUE])
-  const [performedSongs, setPerformedSongs] = useState<PerformedSong[]>([
-    {
-      id: 'demo-played-001',
-      event_id: DEMO_EVENT.id,
-      title: 'Dancing in the Moonlight',
-      artist: 'Toploader',
-      votes_count: 9,
-      is_explicit: false,
-      voting_locked: true,
-      is_removed: false,
-      cover_url: DEMO_DEFAULT_COVER_URL,
-      library_song_id: null,
-      audience_sings: false,
-      position: 0,
-      createdByName: 'Oliver R.',
-      performedAt: '2026-05-04T20:15:00.000Z',
-    },
-    {
-      id: 'demo-played-002',
-      event_id: DEMO_EVENT.id,
-      title: 'I Wanna Dance with Somebody',
-      artist: 'Whitney Houston',
-      votes_count: 8,
-      is_explicit: false,
-      voting_locked: true,
-      is_removed: false,
-      cover_url: DEMO_DEFAULT_COVER_URL,
-      library_song_id: null,
-      audience_sings: false,
-      position: 0,
-      createdByName: 'Emma T.',
-      performedAt: '2026-05-04T19:58:00.000Z',
-    },
-    {
-      id: 'demo-played-003',
-      event_id: DEMO_EVENT.id,
-      title: 'Shut Up and Dance',
-      artist: 'WALK THE MOON',
-      votes_count: 7,
-      is_explicit: false,
-      voting_locked: true,
-      is_removed: false,
-      cover_url: DEMO_DEFAULT_COVER_URL,
-      library_song_id: null,
-      audience_sings: false,
-      position: 0,
-      createdByName: 'Noah V.',
-      performedAt: '2026-05-04T19:41:00.000Z',
-    },
-  ])
+  const [songs, setSongs] = useState<QueueSong[]>(initialDemoSongs)
+  const [performedSongs, setPerformedSongs] = useState<PerformedSong[]>(initialDemoQueueState?.performedSongs ?? DEFAULT_DEMO_PERFORMED_SONGS)
   const [votedSongIds] = useState(() => new Set<string>())
+  const suppressOutboundSyncRef = useRef(false)
+
+  useEffect(() => {
+    const payload: DemoQueueState = {
+      songs,
+      performedSongs,
+      updatedAt: Date.now(),
+    }
+
+    if (suppressOutboundSyncRef.current) {
+      suppressOutboundSyncRef.current = false
+      writeDemoQueueState(payload)
+      return
+    }
+
+    writeDemoQueueState(payload)
+    broadcastDemoQueueState(payload)
+  }, [performedSongs, songs])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const applyIncomingState = (incomingState: DemoQueueState | null) => {
+      if (!incomingState || !Array.isArray(incomingState.songs) || !Array.isArray(incomingState.performedSongs)) {
+        return
+      }
+
+      suppressOutboundSyncRef.current = true
+      setSongs(incomingState.songs)
+      setPerformedSongs(incomingState.performedSongs)
+    }
+
+    const onStorage = (storageEvent: StorageEvent) => {
+      if (storageEvent.key !== DEMO_QUEUE_STORAGE_KEY || !storageEvent.newValue) {
+        return
+      }
+
+      try {
+        applyIncomingState(JSON.parse(storageEvent.newValue) as DemoQueueState)
+      } catch {
+        // Ignore malformed storage payloads.
+      }
+    }
+
+    const channel = 'BroadcastChannel' in window ? new BroadcastChannel(DEMO_QUEUE_BROADCAST_CHANNEL) : null
+
+    if (channel) {
+      channel.onmessage = (messageEvent: MessageEvent<DemoQueueState>) => {
+        applyIncomingState(messageEvent.data)
+      }
+    }
+
+    window.addEventListener('storage', onStorage)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      channel?.close()
+    }
+  }, [])
 
   // Fetch real album art from iTunes on mount and update cover URLs
   useEffect(() => {
-    const allSongs = [DEMO_NOW_PLAYING, ...DEMO_INITIAL_QUEUE]
+    const allSongs = initialDemoSongs
     void batchFetchDemoArtwork(allSongs).then((artworkMap) => {
       if (Object.keys(artworkMap).length === 0) return
       setSongs((current) =>

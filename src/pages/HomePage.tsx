@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, MessageCircle, Smartphone } from 'lucide-react'
 import { resetOGTags } from '../lib/metaTags'
@@ -86,6 +87,8 @@ const COPY = {
 
 function HomePage() {
   const navigate = useNavigate()
+  const [signupEmail, setSignupEmail] = useState('')
+  const [signupError, setSignupError] = useState<string | null>(null)
   const [lang, setLang] = useState<HomeLang>(() => {
     const stored = readCommittedAudienceLocale()
     return stored === 'da' ? 'da' : 'en'
@@ -120,6 +123,31 @@ function HomePage() {
       return
     }
     navigate('/admin')
+  }
+
+  const submitAvailabilitySignup = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const normalizedEmail = signupEmail.trim()
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+    if (!emailPattern.test(normalizedEmail)) {
+      setSignupError(lang === 'da' ? 'Indtast en gyldig email.' : 'Enter a valid email address.')
+      return
+    }
+
+    setSignupError(null)
+
+    if (typeof window !== 'undefined') {
+      const bookingUrl = new URL(BOOKING_MANAGER_URL)
+      bookingUrl.searchParams.set('email', normalizedEmail)
+      bookingUrl.searchParams.set('intent', 'availability-updates')
+      bookingUrl.searchParams.set('source', 'home-signup')
+      window.location.assign(bookingUrl.toString())
+      return
+    }
+
+    navigate('/audience')
   }
 
   useEffect(() => {
@@ -238,7 +266,7 @@ function HomePage() {
           <h2 className="lp-section-title">{copy.ctaHeading}</h2>
           <p>{copy.ctaSub}</p>
         </div>
-        <form className="lp-signup" onSubmit={(event) => event.preventDefault()}>
+        <form className="lp-signup" onSubmit={submitAvailabilitySignup}>
           <label htmlFor="home-signup-email">{copy.signupLabel}</label>
           <div className="lp-signup-row">
             <input
@@ -246,11 +274,21 @@ function HomePage() {
               type="email"
               placeholder={copy.signupPlaceholder}
               autoComplete="email"
+              value={signupEmail}
+              onChange={(changeEvent) => {
+                setSignupEmail(changeEvent.target.value)
+                if (signupError) {
+                  setSignupError(null)
+                }
+              }}
+              required
+              aria-invalid={signupError ? 'true' : 'false'}
             />
-            <button type="button" className="lp-signup-btn" onClick={openBookingFlow}>
+            <button type="submit" className="lp-signup-btn">
               {copy.signupCta}
             </button>
           </div>
+          {signupError ? <p className="subcopy" role="alert">{signupError}</p> : null}
           <div className="lp-cta-actions">
             <PrimaryButton onClick={openBookingFlow}>{copy.ctaBook}</PrimaryButton>
             <PrimaryButton variant="secondary" onClick={openAudienceDemo}>{copy.ctaDemo}</PrimaryButton>

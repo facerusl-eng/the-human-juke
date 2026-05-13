@@ -25,7 +25,7 @@ export const DEMO_EVENT = {
   mirrorBannerEnabled: true,
   allowDuplicateRequests: false,
   maxActiveRequestsPerUser: 2,
-  maxQueueSize: 4,
+  maxQueueSize: 30,
   roomOpen: true,
   explicitFilterEnabled: false,
   showInAudienceNoGig: false,

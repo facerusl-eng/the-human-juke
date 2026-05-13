@@ -2543,6 +2543,10 @@ function MirrorPage() {
             </section>
 
             <section className="mirror-kiosk-right" aria-label="Queue and community feed">
+              <section className="mirror-live-feed-frame mirror-frame" aria-label="Live feed frame">
+                <LiveFeedPanel mode="mirror" showComposer={false} title="Live Community Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
+              </section>
+
               <section className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`} aria-label="Song queue frame">
                 <p className="mirror-up-next-label">Queue</p>
                 {upNext.length > 0 ? (
@@ -2583,10 +2587,6 @@ function MirrorPage() {
                 {shouldCompactQueue && hiddenQueueCount > 0 ? (
                   <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
                 ) : null}
-              </section>
-
-              <section className="mirror-live-feed-frame mirror-frame" aria-label="Live feed frame">
-                <LiveFeedPanel mode="mirror" showComposer={false} title="Live Community Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
               </section>
             </section>
           </section>

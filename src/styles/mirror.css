@@ -1929,7 +1929,8 @@
 
 .mirror-kiosk-columns {
   display: grid;
-  grid-template-columns: minmax(0, 0.4fr) minmax(0, 0.6fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 0.44fr) minmax(0, 0.56fr);
   gap: 1rem;
   min-height: 0;
   height: 100%;
@@ -1994,7 +1995,8 @@
 
 .mirror-kiosk-right {
   display: grid;
-  grid-template-rows: minmax(0, 0.46fr) minmax(0, 0.54fr);
+  grid-template-columns: minmax(0, 0.56fr) minmax(0, 0.44fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 0.9rem;
   min-height: 0;
 }
@@ -2101,5 +2103,10 @@
   .mirror-kiosk-columns {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 0.48fr) minmax(0, 0.52fr);
+  }
+
+  .mirror-kiosk-right {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.48fr);
   }
 }

@@ -46,6 +46,8 @@ type LiveFeedPanelProps = {
 
 const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '❤️']
 const AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
+const DEMO_FEED_STORAGE_KEY = 'human-jukebox-demo-feed-posts-v1'
+const DEMO_FEED_BROADCAST_CHANNEL = 'human-jukebox-demo-feed-sync'
 const FEED_IMAGE_QUEUE_INTERVAL_MS = 7000
 const FEED_POLL_INTERVAL_MS = 5000
 const FEED_FETCH_DEBOUNCE_MS = 300
@@ -72,6 +74,52 @@ function getStoredAuthorName() {
   }
 
   return readTextFromLocalStorage(AUTHOR_NAME_STORAGE_KEY, '')
+}
+
+function readStoredDemoFeedPosts() {
+  if (typeof window === 'undefined') {
+    return DEMO_FEED_POSTS as FeedPost[]
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(DEMO_FEED_STORAGE_KEY)
+
+    if (!rawValue) {
+      return DEMO_FEED_POSTS as FeedPost[]
+    }
+
+    const parsedValue = JSON.parse(rawValue) as FeedPost[]
+
+    if (!Array.isArray(parsedValue)) {
+      return DEMO_FEED_POSTS as FeedPost[]
+    }
+
+    return parsedValue
+  } catch {
+    return DEMO_FEED_POSTS as FeedPost[]
+  }
+}
+
+function persistDemoFeedPosts(posts: FeedPost[]) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(DEMO_FEED_STORAGE_KEY, JSON.stringify(posts))
+}
+
+function broadcastDemoFeedPosts(posts: FeedPost[]) {
+  if (typeof window === 'undefined' || !('BroadcastChannel' in window)) {
+    return
+  }
+
+  try {
+    const channel = new BroadcastChannel(DEMO_FEED_BROADCAST_CHANNEL)
+    channel.postMessage(posts)
+    channel.close()
+  } catch {
+    // Ignore BroadcastChannel runtime failures.
+  }
 }
 
 function normalizeAuthorName(authorName: string, fallbackName: string) {
@@ -214,6 +262,7 @@ function LiveFeedPanel({
 }: LiveFeedPanelProps) {
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const galleryInputRef = useRef<HTMLInputElement | null>(null)
+  const suppressDemoFeedBroadcastRef = useRef(false)
   const isFetchingPostsRef = useRef(false)
   const hasQueuedReloadRef = useRef(false)
   const reloadTimerIdRef = useRef<number | null>(null)
@@ -222,7 +271,7 @@ function LiveFeedPanel({
   const lastHandledFileSignatureRef = useRef<string | null>(null)
   const { user, isHost } = useAuthStore()
   const { event } = useQueueStore()
-  const [posts, setPosts] = useState<FeedPost[]>(() => demoMode ? DEMO_FEED_POSTS as FeedPost[] : [])
+  const [posts, setPosts] = useState<FeedPost[]>(() => demoMode ? readStoredDemoFeedPosts() : [])
   const [message, setMessage] = useState('')
   const [authorName, setAuthorName] = useState(() => getStoredAuthorName())
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null)
@@ -330,9 +379,65 @@ function LiveFeedPanel({
   }, [])
 
   useEffect(() => {
+    if (!demoMode) {
+      return
+    }
+
+    if (suppressDemoFeedBroadcastRef.current) {
+      suppressDemoFeedBroadcastRef.current = false
+      persistDemoFeedPosts(posts)
+      return
+    }
+
+    persistDemoFeedPosts(posts)
+    broadcastDemoFeedPosts(posts)
+  }, [posts])
+
+  useEffect(() => {
+    if (!demoMode || typeof window === 'undefined') {
+      return
+    }
+
+    const applyIncomingPosts = (nextPosts: FeedPost[]) => {
+      if (!Array.isArray(nextPosts)) {
+        return
+      }
+
+      suppressDemoFeedBroadcastRef.current = true
+      setPosts(nextPosts)
+    }
+
+    const onStorage = (storageEvent: StorageEvent) => {
+      if (storageEvent.key !== DEMO_FEED_STORAGE_KEY || !storageEvent.newValue) {
+        return
+      }
+
+      try {
+        applyIncomingPosts(JSON.parse(storageEvent.newValue) as FeedPost[])
+      } catch {
+        // Ignore malformed payloads.
+      }
+    }
+
+    const channel = 'BroadcastChannel' in window ? new BroadcastChannel(DEMO_FEED_BROADCAST_CHANNEL) : null
+
+    if (channel) {
+      channel.onmessage = (messageEvent: MessageEvent<FeedPost[]>) => {
+        applyIncomingPosts(messageEvent.data)
+      }
+    }
+
+    window.addEventListener('storage', onStorage)
+
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      channel?.close()
+    }
+  }, [])
+
+  useEffect(() => {
     // Demo mode: load fake posts immediately, skip all Supabase logic
     if (demoMode) {
-      setPosts(DEMO_FEED_POSTS as FeedPost[])
       setLoading(false)
       return
     }
