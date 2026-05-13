@@ -112,6 +112,14 @@ function HomePage() {
     navigate('/audience')
   }
 
+  const openAdminLogin = () => {
+    if (typeof window !== 'undefined') {
+      window.location.assign('/admin')
+      return
+    }
+    navigate('/admin')
+  }
+
   useEffect(() => {
     if (demoMode) {
       navigate('/audience?demo=true', { replace: true })
@@ -130,32 +138,45 @@ function HomePage() {
     <section className="lp-shell" aria-label="Home page">
       <section className="lp-hero" aria-label="Hero section">
         <div className="lp-hero-inner">
-          <p className="lp-eyebrow">{copy.eyebrow}</p>
-          <h1 className="lp-title">
-            {copy.h1Line1}
-            <br />
-            {copy.h1Line2} <span>{copy.h1Accent}</span>
-          </h1>
-          <p className="lp-subtitle">{copy.subtitle}</p>
-          <div className="lp-lang-toggle" role="group" aria-label="Language">
-            <button
-              type="button"
-              className={`lp-lang-btn${lang === 'en' ? ' lp-lang-btn-active' : ''}`}
-              onClick={() => switchLang('en')}
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              className={`lp-lang-btn${lang === 'da' ? ' lp-lang-btn-active' : ''}`}
-              onClick={() => switchLang('da')}
-            >
-              DA
-            </button>
+          <div className="lp-hero-copy">
+            <p className="lp-eyebrow">{copy.eyebrow}</p>
+            <h1 className="lp-title">
+              {copy.h1Line1}
+              <br />
+              {copy.h1Line2} <span>{copy.h1Accent}</span>
+            </h1>
+            <p className="lp-subtitle">{copy.subtitle}</p>
+            <div className="lp-lang-toggle" role="group" aria-label="Language">
+              <button
+                type="button"
+                className={`lp-lang-btn${lang === 'en' ? ' lp-lang-btn-active' : ''}`}
+                onClick={() => switchLang('en')}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                className={`lp-lang-btn${lang === 'da' ? ' lp-lang-btn-active' : ''}`}
+                onClick={() => switchLang('da')}
+              >
+                DA
+              </button>
+            </div>
+            <div className="lp-hero-cta" aria-label="Primary actions">
+              <PrimaryButton onClick={openLiveExperience}>{copy.bookCta}</PrimaryButton>
+              <PrimaryButton variant="secondary" onClick={openAudienceDemo}>{copy.demoCta}</PrimaryButton>
+              <button type="button" className="lp-admin-btn" onClick={openAdminLogin}>Admin Login</button>
+            </div>
           </div>
-          <div className="lp-hero-cta" aria-label="Primary actions">
-            <PrimaryButton onClick={openLiveExperience}>{copy.bookCta}</PrimaryButton>
-            <PrimaryButton variant="secondary" onClick={openAudienceDemo}>{copy.demoCta}</PrimaryButton>
+
+          <div className="lp-hero-mirror" aria-label="Mirror screen preview">
+            <iframe
+              src="/mirror?demo=true&preview=1&mirrorAccess=force"
+              title="Mirror screen preview"
+              loading="lazy"
+              className="lp-hero-mirror-frame"
+              sandbox="allow-scripts allow-same-origin"
+            />
           </div>
         </div>
       </section>

@@ -24,15 +24,24 @@
 
 .lp-hero {
   background:
+    linear-gradient(120deg, rgba(10, 14, 30, 0.82), rgba(10, 14, 30, 0.86)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center/cover no-repeat,
     radial-gradient(circle at 14% 18%, rgba(37, 99, 235, 0.24), transparent 38%),
     radial-gradient(circle at 92% 5%, rgba(56, 189, 248, 0.2), transparent 32%),
     linear-gradient(170deg, rgba(28, 31, 53, 0.98), rgba(16, 20, 40, 0.96));
 }
 
 .lp-hero-inner {
-  max-width: 980px;
+  max-width: 1360px;
   margin: 0 auto;
-  text-align: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 520px);
+  gap: clamp(1rem, 2.4vw, 2.2rem);
+  align-items: center;
+}
+
+.lp-hero-copy {
+  text-align: left;
 }
 
 .lp-eyebrow {
@@ -96,9 +105,40 @@
 .lp-hero-cta {
   margin-top: 1.25rem;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.lp-admin-btn {
+  height: 2.65rem;
+  border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.75);
+  background: rgba(37, 99, 235, 0.2);
+  color: #ecf2ff;
+  padding: 0 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lp-admin-btn:hover {
+  background: rgba(37, 99, 235, 0.32);
+}
+
+.lp-hero-mirror {
+  border: 1px solid rgba(80, 113, 183, 0.55);
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(8, 12, 24, 0.82);
+  box-shadow: 0 14px 28px rgba(3, 8, 22, 0.4);
+  min-height: 260px;
+}
+
+.lp-hero-mirror-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  background: #000;
 }
 
 .lp-stats {
@@ -253,6 +293,18 @@
 }
 
 @media (max-width: 1024px) {
+  .lp-hero-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-hero-copy {
+    text-align: center;
+  }
+
+  .lp-hero-cta {
+    justify-content: center;
+  }
+
   .lp-cta {
     grid-template-columns: 1fr;
   }
@@ -285,6 +337,10 @@
 
   .lp-title {
     font-size: clamp(2rem, 12vw, 2.8rem);
+  }
+
+  .lp-hero-mirror {
+    min-height: 200px;
   }
 
   .lp-features-grid,
