@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 import { demoMode } from '../demo/demoMode'
 import { DemoBanner } from '../demo/DemoBanner'
@@ -68,6 +68,7 @@ function isValidHexColor(value: string | null | undefined) {
 function ShellLayout() {
   const { profile, user, loading } = useAuthStore()
   const location = useLocation()
+  const navigate = useNavigate()
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') {
@@ -210,6 +211,17 @@ function ShellLayout() {
             aria-label={user || loading ? 'Open navigation menu' : 'Open admin login'}
           >
             {user || loading ? 'Menu' : 'Admin Login'}
+          </button>
+        ) : null}
+
+        {!showAdminNavigation ? (
+          <button
+            type="button"
+            className="fixed bottom-4 right-4 z-50 h-11 rounded-full border border-fuchsia-400/35 bg-[#0A0A0A] px-4 text-sm font-semibold text-cyan-200 shadow-[0_0_18px_rgba(255,0,255,0.25)] transition-all duration-200 hover:shadow-[0_0_24px_rgba(255,0,255,0.35)]"
+            onClick={() => navigate(user || loading ? '/admin/gigs' : '/admin')}
+            aria-label={user || loading ? 'Open admin app' : 'Open admin login'}
+          >
+            {user || loading ? 'Admin' : 'Admin Login'}
           </button>
         ) : null}
       </div>
