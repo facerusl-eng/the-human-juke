@@ -596,12 +596,11 @@ function playShutterSound() {
 }
 
 function MirrorPage() {
-  const { event, songs, loading, markPlayed, toggleRoomOpen } = useQueueStore()
+  const { event, songs, loading, toggleRoomOpen } = useQueueStore()
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [funFacts, setFunFacts] = useState<string[]>([])
   const [currentFactIndex, setCurrentFactIndex] = useState(0)
-  const spacebarBusyRef = useRef(false)
   const lastSpacebarActionAtRef = useRef(0)
   const [flashActive, setFlashActive] = useState(false)
   const [queuedSpotlightCount, setQueuedSpotlightCount] = useState(0)
@@ -627,13 +626,10 @@ function MirrorPage() {
   const [hasCheckedMirrorNetworkAccess, setHasCheckedMirrorNetworkAccess] = useState(false)
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
+  const [forceQuoteMode, setForceQuoteMode] = useState(false)
   const quoteIndexRef = useRef(0)
-  const nowPlayingRef = useRef<typeof songs[number] | undefined>(undefined)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveInFlightRef = useRef(false)
-  const songsRef = useRef(songs)
-  const eventIdRef = useRef<string | null>(null)
-  const isNowPlayingStartedRef = useRef(false)
   const spotlightTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
@@ -765,6 +761,7 @@ function MirrorPage() {
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
     : liveSessionIsNowPlaying || Boolean(playbackState?.isStarted && playbackState.currentSongId)
+  const isQuoteModeActive = forceQuoteMode || !isNowPlayingStarted || !activeSong
   const maxUpNextSongs = hideControlsForAudience ? 3 : 5
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
@@ -935,22 +932,6 @@ function MirrorPage() {
       return { ...currentUrls, [coverUrl]: true }
     })
   }
-
-  useEffect(() => {
-    nowPlayingRef.current = nowPlaying
-  }, [nowPlaying])
-
-  useEffect(() => {
-    songsRef.current = songs
-  }, [songs])
-
-  useEffect(() => {
-    eventIdRef.current = eventId
-  }, [eventId])
-
-  useEffect(() => {
-    isNowPlayingStartedRef.current = isNowPlayingStarted
-  }, [isNowPlayingStarted])
 
   useEffect(() => {
     if (!event?.id) {
@@ -1309,58 +1290,6 @@ function MirrorPage() {
     setBetweenSongQuoteIndex(nextQuoteIndex)
   }
 
-  const runQueueTogglePlayShortcut = useCallback(async () => {
-    // Mirror the Gig Control playback transition behavior so both screens remain in sync.
-    const activeEventId = eventIdRef.current
-    const currentNowPlaying = nowPlayingRef.current
-    const currentSongs = songsRef.current
-
-    if (!activeEventId || !currentNowPlaying) {
-      return
-    }
-
-    if (!isNowPlayingStartedRef.current) {
-      await writeSharedPlaybackState(activeEventId, {
-        currentSongId: currentNowPlaying.id,
-        currentSongCoverUrl: currentNowPlaying.cover_url ?? null,
-        isStarted: true,
-        quoteIndex: quoteIndexRef.current,
-      })
-      return
-    }
-
-    const previousQuoteIndex = quoteIndexRef.current
-    const nextQuoteIndex = (previousQuoteIndex + 1) % BETWEEN_SONG_QUOTES.length
-    const nextSong = currentSongs[1] ?? null
-
-    setQuoteIndex(nextQuoteIndex)
-
-    await writeSharedPlaybackState(activeEventId, {
-      currentSongId: nextSong?.id ?? null,
-      currentSongCoverUrl: nextSong?.cover_url ?? null,
-      isStarted: false,
-      quoteIndex: nextQuoteIndex,
-    })
-
-    try {
-      await markPlayed()
-    } catch (error) {
-      setQuoteIndex(previousQuoteIndex)
-      await writeSharedPlaybackState(activeEventId, {
-        currentSongId: currentNowPlaying.id,
-        currentSongCoverUrl: currentNowPlaying.cover_url ?? null,
-        isStarted: true,
-        quoteIndex: previousQuoteIndex,
-      })
-      throw error
-    }
-  }, [markPlayed])
-
-  const runQueueTogglePlayShortcutRef = useRef(runQueueTogglePlayShortcut)
-  useEffect(() => {
-    runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
-  }, [runQueueTogglePlayShortcut])
-
   useEffect(() => {
     const normalizedQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
       ? (playbackState?.quoteIndex as number) % BETWEEN_SONG_QUOTES.length
@@ -1372,7 +1301,7 @@ function MirrorPage() {
   }, [playbackState?.quoteIndex])
 
   useEffect(() => {
-    if (isNowPlayingStarted && activeSong) {
+    if (!isQuoteModeActive) {
       return
     }
 
@@ -1384,7 +1313,7 @@ function MirrorPage() {
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [activeSong, isNowPlayingStarted])
+  }, [isQuoteModeActive])
 
   useEffect(() => {
     const onKeyDown = (keyEvent: KeyboardEvent) => {
@@ -1450,30 +1379,9 @@ function MirrorPage() {
         return
       }
 
-      if (spacebarBusyRef.current) {
-        keyEvent.preventDefault()
-        return
-      }
-
-      if (!nowPlayingRef.current) {
-        return
-      }
-
       keyEvent.preventDefault()
       lastSpacebarActionAtRef.current = now
-      spacebarBusyRef.current = true
-
-      const executeToggle = async () => {
-        try {
-          await runQueueTogglePlayShortcutRef.current()
-        } catch (error) {
-          console.warn('MirrorPage: spacebar playback action failed', error)
-        } finally {
-          spacebarBusyRef.current = false
-        }
-      }
-
-      void executeToggle()
+      setForceQuoteMode((currentMode) => !currentMode)
     }
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
@@ -2380,7 +2288,7 @@ function MirrorPage() {
               Venue: {venueMode === 'club' ? 'Club' : venueMode === 'festival' ? 'Festival' : 'Lounge'}
             </button>
             <p className="mirror-control-shortcuts" aria-live="polite">
-              Shortcuts: <strong>F</strong> fullscreen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> play/pause.
+              Shortcuts: <strong>F</strong> fullscreen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
             </p>
             <div className="mirror-banner-editor">
               <label className="mirror-banner-label" htmlFor="mirror-banner-input">📢 Scrolling Banner</label>
@@ -2486,9 +2394,16 @@ function MirrorPage() {
           </section>
         ) : (
           <section className="mirror-kiosk-columns" aria-label="Now playing and live queue/feed">
-            <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
+            <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isQuoteModeActive ? 'mirror-now-playing-between' : ''}`}>
                 <p className="mirror-now-playing-band-label">Now Playing And Quotes</p>
-                {!useLiveSongCardsInDemo && isKaraokeEvent ? (
+                {isQuoteModeActive ? (
+                  <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
+                    <div className="mirror-now-playing-meta">
+                      <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
+                      {!activeSong ? <p className="mirror-song-waiting-note">Waiting for next song...</p> : null}
+                    </div>
+                  </div>
+                ) : !useLiveSongCardsInDemo && isKaraokeEvent ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Karaoke Night">
                     <div className="mirror-now-playing-meta">
                       <h1 className="mirror-title">🎤 Karaoke Night</h1>
@@ -2517,13 +2432,6 @@ function MirrorPage() {
                       {event?.artistName ? <p className="mirror-artist">{event.name}</p> : null}
                       {event?.subtitle ? <p className="mirror-picked-by">{event.subtitle}</p> : null}
                       <p className="mirror-picked-by">🎸 Harald Live</p>
-                    </div>
-                  </div>
-                ) : !isNowPlayingStarted || !activeSong ? (
-                  <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
-                    <div className="mirror-now-playing-meta">
-                      <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
-                      <p className="mirror-song-waiting-note">Waiting for next song...</p>
                     </div>
                   </div>
                 ) : (
