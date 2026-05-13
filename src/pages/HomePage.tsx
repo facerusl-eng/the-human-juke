@@ -11,6 +11,15 @@ import '../styles/home-landing.css'
 type HomeLang = 'en' | 'da'
 
 const BOOKING_MANAGER_URL = import.meta.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
+const EXTERNAL_BOOKING_WEBHOOK_URL = 'https://preview--book-jukebox.base44.app/api/webhook/receiveExternalBooking'
+const EXTERNAL_BOOKING_PAYLOAD = {
+  venue_name: 'The Blue Note',
+  date: '2026-05-20',
+  gig_type: 'evening',
+  requested_fee: 1500,
+  contact_email: 'manager@bluenoote.dk',
+  notes: 'Special requests here',
+}
 
 const COPY = {
   en: {
@@ -89,6 +98,8 @@ function HomePage() {
   const navigate = useNavigate()
   const [signupEmail, setSignupEmail] = useState('')
   const [signupError, setSignupError] = useState<string | null>(null)
+  const [bookingBusy, setBookingBusy] = useState(false)
+  const [bookingNotice, setBookingNotice] = useState<string | null>(null)
   const [lang, setLang] = useState<HomeLang>(() => {
     const stored = readCommittedAudienceLocale()
     return stored === 'da' ? 'da' : 'en'
@@ -110,11 +121,35 @@ function HomePage() {
   }
 
   const openBookingFlow = () => {
-    if (typeof window !== 'undefined') {
-      window.location.assign(BOOKING_MANAGER_URL)
+    if (bookingBusy) {
       return
     }
-    navigate('/audience')
+
+    setBookingBusy(true)
+    setBookingNotice(null)
+
+    void (async () => {
+      try {
+        const response = await fetch(EXTERNAL_BOOKING_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(EXTERNAL_BOOKING_PAYLOAD),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Webhook failed with status ${response.status}`)
+        }
+
+        setBookingNotice(lang === 'da' ? 'Booking sendt. Vi kontakter dig snart.' : 'Booking sent. We will contact you shortly.')
+      } catch (error) {
+        console.warn('HomePage: failed to send booking webhook', error)
+        setBookingNotice(lang === 'da' ? 'Booking kunne ikke sendes. Prøv igen.' : 'Booking could not be sent. Please try again.')
+      } finally {
+        setBookingBusy(false)
+      }
+    })()
   }
 
   const openAdminLogin = () => {
@@ -197,6 +232,7 @@ function HomePage() {
               <PrimaryButton variant="secondary" onClick={openAudienceDemo}>{copy.demoCta}</PrimaryButton>
               <button type="button" className="lp-admin-btn" onClick={openAdminLogin}>Admin Login</button>
             </div>
+            {bookingNotice ? <p className="subcopy" role="status">{bookingNotice}</p> : null}
           </div>
 
           <div className="lp-hero-mirror" aria-label="Mirror screen preview">
