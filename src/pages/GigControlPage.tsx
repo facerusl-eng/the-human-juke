@@ -39,6 +39,19 @@ type PersistedGigControlNowPlaying = {
 
 type PreflightIssueCode = 'offline' | 'session' | 'database' | 'realtime' | 'shareLinks' | 'keepwarm' | 'unknown'
 
+function parseRequesterNames(rawName: string | null | undefined) {
+  if (!rawName) {
+    return []
+  }
+
+  return Array.from(new Set(
+    rawName
+      .split(/,|&|\band\b/gi)
+      .map((name) => name.trim())
+      .filter(Boolean),
+  ))
+}
+
 function classifyPreflightIssue(error: unknown): PreflightIssueCode {
   const message = error instanceof Error ? error.message.toLowerCase() : ''
 
@@ -202,6 +215,19 @@ function GigControlPage() {
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
   const nextUpSong = upNext[0] ?? null
   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
+  const nowPlayingRequesters = parseRequesterNames(nowPlaying?.createdByName)
+  const mirrorStateLabel = isBrbActive
+    ? 'Mirror showing BRB screen'
+    : event?.roomOpen
+    ? isNowPlayingStarted
+      ? 'Mirror showing live now playing'
+      : 'Mirror showing between-song transition'
+    : 'Mirror showing paused waiting screen'
+  const liveModeLabel = event?.roomOpen
+    ? 'Live'
+    : isBrbActive
+    ? 'Break'
+    : 'Paused'
   const activeHostEvent = hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null
   const isCurrentTestGig = activeHostEvent?.isTestGig ?? event?.isTestGig ?? false
   const queuedLibrarySongIds = useMemo(() => (
@@ -218,6 +244,14 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
+
+  const resolveCoverUrlForSong = useCallback((songId: string | null) => {
+    if (!songId) {
+      return null
+    }
+
+    return songs.find((song) => song.id === songId)?.cover_url ?? null
+  }, [songs])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -683,6 +717,49 @@ function GigControlPage() {
     }
   }, [attemptAutomaticHealthRepair, event, persistReadinessVerdict, runPreflightChecks])
 
+  const toggleLiveState = useCallback(async () => {
+    try {
+      const isOpeningRoom = Boolean(event && !event.roomOpen)
+
+      if (isOpeningRoom) {
+        await runGoLivePreflight()
+      }
+
+      const toggled = await gigActions.runToggleRoomOpen()
+
+      if (isOpeningRoom && toggled && event?.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(event.id)) {
+        introAudioPlayedEventIdsRef.current.add(event.id)
+        try {
+          await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
+        } catch {
+          setErrorText('Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport was restored.')
+        }
+      }
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Go Live preflight failed.')
+    }
+  }, [event, gigActions, playIntroAudioWithSpotifyBridge, runGoLivePreflight])
+
+  const toggleBrbState = useCallback(async () => {
+    if (!event?.id) return
+    const nextBrb = !isBrbActive
+    setIsBrbActive(nextBrb)
+    try {
+      await writeSharedPlaybackState(event.id, {
+        currentSongId: nowPlaying?.id ?? null,
+        currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
+        isStarted: false,
+        quoteIndex: quoteIndexRef.current,
+        brbActive: nextBrb,
+        brbMessage: nextBrb ? (brbCustomMessage.trim() || 'Be right back - grabbing a pint of courage.') : null,
+      })
+    } catch (error) {
+      setIsBrbActive(isBrbActive)
+      console.warn('GigControlPage: BRB toggle failed', error)
+      setErrorText('Failed to toggle BRB screen.')
+    }
+  }, [brbCustomMessage, event?.id, isBrbActive, nowPlaying?.id, resolveCoverUrlForSong])
+
   useEffect(() => {
     if (!event?.roomOpen || preflightBusy || audienceConnectionStatus === 'connected') {
       return
@@ -1115,14 +1192,6 @@ function GigControlPage() {
     return () => window.clearInterval(timerId)
   }, [event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen])
 
-  const resolveCoverUrlForSong = useCallback((songId: string | null) => {
-    if (!songId) {
-      return null
-    }
-
-    return songs.find((song) => song.id === songId)?.cover_url ?? null
-  }, [songs])
-
   useEffect(() => {
     const activeEventId = event?.id
 
@@ -1439,28 +1508,7 @@ function GigControlPage() {
         : lastReadinessVerdict === 'fail'
         ? 'Go Live + Auto Fix'
         : 'Go Live',
-      onClick: async () => {
-        try {
-          const isOpeningRoom = Boolean(event && !event.roomOpen)
-
-          if (isOpeningRoom) {
-            await runGoLivePreflight()
-          }
-
-          const toggled = await gigActions.runToggleRoomOpen()
-
-          if (isOpeningRoom && toggled && event?.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(event.id)) {
-            introAudioPlayedEventIdsRef.current.add(event.id)
-            try {
-              await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
-            } catch {
-              setErrorText('Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport was restored.')
-            }
-          }
-        } catch (error) {
-          setErrorText(error instanceof Error ? error.message : 'Go Live preflight failed.')
-        }
-      },
+      onClick: toggleLiveState,
       title: event?.roomOpen ? 'Pause the live event — the audience will see a waiting screen' : 'Run health checks and open the room so the audience can join',
       disabled: gigActions.quickActionBusy || preflightBusy,
       variant: event?.roomOpen ? 'secondary' : lastReadinessVerdict === 'fail' ? 'secondary' : 'primary',
@@ -1500,25 +1548,7 @@ function GigControlPage() {
       id: 'brb-toggle',
       label: isBrbActive ? 'Cancel BRB' : 'BRB Screen',
       title: isBrbActive ? 'Cancel BRB — return to the normal live screen' : 'Show a "Be Right Back" screen to the audience while you take a break',
-      onClick: async () => {
-        if (!event?.id) return
-        const nextBrb = !isBrbActive
-        setIsBrbActive(nextBrb)
-        try {
-          await writeSharedPlaybackState(event.id, {
-            currentSongId: nowPlaying?.id ?? null,
-            currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
-            isStarted: false,
-            quoteIndex: quoteIndexRef.current,
-            brbActive: nextBrb,
-            brbMessage: nextBrb ? (brbCustomMessage.trim() || 'Be right back — grabbing a pint of courage.') : null,
-          })
-        } catch (error) {
-          setIsBrbActive(isBrbActive)
-          console.warn('GigControlPage: BRB toggle failed', error)
-          setErrorText('Failed to toggle BRB screen.')
-        }
-      },
+      onClick: toggleBrbState,
       variant: 'ghost' as const,
     },
     {
@@ -1620,6 +1650,45 @@ function GigControlPage() {
           </div>
         </section>
       ) : null}
+
+      <section className="queue-panel gig-performer-cockpit" aria-label="Performer live cockpit">
+        <div className="gig-performer-cockpit-top">
+          <p className="gig-control-card-label no-margin-bottom">Performer Live Cockpit</p>
+          <div className="gig-performer-status-row" role="status" aria-live="polite">
+            <span className={`gig-performer-status-pill ${event.roomOpen ? 'is-live' : 'is-paused'}`}>{liveModeLabel}</span>
+            <span className="gig-performer-status-pill is-neutral">{mirrorStateLabel}</span>
+            <span className="gig-performer-status-pill is-neutral">Audience {activeAudienceCount ?? 0}</span>
+          </div>
+        </div>
+        <div className="gig-performer-controls">
+          <button
+            type="button"
+            className="primary-button"
+            disabled={gigActions.quickActionBusy || preflightBusy}
+            onClick={async () => {
+              await toggleLiveState()
+            }}
+          >
+            {event.roomOpen ? 'Stop Live Concert' : 'Set Live'}
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={async () => {
+              await toggleBrbState()
+            }}
+          >
+            {isBrbActive ? 'Resume From Break' : 'Go on Break'}
+          </button>
+          <button type="button" className="ghost-button" onClick={() => openMirrorScreen()}>
+            Mirror Screen
+          </button>
+          <button type="button" className="ghost-button" onClick={() => navigate('/admin/gig-settings')}>
+            Gig Settings
+          </button>
+        </div>
+      </section>
+
       <section className="gig-control-top-grid">
         <article className="gig-control-header gig-control-main-card">
           <div>
@@ -1983,6 +2052,18 @@ function GigControlPage() {
                 <div>
                   <h2>{nowPlaying.title}</h2>
                   <p className="artist">{nowPlaying.artist}</p>
+                  <div className="gig-song-flag-row">
+                    {nowPlaying.audience_sings ? <span className="karaoke-tag">Karaoke</span> : <span className="gig-live-mode-tag">Live Request</span>}
+                    {nowPlaying.is_explicit ? <span className="explicit-tag">E</span> : null}
+                  </div>
+                  {nowPlayingRequesters.length > 0 ? (
+                    <div className="gig-requester-chip-row" aria-label="Song requesters">
+                      <span className="gig-requester-label">Wished by</span>
+                      {nowPlayingRequesters.map((requesterName) => (
+                        <span key={requesterName} className="gig-requester-chip">{requesterName}</span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
@@ -2150,12 +2231,19 @@ function GigControlPage() {
                   ) : null}
                   <div>
                     <p className="song">{song.title}</p>
-                    <p className="artist">
-                      {song.artist}
-                      {song.audience_sings ? <span className="karaoke-tag"> · Karaoke Wish</span> : null}
-                      {song.is_explicit ? <span className="explicit-tag"> · E</span> : null}
-                    </p>
-                    {song.createdByName ? <p className="song-requested-by">Wished by: {song.createdByName}</p> : null}
+                    <p className="artist">{song.artist}</p>
+                    <div className="gig-song-flag-row">
+                      {song.audience_sings ? <span className="karaoke-tag">Karaoke Wish</span> : <span className="gig-live-mode-tag">Live Request</span>}
+                      {song.is_explicit ? <span className="explicit-tag">E</span> : null}
+                    </div>
+                    {song.createdByName ? (
+                      <div className="gig-requester-chip-row">
+                        <span className="gig-requester-label">Wished by</span>
+                        {parseRequesterNames(song.createdByName).map((requesterName) => (
+                          <span key={`${song.id}-${requesterName}`} className="gig-requester-chip">{requesterName}</span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <span className="votes">+{song.votes_count}</span>
