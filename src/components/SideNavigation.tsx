@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { CalendarDays, ChevronLeft, ChevronRight, House, ListMusic, MessageSquareMore, Settings, Tv } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, ListMusic, MessageSquareMore, PlusCircle, Settings, Sliders, Tv } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 
@@ -19,7 +19,20 @@ type NavigationItem = {
   match: (path: string) => boolean
 }
 
-const NAV_ITEMS: NavigationItem[] = [
+type NavigationGroup = {
+  label: string
+  icon: LucideIcon
+  groupMatch: (path: string) => boolean
+  children: NavigationItem[]
+}
+
+type NavEntry = NavigationItem | NavigationGroup
+
+function isGroup(entry: NavEntry): entry is NavigationGroup {
+  return 'children' in entry
+}
+
+const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Home',
     to: '/',
@@ -33,16 +46,35 @@ const NAV_ITEMS: NavigationItem[] = [
     match: (path) => path.startsWith('/audience'),
   },
   {
-    label: 'Queue',
-    to: '/admin/gig-control',
-    icon: ListMusic,
-    match: (path) => path.startsWith('/admin/gig-control'),
-  },
-  {
     label: 'Gigs',
-    to: '/admin/gigs',
     icon: CalendarDays,
-    match: (path) => path.startsWith('/admin/gigs') || path.startsWith('/admin/create-gig'),
+    groupMatch: (path) => path.startsWith('/admin/gig') || path.startsWith('/admin/create-gig'),
+    children: [
+      {
+        label: 'Gig List',
+        to: '/admin/gigs',
+        icon: CalendarDays,
+        match: (path) => path === '/admin/gigs',
+      },
+      {
+        label: 'Gig Control',
+        to: '/admin/gig-control',
+        icon: ListMusic,
+        match: (path) => path.startsWith('/admin/gig-control'),
+      },
+      {
+        label: 'Gig Settings',
+        to: '/admin/gig-settings',
+        icon: Sliders,
+        match: (path) => path.startsWith('/admin/gig-settings'),
+      },
+      {
+        label: 'Create Gig',
+        to: '/admin/create-gig',
+        icon: PlusCircle,
+        match: (path) => path.startsWith('/admin/create-gig'),
+      },
+    ],
   },
   {
     label: 'Mirror',
@@ -64,6 +96,9 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
   const [hostPassword, setHostPassword] = useState('')
   const [authBusy, setAuthBusy] = useState<null | 'signin' | 'signout' | 'passkey'>(null)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [gigsOpen, setGigsOpen] = useState(() =>
+    NAV_ITEMS.some((e) => isGroup(e) && e.groupMatch(currentPath))
+  )
 
   const handleHostSignIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -138,16 +173,76 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
         </div>
 
         <nav className="flex-1 px-2 py-3" aria-label="Primary">
-          <ul className="space-y-2">
-            {NAV_ITEMS.map((item) => {
-              const Icon = item.icon
-              const isActive = item.match(currentPath)
+          <ul className="space-y-1">
+            {NAV_ITEMS.map((entry) => {
+              if (isGroup(entry)) {
+                const groupActive = entry.groupMatch(currentPath)
+                const isOpen = gigsOpen || collapsed
+                return (
+                  <li key={entry.label}>
+                    <button
+                      type="button"
+                      onClick={() => { if (!collapsed) setGigsOpen((o) => !o) }}
+                      title={collapsed ? entry.label : undefined}
+                      className={[
+                        'group flex h-12 w-full items-center rounded-xl px-3 text-sm font-medium transition-all duration-200',
+                        'hover:shadow-[0_0_18px_rgba(255,0,255,0.25)]',
+                        collapsed ? 'justify-center' : 'justify-between',
+                        groupActive
+                          ? 'bg-cyan-400/10 text-[#00E5FF] ring-1 ring-cyan-300/40'
+                          : 'text-zinc-300 hover:bg-zinc-900/80 hover:text-cyan-100',
+                      ].join(' ')}
+                    >
+                      <span className={['flex items-center', collapsed ? '' : 'gap-3'].join(' ')}>
+                        <entry.icon size={20} className="shrink-0" aria-hidden="true" />
+                        {!collapsed ? <span>{entry.label}</span> : null}
+                      </span>
+                      {!collapsed ? (
+                        <ChevronDown
+                          size={14}
+                          className={['transition-transform duration-200', isOpen ? 'rotate-180' : ''].join(' ')}
+                        />
+                      ) : null}
+                    </button>
+                    {(isOpen || collapsed) ? (
+                      <ul className={['space-y-1', collapsed ? '' : 'ml-3 mt-1 border-l border-cyan-400/15 pl-2'].join(' ')}>
+                        {entry.children.map((child) => {
+                          const ChildIcon = child.icon
+                          const childActive = child.match(currentPath)
+                          return (
+                            <li key={child.label}>
+                              <NavLink
+                                to={child.to}
+                                title={collapsed ? child.label : undefined}
+                                className={[
+                                  'group flex h-10 items-center rounded-xl px-3 text-xs font-medium transition-all duration-200',
+                                  'hover:shadow-[0_0_18px_rgba(255,0,255,0.25)]',
+                                  collapsed ? 'justify-center' : 'justify-start gap-3',
+                                  childActive
+                                    ? 'bg-cyan-400/10 text-[#00E5FF] ring-1 ring-cyan-300/40'
+                                    : 'text-zinc-400 hover:bg-zinc-900/80 hover:text-cyan-100',
+                                ].join(' ')}
+                              >
+                                <ChildIcon size={16} className="shrink-0" aria-hidden="true" />
+                                {!collapsed ? <span>{child.label}</span> : null}
+                              </NavLink>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    ) : null}
+                  </li>
+                )
+              }
+
+              const Icon = entry.icon
+              const isActive = entry.match(currentPath)
 
               return (
-                <li key={item.label}>
+                <li key={entry.label}>
                   <NavLink
-                    to={item.to}
-                    title={collapsed ? item.label : undefined}
+                    to={entry.to}
+                    title={collapsed ? entry.label : undefined}
                     className={[
                       'group flex h-12 items-center rounded-xl px-3 text-sm font-medium transition-all duration-200',
                       'hover:shadow-[0_0_18px_rgba(255,0,255,0.25)]',
@@ -158,7 +253,7 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
                     ].join(' ')}
                   >
                     <Icon size={20} className="shrink-0" aria-hidden="true" />
-                    {!collapsed ? <span>{item.label}</span> : null}
+                    {!collapsed ? <span>{entry.label}</span> : null}
                   </NavLink>
                 </li>
               )
