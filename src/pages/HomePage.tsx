@@ -132,16 +132,11 @@ function HomePage() {
 
     setSignupError(null)
 
-    if (typeof window !== 'undefined') {
-      const bookingSearchParams = new URLSearchParams()
-      bookingSearchParams.set('email', normalizedEmail)
-      bookingSearchParams.set('intent', 'availability-updates')
-      bookingSearchParams.set('source', 'home-signup')
-      window.location.assign(`/booking?${bookingSearchParams.toString()}`)
-      return
-    }
-
-    navigate('/booking?intent=availability-updates&source=home-signup')
+    const bookingSearchParams = new URLSearchParams()
+    bookingSearchParams.set('email', normalizedEmail)
+    bookingSearchParams.set('intent', 'availability-updates')
+    bookingSearchParams.set('source', 'home-signup')
+    navigate(`/booking?${bookingSearchParams.toString()}`)
   }
 
   useEffect(() => {
