@@ -11497,12 +11497,12 @@ kbd {
 
 .home-layout-pair {
   display: grid;
-  gap: 32px;
+  gap: clamp(1rem, 2vw, 2rem);
 }
 
 .home-shell-v2 {
   width: 100%;
-  max-width: 1560px;
+  max-width: 1680px;
   margin: 0 auto;
 }
 
@@ -11798,16 +11798,16 @@ kbd {
 /* ── Venue benefit grid ────────────────────────────────────── */
 .home-benefit-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
 }
 
 .home-benefit-grid--3 {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .home-benefit-grid--4 {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .home-benefit-card {
@@ -12141,11 +12141,11 @@ kbd {
   }
 
   .home-layout-pair .home-layout-pair-primary {
-    grid-column: span 7;
+    grid-column: span 8;
   }
 
   .home-layout-pair .home-layout-pair-secondary {
-    grid-column: span 5;
+    grid-column: span 4;
   }
 
   /* Hero: text left, CTA panel right */
@@ -12198,15 +12198,15 @@ kbd {
 
   /* Wider inner grids on desktop */
   .home-benefit-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   }
 
   .home-benefit-grid--3 {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .home-benefit-grid--4 {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -12231,7 +12231,7 @@ kbd {
   }
 
   .home-benefit-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   }
 
   .home-mirror-preview-card {
@@ -12256,6 +12256,16 @@ kbd {
   .home-layout-pair .home-layout-pair-secondary .home-benefit-grid--4,
   .home-layout-pair .home-layout-pair-secondary .home-benefit-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1561px) {
+  .home-layout-pair .home-layout-pair-primary {
+    grid-column: span 8;
+  }
+
+  .home-layout-pair .home-layout-pair-secondary {
+    grid-column: span 4;
   }
 }
 
