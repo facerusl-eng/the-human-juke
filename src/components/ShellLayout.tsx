@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 import { demoMode } from '../demo/demoMode'
 import { DemoBanner } from '../demo/DemoBanner'
@@ -67,6 +67,7 @@ function isValidHexColor(value: string | null | undefined) {
 
 function ShellLayout() {
   const { profile, user, loading } = useAuthStore()
+  const location = useLocation()
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') {
@@ -151,18 +152,23 @@ function ShellLayout() {
     }
   }, [])
 
+  const currentPath = location.pathname
+  const showAdminNavigation = currentPath.startsWith('/admin')
+
   return (
     <main className="min-h-screen">
       {demoMode ? <DemoBanner /> : null}
       <div className="relative flex min-h-screen">
-        <SideNavigation
-          collapsed={isDesktopSidebarCollapsed}
-          onToggleCollapsed={() => setIsDesktopSidebarCollapsed((collapsed) => !collapsed)}
-          currentPath={typeof window === 'undefined' ? '/' : window.location.pathname}
-          isMobile={isMobileViewport}
-        />
+        {showAdminNavigation ? (
+          <SideNavigation
+            collapsed={isDesktopSidebarCollapsed}
+            onToggleCollapsed={() => setIsDesktopSidebarCollapsed((collapsed) => !collapsed)}
+            currentPath={currentPath}
+            isMobile={isMobileViewport}
+          />
+        ) : null}
 
-        {isMobileViewport && !isDesktopSidebarCollapsed ? (
+        {showAdminNavigation && isMobileViewport && !isDesktopSidebarCollapsed ? (
           <button
             type="button"
             className="fixed inset-0 z-40 bg-black/45"
@@ -196,7 +202,7 @@ function ShellLayout() {
         </footer>
         </section>
 
-        {isMobileViewport && isDesktopSidebarCollapsed ? (
+        {showAdminNavigation && isMobileViewport && isDesktopSidebarCollapsed ? (
           <button
             type="button"
             className="fixed bottom-4 right-4 z-50 h-11 rounded-full border border-fuchsia-400/35 bg-[#0A0A0A] px-4 text-sm font-semibold text-cyan-200 shadow-[0_0_18px_rgba(255,0,255,0.25)] transition-all duration-200 hover:shadow-[0_0_24px_rgba(255,0,255,0.35)]"
