@@ -9,6 +9,8 @@ import '../styles/home-landing.css'
 
 type HomeLang = 'en' | 'da'
 
+const BOOKING_MANAGER_URL = import.meta.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
+
 const COPY = {
   en: {
     eyebrow: 'The live music experience pubs love',
@@ -104,9 +106,9 @@ function HomePage() {
     navigate('/audience?demo=true')
   }
 
-  const openLiveExperience = () => {
+  const openBookingFlow = () => {
     if (typeof window !== 'undefined') {
-      window.location.assign('/audience')
+      window.location.assign(BOOKING_MANAGER_URL)
       return
     }
     navigate('/audience')
@@ -163,7 +165,7 @@ function HomePage() {
               </button>
             </div>
             <div className="lp-hero-cta" aria-label="Primary actions">
-              <PrimaryButton onClick={openLiveExperience}>{copy.bookCta}</PrimaryButton>
+              <PrimaryButton onClick={openBookingFlow}>{copy.bookCta}</PrimaryButton>
               <PrimaryButton variant="secondary" onClick={openAudienceDemo}>{copy.demoCta}</PrimaryButton>
               <button type="button" className="lp-admin-btn" onClick={openAdminLogin}>Admin Login</button>
             </div>
@@ -171,7 +173,7 @@ function HomePage() {
 
           <div className="lp-hero-mirror" aria-label="Mirror screen preview">
             <iframe
-              src="/mirror?demo=true&preview=1&mirrorAccess=force"
+              src="/mirror?demo=true&mirrorAccess=force"
               title="Mirror screen preview"
               loading="lazy"
               className="lp-hero-mirror-frame"
@@ -245,12 +247,12 @@ function HomePage() {
               placeholder={copy.signupPlaceholder}
               autoComplete="email"
             />
-            <button type="button" className="lp-signup-btn" onClick={openLiveExperience}>
+            <button type="button" className="lp-signup-btn" onClick={openBookingFlow}>
               {copy.signupCta}
             </button>
           </div>
           <div className="lp-cta-actions">
-            <PrimaryButton onClick={openLiveExperience}>{copy.ctaBook}</PrimaryButton>
+            <PrimaryButton onClick={openBookingFlow}>{copy.ctaBook}</PrimaryButton>
             <PrimaryButton variant="secondary" onClick={openAudienceDemo}>{copy.ctaDemo}</PrimaryButton>
           </div>
         </form>

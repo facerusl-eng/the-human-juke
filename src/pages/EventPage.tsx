@@ -120,6 +120,7 @@ function isAuthSessionError(error: unknown) {
 
 async function fetchUpcomingEventRows(timeoutMs = 12000) {
   const abortController = new AbortController()
+  const todayIso = new Date().toISOString().slice(0, 10)
   let didTimeout = false
   const timeoutId = window.setTimeout(() => {
     didTimeout = true
@@ -132,6 +133,7 @@ async function fetchUpcomingEventRows(timeoutMs = 12000) {
       .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, event_theme, karafun_url, cover_image_url')
       .abortSignal(abortController.signal)
       .eq('show_in_audience_no_gig', true)
+      .gte('gig_date', todayIso)
       .order('gig_date', { ascending: true, nullsFirst: false })
       .order('gig_start_time', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
@@ -151,6 +153,7 @@ async function fetchUpcomingEventRows(timeoutMs = 12000) {
         .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
         .abortSignal(abortController.signal)
         .eq('show_in_audience_no_gig', true)
+        .gte('gig_date', todayIso)
         .order('gig_date', { ascending: true, nullsFirst: false })
         .order('gig_start_time', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
@@ -164,7 +167,31 @@ async function fetchUpcomingEventRows(timeoutMs = 12000) {
         throw fallbackError
       }
 
-      return (fallbackData ?? []).map((eventData) => ({
+      const mappedFallbackData = (fallbackData ?? []).map((eventData) => ({
+        ...(eventData as Record<string, unknown>),
+        cover_image_url: null,
+        event_theme: null,
+      }))
+
+      if (mappedFallbackData.length > 0) {
+        return mappedFallbackData
+      }
+
+      const { data: futureFallbackData, error: futureFallbackError } = await supabase
+        .from('events')
+        .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
+        .abortSignal(abortController.signal)
+        .gte('gig_date', todayIso)
+        .order('gig_date', { ascending: true, nullsFirst: false })
+        .order('gig_start_time', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .limit(50)
+
+      if (futureFallbackError) {
+        throw futureFallbackError
+      }
+
+      return (futureFallbackData ?? []).map((eventData) => ({
         ...(eventData as Record<string, unknown>),
         cover_image_url: null,
         event_theme: null,
@@ -175,7 +202,27 @@ async function fetchUpcomingEventRows(timeoutMs = 12000) {
       throw error
     }
 
-    return (data ?? []) as Array<Record<string, unknown>>
+    const mappedData = (data ?? []) as Array<Record<string, unknown>>
+
+    if (mappedData.length > 0) {
+      return mappedData
+    }
+
+    const { data: futureData, error: futureError } = await supabase
+      .from('events')
+      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, event_theme, karafun_url, cover_image_url')
+      .abortSignal(abortController.signal)
+      .gte('gig_date', todayIso)
+      .order('gig_date', { ascending: true, nullsFirst: false })
+      .order('gig_start_time', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+      .limit(50)
+
+    if (futureError) {
+      throw futureError
+    }
+
+    return (futureData ?? []) as Array<Record<string, unknown>>
   } finally {
     window.clearTimeout(timeoutId)
   }
