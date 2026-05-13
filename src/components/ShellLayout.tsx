@@ -5,7 +5,6 @@ import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 import { demoMode } from '../demo/demoMode'
 import { DemoBanner } from '../demo/DemoBanner'
-import { AiManagerPanel } from './AiManagerPanel'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
@@ -80,26 +79,24 @@ function ShellLayout() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [isGigMenuOpen, setIsGigMenuOpen] = useState(false)
   const [isGigMenuForceClosed, setIsGigMenuForceClosed] = useState(false)
-  const [aiDiagnostics, setAiDiagnostics] = useState<'checking' | 'connected' | 'not-connected'>('checking')
   const mobileNavToggleRef = useRef<HTMLButtonElement | null>(null)
   const gigMenuRef = useRef<HTMLDivElement | null>(null)
   const gigMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
   const isAudienceSongListMode = location.pathname.startsWith('/audience/song-list')
   const isAudienceMode = location.pathname.startsWith('/audience') || location.pathname.startsWith('/feed')
   const isAdminMode = location.pathname.startsWith('/admin')
-  const showAiDiagnostics = isAdminMode && (import.meta.env.DEV || new URLSearchParams(location.search).get('aiDiagnostics') === '1')
-  const isGigNavActive = /^\/admin\/(gigs|create-gig|gig-control|gig-settings|venue-outreach)/.test(location.pathname)
+  const isGigNavActive = /^\/admin\/(gigs|create-gig|gig-control|gig-settings)/.test(location.pathname)
   const showMobileMenu = !isAudienceMode
   const hasLiveGig = Boolean(event?.roomOpen)
   const canOpenFeed = isHost || (hasAudienceAccess && hasLiveGig)
   const shellClassName = isAudienceSongListMode
     ? 'app-shell app-shell-audience-fullscreen'
     : location.pathname.startsWith('/admin/setlist-library')
-    ? 'app-shell app-shell-wide'
+    ? 'app-shell app-shell-wide app-shell-rail'
     : isAudienceMode
     ? 'app-shell app-shell-audience'
-    : 'app-shell'
-  const topbarClassName = isAdminMode ? 'topbar topbar-admin' : 'topbar'
+    : 'app-shell app-shell-rail'
+  const topbarClassName = isAdminMode ? 'topbar topbar-admin topbar-rail' : 'topbar topbar-rail'
   const siteNavClassName = [
     'site-nav',
     isAdminMode ? 'site-nav-admin' : '',
@@ -247,43 +244,6 @@ function ShellLayout() {
   }, [])
 
   useEffect(() => {
-    if (!showAiDiagnostics) {
-      return
-    }
-
-    let cancelled = false
-
-    const checkAiConnection = async () => {
-      setAiDiagnostics('checking')
-
-      try {
-        const response = await fetch('/api/ai-manager', { method: 'GET' })
-        const payload: { connected?: boolean } = await response.json().catch(() => ({}))
-
-        if (cancelled) {
-          return
-        }
-
-        if (response.ok && payload.connected) {
-          setAiDiagnostics('connected')
-        } else {
-          setAiDiagnostics('not-connected')
-        }
-      } catch {
-        if (!cancelled) {
-          setAiDiagnostics('not-connected')
-        }
-      }
-    }
-
-    checkAiConnection()
-
-    return () => {
-      cancelled = true
-    }
-  }, [showAiDiagnostics, location.pathname])
-
-  useEffect(() => {
     if (location.pathname === '/callback') {
       return
     }
@@ -356,6 +316,7 @@ function ShellLayout() {
             {isMobileNavOpen ? 'Close menu' : 'Menu'}
           </button>
         ) : null}
+        {!isAudienceMode ? <p className="site-nav-heading">Navigation</p> : null}
         <nav
           id="primary-site-nav"
           className={siteNavClassName}
@@ -377,7 +338,6 @@ function ShellLayout() {
           ) : (
             <>
               <NavLink to="/" end>Home</NavLink>
-              {isHost ? <NavLink to="/admin/received-bookings">Received Bookings</NavLink> : <NavLink to="/book-show">Book Show</NavLink>}
               <NavLink to="/audience">Audience</NavLink>
               {canOpenFeed ? <NavLink to="/feed">Feed</NavLink> : null}
               {isHost ? (
@@ -444,7 +404,6 @@ function ShellLayout() {
                       <NavLink to="/admin/create-gig" onClick={closeGigMenuAfterNavigation}>New Gig</NavLink>
                       <NavLink to="/admin/gig-control" onClick={closeGigMenuAfterNavigation}>Gig Control</NavLink>
                       <NavLink to="/admin/gig-settings" onClick={closeGigMenuAfterNavigation}>Gig Settings</NavLink>
-                      <NavLink to="/admin/venue-outreach" onClick={closeGigMenuAfterNavigation}>Venue Outreach</NavLink>
                     </div>
                   </div>
                   <NavLink to="/admin/health-check">Health Check</NavLink>
@@ -457,6 +416,7 @@ function ShellLayout() {
             </>
           )}
         </nav>
+        {!isAudienceMode ? <p className="site-nav-footnote">The Human Jukebox App</p> : null}
 
         {!isAudienceMode ? (
         <div className="auth-strip">
@@ -514,16 +474,6 @@ function ShellLayout() {
         </section>
       ) : null}
       <Outlet />
-      {showAiDiagnostics ? (
-        <aside className="admin-ai-diagnostics" role="status" aria-live="polite" aria-label="AI diagnostics">
-          <p className="admin-ai-diagnostics-title">AI Diagnostics</p>
-          <p>route: {isAdminMode ? 'admin' : 'non-admin'}</p>
-          <p>session: {user ? 'signed-in' : 'none'}</p>
-          <p>host: {isHost ? 'true' : 'false'}</p>
-          <p>api: {aiDiagnostics}</p>
-        </aside>
-      ) : null}
-      {isHost && isAdminMode ? <AiManagerPanel /> : null}
       {!isAudienceSongListMode ? <footer className="site-legal-footer" aria-label="Copyright notice">
         <p>
           © {new Date().getFullYear()} Haraldur G Asmundsson. All rights reserved. The Human Jukebox name,
