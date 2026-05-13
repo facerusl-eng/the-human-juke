@@ -198,10 +198,10 @@ export type QueueContextValue = {
 export const QueueContext = createContext<QueueContextValue | null>(null)
 const DEFAULT_DB_TIMEOUT_MS = 30_000
 const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
-const HOST_QUEUE_POLL_INTERVAL_MS = 20_000
+const HOST_QUEUE_POLL_INTERVAL_MS = 10_000
 const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 45_000
 // How often the audience polls when connected to a live event (realtime handles most updates).
-const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 18_000
+const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 10_000
 // How often the audience checks for a new live gig when sitting on the no-gig screen.
 const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 30_000
 const DEGRADE_AFTER_CONSECUTIVE_FAILURES = 2

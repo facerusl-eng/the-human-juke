@@ -66,7 +66,7 @@ const CHOSEN_BY_ACCENT_CLASSES = [
 const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
 const QUOTE_ROTATE_INTERVAL_MS = 20000
-const SONG_INFO_ROTATE_INTERVAL_MS = 15000
+const SONG_INFO_ROTATE_INTERVAL_MS = 20000
 const SONG_FACT_MAX_LENGTH = 180
 const MIRROR_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-mirror-fun-facts-cache-v3'
 const MIRROR_HIGH_CONTRAST_STORAGE_KEY = 'human-jukebox-mirror-high-contrast'
@@ -75,17 +75,475 @@ const MIRROR_PLAYBACK_BROADCAST_CHANNEL = PLAYBACK_STATE_BROADCAST_CHANNEL
 const MIRROR_SAFE_MARGINS_STORAGE_KEY = 'human-jukebox-mirror-safe-margins'
 const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_BANNER_STORAGE_KEY = 'human-jukebox-mirror-banner-text'
+const MIRROR_LAYOUT_EDIT_STORAGE_KEY = 'human-jukebox-mirror-layout-edit-mode'
+const MIRROR_LAYOUT_STATE_STORAGE_KEY = 'human-jukebox-mirror-layout-state'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
+const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const isMirrorLayoutEditRequest = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get(MIRROR_LAYOUT_EDIT_QUERY_PARAM) === '1'
 
 type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
+type MirrorLayoutPanelId = 'brandLogo' | 'venueLogo' | 'status' | 'nowPlaying' | 'community' | 'queue' | 'joinQr'
+type MirrorLayoutRect = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+type MirrorLayoutState = Record<MirrorLayoutPanelId, MirrorLayoutRect>
+type MirrorLayoutVisibilityState = Record<MirrorLayoutPanelId, boolean>
 type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
 type FunFactsCache = Record<string, string[]>
 type SongWithMirrorFacts = QueueSong & { mirrorFunFacts?: string[] }
+
+const DEFAULT_MIRROR_LAYOUT_STATE: MirrorLayoutState = {
+  brandLogo: {
+    left: 2,
+    top: 2,
+    width: 22,
+    height: 10,
+  },
+  venueLogo: {
+    left: 39,
+    top: 2,
+    width: 22,
+    height: 10,
+  },
+  status: {
+    left: 78,
+    top: 2,
+    width: 18,
+    height: 10,
+  },
+  nowPlaying: {
+    left: 2,
+    top: 15,
+    width: 58,
+    height: 32,
+  },
+  community: {
+    left: 2,
+    top: 50,
+    width: 30,
+    height: 46,
+  },
+  queue: {
+    left: 34,
+    top: 50,
+    width: 32,
+    height: 46,
+  },
+  joinQr: {
+    left: 69,
+    top: 50,
+    width: 27,
+    height: 46,
+  },
+}
+
+const DEFAULT_MIRROR_LAYOUT_VISIBILITY: MirrorLayoutVisibilityState = {
+  brandLogo: true,
+  venueLogo: true,
+  status: true,
+  nowPlaying: true,
+  community: true,
+  queue: true,
+  joinQr: true,
+}
+
+const MIRROR_LAYOUT_EDITOR_STORAGE_KEY = 'human-jukebox-mirror-layout-editor-state-v1'
+const MIRROR_LAYOUT_EDITOR_PREFS_KEY = 'human-jukebox-mirror-layout-editor-prefs-v1'
+const MIRROR_LAYOUT_BLOCKS: Array<{ id: MirrorLayoutPanelId; label: string }> = [
+  { id: 'brandLogo', label: 'Brand logo' },
+  { id: 'venueLogo', label: 'Venue logo' },
+  { id: 'status', label: 'Status badge' },
+  { id: 'nowPlaying', label: 'Now playing' },
+  { id: 'community', label: 'Community' },
+  { id: 'queue', label: 'Song queue' },
+  { id: 'joinQr', label: 'Join QR' },
+]
+
+const MIRROR_LAYOUT_MIN_WIDTH = 12
+const MIRROR_LAYOUT_MIN_HEIGHT = 14
+const MIRROR_LAYOUT_MIN_VISIBLE = 6
+
+function clampMirrorLayoutRect(rect: MirrorLayoutRect): MirrorLayoutRect {
+  const width = Math.min(Math.max(rect.width, MIRROR_LAYOUT_MIN_WIDTH), 100)
+  const height = Math.min(Math.max(rect.height, MIRROR_LAYOUT_MIN_HEIGHT), 100)
+  const left = Math.min(Math.max(rect.left, MIRROR_LAYOUT_MIN_VISIBLE - width), 100 - MIRROR_LAYOUT_MIN_VISIBLE)
+  const top = Math.min(Math.max(rect.top, MIRROR_LAYOUT_MIN_VISIBLE - height), 100 - MIRROR_LAYOUT_MIN_VISIBLE)
+
+  return {
+    left,
+    top,
+    width,
+    height,
+  }
+}
+
+function MirrorLayoutEditorPage() {
+  const editorShellRef = useRef<HTMLDivElement | null>(null)
+  const interactionRef = useRef<{
+    panelId: MirrorLayoutPanelId
+    mode: 'drag' | 'resize'
+    pointerId: number
+    startX: number
+    startY: number
+    startRect: MirrorLayoutRect
+    startState: MirrorLayoutState
+    shellWidth: number
+    shellHeight: number
+  } | null>(null)
+  const [layoutState, setLayoutState] = useState<MirrorLayoutState>(() => {
+    const savedText = readTextFromLocalStorage(MIRROR_LAYOUT_EDITOR_STORAGE_KEY)
+
+    if (!savedText) {
+      return DEFAULT_MIRROR_LAYOUT_STATE
+    }
+
+    try {
+      const savedState = JSON.parse(savedText) as Partial<MirrorLayoutState>
+      return {
+        brandLogo: { ...DEFAULT_MIRROR_LAYOUT_STATE.brandLogo, ...savedState.brandLogo },
+        venueLogo: { ...DEFAULT_MIRROR_LAYOUT_STATE.venueLogo, ...savedState.venueLogo },
+        status: { ...DEFAULT_MIRROR_LAYOUT_STATE.status, ...savedState.status },
+        nowPlaying: { ...DEFAULT_MIRROR_LAYOUT_STATE.nowPlaying, ...savedState.nowPlaying },
+        community: { ...DEFAULT_MIRROR_LAYOUT_STATE.community, ...savedState.community },
+        queue: { ...DEFAULT_MIRROR_LAYOUT_STATE.queue, ...savedState.queue },
+        joinQr: { ...DEFAULT_MIRROR_LAYOUT_STATE.joinQr, ...savedState.joinQr },
+      }
+    } catch {
+      return DEFAULT_MIRROR_LAYOUT_STATE
+    }
+  })
+  const [visibleBlocks, setVisibleBlocks] = useState<MirrorLayoutVisibilityState>(() => {
+    const savedText = readTextFromLocalStorage(MIRROR_LAYOUT_EDITOR_PREFS_KEY)
+
+    if (!savedText) {
+      return DEFAULT_MIRROR_LAYOUT_VISIBILITY
+    }
+
+    try {
+      const savedPrefs = JSON.parse(savedText) as { visibleBlocks?: Partial<MirrorLayoutVisibilityState> }
+      return {
+        ...DEFAULT_MIRROR_LAYOUT_VISIBILITY,
+        ...savedPrefs.visibleBlocks,
+      }
+    } catch {
+      return DEFAULT_MIRROR_LAYOUT_VISIBILITY
+    }
+  })
+  const [snapToGrid, setSnapToGrid] = useState(() => {
+    const savedText = readTextFromLocalStorage(MIRROR_LAYOUT_EDITOR_PREFS_KEY)
+
+    if (!savedText) {
+      return false
+    }
+
+    try {
+      const savedPrefs = JSON.parse(savedText) as { snapToGrid?: boolean }
+      return savedPrefs.snapToGrid ?? false
+    } catch {
+      return false
+    }
+  })
+  const [showGrid, setShowGrid] = useState(() => {
+    const savedText = readTextFromLocalStorage(MIRROR_LAYOUT_EDITOR_PREFS_KEY)
+
+    if (!savedText) {
+      return true
+    }
+
+    try {
+      const savedPrefs = JSON.parse(savedText) as { showGrid?: boolean }
+      return savedPrefs.showGrid ?? true
+    } catch {
+      return true
+    }
+  })
+  const [showBlockPicker, setShowBlockPicker] = useState(true)
+  const [activePanelId, setActivePanelId] = useState<MirrorLayoutPanelId | null>(null)
+
+  useEffect(() => {
+    void saveTextToLocalStorage(MIRROR_LAYOUT_EDITOR_STORAGE_KEY, JSON.stringify(layoutState))
+  }, [layoutState])
+
+  useEffect(() => {
+    void saveTextToLocalStorage(MIRROR_LAYOUT_EDITOR_PREFS_KEY, JSON.stringify({
+      visibleBlocks,
+      snapToGrid,
+      showGrid,
+    }))
+  }, [showGrid, snapToGrid, visibleBlocks])
+
+  useEffect(() => {
+    const onPointerMove = (pointerEvent: PointerEvent) => {
+      const interaction = interactionRef.current
+
+      if (!interaction || pointerEvent.pointerId !== interaction.pointerId) {
+        return
+      }
+
+      const deltaX = ((pointerEvent.clientX - interaction.startX) / interaction.shellWidth) * 100
+      const deltaY = ((pointerEvent.clientY - interaction.startY) / interaction.shellHeight) * 100
+
+      setLayoutState((currentState) => {
+        const startRect = interaction.startState[interaction.panelId]
+        const rawRect = interaction.mode === 'resize'
+          ? clampMirrorLayoutRect({
+            left: startRect.left,
+            top: startRect.top,
+            width: startRect.width + deltaX,
+            height: startRect.height + deltaY,
+          })
+          : clampMirrorLayoutRect({
+            left: startRect.left + deltaX,
+            top: startRect.top + deltaY,
+            width: startRect.width,
+            height: startRect.height,
+          })
+
+        const nextRect = snapToGrid
+          ? {
+            left: Math.round(rawRect.left),
+            top: Math.round(rawRect.top),
+            width: Math.round(rawRect.width),
+            height: Math.round(rawRect.height),
+          }
+          : rawRect
+
+        return {
+          ...currentState,
+          [interaction.panelId]: nextRect,
+        }
+      })
+    }
+
+    const endInteraction = (pointerEvent?: PointerEvent) => {
+      const interaction = interactionRef.current
+
+      if (!interaction) {
+        return
+      }
+
+      if (!pointerEvent || pointerEvent.pointerId === interaction.pointerId) {
+        interactionRef.current = null
+        setActivePanelId(null)
+      }
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', endInteraction)
+    window.addEventListener('pointercancel', endInteraction)
+
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', endInteraction)
+      window.removeEventListener('pointercancel', endInteraction)
+    }
+  }, [snapToGrid])
+
+  const startInteraction = useCallback((panelId: MirrorLayoutPanelId, mode: 'drag' | 'resize', pointerEvent: React.PointerEvent<HTMLElement>) => {
+    if (!editorShellRef.current) {
+      return
+    }
+
+    const shellRect = editorShellRef.current.getBoundingClientRect()
+
+    if (shellRect.width <= 0 || shellRect.height <= 0) {
+      return
+    }
+
+    pointerEvent.preventDefault()
+    pointerEvent.stopPropagation()
+    setActivePanelId(panelId)
+
+    interactionRef.current = {
+      panelId,
+      mode,
+      pointerId: pointerEvent.pointerId,
+      startX: pointerEvent.clientX,
+      startY: pointerEvent.clientY,
+      startRect: layoutState[panelId],
+      startState: layoutState,
+      shellWidth: shellRect.width,
+      shellHeight: shellRect.height,
+    }
+
+    pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId)
+  }, [layoutState])
+
+  const beginInteraction = useCallback((panelId: MirrorLayoutPanelId, mode: 'drag' | 'resize') => (pointerEvent: React.PointerEvent<HTMLElement>) => {
+    startInteraction(panelId, mode, pointerEvent)
+  }, [startInteraction])
+
+  const beginPanelDrag = useCallback((panelId: MirrorLayoutPanelId) => (pointerEvent: React.PointerEvent<HTMLElement>) => {
+    const target = pointerEvent.target as HTMLElement
+
+    if (target.closest('.mirror-layout-resize-handle')) {
+      return
+    }
+
+    startInteraction(panelId, 'drag', pointerEvent)
+  }, [layoutState])
+
+  const layoutStyles = useMemo(() => (
+    (Object.entries(layoutState) as Array<[MirrorLayoutPanelId, MirrorLayoutRect]>)
+      .map(([panelId, rect]) => (
+        `[data-mirror-layout-panel="${panelId}"] { left: ${rect.left}%; top: ${rect.top}%; width: ${rect.width}%; height: ${rect.height}%; z-index: ${panelId === activePanelId ? 8 : 1}; }`
+      ))
+      .join('\n')
+  ), [activePanelId, layoutState])
+
+  const resetLayout = useCallback(() => {
+    setLayoutState(DEFAULT_MIRROR_LAYOUT_STATE)
+    setVisibleBlocks(DEFAULT_MIRROR_LAYOUT_VISIBILITY)
+    setSnapToGrid(false)
+    setShowGrid(true)
+    setShowBlockPicker(true)
+    setActivePanelId(null)
+  }, [])
+
+  return (
+    <div ref={editorShellRef} className="mirror-shell mirror-shell-live mirror-shell-bg-human-jukebox mirror-layout-editor-shell" aria-label="Mirror layout editor">
+      <style>{`.mirror-layout-editor-shell { position: fixed; inset: 0; overflow: hidden; }\n${layoutStyles}`}</style>
+      <div className="mirror-layout-edit-toolbar mirror-layout-edit-toolbar-compact" role="toolbar" aria-label="Mirror layout editor controls">
+        <button type="button" className={`mirror-layout-edit-button ${showBlockPicker ? 'mirror-layout-edit-button-primary' : ''}`.trim()} onClick={() => setShowBlockPicker((currentValue) => !currentValue)}>{showBlockPicker ? 'Blocks On' : 'Blocks Off'}</button>
+        <button type="button" className={`mirror-layout-edit-button ${snapToGrid ? 'mirror-layout-edit-button-primary' : ''}`.trim()} onClick={() => setSnapToGrid((currentValue) => !currentValue)}>{snapToGrid ? 'Snap On' : 'Snap Off'}</button>
+        <button type="button" className={`mirror-layout-edit-button ${showGrid ? 'mirror-layout-edit-button-primary' : ''}`.trim()} onClick={() => setShowGrid((currentValue) => !currentValue)}>{showGrid ? 'Grid On' : 'Grid Off'}</button>
+        <button type="button" className="mirror-layout-edit-button" onClick={resetLayout}>Reset</button>
+        <button type="button" className="mirror-layout-edit-button mirror-layout-edit-button-primary" onClick={() => window.location.href = '/mirror?demo=true'}>Done</button>
+      </div>
+
+      {showBlockPicker ? (
+        <aside className="mirror-layout-block-picker" aria-label="Available blocks">
+          <p className="mirror-layout-block-picker-title">Available blocks</p>
+          <div className="mirror-layout-block-picker-list">
+            {MIRROR_LAYOUT_BLOCKS.map((block) => (
+              <button
+                key={block.id}
+                type="button"
+                className={`mirror-layout-block-chip ${visibleBlocks[block.id] ? 'mirror-layout-block-chip-active' : ''}`.trim()}
+                onClick={() => {
+                  setVisibleBlocks((currentBlocks) => ({
+                    ...currentBlocks,
+                    [block.id]: !currentBlocks[block.id],
+                  }))
+                }}
+              >
+                {block.label}
+              </button>
+            ))}
+          </div>
+        </aside>
+      ) : null}
+
+      {showGrid ? <div className="mirror-layout-grid" aria-hidden="true" /> : null}
+
+      <section className="mirror-layout-editor-panels">
+        {visibleBlocks.brandLogo ? (
+          <section className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel" data-mirror-layout-panel="brandLogo" onPointerDown={beginPanelDrag('brandLogo')}>
+            <button type="button" className="mirror-layout-drag-handle" aria-label="Drag brand logo panel" onPointerDown={beginInteraction('brandLogo', 'drag')}>Move</button>
+            <div className="mirror-layout-edit-simple-panel-body">
+              <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
+            </div>
+            <button type="button" className="mirror-layout-resize-handle" aria-label="Resize brand logo panel" onPointerDown={beginInteraction('brandLogo', 'resize')} />
+          </section>
+        ) : null}
+
+        {visibleBlocks.venueLogo ? (
+          <section className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel" data-mirror-layout-panel="venueLogo" onPointerDown={beginPanelDrag('venueLogo')}>
+            <button type="button" className="mirror-layout-drag-handle" aria-label="Drag venue logo panel" onPointerDown={beginInteraction('venueLogo', 'drag')}>Move</button>
+            <div className="mirror-layout-edit-simple-panel-body mirror-layout-edit-logo-placeholder">
+              <p>Venue logo</p>
+            </div>
+            <button type="button" className="mirror-layout-resize-handle" aria-label="Resize venue logo panel" onPointerDown={beginInteraction('venueLogo', 'resize')} />
+          </section>
+        ) : null}
+
+        {visibleBlocks.status ? (
+          <section className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel" data-mirror-layout-panel="status" onPointerDown={beginPanelDrag('status')}>
+            <button type="button" className="mirror-layout-drag-handle" aria-label="Drag status panel" onPointerDown={beginInteraction('status', 'drag')}>Move</button>
+            <div className="mirror-layout-edit-simple-panel-body">
+              <span className="mirror-status mirror-open">● Live</span>
+            </div>
+            <button type="button" className="mirror-layout-resize-handle" aria-label="Resize status panel" onPointerDown={beginInteraction('status', 'resize')} />
+          </section>
+        ) : null}
+
+        {visibleBlocks.nowPlaying ? (
+          <section className="mirror-now-playing mirror-frame mirror-frame-now-playing mirror-layout-edit-panel" data-mirror-layout-panel="nowPlaying" onPointerDown={beginPanelDrag('nowPlaying')}>
+          <button type="button" className="mirror-layout-drag-handle" aria-label="Drag now playing panel" onPointerDown={beginInteraction('nowPlaying', 'drag')}>Move</button>
+          <p className="mirror-now-playing-band-label">Now Playing</p>
+          <div className="mirror-now-playing-track">
+            <div className="mirror-now-playing-meta">
+              <h1 className="mirror-title">Now playing block</h1>
+              <p className="mirror-artist">Drag this anywhere on the screen</p>
+              <div className="mirror-song-fact-box">
+                <p className="mirror-song-fact-label">Fact</p>
+                <p className="mirror-song-fact">Stretch this box bigger or smaller to match the look you want.</p>
+              </div>
+            </div>
+          </div>
+          <button type="button" className="mirror-layout-resize-handle" aria-label="Resize now playing panel" onPointerDown={beginInteraction('nowPlaying', 'resize')} />
+          </section>
+        ) : null}
+
+        {visibleBlocks.community ? (
+          <section className="mirror-live-feed-frame mirror-frame mirror-layout-edit-panel" data-mirror-layout-panel="community" onPointerDown={beginPanelDrag('community')}>
+          <button type="button" className="mirror-layout-drag-handle" aria-label="Drag live feed panel" onPointerDown={beginInteraction('community', 'drag')}>Move</button>
+          <div className="mirror-layout-edit-feed-preview">
+            <div className="mirror-layout-edit-feed-preview-header">
+              <p className="mirror-layout-edit-feed-preview-eyebrow">Community</p>
+              <h2 className="mirror-layout-edit-feed-preview-title">Live Feed Messages</h2>
+            </div>
+            <div className="mirror-layout-edit-feed-preview-items">
+              <p>Drag, stretch, and place this block where you want it.</p>
+              <p>Use it as the community / messages area.</p>
+            </div>
+          </div>
+          <button type="button" className="mirror-layout-resize-handle" aria-label="Resize live feed panel" onPointerDown={beginInteraction('community', 'resize')} />
+          </section>
+        ) : null}
+
+        {visibleBlocks.queue ? (
+          <section className="mirror-song-queue-frame mirror-frame mirror-up-next mirror-layout-edit-panel" data-mirror-layout-panel="queue" onPointerDown={beginPanelDrag('queue')}>
+          <button type="button" className="mirror-layout-drag-handle" aria-label="Drag song queue panel" onPointerDown={beginInteraction('queue', 'drag')}>Move</button>
+          <p className="mirror-up-next-label">Song Queue</p>
+          <ol className="mirror-queue">
+            <li className="mirror-queue-item mirror-queue-item-next">
+              <span className="mirror-queue-pos">1</span>
+              <div className="mirror-queue-info">
+                <span className="mirror-queue-title">Queue item</span>
+                <span className="mirror-queue-artist">Resize this block to fit the queue</span>
+              </div>
+              <span className="mirror-queue-votes">+0</span>
+            </li>
+          </ol>
+          <button type="button" className="mirror-layout-resize-handle" aria-label="Resize song queue panel" onPointerDown={beginInteraction('queue', 'resize')} />
+          </section>
+        ) : null}
+
+        {visibleBlocks.joinQr ? (
+          <section className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel" data-mirror-layout-panel="joinQr" onPointerDown={beginPanelDrag('joinQr')}>
+            <button type="button" className="mirror-layout-drag-handle" aria-label="Drag join QR panel" onPointerDown={beginInteraction('joinQr', 'drag')}>Move</button>
+            <div className="mirror-layout-edit-simple-panel-body mirror-layout-edit-qr-panel">
+              <div className="mirror-layout-edit-qr-box" />
+              <p className="mirror-now-playing-qr-label">Join QR</p>
+              <p className="mirror-now-playing-qr-url">Place this where the audience should scan</p>
+            </div>
+            <button type="button" className="mirror-layout-resize-handle" aria-label="Resize join QR panel" onPointerDown={beginInteraction('joinQr', 'resize')} />
+          </section>
+        ) : null}
+      </section>
+    </div>
+  )
+}
 
 function countCharactersWithoutSpaces(text: string) {
   return text.replace(/\s+/g, '').length
@@ -596,6 +1054,10 @@ function playShutterSound() {
 }
 
 function MirrorPage() {
+  if (isMirrorLayoutEditRequest) {
+    return <MirrorLayoutEditorPage />
+  }
+
   const { event, songs, loading, toggleRoomOpen } = useQueueStore()
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
@@ -619,6 +1081,47 @@ function MirrorPage() {
   const [bannerEnabledOverride, setBannerEnabledOverride] = useState<boolean | null>(null)
   const [, setStorageError] = useState<string | null>(null)
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
+  const [layoutEditMode, setLayoutEditMode] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const queryEnabled = searchParams.get(MIRROR_LAYOUT_EDIT_QUERY_PARAM) === '1'
+    const persistedEnabled = readTextFromLocalStorage(MIRROR_LAYOUT_EDIT_STORAGE_KEY) === '1'
+    return queryEnabled || persistedEnabled
+  })
+  const [mirrorLayoutState, setMirrorLayoutState] = useState<MirrorLayoutState>(() => {
+    if (typeof window === 'undefined') {
+      return DEFAULT_MIRROR_LAYOUT_STATE
+    }
+
+    const persistedStateText = readTextFromLocalStorage(MIRROR_LAYOUT_STATE_STORAGE_KEY)
+
+    if (!persistedStateText) {
+      return DEFAULT_MIRROR_LAYOUT_STATE
+    }
+
+    try {
+      const parsedState = JSON.parse(persistedStateText) as Partial<MirrorLayoutState>
+
+      if (!parsedState || typeof parsedState !== 'object') {
+        return DEFAULT_MIRROR_LAYOUT_STATE
+      }
+
+      return {
+        brandLogo: { ...DEFAULT_MIRROR_LAYOUT_STATE.brandLogo, ...parsedState.brandLogo },
+        venueLogo: { ...DEFAULT_MIRROR_LAYOUT_STATE.venueLogo, ...parsedState.venueLogo },
+        status: { ...DEFAULT_MIRROR_LAYOUT_STATE.status, ...parsedState.status },
+        nowPlaying: { ...DEFAULT_MIRROR_LAYOUT_STATE.nowPlaying, ...parsedState.nowPlaying },
+        community: { ...DEFAULT_MIRROR_LAYOUT_STATE.community, ...parsedState.community },
+        queue: { ...DEFAULT_MIRROR_LAYOUT_STATE.queue, ...parsedState.queue },
+        joinQr: { ...DEFAULT_MIRROR_LAYOUT_STATE.joinQr, ...parsedState.joinQr },
+      }
+    } catch {
+      return DEFAULT_MIRROR_LAYOUT_STATE
+    }
+  })
   const [showShutterFallbackPulse, setShowShutterFallbackPulse] = useState(false)
   const [failedCoverUrls, setFailedCoverUrls] = useState<Record<string, true>>({})
   const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
@@ -639,10 +1142,23 @@ function MirrorPage() {
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
   const mirrorShellRef = useRef<HTMLDivElement | null>(null)
   const autoFullscreenAttemptedRef = useRef(false)
+  const mirrorLayoutStageRef = useRef<HTMLDivElement | null>(null)
+  const layoutInteractionRef = useRef<{
+    panelId: MirrorLayoutPanelId
+    mode: 'drag' | 'resize'
+    pointerId: number
+    startX: number
+    startY: number
+    startRect: MirrorLayoutRect
+    startState: MirrorLayoutState
+    stageWidth: number
+    stageHeight: number
+  } | null>(null)
   const chosenByPhraseIndexBySongIdRef = useRef<Record<string, number>>({})
   const lastChosenByPhraseIndexRef = useRef<number | null>(null)
   const funFactsCacheRef = useRef<FunFactsCache>({})
   const funFactsInFlightRef = useRef<Partial<Record<string, Promise<string[]>>>>({})
+  const mirrorLayoutStateRef = useRef(mirrorLayoutState)
 
   const setMirrorWarningMessage = (message: string) => {
     if (demoMode) return  // suppress all warnings in demo — reconnects are expected and not real
@@ -669,6 +1185,10 @@ function MirrorPage() {
       mirrorWarningClearTimerRef.current = null
     }, delayMs)
   }
+
+  useEffect(() => {
+    mirrorLayoutStateRef.current = mirrorLayoutState
+  }, [mirrorLayoutState])
 
   // Keep the screen awake while the mirror is open
   useEffect(() => {
@@ -762,12 +1282,10 @@ function MirrorPage() {
     ? Boolean(nowPlaying)
     : liveSessionIsNowPlaying || Boolean(playbackState?.isStarted && playbackState.currentSongId)
   const isQuoteModeActive = forceQuoteMode || !isNowPlayingStarted || !activeSong
-  const maxUpNextSongs = hideControlsForAudience ? 3 : 5
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = isNowPlayingStarted
-    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id)).slice(0, maxUpNextSongs)
-    : safeSongs.slice(0, maxUpNextSongs)
-  const hiddenQueueCount = Math.max(0, safeSongs.length - (isNowPlayingStarted ? 1 : 0) - upNext.length)
+    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id))
+    : safeSongs
   const normalizedBetweenSongQuoteIndex = Number.isFinite(betweenSongQuoteIndex)
     ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length
     : 0
@@ -843,14 +1361,9 @@ function MirrorPage() {
   }, [safeSongs])
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
-  const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
-  const shouldShowAdminElements = isHost
+  const shouldShowEditorControls = false
+  const shouldShowAdminElements = false
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
-  const mirrorVenueName = normalizeMirrorText(event?.venue ?? event?.name ?? 'Live Night', 'Live Night')
-  const mirrorTagline = normalizeMirrorText(event?.subtitle ?? 'Live Night - Ready to start.', 'Live Night - Ready to start.')
-  const mirrorPerformerTag = isHaraldLiveEvent
-    ? 'Harald Live'
-    : normalizeMirrorText(event?.artistName ?? event?.name ?? 'Live Show', 'Live Show')
   const liveBadgeLabel = demoMode ? '● Demo' : event?.roomOpen ? '● Live' : '● Paused'
 
   useEffect(() => {
@@ -934,6 +1447,10 @@ function MirrorPage() {
   }
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     if (!event?.id) {
       autoLiveAttemptedEventIdRef.current = null
       return
@@ -1001,9 +1518,14 @@ function MirrorPage() {
     nowPlaying?.cover_url,
     nowPlaying?.id,
     toggleRoomOpen,
+    layoutEditMode,
   ])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     const syncFullscreenState = () => {
       setIsFullscreen(Boolean(getActiveFullscreenElement()))
     }
@@ -1023,6 +1545,10 @@ function MirrorPage() {
   }, [])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     if (autoFullscreenAttemptedRef.current) {
       return
     }
@@ -1043,6 +1569,10 @@ function MirrorPage() {
   }, [])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     const syncPresentationState = () => {
       const fullscreenActive = Boolean(getActiveFullscreenElement())
       const fullscreenDisplayMode = window.matchMedia('(display-mode: fullscreen)').matches
@@ -1065,9 +1595,13 @@ function MirrorPage() {
       window.removeEventListener('webkitfullscreenchange', syncPresentationState)
       window.removeEventListener('resize', syncPresentationState)
     }
-  }, [])
+  }, [layoutEditMode])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     const syncAudienceLocale = () => {
       setAudienceLocale(readCommittedAudienceLocale())
     }
@@ -1078,9 +1612,13 @@ function MirrorPage() {
     return () => {
       window.removeEventListener('storage', syncAudienceLocale)
     }
-  }, [])
+  }, [layoutEditMode])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     if (typeof window === 'undefined') {
       return
     }
@@ -1100,7 +1638,7 @@ function MirrorPage() {
     } catch {
       // Corrupt cache should not block playback; overwrite on next write.
     }
-  }, [])
+  }, [layoutEditMode])
 
   const persistFunFactsCache = useCallback(() => {
     const serializedCache = JSON.stringify(funFactsCacheRef.current)
@@ -1201,6 +1739,10 @@ function MirrorPage() {
   }, [ensureSongFunFacts, safeSongs])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     if (!isNowPlayingStarted || !activeSong) {
       setFunFacts([])
       setCurrentFactIndex(0)
@@ -1268,9 +1810,13 @@ function MirrorPage() {
     return () => {
       abortController.abort()
     }
-  }, [activeSong, ensureSongFunFacts, isNowPlayingStarted])
+  }, [activeSong, ensureSongFunFacts, isNowPlayingStarted, layoutEditMode])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     if (funFacts.length <= 1) {
       setCurrentFactIndex(0)
       return
@@ -1283,7 +1829,7 @@ function MirrorPage() {
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [funFacts])
+  }, [funFacts, layoutEditMode])
 
   const setQuoteIndex = (nextQuoteIndex: number) => {
     quoteIndexRef.current = nextQuoteIndex
@@ -1291,6 +1837,10 @@ function MirrorPage() {
   }
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     const normalizedQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
       ? (playbackState?.quoteIndex as number) % BETWEEN_SONG_QUOTES.length
       : 0
@@ -1298,9 +1848,13 @@ function MirrorPage() {
     if (normalizedQuoteIndex !== quoteIndexRef.current) {
       setQuoteIndex(normalizedQuoteIndex)
     }
-  }, [playbackState?.quoteIndex])
+  }, [playbackState?.quoteIndex, layoutEditMode])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     if (!isQuoteModeActive) {
       return
     }
@@ -1313,9 +1867,13 @@ function MirrorPage() {
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [isQuoteModeActive])
+  }, [isQuoteModeActive, layoutEditMode])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     const onKeyDown = (keyEvent: KeyboardEvent) => {
       if (!keyEvent.isTrusted || keyEvent.defaultPrevented) {
         return
@@ -1386,9 +1944,13 @@ function MirrorPage() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [])
+  }, [layoutEditMode])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     if (isLive || !countdownTarget) {
       return
     }
@@ -1402,7 +1964,7 @@ function MirrorPage() {
     return () => {
       window.clearInterval(timerId)
     }
-  }, [countdownTarget, isLive])
+  }, [countdownTarget, isLive, layoutEditMode])
 
   useEffect(() => {
     const onRuntimeError = (event: ErrorEvent) => {
@@ -1531,6 +2093,10 @@ function MirrorPage() {
   }, [event, event?.id, event?.name, event?.venue])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     if (!eventId) {
       setPlaybackState(null)
       return
@@ -1786,9 +2352,13 @@ function MirrorPage() {
       document.removeEventListener('visibilitychange', onVisibilityChange)
       playbackBroadcastChannel?.close()
     }
-  }, [eventId])
+  }, [eventId, layoutEditMode])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     return () => {
       if (spotlightTimerRef.current) {
         window.clearTimeout(spotlightTimerRef.current)
@@ -1799,9 +2369,13 @@ function MirrorPage() {
       spotlightBusyRef.current = false
       spotlightQueueRef.current = []
     }
-  }, [])
+  }, [layoutEditMode])
 
   useEffect(() => {
+    if (layoutEditMode) {
+      return
+    }
+
     if (!eventId || !showSpotlight || !isUuidLikeEventId(eventId)) {
       spotlightQueueRef.current = []
       spotlightBusyRef.current = false
@@ -2084,7 +2658,7 @@ function MirrorPage() {
       window.removeEventListener('pageshow', onPageShow)
       disconnectSpotlightChannel()
     }
-  }, [eventId, showSpotlight])
+  }, [eventId, showSpotlight, layoutEditMode])
 
   const activeSpotlight = useMemo(() => {
     if (!eventId || !spotlight || spotlight.eventId !== eventId) {
@@ -2118,6 +2692,108 @@ function MirrorPage() {
 
     return 'mirror-shell-bg-human-jukebox'
   }, [event?.eventType])
+
+  useEffect(() => {
+    const onPointerMove = (pointerEvent: PointerEvent) => {
+      const interaction = layoutInteractionRef.current
+
+      if (!interaction || pointerEvent.pointerId !== interaction.pointerId) {
+        return
+      }
+
+      const deltaX = ((pointerEvent.clientX - interaction.startX) / interaction.stageWidth) * 100
+      const deltaY = ((pointerEvent.clientY - interaction.startY) / interaction.stageHeight) * 100
+
+      setMirrorLayoutState((currentState) => {
+        const startRect = interaction.startState[interaction.panelId]
+        const nextRect = interaction.mode === 'resize'
+          ? clampMirrorLayoutRect({
+            left: startRect.left,
+            top: startRect.top,
+            width: startRect.width + deltaX,
+            height: startRect.height + deltaY,
+          })
+          : clampMirrorLayoutRect({
+            left: startRect.left + deltaX,
+            top: startRect.top + deltaY,
+            width: startRect.width,
+            height: startRect.height,
+          })
+
+        return {
+          ...currentState,
+          [interaction.panelId]: nextRect,
+        }
+      })
+    }
+
+    const endInteraction = (pointerEvent?: PointerEvent) => {
+      const interaction = layoutInteractionRef.current
+
+      if (!interaction) {
+        return
+      }
+
+      if (!pointerEvent || pointerEvent.pointerId === interaction.pointerId) {
+        layoutInteractionRef.current = null
+      }
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', endInteraction)
+    window.addEventListener('pointercancel', endInteraction)
+
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', endInteraction)
+      window.removeEventListener('pointercancel', endInteraction)
+    }
+  }, [])
+
+  const beginMirrorLayoutInteraction = useCallback((panelId: MirrorLayoutPanelId, mode: 'drag' | 'resize') => (pointerEvent: React.PointerEvent<HTMLButtonElement>) => {
+    if (!layoutEditMode || !mirrorShellRef.current) {
+      return
+    }
+
+    const stageRect = mirrorShellRef.current.getBoundingClientRect()
+
+    if (stageRect.width <= 0 || stageRect.height <= 0) {
+      return
+    }
+
+    pointerEvent.preventDefault()
+    pointerEvent.stopPropagation()
+
+    layoutInteractionRef.current = {
+      panelId,
+      mode,
+      pointerId: pointerEvent.pointerId,
+      startX: pointerEvent.clientX,
+      startY: pointerEvent.clientY,
+      startRect: mirrorLayoutStateRef.current[panelId],
+      startState: mirrorLayoutStateRef.current,
+      stageWidth: stageRect.width,
+      stageHeight: stageRect.height,
+    }
+
+    pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId)
+  }, [layoutEditMode])
+
+  const resetMirrorLayoutState = useCallback(() => {
+    setMirrorLayoutState(DEFAULT_MIRROR_LAYOUT_STATE)
+  }, [])
+
+  const mirrorLayoutEditorStyles = useMemo(() => {
+    if (!layoutEditMode) {
+      return ''
+    }
+
+    return (Object.entries(mirrorLayoutState) as Array<[MirrorLayoutPanelId, MirrorLayoutRect]>)
+      .map(([panelId, rect]) => (
+        `[data-mirror-layout-panel="${panelId}"] { left: ${rect.left}%; top: ${rect.top}%; width: ${rect.width}%; height: ${rect.height}%; z-index: ${panelId === 'nowPlaying' ? 2 : 1}; }`
+      ))
+      .join('\n')
+  }, [layoutEditMode, mirrorLayoutState])
 
   if (loading) {
     return (
@@ -2158,7 +2834,7 @@ function MirrorPage() {
   }
 
   return (
-    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${mirrorBackgroundClass} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''}`} aria-label="Mirror display screen">
+    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${mirrorBackgroundClass} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''} ${!activeSong ? 'mirror-shell-no-live-data' : ''}`} aria-label="Mirror display screen">
       {showFullscreenPrompt && !isFullscreen && (
         <button
           type="button"
@@ -2187,10 +2863,9 @@ function MirrorPage() {
             <p className="mirror-brand" aria-label="The Human Jukebox title">
               <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
             </p>
-            <p className="mirror-header-title">HUMAN JUKEBOX</p>
-            <h1 className="mirror-kiosk-venue-name">{mirrorVenueName}</h1>
-            <p className="mirror-kiosk-tagline">{mirrorTagline}</p>
-            <p className="mirror-kiosk-performer">{mirrorPerformerTag}</p>
+            <p className="mirror-header-event-name">
+              {event?.name?.trim() || 'Live Night - Ready to start.'}
+            </p>
           </div>
 
           <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
@@ -2393,9 +3068,35 @@ function MirrorPage() {
 
           </section>
         ) : (
-          <section className="mirror-kiosk-columns" aria-label="Now playing and live queue/feed">
-            <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isQuoteModeActive ? 'mirror-now-playing-between' : ''}`}>
-                <p className="mirror-now-playing-band-label">Now Playing And Quotes</p>
+          <>
+            {layoutEditMode ? <style>{`.mirror-layout-edit-canvas { position: fixed; inset: 0; z-index: 6; overflow: hidden; }\n${mirrorLayoutEditorStyles}`}</style> : null}
+            {layoutEditMode ? (
+              <div className="mirror-layout-edit-toolbar mirror-layout-edit-toolbar-compact" role="toolbar" aria-label="Mirror layout editor controls">
+                <button type="button" className="mirror-layout-edit-button" onClick={resetMirrorLayoutState}>Reset</button>
+                <button type="button" className="mirror-layout-edit-button mirror-layout-edit-button-primary" onClick={() => setLayoutEditMode(false)}>Done</button>
+              </div>
+            ) : null}
+            <section
+              ref={layoutEditMode ? mirrorLayoutStageRef : undefined}
+              className={`mirror-kiosk-columns ${layoutEditMode ? 'mirror-layout-edit-canvas' : ''}`}
+              aria-label="Now playing and live queue/feed"
+            >
+              <section
+                className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isQuoteModeActive ? 'mirror-now-playing-between' : ''} ${layoutEditMode ? 'mirror-layout-edit-panel' : ''}`}
+                data-mirror-layout-panel={layoutEditMode ? 'nowPlaying' : undefined}
+              >
+                {layoutEditMode ? (
+                  <button
+                    type="button"
+                    className="mirror-layout-drag-handle"
+                    aria-label="Drag now playing panel"
+                    title="Drag to move"
+                    onPointerDown={beginMirrorLayoutInteraction('nowPlaying', 'drag')}
+                  >
+                    Move
+                  </button>
+                ) : null}
+                <p className="mirror-now-playing-band-label">Now Playing / Quote Mode</p>
                 {isQuoteModeActive ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
@@ -2467,63 +3168,137 @@ function MirrorPage() {
                     </div>
                   </div>
                 )}
-            </section>
-
-            <section className="mirror-kiosk-right" aria-label="Queue and community feed">
-              <section className="mirror-live-feed-frame mirror-frame" aria-label="Live feed frame">
-                <LiveFeedPanel mode="mirror" showComposer={false} title="Live Feed from Audience" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} emptyStateText="No messages yet - say hi!" />
-              </section>
-
-              <section className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`} aria-label="Song queue frame">
-                <p className="mirror-up-next-label">Queue</p>
-                {upNext.length > 0 ? (
-                  <ol className="mirror-queue">
-                    {upNext.map((song, index) => {
-                      const queueChosenByLine = song.createdByName
-                        ? (getChosenByLine(song.id, song.createdByName) ?? `Chosen by ${song.createdByName}`)
-                        : null
-                      const queueChosenByAccentClass = getChosenByAccentClass(song.id)
-
-                      return (
-                        <li key={song.id} className={`mirror-queue-item ${index === 0 ? 'mirror-queue-item-next' : ''}`.trim()}>
-                          <span className="mirror-queue-pos">{index + (isNowPlayingStarted ? 2 : 1)}</span>
-                          {song.cover_url && !failedCoverUrls[song.cover_url] ? (
-                            <img
-                              src={song.cover_url}
-                              alt={`Cover art for ${song.title}`}
-                              className="mirror-queue-cover"
-                              onError={() => onCoverLoadError(song.cover_url)}
-                            />
-                          ) : null}
-                          <div className="mirror-queue-info">
-                            <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
-                            <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
-                            {queueChosenByLine ? (
-                              <span className={`mirror-queue-picker mirror-queue-artist-picker ${queueChosenByAccentClass}`}>{queueChosenByLine}</span>
-                            ) : null}
-                            {song.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
-                          </div>
-                          <span className="mirror-queue-votes">+{song.votes_count}</span>
-                        </li>
-                      )
-                    })}
-                  </ol>
-                ) : (
-                  <p className="mirror-empty-note">Queue is empty - request a song!</p>
-                )}
-                {shouldCompactQueue && hiddenQueueCount > 0 ? (
-                  <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
+                {layoutEditMode ? (
+                  <button
+                    type="button"
+                    className="mirror-layout-resize-handle"
+                    aria-label="Resize now playing panel"
+                    title="Drag to resize"
+                    onPointerDown={beginMirrorLayoutInteraction('nowPlaying', 'resize')}
+                  />
                 ) : null}
               </section>
+
+              <section
+                className="mirror-kiosk-right"
+                aria-label="Queue and community feed"
+              >
+                <section
+                  className={`mirror-live-feed-frame mirror-frame ${layoutEditMode ? 'mirror-layout-edit-panel' : ''}`}
+                  aria-label="Live feed frame"
+                  data-mirror-layout-panel={layoutEditMode ? 'community' : undefined}
+                >
+                  {layoutEditMode ? (
+                    <button
+                      type="button"
+                      className="mirror-layout-drag-handle"
+                      aria-label="Drag live feed panel"
+                      title="Drag to move"
+                      onPointerDown={beginMirrorLayoutInteraction('community', 'drag')}
+                    >
+                      Move
+                    </button>
+                  ) : null}
+                  {layoutEditMode ? (
+                    <div className="mirror-layout-edit-feed-preview" aria-label="Live feed preview">
+                      <div className="mirror-layout-edit-feed-preview-header">
+                        <p className="mirror-layout-edit-feed-preview-eyebrow">Community</p>
+                        <h2 className="mirror-layout-edit-feed-preview-title">Live Feed Messages</h2>
+                      </div>
+                      <div className="mirror-layout-edit-feed-preview-items">
+                        <p>Use this block for audience messages.</p>
+                        <p>Stretch it taller or wider until the feed feels right.</p>
+                        <p>We can make the queue and community area share the bottom row.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <LiveFeedPanel mode="mirror" showComposer={false} title="Live Feed Messages" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} emptyStateText="No messages yet - say hi!" />
+                  )}
+                  {layoutEditMode ? (
+                    <button
+                      type="button"
+                      className="mirror-layout-resize-handle"
+                      aria-label="Resize live feed panel"
+                      title="Drag to resize"
+                      onPointerDown={beginMirrorLayoutInteraction('community', 'resize')}
+                    />
+                  ) : null}
+                </section>
+
+                <section
+                  className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''} ${layoutEditMode ? 'mirror-layout-edit-panel' : ''}`}
+                  aria-label="Song queue frame"
+                  data-mirror-layout-panel={layoutEditMode ? 'queue' : undefined}
+                >
+                  {layoutEditMode ? (
+                    <button
+                      type="button"
+                      className="mirror-layout-drag-handle"
+                      aria-label="Drag song queue panel"
+                      title="Drag to move"
+                      onPointerDown={beginMirrorLayoutInteraction('queue', 'drag')}
+                    >
+                      Move
+                    </button>
+                  ) : null}
+                  <p className="mirror-up-next-label">Song Queue</p>
+                  {upNext.length > 0 ? (
+                    <ol className="mirror-queue">
+                      {upNext.map((song, index) => {
+                        const queueChosenByLine = song.createdByName
+                          ? (getChosenByLine(song.id, song.createdByName) ?? `Chosen by ${song.createdByName}`)
+                          : null
+                        const queueChosenByAccentClass = getChosenByAccentClass(song.id)
+
+                        return (
+                          <li key={song.id} className={`mirror-queue-item ${index === 0 ? 'mirror-queue-item-next' : ''}`.trim()}>
+                            <span className="mirror-queue-pos">{index + (isNowPlayingStarted ? 2 : 1)}</span>
+                            {song.cover_url && !failedCoverUrls[song.cover_url] ? (
+                              <img
+                                src={song.cover_url}
+                                alt={`Cover art for ${song.title}`}
+                                className="mirror-queue-cover"
+                                onError={() => onCoverLoadError(song.cover_url)}
+                              />
+                            ) : null}
+                            <div className="mirror-queue-info">
+                              <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                              <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                              {queueChosenByLine ? (
+                                <span className={`mirror-queue-picker mirror-queue-artist-picker ${queueChosenByAccentClass}`}>{queueChosenByLine}</span>
+                              ) : null}
+                              {song.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
+                            </div>
+                            <span className="mirror-queue-votes">+{song.votes_count}</span>
+                          </li>
+                        )
+                      })}
+                    </ol>
+                  ) : (
+                    <p className="mirror-empty-note">Queue is empty - request a song!</p>
+                  )}
+                  {layoutEditMode ? (
+                    <button
+                      type="button"
+                      className="mirror-layout-resize-handle"
+                      aria-label="Resize song queue panel"
+                      title="Drag to resize"
+                      onPointerDown={beginMirrorLayoutInteraction('queue', 'resize')}
+                    />
+                  ) : null}
+                </section>
+              </section>
             </section>
-          </section>
+          </>
         )}
       </main>
 
-      <a href={audienceUrl} target="_blank" rel="noopener noreferrer" className="mirror-floating-qr" aria-label="Scan to join the request page">
-        <img src={qrUrl} alt="QR code for audience request page" className="mirror-floating-qr-image" />
-        <p className="mirror-floating-qr-caption">Scan to join</p>
-      </a>
+      {!layoutEditMode ? (
+        <a className="mirror-floating-qr" href={audienceUrl} target="_blank" rel="noreferrer noopener" aria-label="Audience request page QR link">
+          <img src={qrUrl} alt="QR code for the audience request page" className="mirror-floating-qr-image" />
+          <p className="mirror-floating-qr-caption">Scan to request songs</p>
+        </a>
+      ) : null}
 
       {playbackState?.brbActive ? (
         <div className="mirror-brb-overlay" aria-live="polite" role="status">
