@@ -182,6 +182,7 @@
     min-height: 100dvh;
     align-items: stretch;
     gap: 0.95rem;
+    transition: grid-template-columns 300ms ease;
   }
 
   .app-shell-rail.app-shell-sidebar-collapsed {
@@ -208,6 +209,7 @@
     background: #060a14;
     box-shadow: none;
     overflow: hidden;
+    transition: padding 300ms ease;
   }
 
   .app-shell-rail > .app-main-content {
@@ -236,6 +238,7 @@
     width: 44px;
     height: 44px;
     flex-shrink: 0;
+    transition: width 300ms ease, height 300ms ease;
   }
 
   .sidebar-brand-label {
@@ -262,12 +265,16 @@
     width: 100%;
     justify-content: flex-start;
     border-radius: 10px;
-    min-height: 2.45rem;
-    padding: 0.45rem 0.62rem;
+    min-height: 2.5rem;
+    padding: 0.46rem 0.62rem;
     border-color: transparent;
     background: transparent;
     color: rgba(255, 255, 255, 0.5);
     position: relative;
+    gap: 0.48rem;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background-color 180ms ease, color 180ms ease, padding 300ms ease;
   }
 
   .topbar-rail .site-nav a:hover,
@@ -296,25 +303,56 @@
     background: #00c2ff;
   }
 
-  .sidebar-link-short {
+  .sidebar-link-icon {
     display: inline-flex;
-    width: 1.2rem;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.78rem;
-    font-weight: 700;
+    width: 1rem;
+    height: 1rem;
+    color: rgba(255, 255, 255, 0.45);
     flex-shrink: 0;
+    transition: color 180ms ease;
+  }
+
+  .topbar-rail .site-nav a:hover .sidebar-link-icon,
+  .topbar-rail .site-nav .nav-dropdown-trigger:hover .sidebar-link-icon,
+  .topbar-rail .site-nav a.active .sidebar-link-icon,
+  .topbar-rail .site-nav .nav-dropdown-trigger.active .sidebar-link-icon {
+    color: inherit;
   }
 
   .sidebar-link-label {
     display: inline;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 220ms ease, width 300ms ease;
+  }
+
+  .sidebar-unread-badge {
+    margin-left: auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: #00c2ff;
+    color: #03111b;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
   }
 
   .topbar-rail .site-nav-footnote,
   .topbar-rail .site-nav-heading {
     color: rgba(255, 255, 255, 0.55);
     padding-inline: 0.38rem;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
   }
 
   .topbar-rail .auth-strip {
@@ -379,6 +417,10 @@
     display: none !important;
   }
 
+  .app-shell-rail.app-shell-sidebar-collapsed .sidebar-unread-badge {
+    display: none;
+  }
+
   .app-shell-rail.app-shell-sidebar-collapsed .sidebar-brand-row .brand {
     justify-content: center;
     padding: 0.22rem;
@@ -392,7 +434,8 @@
   .app-shell-rail.app-shell-sidebar-collapsed .topbar-rail .site-nav a,
   .app-shell-rail.app-shell-sidebar-collapsed .topbar-rail .site-nav .nav-dropdown-trigger {
     justify-content: center;
-    padding: 0.42rem;
+    padding: 0.45rem;
+    gap: 0;
   }
 
   .app-shell-rail.app-shell-sidebar-collapsed .topbar-rail .site-nav .nav-dropdown-menu {

@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import {
+  CalendarDays,
+  LayoutDashboard,
+  MessageSquare,
+  Music4,
+  Settings2,
+  ShieldCheck,
+  Users,
+} from 'lucide-react'
 import { AUDIENCE_NAME_COMMITTED_EVENT, readCommittedAudienceName } from '../lib/audienceIdentity'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
@@ -117,6 +126,7 @@ function ShellLayout() {
     isMobileNavOpen ? 'site-nav-open' : '',
   ].filter(Boolean).join(' ')
   const showMobileBottomNav = !isAudienceMode && !isAudienceSongListMode
+  const feedUnreadCount = canOpenFeed && !location.pathname.startsWith('/feed') && runtimeNotice ? 1 : 0
   const mobileRouteTitle = location.pathname.startsWith('/admin/gig-control')
     ? 'Gig Control'
     : location.pathname.startsWith('/admin/gig-settings')
@@ -387,12 +397,27 @@ function ShellLayout() {
             </>
           ) : (
             <>
-              <NavLink to="/" end><span className="sidebar-link-short" aria-hidden="true">H</span><span className="sidebar-link-label">Home</span></NavLink>
-              <NavLink to="/audience"><span className="sidebar-link-short" aria-hidden="true">A</span><span className="sidebar-link-label">Audience</span></NavLink>
-              {canOpenFeed ? <NavLink to="/feed"><span className="sidebar-link-short" aria-hidden="true">F</span><span className="sidebar-link-label">Feed</span></NavLink> : null}
+              <NavLink to="/" end>
+                <LayoutDashboard size={16} className="sidebar-link-icon" aria-hidden="true" />
+                <span className="sidebar-link-label">Home</span>
+              </NavLink>
+              <NavLink to="/audience">
+                <Users size={16} className="sidebar-link-icon" aria-hidden="true" />
+                <span className="sidebar-link-label">Audience</span>
+              </NavLink>
+              {canOpenFeed ? (
+                <NavLink to="/feed">
+                  <MessageSquare size={16} className="sidebar-link-icon" aria-hidden="true" />
+                  <span className="sidebar-link-label">Feed</span>
+                  {feedUnreadCount > 0 ? <span className="sidebar-unread-badge">{feedUnreadCount}</span> : null}
+                </NavLink>
+              ) : null}
               {isHost ? (
                 <>
-                  <NavLink to="/admin" end><span className="sidebar-link-short" aria-hidden="true">D</span><span className="sidebar-link-label">Dashboard</span></NavLink>
+                  <NavLink to="/admin" end>
+                    <LayoutDashboard size={16} className="sidebar-link-icon" aria-hidden="true" />
+                    <span className="sidebar-link-label">Dashboard</span>
+                  </NavLink>
                   <div
                     ref={gigMenuRef}
                     className={[
@@ -447,7 +472,7 @@ function ShellLayout() {
                         setIsGigMenuOpen((open) => !open)
                       }}
                     >
-                      <span className="sidebar-link-short" aria-hidden="true">G</span>
+                      <CalendarDays size={16} className="sidebar-link-icon" aria-hidden="true" />
                       <span className="sidebar-link-label">Gigs</span>
                     </button>
                     <div id="gig-nav-menu" className="nav-dropdown-menu" aria-label="Gig navigation menu">
@@ -457,12 +482,26 @@ function ShellLayout() {
                       <NavLink to="/admin/gig-settings" onClick={closeGigMenuAfterNavigation}>Gig Settings</NavLink>
                     </div>
                   </div>
-                  <NavLink to="/admin/health-check"><span className="sidebar-link-short" aria-hidden="true">C</span><span className="sidebar-link-label">Health Check</span></NavLink>
-                  <NavLink to="/admin/setlist-library"><span className="sidebar-link-short" aria-hidden="true">S</span><span className="sidebar-link-label">Setlist</span></NavLink>
-                  <NavLink to="/admin/settings"><span className="sidebar-link-short" aria-hidden="true">T</span><span className="sidebar-link-label">Settings</span></NavLink>
+                  <NavLink to="/admin/health-check">
+                    <ShieldCheck size={16} className="sidebar-link-icon" aria-hidden="true" />
+                    <span className="sidebar-link-label">Health Check</span>
+                  </NavLink>
+                  <NavLink to="/admin/setlist-library">
+                    <Music4 size={16} className="sidebar-link-icon" aria-hidden="true" />
+                    <span className="sidebar-link-label">Setlist</span>
+                  </NavLink>
+                  <NavLink to="/admin/settings">
+                    <Settings2 size={16} className="sidebar-link-icon" aria-hidden="true" />
+                    <span className="sidebar-link-label">Settings</span>
+                  </NavLink>
                 </>
               ) : (
-                !demoMode ? <NavLink to="/admin"><span className="sidebar-link-short" aria-hidden="true">A</span><span className="sidebar-link-label">Admin</span></NavLink> : null
+                !demoMode ? (
+                  <NavLink to="/admin">
+                    <ShieldCheck size={16} className="sidebar-link-icon" aria-hidden="true" />
+                    <span className="sidebar-link-label">Admin</span>
+                  </NavLink>
+                ) : null
               )}
             </>
           )}
