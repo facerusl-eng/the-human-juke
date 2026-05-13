@@ -65,6 +65,7 @@ const CHOSEN_BY_ACCENT_CLASSES = [
 
 const SPOTLIGHT_DURATION_MS = 7000
 const SPOTLIGHT_POLL_INTERVAL_MS = 2000
+const QUOTE_ROTATE_INTERVAL_MS = 20000
 const SONG_INFO_ROTATE_INTERVAL_MS = 15000
 const SONG_FACT_MAX_LENGTH = 180
 const MIRROR_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-mirror-fun-facts-cache-v3'
@@ -848,11 +849,12 @@ function MirrorPage() {
   const shouldShowEditorControls = isHost && !hideControlsForAudience && !isEmbeddedPreview
   const shouldShowAdminElements = isHost
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
-  const mirrorVenueName = normalizeMirrorText(event?.venue ?? event?.name ?? 'The Human Jukebox', 'The Human Jukebox')
-  const mirrorTagline = normalizeMirrorText(event?.subtitle ?? 'Your requests keep the party alive.', 'Your requests keep the party alive.')
+  const mirrorVenueName = normalizeMirrorText(event?.venue ?? event?.name ?? 'Live Night', 'Live Night')
+  const mirrorTagline = normalizeMirrorText(event?.subtitle ?? 'Live Night - Ready to start.', 'Live Night - Ready to start.')
   const mirrorPerformerTag = isHaraldLiveEvent
     ? 'Harald Live'
     : normalizeMirrorText(event?.artistName ?? event?.name ?? 'Live Show', 'Live Show')
+  const liveBadgeLabel = demoMode ? '● Demo' : event?.roomOpen ? '● Live' : '● Paused'
 
   useEffect(() => {
     let isCurrent = true
@@ -1368,6 +1370,21 @@ function MirrorPage() {
       setQuoteIndex(normalizedQuoteIndex)
     }
   }, [playbackState?.quoteIndex])
+
+  useEffect(() => {
+    if (isNowPlayingStarted && activeSong) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      const nextQuoteIndex = (quoteIndexRef.current + 1) % BETWEEN_SONG_QUOTES.length
+      setQuoteIndex(nextQuoteIndex)
+    }, QUOTE_ROTATE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [activeSong, isNowPlayingStarted])
 
   useEffect(() => {
     const onKeyDown = (keyEvent: KeyboardEvent) => {
@@ -2259,9 +2276,10 @@ function MirrorPage() {
       <header className="mirror-header">
         <div className="mirror-header-kiosk-row">
           <div className="mirror-header-main">
-            <p className="mirror-brand" aria-label="The Human Jukebox">
+            <p className="mirror-brand" aria-label="The Human Jukebox title">
               <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
             </p>
+            <p className="mirror-header-title">HUMAN JUKEBOX</p>
             <h1 className="mirror-kiosk-venue-name">{mirrorVenueName}</h1>
             <p className="mirror-kiosk-tagline">{mirrorTagline}</p>
             <p className="mirror-kiosk-performer">{mirrorPerformerTag}</p>
@@ -2286,14 +2304,8 @@ function MirrorPage() {
 
           <div className="mirror-header-live-stack">
             <span className={`mirror-status ${event?.roomOpen ? 'mirror-open live-pulse' : 'mirror-paused'}`.trim()}>
-              {event?.roomOpen ? '● Live' : '● Paused'}
+              {liveBadgeLabel}
             </span>
-            {!isEmbeddedPreview ? (
-              <div className="mirror-header-qr" aria-label="Scan to join">
-                <img src={qrUrl} alt="Scan to view" className="mirror-header-qr-image" />
-                <p className="mirror-header-qr-caption">Scan to view</p>
-              </div>
-            ) : null}
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
             ) : (
@@ -2475,6 +2487,7 @@ function MirrorPage() {
         ) : (
           <section className="mirror-kiosk-columns" aria-label="Now playing and live queue/feed">
             <section className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${!isNowPlayingStarted && nowPlaying ? 'mirror-now-playing-between' : ''}`}>
+                <p className="mirror-now-playing-band-label">Now Playing And Quotes</p>
                 {!useLiveSongCardsInDemo && isKaraokeEvent ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Karaoke Night">
                     <div className="mirror-now-playing-meta">
@@ -2510,6 +2523,7 @@ function MirrorPage() {
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
                       <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
+                      <p className="mirror-song-waiting-note">Waiting for next song...</p>
                     </div>
                   </div>
                 ) : (
@@ -2549,7 +2563,7 @@ function MirrorPage() {
 
             <section className="mirror-kiosk-right" aria-label="Queue and community feed">
               <section className="mirror-live-feed-frame mirror-frame" aria-label="Live feed frame">
-                <LiveFeedPanel mode="mirror" showComposer={false} title="Live Community Feed" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} />
+                <LiveFeedPanel mode="mirror" showComposer={false} title="Live Feed from Audience" showModerationControls={shouldShowAdminElements && !hideControlsForAudience} emptyStateText="No messages yet - say hi!" />
               </section>
 
               <section className={`mirror-song-queue-frame mirror-frame mirror-up-next ${shouldCompactQueue ? 'mirror-up-next-compact' : ''}`} aria-label="Song queue frame">
@@ -2563,7 +2577,7 @@ function MirrorPage() {
                       const queueChosenByAccentClass = getChosenByAccentClass(song.id)
 
                       return (
-                        <li key={song.id} className="mirror-queue-item">
+                        <li key={song.id} className={`mirror-queue-item ${index === 0 ? 'mirror-queue-item-next' : ''}`.trim()}>
                           <span className="mirror-queue-pos">{index + (isNowPlayingStarted ? 2 : 1)}</span>
                           {song.cover_url && !failedCoverUrls[song.cover_url] ? (
                             <img
@@ -2587,7 +2601,7 @@ function MirrorPage() {
                     })}
                   </ol>
                 ) : (
-                  <p className="mirror-empty-note">No songs in the queue yet.</p>
+                  <p className="mirror-empty-note">Queue is empty - request a song!</p>
                 )}
                 {shouldCompactQueue && hiddenQueueCount > 0 ? (
                   <p className="mirror-compact-note">+{hiddenQueueCount} more songs waiting in queue</p>
@@ -2597,6 +2611,11 @@ function MirrorPage() {
           </section>
         )}
       </main>
+
+      <a href={audienceUrl} target="_blank" rel="noopener noreferrer" className="mirror-floating-qr" aria-label="Scan to join the request page">
+        <img src={qrUrl} alt="QR code for audience request page" className="mirror-floating-qr-image" />
+        <p className="mirror-floating-qr-caption">Scan to join</p>
+      </a>
 
       {playbackState?.brbActive ? (
         <div className="mirror-brb-overlay" aria-live="polite" role="status">

@@ -42,6 +42,7 @@ type LiveFeedPanelProps = {
   title?: string
   showModerationControls?: boolean
   composerCopy?: FeedComposerCopy
+  emptyStateText?: string
 }
 
 const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '❤️']
@@ -49,7 +50,7 @@ const AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
 const DEMO_FEED_STORAGE_KEY = 'human-jukebox-demo-feed-posts-v1'
 const DEMO_FEED_BROADCAST_CHANNEL = 'human-jukebox-demo-feed-sync'
 const FEED_IMAGE_QUEUE_INTERVAL_MS = 7000
-const FEED_POLL_INTERVAL_MS = 5000
+const FEED_POLL_INTERVAL_MS = 10000
 const FEED_FETCH_DEBOUNCE_MS = 300
 const FEED_MAX_POSTS = 40
 const FEED_PICKER_RECONNECT_SUPPRESS_MS = 20000
@@ -259,6 +260,7 @@ function LiveFeedPanel({
   title = 'Live Feed',
   showModerationControls = true,
   composerCopy = DEFAULT_FEED_COMPOSER_COPY,
+  emptyStateText,
 }: LiveFeedPanelProps) {
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const galleryInputRef = useRef<HTMLInputElement | null>(null)
@@ -1147,7 +1149,7 @@ function LiveFeedPanel({
           {visiblePosts.length === 0 ? (
             <p className="subcopy no-margin">
               {isMirrorMode
-                ? 'No community posts yet. Audience shout-outs and photos will appear here live.'
+                ? (emptyStateText ?? 'No community posts yet. Audience shout-outs and photos will appear here live.')
                 : composerCopy.emptyFeedText}
             </p>
           ) : (
