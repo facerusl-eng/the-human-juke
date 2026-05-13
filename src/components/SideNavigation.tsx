@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { ChevronLeft, ChevronRight, House, ListMusic, MessageSquareMore, Settings, Tv } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, House, ListMusic, MessageSquareMore, Settings, Tv } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 
@@ -9,6 +9,7 @@ type SideNavigationProps = {
   collapsed: boolean
   onToggleCollapsed: () => void
   currentPath: string
+  isMobile: boolean
 }
 
 type NavigationItem = {
@@ -35,7 +36,13 @@ const NAV_ITEMS: NavigationItem[] = [
     label: 'Queue',
     to: '/admin/gig-control',
     icon: ListMusic,
-    match: (path) => path.startsWith('/admin/gig-control') || path.startsWith('/admin/gigs'),
+    match: (path) => path.startsWith('/admin/gig-control'),
+  },
+  {
+    label: 'Gigs',
+    to: '/admin/gigs',
+    icon: CalendarDays,
+    match: (path) => path.startsWith('/admin/gigs') || path.startsWith('/admin/create-gig'),
   },
   {
     label: 'Mirror',
@@ -51,7 +58,7 @@ const NAV_ITEMS: NavigationItem[] = [
   },
 ]
 
-function SideNavigation({ collapsed, onToggleCollapsed, currentPath }: SideNavigationProps) {
+function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }: SideNavigationProps) {
   const { user, isHost, loading, signInHost, signOut, isPasskeySupported, signInHostWithPasskey } = useAuthStore()
   const [hostEmail, setHostEmail] = useState('')
   const [hostPassword, setHostPassword] = useState('')
@@ -114,8 +121,10 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath }: SideNavig
   return (
     <aside
       className={[
-        'sticky left-0 top-0 z-40 h-screen shrink-0 border-r border-cyan-400/20 bg-[#0A0A0A] transition-all duration-200',
-        collapsed ? 'w-[80px]' : 'w-[240px]',
+        'border-r border-cyan-400/20 bg-[#0A0A0A] transition-all duration-200',
+        isMobile
+          ? `fixed inset-y-0 left-0 z-50 h-dvh w-[240px] transform shadow-2xl ${collapsed ? '-translate-x-full' : 'translate-x-0'}`
+          : `sticky left-0 top-0 z-40 h-screen shrink-0 ${collapsed ? 'w-[80px]' : 'w-[240px]'}`,
       ].join(' ')}
       aria-label="Application navigation"
     >

@@ -154,14 +154,24 @@ function ShellLayout() {
   return (
     <main className="min-h-screen">
       {demoMode ? <DemoBanner /> : null}
-      <div className="flex min-h-screen">
+      <div className="relative flex min-h-screen">
         <SideNavigation
           collapsed={isDesktopSidebarCollapsed}
           onToggleCollapsed={() => setIsDesktopSidebarCollapsed((collapsed) => !collapsed)}
           currentPath={typeof window === 'undefined' ? '/' : window.location.pathname}
+          isMobile={isMobileViewport}
         />
 
-        <section className="app-main-content flex-1">
+        {isMobileViewport && !isDesktopSidebarCollapsed ? (
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/45"
+            aria-label="Close navigation"
+            onClick={() => setIsDesktopSidebarCollapsed(true)}
+          />
+        ) : null}
+
+        <section className="app-main-content min-w-0 w-full flex-1 overflow-x-hidden">
           {runtimeNotice ? (
           <section className="queue-panel" role="status" aria-live="polite">
             <div className="hero-actions no-margin-bottom">
@@ -186,14 +196,14 @@ function ShellLayout() {
         </footer>
         </section>
 
-        {isMobileViewport && isDesktopSidebarCollapsed && !user && !loading ? (
+        {isMobileViewport && isDesktopSidebarCollapsed ? (
           <button
             type="button"
             className="fixed bottom-4 right-4 z-50 h-11 rounded-full border border-fuchsia-400/35 bg-[#0A0A0A] px-4 text-sm font-semibold text-cyan-200 shadow-[0_0_18px_rgba(255,0,255,0.25)] transition-all duration-200 hover:shadow-[0_0_24px_rgba(255,0,255,0.35)]"
             onClick={() => setIsDesktopSidebarCollapsed(false)}
-            aria-label="Open admin login"
+            aria-label={user || loading ? 'Open navigation menu' : 'Open admin login'}
           >
-            Admin Login
+            {user || loading ? 'Menu' : 'Admin Login'}
           </button>
         ) : null}
       </div>
