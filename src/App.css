@@ -12210,10 +12210,15 @@ kbd {
   }
 }
 
-@media (min-width: 980px) and (max-width: 1360px) {
+@media (min-width: 980px) and (max-width: 1680px) {
   .home-layout-pair .home-layout-pair-primary,
   .home-layout-pair .home-layout-pair-secondary {
     grid-column: span 12;
+  }
+
+  .home-stage-hero .home-hero-inner {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 1.5rem;
   }
 
   .home-layout-pair .home-layout-pair-primary .home-benefit-grid--3 {
@@ -12222,6 +12227,10 @@ kbd {
 
   .home-layout-pair .home-layout-pair-secondary .home-benefit-grid--4,
   .home-layout-pair .home-layout-pair-secondary .home-benefit-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .home-benefit-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
