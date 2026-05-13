@@ -1108,9 +1108,9 @@
     width: 100%;
     padding-bottom: 2rem;
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.34fr) minmax(300px, 0.66fr);
     gap: 14px;
-    min-height: calc(100dvh - 168px);
+    grid-auto-rows: min-content;
     align-content: start;
   }
 
@@ -1131,26 +1131,42 @@
     grid-column: 1 / -1;
   }
 
-  .audience-karafun .audience-start-actions-panel {
-    grid-column: 1 / -1;
+  .audience-karafun .audience-now-playing-panel {
+    grid-column: 1;
+    grid-row: 3;
+    align-self: start;
   }
 
-  .audience-karafun .audience-now-playing-panel {
-    grid-column: 1 / 5;
+  .audience-karafun .audience-start-actions-panel {
+    grid-column: 2;
+    grid-row: 3;
     align-self: start;
   }
 
   .audience-karafun .audience-live-queue-panel {
-    grid-column: 5 / -1;
+    grid-column: 1;
+    grid-row: 4;
   }
 
   .audience-karafun .audience-played-queue-panel {
-    grid-column: 1 / 5;
+    grid-column: 1;
+    grid-row: 5;
   }
 
   .audience-karafun .audience-links-panel,
   .audience-karafun .audience-request-panel {
-    grid-column: 5 / -1;
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .audience-karafun .audience-now-playing-panel,
+  .audience-karafun .audience-start-actions-panel,
+  .audience-karafun .audience-live-queue-panel,
+  .audience-karafun .audience-played-queue-panel,
+  .audience-karafun .audience-links-panel,
+  .audience-karafun .audience-request-panel {
+    margin: 0;
+    align-self: start;
   }
 
   .audience-karafun .audience-start-actions-panel,
@@ -1210,14 +1226,14 @@
 
   .audience-karafun .audience-live-queue-panel .queue-list,
   .audience-karafun .audience-played-queue-panel .queue-list {
-    max-height: min(34vh, 360px);
+    max-height: none;
     overflow: auto;
     padding-right: 0.2rem;
   }
 
   .audience-karafun .audience-links-panel .link-list,
   .audience-karafun .audience-links-panel .tip-jar-secondary {
-    max-height: min(22vh, 220px);
+    max-height: none;
     overflow: auto;
     padding-right: 0.2rem;
   }
@@ -1369,8 +1385,7 @@
   /* 3-column layout on wide screens: now-playing | queue | played+links */
   .audience-karafun .audience-now-playing-panel {
     grid-column: 1 / 4;
-    position: sticky;
-    top: 1rem;
+    position: static;
   }
 
   .audience-karafun .audience-live-queue-panel {
