@@ -17,6 +17,7 @@
   display: grid;
   gap: 0.9rem;
   min-width: 0;
+  padding: clamp(0.8rem, 1.5vw, 1.4rem) clamp(0.8rem, 1.5vw, 1.6rem);
 }
 
 .app-main-content-mobile-pad {
@@ -1334,7 +1335,7 @@
 .hero-card {
   border: 1px solid var(--panel-border);
   border-radius: 20px;
-  padding: clamp(1.6rem, 4vw, 3rem);
+  padding: clamp(1.2rem, 2.5vw, 2rem);
   background:
     radial-gradient(circle at 10% 12%, rgba(74, 214, 255, 0.16) 0%, transparent 36%),
     radial-gradient(circle at 88% 10%, rgba(255, 79, 152, 0.16) 0%, transparent 34%),
@@ -11443,8 +11444,8 @@ kbd {
 }
 
 .home-stage-hero h1 {
-  font-size: clamp(2rem, 4.8vw, 3.5rem);
-  line-height: 1.04;
+  font-size: clamp(1.5rem, 2.6vw, 2.4rem);
+  line-height: 1.1;
   margin: 0;
   letter-spacing: 0.01em;
 }
@@ -11716,7 +11717,7 @@ kbd {
 
 .home-hero-h1 {
   margin: 0 0 1.2rem;
-  font-size: clamp(2rem, 5.5vw, 3.6rem);
+  font-size: clamp(1.5rem, 2.6vw, 2.4rem);
   line-height: 1.1;
   letter-spacing: 0.01em;
   color: #f4f8ff;
@@ -12144,8 +12145,8 @@ kbd {
   /* Hero: text left, CTA panel right */
   .home-stage-hero .home-hero-inner {
     display: grid;
-    grid-template-columns: 1fr 380px;
-    gap: 3.5rem;
+    grid-template-columns: 1fr min(280px, 30%);
+    gap: 2rem;
     align-items: center;
     flex-direction: unset;
   }
