@@ -374,6 +374,15 @@ function HomePage() {
         </div>
       </section>
 
+      <div className="lp-stats" aria-label="Key stats">
+        {copy.stats.map((stat) => (
+          <div key={stat.label} className="lp-stat-card">
+            <p className="lp-stat-value">{stat.value}</p>
+            <p className="lp-stat-label">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
       <section className="lp-features" aria-label={copy.featuresTitle}>
         <h2>{copy.featuresTitle}</h2>
         <div className="lp-feature-grid">
@@ -382,7 +391,9 @@ function HomePage() {
 
             return (
               <article key={feature.label} className="lp-feature-card">
-                <Icon size={22} aria-hidden="true" />
+                <div className="lp-feature-icon">
+                  <Icon size={20} aria-hidden="true" />
+                </div>
                 <h3>{feature.label}</h3>
                 <p>{feature.copy}</p>
               </article>
@@ -404,7 +415,7 @@ function HomePage() {
       </section>
 
       <section className="lp-cta-band" aria-label="Book now">
-        <p>{copy.ctaEyebrow}</p>
+        <p className="lp-cta-eyebrow">{copy.ctaEyebrow}</p>
         <h2>{copy.ctaHeading}</h2>
         <p className="lp-cta-sub">{copy.ctaSub}</p>
         <div className="lp-hero-cta">
