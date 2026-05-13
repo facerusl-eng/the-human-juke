@@ -410,7 +410,7 @@ function AudienceNoGigState({
           </section>
         ) : null}
 
-        {loadingUpcomingEvents ? (
+        {loadingUpcomingEvents && !upcomingEventsNotice ? (
           <p className="meta-badge" role="status" aria-live="polite">{copy.loading}</p>
         ) : null}
 

@@ -229,6 +229,7 @@ const UPCOMING_ERROR_LOG_THROTTLE_MS = 60000
 const UPCOMING_RETRY_BASE_DELAY_MS = 8000
 const UPCOMING_RETRY_MAX_DELAY_MS = 120000
 const UPCOMING_RETRY_JITTER_MS = 2000
+const UPCOMING_EVENTS_UNAVAILABLE_NOTICE = 'Upcoming gigs are temporarily unavailable. Please try again soon.'
 const AUDIENCE_SONG_FACT_ROTATE_INTERVAL_MS = 15000
 const AUDIENCE_SONG_FACT_MAX_LENGTH = 220
 const AUDIENCE_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-audience-fun-facts-cache-v3'
@@ -312,67 +313,10 @@ function isLowValueFact(fact: string) {
 }
 
 async function fetchItunesSongFacts(title: string, artist: string, signal: AbortSignal) {
-  const searchTerm = `${title} ${artist}`.trim()
-  const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=3`
-
-  try {
-    const response = await fetch(searchUrl, { signal })
-
-    if (!response.ok) {
-      return []
-    }
-
-    const payload = await response.json() as {
-      results?: Array<{
-        trackName?: string
-        artistName?: string
-        collectionName?: string
-        releaseDate?: string
-        trackTimeMillis?: number
-        primaryGenreName?: string
-      }>
-    }
-
-    const exactMatch = payload.results?.find((track) => (
-      (track.trackName ?? '').trim().toLowerCase() === title.trim().toLowerCase()
-      && (track.artistName ?? '').trim().toLowerCase() === artist.trim().toLowerCase()
-    ))
-
-    const track = exactMatch ?? payload.results?.[0]
-
-    if (!track) {
-      return []
-    }
-
-    const releaseYear = track.releaseDate?.slice(0, 4)
-    const durationMs = track.trackTimeMillis ?? 0
-    const durationMinutes = durationMs > 0 ? Math.floor(durationMs / 60000) : 0
-    const durationSeconds = durationMs > 0 ? String(Math.round((durationMs % 60000) / 1000)).padStart(2, '0') : '00'
-    const durationLabel = durationMs > 0 ? `${durationMinutes}:${durationSeconds}` : null
-
-    const facts = [
-      track.collectionName
-        ? `iTunes metadata: this track is listed on the release "${track.collectionName}".`
-        : null,
-      releaseYear
-        ? `iTunes metadata: release year is ${releaseYear}.`
-        : null,
-      track.primaryGenreName
-        ? `iTunes metadata tags this song as ${track.primaryGenreName}.`
-        : null,
-      durationLabel
-        ? `iTunes metadata runtime is about ${durationLabel}.`
-        : null,
-    ].filter((fact): fact is string => Boolean(fact))
-
-    return facts.slice(0, 4)
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return []
-    }
-
-    return []
-  }
+  void title
+  void artist
+  void signal
+  return []
 }
 
 async function fetchWikipediaSummarySentences(title: string, artist: string, signal: AbortSignal) {
@@ -1975,7 +1919,7 @@ function EventPage() {
 
           if (upcomingEventsRef.current.length === 0) {
             setUpcomingEvents([])
-            setUpcomingNoticeDebounced('Refreshing upcoming gigs...', 250)
+            setUpcomingNoticeDebounced(UPCOMING_EVENTS_UNAVAILABLE_NOTICE, 250)
           } else {
             setUpcomingNoticeDebounced(null, 0)
           }

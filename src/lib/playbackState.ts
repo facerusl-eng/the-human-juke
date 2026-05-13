@@ -58,6 +58,8 @@ export const PLAYBACK_STATE_EVENT = 'human-jukebox:playback-state'
 export const PLAYBACK_STATE_STORAGE_KEY = 'human-jukebox:playback-state-sync'
 export const PLAYBACK_STATE_BROADCAST_CHANNEL = 'human-jukebox:playback-state'
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 export type SharedPlaybackState = {
   currentSongId: string | null
   currentSongCoverUrl: string | null
@@ -89,7 +91,15 @@ function broadcastPlaybackState(message: SharedPlaybackStateMessage) {
   }
 }
 
+function isUuidLikeEventId(eventId: string) {
+  return UUID_PATTERN.test(eventId.trim())
+}
+
 export async function readSharedPlaybackState(eventId: string): Promise<SharedPlaybackState | null> {
+  if (!isUuidLikeEventId(eventId)) {
+    return null
+  }
+
   try {
     const { data, error } = await supabase
       .from('playback_state')
@@ -142,6 +152,10 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
       state: normalizedState,
       timestamp: Date.now(),
     })
+
+    if (!isUuidLikeEventId(eventId)) {
+      return
+    }
 
     const { error } = await supabase
       .from('playback_state')

@@ -258,21 +258,6 @@ function AdminDashboardContent({
   const openCreateGig = useCallback(() => {
     navigate('/admin/create-gig')
   }, [navigate])
-  const openAudienceFeed = useCallback(() => {
-    navigate('/feed')
-  }, [navigate])
-  const openPromoteEvent = useCallback(() => {
-    navigate('/admin/promote-event')
-  }, [navigate])
-  const openReceivedBookings = useCallback(() => {
-    navigate('/admin/received-bookings')
-  }, [navigate])
-  const openVenueOutreach = useCallback(() => {
-    navigate('/admin/venue-outreach')
-  }, [navigate])
-  const openTikTokLab = useCallback(() => {
-    navigate('/admin/tiktok-lab')
-  }, [navigate])
 
   useEffect(() => {
     if (!loading) {
@@ -484,33 +469,6 @@ function AdminDashboardContent({
       onClick: openCrashTelemetry,
     },
   ]
-  const marketingToolActions: ActionButtonConfig[] = [
-    {
-      id: 'open-tiktok-lab',
-      label: 'TikTok Lab',
-      onClick: openTikTokLab,
-    },
-    {
-      id: 'open-promote-event',
-      label: 'Promote Event',
-      onClick: openPromoteEvent,
-    },
-    {
-      id: 'open-audience-feed',
-      label: 'Open Audience Feed',
-      onClick: openAudienceFeed,
-    },
-    {
-      id: 'open-received-bookings',
-      label: 'Received Bookings',
-      onClick: openReceivedBookings,
-    },
-    {
-      id: 'open-venue-outreach',
-      label: 'Venue Outreach',
-      onClick: openVenueOutreach,
-    },
-  ]
   const retryDashboardActions: ActionButtonConfig[] = [
     {
       id: 'retry-dashboard-sync',
@@ -677,7 +635,7 @@ function AdminDashboardContent({
         <AdminLoadingBlocks />
       ) : (
         <>
-          <section className="hero-card admin-card admin-mobile-block admin-home-hero">
+          <section className="hero-card admin-card admin-mobile-block admin-home-hero admin-dashboard-hero">
             <p className="eyebrow">Current Gig</p>
             <h1>{event?.name ?? 'No active gig'}</h1>
             <p className="subcopy">
@@ -718,7 +676,7 @@ function AdminDashboardContent({
 
           </section>
 
-          <section className="queue-panel admin-mobile-block" aria-label="Quick controls">
+          <section className="queue-panel admin-mobile-block admin-dashboard-quick" aria-label="Quick controls">
             <div className="panel-head admin-mobile-section-head">
               <h2>Quick Controls</h2>
               <span className="meta-badge">One-hand mode</span>
@@ -744,7 +702,7 @@ function AdminDashboardContent({
             {quickActionError ? <p className="error-text">{quickActionError}</p> : null}
           </section>
 
-          <section className="queue-panel admin-mobile-block" aria-label="Audience active gig switcher">
+          <section className="queue-panel admin-mobile-block admin-dashboard-switcher" aria-label="Audience active gig switcher">
             <div className="panel-head admin-mobile-section-head">
               <h2>Audience Live Gig</h2>
               <span className="meta-badge">Go live</span>
@@ -788,7 +746,7 @@ function AdminDashboardContent({
             {activeSwitchError ? <p className="error-text">{activeSwitchError}</p> : null}
           </section>
 
-          <section className="queue-panel admin-mobile-block" aria-label="Setlist and queue shortcuts">
+          <section className="queue-panel admin-mobile-block admin-dashboard-queue" aria-label="Setlist and queue shortcuts">
             <div className="panel-head admin-mobile-section-head">
               <h2>Setlist &amp; Queue</h2>
             </div>
@@ -796,21 +754,14 @@ function AdminDashboardContent({
             <ActionButtonGroup actions={queueShortcutActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
           </section>
 
-          <section className="queue-panel admin-mobile-block" aria-label="Gig tools">
+          <section className="queue-panel admin-mobile-block admin-dashboard-tools" aria-label="Gig tools">
             <div className="panel-head admin-mobile-section-head">
               <h2>Gig Tools</h2>
             </div>
             <ActionButtonGroup actions={gigToolActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
           </section>
 
-          <section className="queue-panel admin-mobile-block" aria-label="Marketing tools">
-            <div className="panel-head admin-mobile-section-head">
-              <h2>Marketing &amp; Bookings</h2>
-            </div>
-            <ActionButtonGroup actions={marketingToolActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
-          </section>
-
-          <section className="queue-panel admin-mobile-block" aria-label="Profile and logout">
+          <section className="queue-panel admin-mobile-block admin-dashboard-profile" aria-label="Profile and logout">
             <div className="panel-head admin-mobile-section-head">
               <h2>Profile &amp; Logout</h2>
               <span className="meta-badge">{isHost ? 'Admin session' : 'User session'}</span>
@@ -848,7 +799,7 @@ function AdminDashboardContent({
             {profileError ? <p className="error-text">{profileError}</p> : null}
           </section>
 
-          <section className="queue-panel admin-mobile-block" aria-label="Dashboard retry">
+          <section className="queue-panel admin-mobile-block admin-dashboard-retry" aria-label="Dashboard retry">
             <ActionButtonGroup actions={retryDashboardActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
           </section>
 
