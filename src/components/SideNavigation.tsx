@@ -129,15 +129,12 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
       aria-label="Application navigation"
     >
       <div className="flex h-full flex-col">
-        <div className="flex h-16 items-center px-3">
-          <div className="flex w-full items-center gap-3">
-            <img
-              src="/the-human-jukebox-logo.svg"
-              alt="The Human Jukebox"
-              className="h-8 w-8 rounded-md object-contain"
-            />
-            {!collapsed ? <span className="truncate text-sm font-semibold text-cyan-100">Human Jukebox</span> : null}
-          </div>
+        <div className="flex h-16 items-center justify-center px-3">
+          <img
+            src="/the-human-jukebox-logo.svg"
+            alt="The Human Jukebox"
+            className="h-9 w-9 rounded-md object-contain"
+          />
         </div>
 
         <nav className="flex-1 px-2 py-3" aria-label="Primary">
