@@ -103,6 +103,31 @@ function ShellLayout() {
     showMobileMenu ? 'site-nav-collapsible' : '',
     isMobileNavOpen ? 'site-nav-open' : '',
   ].filter(Boolean).join(' ')
+  const showMobileBottomNav = !isAudienceMode && !isAudienceSongListMode
+  const mobileRouteTitle = location.pathname.startsWith('/admin/gig-control')
+    ? 'Gig Control'
+    : location.pathname.startsWith('/admin/gig-settings')
+    ? 'Gig Settings'
+    : location.pathname.startsWith('/admin/gigs')
+    ? 'All Gigs'
+    : location.pathname.startsWith('/admin/create-gig')
+    ? 'Create Gig'
+    : location.pathname.startsWith('/admin/setlist-library')
+    ? 'Setlist Library'
+    : location.pathname.startsWith('/admin')
+    ? 'Admin'
+    : location.pathname.startsWith('/audience')
+    ? 'Audience'
+    : location.pathname.startsWith('/feed')
+    ? 'Live Feed'
+    : 'Home'
+  const mobileBottomNavItems = [
+    { to: '/', label: 'Home', show: true },
+    { to: '/audience', label: 'Audience', show: true },
+    { to: '/feed', label: 'Feed', show: canOpenFeed },
+    { to: '/admin', label: 'Admin', show: isHost || !demoMode },
+    { to: '/admin/gig-control', label: 'Gig', show: isHost },
+  ].filter((item) => item.show)
 
   const closeGigMenuAfterNavigation = () => {
     setIsGigMenuOpen(false)
@@ -301,6 +326,7 @@ function ShellLayout() {
         <NavLink to="/" className="brand" aria-label="Go to Home page">
           <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
         </NavLink>
+        <p className="mobile-header-title" aria-live="polite">{mobileRouteTitle}</p>
         <span className={`meta-badge connection-badge ${networkOnline ? 'connection-online' : 'connection-offline'}`}>
           {networkOnline ? 'Online' : 'Offline'}
         </span>
@@ -459,28 +485,53 @@ function ShellLayout() {
         </div>
         ) : null}
       </header> : null}
-      {runtimeNotice && !isAudienceSongListMode ? (
-        <section className="queue-panel" role="status" aria-live="polite">
-          <div className="hero-actions no-margin-bottom">
-            <p className="subcopy no-margin">{runtimeNotice}</p>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => setRuntimeNotice(null)}
-            >
-              Dismiss
-            </button>
-          </div>
-        </section>
+      {showMobileMenu && isMobileNavOpen ? (
+        <button
+          type="button"
+          className="mobile-nav-backdrop"
+          aria-label="Close navigation menu"
+          onClick={() => setIsMobileNavOpen(false)}
+        />
       ) : null}
-      <Outlet />
-      {!isAudienceSongListMode ? <footer className="site-legal-footer" aria-label="Copyright notice">
-        <p>
-          © {new Date().getFullYear()} Haraldur G Asmundsson. All rights reserved. The Human Jukebox name,
-          branding, and related content are proprietary. Unauthorized use, reproduction, or distribution is
-          prohibited.
-        </p>
-      </footer> : null}
+      <section className={`app-main-content ${showMobileBottomNav ? 'app-main-content-mobile-pad' : ''}`}>
+        {runtimeNotice && !isAudienceSongListMode ? (
+          <section className="queue-panel" role="status" aria-live="polite">
+            <div className="hero-actions no-margin-bottom">
+              <p className="subcopy no-margin">{runtimeNotice}</p>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setRuntimeNotice(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </section>
+        ) : null}
+        <Outlet />
+        {!isAudienceSongListMode ? <footer className="site-legal-footer" aria-label="Copyright notice">
+          <p>
+            © {new Date().getFullYear()} Haraldur G Asmundsson. All rights reserved. The Human Jukebox name,
+            branding, and related content are proprietary. Unauthorized use, reproduction, or distribution is
+            prohibited.
+          </p>
+        </footer> : null}
+      </section>
+      {showMobileBottomNav ? (
+        <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+          {mobileBottomNavItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) => `mobile-bottom-nav-link ${isActive ? 'active' : ''}`}
+              onClick={() => setIsMobileNavOpen(false)}
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+      ) : null}
     </main>
   )
 }
