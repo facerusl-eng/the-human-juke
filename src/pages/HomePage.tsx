@@ -155,6 +155,15 @@ function HomePage() {
         setBookingNotice(lang === 'da' ? 'Booking sendt. Vi kontakter dig snart.' : 'Booking sent. We will contact you shortly.')
       } catch (error) {
         console.warn('HomePage: failed to send booking webhook', error)
+
+        if (typeof window !== 'undefined') {
+          const bookingUrl = new URL(BOOKING_MANAGER_URL)
+          bookingUrl.searchParams.set('intent', 'book-show')
+          bookingUrl.searchParams.set('source', 'home-book-cta')
+          window.location.assign(bookingUrl.toString())
+          return
+        }
+
         setBookingNotice(lang === 'da' ? 'Booking kunne ikke sendes. Prov igen.' : 'Booking could not be sent. Please try again.')
       } finally {
         setBookingBusy(false)
