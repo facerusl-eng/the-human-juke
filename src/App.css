@@ -174,6 +174,232 @@
   .app-main-content-mobile-pad {
     padding-bottom: 0;
   }
+
+  .app-shell-rail {
+    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    max-width: 1600px;
+    min-height: 100dvh;
+    align-items: stretch;
+    gap: 0.95rem;
+  }
+
+  .app-shell-rail.app-shell-sidebar-collapsed {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .app-shell-rail > .topbar {
+    grid-column: 1;
+    grid-row: 1;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 0.55rem;
+    padding: 0.72rem;
+    border-radius: 0;
+    border-left: 0;
+    border-top: 0;
+    border-bottom: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.07);
+    background: #060a14;
+    box-shadow: none;
+    overflow: hidden;
+  }
+
+  .app-shell-rail > .app-main-content {
+    grid-column: 2;
+    min-width: 0;
+    min-height: 100dvh;
+    align-content: start;
+    overflow: visible;
+  }
+
+  .sidebar-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .sidebar-brand-row .brand {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 12px;
+    padding: 0.32rem 0.38rem;
+    min-height: 2.75rem;
+  }
+
+  .sidebar-brand-row .brand-logo {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-brand-label {
+    font-family: var(--font-head);
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: rgba(236, 245, 255, 0.96);
+    white-space: nowrap;
+  }
+
+  .topbar-rail .site-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.34rem;
+    align-content: start;
+    overflow-y: auto;
+    padding-right: 0.08rem;
+    flex: 1;
+  }
+
+  .topbar-rail .site-nav a,
+  .topbar-rail .site-nav .nav-dropdown-trigger {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 10px;
+    min-height: 2.45rem;
+    padding: 0.45rem 0.62rem;
+    border-color: transparent;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    position: relative;
+  }
+
+  .topbar-rail .site-nav a:hover,
+  .topbar-rail .site-nav .nav-dropdown-trigger:hover {
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .topbar-rail .site-nav a.active,
+  .topbar-rail .site-nav .nav-dropdown-trigger.active {
+    background: rgba(0, 194, 255, 0.15);
+    color: #00c2ff;
+    border-color: transparent;
+  }
+
+  .topbar-rail .site-nav a.active::after,
+  .topbar-rail .site-nav .nav-dropdown-trigger.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 2px;
+    height: 20px;
+    transform: translateY(-50%);
+    border-radius: 999px;
+    background: #00c2ff;
+  }
+
+  .sidebar-link-short {
+    display: inline-flex;
+    width: 1.2rem;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .sidebar-link-label {
+    display: inline;
+  }
+
+  .topbar-rail .site-nav-footnote,
+  .topbar-rail .site-nav-heading {
+    color: rgba(255, 255, 255, 0.55);
+    padding-inline: 0.38rem;
+  }
+
+  .topbar-rail .auth-strip {
+    display: grid;
+    gap: 0.4rem;
+    align-items: stretch;
+  }
+
+  .topbar-rail .auth-strip .ghost-button {
+    width: 100%;
+  }
+
+  .sidebar-desktop-footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .sidebar-version-tag {
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .sidebar-collapse-toggle {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.62);
+    border-radius: 10px;
+    min-height: 2.2rem;
+    width: 2.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .sidebar-collapse-toggle:hover {
+    color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .app-shell-rail.app-shell-sidebar-collapsed > .topbar {
+    padding: 0.6rem 0.5rem;
+  }
+
+  .app-shell-rail.app-shell-sidebar-collapsed .sidebar-link-label,
+  .app-shell-rail.app-shell-sidebar-collapsed .site-nav-heading,
+  .app-shell-rail.app-shell-sidebar-collapsed .site-nav-footnote,
+  .app-shell-rail.app-shell-sidebar-collapsed .auth-strip,
+  .app-shell-rail.app-shell-sidebar-collapsed .sidebar-version-tag,
+  .app-shell-rail.app-shell-sidebar-collapsed .connection-badge {
+    display: none !important;
+  }
+
+  .app-shell-rail.app-shell-sidebar-collapsed .sidebar-brand-row .brand {
+    justify-content: center;
+    padding: 0.22rem;
+  }
+
+  .app-shell-rail.app-shell-sidebar-collapsed .sidebar-brand-row .brand-logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .app-shell-rail.app-shell-sidebar-collapsed .topbar-rail .site-nav a,
+  .app-shell-rail.app-shell-sidebar-collapsed .topbar-rail .site-nav .nav-dropdown-trigger {
+    justify-content: center;
+    padding: 0.42rem;
+  }
+
+  .app-shell-rail.app-shell-sidebar-collapsed .topbar-rail .site-nav .nav-dropdown-menu {
+    left: calc(100% + 0.4rem);
+    top: 0;
+    min-width: 13rem;
+  }
 }
 
 .app-shell-wide {

@@ -8,6 +8,7 @@ import { DemoBanner } from '../demo/DemoBanner'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
+const DESKTOP_SIDEBAR_COLLAPSED_STORAGE_KEY = 'human-jukebox-desktop-sidebar-collapsed'
 
 const RUNTIME_THEME_PRESETS: Record<string, Record<string, string>> = {
   dark: {
@@ -77,6 +78,13 @@ function ShellLayout() {
   const [authActionBusy, setAuthActionBusy] = useState<null | 'sign-in' | 'sign-out'>(null)
   const [hasAudienceAccess, setHasAudienceAccess] = useState(() => Boolean(readCommittedAudienceName()))
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem(DESKTOP_SIDEBAR_COLLAPSED_STORAGE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
   const [isGigMenuOpen, setIsGigMenuOpen] = useState(false)
   const [isGigMenuForceClosed, setIsGigMenuForceClosed] = useState(false)
   const mobileNavToggleRef = useRef<HTMLButtonElement | null>(null)
@@ -92,11 +100,16 @@ function ShellLayout() {
   const shellClassName = isAudienceSongListMode
     ? 'app-shell app-shell-audience-fullscreen'
     : location.pathname.startsWith('/admin/setlist-library')
-    ? 'app-shell app-shell-wide app-shell-rail'
+    ? `app-shell app-shell-wide app-shell-rail ${isDesktopSidebarCollapsed ? 'app-shell-sidebar-collapsed' : ''}`.trim()
     : isAudienceMode
     ? 'app-shell app-shell-audience'
-    : 'app-shell app-shell-rail'
-  const topbarClassName = isAdminMode ? 'topbar topbar-admin topbar-rail' : 'topbar topbar-rail'
+    : `app-shell app-shell-rail ${isDesktopSidebarCollapsed ? 'app-shell-sidebar-collapsed' : ''}`.trim()
+  const topbarClassName = [
+    'topbar',
+    isAdminMode ? 'topbar-admin' : '',
+    'topbar-rail',
+    isDesktopSidebarCollapsed ? 'topbar-rail-collapsed' : '',
+  ].filter(Boolean).join(' ')
   const siteNavClassName = [
     'site-nav',
     isAdminMode ? 'site-nav-admin' : '',
@@ -153,6 +166,14 @@ function ShellLayout() {
       })
     }
   }
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(DESKTOP_SIDEBAR_COLLAPSED_STORAGE_KEY, isDesktopSidebarCollapsed ? '1' : '0')
+    } catch {
+      // non-critical
+    }
+  }, [isDesktopSidebarCollapsed])
 
   useEffect(() => {
     const syncAudienceAccess = () => {
@@ -323,13 +344,16 @@ function ShellLayout() {
     <main className={[shellClassName, demoMode ? 'app-shell-demo' : ''].filter(Boolean).join(' ')}>
       {demoMode ? <DemoBanner /> : null}
       {!isAudienceMode ? <header className={topbarClassName}>
-        <NavLink to="/" className="brand" aria-label="Go to Home page">
-          <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
-        </NavLink>
-        <p className="mobile-header-title" aria-live="polite">{mobileRouteTitle}</p>
-        <span className={`meta-badge connection-badge ${networkOnline ? 'connection-online' : 'connection-offline'}`}>
-          {networkOnline ? 'Online' : 'Offline'}
-        </span>
+        <div className="sidebar-brand-row">
+          <NavLink to="/" className="brand" aria-label="Go to Home page">
+            <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="brand-logo" />
+            <span className="sidebar-link-label sidebar-brand-label">The Human Jukebox</span>
+          </NavLink>
+          <p className="mobile-header-title" aria-live="polite">{mobileRouteTitle}</p>
+          <span className={`meta-badge connection-badge ${networkOnline ? 'connection-online' : 'connection-offline'}`}>
+            {networkOnline ? 'Online' : 'Offline'}
+          </span>
+        </div>
         {showMobileMenu ? (
           <button
             type="button"
@@ -342,7 +366,7 @@ function ShellLayout() {
             {isMobileNavOpen ? 'Close menu' : 'Menu'}
           </button>
         ) : null}
-        {!isAudienceMode ? <p className="site-nav-heading">Navigation</p> : null}
+        {!isAudienceMode ? <p className="site-nav-heading"><span className="sidebar-link-label">Navigation</span></p> : null}
         <nav
           id="primary-site-nav"
           className={siteNavClassName}
@@ -363,12 +387,12 @@ function ShellLayout() {
             </>
           ) : (
             <>
-              <NavLink to="/" end>Home</NavLink>
-              <NavLink to="/audience">Audience</NavLink>
-              {canOpenFeed ? <NavLink to="/feed">Feed</NavLink> : null}
+              <NavLink to="/" end><span className="sidebar-link-short" aria-hidden="true">H</span><span className="sidebar-link-label">Home</span></NavLink>
+              <NavLink to="/audience"><span className="sidebar-link-short" aria-hidden="true">A</span><span className="sidebar-link-label">Audience</span></NavLink>
+              {canOpenFeed ? <NavLink to="/feed"><span className="sidebar-link-short" aria-hidden="true">F</span><span className="sidebar-link-label">Feed</span></NavLink> : null}
               {isHost ? (
                 <>
-                  <NavLink to="/admin" end>Dashboard</NavLink>
+                  <NavLink to="/admin" end><span className="sidebar-link-short" aria-hidden="true">D</span><span className="sidebar-link-label">Dashboard</span></NavLink>
                   <div
                     ref={gigMenuRef}
                     className={[
@@ -423,7 +447,8 @@ function ShellLayout() {
                         setIsGigMenuOpen((open) => !open)
                       }}
                     >
-                      Gigs
+                      <span className="sidebar-link-short" aria-hidden="true">G</span>
+                      <span className="sidebar-link-label">Gigs</span>
                     </button>
                     <div id="gig-nav-menu" className="nav-dropdown-menu" aria-label="Gig navigation menu">
                       <NavLink to="/admin/gigs" onClick={closeGigMenuAfterNavigation}>All Gigs</NavLink>
@@ -432,17 +457,17 @@ function ShellLayout() {
                       <NavLink to="/admin/gig-settings" onClick={closeGigMenuAfterNavigation}>Gig Settings</NavLink>
                     </div>
                   </div>
-                  <NavLink to="/admin/health-check">Health Check</NavLink>
-                  <NavLink to="/admin/setlist-library">Setlist</NavLink>
-                  <NavLink to="/admin/settings">Settings</NavLink>
+                  <NavLink to="/admin/health-check"><span className="sidebar-link-short" aria-hidden="true">C</span><span className="sidebar-link-label">Health Check</span></NavLink>
+                  <NavLink to="/admin/setlist-library"><span className="sidebar-link-short" aria-hidden="true">S</span><span className="sidebar-link-label">Setlist</span></NavLink>
+                  <NavLink to="/admin/settings"><span className="sidebar-link-short" aria-hidden="true">T</span><span className="sidebar-link-label">Settings</span></NavLink>
                 </>
               ) : (
-                !demoMode ? <NavLink to="/admin">Admin</NavLink> : null
+                !demoMode ? <NavLink to="/admin"><span className="sidebar-link-short" aria-hidden="true">A</span><span className="sidebar-link-label">Admin</span></NavLink> : null
               )}
             </>
           )}
         </nav>
-        {!isAudienceMode ? <p className="site-nav-footnote">The Human Jukebox App</p> : null}
+        {!isAudienceMode ? <p className="site-nav-footnote"><span className="sidebar-link-label">The Human Jukebox App</span></p> : null}
 
         {!isAudienceMode ? (
         <div className="auth-strip">
@@ -483,6 +508,19 @@ function ShellLayout() {
 
           {errorText ? <p className="error-text">{errorText}</p> : null}
         </div>
+        ) : null}
+        {!isAudienceMode ? (
+          <div className="sidebar-desktop-footer" aria-label="Sidebar controls">
+            <span className="sidebar-version-tag sidebar-link-label">Desktop Nav</span>
+            <button
+              type="button"
+              className="sidebar-collapse-toggle"
+              aria-label={isDesktopSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              onClick={() => setIsDesktopSidebarCollapsed((collapsed) => !collapsed)}
+            >
+              {isDesktopSidebarCollapsed ? '›' : '‹'}
+            </button>
+          </div>
         ) : null}
       </header> : null}
       {showMobileMenu && isMobileNavOpen ? (
