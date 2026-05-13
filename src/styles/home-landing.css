@@ -219,6 +219,8 @@
   width: 100%;
   aspect-ratio: 16 / 10;
   border: 0;
+  /* 240px ensures the iframe shows meaningful content on narrow viewports
+     where aspect-ratio alone would produce a very short frame. */
   min-height: 240px;
 }
 

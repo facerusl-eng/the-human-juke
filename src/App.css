@@ -2149,12 +2149,15 @@
 
 .audience-shell {
   position: relative;
+  /* overflow-x: hidden (not clip) is intentional: CSS spec computes overflow-y
+     as clip/auto when overflow-x is clip, which silently truncates content below
+     the first screenful on iOS Safari. Using hidden avoids that computed-value
+     trap while still preventing horizontal overflow. overflow-y: visible lets
+     the element grow beyond its grid row. */
   overflow-x: hidden;
   overflow-y: visible;
   /* align-self: start prevents the 1fr grid row in app-shell from capping the
-     element's height to 100dvh. Without this, non-visible x-axis overflow can
-     force y-axis clipping in some mobile browsers and hide content below the
-     first screenful. */
+     element's height to 100dvh. */
   align-self: start;
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
