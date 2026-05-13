@@ -9,18 +9,12 @@ import { readCommittedAudienceLocale, commitAudienceLocale } from '../lib/audien
 import '../styles/home-landing.css'
 
 type HomeLang = 'en' | 'da'
+type GigType = 'afternoon' | 'evening' | 'both'
 
 const BOOKING_MANAGER_URL = import.meta.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
 const INTERNAL_BOOKING_ENDPOINT = '/api/book-show'
-const EXTERNAL_BOOKING_WEBHOOK_URL = 'https://preview--book-jukebox.base44.app/api/webhook/receiveExternalBooking'
-const EXTERNAL_BOOKING_PAYLOAD = {
-  venue_name: 'The Blue Note',
-  date: '2026-05-20',
-  gig_type: 'evening',
-  requested_fee: 1500,
-  contact_email: 'manager@bluenoote.dk',
-  notes: 'Special requests here',
-}
+const BOOKING_WEBHOOK_STORAGE_KEY = 'human-jukebox-booking-webhook-url'
+const DEFAULT_BOOKING_WEBHOOK_URL = import.meta.env.VITE_EXTERNAL_BOOKING_WEBHOOK_URL?.trim() || ''
 
 const COPY = {
   en: {
@@ -101,6 +95,16 @@ function HomePage() {
   const [signupError, setSignupError] = useState<string | null>(null)
   const [bookingBusy, setBookingBusy] = useState(false)
   const [bookingNotice, setBookingNotice] = useState<string | null>(null)
+  const [bookingError, setBookingError] = useState<string | null>(null)
+  const [bookingFormOpen, setBookingFormOpen] = useState(false)
+  const [bookingWebhookUrl, setBookingWebhookUrl] = useState('')
+  const [bookingVenueName, setBookingVenueName] = useState('')
+  const [bookingVenueId, setBookingVenueId] = useState('')
+  const [bookingDate, setBookingDate] = useState('')
+  const [bookingGigType, setBookingGigType] = useState<GigType>('evening')
+  const [bookingFee, setBookingFee] = useState('')
+  const [bookingNotes, setBookingNotes] = useState('')
+  const [bookingContactEmail, setBookingContactEmail] = useState('')
   const [lang, setLang] = useState<HomeLang>(() => {
     const stored = readCommittedAudienceLocale()
     return stored === 'da' ? 'da' : 'en'
@@ -122,49 +126,81 @@ function HomePage() {
   }
 
   const openBookingFlow = () => {
-    if (bookingBusy) {
+    setBookingFormOpen((current) => !current)
+    setBookingNotice(null)
+    setBookingError(null)
+  }
+
+  const submitBookingRequest = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+    if (!bookingWebhookUrl.trim()) {
+      setBookingError('Paste your External Bookings webhook URL from dashboard settings.')
+      return
+    }
+
+    if (!bookingVenueName.trim()) {
+      setBookingError('Venue name is required.')
+      return
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate.trim())) {
+      setBookingError('Date must use YYYY-MM-DD format.')
+      return
+    }
+
+    if (!emailPattern.test(bookingContactEmail.trim())) {
+      setBookingError('External contact email is required and must be valid.')
+      return
+    }
+
+    if (bookingFee.trim() && Number.isNaN(Number(bookingFee))) {
+      setBookingError('Fee must be a number.')
       return
     }
 
     setBookingBusy(true)
+    setBookingError(null)
     setBookingNotice(null)
 
     void (async () => {
       try {
-        let response = await fetch(INTERNAL_BOOKING_ENDPOINT, {
+        const response = await fetch(INTERNAL_BOOKING_ENDPOINT, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            webhookUrl: bookingWebhookUrl.trim(),
+            booking: {
+              venue_name: bookingVenueName.trim(),
+              venue_id: bookingVenueId.trim() || undefined,
+              date: bookingDate.trim(),
+              gig_type: bookingGigType,
+              fee: bookingFee.trim() ? Number(bookingFee) : undefined,
+              notes: bookingNotes.trim() || undefined,
+              external_contact_email: bookingContactEmail.trim(),
+            },
+          }),
         })
 
-        if (!response.ok) {
-          response = await fetch(EXTERNAL_BOOKING_WEBHOOK_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(EXTERNAL_BOOKING_PAYLOAD),
-          })
-        }
+        const body = await response.json().catch(() => null)
 
-        if (!response.ok) {
-          throw new Error(`Webhook failed with status ${response.status}`)
+        if (!response.ok || !body?.success) {
+          throw new Error(body?.message || `Booking failed with status ${response.status}`)
         }
-
-        setBookingNotice(lang === 'da' ? 'Booking sendt. Vi kontakter dig snart.' : 'Booking sent. We will contact you shortly.')
-      } catch (error) {
-        console.warn('HomePage: failed to send booking webhook', error)
 
         if (typeof window !== 'undefined') {
-          const bookingUrl = new URL(BOOKING_MANAGER_URL)
-          bookingUrl.searchParams.set('intent', 'book-show')
-          bookingUrl.searchParams.set('source', 'home-book-cta')
-          window.location.assign(bookingUrl.toString())
-          return
+          window.localStorage.setItem(BOOKING_WEBHOOK_STORAGE_KEY, bookingWebhookUrl.trim())
         }
 
-        setBookingNotice(lang === 'da' ? 'Booking kunne ikke sendes. Prov igen.' : 'Booking could not be sent. Please try again.')
+        setBookingNotice(body?.message || 'Booking received')
+        setBookingFormOpen(false)
+      } catch (error) {
+        console.warn('HomePage: failed to send booking request', error)
+        setBookingError(error instanceof Error ? error.message : 'Booking could not be sent. Please try again.')
       } finally {
         setBookingBusy(false)
       }
@@ -212,6 +248,15 @@ function HomePage() {
     resetOGTags()
   }, [navigate])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const storedWebhookUrl = window.localStorage.getItem(BOOKING_WEBHOOK_STORAGE_KEY)?.trim() || ''
+    setBookingWebhookUrl(storedWebhookUrl || DEFAULT_BOOKING_WEBHOOK_URL)
+  }, [])
+
   const iconMap = {
     building: Building2,
     phone: Smartphone,
@@ -248,13 +293,75 @@ function HomePage() {
             </div>
             <div className="lp-hero-cta" aria-label="Primary actions">
               <PrimaryButton onClick={openBookingFlow} disabled={bookingBusy}>
-                {bookingBusy ? (lang === 'da' ? 'Sender...' : 'Sending...') : copy.bookCta}
+                {bookingFormOpen ? 'Close booking form' : 'Request Booking'}
               </PrimaryButton>
               <PrimaryButton variant="secondary" onClick={openAudienceDemo}>
                 {copy.demoCta}
               </PrimaryButton>
             </div>
+            {bookingFormOpen ? (
+              <form className="lp-booking-form" onSubmit={submitBookingRequest}>
+                <p className="lp-booking-form-title">Request Booking</p>
+                <p className="lp-booking-form-help">Paste your webhook URL from Settings -&gt; External Bookings in your dashboard.</p>
+                <input
+                  type="url"
+                  placeholder="Webhook URL"
+                  value={bookingWebhookUrl}
+                  onChange={(event) => setBookingWebhookUrl(event.target.value)}
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Venue name *"
+                  value={bookingVenueName}
+                  onChange={(event) => setBookingVenueName(event.target.value)}
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Venue ID (optional)"
+                  value={bookingVenueId}
+                  onChange={(event) => setBookingVenueId(event.target.value)}
+                />
+                <input
+                  type="date"
+                  value={bookingDate}
+                  onChange={(event) => setBookingDate(event.target.value)}
+                  required
+                />
+                <select value={bookingGigType} onChange={(event) => setBookingGigType(event.target.value as GigType)}>
+                  <option value="afternoon">afternoon</option>
+                  <option value="evening">evening</option>
+                  <option value="both">both</option>
+                </select>
+                <input
+                  type="number"
+                  placeholder="Fee"
+                  value={bookingFee}
+                  onChange={(event) => setBookingFee(event.target.value)}
+                />
+                <textarea
+                  placeholder="Notes"
+                  value={bookingNotes}
+                  onChange={(event) => setBookingNotes(event.target.value)}
+                  rows={3}
+                />
+                <input
+                  type="email"
+                  placeholder="External contact email *"
+                  value={bookingContactEmail}
+                  onChange={(event) => setBookingContactEmail(event.target.value)}
+                  required
+                />
+                <div className="lp-booking-actions">
+                  <PrimaryButton type="submit" disabled={bookingBusy}>
+                    {bookingBusy ? 'Sending...' : 'Send booking request'}
+                  </PrimaryButton>
+                </div>
+              </form>
+            ) : null}
             {bookingNotice ? <p className="lp-booking-notice">{bookingNotice}</p> : null}
+            {bookingError ? <p className="lp-booking-error">{bookingError}</p> : null}
           </div>
           <aside className="lp-hero-card" aria-label="Live mirror preview">
             <iframe

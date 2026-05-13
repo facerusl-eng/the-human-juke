@@ -1,13 +1,4 @@
-const EXTERNAL_BOOKING_WEBHOOK_URL = 'https://preview--book-jukebox.base44.app/api/webhook/receiveExternalBooking'
-
-const EXTERNAL_BOOKING_PAYLOAD = {
-  venue_name: 'The Blue Note',
-  date: '2026-05-20',
-  gig_type: 'evening',
-  requested_fee: 1500,
-  contact_email: 'manager@bluenoote.dk',
-  notes: 'Special requests here',
-}
+const DEFAULT_WEBHOOK_URL = process.env.BOOKING_WEBHOOK_URL?.trim() || process.env.VITE_EXTERNAL_BOOKING_WEBHOOK_URL?.trim() || ''
 
 const ALLOWED_ORIGINS = [
   'https://www.the-human-jukebox.org',
@@ -24,6 +15,22 @@ function corsHeaders(origin) {
   }
 }
 
+function parseJsonBody(reqBody) {
+  if (!reqBody) {
+    return null
+  }
+
+  if (typeof reqBody === 'string') {
+    try {
+      return JSON.parse(reqBody)
+    } catch {
+      return null
+    }
+  }
+
+  return reqBody
+}
+
 export default async function handler(req, res) {
   const origin = req.headers.origin || ''
 
@@ -37,27 +44,84 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
+  const body = parseJsonBody(req.body)
+  if (!body) {
+    return res.status(400).json({ success: false, message: 'Invalid JSON body' })
+  }
+
+  const webhookUrl = String(body.webhookUrl || DEFAULT_WEBHOOK_URL || '').trim()
+  const booking = body.booking || {}
+
+  const venueName = String(booking.venue_name || '').trim()
+  const venueId = String(booking.venue_id || '').trim()
+  const date = String(booking.date || '').trim()
+  const gigType = String(booking.gig_type || '').trim()
+  const notes = String(booking.notes || '').trim()
+  const externalContactEmail = String(booking.external_contact_email || '').trim()
+  const fee = booking.fee
+
+  if (!webhookUrl) {
+    return res.status(400).json({ success: false, message: 'Webhook URL is required.' })
+  }
+
+  if (!venueName) {
+    return res.status(400).json({ success: false, message: 'venue_name is required.' })
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ success: false, message: 'date must be YYYY-MM-DD.' })
+  }
+
+  if (!['afternoon', 'evening', 'both'].includes(gigType)) {
+    return res.status(400).json({ success: false, message: 'gig_type must be afternoon, evening, or both.' })
+  }
+
+  if (!externalContactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(externalContactEmail)) {
+    return res.status(400).json({ success: false, message: 'external_contact_email is required and must be valid.' })
+  }
+
+  if (fee !== undefined && fee !== null && Number.isNaN(Number(fee))) {
+    return res.status(400).json({ success: false, message: 'fee must be a number when provided.' })
+  }
+
+  const payload = {
+    venue_name: venueName,
+    venue_id: venueId || undefined,
+    date,
+    gig_type: gigType,
+    fee: fee === undefined || fee === null || fee === '' ? undefined : Number(fee),
+    notes: notes || undefined,
+    external_contact_email: externalContactEmail,
+  }
+
   try {
-    const response = await fetch(EXTERNAL_BOOKING_WEBHOOK_URL, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(EXTERNAL_BOOKING_PAYLOAD),
+      body: JSON.stringify(payload),
     })
 
     if (!response.ok) {
       const bodyText = await response.text().catch(() => '')
       return res.status(502).json({
-        error: 'External booking webhook failed',
+        success: false,
+        message: 'External booking webhook failed',
         status: response.status,
         details: bodyText.slice(0, 500),
       })
     }
 
-    return res.status(200).json({ ok: true })
+    const upstream = await response.json().catch(() => ({}))
+
+    return res.status(200).json({
+      success: true,
+      gig_id: upstream?.gig_id || '',
+      message: upstream?.message || 'Booking received',
+    })
   } catch (error) {
     console.error('book-show error', error)
-    return res.status(500).json({ error: 'Booking request failed' })
+    return res.status(500).json({ success: false, message: 'Booking request failed' })
   }
 }
