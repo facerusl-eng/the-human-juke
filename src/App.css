@@ -11502,7 +11502,7 @@ kbd {
 
 .home-shell-v2 {
   width: 100%;
-  max-width: 1380px;
+  max-width: 1560px;
   margin: 0 auto;
 }
 
@@ -12210,7 +12210,7 @@ kbd {
   }
 }
 
-@media (min-width: 980px) and (max-width: 1680px) {
+@media (min-width: 980px) and (max-width: 1279px) {
   .home-layout-pair .home-layout-pair-primary,
   .home-layout-pair .home-layout-pair-secondary {
     grid-column: span 12;
@@ -12236,6 +12236,26 @@ kbd {
 
   .home-mirror-preview-card {
     order: 1;
+  }
+}
+
+@media (min-width: 1280px) and (max-width: 1560px) {
+  .home-layout-pair .home-layout-pair-primary {
+    grid-column: span 7;
+  }
+
+  .home-layout-pair .home-layout-pair-secondary {
+    grid-column: span 5;
+  }
+
+  .home-stage-hero .home-hero-inner {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 2rem;
+  }
+
+  .home-layout-pair .home-layout-pair-secondary .home-benefit-grid--4,
+  .home-layout-pair .home-layout-pair-secondary .home-benefit-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
