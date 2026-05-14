@@ -61,7 +61,7 @@
 .lp-hero,
 .lp-section,
 .lp-cta {
-  padding: clamp(2.2rem, 4vw, 4rem);
+  padding: clamp(2rem, 3.8vw, 3.8rem);
 }
 
 .lp-hero {
@@ -77,9 +77,9 @@
   max-width: 1360px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-  gap: clamp(1rem, 2.4vw, 2.2rem);
-  align-items: center;
+  grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
+  gap: clamp(1.2rem, 3vw, 2.8rem);
+  align-items: flex-start;
 }
 
 .lp-copy-block,
@@ -91,7 +91,7 @@
 }
 
 .lp-copy-block {
-  padding: 1.15rem 1.1rem;
+  padding: 1.1rem 1.05rem;
 }
 
 .lp-copy-block-lead {
@@ -375,8 +375,8 @@
 .lp-features-grid,
 .lp-social-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.1rem;
 }
 
 .lp-feature-card,
