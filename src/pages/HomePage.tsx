@@ -268,44 +268,51 @@ function HomePage() {
       <section className="lp-hero" aria-label="Hero section">
         <div className="lp-hero-inner">
           <div className="lp-hero-copy">
-            <p className="lp-eyebrow">{copy.eyebrow}</p>
-            <h1 className="lp-title">
-              {copy.h1Line1}
-              <br />
-              {copy.h1Line2} <span>{copy.h1Accent}</span>
-            </h1>
-            <p className="lp-subtitle">{copy.subtitle}</p>
-            <div className="lp-lang-toggle" role="group" aria-label="Language">
-              <button
-                type="button"
-                className={`lp-lang-btn${lang === 'en' ? ' lp-lang-btn-active' : ''}`}
-                onClick={() => switchLang('en')}
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                className={`lp-lang-btn${lang === 'da' ? ' lp-lang-btn-active' : ''}`}
-                onClick={() => switchLang('da')}
-              >
-                DA
-              </button>
+            <div className="lp-copy-block lp-copy-block-lead">
+              <p className="lp-eyebrow">{copy.eyebrow}</p>
+              <h1 className="lp-title">
+                {copy.h1Line1}
+                <br />
+                {copy.h1Line2} <span>{copy.h1Accent}</span>
+              </h1>
+              <p className="lp-subtitle">{copy.subtitle}</p>
             </div>
-            <div className="lp-hero-cta" aria-label="Primary actions">
-              <PrimaryButton onClick={openBookingFlow} disabled={bookingBusy}>
-                {bookingFormOpen ? 'Close booking form' : 'Request Booking'}
-              </PrimaryButton>
-              <PrimaryButton variant="secondary" onClick={openAudienceDemo}>
-                {copy.demoCta}
-              </PrimaryButton>
+
+            <div className="lp-copy-block lp-copy-block-actions">
+              <div className="lp-lang-toggle" role="group" aria-label="Language">
+                <button
+                  type="button"
+                  className={`lp-lang-btn${lang === 'en' ? ' lp-lang-btn-active' : ''}`}
+                  onClick={() => switchLang('en')}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  className={`lp-lang-btn${lang === 'da' ? ' lp-lang-btn-active' : ''}`}
+                  onClick={() => switchLang('da')}
+                >
+                  DA
+                </button>
+              </div>
+              <div className="lp-hero-cta" aria-label="Primary actions">
+                <PrimaryButton onClick={openBookingFlow} disabled={bookingBusy}>
+                  {bookingFormOpen ? 'Close booking form' : 'Request Booking'}
+                </PrimaryButton>
+                <PrimaryButton variant="secondary" onClick={openAudienceDemo}>
+                  {copy.demoCta}
+                </PrimaryButton>
+              </div>
             </div>
+
             {bookingFormOpen ? (
-              <form className="lp-booking-form" onSubmit={submitBookingRequest}>
+              <form className="lp-booking-form lp-copy-block" onSubmit={submitBookingRequest}>
                 <p className="lp-booking-form-title">Request Booking</p>
                 <p className="lp-booking-form-help">Paste your webhook URL from Settings -&gt; External Bookings in your dashboard.</p>
                 <input
                   type="url"
                   placeholder="Webhook URL"
+                  aria-label="Webhook URL"
                   value={bookingWebhookUrl}
                   onChange={(event) => setBookingWebhookUrl(event.target.value)}
                   required
@@ -313,6 +320,7 @@ function HomePage() {
                 <input
                   type="text"
                   placeholder="Venue name *"
+                  aria-label="Venue name"
                   value={bookingVenueName}
                   onChange={(event) => setBookingVenueName(event.target.value)}
                   required
@@ -320,16 +328,18 @@ function HomePage() {
                 <input
                   type="text"
                   placeholder="Venue ID (optional)"
+                  aria-label="Venue ID optional"
                   value={bookingVenueId}
                   onChange={(event) => setBookingVenueId(event.target.value)}
                 />
                 <input
                   type="date"
+                  aria-label="Date"
                   value={bookingDate}
                   onChange={(event) => setBookingDate(event.target.value)}
                   required
                 />
-                <select value={bookingGigType} onChange={(event) => setBookingGigType(event.target.value as GigType)}>
+                <select aria-label="Gig type" value={bookingGigType} onChange={(event) => setBookingGigType(event.target.value as GigType)}>
                   <option value="afternoon">afternoon</option>
                   <option value="evening">evening</option>
                   <option value="both">both</option>
@@ -337,11 +347,13 @@ function HomePage() {
                 <input
                   type="number"
                   placeholder="Fee"
+                  aria-label="Fee"
                   value={bookingFee}
                   onChange={(event) => setBookingFee(event.target.value)}
                 />
                 <textarea
                   placeholder="Notes"
+                  aria-label="Notes"
                   value={bookingNotes}
                   onChange={(event) => setBookingNotes(event.target.value)}
                   rows={3}
@@ -349,6 +361,7 @@ function HomePage() {
                 <input
                   type="email"
                   placeholder="External contact email *"
+                  aria-label="External contact email"
                   value={bookingContactEmail}
                   onChange={(event) => setBookingContactEmail(event.target.value)}
                   required
@@ -363,14 +376,24 @@ function HomePage() {
             {bookingNotice ? <p className="lp-booking-notice">{bookingNotice}</p> : null}
             {bookingError ? <p className="lp-booking-error">{bookingError}</p> : null}
           </div>
-          <aside className="lp-hero-card" aria-label="Live mirror preview">
-            <iframe
-              title="Human Jukebox mirror preview"
-              src="/mirror?demo=true&mirrorAccess=force"
-              loading="lazy"
-              className="lp-preview-frame"
-            />
-          </aside>
+
+          <div className="lp-hero-blocks" aria-label="Show highlights">
+            <article className="lp-hero-block-card">
+              <p className="lp-hero-block-label">Live screen</p>
+              <h2>The room sees every request</h2>
+              <p>Guests join, vote, and watch the queue change on the shared TV in real time.</p>
+            </article>
+            <article className="lp-hero-block-card">
+              <p className="lp-hero-block-label">What it feels like</p>
+              <h2>Big, clear, and easy to follow</h2>
+              <p>Now playing, live feed, queue, and QR stay readable from across the venue.</p>
+            </article>
+            <article className="lp-hero-block-card">
+              <p className="lp-hero-block-label">Why venues book it</p>
+              <h2>More energy, longer stays</h2>
+              <p>It turns the crowd into the show without adding friction or extra apps.</p>
+            </article>
+          </div>
         </div>
       </section>
 
