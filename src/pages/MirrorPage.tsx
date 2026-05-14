@@ -1053,11 +1053,7 @@ function playShutterSound() {
   }
 }
 
-function MirrorPage() {
-  if (isMirrorLayoutEditRequest) {
-    return <MirrorLayoutEditorPage />
-  }
-
+function MirrorPageContent() {
   const { event, songs, loading, toggleRoomOpen } = useQueueStore()
   const { isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
@@ -3332,6 +3328,13 @@ function MirrorPage() {
       {!isLive && showSafeMargins && shouldShowAdminElements ? <div className="mirror-safe-margins-overlay" aria-hidden="true" /> : null}
     </div>
   )
+}
+
+function MirrorPage() {
+  if (isMirrorLayoutEditRequest) {
+    return <MirrorLayoutEditorPage />
+  }
+  return <MirrorPageContent />
 }
 
 export default MirrorPage
