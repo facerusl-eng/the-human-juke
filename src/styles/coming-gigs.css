@@ -22,6 +22,35 @@
   padding: clamp(1.1rem, 2.6vw, 1.7rem);
 }
 
+.cg-lang-switcher {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.cg-lang-switcher button {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(71, 95, 157, 0.38);
+  border-radius: 6px;
+  background: rgba(10, 14, 30, 0.8);
+  color: #b7c3de;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cg-lang-switcher button:hover {
+  border-color: rgba(148, 190, 255, 0.6);
+  color: #eef4ff;
+}
+
+.cg-lang-switcher button.cg-lang-active {
+  background: rgba(148, 190, 255, 0.2);
+  border-color: rgba(148, 190, 255, 0.8);
+  color: #eef4ff;
+}
+
 .cg-eyebrow {
   margin: 0 0 0.4rem;
   color: rgba(148, 190, 255, 0.96);
