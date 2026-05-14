@@ -3284,7 +3284,9 @@ function MirrorPageContent() {
                     </div>
                     <div className="mirror-now-playing-meta">
                       <h1 className="mirror-title">
-                        {normalizeMirrorText(activeSong.title, 'Waiting for requests…')}
+                        <span className="mirror-title-song">
+                          {normalizeMirrorText(activeSong.title, 'Waiting for requests…')}
+                        </span>
                         <span className="mirror-title-separator"> - </span>
                         <span className="mirror-title-artist">
                           {(() => {

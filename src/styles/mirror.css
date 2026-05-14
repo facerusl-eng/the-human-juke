@@ -867,6 +867,9 @@
   color: #f8fcff;
   text-shadow: 0 0 22px rgba(93, 215, 255, 0.2);
 }
+.mirror-now-playing .mirror-title-song {
+  display: inline;
+}
 
 .mirror-countdown-value-compact {
   font-size: clamp(1.2rem, 2.8vw, 2rem);
@@ -874,6 +877,9 @@
   line-height: 1.15;
 }
 
+.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing .mirror-title-song {
+  display: block;
+}
 .mirror-countdown-meta {
   margin: 0;
   font-size: clamp(0.86rem, 1.35vw, 1.02rem);
