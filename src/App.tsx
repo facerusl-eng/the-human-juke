@@ -62,6 +62,7 @@ function lazyWithChunkReload<T extends { default: React.ComponentType<unknown> }
 const AdminPage = lazyWithChunkReload(() => import('./pages/AdminPage'))
 const CreateGigPage = lazyWithChunkReload(() => import('./pages/CreateGigPage'))
 const CrashTelemetryPage = lazyWithChunkReload(() => import('./pages/CrashTelemetryPage'))
+const ComingGigsPage = lazyWithChunkReload(() => import('./pages/ComingGigsPage'))
 const FeedPage = lazyWithChunkReload(() => import('./pages/FeedPage'))
 const GigControlPage = lazyWithChunkReload(() => import('./pages/GigControlPage'))
 const GigSettingsPage = lazyWithChunkReload(() => import('./pages/GigSettingsPage'))
@@ -164,6 +165,10 @@ const router = createBrowserRouter([
       {
         index: true,
         element: withSuspense(<HomePage />),
+      },
+      {
+        path: 'coming-gigs',
+        element: withSuspense(<ComingGigsPage />),
       },
       {
         path: 'audience',

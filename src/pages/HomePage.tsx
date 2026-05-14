@@ -11,16 +11,15 @@ import '../styles/home-landing.css'
 type HomeLang = 'en' | 'da'
 type GigType = 'afternoon' | 'evening' | 'both'
 
-const BOOKING_MANAGER_URL = import.meta.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
 const INTERNAL_BOOKING_ENDPOINT = '/api/book-show'
 
 const COPY = {
   en: {
     eyebrow: 'Trusted by venues that want full rooms',
-    h1Line1: 'Your crowd won\'t leave early.',
-    h1Line2: 'Once their song is in the queue,',
-    h1Accent: 'they\'re locked in.',
-    subtitle: 'They want to hear it. They want to cheer for it. They want to stay.',
+    h1Line1: 'Your crowd picks the songs.',
+    h1Line2: 'Your night becomes',
+    h1Accent: 'the one people stay for.',
+    subtitle: 'I\'m Harald - a live performer who brings an interactive jukebox show to your pub. Guests request songs, vote the queue, and keep the room engaged longer because the night feels personal, social, and alive.',
     bookCta: 'Book the show',
     demoCta: 'See how it works',
     stats: [
@@ -249,16 +248,14 @@ function HomePage() {
 
     setSignupError(null)
 
+    const nextPath = `/coming-gigs?email=${encodeURIComponent(normalizedEmail)}&intent=availability-updates&source=home-signup`
+
     if (typeof window !== 'undefined') {
-      const bookingUrl = new URL(BOOKING_MANAGER_URL)
-      bookingUrl.searchParams.set('email', normalizedEmail)
-      bookingUrl.searchParams.set('intent', 'availability-updates')
-      bookingUrl.searchParams.set('source', 'home-signup')
-      window.location.assign(bookingUrl.toString())
+      window.location.assign(nextPath)
       return
     }
 
-    navigate('/audience')
+    navigate(nextPath)
   }
 
   useEffect(() => {
@@ -268,6 +265,22 @@ function HomePage() {
     }
     resetOGTags()
   }, [navigate])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const searchParams = new URLSearchParams(window.location.search)
+    if (searchParams.get('booking') !== '1') {
+      return
+    }
+
+    setBookingFormOpen(true)
+    setBookingNotice(null)
+    setBookingError(null)
+    scrollToBookingForm()
+  }, [])
 
   const iconMap = {
     building: Building2,
@@ -383,19 +396,19 @@ function HomePage() {
 
           <div className="lp-hero-blocks" aria-label="Show highlights">
             <article className="lp-hero-block-card">
-              <p className="lp-hero-block-label">All-night energy</p>
-              <h2>The room stays warm all night</h2>
-              <p>Every vote, every request, every update keeps the energy alive.</p>
+              <p className="lp-hero-block-label">Live screen</p>
+              <h2>The room sees every request</h2>
+              <p>Guests join, vote, and watch the queue change on the shared TV in real time.</p>
             </article>
             <article className="lp-hero-block-card">
-              <p className="lp-hero-block-label">Venue result</p>
-              <h2>Longer nights. Bigger tabs. Happier staff.</h2>
-              <p>Because a crowd that\'s invested... stays invested.</p>
+              <p className="lp-hero-block-label">What it feels like</p>
+              <h2>Big, clear, and easy to follow</h2>
+              <p>Now playing, live feed, queue, and QR stay readable from across the venue.</p>
             </article>
             <article className="lp-hero-block-card">
               <p className="lp-hero-block-label">Why it works</p>
-              <h2>The queue gives guests a reason to stay</h2>
-              <p>Once their song is lined up, they stick around for the moment and bring others into it.</p>
+              <h2>More energy, longer stays</h2>
+              <p>It turns the crowd into the show without adding friction or extra apps.</p>
             </article>
           </div>
         </div>
