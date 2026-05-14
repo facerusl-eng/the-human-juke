@@ -168,23 +168,21 @@
 }
 
 .mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing {
-  padding: clamp(0.48rem, 0.78vw, 0.74rem);
-  gap: clamp(0.28rem, 0.5vw, 0.54rem);
+  --mirror-home-preview-now-playing-scale: 0.88;
 }
 
-.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing-cover,
-.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing-karaoke-mark {
-  width: clamp(102px, 10vw, 178px);
-  min-width: clamp(102px, 10vw, 178px);
-  min-height: clamp(102px, 10vw, 178px);
+.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing-track,
+.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing-qr-panel {
+  transform: scale(var(--mirror-home-preview-now-playing-scale));
+  transform-origin: center center;
 }
 
-.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-title {
-  font-size: clamp(1.42rem, 3.2vw, 3.2rem);
+.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing-track {
+  transform-origin: left center;
 }
 
-.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-song-fact-box {
-  margin-top: clamp(0.2rem, 0.4vw, 0.36rem);
+.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing-qr-panel {
+  transform-origin: center center;
 }
 
 .mirror-shell-hide-controls .mirror-song-fact {
