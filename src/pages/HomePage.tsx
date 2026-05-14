@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, MessageCircle, Smartphone } from 'lucide-react'
@@ -13,16 +13,14 @@ type GigType = 'afternoon' | 'evening' | 'both'
 
 const BOOKING_MANAGER_URL = import.meta.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
 const INTERNAL_BOOKING_ENDPOINT = '/api/book-show'
-const BOOKING_WEBHOOK_STORAGE_KEY = 'human-jukebox-booking-webhook-url'
-const DEFAULT_BOOKING_WEBHOOK_URL = import.meta.env.VITE_EXTERNAL_BOOKING_WEBHOOK_URL?.trim() || ''
 
 const COPY = {
   en: {
-    eyebrow: 'The live music experience pubs love',
+    eyebrow: 'Trusted by venues that want full rooms',
     h1Line1: 'Your crowd picks the songs.',
-    h1Line2: 'Your pub becomes',
-    h1Accent: 'the place to be.',
-    subtitle: 'I\'m Harald - a live performer who brings an interactive jukebox show to your pub. Your guests request songs, vote the queue, and sing along in karaoke mode. All on a shared screen your whole bar can see.',
+    h1Line2: 'Your night becomes',
+    h1Accent: 'the one people stay for.',
+    subtitle: 'I\'m Harald - a live performer who brings an interactive jukebox show to your pub. Guests request songs, vote the queue, and keep the room engaged longer because the night feels personal, social, and alive.',
     bookCta: 'Book the show',
     demoCta: 'See how it works',
     stats: [
@@ -53,11 +51,11 @@ const COPY = {
     signupCta: 'Get updates',
   },
   da: {
-    eyebrow: 'Live musikshow til din pub',
+    eyebrow: 'Booket af steder der vil have fuldt hus',
     h1Line1: 'Dine gaester vaelger sangene.',
-    h1Line2: 'Din pub bliver',
-    h1Accent: 'stedet alle taler om.',
-    subtitle: 'Jeg hedder Harald - en live performer der bringer en interaktiv jukebox til din pub. Dine gaester onsker sange, stemmer pa koen og synger med i karaoke. Alt pa en faelles skaerm hele baren kan se.',
+    h1Line2: 'Din aften bliver',
+    h1Accent: 'den folk bliver laengere til.',
+    subtitle: 'Jeg hedder Harald - en live performer der bringer en interaktiv jukebox til din pub. Gaesterne onsker sange, stemmer pa koen og bliver hvirvlet ind i noget, der gor aftenen mere social og mere levende.',
     bookCta: 'Book showet',
     demoCta: 'Se hvordan det virker',
     stats: [
@@ -72,11 +70,11 @@ const COPY = {
       { icon: 'phone', label: 'Gaester scanner og deltager', copy: 'Ingen app at installere. Gaester onsker og stemmer fra enhver telefon.' },
       { icon: 'chat', label: 'Publikum styrer saettet', copy: 'Live onsker og stemmer flytter koen i realtid hele aftenen.' },
     ],
-    socialTitle: 'Booket af steder der vil have fuldt hus',
+    socialTitle: 'Betroet af spillesteder, der vil have fulde huse',
     socialProof: [
-      { quote: 'Gaesterne blev laengere og brugte mere, fordi de var investeret i koen.', name: 'Pubejer, Kobenhavn' },
-      { quote: 'Det nemmeste livekoncept vi har kort. Opsaetning var gnidningsfri.', name: 'Barmanager, Reykjavik' },
-      { quote: 'Ingen app-friktion. Folk var i gang med det samme og stemte hele aftenen.', name: 'Eventvaert, Aarhus' },
+      { quote: 'Gaesterne blev laengere og brugte mere, fordi de folte ejerskab over koen.', name: 'Spillestedsejer, Kobenhavn' },
+      { quote: 'Den nemmeste liveaften vi har afholdt. Opsaetningen var smidig, og gaesterne elskede det.', name: 'Barmanager, Reykjavik' },
+      { quote: 'Ingen app-friktion. Folk kom i gang med det samme og blev ved med at stemme hele aftenen.', name: 'Eventvaert, Aarhus' },
     ],
     ctaEyebrow: 'Klar til at give din pub en aften de taler om?',
     ctaHeading: 'Book The Human Jukebox til din pubs naeste event',
@@ -91,13 +89,13 @@ const COPY = {
 
 function HomePage() {
   const navigate = useNavigate()
+  const bookingFormRef = useRef<HTMLFormElement | null>(null)
   const [signupEmail, setSignupEmail] = useState('')
   const [signupError, setSignupError] = useState<string | null>(null)
   const [bookingBusy, setBookingBusy] = useState(false)
   const [bookingNotice, setBookingNotice] = useState<string | null>(null)
   const [bookingError, setBookingError] = useState<string | null>(null)
   const [bookingFormOpen, setBookingFormOpen] = useState(false)
-  const [bookingWebhookUrl, setBookingWebhookUrl] = useState('')
   const [bookingVenueName, setBookingVenueName] = useState('')
   const [bookingVenueId, setBookingVenueId] = useState('')
   const [bookingDate, setBookingDate] = useState('')
@@ -125,8 +123,31 @@ function HomePage() {
     navigate('/audience?demo=true')
   }
 
+  const scrollToBookingForm = () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.requestAnimationFrame(() => {
+      bookingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
   const openBookingFlow = () => {
-    setBookingFormOpen((current) => !current)
+    setBookingFormOpen(true)
+    setBookingNotice(null)
+    setBookingError(null)
+    scrollToBookingForm()
+  }
+
+  const toggleBookingFlow = () => {
+    setBookingFormOpen((current) => {
+      const next = !current
+      if (next) {
+        scrollToBookingForm()
+      }
+      return next
+    })
     setBookingNotice(null)
     setBookingError(null)
   }
@@ -135,11 +156,6 @@ function HomePage() {
     event.preventDefault()
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-    if (!bookingWebhookUrl.trim()) {
-      setBookingError('Paste your External Bookings webhook URL from dashboard settings.')
-      return
-    }
 
     if (!bookingVenueName.trim()) {
       setBookingError('Venue name is required.')
@@ -173,16 +189,12 @@ function HomePage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            webhookUrl: bookingWebhookUrl.trim(),
-            booking: {
-              venue_name: bookingVenueName.trim(),
-              venue_id: bookingVenueId.trim() || undefined,
-              date: bookingDate.trim(),
-              gig_type: bookingGigType,
-              fee: bookingFee.trim() ? Number(bookingFee) : undefined,
-              notes: bookingNotes.trim() || undefined,
-              external_contact_email: bookingContactEmail.trim(),
-            },
+            venue_name: bookingVenueName.trim(),
+            date: bookingDate.trim(),
+            gig_type: bookingGigType,
+            requested_fee: bookingFee.trim() ? Number(bookingFee) : undefined,
+            contact_email: bookingContactEmail.trim(),
+            notes: bookingNotes.trim() || undefined,
           }),
         })
 
@@ -190,10 +202,6 @@ function HomePage() {
 
         if (!response.ok || !body?.success) {
           throw new Error(body?.message || `Booking failed with status ${response.status}`)
-        }
-
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(BOOKING_WEBHOOK_STORAGE_KEY, bookingWebhookUrl.trim())
         }
 
         setBookingNotice(body?.message || 'Booking received')
@@ -248,15 +256,6 @@ function HomePage() {
     resetOGTags()
   }, [navigate])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const storedWebhookUrl = window.localStorage.getItem(BOOKING_WEBHOOK_STORAGE_KEY)?.trim() || ''
-    setBookingWebhookUrl(storedWebhookUrl || DEFAULT_BOOKING_WEBHOOK_URL)
-  }, [])
-
   const iconMap = {
     building: Building2,
     phone: Smartphone,
@@ -296,7 +295,7 @@ function HomePage() {
                 </button>
               </div>
               <div className="lp-hero-cta" aria-label="Primary actions">
-                <PrimaryButton onClick={openBookingFlow} disabled={bookingBusy}>
+                <PrimaryButton onClick={toggleBookingFlow} disabled={bookingBusy}>
                   {bookingFormOpen ? 'Close booking form' : 'Request Booking'}
                 </PrimaryButton>
                 <PrimaryButton variant="secondary" onClick={openAudienceDemo}>
@@ -306,17 +305,9 @@ function HomePage() {
             </div>
 
             {bookingFormOpen ? (
-              <form className="lp-booking-form lp-copy-block" onSubmit={submitBookingRequest}>
+              <form ref={bookingFormRef} className="lp-booking-form lp-copy-block" onSubmit={submitBookingRequest}>
                 <p className="lp-booking-form-title">Request Booking</p>
-                <p className="lp-booking-form-help">Paste your webhook URL from Settings -&gt; External Bookings in your dashboard.</p>
-                <input
-                  type="url"
-                  placeholder="Webhook URL"
-                  aria-label="Webhook URL"
-                  value={bookingWebhookUrl}
-                  onChange={(event) => setBookingWebhookUrl(event.target.value)}
-                  required
-                />
+                <p className="lp-booking-form-help">Fill in your details and press Book the show to send your request.</p>
                 <input
                   type="text"
                   placeholder="Venue name *"
@@ -368,7 +359,7 @@ function HomePage() {
                 />
                 <div className="lp-booking-actions">
                   <PrimaryButton type="submit" disabled={bookingBusy}>
-                    {bookingBusy ? 'Sending...' : 'Send booking request'}
+                    {bookingBusy ? 'Sending...' : 'Book the show'}
                   </PrimaryButton>
                 </div>
               </form>
@@ -390,8 +381,8 @@ function HomePage() {
             </article>
             <article className="lp-hero-block-card">
               <p className="lp-hero-block-label">Why venues book it</p>
-              <h2>More energy, longer stays</h2>
-              <p>It turns the crowd into the show without adding friction or extra apps.</p>
+              <h2>Longer stays, better rounds</h2>
+              <p>It gives people a reason to linger, participate, and stay invested in the room.</p>
             </article>
           </div>
         </div>

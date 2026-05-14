@@ -1,4 +1,4 @@
-const DEFAULT_WEBHOOK_URL = process.env.BOOKING_WEBHOOK_URL?.trim() || process.env.VITE_EXTERNAL_BOOKING_WEBHOOK_URL?.trim() || ''
+const DEFAULT_WEBHOOK_URL = process.env.BOOKING_WEBHOOK_URL?.trim() || 'https://preview--book-jukebox.base44.app/api/webhook/receiveExternalBooking'
 
 const ALLOWED_ORIGINS = [
   'https://www.the-human-jukebox.org',
@@ -49,16 +49,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, message: 'Invalid JSON body' })
   }
 
-  const webhookUrl = String(body.webhookUrl || DEFAULT_WEBHOOK_URL || '').trim()
-  const booking = body.booking || {}
+  const webhookUrl = DEFAULT_WEBHOOK_URL
+  const booking = body.booking || body
 
   const venueName = String(booking.venue_name || '').trim()
-  const venueId = String(booking.venue_id || '').trim()
   const date = String(booking.date || '').trim()
   const gigType = String(booking.gig_type || '').trim()
   const notes = String(booking.notes || '').trim()
-  const externalContactEmail = String(booking.external_contact_email || '').trim()
-  const fee = booking.fee
+  const externalContactEmail = String(booking.contact_email || booking.external_contact_email || '').trim()
+  const fee = booking.requested_fee ?? booking.fee
 
   if (!webhookUrl) {
     return res.status(400).json({ success: false, message: 'Webhook URL is required.' })
@@ -86,12 +85,11 @@ export default async function handler(req, res) {
 
   const payload = {
     venue_name: venueName,
-    venue_id: venueId || undefined,
     date,
     gig_type: gigType,
-    fee: fee === undefined || fee === null || fee === '' ? undefined : Number(fee),
+    requested_fee: fee === undefined || fee === null || fee === '' ? undefined : Number(fee),
+    contact_email: externalContactEmail,
     notes: notes || undefined,
-    external_contact_email: externalContactEmail,
   }
 
   try {
