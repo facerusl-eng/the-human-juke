@@ -11,8 +11,8 @@ import '../styles/home-landing.css'
 type HomeLang = 'en' | 'da'
 type GigType = 'afternoon' | 'evening' | 'both'
 
-const BOOKING_MANAGER_URL = import.meta.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
 const INTERNAL_BOOKING_ENDPOINT = '/api/book-show'
+const GET_UPDATES_ENDPOINT = '/api/get-updates'
 
 const COPY = {
   en: {
@@ -92,6 +92,7 @@ function HomePage() {
   const bookingFormRef = useRef<HTMLFormElement | null>(null)
   const [signupEmail, setSignupEmail] = useState('')
   const [signupError, setSignupError] = useState<string | null>(null)
+  const [signupNotice, setSignupNotice] = useState<string | null>(null)
   const [bookingBusy, setBookingBusy] = useState(false)
   const [bookingNotice, setBookingNotice] = useState<string | null>(null)
   const [bookingError, setBookingError] = useState<string | null>(null)
@@ -248,20 +249,33 @@ function HomePage() {
     }
 
     setSignupError(null)
+    setSignupNotice(null)
 
-    const nextPath = `/coming-gigs?email=${encodeURIComponent(normalizedEmail)}&intent=availability-updates&source=home-signup`
+    void (async () => {
+      try {
+        const response = await fetch(GET_UPDATES_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: normalizedEmail,
+            intent: 'availability-updates',
+            source: 'home-signup',
+          }),
+        })
 
-    if (typeof window !== 'undefined') {
-      const bookingUrl = new URL(BOOKING_MANAGER_URL)
-      bookingUrl.searchParams.set('email', normalizedEmail)
-      bookingUrl.searchParams.set('intent', 'availability-updates')
-      bookingUrl.searchParams.set('source', 'home-signup')
-      bookingUrl.searchParams.set('return_to', `${window.location.origin}${nextPath}`)
-      window.location.assign(bookingUrl.toString())
-      return
-    }
+        const body = await response.json().catch(() => null)
+        if (!response.ok || !body?.success) {
+          throw new Error(body?.message || `Signup failed with status ${response.status}`)
+        }
 
-    navigate(nextPath)
+        setSignupNotice(lang === 'da' ? 'Tak! Vi har sendt info og booking-link til din email.' : 'Thanks! We sent concept details and booking info to your email.')
+        setSignupEmail('')
+      } catch (error) {
+        setSignupError(error instanceof Error ? error.message : 'Could not send update email. Please try again.')
+      }
+    })()
   }
 
   useEffect(() => {
@@ -478,6 +492,7 @@ function HomePage() {
             </PrimaryButton>
           </div>
           {signupError ? <p className="lp-signup-error">{signupError}</p> : null}
+          {signupNotice ? <p className="lp-signup-notice">{signupNotice}</p> : null}
         </form>
         <button type="button" className="lp-admin-link" onClick={openAdminLogin}>
           Admin login
