@@ -185,6 +185,28 @@
   transform-origin: center center;
 }
 
+.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing .mirror-title {
+  font-size: clamp(1.4rem, 2.6vw, 2.5rem);
+  line-height: 1.08;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing .mirror-title-separator {
+  display: none;
+}
+
+.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing .mirror-title-artist {
+  display: block;
+  margin-top: 0.1rem;
+}
+
+.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing .mirror-now-playing-karaoke-inline {
+  margin-left: 0;
+  margin-top: 0.22rem;
+}
+
 .mirror-shell-hide-controls .mirror-song-fact {
   font-size: clamp(2.2rem, 2.8vw, 3rem);
   line-height: 1.24;
