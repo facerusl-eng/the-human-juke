@@ -6,3 +6,7 @@
 export const demoMode: boolean =
   typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).get('demo') === 'true'
+
+export const homeMirrorPreviewMode: boolean =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('preview') === 'home'

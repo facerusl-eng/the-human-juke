@@ -17,7 +17,7 @@ import { useQueueStore, type QueueSong } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
-import { demoMode } from '../demo/demoMode'
+import { demoMode, homeMirrorPreviewMode } from '../demo/demoMode'
 import { DEMO_NOW_PLAYING_FACTS } from '../demo/demoNowPlaying'
 
 type FeedImageSpotlight = {
@@ -77,6 +77,7 @@ const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_BANNER_STORAGE_KEY = 'human-jukebox-mirror-banner-text'
 const MIRROR_LAYOUT_EDIT_STORAGE_KEY = 'human-jukebox-mirror-layout-edit-mode'
 const MIRROR_LAYOUT_STATE_STORAGE_KEY = 'human-jukebox-mirror-layout-state'
+const MIRROR_LAYOUT_STATE_PROFILE_COLUMN = 'default_mirror_layout_state'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
@@ -100,6 +101,81 @@ type MirrorLayoutVisibilityState = Record<MirrorLayoutPanelId, boolean>
 type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
 type FunFactsCache = Record<string, string[]>
 type SongWithMirrorFacts = QueueSong & { mirrorFunFacts?: string[] }
+
+function mergeMirrorLayoutState(rawState: unknown): MirrorLayoutState {
+  if (!rawState || typeof rawState !== 'object') {
+    return DEFAULT_MIRROR_LAYOUT_STATE
+  }
+
+  const parsedState = rawState as Partial<MirrorLayoutState>
+
+  return {
+    brandLogo: { ...DEFAULT_MIRROR_LAYOUT_STATE.brandLogo, ...parsedState.brandLogo },
+    venueLogo: { ...DEFAULT_MIRROR_LAYOUT_STATE.venueLogo, ...parsedState.venueLogo },
+    status: { ...DEFAULT_MIRROR_LAYOUT_STATE.status, ...parsedState.status },
+    nowPlaying: { ...DEFAULT_MIRROR_LAYOUT_STATE.nowPlaying, ...parsedState.nowPlaying },
+    community: { ...DEFAULT_MIRROR_LAYOUT_STATE.community, ...parsedState.community },
+    queue: { ...DEFAULT_MIRROR_LAYOUT_STATE.queue, ...parsedState.queue },
+    joinQr: { ...DEFAULT_MIRROR_LAYOUT_STATE.joinQr, ...parsedState.joinQr },
+  }
+}
+
+function isMissingMirrorLayoutProfileColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes(MIRROR_LAYOUT_STATE_PROFILE_COLUMN)
+}
+
+async function loadGlobalMirrorLayoutState(userId: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(MIRROR_LAYOUT_STATE_PROFILE_COLUMN)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    if (isMissingMirrorLayoutProfileColumnError(error)) {
+      return null
+    }
+
+    throw error
+  }
+
+  const rawState = (data as Record<string, unknown> | null)?.[MIRROR_LAYOUT_STATE_PROFILE_COLUMN]
+
+  if (!rawState) {
+    return null
+  }
+
+  return mergeMirrorLayoutState(rawState)
+}
+
+async function saveGlobalMirrorLayoutState(userId: string, layoutState: MirrorLayoutState) {
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({
+      user_id: userId,
+      [MIRROR_LAYOUT_STATE_PROFILE_COLUMN]: layoutState,
+    }, { onConflict: 'user_id' })
+
+  if (error) {
+    throw error
+  }
+}
 
 const DEFAULT_MIRROR_LAYOUT_STATE: MirrorLayoutState = {
   brandLogo: {
@@ -1055,7 +1131,7 @@ function playShutterSound() {
 
 function MirrorPageContent() {
   const { event, songs, loading, toggleRoomOpen } = useQueueStore()
-  const { isHost } = useAuthStore()
+  const { user, isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [funFacts, setFunFacts] = useState<string[]>([])
   const [currentFactIndex, setCurrentFactIndex] = useState(0)
@@ -1077,6 +1153,7 @@ function MirrorPageContent() {
   const [bannerEnabledOverride, setBannerEnabledOverride] = useState<boolean | null>(null)
   const [, setStorageError] = useState<string | null>(null)
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
+  const [globalMirrorLayoutSaveBusy, setGlobalMirrorLayoutSaveBusy] = useState(false)
   const [layoutEditMode, setLayoutEditMode] = useState(() => {
     if (typeof window === 'undefined') {
       return false
@@ -1099,21 +1176,7 @@ function MirrorPageContent() {
     }
 
     try {
-      const parsedState = JSON.parse(persistedStateText) as Partial<MirrorLayoutState>
-
-      if (!parsedState || typeof parsedState !== 'object') {
-        return DEFAULT_MIRROR_LAYOUT_STATE
-      }
-
-      return {
-        brandLogo: { ...DEFAULT_MIRROR_LAYOUT_STATE.brandLogo, ...parsedState.brandLogo },
-        venueLogo: { ...DEFAULT_MIRROR_LAYOUT_STATE.venueLogo, ...parsedState.venueLogo },
-        status: { ...DEFAULT_MIRROR_LAYOUT_STATE.status, ...parsedState.status },
-        nowPlaying: { ...DEFAULT_MIRROR_LAYOUT_STATE.nowPlaying, ...parsedState.nowPlaying },
-        community: { ...DEFAULT_MIRROR_LAYOUT_STATE.community, ...parsedState.community },
-        queue: { ...DEFAULT_MIRROR_LAYOUT_STATE.queue, ...parsedState.queue },
-        joinQr: { ...DEFAULT_MIRROR_LAYOUT_STATE.joinQr, ...parsedState.joinQr },
-      }
+      return mergeMirrorLayoutState(JSON.parse(persistedStateText) as Partial<MirrorLayoutState>)
     } catch {
       return DEFAULT_MIRROR_LAYOUT_STATE
     }
@@ -1186,6 +1249,17 @@ function MirrorPageContent() {
     mirrorLayoutStateRef.current = mirrorLayoutState
   }, [mirrorLayoutState])
 
+  useEffect(() => {
+    const result = saveTextToLocalStorage(MIRROR_LAYOUT_STATE_STORAGE_KEY, JSON.stringify(mirrorLayoutState))
+
+    if (result.success) {
+      setStorageError(null)
+      return
+    }
+
+    setStorageError(result.error ?? 'Could not save mirror layout locally')
+  }, [mirrorLayoutState])
+
   // Keep the screen awake while the mirror is open
   useEffect(() => {
     if (!('wakeLock' in navigator)) {
@@ -1249,6 +1323,7 @@ function MirrorPageContent() {
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
   const eventId = event?.id ?? null
+  const mirrorLayoutOwnerId = event?.hostId ?? (isHost ? user?.id ?? null : null)
   const audienceUrl = useMemo(() => {
     try {
       const audienceUrlResolver = getAudienceUrl as (...args: unknown[]) => string
@@ -2779,6 +2854,58 @@ function MirrorPageContent() {
     setMirrorLayoutState(DEFAULT_MIRROR_LAYOUT_STATE)
   }, [])
 
+  const saveMirrorLayoutGlobally = useCallback(async () => {
+    if (!isHost || !user?.id) {
+      setMirrorWarningMessage('Sign in as host to hard-save the mirror layout globally.')
+      return
+    }
+
+    setGlobalMirrorLayoutSaveBusy(true)
+
+    try {
+      await saveGlobalMirrorLayoutState(user.id, mirrorLayoutStateRef.current)
+      setMirrorWarningMessage('Mirror layout hard-saved globally for this host.')
+    } catch (error) {
+      console.warn('MirrorPage: failed to save mirror layout globally', error)
+
+      if (isMissingMirrorLayoutProfileColumnError(error)) {
+        setMirrorWarningMessage('Global mirror layout save needs the latest profile migration.')
+      } else {
+        setMirrorWarningMessage('Could not hard-save the mirror layout globally. Please try again.')
+      }
+    } finally {
+      setGlobalMirrorLayoutSaveBusy(false)
+    }
+  }, [isHost, user?.id])
+
+  useEffect(() => {
+    if (!mirrorLayoutOwnerId) {
+      return
+    }
+
+    let isCurrent = true
+
+    const hydrateGlobalMirrorLayout = async () => {
+      try {
+        const globalLayoutState = await loadGlobalMirrorLayoutState(mirrorLayoutOwnerId)
+
+        if (!isCurrent || !globalLayoutState) {
+          return
+        }
+
+        setMirrorLayoutState(globalLayoutState)
+      } catch (error) {
+        console.warn('MirrorPage: failed to load global mirror layout', error)
+      }
+    }
+
+    void hydrateGlobalMirrorLayout()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [mirrorLayoutOwnerId])
+
   const mirrorLayoutEditorStyles = useMemo(() => {
     if (!layoutEditMode) {
       return ''
@@ -2830,7 +2957,7 @@ function MirrorPageContent() {
   }
 
   return (
-    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${mirrorBackgroundClass} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''} ${!activeSong ? 'mirror-shell-no-live-data' : ''}`} aria-label="Mirror display screen">
+    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${mirrorBackgroundClass} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''} ${!activeSong ? 'mirror-shell-no-live-data' : ''} ${homeMirrorPreviewMode ? 'mirror-shell-home-preview' : ''}`} aria-label="Mirror display screen">
       {showFullscreenPrompt && !isFullscreen && (
         <button
           type="button"
@@ -3069,6 +3196,14 @@ function MirrorPageContent() {
             {layoutEditMode ? (
               <div className="mirror-layout-edit-toolbar mirror-layout-edit-toolbar-compact" role="toolbar" aria-label="Mirror layout editor controls">
                 <button type="button" className="mirror-layout-edit-button" onClick={resetMirrorLayoutState}>Reset</button>
+                <button
+                  type="button"
+                  className="mirror-layout-edit-button"
+                  onClick={() => { void saveMirrorLayoutGlobally() }}
+                  disabled={globalMirrorLayoutSaveBusy}
+                >
+                  {globalMirrorLayoutSaveBusy ? 'Saving…' : 'Save Global'}
+                </button>
                 <button type="button" className="mirror-layout-edit-button mirror-layout-edit-button-primary" onClick={() => setLayoutEditMode(false)}>Done</button>
               </div>
             ) : null}
@@ -3148,8 +3283,19 @@ function MirrorPageContent() {
                       )}
                     </div>
                     <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">{normalizeMirrorText(activeSong.title, 'Waiting for requests…')}</h1>
-                      <p className="mirror-artist">{normalizeMirrorText(activeSong.artist, 'Be first to request a tune.')}</p>
+                      <h1 className="mirror-title">
+                        {normalizeMirrorText(activeSong.title, 'Waiting for requests…')}
+                        <span className="mirror-title-separator"> - </span>
+                        <span className="mirror-title-artist">
+                          {(() => {
+                            const artistText = normalizeMirrorText(activeSong.artist, 'Be first to request a tune.')
+                            return artistText.charAt(0).toUpperCase() + artistText.slice(1)
+                          })()}
+                          {activeSong.audience_sings ? (
+                            <span className="mirror-now-playing-karaoke-inline" aria-label="Karaoke request">Karaoke</span>
+                          ) : null}
+                        </span>
+                      </h1>
                       {activeSongChosenByLine ? (
                         <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
                           {activeSongChosenByLine}
@@ -3164,6 +3310,19 @@ function MirrorPageContent() {
                     </div>
                   </div>
                 )}
+                {!layoutEditMode ? (
+                  <a
+                    className="mirror-now-playing-qr-panel"
+                    href={audienceUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    aria-label="Audience request page QR link"
+                  >
+                    <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
+                    <p className="mirror-now-playing-qr-label">Scan to request</p>
+                    <p className="mirror-now-playing-qr-url">{audienceUrl}</p>
+                  </a>
+                ) : null}
                 {layoutEditMode ? (
                   <button
                     type="button"
@@ -3288,13 +3447,6 @@ function MirrorPageContent() {
           </>
         )}
       </main>
-
-      {!layoutEditMode ? (
-        <a className="mirror-floating-qr" href={audienceUrl} target="_blank" rel="noreferrer noopener" aria-label="Audience request page QR link">
-          <img src={qrUrl} alt="QR code for the audience request page" className="mirror-floating-qr-image" />
-          <p className="mirror-floating-qr-caption">Scan to request songs</p>
-        </a>
-      ) : null}
 
       {playbackState?.brbActive ? (
         <div className="mirror-brb-overlay" aria-live="polite" role="status">
