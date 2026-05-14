@@ -23,6 +23,10 @@ const COPY = {
     subtitle: 'I\'m Harald - a live performer who brings an interactive jukebox show to your pub. Guests request songs, vote the queue, and keep the room engaged longer because the night feels personal, social, and alive.',
     bookCta: 'Book the show',
     demoCta: 'See how it works',
+    mirrorPreviewLabel: 'Mirror demo',
+    mirrorPreviewTitle: 'Preview the live mirror screen right here',
+    mirrorPreviewCopy: 'This is the exact display your crowd sees on the venue screen: now playing, queue, live feed, and join QR all together.',
+    mirrorPreviewAction: 'Open mirror demo in full screen',
     stats: [
       { value: '500+', label: 'Song requests per show' },
       { value: '100%', label: 'Crowd-controlled setlist' },
@@ -58,6 +62,10 @@ const COPY = {
     subtitle: 'Jeg hedder Harald - en live performer der bringer en interaktiv jukebox til din pub. Gaesterne onsker sange, stemmer pa koen og bliver hvirvlet ind i noget, der gor aftenen mere social og mere levende.',
     bookCta: 'Book showet',
     demoCta: 'Se hvordan det virker',
+    mirrorPreviewLabel: 'Mirror demo',
+    mirrorPreviewTitle: 'Forhaandsvis den live mirror-skaerm her',
+    mirrorPreviewCopy: 'Det er den samme visning gaesterne ser pa venue-skaermen: now playing, ko, live feed og QR samlet et sted.',
+    mirrorPreviewAction: 'Aabn mirror demo i fuld skaerm',
     stats: [
       { value: '500+', label: 'Sangonsker per show' },
       { value: '100%', label: 'Publikumsstyret saetliste' },
@@ -122,6 +130,14 @@ function HomePage() {
       return
     }
     navigate('/audience?demo=true')
+  }
+
+  const openMirrorDemo = () => {
+    if (typeof window !== 'undefined') {
+      window.location.assign('/mirror?demo=true')
+      return
+    }
+    navigate('/mirror?demo=true')
   }
 
   const scrollToBookingForm = () => {
@@ -432,6 +448,26 @@ function HomePage() {
               <p>It turns the crowd into the show without adding friction or extra apps.</p>
             </article>
           </div>
+        </div>
+      </section>
+
+      <section className="lp-mirror-preview" aria-label="Mirror demo preview">
+        <div className="lp-mirror-preview-copy">
+          <p className="lp-mirror-preview-label">{copy.mirrorPreviewLabel}</p>
+          <h2>{copy.mirrorPreviewTitle}</h2>
+          <p>{copy.mirrorPreviewCopy}</p>
+          <PrimaryButton variant="secondary" onClick={openMirrorDemo}>
+            {copy.mirrorPreviewAction}
+          </PrimaryButton>
+        </div>
+        <div className="lp-mirror-preview-frame-shell" role="img" aria-label="Demo mirror screen preview">
+          <iframe
+            className="lp-mirror-preview-frame"
+            src="/mirror?demo=true"
+            title="Human Jukebox mirror demo preview"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
         </div>
       </section>
 

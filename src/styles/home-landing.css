@@ -9,7 +9,8 @@
 .lp-hero,
 .lp-section,
 .lp-cta,
-.lp-stats {
+.lp-stats,
+.lp-mirror-preview {
   border: 1px solid rgba(71, 95, 157, 0.42);
   border-radius: 20px;
   background:
@@ -60,7 +61,8 @@
 
 .lp-hero,
 .lp-section,
-.lp-cta {
+.lp-cta,
+.lp-mirror-preview {
   padding: clamp(2rem, 3.8vw, 3.8rem);
 }
 
@@ -303,6 +305,56 @@
   justify-content: flex-end;
 }
 
+.lp-mirror-preview {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(1rem, 2.6vw, 2rem);
+  align-items: center;
+}
+
+.lp-mirror-preview-copy {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.lp-mirror-preview-label {
+  margin: 0;
+  color: rgba(148, 190, 255, 0.96);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.lp-mirror-preview-copy h2 {
+  margin: 0;
+  color: #eff5ff;
+  font-size: clamp(1.5rem, 2.7vw, 2.1rem);
+  line-height: 1.12;
+}
+
+.lp-mirror-preview-copy p {
+  margin: 0;
+  color: #b8c4dd;
+  line-height: 1.6;
+}
+
+.lp-mirror-preview-frame-shell {
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(6, 10, 22, 0.88);
+  box-shadow: 0 26px 42px rgba(3, 8, 22, 0.56), 0 8px 20px rgba(3, 8, 22, 0.34);
+}
+
+.lp-mirror-preview-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  display: block;
+  background: #05070f;
+}
+
 .lp-mirror-fullscreen-link {
   display: inline-flex;
   align-items: center;
@@ -515,6 +567,10 @@
     grid-template-columns: 1fr;
   }
 
+  .lp-mirror-preview {
+    grid-template-columns: 1fr;
+  }
+
   .lp-hero-copy {
     text-align: center;
   }
@@ -567,6 +623,10 @@
 
   .lp-hero-mirror {
     min-height: 200px;
+  }
+
+  .lp-mirror-preview {
+    padding: 1.25rem;
   }
 
   .lp-features-grid,
