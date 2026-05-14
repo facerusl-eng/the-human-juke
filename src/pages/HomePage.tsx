@@ -13,6 +13,7 @@ type GigType = 'afternoon' | 'evening' | 'both'
 
 const INTERNAL_BOOKING_ENDPOINT = '/api/book-show'
 const GET_UPDATES_ENDPOINT = '/api/get-updates'
+const MIRROR_PREVIEW_BASE_WIDTH = 1440
 
 const COPY = {
   en: {
@@ -98,6 +99,7 @@ const COPY = {
 function HomePage() {
   const navigate = useNavigate()
   const bookingFormRef = useRef<HTMLFormElement | null>(null)
+  const mirrorPreviewViewportRef = useRef<HTMLDivElement | null>(null)
   const [signupEmail, setSignupEmail] = useState('')
   const [signupError, setSignupError] = useState<string | null>(null)
   const [signupNotice, setSignupNotice] = useState<string | null>(null)
@@ -134,6 +136,10 @@ function HomePage() {
 
   const openMirrorDemo = () => {
     if (typeof window !== 'undefined') {
+      if (window.matchMedia('(max-width: 680px)').matches) {
+        return
+      }
+
       window.location.assign('/mirror?demo=true')
       return
     }
@@ -319,6 +325,35 @@ function HomePage() {
     scrollToBookingForm()
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const viewport = mirrorPreviewViewportRef.current
+    if (!viewport) {
+      return
+    }
+
+    const updateScale = () => {
+      const viewportWidth = viewport.clientWidth
+      if (!viewportWidth) {
+        return
+      }
+
+      const nextScale = Math.min(1, Math.max(0.2, viewportWidth / MIRROR_PREVIEW_BASE_WIDTH))
+      viewport.style.setProperty('--lp-mirror-scale', nextScale.toString())
+    }
+
+    updateScale()
+    const observer = new ResizeObserver(updateScale)
+    observer.observe(viewport)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
   const iconMap = {
     building: Building2,
     phone: Smartphone,
@@ -456,11 +491,12 @@ function HomePage() {
           <p className="lp-mirror-preview-label">{copy.mirrorPreviewLabel}</p>
           <h2>{copy.mirrorPreviewTitle}</h2>
           <p>{copy.mirrorPreviewCopy}</p>
-          <PrimaryButton variant="secondary" onClick={openMirrorDemo}>
+          <PrimaryButton variant="secondary" className="lp-mirror-preview-desktop-action" onClick={openMirrorDemo}>
             {copy.mirrorPreviewAction}
           </PrimaryButton>
         </div>
         <div className="lp-mirror-preview-frame-shell" role="img" aria-label="Demo mirror screen preview">
+          <div ref={mirrorPreviewViewportRef} className="lp-mirror-preview-frame-viewport">
           <iframe
             className="lp-mirror-preview-frame"
             src="/mirror?demo=true"
@@ -468,6 +504,7 @@ function HomePage() {
             loading="lazy"
             referrerPolicy="no-referrer"
           />
+          </div>
         </div>
       </section>
 
