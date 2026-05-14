@@ -1940,7 +1940,8 @@
   grid-template-rows: minmax(0, 0.44fr) minmax(0, 0.56fr);
   gap: 1rem;
   min-height: 0;
-  height: 100%;
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
 }
 
 .mirror-layout-edit-canvas {
@@ -2428,9 +2429,8 @@
   }
 }
 
-/* Mirror TV layout specification override: fullscreen horizontal 12/20/68 with 50/50 feed+queue */
+/* Mirror TV layout: keep auto auto auto 1fr so mirror-stage (grid-row:4) gets the 1fr row */
 .mirror-shell-hide-controls {
-  grid-template-rows: 12% 88%;
   padding: 0;
   gap: 0;
 }
@@ -2442,8 +2442,6 @@
 }
 
 .mirror-header {
-  min-height: 100%;
-  max-height: 100%;
   overflow: hidden;
 }
 
@@ -2493,7 +2491,6 @@
 }
 
 .mirror-shell-hide-controls .mirror-header-kiosk-row {
-  min-height: 100%;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: clamp(0.45rem, 0.9vw, 1rem);
   padding: clamp(0.32rem, 0.72vw, 0.72rem) clamp(0.6rem, 1vw, 1rem);

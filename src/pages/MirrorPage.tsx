@@ -3016,7 +3016,7 @@ function MirrorPageContent() {
         </div>
       ) : null}
 
-      <main className={`mirror-stage ${isLive ? 'mirror-stage-live' : ''}`}>
+      <main className={`mirror-stage ${(isLive || demoMode) ? 'mirror-stage-live' : ''}`}>
         {!isLive && !nowPlaying && !demoMode ? (
           <section
             className={`mirror-pre-show ${showCountdown ? 'mirror-pre-show-has-countdown' : ''}`.trim()}
