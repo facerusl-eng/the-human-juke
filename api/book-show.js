@@ -1,5 +1,6 @@
-const DEFAULT_WEBHOOK_URL = process.env.BOOKING_WEBHOOK_URL?.trim() || 'https://preview--book-jukebox.base44.app/api/webhook/receiveExternalBooking'
+const DEFAULT_WEBHOOK_URL = process.env.BOOKING_WEBHOOK_URL?.trim() || 'https://app-api.base44.com/api/apps/6765e43b7fe02396b17c6d05/functions/receiveExternalBooking'
 const FALLBACK_WEBHOOK_URLS = [
+  'https://preview--book-jukebox.base44.app/api/webhook/receiveExternalBooking',
   'https://book-jukebox.base44.app/api/webhook/receiveExternalBooking',
 ]
 
