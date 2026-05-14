@@ -2428,7 +2428,7 @@
 .audience-social-links-inline .secondary-button,
 .audience-social-links-inline a.secondary-button {
   background: color-mix(in srgb, var(--panel-alt) 86%, var(--accent) 14%);
-  border-color: color-mix(in srgb, var(--accent) 44%, var(--panel-border) 56%);
+  border-color: rgba(108, 159, 245, 0.48);
   color: var(--ink-strong);
 }
 
@@ -2437,7 +2437,7 @@
 .audience-social-links-inline .secondary-button:hover,
 .audience-social-links-inline a.secondary-button:hover {
   background: color-mix(in srgb, var(--panel-alt) 72%, var(--accent) 28%);
-  border-color: color-mix(in srgb, var(--accent) 66%, var(--panel-border) 34%);
+  border-color: rgba(108, 159, 245, 0.7);
 }
 
 @media (max-width: 560px) {
@@ -6547,6 +6547,29 @@
   max-height: 720px;
   overflow-y: auto;
   padding-right: 0.2rem;
+}
+
+.live-feed-warning-box {
+  background-color: rgba(255, 107, 53, 0.15);
+  border-left: 4px solid #ff6b35;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+}
+
+.live-feed-warning-text {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ff6b35;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.live-feed-post-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .live-feed-post {
