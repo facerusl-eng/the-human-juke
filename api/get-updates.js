@@ -87,7 +87,7 @@ export default async function handler(req, res) {
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
   const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <noreply@the-human-jukebox.org>'
-  const bookingUrl = process.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
+  const bookingUrl = process.env.VITE_BOOKING_URL?.trim() || 'https://www.the-human-jukebox.org/?booking=1'
 
   if (!resendApiKey) {
     return res.status(500).json({ success: false, message: 'Email service is not configured.' })
