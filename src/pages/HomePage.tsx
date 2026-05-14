@@ -11,6 +11,7 @@ import '../styles/home-landing.css'
 type HomeLang = 'en' | 'da'
 type GigType = 'afternoon' | 'evening' | 'both'
 
+const BOOKING_MANAGER_URL = import.meta.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
 const INTERNAL_BOOKING_ENDPOINT = '/api/book-show'
 
 const COPY = {
@@ -251,7 +252,12 @@ function HomePage() {
     const nextPath = `/coming-gigs?email=${encodeURIComponent(normalizedEmail)}&intent=availability-updates&source=home-signup`
 
     if (typeof window !== 'undefined') {
-      window.location.assign(nextPath)
+      const bookingUrl = new URL(BOOKING_MANAGER_URL)
+      bookingUrl.searchParams.set('email', normalizedEmail)
+      bookingUrl.searchParams.set('intent', 'availability-updates')
+      bookingUrl.searchParams.set('source', 'home-signup')
+      bookingUrl.searchParams.set('return_to', `${window.location.origin}${nextPath}`)
+      window.location.assign(bookingUrl.toString())
       return
     }
 
