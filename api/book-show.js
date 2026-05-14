@@ -1,4 +1,7 @@
 const DEFAULT_WEBHOOK_URL = process.env.BOOKING_WEBHOOK_URL?.trim() || 'https://preview--book-jukebox.base44.app/api/webhook/receiveExternalBooking'
+const FALLBACK_WEBHOOK_URLS = [
+  'https://book-jukebox.base44.app/api/webhook/receiveExternalBooking',
+]
 
 const ALLOWED_ORIGINS = [
   'https://www.the-human-jukebox.org',
@@ -31,6 +34,11 @@ function parseJsonBody(reqBody) {
   return reqBody
 }
 
+function buildWebhookTargets(primaryUrl) {
+  const targets = [String(primaryUrl || '').trim(), ...FALLBACK_WEBHOOK_URLS]
+  return [...new Set(targets.filter(Boolean))]
+}
+
 export default async function handler(req, res) {
   const origin = req.headers.origin || ''
 
@@ -49,7 +57,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, message: 'Invalid JSON body' })
   }
 
-  const webhookUrl = DEFAULT_WEBHOOK_URL
+  const webhookTargets = buildWebhookTargets(DEFAULT_WEBHOOK_URL)
   const booking = body.booking || body
 
   const venueName = String(booking.venue_name || '').trim()
@@ -59,7 +67,7 @@ export default async function handler(req, res) {
   const externalContactEmail = String(booking.contact_email || booking.external_contact_email || '').trim()
   const fee = booking.requested_fee ?? booking.fee
 
-  if (!webhookUrl) {
+  if (webhookTargets.length === 0) {
     return res.status(400).json({ success: false, message: 'Webhook URL is required.' })
   }
 
@@ -92,34 +100,41 @@ export default async function handler(req, res) {
     notes: notes || undefined,
   }
 
-  try {
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
+  const failures = []
 
-    if (!response.ok) {
-      const bodyText = await response.text().catch(() => '')
-      return res.status(502).json({
-        success: false,
-        message: 'External booking webhook failed',
-        status: response.status,
-        details: bodyText.slice(0, 500),
+  for (const target of webhookTargets) {
+    try {
+      const response = await fetch(target, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       })
+
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => '')
+        failures.push({ target, status: response.status, details: bodyText.slice(0, 500) })
+        continue
+      }
+
+      const upstream = await response.json().catch(() => ({}))
+
+      return res.status(200).json({
+        success: true,
+        gig_id: upstream?.gig_id || '',
+        message: upstream?.message || 'Booking received',
+        routed_to: target,
+      })
+    } catch (error) {
+      failures.push({ target, status: 0, details: error instanceof Error ? error.message : 'Network error' })
     }
-
-    const upstream = await response.json().catch(() => ({}))
-
-    return res.status(200).json({
-      success: true,
-      gig_id: upstream?.gig_id || '',
-      message: upstream?.message || 'Booking received',
-    })
-  } catch (error) {
-    console.error('book-show error', error)
-    return res.status(500).json({ success: false, message: 'Booking request failed' })
   }
+
+  console.error('book-show error', { message: 'All external webhooks failed', failures })
+  return res.status(502).json({
+    success: false,
+    message: 'External booking webhook failed',
+    details: failures,
+  })
 }

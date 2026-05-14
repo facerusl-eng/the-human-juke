@@ -201,7 +201,20 @@ function HomePage() {
         const body = await response.json().catch(() => null)
 
         if (!response.ok || !body?.success) {
-          throw new Error(body?.message || `Booking failed with status ${response.status}`)
+          const detailSummary = Array.isArray(body?.details)
+            ? body.details
+              .map((detail: { target?: string; status?: number; details?: string }) => {
+                const target = detail?.target || 'unknown target'
+                const status = detail?.status ?? 'unknown status'
+                return `${target} (${status})`
+              })
+              .join(', ')
+            : typeof body?.details === 'string'
+              ? body.details
+              : ''
+
+          const baseMessage = body?.message || `Booking failed with status ${response.status}`
+          throw new Error(detailSummary ? `${baseMessage}: ${detailSummary}` : baseMessage)
         }
 
         setBookingNotice(body?.message || 'Booking received')
