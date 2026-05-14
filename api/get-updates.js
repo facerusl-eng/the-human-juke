@@ -86,7 +86,7 @@ export default async function handler(req, res) {
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
-  const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <updates@the-human-jukebox.org>'
+  const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <noreply@the-human-jukebox.org>'
   const bookingUrl = process.env.VITE_BOOKING_URL?.trim() || 'https://book-jukebox.base44.app/'
 
   if (!resendApiKey) {
@@ -109,11 +109,13 @@ export default async function handler(req, res) {
     })
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '')
+      const errorBody = await response.json().catch(() => null)
+      const errorText = errorBody?.message || errorBody?.name || JSON.stringify(errorBody) || ''
+      console.error('Resend error', response.status, errorBody)
       return res.status(502).json({
         success: false,
-        message: 'Email provider rejected the request.',
-        details: errorText.slice(0, 500),
+        message: `Email could not be sent: ${errorText || response.status}`,
+        details: errorBody,
       })
     }
 
