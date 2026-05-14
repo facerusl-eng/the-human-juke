@@ -31,7 +31,38 @@ function parseJsonBody(reqBody) {
   return reqBody
 }
 
-function buildEmailHtml(bookingUrl) {
+function buildEmailHtml(bookingUrl, lang = 'en') {
+  if (lang === 'da') {
+    return `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a44;">
+        <h2 style="margin-bottom: 8px;">Tak for din interesse i The Human Jukebox</h2>
+        <p style="margin-top: 0;">Her er et hurtigt overblik over konceptet og hvordan booking fungerer.</p>
+
+        <h3 style="margin-bottom: 6px;">Sådan fungerer konceptet</h3>
+        <ul style="padding-left: 18px; margin-top: 0;">
+          <li>Gæsterne scanner en QR-kode og deltager øjeblikkeligt fra deres telefon.</li>
+          <li>De ønsker sange og stemmer live, så rummet former setlisten sammen.</li>
+          <li>En fælles live-skærm holder alle engagerede med nu-spiller og kø-opdateringer.</li>
+        </ul>
+
+        <h3 style="margin-bottom: 6px;">Hvorfor spillesteder bruger det</h3>
+        <ul style="padding-left: 18px; margin-top: 0;">
+          <li>Ingen app-friktioner for gæster.</li>
+          <li>Simpel drift for personalet under servicen.</li>
+          <li>Interaktive aftener der holder momentum.</li>
+        </ul>
+
+        <p>
+          Klar til at planlægge din dato?
+          <a href="${bookingUrl}" style="color: #0b63ce; font-weight: 700;">Book showet her</a>.
+        </p>
+
+        <p style="font-size: 13px; color: #57607a;">Du modtog denne besked, fordi du anmodede om opdateringer på The Human Jukebox-webstedet.</p>
+      </div>
+    `
+  }
+
+  // English (default)
   return `
     <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a44;">
       <h2 style="margin-bottom: 8px;">Thanks for your interest in The Human Jukebox</h2>
@@ -80,6 +111,7 @@ export default async function handler(req, res) {
   }
 
   const toEmail = String(body.email || '').trim().toLowerCase()
+  const emailLang = body.lang === 'da' ? 'da' : 'en'
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailPattern.test(toEmail)) {
     return res.status(400).json({ success: false, message: 'A valid email is required.' })
@@ -94,6 +126,10 @@ export default async function handler(req, res) {
   }
 
   try {
+    const emailSubject = emailLang === 'da' 
+      ? 'Din Human Jukebox-koncept og bookinginfo' 
+      : 'Your Human Jukebox concept and booking info'
+
     const response = await fetch(RESEND_API_URL, {
       method: 'POST',
       headers: {
@@ -103,8 +139,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         from: fromEmail,
         to: [toEmail],
-        subject: 'Your Human Jukebox concept and booking info',
-        html: buildEmailHtml(bookingUrl),
+        subject: emailSubject,
+        html: buildEmailHtml(bookingUrl, emailLang),
       }),
     })
 

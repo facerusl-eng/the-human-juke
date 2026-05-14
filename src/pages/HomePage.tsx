@@ -260,6 +260,7 @@ function HomePage() {
           },
           body: JSON.stringify({
             email: normalizedEmail,
+            lang,
             intent: 'availability-updates',
             source: 'home-signup',
           }),
