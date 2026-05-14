@@ -270,7 +270,7 @@ function HomePage() {
           throw new Error(body?.message || `Signup failed with status ${response.status}`)
         }
 
-        setSignupNotice(lang === 'da' ? 'Tak! Vi har sendt info og booking-link til din email.' : 'Thanks! We sent concept details and booking info to your email.')
+        setSignupNotice(lang === 'da' ? 'Tak for din interesse. Din email kommer snart.' : 'Thank you for your interest. Your email will arrive soon.')
         setSignupEmail('')
       } catch (error) {
         setSignupError(error instanceof Error ? error.message : 'Could not send update email. Please try again.')
