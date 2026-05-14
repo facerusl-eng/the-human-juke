@@ -140,10 +140,10 @@ function HomePage() {
         return
       }
 
-      window.location.assign('/mirror?demo=true')
+      window.location.assign('/mirror?demo=true&launchFullscreen=1')
       return
     }
-    navigate('/mirror?demo=true')
+    navigate('/mirror?demo=true&launchFullscreen=1')
   }
 
   const scrollToBookingForm = () => {
