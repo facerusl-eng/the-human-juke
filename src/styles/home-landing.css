@@ -292,7 +292,7 @@
 
 .lp-hero-mirror-frame {
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   border: 0;
   background: #000;
 }
