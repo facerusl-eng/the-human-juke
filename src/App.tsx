@@ -21,19 +21,42 @@ import { DemoAuthProvider } from './demo/DemoAuthProvider'
 import { DemoQueueProvider } from './demo/DemoQueueProvider'
 
 const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
+const ROUTE_LOADING_STARTED_AT_STORAGE_KEY = 'human-jukebox-route-loading-started-at'
 const ROUTE_LOADING_RECOVERY_TIMEOUT_MS = 12_000
+const ROUTE_IMPORT_TIMEOUT_MS = 18_000
 
 function isChunkLoadFailure(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
   return /chunk|loading css chunk|failed to fetch dynamically imported module|importing a module script failed/i.test(message)
 }
 
+function importWithTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  if (typeof window === 'undefined') {
+    return promise
+  }
+
+  let timeoutId: number | null = null
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error('Route module import timed out.'))
+    }, timeoutMs)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId)
+    }
+  }) as Promise<T>
+}
+
 async function importWithChunkReloadRecovery<T>(loader: () => Promise<T>) {
   try {
-    const module = await loader()
+    const module = await importWithTimeout(loader(), ROUTE_IMPORT_TIMEOUT_MS)
 
     if (typeof window !== 'undefined') {
       window.sessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY)
+      window.sessionStorage.removeItem(ROUTE_LOADING_STARTED_AT_STORAGE_KEY)
     }
 
     return module
@@ -80,12 +103,33 @@ const SettingsPage = lazyWithChunkReload(() => import('./pages/SettingsPage'))
 const SpotifyCallbackPage = lazyWithChunkReload(() => import('./pages/SpotifyCallbackPage'))
 
 function RouteLoading() {
-  const [showRecoveryOptions, setShowRecoveryOptions] = useState(false)
+  const [showRecoveryOptions, setShowRecoveryOptions] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    const storedStartAt = Number(window.sessionStorage.getItem(ROUTE_LOADING_STARTED_AT_STORAGE_KEY) ?? '0')
+    return Number.isFinite(storedStartAt) && storedStartAt > 0
+      ? Date.now() - storedStartAt >= ROUTE_LOADING_RECOVERY_TIMEOUT_MS
+      : false
+  })
 
   useEffect(() => {
+    const existingStartAt = Number(window.sessionStorage.getItem(ROUTE_LOADING_STARTED_AT_STORAGE_KEY) ?? '0')
+    const routeLoadingStartedAt = Number.isFinite(existingStartAt) && existingStartAt > 0
+      ? existingStartAt
+      : Date.now()
+
+    if (!(Number.isFinite(existingStartAt) && existingStartAt > 0)) {
+      window.sessionStorage.setItem(ROUTE_LOADING_STARTED_AT_STORAGE_KEY, String(routeLoadingStartedAt))
+    }
+
+    const elapsedMs = Date.now() - routeLoadingStartedAt
+    const remainingMs = Math.max(0, ROUTE_LOADING_RECOVERY_TIMEOUT_MS - elapsedMs)
+
     const timerId = window.setTimeout(() => {
       setShowRecoveryOptions(true)
-    }, ROUTE_LOADING_RECOVERY_TIMEOUT_MS)
+    }, remainingMs)
 
     return () => {
       window.clearTimeout(timerId)
@@ -108,6 +152,7 @@ function RouteLoading() {
               className="primary-button"
               onClick={() => {
                 window.sessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY)
+                window.sessionStorage.removeItem(ROUTE_LOADING_STARTED_AT_STORAGE_KEY)
                 window.location.reload()
               }}
             >
