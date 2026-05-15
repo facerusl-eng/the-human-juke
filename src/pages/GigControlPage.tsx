@@ -28,6 +28,7 @@ const GIG_CONTROL_NOW_PLAYING_STORAGE_KEY = 'human-jukebox-gig-control-now-playi
 const GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS = 12 * 60 * 60 * 1000
 const BACKGROUND_SYNC_TAG = 'jukebox-sync'
 const MIRROR_PREVIEW_TRANSITION_MS = 4200
+const SPACEBAR_ACTION_COOLDOWN_MS = 300
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
@@ -258,7 +259,9 @@ function GigControlPage() {
 
   const quoteIndexRef = useRef(0)
   const lastSpaceActionAtRef = useRef(0)
+  const isNowPlayingStartedRef = useRef(isNowPlayingStarted)
   const nowPlayingRef = useRef<typeof songs[number] | undefined>(undefined)
+  const songsRef = useRef(songs)
   const spaceActionBusyRef = useRef(spaceActionBusy)
   const previousSongIdRef = useRef<string | null>(null)
   const previousRoomOpenRef = useRef<boolean | null>(null)
@@ -315,6 +318,10 @@ function GigControlPage() {
 
     return songs.find((song) => song.id === songId)?.cover_url ?? null
   }, [songs])
+
+  useEffect(() => {
+    isNowPlayingStartedRef.current = isNowPlayingStarted
+  }, [isNowPlayingStarted])
 
   useEffect(() => {
     if (audienceConnectionStatus === 'connected') {
@@ -1475,12 +1482,13 @@ function GigControlPage() {
   const beginBetweenSongsTransition = useCallback(async () => {
     const previousQuoteIndex = quoteIndexRef.current
     const nextQuoteIndex = (previousQuoteIndex + 1) % BETWEEN_SONG_QUOTES.length
+    const nextSongId = songsRef.current[1]?.id ?? null
 
     setQuoteIndex(nextQuoteIndex)
-    await syncStartedState(false, songs[1]?.id ?? null)
+    await syncStartedState(false, nextSongId)
 
     return previousQuoteIndex
-  }, [songs, syncStartedState])
+  }, [syncStartedState])
 
   const restoreStartedSong = useCallback(async (previousQuoteIndex: number) => {
     setQuoteIndex(previousQuoteIndex)
@@ -1537,12 +1545,15 @@ function GigControlPage() {
   }, [runPlaybackAction, sendSpotifyTransportCommand, syncStartedState])
 
   const runQueueTogglePlayShortcut = useCallback(async () => {
+    const currentNowPlaying = nowPlayingRef.current
+    const currentlyStarted = isNowPlayingStartedRef.current
+
     // Rely on the ref-based lock only — spaceActionBusy state can lag by one render
-    if (!nowPlaying || playbackActionLockRef.current) {
+    if (!currentNowPlaying || playbackActionLockRef.current) {
       return
     }
 
-    if (!isNowPlayingStarted) {
+    if (!currentlyStarted) {
       await startCurrentSong()
       return
     }
@@ -1556,11 +1567,15 @@ function GigControlPage() {
     if (finishedSong) {
       sendSpotifyTransportCommand('play')
     }
-  }, [isNowPlayingStarted, markPlayed, nowPlaying, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
+  }, [markPlayed, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
 
   useEffect(() => {
     nowPlayingRef.current = nowPlaying
   }, [nowPlaying])
+
+  useEffect(() => {
+    songsRef.current = songs
+  }, [songs])
 
   useEffect(() => {
     spaceActionBusyRef.current = spaceActionBusy
@@ -1578,7 +1593,8 @@ function GigControlPage() {
         return
       }
 
-      if (event.code !== 'Space') {
+      const isSpaceKey = event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar'
+      if (!isSpaceKey) {
         return
       }
 
@@ -1599,7 +1615,7 @@ function GigControlPage() {
 
       const target = event.target as HTMLElement | null
       const activeElement = document.activeElement as HTMLElement | null
-      const interactiveTarget = target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="button"], [role="textbox"], [data-spacebar-ignore="true"]')
+      const interactiveTarget = target?.closest('input, textarea, select, [contenteditable="true"], [role="textbox"], [aria-multiline="true"], [data-spacebar-ignore="true"]')
       const isTypingTarget = Boolean(interactiveTarget || activeElement?.isContentEditable)
 
       if (isTypingTarget) {
@@ -1611,7 +1627,7 @@ function GigControlPage() {
       }
 
       const now = Date.now()
-      if (now - lastSpaceActionAtRef.current < 500) {
+      if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
         event.preventDefault()
         return
       }
