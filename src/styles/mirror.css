@@ -3317,6 +3317,57 @@
   line-height: 1.3;
 }
 
+/* Keep countdown/live blocks inside the visible stage and avoid panel overlap. */
+.mirror-pre-show,
+.mirror-pre-show-middle,
+.mirror-pre-show-qr-col,
+.mirror-pre-show-steps-col,
+.mirror-how-it-works,
+.mirror-kiosk-columns,
+.mirror-kiosk-right,
+.mirror-now-playing,
+.mirror-live-feed-frame,
+.mirror-song-queue-frame {
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.mirror-pre-show,
+.mirror-kiosk-columns,
+.mirror-kiosk-right,
+.mirror-now-playing,
+.mirror-live-feed-frame,
+.mirror-song-queue-frame,
+.mirror-pre-show-qr-col {
+  overflow: hidden;
+}
+
+.mirror-pre-show-middle {
+  align-items: stretch;
+}
+
+.mirror-pre-show-qr-col,
+.mirror-pre-show-steps-col,
+.mirror-how-it-works {
+  height: 100%;
+}
+
+.mirror-how-it-works {
+  overflow: auto;
+  align-content: start;
+}
+
+.mirror-pre-show-has-countdown .mirror-pre-show-qr-col {
+  min-height: 0;
+}
+
+.mirror-qr-flash-line {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.14;
+}
+
 .mirror-shell-hide-controls .mirror-now-playing-track {
   gap: clamp(0.28rem, 0.45vw, 0.46rem);
 }

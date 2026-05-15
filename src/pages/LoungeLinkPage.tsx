@@ -1,14 +1,53 @@
 import { useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-function resolveSameSitePath(rawPath: string, fallbackPath: string) {
+function resolveDestination(rawPath: string, fallbackPath: string) {
   const normalizedPath = rawPath.trim()
 
-  if (normalizedPath.startsWith('/') && !normalizedPath.startsWith('//')) {
-    return normalizedPath
+  if (!normalizedPath) {
+    return { type: 'internal', value: fallbackPath }
   }
 
-  return fallbackPath
+  if (normalizedPath.startsWith('/') && !normalizedPath.startsWith('//')) {
+    return { type: 'internal', value: normalizedPath }
+  }
+
+  try {
+    const parsedUrl = new URL(normalizedPath)
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      return { type: 'internal', value: fallbackPath }
+    }
+
+    if (typeof window !== 'undefined' && parsedUrl.origin === window.location.origin) {
+      return {
+        type: 'internal',
+        value: `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`,
+      }
+    }
+
+    return { type: 'external', value: parsedUrl.toString() }
+  } catch {
+    return { type: 'internal', value: fallbackPath }
+  }
+}
+
+function openDestination(
+  navigate: ReturnType<typeof useNavigate>,
+  destination: { type: string; value: string },
+  replace = false,
+) {
+  if (destination.type === 'external') {
+    if (replace) {
+      window.location.replace(destination.value)
+      return
+    }
+
+    window.location.assign(destination.value)
+    return
+  }
+
+  navigate(destination.value, { replace })
 }
 
 function resolveLoungeDestination(search: string) {
@@ -21,20 +60,20 @@ function resolveLoungeDestination(search: string) {
     ? `/feed?event=${encodeURIComponent(eventId)}`
     : '/feed'
 
-  const joinPath = resolveSameSitePath(params.get('join') ?? '', joinFallback)
-  const loungePath = resolveSameSitePath(params.get('lounge') ?? '', loungeFallback)
+  const joinDestination = resolveDestination(params.get('join') ?? '', joinFallback)
+  const loungeDestination = resolveDestination(params.get('lounge') ?? '', loungeFallback)
   const chooserEnabled = params.get('chooser') === '1'
 
   // Legacy mode: keep supporting direct redirect links.
   const explicitPath = params.get('to')?.trim() ?? ''
 
-  const autoPath = resolveSameSitePath(explicitPath, joinPath)
+  const autoDestination = resolveDestination(explicitPath, joinDestination.value)
 
   return {
     chooserEnabled,
-    joinPath,
-    loungePath,
-    autoPath,
+    joinDestination,
+    loungeDestination,
+    autoDestination,
   }
 }
 
@@ -49,13 +88,13 @@ function LoungeLinkPage() {
     }
 
     const redirectTimer = window.setTimeout(() => {
-      navigate(destination.autoPath, { replace: true })
+      openDestination(navigate, destination.autoDestination, true)
     }, 120)
 
     return () => {
       window.clearTimeout(redirectTimer)
     }
-  }, [destination.autoPath, destination.chooserEnabled, navigate])
+  }, [destination.autoDestination, destination.chooserEnabled, navigate])
 
   if (!destination.chooserEnabled) {
     return (
@@ -80,7 +119,7 @@ function LoungeLinkPage() {
             type="button"
             className="primary-button"
             onClick={() => {
-              navigate(destination.joinPath)
+              openDestination(navigate, destination.joinDestination)
             }}
           >
             Join Audience
@@ -89,7 +128,7 @@ function LoungeLinkPage() {
             type="button"
             className="secondary-button"
             onClick={() => {
-              navigate(destination.loungePath)
+              openDestination(navigate, destination.loungeDestination)
             }}
           >
             Open Lounge
