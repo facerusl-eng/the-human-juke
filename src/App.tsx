@@ -167,6 +167,10 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
+        element: <Navigate to="/audience" replace />,
+      },
+      {
+        path: 'home',
         element: withSuspense(<HomePage />),
       },
       {
