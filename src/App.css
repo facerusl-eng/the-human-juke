@@ -6319,11 +6319,12 @@
 .mirror-photo-spotlight {
   position: fixed;
   inset: 0;
-  z-index: 45;
+  z-index: 9100;
   pointer-events: none;
   display: grid;
   place-items: center;
   padding: clamp(1rem, 4vw, 2.5rem);
+  margin: 0;
   background: radial-gradient(circle at 50% 50%, rgba(8, 14, 32, 0.1) 0%, rgba(8, 14, 32, 0.72) 80%);
   animation: mirror-spotlight-in 280ms ease-out both;
 }
@@ -6331,7 +6332,7 @@
 .mirror-spotlight-flash {
   position: fixed;
   inset: 0;
-  z-index: 44;
+  z-index: 9090;
   pointer-events: none;
   background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.22) 52%, transparent 86%);
   animation: mirror-flash-burst 240ms ease-out both;
@@ -6340,7 +6341,7 @@
 .mirror-spotlight-fallback-pulse {
   position: fixed;
   inset: 0;
-  z-index: 46;
+  z-index: 9110;
   pointer-events: none;
   background:
     radial-gradient(circle at 50% 50%, rgba(255, 206, 103, 0.34) 0%, rgba(255, 206, 103, 0.1) 26%, transparent 72%);
