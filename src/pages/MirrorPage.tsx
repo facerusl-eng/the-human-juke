@@ -3309,7 +3309,7 @@ function MirrorPageContent() {
             <div className="mirror-pre-show-middle">
               <div className="mirror-pre-show-qr-col">
                 <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
-                <p className="mirror-qr-label">Scan to join</p>
+                <p className="mirror-qr-label">Scan for the pints. Log in for the tunes.</p>
                 {showCountdownQrLink ? <p className="mirror-qr-url">{countdownQrText}</p> : null}
                 {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
               </div>
@@ -3587,7 +3587,7 @@ function MirrorPageContent() {
             aria-label="Audience request page QR link"
           >
             <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
-            <p className="mirror-brb-qr-label">Scan to join</p>
+            <p className="mirror-brb-qr-label">Scan for the pints. Log in for the tunes.</p>
             {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </a>
