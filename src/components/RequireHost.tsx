@@ -11,15 +11,12 @@ function RequireHost({ children }: PropsWithChildren) {
     loading,
     authError,
     signInHost,
-    registerHostPasskey,
-    isPasskeySupported,
   } = useAuthStore()
   const [showLoadingFallback, setShowLoadingFallback] = useState(false)
   const [hostEmail, setHostEmail] = useState('')
   const [hostPassword, setHostPassword] = useState('')
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [signInError, setSignInError] = useState<string | null>(null)
-  const [passkeyNotice, setPasskeyNotice] = useState<string | null>(null)
 
   useEffect(() => {
     if (!loading) {
@@ -90,7 +87,6 @@ function RequireHost({ children }: PropsWithChildren) {
   const handleHostSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setSignInError(null)
-    setPasskeyNotice(null)
     setIsSigningIn(true)
 
     try {
@@ -99,23 +95,6 @@ function RequireHost({ children }: PropsWithChildren) {
       setHostPassword('')
     } catch (error) {
       setSignInError(error instanceof Error ? error.message : 'Failed to sign in. Please try again.')
-    } finally {
-      setIsSigningIn(false)
-    }
-  }
-
-  const handleEnablePasskey = async () => {
-    setSignInError(null)
-    setPasskeyNotice(null)
-    setIsSigningIn(true)
-
-    try {
-      await signInHost(hostEmail, hostPassword)
-      await registerHostPasskey('Host Face ID')
-      setPasskeyNotice('Face ID is enabled on this iPhone.')
-      setHostPassword('')
-    } catch (error) {
-      setSignInError(error instanceof Error ? error.message : 'Face ID setup failed. Please try again.')
     } finally {
       setIsSigningIn(false)
     }
@@ -159,10 +138,6 @@ function RequireHost({ children }: PropsWithChildren) {
           <p className="error-text">{signInError}</p>
         )}
 
-        {passkeyNotice && (
-          <p className="subcopy">{passkeyNotice}</p>
-        )}
-
         <button
           type="submit"
           className="primary-button"
@@ -170,17 +145,6 @@ function RequireHost({ children }: PropsWithChildren) {
         >
           {isSigningIn ? 'Signing in...' : 'Sign in as Host'}
         </button>
-
-        {isPasskeySupported ? (
-          <button
-            type="button"
-            className="ghost-button"
-            disabled={isSigningIn || !hostEmail || !hostPassword}
-            onClick={handleEnablePasskey}
-          >
-            Enable Face ID on this iPhone
-          </button>
-        ) : null}
       </form>
     </section>
   )
