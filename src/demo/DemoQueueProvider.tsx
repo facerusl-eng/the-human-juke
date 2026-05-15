@@ -358,6 +358,7 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
       pendingOfflineSongs: [],
       queueOperatingMode: 'normal' as const,
       queueHealthMessage: null,
+      forceFallbackMode: noop,
       addSong,
       upvoteSong,
       // Host-only operations — silently no-op.

@@ -255,11 +255,11 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/audience" replace />,
+        element: withSuspense(<HomePage />),
       },
       {
         path: 'home',
-        element: withSuspense(<HomePage />),
+        element: <Navigate to="/" replace />,
       },
       {
         path: 'coming-gigs',
