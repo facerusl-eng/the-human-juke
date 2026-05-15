@@ -2547,8 +2547,9 @@ function MirrorPageContent() {
 
       try {
         const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
-        if (detail.eventId === eventId && detail.state) {
-          setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state) ? currentState : detail.state))
+        const nextState = detail.eventId === eventId ? detail.state ?? null : null
+        if (nextState) {
+          setPlaybackState((currentState) => (isSamePlaybackState(currentState, nextState) ? currentState : nextState))
           clearMirrorWarningSmoothly()
         }
       } catch {
@@ -2568,8 +2569,9 @@ function MirrorPageContent() {
       playbackBroadcastChannel = new BroadcastChannel(MIRROR_PLAYBACK_BROADCAST_CHANNEL)
       playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
         const detail = messageEvent.data
-        if (detail?.eventId === eventId && detail.state) {
-          setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state) ? currentState : detail.state))
+        const nextState = detail?.eventId === eventId ? detail.state ?? null : null
+        if (nextState) {
+          setPlaybackState((currentState) => (isSamePlaybackState(currentState, nextState) ? currentState : nextState))
           clearMirrorWarningSmoothly()
         }
       }
