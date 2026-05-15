@@ -2820,29 +2820,9 @@ function MirrorPageContent() {
   }, [eventId, spotlight])
 
   const mirrorBackgroundClass = useMemo(() => {
-    // Demo mode always uses Human Jukebox background
-    if (demoMode) {
-      return 'mirror-shell-bg-human-jukebox'
-    }
-
-    if (!event?.eventType) {
-      return 'mirror-shell-bg-human-jukebox'
-    }
-
-    if (event.eventType === 'karaoke') {
-      return 'mirror-shell-bg-karaoke'
-    }
-
-    if (event.eventType === 'halli-live') {
-      return 'mirror-shell-bg-harald-live'
-    }
-
-    if (event.eventType === 'build-self') {
-      return 'mirror-shell-bg-build-self'
-    }
-
+    // Mirror always uses the Human Jukebox background.
     return 'mirror-shell-bg-human-jukebox'
-  }, [event?.eventType])
+  }, [])
 
   useEffect(() => {
     const onPointerMove = (pointerEvent: PointerEvent) => {

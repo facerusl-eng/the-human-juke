@@ -1873,8 +1873,10 @@
 /* Mirror kiosk architecture override */
 .mirror-shell {
   background:
+    linear-gradient(180deg, rgba(4, 8, 20, 0.5) 0%, rgba(4, 8, 20, 0.78) 100%),
     radial-gradient(circle at 8% 10%, rgba(120, 64, 188, 0.36) 0%, transparent 30%),
     radial-gradient(circle at 88% 12%, rgba(18, 160, 170, 0.28) 0%, transparent 34%),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center center / cover no-repeat,
     linear-gradient(120deg, #2d1b4e 0%, #0f0f1e 50%, #0d3a4a 100%);
 }
 
