@@ -192,6 +192,7 @@ export type QueueContextValue = {
   audienceConnectionStatus: 'connecting' | 'connected' | 'reconnecting' | 'offline'
   queueOperatingMode: 'normal' | 'degraded'
   queueHealthMessage: string | null
+  forceFallbackMode: () => Promise<void>
   pendingOfflineSongs: PendingOfflineSong[]
   addSong: (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => Promise<void>
   setActiveEvent: (nextEventId: string) => Promise<void>
@@ -236,6 +237,56 @@ const MISSING_COLUMNS_CACHE_KEY = 'human-jukebox-missing-columns-cache'
 const VENUE_LOGO_SCALE_MIN = 20
 const VENUE_LOGO_SCALE_MAX = 500
 const VENUE_LOGO_OFFSET_LIMIT = 100
+const EVENT_OPTIONAL_SETTINGS_CACHE_TTL_MS = 120_000
+
+type TipMessages = {
+  tip_thank_you_message_da: string | null
+  tip_thank_you_message_en: string | null
+}
+
+type EventTypeSettings = {
+  event_type: 'halli-live' | 'karaoke' | 'build-self'
+  event_theme: EventTheme
+  karafun_url: string | null
+  artist_name: string | null
+  audience_voting_enabled: boolean
+  auto_live_enabled: boolean
+  intro_audio_url: string | null
+}
+
+type AudienceLocaleSettings = {
+  audience_icelandic_enabled: boolean
+}
+
+type VenueLogoLayoutSettings = {
+  venue_logo_scale: number
+  venue_logo_offset_x: number
+  venue_logo_offset_y: number
+}
+
+type MirrorQrSettings = {
+  mirror_brb_qr_link: string | null
+  mirror_brb_qr_text: string | null
+  mirror_countdown_qr_custom_enabled: boolean
+  mirror_countdown_qr_custom_url: string | null
+  mirror_break_qr_enabled: boolean
+  mirror_break_qr_custom_url: string | null
+}
+
+type MirrorQrFlashSettings = {
+  mirror_brb_qr_flash_enabled: boolean
+  mirror_brb_qr_flash_venue: string | null
+}
+
+type EventOptionalSettingsBundle = {
+  tipMessages: TipMessages
+  eventTypeSettings: EventTypeSettings
+  audienceLocaleSettings: AudienceLocaleSettings
+  venueLogoLayoutSettings: VenueLogoLayoutSettings
+  mirrorQrSettings: MirrorQrSettings
+  mirrorQrFlashSettings: MirrorQrFlashSettings
+  fetchedAt: number
+}
 
 type MissingColumnsCache = {
   venueLogoLayout?: boolean
@@ -280,6 +331,7 @@ let hasPerformedAtColumn = missingColumnsCache.performedAt !== true
 let hasMirrorCountdownQrLinkColumn = missingColumnsCache.mirrorCountdownQrLink !== true
 let hasMirrorQrSettingsColumns = missingColumnsCache.mirrorQrSettings !== true
 let hasMirrorQrFlashColumns = missingColumnsCache.mirrorQrFlashSettings !== true
+const eventOptionalSettingsCache = new Map<string, EventOptionalSettingsBundle>()
 
 function getLiveDiscoveryPollInterval(operatingMode: 'normal' | 'degraded') {
   return operatingMode === 'degraded'
@@ -1284,7 +1336,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     // Separately fetch tip thank-you messages (columns may not exist in older DB schemas).
     // This is non-blocking — failure just results in null values.
-    const loadTipMessages = async (): Promise<{ tip_thank_you_message_da: string | null; tip_thank_you_message_en: string | null }> => {
+    const loadTipMessages = async (): Promise<TipMessages> => {
       try {
         const { data, error } = await supabase
           .from('events')
@@ -1307,7 +1359,7 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     // Separately fetch event type settings (columns added via migration — graceful fallback).
-    const loadEventTypeSettings = async (): Promise<{ event_type: 'halli-live' | 'karaoke' | 'build-self'; event_theme: EventTheme; karafun_url: string | null; artist_name: string | null; audience_voting_enabled: boolean; auto_live_enabled: boolean; intro_audio_url: string | null }> => {
+    const loadEventTypeSettings = async (): Promise<EventTypeSettings> => {
       try {
         const { data, error } = await supabase
           .from('events')
@@ -1337,7 +1389,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const loadAudienceLocaleSettings = async (): Promise<{ audience_icelandic_enabled: boolean }> => {
+    const loadAudienceLocaleSettings = async (): Promise<AudienceLocaleSettings> => {
       try {
         const { data, error } = await supabase
           .from('events')
@@ -1362,7 +1414,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const loadVenueLogoLayoutSettings = async (): Promise<{ venue_logo_scale: number; venue_logo_offset_x: number; venue_logo_offset_y: number }> => {
+    const loadVenueLogoLayoutSettings = async (): Promise<VenueLogoLayoutSettings> => {
       try {
         if (!hasVenueLogoLayoutColumns) {
           return { venue_logo_scale: 100, venue_logo_offset_x: 0, venue_logo_offset_y: 0 }
@@ -1408,7 +1460,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const loadMirrorQrSettings = async (): Promise<{ mirror_brb_qr_link: string | null; mirror_brb_qr_text: string | null; mirror_countdown_qr_custom_enabled: boolean; mirror_countdown_qr_custom_url: string | null; mirror_break_qr_enabled: boolean; mirror_break_qr_custom_url: string | null }> => {
+    const loadMirrorQrSettings = async (): Promise<MirrorQrSettings> => {
       try {
         if (!hasMirrorQrSettingsColumns) {
           return { mirror_brb_qr_link: null, mirror_brb_qr_text: null, mirror_countdown_qr_custom_enabled: false, mirror_countdown_qr_custom_url: null, mirror_break_qr_enabled: false, mirror_break_qr_custom_url: null }
@@ -1443,7 +1495,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const loadMirrorQrFlashSettings = async (): Promise<{ mirror_brb_qr_flash_enabled: boolean; mirror_brb_qr_flash_venue: string | null }> => {
+    const loadMirrorQrFlashSettings = async (): Promise<MirrorQrFlashSettings> => {
       try {
         if (!hasMirrorQrFlashColumns) {
           return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
@@ -1474,19 +1526,52 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, mirrorQrSettings, mirrorQrFlashSettings] = await Promise.all([
-      withTimeout(
-        loadEventSnapshot(),
-        DEFAULT_DB_TIMEOUT_MS,
-        'Loading the live gig timed out. Please refresh and try again.',
-      ),
-      loadTipMessages(),
-      loadEventTypeSettings(),
-      loadAudienceLocaleSettings(),
-      loadVenueLogoLayoutSettings(),
-      loadMirrorQrSettings(),
-      loadMirrorQrFlashSettings(),
-    ])
+    const eventData = await withTimeout(
+      loadEventSnapshot(),
+      DEFAULT_DB_TIMEOUT_MS,
+      'Loading the live gig timed out. Please refresh and try again.',
+    )
+
+    const cachedOptionalSettings = eventOptionalSettingsCache.get(activeEventId)
+    const shouldReuseOptionalSettings = Boolean(
+      cachedOptionalSettings
+      && Date.now() - cachedOptionalSettings.fetchedAt <= EVENT_OPTIONAL_SETTINGS_CACHE_TTL_MS,
+    )
+
+    const optionalSettings = shouldReuseOptionalSettings
+      ? cachedOptionalSettings!
+      : await (async (): Promise<EventOptionalSettingsBundle> => {
+        const [tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, mirrorQrSettings, mirrorQrFlashSettings] = await Promise.all([
+          loadTipMessages(),
+          loadEventTypeSettings(),
+          loadAudienceLocaleSettings(),
+          loadVenueLogoLayoutSettings(),
+          loadMirrorQrSettings(),
+          loadMirrorQrFlashSettings(),
+        ])
+
+        const nextBundle: EventOptionalSettingsBundle = {
+          tipMessages,
+          eventTypeSettings,
+          audienceLocaleSettings,
+          venueLogoLayoutSettings,
+          mirrorQrSettings,
+          mirrorQrFlashSettings,
+          fetchedAt: Date.now(),
+        }
+
+        eventOptionalSettingsCache.set(activeEventId, nextBundle)
+        return nextBundle
+      })()
+
+    const {
+      tipMessages,
+      eventTypeSettings,
+      audienceLocaleSettings,
+      venueLogoLayoutSettings,
+      mirrorQrSettings,
+      mirrorQrFlashSettings,
+    } = optionalSettings
 
     const resolvedEventId = String((eventData as Record<string, unknown>).id ?? '')
     const isTestGig = readTestGigMap()[resolvedEventId] ?? false
@@ -2656,6 +2741,47 @@ function QueueProvider({ children }: PropsWithChildren) {
       pendingOfflineSongs,
       queueOperatingMode,
       queueHealthMessage,
+      forceFallbackMode: async () => {
+        if (!isHostSession) {
+          throw new Error('Host account required to force fallback mode.')
+        }
+
+        const fallbackHostEvent = hostEvents.find((hostEvent) => hostEvent.id === event?.id)
+          ?? hostEvents.find((hostEvent) => hostEvent.id === eventId)
+          ?? hostEvents.find((hostEvent) => hostEvent.isActive)
+          ?? hostEvents[0]
+          ?? null
+
+        if (fallbackHostEvent) {
+          activeEventIdRef.current = fallbackHostEvent.id
+          setEvent((currentEvent) => {
+            if (currentEvent?.id === fallbackHostEvent.id) {
+              return {
+                ...currentEvent,
+                name: fallbackHostEvent.name,
+                venue: fallbackHostEvent.venue,
+                gigDate: fallbackHostEvent.gigDate,
+                gigStartTime: fallbackHostEvent.gigStartTime,
+                eventType: fallbackHostEvent.eventType,
+                eventTheme: fallbackHostEvent.eventTheme,
+                autoLiveEnabled: fallbackHostEvent.autoLiveEnabled,
+                introAudioUrl: fallbackHostEvent.introAudioUrl,
+                isTestGig: fallbackHostEvent.isTestGig,
+              }
+            }
+
+            return buildEventFallbackFromHostEvent(fallbackHostEvent, user?.id ?? null)
+          })
+          setSongs([])
+          setPerformedSongs([])
+          setQueueHealthMessage('Fallback mode enabled manually. Live queue retries continue in the background.')
+          setQueueOperatingMode('degraded')
+          return
+        }
+
+        setQueueHealthMessage('Fallback mode enabled, but no host gig was available yet. Open Gig List and choose a gig.')
+        setQueueOperatingMode('degraded')
+      },
       addSong: async (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => {
         const targetEventId = eventId ?? event?.id ?? null
 
@@ -3170,6 +3296,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error(deleteError.message)
         }
 
+        eventOptionalSettingsCache.delete(targetEventId)
         removeTestGigFlag(targetEventId)
 
         const nextHostEvents = await fetchHostEvents(user.id)
@@ -3492,6 +3619,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }))
 
+        eventOptionalSettingsCache.delete(event.id)
         await fetchQueueSnapshot(event.id)
       },
       upvoteSong: async (songId: string) => {
