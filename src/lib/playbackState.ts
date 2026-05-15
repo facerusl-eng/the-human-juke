@@ -52,7 +52,7 @@ export const BETWEEN_SONG_QUOTES = [
 ]
 
 import { supabase } from './supabase'
-import { saveToLocalStorage } from './saveHandling'
+import { readFromLocalStorage, saveToLocalStorage } from './saveHandling'
 
 export const PLAYBACK_STATE_EVENT = 'human-jukebox:playback-state'
 export const PLAYBACK_STATE_STORAGE_KEY = 'human-jukebox:playback-state-sync'
@@ -73,6 +73,37 @@ type SharedPlaybackStateMessage = {
   eventId: string
   state: SharedPlaybackState
   timestamp: number
+}
+
+function isMissingPlaybackBrbColumnsError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return text.includes('brb_active') || text.includes('brb_message')
+}
+
+function readLastBroadcastPlaybackState(eventId: string): SharedPlaybackState | null {
+  const cachedMessage = readFromLocalStorage<{ eventId?: string; state?: SharedPlaybackState } | null>(
+    PLAYBACK_STATE_STORAGE_KEY,
+    null,
+  )
+
+  if (!cachedMessage || cachedMessage.eventId !== eventId || !cachedMessage.state) {
+    return null
+  }
+
+  return cachedMessage.state
 }
 
 function broadcastPlaybackState(message: SharedPlaybackStateMessage) {
@@ -101,11 +132,31 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
   }
 
   try {
-    const { data, error } = await supabase
+    const selectWithBrb = 'current_song_id, current_song_cover_url, is_started, quote_index, brb_active, brb_message'
+    const selectLegacy = 'current_song_id, current_song_cover_url, is_started, quote_index'
+
+    let data: Record<string, unknown> | null = null
+    let error: { code?: string; message?: string } | null = null
+
+    const initialRead = await supabase
       .from('playback_state')
-      .select('current_song_id, current_song_cover_url, is_started, quote_index')
+      .select(selectWithBrb)
       .eq('event_id', eventId)
       .single()
+
+    data = (initialRead.data as Record<string, unknown> | null) ?? null
+    error = initialRead.error as { code?: string; message?: string } | null
+
+    if (error && isMissingPlaybackBrbColumnsError(error)) {
+      const legacyRead = await supabase
+        .from('playback_state')
+        .select(selectLegacy)
+        .eq('event_id', eventId)
+        .single()
+
+      data = (legacyRead.data as Record<string, unknown> | null) ?? null
+      error = legacyRead.error as { code?: string; message?: string } | null
+    }
 
     if (error) {
       if (error.code !== 'PGRST116') {
@@ -122,13 +173,23 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
       return null
     }
 
-    const normalizedQuoteIndex = typeof data.quote_index === 'number' ? data.quote_index : 0
+    const row = data as {
+      current_song_id?: string | null
+      current_song_cover_url?: string | null
+      is_started?: boolean | null
+      quote_index?: number | null
+      brb_active?: boolean | null
+      brb_message?: string | null
+    }
+    const normalizedQuoteIndex = typeof row.quote_index === 'number' ? row.quote_index : 0
 
     return {
-      currentSongId: data.current_song_id ?? null,
-      currentSongCoverUrl: data.current_song_cover_url ?? null,
-      isStarted: data.is_started ?? false,
+      currentSongId: row.current_song_id ?? null,
+      currentSongCoverUrl: row.current_song_cover_url ?? null,
+      isStarted: row.is_started ?? false,
       quoteIndex: normalizedQuoteIndex,
+      brbActive: row.brb_active ?? false,
+      brbMessage: row.brb_message ?? null,
     }
   } catch (error) {
     console.warn('playbackState: unexpected read error', { eventId, error })
@@ -139,11 +200,31 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
 export async function writeSharedPlaybackState(eventId: string, state: SharedPlaybackState): Promise<void> {
   try {
     const normalizedQuoteIndex = Number.isFinite(state.quoteIndex) ? state.quoteIndex : 0
+    const previousState = readLastBroadcastPlaybackState(eventId)
+    const normalizedBrbActive = typeof state.brbActive === 'boolean'
+      ? state.brbActive
+      : (previousState?.brbActive ?? false)
+
+    let normalizedBrbMessage: string | null
+    if (typeof state.brbMessage === 'string' || state.brbMessage === null) {
+      normalizedBrbMessage = state.brbMessage
+    } else if (typeof state.brbActive === 'boolean' && !state.brbActive) {
+      normalizedBrbMessage = null
+    } else {
+      normalizedBrbMessage = previousState?.brbMessage ?? null
+    }
+
+    if (!normalizedBrbActive) {
+      normalizedBrbMessage = null
+    }
+
     const normalizedState: SharedPlaybackState = {
       currentSongId: state.currentSongId,
       currentSongCoverUrl: state.currentSongCoverUrl,
       isStarted: state.isStarted,
       quoteIndex: normalizedQuoteIndex,
+      brbActive: normalizedBrbActive,
+      brbMessage: normalizedBrbMessage,
     }
 
     // Push update immediately to other local tabs/screens before network roundtrip.
@@ -157,16 +238,39 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
       return
     }
 
+    const withBrbPayload = {
+      event_id: eventId,
+      current_song_id: normalizedState.currentSongId,
+      current_song_cover_url: normalizedState.currentSongCoverUrl,
+      is_started: normalizedState.isStarted,
+      quote_index: normalizedQuoteIndex,
+      brb_active: normalizedState.brbActive ?? false,
+      brb_message: normalizedState.brbMessage ?? null,
+      updated_at: new Date().toISOString(),
+    }
+
     const { error } = await supabase
       .from('playback_state')
-      .upsert({
-        event_id: eventId,
-        current_song_id: normalizedState.currentSongId,
-        current_song_cover_url: normalizedState.currentSongCoverUrl,
-        is_started: normalizedState.isStarted,
-        quote_index: normalizedQuoteIndex,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'event_id' })
+      .upsert(withBrbPayload, { onConflict: 'event_id' })
+
+    if (error && isMissingPlaybackBrbColumnsError(error)) {
+      const { error: legacyWriteError } = await supabase
+        .from('playback_state')
+        .upsert({
+          event_id: eventId,
+          current_song_id: normalizedState.currentSongId,
+          current_song_cover_url: normalizedState.currentSongCoverUrl,
+          is_started: normalizedState.isStarted,
+          quote_index: normalizedQuoteIndex,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'event_id' })
+
+      if (legacyWriteError) {
+        console.error('Failed to write playback state:', legacyWriteError)
+      }
+
+      return
+    }
 
     if (error) {
       console.error('Failed to write playback state:', error)

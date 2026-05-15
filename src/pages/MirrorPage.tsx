@@ -2263,6 +2263,8 @@ function MirrorPageContent() {
               current_song_cover_url?: string | null
               is_started?: boolean | null
               quote_index?: number | null
+              brb_active?: boolean | null
+              brb_message?: string | null
             } | null
           }) => {
             const nextRow = payload?.new
@@ -2280,6 +2282,8 @@ function MirrorPageContent() {
                 quoteIndex: Number.isFinite(nextRow.quote_index)
                   ? (nextRow.quote_index as number)
                   : 0,
+                brbActive: nextRow.brb_active ?? false,
+                brbMessage: nextRow.brb_message ?? null,
               })
               clearMirrorWarningSmoothly()
               return
