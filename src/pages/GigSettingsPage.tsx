@@ -108,6 +108,7 @@ type GigSettingsFormProps = {
 
 const MAX_UNDO_STATES = 20
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
+const MAX_GIG_VENUE_LOGO_IMAGE_BYTES = 10 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
 
 function readFileAsDataUrl(file: File) {
@@ -801,8 +802,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       return
     }
 
-    if (selectedFile.size > MAX_GIG_COVER_IMAGE_BYTES) {
-      setErrorText('Venue logo is too large. Use an image up to 3 MB.')
+    if (selectedFile.size > MAX_GIG_VENUE_LOGO_IMAGE_BYTES) {
+      setErrorText('Venue logo is too large. Use an image up to 10 MB.')
       venueLogoInFlightRef.current = false
       setProcessingVenueLogo(false)
       return
@@ -1836,7 +1837,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               }}
               disabled={busy || processingVenueLogo}
             />
-            <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name.</p>
+            <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name. Supports common image formats up to 10 MB.</p>
             {state.venueLogoUrl ? (
               <div className="photo-preview gig-venue-logo-crop-shell" ref={venueLogoCropShellRef}>
                 <img
