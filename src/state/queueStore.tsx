@@ -266,25 +266,12 @@ function markMissingColumnInCache(column: keyof MissingColumnsCache) {
   })
 }
 
-function clearMissingColumnInCache(column: keyof MissingColumnsCache) {
-  const current = readMissingColumnsCache()
-
-  if (!current[column]) {
-    return
-  }
-
-  const next: MissingColumnsCache = { ...current }
-  delete next[column]
-  saveToLocalStorage(MISSING_COLUMNS_CACHE_KEY, next)
-}
-
 const missingColumnsCache = readMissingColumnsCache()
 let hasVenueLogoLayoutColumns = missingColumnsCache.venueLogoLayout !== true
 let hasPerformedAtColumn = missingColumnsCache.performedAt !== true
 let hasMirrorCountdownQrLinkColumn = missingColumnsCache.mirrorCountdownQrLink !== true
 let hasMirrorQrSettingsColumns = missingColumnsCache.mirrorQrSettings !== true
 let hasMirrorQrFlashColumns = missingColumnsCache.mirrorQrFlashSettings !== true
-let shouldRecheckMirrorQrFlashColumns = missingColumnsCache.mirrorQrFlashSettings === true
 
 function getLiveDiscoveryPollInterval(operatingMode: 'normal' | 'degraded') {
   return operatingMode === 'degraded'
@@ -1191,112 +1178,36 @@ function QueueProvider({ children }: PropsWithChildren) {
     const loadEventSnapshot = async () => {
       const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, mirror_countdown_show_qr_link, mirror_banner_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
       const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, mirror_countdown_show_qr_link, mirror_banner_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
-      const minimalSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, mirror_banner_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
 
-      const hydrateMinimalEventSnapshot = (row: Record<string, unknown>) => ({
-        ...row,
-        instagram_url: null,
-        tiktok_url: null,
-        youtube_url: null,
-        facebook_url: null,
-        paypal_url: null,
-        mobilpay_url: null,
-        contact_email: null,
-        cover_image_url: null,
-        venue_logo_url: null,
-        show_custom_button: false,
-        custom_button_label: null,
-        custom_button_link: null,
-        mirror_countdown_show_qr_link: true,
-      })
-
-      const { data, error } = await withTransientRetry(async () => {
-        const queryResult = await withTimeout(
-          withAuthLockRetry(() =>
-            supabase
-              .from('events')
-              .select(withCoverSelect)
-              .eq('id', activeEventId)
-              .single(),
-          ),
-          DEFAULT_DB_TIMEOUT_MS,
-          'Loading the active gig timed out. Please try again.',
-        )
-
-        if (queryResult.error && isTransientLoadError(queryResult.error)) {
-          throw queryResult.error
-        }
-
-        return queryResult
-      }, 2)
+      const { data, error } = await supabase
+        .from('events')
+        .select(withCoverSelect)
+        .eq('id', activeEventId)
+        .single()
 
       if (!error) {
         return data as Record<string, unknown>
       }
 
-      if (isMissingCoverImageColumnError(error)) {
-        const { data: fallbackData, error: fallbackError } = await withTransientRetry(async () => {
-          const fallbackResult = await withTimeout(
-            withAuthLockRetry(() =>
-              supabase
-                .from('events')
-                .select(withoutCoverSelect)
-                .eq('id', activeEventId)
-                .single(),
-            ),
-            DEFAULT_DB_TIMEOUT_MS,
-            'Loading the active gig timed out. Please try again.',
-          )
-
-          if (fallbackResult.error && isTransientLoadError(fallbackResult.error)) {
-            throw fallbackResult.error
-          }
-
-          return fallbackResult
-        }, 2)
-
-        if (fallbackError) {
-          throw fallbackError
-        }
-
-        return {
-          ...(fallbackData as Record<string, unknown>),
-          cover_image_url: null,
-          venue_logo_url: (fallbackData as Record<string, unknown>).venue_logo_url ?? null,
-        }
+      if (!isMissingCoverImageColumnError(error)) {
+        throw error
       }
 
-      if (isTransientLoadError(error)) {
-        const { data: minimalData, error: minimalError } = await withTransientRetry(async () => {
-          const minimalResult = await withTimeout(
-            withAuthLockRetry(() =>
-              supabase
-                .from('events')
-                .select(minimalSelect)
-                .eq('id', activeEventId)
-                .single(),
-            ),
-            DEFAULT_DB_TIMEOUT_MS,
-            'Loading the active gig timed out. Please try again.',
-          )
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('events')
+        .select(withoutCoverSelect)
+        .eq('id', activeEventId)
+        .single()
 
-          if (minimalResult.error && isTransientLoadError(minimalResult.error)) {
-            throw minimalResult.error
-          }
-
-          return minimalResult
-        }, 2)
-
-        if (!minimalError && minimalData) {
-          return hydrateMinimalEventSnapshot(minimalData as Record<string, unknown>)
-        }
-
-        if (minimalError) {
-          throw minimalError
-        }
+      if (fallbackError) {
+        throw fallbackError
       }
 
-      throw error
+      return {
+        ...(fallbackData as Record<string, unknown>),
+        cover_image_url: null,
+        venue_logo_url: (fallbackData as Record<string, unknown>).venue_logo_url ?? null,
+      }
     }
 
     // Separately fetch tip thank-you messages (columns may not exist in older DB schemas).
@@ -1458,7 +1369,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const loadMirrorQrFlashSettings = async (): Promise<{ mirror_brb_qr_flash_enabled: boolean; mirror_brb_qr_flash_venue: string | null }> => {
       try {
-        if (!hasMirrorQrFlashColumns && !shouldRecheckMirrorQrFlashColumns) {
+        if (!hasMirrorQrFlashColumns) {
           return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
         }
 
@@ -1471,20 +1382,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         if (error) {
           if (isMissingMirrorQrFlashColumnError(error)) {
             hasMirrorQrFlashColumns = false
-            shouldRecheckMirrorQrFlashColumns = false
             markMissingColumnInCache('mirrorQrFlashSettings')
           }
 
           return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
-        }
-
-        if (!hasMirrorQrFlashColumns) {
-          hasMirrorQrFlashColumns = true
-        }
-
-        if (shouldRecheckMirrorQrFlashColumns) {
-          shouldRecheckMirrorQrFlashColumns = false
-          clearMissingColumnInCache('mirrorQrFlashSettings')
         }
 
         const row = (data ?? {}) as Record<string, unknown>
@@ -3199,9 +3100,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           eventUpdatePayload.mirror_brb_qr_text = updates.mirrorCountdownQrText
         }
 
-        const shouldAttemptMirrorQrFlashWrite = hasMirrorQrFlashColumns || shouldRecheckMirrorQrFlashColumns
-
-        if (shouldAttemptMirrorQrFlashWrite) {
+        if (hasMirrorQrFlashColumns) {
           eventUpdatePayload.mirror_brb_qr_flash_enabled = updates.mirrorCountdownQrFlashEnabled
           eventUpdatePayload.mirror_brb_qr_flash_venue = updates.mirrorCountdownQrFlashVenue
         }
@@ -3274,7 +3173,6 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (isMissingMirrorQrFlashColumnError(error)) {
             hasMirrorQrFlashColumns = false
-            shouldRecheckMirrorQrFlashColumns = false
             markMissingColumnInCache('mirrorQrFlashSettings')
             delete fallbackPayload.mirror_brb_qr_flash_enabled
             delete fallbackPayload.mirror_brb_qr_flash_venue
