@@ -83,8 +83,6 @@ const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
-const MIRROR_CAST_PROMPT_QUERY_PARAM = 'castPrompt'
-const MIRROR_CAST_PROMPT_DURATION_MS = 10_000
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
@@ -1168,10 +1166,6 @@ function MirrorPageContent() {
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
     () => new URLSearchParams(window.location.search).get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) === '1',
   )
-  const [showCastPromptControls, setShowCastPromptControls] = useState(
-    () => new URLSearchParams(window.location.search).get(MIRROR_CAST_PROMPT_QUERY_PARAM) === '1',
-  )
-  const [castActionBusy, setCastActionBusy] = useState(false)
   const [highContrastMode, setHighContrastMode] = useState(false)
   const [castClarityMode, setCastClarityMode] = useState(false)
   const [densityMode, setDensityMode] = useState<MirrorDensityMode>('medium')
@@ -1222,7 +1216,6 @@ function MirrorPageContent() {
   const autoLiveInFlightRef = useRef(false)
   const spotlightTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
-  const castPromptTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
   const mirrorWarningLastShownAtRef = useRef<number>(0)
   const previousBrbActiveRef = useRef<boolean | null>(null)
@@ -1274,72 +1267,6 @@ function MirrorPageContent() {
       setMirrorWarning(null)
       mirrorWarningClearTimerRef.current = null
     }, delayMs)
-  }
-
-  const startMirrorCast = async () => {
-    if (castActionBusy || typeof window === 'undefined') {
-      return
-    }
-
-    setCastActionBusy(true)
-
-    try {
-      const castUrl = new URL(window.location.href)
-      castUrl.searchParams.set('cast', '1')
-      castUrl.searchParams.set('launchFullscreen', '1')
-
-      const presentationWindow = window as Window & {
-        PresentationRequest?: new (urls: string | string[]) => {
-          start: () => Promise<unknown>
-        }
-      }
-      const presentationNavigator = navigator as Navigator & {
-        presentation?: {
-          defaultRequest?: unknown
-        }
-      }
-
-      if (typeof presentationWindow.PresentationRequest === 'function') {
-        const presentationRequest = new presentationWindow.PresentationRequest(castUrl.toString())
-
-        if (presentationNavigator.presentation) {
-          presentationNavigator.presentation.defaultRequest = presentationRequest
-        }
-
-        await presentationRequest.start()
-        setMirrorWarningMessage('Cast session started. Mirror is now sending to your selected display.')
-        return
-      }
-
-      setMirrorWarningMessage('Cast picker unavailable here. Use browser menu > Cast... and choose this Mirror tab.')
-    } catch (error) {
-      console.warn('MirrorPage: cast start failed', error)
-      setMirrorWarningMessage('Cast did not start. Use browser menu > Cast... and choose this Mirror tab.')
-    } finally {
-      setCastActionBusy(false)
-    }
-  }
-
-  const startBrowserMenuCast = async () => {
-    if (castActionBusy || typeof window === 'undefined') {
-      return
-    }
-
-    setCastActionBusy(true)
-
-    try {
-      if (getActiveFullscreenElement()) {
-        await exitFullscreenSafe()
-      }
-
-      setShowCastPromptControls(true)
-      setMirrorWarningMessage('Browser cast ready. Open browser menu (three dots) > Cast..., then choose this Mirror tab.')
-    } catch (error) {
-      console.warn('MirrorPage: browser cast helper failed', error)
-      setMirrorWarningMessage('Use browser menu > Cast... and choose this Mirror tab.')
-    } finally {
-      setCastActionBusy(false)
-    }
   }
 
   useEffect(() => {
@@ -1398,46 +1325,8 @@ function MirrorPageContent() {
         window.clearTimeout(mirrorWarningClearTimerRef.current)
         mirrorWarningClearTimerRef.current = null
       }
-
-      if (castPromptTimerRef.current !== null) {
-        window.clearTimeout(castPromptTimerRef.current)
-        castPromptTimerRef.current = null
-      }
     }
   }, [])
-
-  useEffect(() => {
-    if (layoutEditMode || !showCastPromptControls || typeof window === 'undefined') {
-      return
-    }
-
-    if (castPromptTimerRef.current !== null) {
-      window.clearTimeout(castPromptTimerRef.current)
-      castPromptTimerRef.current = null
-    }
-
-    castPromptTimerRef.current = window.setTimeout(() => {
-      setShowCastPromptControls(false)
-      castPromptTimerRef.current = null
-
-      const searchParams = new URLSearchParams(window.location.search)
-      if (searchParams.get(MIRROR_CAST_PROMPT_QUERY_PARAM) !== '1') {
-        return
-      }
-
-      searchParams.delete(MIRROR_CAST_PROMPT_QUERY_PARAM)
-      const nextSearch = searchParams.toString()
-      const nextPath = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`
-      window.history.replaceState({}, '', nextPath)
-    }, MIRROR_CAST_PROMPT_DURATION_MS)
-
-    return () => {
-      if (castPromptTimerRef.current !== null) {
-        window.clearTimeout(castPromptTimerRef.current)
-        castPromptTimerRef.current = null
-      }
-    }
-  }, [layoutEditMode, showCastPromptControls])
 
   const safeSongs = useMemo(() => songs.filter((song) => (
     song
@@ -1571,7 +1460,6 @@ function MirrorPageContent() {
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = false
   const shouldShowAdminElements = false
-  const shouldShowCastButton = !hideControlsForAudience || showCastPromptControls || isFullscreen
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
   const liveBadgeLabel = demoMode ? '● Demo' : event?.roomOpen ? '● Live' : '● Paused'
 
@@ -3110,36 +2998,9 @@ function MirrorPageContent() {
       .join('\n')
   }, [layoutEditMode, mirrorLayoutState])
 
-  const renderMirrorCastQuickAction = () => (
-    <div className="mirror-cast-quick-action" aria-label="Mirror cast quick action">
-      <div className="mirror-cast-actions" role="group" aria-label="Cast actions">
-        <button
-          type="button"
-          className="mirror-cast-button mirror-cast-button-quick"
-          onClick={() => { void startMirrorCast() }}
-          disabled={castActionBusy}
-        >
-          {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
-        </button>
-        <button
-          type="button"
-          className="mirror-cast-button mirror-cast-button-browser"
-          onClick={() => { void startBrowserMenuCast() }}
-          disabled={castActionBusy}
-        >
-          Browser Menu Cast
-        </button>
-      </div>
-      {mirrorWarning ? (
-        <p className="mirror-warning mirror-warning-quick" role="status">{mirrorWarning}</p>
-      ) : null}
-    </div>
-  )
-
   if (loading) {
     return (
       <div className="mirror-shell">
-        {renderMirrorCastQuickAction()}
         <p className="mirror-loading">Connecting to stage…</p>
       </div>
     )
@@ -3148,7 +3009,6 @@ function MirrorPageContent() {
   if (!hasCheckedMirrorNetworkAccess) {
     return (
       <div className="mirror-shell">
-        {renderMirrorCastQuickAction()}
         <p className="mirror-loading">Checking secure mirror access…</p>
       </div>
     )
@@ -3157,7 +3017,6 @@ function MirrorPageContent() {
   if (!isMirrorNetworkAllowed) {
     return (
       <div className="mirror-shell mirror-shell-paused" aria-label="Mirror access restricted">
-        {renderMirrorCastQuickAction()}
         <section className="mirror-pre-show" aria-label="Mirror access blocked">
           <div className="mirror-pre-show-top">
             <h1 className="mirror-pre-show-title">Skærmen er låst 🔒</h1>
@@ -3233,26 +3092,7 @@ function MirrorPageContent() {
             <span className={`mirror-status ${event?.roomOpen ? 'mirror-open live-pulse' : 'mirror-paused'}`.trim()}>
               {liveBadgeLabel}
             </span>
-            {shouldShowCastButton ? (
-              <div className="mirror-cast-actions" role="group" aria-label="Cast actions">
-                <button
-                  type="button"
-                  className="mirror-cast-button"
-                  onClick={() => { void startMirrorCast() }}
-                  disabled={castActionBusy}
-                >
-                  {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
-                </button>
-                <button
-                  type="button"
-                  className="mirror-cast-button mirror-cast-button-browser"
-                  onClick={() => { void startBrowserMenuCast() }}
-                  disabled={castActionBusy}
-                >
-                  Browser Menu Cast
-                </button>
-              </div>
-            ) : null}
+            <p className="mirror-edge-cast-hint" role="note">Edge cast: open browser menu (three dots) and choose Cast media to device.</p>
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
             ) : (
