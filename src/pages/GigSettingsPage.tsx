@@ -328,6 +328,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['gigInfo', 'mirrorSettings']))
   const isMountedRef = useRef(true)
   const manualSaveInFlightRef = useRef(false)
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
   const coverImageInFlightRef = useRef(false)
   const venueLogoInFlightRef = useRef(false)
   const introAudioInFlightRef = useRef(false)
@@ -634,92 +635,103 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   }
 
   const performSave = async (saveState: SettingsState) => {
-    setErrorText(null)
+    const runSave = async () => {
+      setErrorText(null)
 
-    if (!saveState.gigName.trim()) {
-      setErrorText('Gig name is required.')
-      markError()
-      return
-    }
-
-    try {
-      const normalizedLimit = saveState.maxActiveRequestsPerUser.trim()
-      const parsedLimit = normalizedLimit ? Number.parseInt(normalizedLimit, 10) : null
-      const shouldSyncSelectedPlaylists = !arePlaylistSelectionsEqual(saveState.selectedPlaylistIds, initialSelectedPlaylistIds)
-
-      if (parsedLimit !== null && (!Number.isFinite(parsedLimit) || parsedLimit < 1)) {
-        setErrorText('Request cap must be at least 1, or left blank for no cap.')
+      if (!saveState.gigName.trim()) {
+        setErrorText('Gig name is required.')
         markError()
         return
       }
 
-      await updateEventSettings({
-        name: saveState.gigName.trim(),
-        venue: saveState.venue.trim(),
-        eventType: normalizeEventTypeForSave(saveState.eventType),
-        eventTheme: normalizeEventThemeForSave(saveState.eventType),
-        karafunUrl: saveState.karafunUrl.trim() || null,
-        artistName: saveState.artistName.trim() || null,
-        audienceVotingEnabled: saveState.audienceVotingEnabled,
-        audienceIcelandicEnabled: saveState.audienceIcelandicEnabled,
-        gigDate: saveState.gigDate,
-        gigStartTime: saveState.gigStartTime,
+      try {
+        const normalizedLimit = saveState.maxActiveRequestsPerUser.trim()
+        const parsedLimit = normalizedLimit ? Number.parseInt(normalizedLimit, 10) : null
+        const shouldSyncSelectedPlaylists = !arePlaylistSelectionsEqual(saveState.selectedPlaylistIds, initialSelectedPlaylistIds)
+
+        if (parsedLimit !== null && (!Number.isFinite(parsedLimit) || parsedLimit < 1)) {
+          setErrorText('Request cap must be at least 1, or left blank for no cap.')
+          markError()
+          return
+        }
+
+        await updateEventSettings({
+          name: saveState.gigName.trim(),
+          venue: saveState.venue.trim(),
+          eventType: normalizeEventTypeForSave(saveState.eventType),
+          eventTheme: normalizeEventThemeForSave(saveState.eventType),
+          karafunUrl: saveState.karafunUrl.trim() || null,
+          artistName: saveState.artistName.trim() || null,
+          audienceVotingEnabled: saveState.audienceVotingEnabled,
+          audienceIcelandicEnabled: saveState.audienceIcelandicEnabled,
+          gigDate: saveState.gigDate,
+          gigStartTime: saveState.gigStartTime,
           autoLiveEnabled: saveState.autoLiveEnabled,
           introAudioUrl: saveState.introAudioUrl.trim() || null,
-        gigEndTime: saveState.gigEndTime,
-        subtitle: saveState.subtitle.trim(),
-        requestInstructions: saveState.requestInstructions.trim(),
-        instagramUrl: saveState.instagramUrl.trim(),
-        tiktokUrl: saveState.tiktokUrl.trim(),
-        youtubeUrl: saveState.youtubeUrl.trim(),
-        facebookUrl: saveState.facebookUrl.trim(),
-        paypalUrl: saveState.paypalUrl.trim(),
-        mobilpayUrl: saveState.mobilpayUrl.trim(),
-        contactEmail: saveState.contactEmail.trim(),
-        playlistOnlyRequests: saveState.playlistOnlyRequests,
-        selectedPlaylistIds: shouldSyncSelectedPlaylists ? saveState.selectedPlaylistIds : undefined,
-        mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
-        mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
-        mirrorCountdownShowQrLink: saveState.mirrorCountdownShowQrLink,
-        mirrorCountdownQrLink: saveState.mirrorCountdownQrLink.trim() || null,
-        mirrorCountdownQrText: saveState.mirrorCountdownQrText.trim() || null,
-        mirrorCountdownQrFlashEnabled: saveState.mirrorCountdownQrFlashEnabled,
-        mirrorCountdownQrFlashVenue: saveState.mirrorCountdownQrFlashVenue.trim() || null,
-        mirrorBannerEnabled: saveState.mirrorBannerEnabled,
-        allowDuplicateRequests: saveState.allowDuplicateRequests,
-        maxActiveRequestsPerUser: parsedLimit,
-        maxQueueSize: null,
-        roomOpen: saveState.roomOpen,
-        explicitFilterEnabled: saveState.explicitFilterEnabled,
-        showInAudienceNoGig: saveState.showInAudienceNoGig,
-        coverImageUrl: saveState.coverImageUrl.trim() || null,
-        venueLogoUrl: saveState.venueLogoUrl.trim() || null,
-        venueLogoScale: saveState.venueLogoScale,
-        venueLogoOffsetX: saveState.venueLogoOffsetX,
-        venueLogoOffsetY: saveState.venueLogoOffsetY,
-        showCustomButton: saveState.showCustomButton,
-        customButtonLabel: saveState.customButtonLabel.trim() || null,
-        customButtonLink: saveState.customButtonLink.trim() || null,
-        tipThankYouMessageDA: saveState.tipThankYouMessageDA.trim() || null,
-        tipThankYouMessageEN: saveState.tipThankYouMessageEN.trim() || null,
-      })
+          gigEndTime: saveState.gigEndTime,
+          subtitle: saveState.subtitle.trim(),
+          requestInstructions: saveState.requestInstructions.trim(),
+          instagramUrl: saveState.instagramUrl.trim(),
+          tiktokUrl: saveState.tiktokUrl.trim(),
+          youtubeUrl: saveState.youtubeUrl.trim(),
+          facebookUrl: saveState.facebookUrl.trim(),
+          paypalUrl: saveState.paypalUrl.trim(),
+          mobilpayUrl: saveState.mobilpayUrl.trim(),
+          contactEmail: saveState.contactEmail.trim(),
+          playlistOnlyRequests: saveState.playlistOnlyRequests,
+          selectedPlaylistIds: shouldSyncSelectedPlaylists ? saveState.selectedPlaylistIds : undefined,
+          mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
+          mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
+          mirrorCountdownShowQrLink: saveState.mirrorCountdownShowQrLink,
+          mirrorCountdownQrLink: saveState.mirrorCountdownQrLink.trim() || null,
+          mirrorCountdownQrText: saveState.mirrorCountdownQrText.trim() || null,
+          mirrorCountdownQrFlashEnabled: saveState.mirrorCountdownQrFlashEnabled,
+          mirrorCountdownQrFlashVenue: saveState.mirrorCountdownQrFlashVenue.trim() || null,
+          mirrorBannerEnabled: saveState.mirrorBannerEnabled,
+          allowDuplicateRequests: saveState.allowDuplicateRequests,
+          maxActiveRequestsPerUser: parsedLimit,
+          maxQueueSize: null,
+          roomOpen: saveState.roomOpen,
+          explicitFilterEnabled: saveState.explicitFilterEnabled,
+          showInAudienceNoGig: saveState.showInAudienceNoGig,
+          coverImageUrl: saveState.coverImageUrl.trim() || null,
+          venueLogoUrl: saveState.venueLogoUrl.trim() || null,
+          venueLogoScale: saveState.venueLogoScale,
+          venueLogoOffsetX: saveState.venueLogoOffsetX,
+          venueLogoOffsetY: saveState.venueLogoOffsetY,
+          showCustomButton: saveState.showCustomButton,
+          customButtonLabel: saveState.customButtonLabel.trim() || null,
+          customButtonLink: saveState.customButtonLink.trim() || null,
+          tipThankYouMessageDA: saveState.tipThankYouMessageDA.trim() || null,
+          tipThankYouMessageEN: saveState.tipThankYouMessageEN.trim() || null,
+        })
 
-      if (shouldSyncSelectedPlaylists) {
-        await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
-        setInitialSelectedPlaylistIds(normalizePlaylistIds(saveState.selectedPlaylistIds))
+        if (shouldSyncSelectedPlaylists) {
+          await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
+          setInitialSelectedPlaylistIds(normalizePlaylistIds(saveState.selectedPlaylistIds))
+        }
+        markSaved()
+        await registerBackgroundSync('jukebox-sync')
+      } catch (error) {
+        console.warn('GigSettingsPage: failed to save settings', error)
+        const rawMessage = error instanceof Error
+          ? error.message
+          : (typeof error === 'object' && error !== null && 'message' in error)
+            ? String((error as { message: unknown }).message)
+            : 'Unable to save gig settings.'
+
+        const message = /statement timeout|timed out|57014/i.test(rawMessage)
+          ? 'Save took too long on the server. Please press Save again in a few seconds.'
+          : rawMessage
+
+        setErrorText(message)
+        markError()
       }
-      markSaved()
-      await registerBackgroundSync('jukebox-sync')
-    } catch (error) {
-      console.warn('GigSettingsPage: failed to save settings', error)
-      const message = error instanceof Error
-        ? error.message
-        : (typeof error === 'object' && error !== null && 'message' in error)
-          ? String((error as { message: unknown }).message)
-          : 'Unable to save gig settings.'
-      setErrorText(message)
-      markError()
     }
+
+    const queuedSave = saveQueueRef.current.then(runSave, runSave)
+    saveQueueRef.current = queuedSave.catch(() => undefined)
+    return queuedSave
   }
 
   const onSelectCoverImage = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
