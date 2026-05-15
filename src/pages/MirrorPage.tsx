@@ -82,6 +82,12 @@ const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
+const QR_FLASH_ROTATE_INTERVAL_MS = 5000
+const QR_FLASH_BASE_LINES = [
+  'Thirsty?',
+  "The bar's got options",
+  '. Some of them even make sense.',
+]
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
@@ -1212,6 +1218,7 @@ function MirrorPageContent() {
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const [forceQuoteMode, setForceQuoteMode] = useState(false)
+  const [qrFlashTextIndex, setQrFlashTextIndex] = useState(0)
   const quoteIndexRef = useRef(0)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveInFlightRef = useRef(false)
@@ -1360,8 +1367,20 @@ function MirrorPageContent() {
   }, [eventId])
   const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
   const customCountdownQrText = event?.mirrorCountdownQrText?.trim() || ''
+  const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
   const countdownQrDestination = customCountdownQrLink || audienceUrl
   const countdownQrText = customCountdownQrText || countdownQrDestination
+  const qrFlashLines = useMemo(() => {
+    if (customQrFlashVenueName) {
+      return [...QR_FLASH_BASE_LINES, `Tonight at ${customQrFlashVenueName}`]
+    }
+
+    return QR_FLASH_BASE_LINES
+  }, [customQrFlashVenueName])
+  const showQrFlashText = (event?.mirrorCountdownQrFlashEnabled ?? true) && qrFlashLines.length > 0
+  const activeQrFlashText = showQrFlashText
+    ? qrFlashLines[qrFlashTextIndex % qrFlashLines.length] ?? null
+    : null
   const audienceQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(audienceUrl)}`
   const countdownQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(countdownQrDestination)}`
   const playbackSong = playbackState?.currentSongId
@@ -1538,6 +1557,25 @@ function MirrorPageContent() {
   const venueLogoOffsetX = Math.min(100, Math.max(-100, event?.venueLogoOffsetX ?? 0))
   const venueLogoOffsetY = Math.min(100, Math.max(-100, event?.venueLogoOffsetY ?? 0))
   const shouldShowPreShow = !isLive && !nowPlaying && !demoMode && !hasSetlistSongs
+
+  useEffect(() => {
+    if (!showQrFlashText) {
+      setQrFlashTextIndex(0)
+      return
+    }
+
+    const rotateInterval = window.setInterval(() => {
+      setQrFlashTextIndex((currentIndex) => (currentIndex + 1) % qrFlashLines.length)
+    }, QR_FLASH_ROTATE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(rotateInterval)
+    }
+  }, [showQrFlashText, qrFlashLines])
+
+  useEffect(() => {
+    setQrFlashTextIndex(0)
+  }, [event?.id, qrFlashLines])
 
   useEffect(() => {
     const imageElement = venueLogoImageRef.current
@@ -3336,6 +3374,7 @@ function MirrorPageContent() {
                 <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
                 <p className="mirror-qr-label">Scan to join</p>
                 {showCountdownQrLink ? <p className="mirror-qr-url">{countdownQrText}</p> : null}
+                {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
               </div>
               <div className="mirror-pre-show-steps-col">
                 <div className="mirror-how-it-works" aria-label="How it works">
@@ -3613,6 +3652,7 @@ function MirrorPageContent() {
             <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
             <p className="mirror-brb-qr-label">Scan to join</p>
             {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
+            {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </a>
         </div>
       ) : null}

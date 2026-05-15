@@ -25,6 +25,8 @@ export const DEMO_EVENT = {
   mirrorCountdownShowQrLink: true,
   mirrorCountdownQrLink: null,
   mirrorCountdownQrText: null,
+  mirrorCountdownQrFlashEnabled: true,
+  mirrorCountdownQrFlashVenue: 'The Groove Lounge',
   mirrorBannerEnabled: true,
   allowDuplicateRequests: false,
   maxActiveRequestsPerUser: 2,

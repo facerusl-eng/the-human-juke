@@ -59,6 +59,8 @@ type EventSettingsUpdates = {
   mirrorCountdownShowQrLink: boolean
   mirrorCountdownQrLink: string | null
   mirrorCountdownQrText: string | null
+  mirrorCountdownQrFlashEnabled: boolean
+  mirrorCountdownQrFlashVenue: string | null
   mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
@@ -109,6 +111,8 @@ type EventState = {
   mirrorCountdownShowQrLink: boolean
   mirrorCountdownQrLink: string | null
   mirrorCountdownQrText: string | null
+  mirrorCountdownQrFlashEnabled: boolean
+  mirrorCountdownQrFlashVenue: string | null
   mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
@@ -230,6 +234,7 @@ type MissingColumnsCache = {
   performedAt?: boolean
   mirrorCountdownQrLink?: boolean
   mirrorQrSettings?: boolean
+  mirrorQrFlashSettings?: boolean
 }
 
 function readMissingColumnsCache(): MissingColumnsCache {
@@ -244,6 +249,7 @@ function readMissingColumnsCache(): MissingColumnsCache {
     performedAt: parsed.performedAt === true,
     mirrorCountdownQrLink: parsed.mirrorCountdownQrLink === true,
     mirrorQrSettings: parsed.mirrorQrSettings === true,
+    mirrorQrFlashSettings: parsed.mirrorQrFlashSettings === true,
   }
 }
 
@@ -265,6 +271,7 @@ let hasVenueLogoLayoutColumns = missingColumnsCache.venueLogoLayout !== true
 let hasPerformedAtColumn = missingColumnsCache.performedAt !== true
 let hasMirrorCountdownQrLinkColumn = missingColumnsCache.mirrorCountdownQrLink !== true
 let hasMirrorQrSettingsColumns = missingColumnsCache.mirrorQrSettings !== true
+let hasMirrorQrFlashColumns = missingColumnsCache.mirrorQrFlashSettings !== true
 
 function getLiveDiscoveryPollInterval(operatingMode: 'normal' | 'degraded') {
   return operatingMode === 'degraded'
@@ -548,6 +555,27 @@ function isMissingMirrorQrSettingsColumnError(error: unknown) {
 
   return (code === '42703' || code === 'PGRST204')
     && (text.includes('mirror_brb_qr_link') || text.includes('mirror_brb_qr_text'))
+}
+
+function isMissingMirrorQrFlashColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204')
+    && (text.includes('mirror_brb_qr_flash_enabled') || text.includes('mirror_brb_qr_flash_venue'))
 }
 
 function isMissingNewerEventColumnsError(error: unknown) {
@@ -1326,7 +1354,38 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, mirrorQrSettings] = await Promise.all([
+    const loadMirrorQrFlashSettings = async (): Promise<{ mirror_brb_qr_flash_enabled: boolean; mirror_brb_qr_flash_venue: string | null }> => {
+      try {
+        if (!hasMirrorQrFlashColumns) {
+          return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
+        }
+
+        const { data, error } = await supabase
+          .from('events')
+          .select('mirror_brb_qr_flash_enabled, mirror_brb_qr_flash_venue')
+          .eq('id', activeEventId)
+          .single()
+
+        if (error) {
+          if (isMissingMirrorQrFlashColumnError(error)) {
+            hasMirrorQrFlashColumns = false
+            markMissingColumnInCache('mirrorQrFlashSettings')
+          }
+
+          return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
+        }
+
+        const row = (data ?? {}) as Record<string, unknown>
+        return {
+          mirror_brb_qr_flash_enabled: (row.mirror_brb_qr_flash_enabled as boolean | null) ?? true,
+          mirror_brb_qr_flash_venue: (row.mirror_brb_qr_flash_venue as string | null) ?? null,
+        }
+      } catch {
+        return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
+      }
+    }
+
+    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, mirrorQrSettings, mirrorQrFlashSettings] = await Promise.all([
       withTimeout(
         loadEventSnapshot(),
         DEFAULT_DB_TIMEOUT_MS,
@@ -1337,6 +1396,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       loadAudienceLocaleSettings(),
       loadVenueLogoLayoutSettings(),
       loadMirrorQrSettings(),
+      loadMirrorQrFlashSettings(),
     ])
 
     const resolvedEventId = String((eventData as Record<string, unknown>).id ?? '')
@@ -1613,6 +1673,8 @@ function QueueProvider({ children }: PropsWithChildren) {
       mirrorCountdownShowQrLink: ((eventData as Record<string, unknown>).mirror_countdown_show_qr_link as boolean | null) ?? true,
       mirrorCountdownQrLink: mirrorQrSettings.mirror_brb_qr_link,
       mirrorCountdownQrText: mirrorQrSettings.mirror_brb_qr_text,
+      mirrorCountdownQrFlashEnabled: mirrorQrFlashSettings.mirror_brb_qr_flash_enabled,
+      mirrorCountdownQrFlashVenue: mirrorQrFlashSettings.mirror_brb_qr_flash_venue,
       mirrorBannerEnabled: ((eventData as Record<string, unknown>).mirror_banner_enabled as boolean | null) ?? true,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
@@ -3025,6 +3087,11 @@ function QueueProvider({ children }: PropsWithChildren) {
           eventUpdatePayload.mirror_brb_qr_text = updates.mirrorCountdownQrText
         }
 
+        if (hasMirrorQrFlashColumns) {
+          eventUpdatePayload.mirror_brb_qr_flash_enabled = updates.mirrorCountdownQrFlashEnabled
+          eventUpdatePayload.mirror_brb_qr_flash_venue = updates.mirrorCountdownQrFlashVenue
+        }
+
         if (hasVenueLogoLayoutColumns) {
           eventUpdatePayload.venue_logo_scale = updates.venueLogoScale
           eventUpdatePayload.venue_logo_offset_x = updates.venueLogoOffsetX
@@ -3042,7 +3109,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingNewerEventColumnsError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -3081,6 +3148,13 @@ function QueueProvider({ children }: PropsWithChildren) {
             markMissingColumnInCache('mirrorQrSettings')
             delete fallbackPayload.mirror_brb_qr_link
             delete fallbackPayload.mirror_brb_qr_text
+          }
+
+          if (isMissingMirrorQrFlashColumnError(error)) {
+            hasMirrorQrFlashColumns = false
+            markMissingColumnInCache('mirrorQrFlashSettings')
+            delete fallbackPayload.mirror_brb_qr_flash_enabled
+            delete fallbackPayload.mirror_brb_qr_flash_venue
           }
 
           if (isMissingNewerEventColumnsError(error)) {
@@ -3496,6 +3570,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           mirrorCountdownShowQrLink: true,
           mirrorCountdownQrLink: null,
           mirrorCountdownQrText: null,
+          mirrorCountdownQrFlashEnabled: true,
+          mirrorCountdownQrFlashVenue: null,
           mirrorBannerEnabled: true,
           allowDuplicateRequests: true,
           maxActiveRequestsPerUser: null,

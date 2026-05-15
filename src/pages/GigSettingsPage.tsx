@@ -71,6 +71,8 @@ type SettingsState = {
   mirrorCountdownShowQrLink: boolean
   mirrorCountdownQrLink: string
   mirrorCountdownQrText: string
+  mirrorCountdownQrFlashEnabled: boolean
+  mirrorCountdownQrFlashVenue: string
   mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: string
@@ -283,6 +285,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     mirrorCountdownShowQrLink: event.mirrorCountdownShowQrLink ?? true,
     mirrorCountdownQrLink: event.mirrorCountdownQrLink ?? '',
     mirrorCountdownQrText: event.mirrorCountdownQrText ?? '',
+    mirrorCountdownQrFlashEnabled: event.mirrorCountdownQrFlashEnabled ?? true,
+    mirrorCountdownQrFlashVenue: event.mirrorCountdownQrFlashVenue ?? (event.venue ?? ''),
     mirrorBannerEnabled: event.mirrorBannerEnabled ?? true,
     allowDuplicateRequests: event.allowDuplicateRequests,
     maxActiveRequestsPerUser: normalizeRequestCapValue(event.maxActiveRequestsPerUser),
@@ -676,6 +680,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         mirrorCountdownShowQrLink: saveState.mirrorCountdownShowQrLink,
         mirrorCountdownQrLink: saveState.mirrorCountdownQrLink.trim() || null,
         mirrorCountdownQrText: saveState.mirrorCountdownQrText.trim() || null,
+        mirrorCountdownQrFlashEnabled: saveState.mirrorCountdownQrFlashEnabled,
+        mirrorCountdownQrFlashVenue: saveState.mirrorCountdownQrFlashVenue.trim() || null,
         mirrorBannerEnabled: saveState.mirrorBannerEnabled,
         allowDuplicateRequests: saveState.allowDuplicateRequests,
         maxActiveRequestsPerUser: parsedLimit,
@@ -1125,6 +1131,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.mirrorCountdownShowQrLink !== (event.mirrorCountdownShowQrLink ?? true)
     || state.mirrorCountdownQrLink !== (event.mirrorCountdownQrLink ?? '')
     || state.mirrorCountdownQrText !== (event.mirrorCountdownQrText ?? '')
+    || state.mirrorCountdownQrFlashEnabled !== (event.mirrorCountdownQrFlashEnabled ?? true)
+    || state.mirrorCountdownQrFlashVenue !== (event.mirrorCountdownQrFlashVenue ?? (event.venue ?? ''))
     || state.mirrorBannerEnabled !== (event.mirrorBannerEnabled ?? true)
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
     || normalizeRequestCapValue(state.maxActiveRequestsPerUser) !== normalizeRequestCapValue(event.maxActiveRequestsPerUser)
@@ -1750,6 +1758,21 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 <span>Show or hide the audience URL text under the QR code in pre-show/countdown mode</span>
               </div>
             </label>
+            <label className="toggle-card" htmlFor="gig-mirror-countdown-qr-flash-text">
+              <input
+                id="gig-mirror-countdown-qr-flash-text"
+                type="checkbox"
+                checked={state.mirrorCountdownQrFlashEnabled}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mirrorCountdownQrFlashEnabled: e.target.checked })
+                }}
+              />
+              <div>
+                <strong>{state.mirrorCountdownQrFlashEnabled ? '✓ Countdown/Break QR Flash Text On' : '⊘ Countdown/Break QR Flash Text Off'}</strong>
+                <span>Rotate short promo lines under the QR code every 5 seconds on countdown and break screens</span>
+              </div>
+            </label>
             <label className="toggle-card" htmlFor="gig-mirror-banner">
               <input
                 id="gig-mirror-banner"
@@ -1800,6 +1823,22 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               }}
             />
             <p className="field-hint">Custom text shown below the QR when Countdown QR Link Text is turned on.</p>
+          </div>
+
+          <div className="field-row">
+            <label htmlFor="gig-mirror-countdown-qr-flash-venue-input">QR flash text venue name (optional)</label>
+            <input
+              id="gig-mirror-countdown-qr-flash-venue-input"
+              type="text"
+              maxLength={80}
+              placeholder="Your pub name"
+              value={state.mirrorCountdownQrFlashVenue}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ mirrorCountdownQrFlashVenue: e.target.value })
+              }}
+            />
+            <p className="field-hint">Used in the 4th rotating line under the QR. If empty, your Venue field is used instead.</p>
           </div>
 
           <div className="field-row">

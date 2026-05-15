@@ -11458,6 +11458,18 @@
   overflow-wrap: anywhere;
 }
 
+.mirror-brb-qr-flash-line {
+  margin: 0.2rem 0 0;
+  width: 100%;
+  min-height: 1.2em;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fcd34d;
+  text-align: center;
+  animation: mirror-qr-flash-pulse 5s ease-in-out infinite;
+}
+
 @media (max-width: 900px) {
   .mirror-brb-overlay {
     flex-direction: column;
