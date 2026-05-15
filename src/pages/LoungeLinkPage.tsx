@@ -1,112 +1,46 @@
-import { useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
-function normalizeHttpUrl(rawUrl: string | null) {
-  if (!rawUrl) {
-    return null
+function resolveLoungeDestination(search: string) {
+  const params = new URLSearchParams(search)
+  const explicitPath = params.get('to')?.trim() ?? ''
+
+  // Allow same-site route redirects only.
+  if (explicitPath.startsWith('/') && !explicitPath.startsWith('//')) {
+    return explicitPath
   }
 
-  const trimmed = rawUrl.trim()
+  const eventId = params.get('event')?.trim() || params.get('eventId')?.trim()
 
-  if (!trimmed) {
-    return null
+  if (eventId) {
+    return `/audience?event=${encodeURIComponent(eventId)}`
   }
 
-  const normalized = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`
-
-  try {
-    const parsed = new URL(normalized)
-
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return null
-    }
-
-    return parsed.toString()
-  } catch {
-    return null
-  }
-}
-
-function resolveBackToLoungeUrl(rawUrl: string | null) {
-  if (typeof window === 'undefined') {
-    return '/audience'
-  }
-
-  if (!rawUrl) {
-    return '/audience'
-  }
-
-  try {
-    const parsed = new URL(rawUrl, window.location.origin)
-    const allowedPath = parsed.pathname.startsWith('/audience') || parsed.pathname.startsWith('/a/') || parsed.pathname.startsWith('/j/')
-
-    if (parsed.origin !== window.location.origin || !allowedPath) {
-      return '/audience'
-    }
-
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`
-  } catch {
-    return '/audience'
-  }
+  return '/audience'
 }
 
 function LoungeLinkPage() {
   const navigate = useNavigate()
+  const { search } = useLocation()
+  const destination = useMemo(() => resolveLoungeDestination(search), [search])
 
-  const targetUrl = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return null
+  useEffect(() => {
+    const redirectTimer = window.setTimeout(() => {
+      navigate(destination, { replace: true })
+    }, 120)
+
+    return () => {
+      window.clearTimeout(redirectTimer)
     }
-
-    const searchParams = new URLSearchParams(window.location.search)
-    return normalizeHttpUrl(searchParams.get('target'))
-  }, [])
-
-  const backToLoungeUrl = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return '/audience'
-    }
-
-    const searchParams = new URLSearchParams(window.location.search)
-    return resolveBackToLoungeUrl(searchParams.get('back'))
-  }, [])
-
-  const onBackToLounge = useCallback(() => {
-    try {
-      // Replace history so users do not bounce back to the bridge screen.
-      navigate(backToLoungeUrl, { replace: true })
-    } catch {
-      window.location.assign(backToLoungeUrl)
-    }
-  }, [backToLoungeUrl, navigate])
+  }, [destination, navigate])
 
   return (
-    <section className="lounge-link-shell" aria-label="Lounge link bridge">
-      <header className="lounge-link-header">
-        <button type="button" className="secondary-button" onClick={onBackToLounge}>Back to Lounge</button>
-        {targetUrl ? <a className="primary-button" href={targetUrl} target="_blank" rel="noreferrer noopener">Open in new tab</a> : null}
-      </header>
-
-      <main className="lounge-link-main" aria-live="polite">
-        {targetUrl ? (
-          <>
-            <iframe
-              className="lounge-link-frame"
-              src={targetUrl}
-              title="External link"
-              referrerPolicy="origin-when-cross-origin"
-            />
-            <p className="lounge-link-note">If this page does not load here, tap Open in new tab and use Back to Lounge when done.</p>
-          </>
-        ) : (
-          <div className="lounge-link-invalid">
-            <h1>Link unavailable</h1>
-            <p>That link is missing or invalid. Tap Back to Lounge to return to the audience app.</p>
-          </div>
-        )}
-      </main>
+    <section className="app-shell" aria-label="Opening lounge link">
+      <section className="queue-panel">
+        <p className="eyebrow">Preparing Link</p>
+        <h1>Opening lounge...</h1>
+        <p className="subcopy">Taking you to your destination now.</p>
+      </section>
     </section>
   )
 }
