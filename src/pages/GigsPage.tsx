@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGigActions } from '../hooks/useGigActions'
 import { useQueueStore } from '../state/queueStore'
@@ -236,6 +236,24 @@ function GigsPage() {
     },
   })
 
+  const sortedHostEvents = useMemo(() => {
+    const toCreatedTimestamp = (createdAt: string) => {
+      const createdTimestamp = new Date(createdAt).getTime()
+      return Number.isNaN(createdTimestamp) ? 0 : createdTimestamp
+    }
+
+    return [...hostEvents].sort((leftGig, rightGig) => {
+      const leftStartAt = resolveGigStartAt(leftGig.gigDate, leftGig.gigStartTime)?.getTime() ?? Number.POSITIVE_INFINITY
+      const rightStartAt = resolveGigStartAt(rightGig.gigDate, rightGig.gigStartTime)?.getTime() ?? Number.POSITIVE_INFINITY
+
+      if (leftStartAt !== rightStartAt) {
+        return leftStartAt - rightStartAt
+      }
+
+      return toCreatedTimestamp(rightGig.createdAt) - toCreatedTimestamp(leftGig.createdAt)
+    })
+  }, [hostEvents])
+
   const setGigMixerPreset = (gigId: string, preset: MixerPreset) => {
     const nextMap = {
       ...mixerPresetMap,
@@ -450,7 +468,7 @@ function GigsPage() {
           <p className="subcopy no-margin-bottom">No gigs yet. Create your first gig to start taking requests.</p>
         ) : (
           <ul className="gig-management-list">
-            {hostEvents.map((hostEvent) => {
+            {sortedHostEvents.map((hostEvent) => {
               const isCurrentGig = event?.id === hostEvent.id
               const isActivating = gigActions.activatingEventId === hostEvent.id
               const isDeleting = deletingEventId === hostEvent.id
