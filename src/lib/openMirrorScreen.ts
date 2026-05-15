@@ -2,12 +2,20 @@ export type OpenMirrorScreenResult = {
   openedInPopupWindow: boolean
 }
 
-export function openMirrorScreen(): OpenMirrorScreenResult {
+export type OpenMirrorScreenOptions = {
+  castAssist?: boolean
+}
+
+export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMirrorScreenResult {
   const mirrorUrl = new URL('/mirror', window.location.origin)
   mirrorUrl.searchParams.set('launchFullscreen', '1')
   mirrorUrl.searchParams.set('cast', '1')
   mirrorUrl.searchParams.set('safeMargins', '1')
   mirrorUrl.searchParams.set('density', 'medium')
+
+  if (options.castAssist) {
+    mirrorUrl.searchParams.set('castPrompt', '1')
+  }
 
   const targetWidth = window.screen?.availWidth ?? window.outerWidth ?? 1600
   const targetHeight = window.screen?.availHeight ?? window.outerHeight ?? 900

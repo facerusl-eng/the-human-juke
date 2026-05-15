@@ -83,6 +83,8 @@ const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
+const MIRROR_CAST_PROMPT_QUERY_PARAM = 'castPrompt'
+const MIRROR_CAST_PROMPT_DURATION_MS = 10_000
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
@@ -1166,6 +1168,9 @@ function MirrorPageContent() {
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
     () => new URLSearchParams(window.location.search).get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) === '1',
   )
+  const [showCastPromptControls, setShowCastPromptControls] = useState(
+    () => new URLSearchParams(window.location.search).get(MIRROR_CAST_PROMPT_QUERY_PARAM) === '1',
+  )
   const [castActionBusy, setCastActionBusy] = useState(false)
   const [highContrastMode, setHighContrastMode] = useState(false)
   const [castClarityMode, setCastClarityMode] = useState(false)
@@ -1217,6 +1222,7 @@ function MirrorPageContent() {
   const autoLiveInFlightRef = useRef(false)
   const spotlightTimerRef = useRef<number | null>(null)
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
+  const castPromptTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
   const mirrorWarningLastShownAtRef = useRef<number>(0)
   const previousBrbActiveRef = useRef<boolean | null>(null)
@@ -1370,8 +1376,46 @@ function MirrorPageContent() {
         window.clearTimeout(mirrorWarningClearTimerRef.current)
         mirrorWarningClearTimerRef.current = null
       }
+
+      if (castPromptTimerRef.current !== null) {
+        window.clearTimeout(castPromptTimerRef.current)
+        castPromptTimerRef.current = null
+      }
     }
   }, [])
+
+  useEffect(() => {
+    if (layoutEditMode || !showCastPromptControls || typeof window === 'undefined') {
+      return
+    }
+
+    if (castPromptTimerRef.current !== null) {
+      window.clearTimeout(castPromptTimerRef.current)
+      castPromptTimerRef.current = null
+    }
+
+    castPromptTimerRef.current = window.setTimeout(() => {
+      setShowCastPromptControls(false)
+      castPromptTimerRef.current = null
+
+      const searchParams = new URLSearchParams(window.location.search)
+      if (searchParams.get(MIRROR_CAST_PROMPT_QUERY_PARAM) !== '1') {
+        return
+      }
+
+      searchParams.delete(MIRROR_CAST_PROMPT_QUERY_PARAM)
+      const nextSearch = searchParams.toString()
+      const nextPath = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`
+      window.history.replaceState({}, '', nextPath)
+    }, MIRROR_CAST_PROMPT_DURATION_MS)
+
+    return () => {
+      if (castPromptTimerRef.current !== null) {
+        window.clearTimeout(castPromptTimerRef.current)
+        castPromptTimerRef.current = null
+      }
+    }
+  }, [layoutEditMode, showCastPromptControls])
 
   const safeSongs = useMemo(() => songs.filter((song) => (
     song
@@ -1505,6 +1549,7 @@ function MirrorPageContent() {
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = false
   const shouldShowAdminElements = false
+  const shouldShowCastButton = !hideControlsForAudience || showCastPromptControls
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
   const liveBadgeLabel = demoMode ? '● Demo' : event?.roomOpen ? '● Live' : '● Paused'
 
@@ -3135,14 +3180,16 @@ function MirrorPageContent() {
             <span className={`mirror-status ${event?.roomOpen ? 'mirror-open live-pulse' : 'mirror-paused'}`.trim()}>
               {liveBadgeLabel}
             </span>
-            <button
-              type="button"
-              className="mirror-cast-button"
-              onClick={() => { void startMirrorCast() }}
-              disabled={castActionBusy}
-            >
-              {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
-            </button>
+            {shouldShowCastButton ? (
+              <button
+                type="button"
+                className="mirror-cast-button"
+                onClick={() => { void startMirrorCast() }}
+                disabled={castActionBusy}
+              >
+                {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
+              </button>
+            ) : null}
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
             ) : (

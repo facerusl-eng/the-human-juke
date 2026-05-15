@@ -16,7 +16,9 @@ import {
 } from '../lib/audienceIdentity'
 import {
   BETWEEN_SONG_QUOTES,
+  PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
+  PLAYBACK_STATE_STORAGE_KEY,
   readSharedPlaybackState,
   type SharedPlaybackState,
 } from '../lib/playbackState'
@@ -260,7 +262,7 @@ const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 const UPCOMING_EVENTS_DEGRADED_POLL_INTERVAL_MS = 60000
 const LIVE_GIG_POLL_INTERVAL_MS = 12000
-const PLAYBACK_SYNC_POLL_INTERVAL_MS = 30000
+const PLAYBACK_SYNC_POLL_INTERVAL_MS = 10000
 const LIVE_GIG_API_POLLING_ENABLED = import.meta.env.VITE_ENABLE_LIVE_GIG_API?.trim() === '1'
 const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
@@ -1008,9 +1010,12 @@ function EventPage() {
       return positionA - positionB
     })
   }, [songs, isNowPlayingStarted, activeSong?.id])
-  const isBetweenSongs = playbackState && !playbackState.isStarted
+  const isBetweenSongs = playbackState?.isStarted === false
+  const normalizedBetweenSongQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
+    ? Math.abs(Math.trunc(playbackState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
+    : 0
   const betweenSongQuote = isBetweenSongs
-    ? BETWEEN_SONG_QUOTES[(playbackState?.quoteIndex ?? 0) % BETWEEN_SONG_QUOTES.length]
+    ? BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
     : null
   const connectionBadgeLabel = visibleConnectionStatus === 'connected'
     ? 'Connected'
@@ -2107,6 +2112,7 @@ function EventPage() {
 
     let isCurrent = true
     let subscription: ReturnType<typeof supabase.channel> | null = null
+    let playbackBroadcastChannel: BroadcastChannel | null = null
     let syncTimerId: number | null = null
 
     const syncPlaybackState = async () => {
@@ -2150,6 +2156,28 @@ function EventPage() {
       }
     }
 
+    const onStoragePlaybackState = (nextEvent: StorageEvent) => {
+      if (nextEvent.key !== PLAYBACK_STATE_STORAGE_KEY || !nextEvent.newValue) {
+        return
+      }
+
+      try {
+        const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
+
+        if (detail.eventId !== eventId || !detail.state) {
+          return
+        }
+
+        setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state ?? null) ? currentState : detail.state ?? null))
+      } catch {
+        // Ignore malformed cross-tab sync payloads.
+      }
+    }
+
+    const onAudiencePlaybackWake = () => {
+      void syncPlaybackState()
+    }
+
     void syncPlaybackState()
     syncTimerId = window.setInterval(() => {
       if (document.hidden) {
@@ -2159,6 +2187,23 @@ function EventPage() {
       void syncPlaybackState()
     }, PLAYBACK_SYNC_POLL_INTERVAL_MS)
     window.addEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
+    window.addEventListener('storage', onStoragePlaybackState)
+    window.addEventListener('focus', onAudiencePlaybackWake)
+    window.addEventListener('online', onAudiencePlaybackWake)
+    window.addEventListener('pageshow', onAudiencePlaybackWake)
+
+    if ('BroadcastChannel' in window) {
+      playbackBroadcastChannel = new BroadcastChannel(PLAYBACK_STATE_BROADCAST_CHANNEL)
+      playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
+        const detail = messageEvent.data
+
+        if (detail?.eventId !== eventId || !detail.state) {
+          return
+        }
+
+        setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state ?? null) ? currentState : detail.state ?? null))
+      }
+    }
 
     return () => {
       isCurrent = false
@@ -2169,6 +2214,11 @@ function EventPage() {
         window.clearInterval(syncTimerId)
       }
       window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
+      window.removeEventListener('storage', onStoragePlaybackState)
+      window.removeEventListener('focus', onAudiencePlaybackWake)
+      window.removeEventListener('online', onAudiencePlaybackWake)
+      window.removeEventListener('pageshow', onAudiencePlaybackWake)
+      playbackBroadcastChannel?.close()
     }
   }, [event?.id])
 

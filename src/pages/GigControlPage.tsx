@@ -1672,16 +1672,20 @@ function GigControlPage() {
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
   }, [])
 
-  const openMirrorFromGigControl = useCallback(() => {
-    const { openedInPopupWindow } = openMirrorScreen()
+  const openMirrorFromGigControl = useCallback((castAssist = false) => {
+    const { openedInPopupWindow } = openMirrorScreen({ castAssist })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
     }
 
     const statusMessage = openedInPopupWindow
-      ? 'Mirror window opened. Keep Gig Control on this screen and move Mirror to TV/projector.'
-      : 'Mirror popup was blocked, so Mirror opened in this tab.'
+      ? castAssist
+        ? 'Mirror opened in cast-assist mode. Cast controls stay visible for 10 seconds.'
+        : 'Mirror window opened. Keep Gig Control on this screen and move Mirror to TV/projector.'
+      : castAssist
+        ? 'Mirror popup was blocked, so cast-assist opened in this tab.'
+        : 'Mirror popup was blocked, so Mirror opened in this tab.'
 
     setMirrorLaunchStatusText(statusMessage)
     mirrorLaunchStatusTimerRef.current = window.setTimeout(() => {
@@ -1765,6 +1769,13 @@ function GigControlPage() {
       label: 'Open Mirror Screen',
       title: 'Open the audience-facing mirror display in a new window — show this on a TV or projector',
       onClick: openMirrorFromGigControl,
+      variant: 'ghost',
+    },
+    {
+      id: 'open-mirror-cast-assist',
+      label: 'Open Mirror + Cast',
+      title: 'Open mirror in cast-assist mode and keep cast controls visible for 10 seconds',
+      onClick: () => openMirrorFromGigControl(true),
       variant: 'ghost',
     },
     {
@@ -1883,8 +1894,8 @@ function GigControlPage() {
           >
             {isBrbActive ? 'Resume From Break' : 'Go on Break'}
           </button>
-          <button type="button" className="ghost-button" onClick={openMirrorFromGigControl}>
-            Mirror Screen
+          <button type="button" className="ghost-button" onClick={() => openMirrorFromGigControl(true)}>
+            Mirror + Cast
           </button>
           <button type="button" className="ghost-button" onClick={() => navigate('/admin/gig-settings')}>
             Gig Settings
