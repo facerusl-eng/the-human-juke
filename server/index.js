@@ -131,6 +131,71 @@ function buildUpdatesEmailHtml(bookingUrl, lang = 'en') {
   `
 }
 
+function parseResendAllowedTestRecipient(errorMessage) {
+  const match = String(errorMessage || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
+  return match ? match[0].trim().toLowerCase() : ''
+}
+
+function isResendTestingRestriction(errorBody) {
+  const text = `${String(errorBody?.name || '')} ${String(errorBody?.message || '')}`.toLowerCase()
+  return text.includes('only send testing emails to your own email address')
+}
+
+function resolveUpdatesFallbackRecipient(errorBody) {
+  const configuredFallback = process.env.UPDATES_FALLBACK_TO_EMAIL?.trim().toLowerCase() || ''
+  if (isValidEmail(configuredFallback)) {
+    return configuredFallback
+  }
+
+  const parsedAllowedRecipient = parseResendAllowedTestRecipient(errorBody?.message)
+  if (isValidEmail(parsedAllowedRecipient)) {
+    return parsedAllowedRecipient
+  }
+
+  const bookingFallback = process.env.BOOKING_TO_EMAIL?.trim().toLowerCase() || ''
+  if (isValidEmail(bookingFallback)) {
+    return bookingFallback
+  }
+
+  return ''
+}
+
+function buildUpdatesFallbackLeadHtml(requestedEmail, lang, bookingUrl) {
+  const safeRequestedEmail = String(requestedEmail || '').trim().toLowerCase()
+  const safeLang = lang === 'da' ? 'da' : 'en'
+  const nowIso = new Date().toISOString()
+
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a44;">
+      <h2 style="margin-bottom: 8px;">Update Request Captured (Fallback)</h2>
+      <p style="margin-top: 0;">Resend test-mode blocked direct send to requester. Lead details:</p>
+      <ul style="padding-left: 18px; margin-top: 0;">
+        <li><strong>Requested email:</strong> ${safeRequestedEmail}</li>
+        <li><strong>Language:</strong> ${safeLang}</li>
+        <li><strong>Captured at:</strong> ${nowIso}</li>
+      </ul>
+      <p>
+        Booking link currently configured:
+        <a href="${bookingUrl}" style="color: #0b63ce; font-weight: 700;">${bookingUrl}</a>
+      </p>
+    </div>
+  `
+}
+
+async function sendResendEmail(resendApiKey, payload) {
+  const response = await fetch(resendApiUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  const responseBody = await response.json().catch(() => null)
+  return { response, responseBody }
+}
+
 function getAuthorizeUrl() {
   const redirectUri = getSpotifyRedirectUri()
   const params = new URLSearchParams({
@@ -390,23 +455,41 @@ app.post('/api/get-updates', async (req, res) => {
       ? 'Din Human Jukebox-koncept og bookinginfo'
       : 'Your Human Jukebox concept and booking info'
 
-    const response = await fetch(resendApiUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [toEmail],
-        subject: emailSubject,
-        html: buildUpdatesEmailHtml(bookingUrl, emailLang),
-      }),
+    const { response, responseBody: errorBody } = await sendResendEmail(resendApiKey, {
+      from: fromEmail,
+      to: [toEmail],
+      subject: emailSubject,
+      html: buildUpdatesEmailHtml(bookingUrl, emailLang),
     })
 
     if (!response.ok) {
-      const errorBody = await response.json().catch(() => null)
       const errorText = errorBody?.message || errorBody?.name || JSON.stringify(errorBody) || ''
+
+      if (isResendTestingRestriction(errorBody)) {
+        const fallbackRecipient = resolveUpdatesFallbackRecipient(errorBody)
+        if (isValidEmail(fallbackRecipient)) {
+          const fallbackSubject = `Fallback update lead: ${toEmail}`
+          const fallbackHtml = buildUpdatesFallbackLeadHtml(toEmail, emailLang, bookingUrl)
+          const { response: fallbackResponse, responseBody: fallbackErrorBody } = await sendResendEmail(resendApiKey, {
+            from: fromEmail,
+            to: [fallbackRecipient],
+            subject: fallbackSubject,
+            html: fallbackHtml,
+          })
+
+          if (fallbackResponse.ok) {
+            res.status(200).json({
+              success: true,
+              message: 'Update request received. We will contact you shortly.',
+              fallback_routed: true,
+            })
+            return
+          }
+
+          console.error('Resend fallback error (local dev)', fallbackResponse.status, fallbackErrorBody)
+        }
+      }
+
       res.status(502).json({
         success: false,
         message: `Email could not be sent: ${errorText || response.status}`,

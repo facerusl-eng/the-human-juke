@@ -21,6 +21,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=...
 VITE_ALLOWED_HOST_EMAIL=...
 RESEND_API_KEY=... (required for /api/get-updates)
 UPDATES_EMAIL_FROM=... (required for /api/get-updates sender)
+UPDATES_FALLBACK_TO_EMAIL=... (optional fallback lead inbox for Resend test mode)
 BOOKING_WEBHOOK_URL=... (optional override for /api/book-show)
 GITHUB_TOKEN=... (required only if using /api/report-issue)
 ```
@@ -70,6 +71,7 @@ Configure these when their matching features are enabled:
 BOOKING_WEBHOOK_URL   # Override booking webhook target for /api/book-show
 GITHUB_TOKEN          # Required for /api/report-issue
 VITE_BOOKING_URL      # Link used in update emails
+UPDATES_FALLBACK_TO_EMAIL  # Optional fallback inbox for /api/get-updates in Resend test mode
 ```
 
 Do not add `VITE_DEV_PUBLIC_ORIGIN` in production.

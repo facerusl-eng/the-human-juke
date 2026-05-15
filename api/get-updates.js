@@ -6,6 +6,8 @@ const ALLOWED_ORIGINS = [
   'https://the-human-juke.vercel.app',
 ]
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 function corsHeaders(origin) {
   const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
   return {
@@ -29,6 +31,71 @@ function parseJsonBody(reqBody) {
   }
 
   return reqBody
+}
+
+function parseResendAllowedTestRecipient(errorMessage) {
+  const match = String(errorMessage || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
+  return match ? match[0].trim().toLowerCase() : ''
+}
+
+function isResendTestingRestriction(errorBody) {
+  const text = `${String(errorBody?.name || '')} ${String(errorBody?.message || '')}`.toLowerCase()
+  return text.includes('only send testing emails to your own email address')
+}
+
+function resolveFallbackRecipient(errorBody) {
+  const configuredFallback = process.env.UPDATES_FALLBACK_TO_EMAIL?.trim().toLowerCase() || ''
+  if (EMAIL_PATTERN.test(configuredFallback)) {
+    return configuredFallback
+  }
+
+  const parsedAllowedRecipient = parseResendAllowedTestRecipient(errorBody?.message)
+  if (EMAIL_PATTERN.test(parsedAllowedRecipient)) {
+    return parsedAllowedRecipient
+  }
+
+  const bookingFallback = process.env.BOOKING_TO_EMAIL?.trim().toLowerCase() || ''
+  if (EMAIL_PATTERN.test(bookingFallback)) {
+    return bookingFallback
+  }
+
+  return ''
+}
+
+async function sendResendEmail(resendApiKey, payload) {
+  const response = await fetch(RESEND_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  const responseBody = await response.json().catch(() => null)
+  return { response, responseBody }
+}
+
+function buildFallbackLeadHtml(requestedEmail, lang, bookingUrl) {
+  const safeRequestedEmail = String(requestedEmail || '').trim().toLowerCase()
+  const safeLang = lang === 'da' ? 'da' : 'en'
+  const nowIso = new Date().toISOString()
+
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a44;">
+      <h2 style="margin-bottom: 8px;">Update Request Captured (Fallback)</h2>
+      <p style="margin-top: 0;">Resend test-mode blocked direct send to requester. Lead details:</p>
+      <ul style="padding-left: 18px; margin-top: 0;">
+        <li><strong>Requested email:</strong> ${safeRequestedEmail}</li>
+        <li><strong>Language:</strong> ${safeLang}</li>
+        <li><strong>Captured at:</strong> ${nowIso}</li>
+      </ul>
+      <p>
+        Booking link currently configured:
+        <a href="${bookingUrl}" style="color: #0b63ce; font-weight: 700;">${bookingUrl}</a>
+      </p>
+    </div>
+  `
 }
 
 function buildEmailHtml(bookingUrl, lang = 'en') {
@@ -112,8 +179,7 @@ export default async function handler(req, res) {
 
   const toEmail = String(body.email || '').trim().toLowerCase()
   const emailLang = body.lang === 'da' ? 'da' : 'en'
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailPattern.test(toEmail)) {
+  if (!EMAIL_PATTERN.test(toEmail)) {
     return res.status(400).json({ success: false, message: 'A valid email is required.' })
   }
 
@@ -130,23 +196,40 @@ export default async function handler(req, res) {
       ? 'Din Human Jukebox-koncept og bookinginfo' 
       : 'Your Human Jukebox concept and booking info'
 
-    const response = await fetch(RESEND_API_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [toEmail],
-        subject: emailSubject,
-        html: buildEmailHtml(bookingUrl, emailLang),
-      }),
+    const { response, responseBody: errorBody } = await sendResendEmail(resendApiKey, {
+      from: fromEmail,
+      to: [toEmail],
+      subject: emailSubject,
+      html: buildEmailHtml(bookingUrl, emailLang),
     })
 
     if (!response.ok) {
-      const errorBody = await response.json().catch(() => null)
       const errorText = errorBody?.message || errorBody?.name || JSON.stringify(errorBody) || ''
+
+      if (isResendTestingRestriction(errorBody)) {
+        const fallbackRecipient = resolveFallbackRecipient(errorBody)
+        if (EMAIL_PATTERN.test(fallbackRecipient)) {
+          const fallbackSubject = `Fallback update lead: ${toEmail}`
+          const fallbackHtml = buildFallbackLeadHtml(toEmail, emailLang, bookingUrl)
+          const { response: fallbackResponse, responseBody: fallbackErrorBody } = await sendResendEmail(resendApiKey, {
+            from: fromEmail,
+            to: [fallbackRecipient],
+            subject: fallbackSubject,
+            html: fallbackHtml,
+          })
+
+          if (fallbackResponse.ok) {
+            return res.status(200).json({
+              success: true,
+              message: 'Update request received. We will contact you shortly.',
+              fallback_routed: true,
+            })
+          }
+
+          console.error('Resend fallback error', fallbackResponse.status, fallbackErrorBody)
+        }
+      }
+
       console.error('Resend error', response.status, errorBody)
       return res.status(502).json({
         success: false,
