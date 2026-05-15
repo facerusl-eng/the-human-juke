@@ -1369,8 +1369,11 @@ function MirrorPageContent() {
   }, [eventId])
   const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
-  const countdownQrDestination = customCountdownQrLink || audienceUrl
-  const countdownQrText = countdownQrDestination
+  // Route old QR link field through landing page so "Go to Lounge" button appears automatically
+  const countdownQrDestination = customCountdownQrLink
+    ? `/qr-landing?url=${encodeURIComponent(customCountdownQrLink)}`
+    : audienceUrl
+  const countdownQrText = customCountdownQrLink || audienceUrl
   
   // Custom QR code logic for countdown and break screens
   const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && (event?.mirrorCountdownQrCustomUrl?.trim() ?? '').length > 0 && eventId !== null
