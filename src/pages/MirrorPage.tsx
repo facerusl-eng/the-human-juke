@@ -1366,10 +1366,9 @@ function MirrorPageContent() {
     }
   }, [eventId])
   const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
-  const customCountdownQrText = event?.mirrorCountdownQrText?.trim() || ''
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
   const countdownQrDestination = customCountdownQrLink || audienceUrl
-  const countdownQrText = customCountdownQrText || countdownQrDestination
+  const countdownQrText = countdownQrDestination
   const qrFlashLines = useMemo(() => {
     if (customQrFlashVenueName) {
       return [...QR_FLASH_BASE_LINES, `Tonight at ${customQrFlashVenueName}`]

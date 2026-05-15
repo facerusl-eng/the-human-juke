@@ -1806,23 +1806,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 updateState({ mirrorCountdownQrLink: e.target.value })
               }}
             />
-            <p className="field-hint">If empty, the default audience link is used. This applies to pre-show countdown and On Break QR.</p>
-          </div>
-
-          <div className="field-row">
-            <label htmlFor="gig-mirror-countdown-qr-text-input">Countdown/Break QR text (optional)</label>
-            <input
-              id="gig-mirror-countdown-qr-text-input"
-              type="text"
-              maxLength={180}
-              placeholder="Scan to join the room"
-              value={state.mirrorCountdownQrText}
-              onChange={(e) => {
-                pushUndoState()
-                updateState({ mirrorCountdownQrText: e.target.value })
-              }}
-            />
-            <p className="field-hint">Custom text shown below the QR when Countdown QR Link Text is turned on.</p>
+            <p className="field-hint">If empty, the default audience link is used. This applies to pre-show countdown and On Break QR. The rotating QR flash text below is automatic.</p>
           </div>
 
           <div className="field-row">
