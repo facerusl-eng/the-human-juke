@@ -1319,14 +1319,6 @@ function MirrorPageContent() {
   )), [songs])
   const nowPlaying = safeSongs[0]
   const isLive = event?.roomOpen ?? false
-  const isKaraokeEvent = event?.eventType === 'karaoke'
-  const isBuildSelfEvent = event?.eventType === 'build-self'
-  const isHaraldLiveEvent = event?.eventType === 'halli-live'
-  const audienceVotingEnabled = event?.audienceVotingEnabled ?? true
-  const mirrorKarafunUrl = event?.karafunUrl?.trim() || null
-  const mirrorKarafunLink = mirrorKarafunUrl
-    ? (mirrorKarafunUrl.startsWith('http') ? mirrorKarafunUrl : `https://${mirrorKarafunUrl}`)
-    : null
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
   const eventId = event?.id ?? null
@@ -1352,7 +1344,6 @@ function MirrorPageContent() {
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
   const activeSong = playbackSong ?? nowPlaying
-  const useLiveSongCardsInDemo = demoMode
   // In demo mode, treat the first song as already playing so the now-playing
   // card shows album art + title instead of the "between songs" quote.
   const liveSessionIsNowPlaying = Boolean(isLive && nowPlaying)
@@ -3287,37 +3278,6 @@ function MirrorPageContent() {
                     <div className="mirror-now-playing-meta">
                       <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
                       {!activeSong ? <p className="mirror-song-waiting-note">Waiting for next song...</p> : null}
-                    </div>
-                  </div>
-                ) : !useLiveSongCardsInDemo && isKaraokeEvent ? (
-                  <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Karaoke Night">
-                    <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">🎤 Karaoke Night</h1>
-                      <p className="mirror-artist">{event?.name ?? 'Live Karaoke'}</p>
-                      {event?.subtitle ? <p className="mirror-picked-by">{event.subtitle}</p> : null}
-                      {mirrorKarafunLink ? (
-                        <p className="mirror-picked-by">
-                          Playlist: <a href={mirrorKarafunLink} target="_blank" rel="noopener noreferrer">{mirrorKarafunLink}</a>
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : !useLiveSongCardsInDemo && isBuildSelfEvent && !audienceVotingEnabled ? (
-                  <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Build Self Gig">
-                    <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">{event?.artistName ?? event?.name ?? 'Live Show'}</h1>
-                      {event?.artistName ? <p className="mirror-artist">{event.name}</p> : null}
-                      {event?.subtitle ? <p className="mirror-picked-by">{event.subtitle}</p> : null}
-                      <p className="mirror-picked-by">🎵 Setlist Show</p>
-                    </div>
-                  </div>
-                ) : !useLiveSongCardsInDemo && isHaraldLiveEvent ? (
-                  <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Harald Live Show">
-                    <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">{event?.artistName ?? event?.name ?? 'Live Show'}</h1>
-                      {event?.artistName ? <p className="mirror-artist">{event.name}</p> : null}
-                      {event?.subtitle ? <p className="mirror-picked-by">{event.subtitle}</p> : null}
-                      <p className="mirror-picked-by">🎸 Harald Live</p>
                     </div>
                   </div>
                 ) : (
