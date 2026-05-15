@@ -24,7 +24,7 @@ import {
 } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
-import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
+import { readFromLocalStorage, readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
 import '../audience-karafun.css'
 import { demoMode } from '../demo/demoMode'
 
@@ -1015,7 +1015,7 @@ function EventPage() {
     ? Math.abs(Math.trunc(playbackState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
     : 0
   const betweenSongQuote = isBetweenSongs
-    ? BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
+    ? (BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex] ?? BETWEEN_SONG_QUOTES[0])
     : null
   const connectionBadgeLabel = visibleConnectionStatus === 'connected'
     ? 'Connected'
@@ -2128,6 +2128,19 @@ function EventPage() {
       }
     }
 
+    const cachedPlaybackMessage = readFromLocalStorage<{ eventId?: string; state?: SharedPlaybackState } | null>(
+      PLAYBACK_STATE_STORAGE_KEY,
+      null,
+    )
+
+    if (cachedPlaybackMessage?.eventId === eventId && cachedPlaybackMessage.state) {
+      setPlaybackState((currentState) => (
+        isSamePlaybackState(currentState, cachedPlaybackMessage.state ?? null)
+          ? currentState
+          : (cachedPlaybackMessage.state ?? null)
+      ))
+    }
+
     subscription = supabase
       .channel(`playback_state:${eventId}`)
       .on(
@@ -2138,7 +2151,36 @@ function EventPage() {
           table: 'playback_state',
           filter: `event_id=eq.${eventId}`,
         },
-        () => {
+        (payload: {
+          eventType?: 'INSERT' | 'UPDATE' | 'DELETE'
+          new?: {
+            current_song_id?: string | null
+            current_song_cover_url?: string | null
+            is_started?: boolean | null
+            quote_index?: number | null
+          } | null
+        }) => {
+          const nextRow = payload?.new
+
+          if (payload?.eventType === 'DELETE') {
+            void syncPlaybackState()
+            return
+          }
+
+          if (nextRow) {
+            const nextState: SharedPlaybackState = {
+              currentSongId: nextRow.current_song_id ?? null,
+              currentSongCoverUrl: nextRow.current_song_cover_url ?? null,
+              isStarted: Boolean(nextRow.is_started),
+              quoteIndex: Number.isFinite(nextRow.quote_index)
+                ? (nextRow.quote_index as number)
+                : 0,
+            }
+
+            setPlaybackState((currentState) => (isSamePlaybackState(currentState, nextState) ? currentState : nextState))
+            return
+          }
+
           void syncPlaybackState()
         },
       )
