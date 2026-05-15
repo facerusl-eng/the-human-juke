@@ -1372,7 +1372,7 @@ function MirrorPageContent() {
   const countdownQrText = countdownQrDestination
   const qrFlashLines = useMemo(() => {
     if (customQrFlashVenueName) {
-      return [...QR_FLASH_BASE_LINES, `Tonight ${customQrFlashVenueName}`]
+      return [...QR_FLASH_BASE_LINES, customQrFlashVenueName]
     }
 
     return QR_FLASH_BASE_LINES
