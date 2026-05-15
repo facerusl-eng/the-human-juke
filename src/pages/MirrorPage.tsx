@@ -1373,14 +1373,14 @@ function MirrorPageContent() {
   const countdownQrText = countdownQrDestination
   
   // Custom QR code logic for countdown and break screens
-  const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && (event?.mirrorCountdownQrCustomUrl?.trim() ?? '').length > 0
-  const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && (event?.mirrorBreakQrCustomUrl?.trim() ?? '').length > 0
+  const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && (event?.mirrorCountdownQrCustomUrl?.trim() ?? '').length > 0 && eventId !== null
+  const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && (event?.mirrorBreakQrCustomUrl?.trim() ?? '').length > 0 && eventId !== null
   
-  const countdownQrCodeUrl = useCustomCountdownQr
+  const countdownQrCodeUrl = useCustomCountdownQr && eventId
     ? `/qr-landing?event=${encodeURIComponent(eventId)}&url=${encodeURIComponent(event!.mirrorCountdownQrCustomUrl!)}`
     : countdownQrDestination
     
-  const breakQrCodeUrl = useCustomBreakQr
+  const breakQrCodeUrl = useCustomBreakQr && eventId
     ? `/qr-landing?event=${encodeURIComponent(eventId)}&url=${encodeURIComponent(event!.mirrorBreakQrCustomUrl!)}`
     : countdownQrDestination
   
