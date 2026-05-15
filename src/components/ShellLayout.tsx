@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
+import { useQueueStore } from '../state/queueStore'
 import { demoMode } from '../demo/demoMode'
 import { DemoBanner } from '../demo/DemoBanner'
 import SideNavigation from './SideNavigation'
@@ -66,10 +67,12 @@ function isValidHexColor(value: string | null | undefined) {
 }
 
 function ShellLayout() {
-  const { profile, user, loading } = useAuthStore()
+  const { profile, user, loading, authError } = useAuthStore()
+  const { queueOperatingMode, queueHealthMessage } = useQueueStore()
   const location = useLocation()
   const navigate = useNavigate()
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
+  const [dismissedDegradedBanner, setDismissedDegradedBanner] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') {
       return false
@@ -156,6 +159,31 @@ function ShellLayout() {
   const currentPath = location.pathname
   const showAdminNavigation = currentPath.startsWith('/admin')
 
+  const authErrorText = authError?.toLowerCase() ?? ''
+  const queueHealthText = queueHealthMessage?.toLowerCase() ?? ''
+  const hasAuthServiceIssue = authErrorText.includes('temporarily unavailable')
+    || authErrorText.includes('timeout')
+    || authErrorText.includes('failed to fetch')
+    || authErrorText.includes('500')
+    || authErrorText.includes('503')
+    || authErrorText.includes('504')
+  const hasQueueServiceIssue = queueHealthText.includes('disconnected')
+    || queueHealthText.includes('timeout')
+    || queueHealthText.includes('degraded')
+    || queueHealthText.includes('reconnect')
+
+  const degradedServiceMessage = hasAuthServiceIssue
+    ? (authError ?? 'Auth service is temporarily unavailable. Admin features may be limited.')
+    : hasQueueServiceIssue
+      ? (queueHealthMessage ?? 'Live queue service is degraded. Retrying in the background.')
+      : queueOperatingMode === 'degraded'
+        ? 'Live queue service is degraded. Retrying in the background.'
+        : null
+
+  useEffect(() => {
+    setDismissedDegradedBanner(false)
+  }, [degradedServiceMessage])
+
   return (
     <main className="min-h-screen">
       {demoMode ? <DemoBanner /> : null}
@@ -179,6 +207,31 @@ function ShellLayout() {
         ) : null}
 
         <section className="app-main-content min-w-0 w-full flex-1 overflow-x-hidden">
+          {showAdminNavigation && degradedServiceMessage && !dismissedDegradedBanner ? (
+            <section className="queue-panel" role="status" aria-live="polite" aria-label="Service degradation notice">
+              <p className="eyebrow">Service Degraded</p>
+              <p className="subcopy no-margin">{degradedServiceMessage}</p>
+              <div className="hero-actions no-margin-bottom">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    window.location.reload()
+                  }}
+                >
+                  Retry Now
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => setDismissedDegradedBanner(true)}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </section>
+          ) : null}
+
           {runtimeNotice ? (
           <section className="queue-panel" role="status" aria-live="polite">
             <div className="hero-actions no-margin-bottom">
