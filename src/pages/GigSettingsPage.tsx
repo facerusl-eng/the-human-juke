@@ -1906,6 +1906,34 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 <span>Show a live countdown on the mirror before the gig goes live</span>
               </div>
             </label>
+            {state.mirrorCountdownEnabled ? (
+              <div className="create-gig-time-row gig-countdown-datetime-row">
+                <div className="field-row">
+                  <label htmlFor="gig-date-mirror">Gig date</label>
+                  <input
+                    id="gig-date-mirror"
+                    type="date"
+                    value={state.gigDate}
+                    onChange={(e) => {
+                      pushUndoState()
+                      updateState({ gigDate: e.target.value })
+                    }}
+                  />
+                </div>
+                <div className="field-row">
+                  <label htmlFor="gig-start-time-mirror">Start time</label>
+                  <input
+                    id="gig-start-time-mirror"
+                    type="time"
+                    value={state.gigStartTime}
+                    onChange={(e) => {
+                      pushUndoState()
+                      updateState({ gigStartTime: e.target.value })
+                    }}
+                  />
+                </div>
+              </div>
+            ) : null}
             <label className="toggle-card" htmlFor="gig-mirror-countdown-qr-link">
               <input
                 id="gig-mirror-countdown-qr-link"

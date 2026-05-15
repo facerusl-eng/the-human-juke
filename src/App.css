@@ -6173,10 +6173,22 @@
   margin-top: 0.15rem;
 }
 
+.gig-countdown-datetime-row {
+  padding-left: 0.5rem;
+}
+
 .gig-venue-logo-crop-shell {
   --gig-venue-logo-scale: 1;
   --gig-venue-logo-offset-x: 0%;
   --gig-venue-logo-offset-y: 0%;
+  /* Override .photo-preview constraints so crop controls are always visible */
+  max-height: none !important;
+  overflow: visible !important;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
 }
 
 .gig-venue-logo-preview-image {
