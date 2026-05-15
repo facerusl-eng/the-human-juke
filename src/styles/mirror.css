@@ -1252,7 +1252,9 @@
 .mirror-pre-show-qr-col {
   display: grid;
   justify-items: center;
+  align-content: start;
   gap: 0.75rem;
+  min-height: clamp(360px, 42vh, 560px);
   padding: clamp(1rem, 1.6vw, 1.6rem);
   border-radius: 16px;
   border: 1px solid rgba(93, 215, 255, 0.15);
@@ -1268,8 +1270,8 @@
 /* ── QR image ─────────────────────────────────────────────────────────────── */
 
 .mirror-qr-image {
-  width: clamp(122px, min(20vw, 18dvh), 300px);
-  height: clamp(122px, min(20vw, 18dvh), 300px);
+  width: clamp(150px, min(24vw, 22dvh), 360px);
+  height: clamp(150px, min(24vw, 22dvh), 360px);
   border-radius: 14px;
   background: #ffffff;
   padding: clamp(0.34rem, 0.72vw, 0.56rem);
@@ -1392,6 +1394,7 @@
 }
 
 .mirror-pre-show-has-countdown .mirror-pre-show-middle {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   gap: clamp(0.72rem, 1.2vw, 1.2rem);
 }
 
@@ -1400,9 +1403,13 @@
   padding: clamp(0.7rem, 1vw, 0.95rem);
 }
 
+.mirror-pre-show-has-countdown .mirror-pre-show-qr-col {
+  min-height: clamp(310px, 36vh, 460px);
+}
+
 .mirror-pre-show-has-countdown .mirror-qr-image {
-  width: clamp(120px, min(19vw, 16.2dvh), 260px);
-  height: clamp(120px, min(19vw, 16.2dvh), 260px);
+  width: clamp(138px, min(22vw, 19dvh), 320px);
+  height: clamp(138px, min(22vw, 19dvh), 320px);
 }
 
 .mirror-pre-show-has-countdown .mirror-qr-label,
@@ -1431,8 +1438,8 @@
   }
 
   .mirror-pre-show-has-countdown .mirror-qr-image {
-    width: clamp(104px, min(15.2vw, 12.6dvh), 192px);
-    height: clamp(104px, min(15.2vw, 12.6dvh), 192px);
+    width: clamp(116px, min(17.2vw, 14.2dvh), 224px);
+    height: clamp(116px, min(17.2vw, 14.2dvh), 224px);
   }
 
   .mirror-pre-show-has-countdown .mirror-how-it-works p {
