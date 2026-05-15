@@ -109,6 +109,8 @@ type GigSettingsFormProps = {
 const MAX_UNDO_STATES = 20
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_VENUE_LOGO_IMAGE_BYTES = 10 * 1024 * 1024
+const MAX_GIG_VENUE_LOGO_DATA_URL_CHARS = 1_500_000
+const MAX_GIG_VENUE_LOGO_DIMENSION_PX = 1600
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
 const FALLBACK_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.avif', '.heic', '.heif']
 
@@ -131,6 +133,126 @@ function readFileAsDataUrl(file: File) {
 
     reader.readAsDataURL(file)
   })
+}
+
+function readBlobAsDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error('Could not process that image. Try another file.'))
+    }
+
+    reader.onerror = () => {
+      reject(new Error('Could not read that image file.'))
+    }
+
+    reader.readAsDataURL(blob)
+  })
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality)
+  })
+}
+
+function loadImageFromFile(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const image = new Image()
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(image)
+    }
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('Could not decode that image. Please try a different file.'))
+    }
+
+    image.src = objectUrl
+  })
+}
+
+async function optimizeVenueLogoDataUrl(selectedFile: File) {
+  const lowerFileName = selectedFile.name.toLowerCase()
+  const isSvgFile = selectedFile.type === 'image/svg+xml' || lowerFileName.endsWith('.svg')
+
+  if (isSvgFile) {
+    return readFileAsDataUrl(selectedFile)
+  }
+
+  const sourceImage = await loadImageFromFile(selectedFile)
+  const sourceWidth = Math.max(1, sourceImage.naturalWidth || sourceImage.width || 1)
+  const sourceHeight = Math.max(1, sourceImage.naturalHeight || sourceImage.height || 1)
+  const largestSourceDimension = Math.max(sourceWidth, sourceHeight)
+  const scale = largestSourceDimension > MAX_GIG_VENUE_LOGO_DIMENSION_PX
+    ? MAX_GIG_VENUE_LOGO_DIMENSION_PX / largestSourceDimension
+    : 1
+
+  const targetWidth = Math.max(1, Math.round(sourceWidth * scale))
+  const targetHeight = Math.max(1, Math.round(sourceHeight * scale))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = targetWidth
+  canvas.height = targetHeight
+
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    return readFileAsDataUrl(selectedFile)
+  }
+
+  context.clearRect(0, 0, targetWidth, targetHeight)
+  context.drawImage(sourceImage, 0, 0, targetWidth, targetHeight)
+
+  const qualityCandidates = [0.88, 0.8, 0.72, 0.64]
+  let smallestDataUrl: string | null = null
+
+  for (const quality of qualityCandidates) {
+    const webpBlob = await canvasToBlob(canvas, 'image/webp', quality)
+
+    if (!webpBlob) {
+      continue
+    }
+
+    const webpDataUrl = await readBlobAsDataUrl(webpBlob)
+
+    if (!smallestDataUrl || webpDataUrl.length < smallestDataUrl.length) {
+      smallestDataUrl = webpDataUrl
+    }
+
+    if (webpDataUrl.length <= MAX_GIG_VENUE_LOGO_DATA_URL_CHARS) {
+      return webpDataUrl
+    }
+  }
+
+  const pngBlob = await canvasToBlob(canvas, 'image/png')
+
+  if (pngBlob) {
+    const pngDataUrl = await readBlobAsDataUrl(pngBlob)
+
+    if (!smallestDataUrl || pngDataUrl.length < smallestDataUrl.length) {
+      smallestDataUrl = pngDataUrl
+    }
+
+    if (pngDataUrl.length <= MAX_GIG_VENUE_LOGO_DATA_URL_CHARS) {
+      return pngDataUrl
+    }
+  }
+
+  if (smallestDataUrl) {
+    return smallestDataUrl
+  }
+
+  return readFileAsDataUrl(selectedFile)
 }
 
 function normalizePlaylistIds(playlistIds: string[]) {
@@ -768,7 +890,11 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     }
 
     try {
-      const dataUrl = await readFileAsDataUrl(selectedFile)
+      const dataUrl = await optimizeVenueLogoDataUrl(selectedFile)
+
+      if (dataUrl.length > MAX_GIG_VENUE_LOGO_DATA_URL_CHARS) {
+        throw new Error('Venue logo is too large to save. Please use a smaller image or SVG.')
+      }
 
       if (!isMountedRef.current) {
         return
