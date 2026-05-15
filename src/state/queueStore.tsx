@@ -266,12 +266,25 @@ function markMissingColumnInCache(column: keyof MissingColumnsCache) {
   })
 }
 
+function clearMissingColumnInCache(column: keyof MissingColumnsCache) {
+  const current = readMissingColumnsCache()
+
+  if (!current[column]) {
+    return
+  }
+
+  const next: MissingColumnsCache = { ...current }
+  delete next[column]
+  saveToLocalStorage(MISSING_COLUMNS_CACHE_KEY, next)
+}
+
 const missingColumnsCache = readMissingColumnsCache()
 let hasVenueLogoLayoutColumns = missingColumnsCache.venueLogoLayout !== true
 let hasPerformedAtColumn = missingColumnsCache.performedAt !== true
 let hasMirrorCountdownQrLinkColumn = missingColumnsCache.mirrorCountdownQrLink !== true
 let hasMirrorQrSettingsColumns = missingColumnsCache.mirrorQrSettings !== true
 let hasMirrorQrFlashColumns = missingColumnsCache.mirrorQrFlashSettings !== true
+let shouldRecheckMirrorQrFlashColumns = missingColumnsCache.mirrorQrFlashSettings === true
 
 function getLiveDiscoveryPollInterval(operatingMode: 'normal' | 'degraded') {
   return operatingMode === 'degraded'
@@ -1369,7 +1382,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const loadMirrorQrFlashSettings = async (): Promise<{ mirror_brb_qr_flash_enabled: boolean; mirror_brb_qr_flash_venue: string | null }> => {
       try {
-        if (!hasMirrorQrFlashColumns) {
+        if (!hasMirrorQrFlashColumns && !shouldRecheckMirrorQrFlashColumns) {
           return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
         }
 
@@ -1382,10 +1395,20 @@ function QueueProvider({ children }: PropsWithChildren) {
         if (error) {
           if (isMissingMirrorQrFlashColumnError(error)) {
             hasMirrorQrFlashColumns = false
+            shouldRecheckMirrorQrFlashColumns = false
             markMissingColumnInCache('mirrorQrFlashSettings')
           }
 
           return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
+        }
+
+        if (!hasMirrorQrFlashColumns) {
+          hasMirrorQrFlashColumns = true
+        }
+
+        if (shouldRecheckMirrorQrFlashColumns) {
+          shouldRecheckMirrorQrFlashColumns = false
+          clearMissingColumnInCache('mirrorQrFlashSettings')
         }
 
         const row = (data ?? {}) as Record<string, unknown>
@@ -3100,7 +3123,9 @@ function QueueProvider({ children }: PropsWithChildren) {
           eventUpdatePayload.mirror_brb_qr_text = updates.mirrorCountdownQrText
         }
 
-        if (hasMirrorQrFlashColumns) {
+        const shouldAttemptMirrorQrFlashWrite = hasMirrorQrFlashColumns || shouldRecheckMirrorQrFlashColumns
+
+        if (shouldAttemptMirrorQrFlashWrite) {
           eventUpdatePayload.mirror_brb_qr_flash_enabled = updates.mirrorCountdownQrFlashEnabled
           eventUpdatePayload.mirror_brb_qr_flash_venue = updates.mirrorCountdownQrFlashVenue
         }
@@ -3173,6 +3198,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (isMissingMirrorQrFlashColumnError(error)) {
             hasMirrorQrFlashColumns = false
+            shouldRecheckMirrorQrFlashColumns = false
             markMissingColumnInCache('mirrorQrFlashSettings')
             delete fallbackPayload.mirror_brb_qr_flash_enabled
             delete fallbackPayload.mirror_brb_qr_flash_venue
