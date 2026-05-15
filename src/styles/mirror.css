@@ -1370,7 +1370,7 @@
 .mirror-qr-flash-line {
   margin: 0.15rem 0 0;
   min-height: 1.2em;
-  font-size: clamp(1.45rem, 2.3vw, 2.1rem);
+  font-size: clamp(1.75rem, 2.9vw, 2.6rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   color: #ffffff;
@@ -1487,7 +1487,7 @@
 .mirror-pre-show-has-countdown .mirror-qr-url,
 .mirror-pre-show-has-countdown .mirror-qr-flash-line,
 .mirror-pre-show-has-countdown .mirror-how-it-works p {
-  font-size: clamp(0.98rem, min(1.24vw, 2.1dvh), 1.22rem);
+  font-size: clamp(1.14rem, min(1.5vw, 2.55dvh), 1.42rem);
   line-height: 1.3;
 }
 
