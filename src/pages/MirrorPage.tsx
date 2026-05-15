@@ -86,7 +86,7 @@ const QR_FLASH_ROTATE_INTERVAL_MS = 5000
 const QR_FLASH_BASE_LINES = [
   'Thirsty?',
   "The bar's got options",
-  '. Some of them even make sense.',
+  'Some of them even make sense',
 ]
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
@@ -1372,7 +1372,7 @@ function MirrorPageContent() {
   const countdownQrText = countdownQrDestination
   const qrFlashLines = useMemo(() => {
     if (customQrFlashVenueName) {
-      return [...QR_FLASH_BASE_LINES, `Tonight at ${customQrFlashVenueName}`]
+      return [...QR_FLASH_BASE_LINES, `Tonight ${customQrFlashVenueName}`]
     }
 
     return QR_FLASH_BASE_LINES
