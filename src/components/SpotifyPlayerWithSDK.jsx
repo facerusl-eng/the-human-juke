@@ -5,6 +5,7 @@ const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input
 const SPOTIFY_DEVICE_ID_STORAGE_KEY = 'human-jukebox-spotify-device-id'
 const SPOTIFY_PLAYER_SINGLETON_KEY = '__humanJukeboxSpotifyPlayerSingleton'
 const DEFAULT_BETWEEN_SONGS_PLAYLIST = 'spotify:playlist:4SarKcYGzetJ7AIlqVa1qj'
+const SPOTIFY_TOGGLE_BASE_VOLUME = 0.8
 
 function getStoredSpotifyDeviceId() {
   if (typeof window === 'undefined') {
@@ -301,7 +302,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
             getOAuthToken: (cb) => {
               cb(accessTokenRef.current)
             },
-            volume: 0.6,
+            volume: SPOTIFY_TOGGLE_BASE_VOLUME,
           })
           setSpotifyPlayerSingleton(player)
         }
@@ -418,6 +419,11 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         })
 
         await player.connect()
+        try {
+          await player.setVolume(SPOTIFY_TOGGLE_BASE_VOLUME)
+        } catch {
+          // Volume writes can fail for restricted/remote sessions. Safe to ignore.
+        }
         playerRef.current = player
       } catch (error) {
         setPlayerStatus(error instanceof Error ? error.message : 'Spotify SDK setup failed.')

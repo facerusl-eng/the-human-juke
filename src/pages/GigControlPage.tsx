@@ -33,6 +33,8 @@ const SPACEBAR_ACTION_COOLDOWN_MS = 300
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
+const SPOTIFY_TOGGLE_BASE_VOLUME = 0.8
+const INTRO_MP3_VOLUME = Math.min(1, SPOTIFY_TOGGLE_BASE_VOLUME * 1.2)
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
 type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
@@ -417,6 +419,7 @@ function GigControlPage() {
 
     const introAudio = new Audio(introAudioUrl)
     introAudio.preload = 'auto'
+    introAudio.volume = INTRO_MP3_VOLUME
 
     // Duck Spotify while the intro stinger runs, then restore when it ends.
     sendSpotifyTransportCommand('pause')

@@ -82,6 +82,8 @@ const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
+const SPOTIFY_TOGGLE_BASE_VOLUME = 0.8
+const INTRO_MP3_VOLUME = Math.min(1, SPOTIFY_TOGGLE_BASE_VOLUME * 1.2)
 const QR_FLASH_ROTATE_INTERVAL_MS = 5000
 const QR_FLASH_BASE_LINES = [
   'Thirsty?',
@@ -754,6 +756,7 @@ async function playIntroAudioWithSpotifyBridge(introAudioUrl: string) {
 
   const introAudio = new Audio(introAudioUrl)
   introAudio.preload = 'auto'
+  introAudio.volume = INTRO_MP3_VOLUME
 
   try {
     await introAudio.play()

@@ -5,6 +5,8 @@ import { useQueueStore } from '../state/queueStore'
 
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
 const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
+const SPOTIFY_TOGGLE_BASE_VOLUME = 0.8
+const INTRO_MP3_VOLUME = Math.min(1, SPOTIFY_TOGGLE_BASE_VOLUME * 1.2)
 
 function formatGigDate(createdAt: string) {
   if (!createdAt) {
@@ -150,6 +152,7 @@ async function playIntroAudioWithSpotifyBridge(introAudioUrl: string) {
 
   const introAudio = new Audio(introAudioUrl)
   introAudio.preload = 'auto'
+  introAudio.volume = INTRO_MP3_VOLUME
 
   try {
     await introAudio.play()
