@@ -23,6 +23,8 @@ export const DEMO_EVENT = {
   mirrorPhotoSpotlightEnabled: true,
   mirrorCountdownEnabled: false,
   mirrorCountdownShowQrLink: true,
+  mirrorCountdownQrLink: null,
+  mirrorCountdownQrText: null,
   mirrorBannerEnabled: true,
   allowDuplicateRequests: false,
   maxActiveRequestsPerUser: 2,

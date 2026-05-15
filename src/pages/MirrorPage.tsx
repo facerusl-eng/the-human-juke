@@ -1356,7 +1356,12 @@ function MirrorPageContent() {
       return '/audience'
     }
   }, [eventId])
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(audienceUrl)}`
+  const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
+  const customCountdownQrText = event?.mirrorCountdownQrText?.trim() || ''
+  const countdownQrDestination = customCountdownQrLink || audienceUrl
+  const countdownQrText = customCountdownQrText || countdownQrDestination
+  const audienceQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(audienceUrl)}`
+  const countdownQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(countdownQrDestination)}`
   const playbackSong = playbackState?.currentSongId
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
@@ -3233,9 +3238,9 @@ function MirrorPageContent() {
             {/* ── MIDDLE: QR (left) + How it works (right) ── */}
             <div className="mirror-pre-show-middle">
               <div className="mirror-pre-show-qr-col">
-                <img src={qrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
+                <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
                 <p className="mirror-qr-label">Scan to join</p>
-                {showCountdownQrLink ? <p className="mirror-qr-url">Open the audience app at <strong>{audienceUrl}</strong></p> : null}
+                {showCountdownQrLink ? <p className="mirror-qr-url">{countdownQrText}</p> : null}
               </div>
               <div className="mirror-pre-show-steps-col">
                 <div className="mirror-how-it-works" aria-label="How it works">
@@ -3361,7 +3366,7 @@ function MirrorPageContent() {
                     rel="noreferrer noopener"
                     aria-label="Audience request page QR link"
                   >
-                    <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
+                    <img src={audienceQrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
                   </a>
                 ) : null}
                 {layoutEditMode ? (
@@ -3498,9 +3503,22 @@ function MirrorPageContent() {
 
       {playbackState?.brbActive ? (
         <div className="mirror-brb-overlay" aria-live="polite" role="status">
-          <p className="mirror-brb-icon" aria-hidden="true">🍺</p>
-          <p className="mirror-brb-heading">On Break</p>
-          <p className="mirror-brb-message">{playbackState.brbMessage?.trim() || DEFAULT_BRB_MESSAGE}</p>
+          <div className="mirror-brb-copy">
+            <p className="mirror-brb-icon" aria-hidden="true">🍺</p>
+            <p className="mirror-brb-heading">On Break</p>
+            <p className="mirror-brb-message">{playbackState.brbMessage?.trim() || DEFAULT_BRB_MESSAGE}</p>
+          </div>
+          <a
+            className="mirror-brb-qr-panel"
+            href={countdownQrDestination}
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label="Audience request page QR link"
+          >
+            <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
+            <p className="mirror-brb-qr-label">Scan to join</p>
+            {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
+          </a>
         </div>
       ) : null}
 

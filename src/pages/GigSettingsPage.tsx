@@ -69,6 +69,8 @@ type SettingsState = {
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
   mirrorCountdownShowQrLink: boolean
+  mirrorCountdownQrLink: string
+  mirrorCountdownQrText: string
   mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: string
@@ -279,6 +281,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     mirrorPhotoSpotlightEnabled: event.mirrorPhotoSpotlightEnabled,
     mirrorCountdownEnabled: event.mirrorCountdownEnabled,
     mirrorCountdownShowQrLink: event.mirrorCountdownShowQrLink ?? true,
+    mirrorCountdownQrLink: event.mirrorCountdownQrLink ?? '',
+    mirrorCountdownQrText: event.mirrorCountdownQrText ?? '',
     mirrorBannerEnabled: event.mirrorBannerEnabled ?? true,
     allowDuplicateRequests: event.allowDuplicateRequests,
     maxActiveRequestsPerUser: normalizeRequestCapValue(event.maxActiveRequestsPerUser),
@@ -669,6 +673,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
         mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
         mirrorCountdownShowQrLink: saveState.mirrorCountdownShowQrLink,
+        mirrorCountdownQrLink: saveState.mirrorCountdownQrLink.trim() || null,
+        mirrorCountdownQrText: saveState.mirrorCountdownQrText.trim() || null,
         mirrorBannerEnabled: saveState.mirrorBannerEnabled,
         allowDuplicateRequests: saveState.allowDuplicateRequests,
         maxActiveRequestsPerUser: parsedLimit,
@@ -1095,6 +1101,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.mirrorPhotoSpotlightEnabled !== event.mirrorPhotoSpotlightEnabled
     || state.mirrorCountdownEnabled !== event.mirrorCountdownEnabled
     || state.mirrorCountdownShowQrLink !== (event.mirrorCountdownShowQrLink ?? true)
+    || state.mirrorCountdownQrLink !== (event.mirrorCountdownQrLink ?? '')
+    || state.mirrorCountdownQrText !== (event.mirrorCountdownQrText ?? '')
     || state.mirrorBannerEnabled !== (event.mirrorBannerEnabled ?? true)
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
     || normalizeRequestCapValue(state.maxActiveRequestsPerUser) !== normalizeRequestCapValue(event.maxActiveRequestsPerUser)
@@ -1735,6 +1743,37 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 <span>Show or hide the promotional scrolling banner on the mirror screen</span>
               </div>
             </label>
+          </div>
+
+          <div className="field-row">
+            <label htmlFor="gig-mirror-countdown-qr-link-input">Countdown/Break QR destination link (optional)</label>
+            <input
+              id="gig-mirror-countdown-qr-link-input"
+              type="url"
+              placeholder="https://www.the-human-jukebox.org/audience"
+              value={state.mirrorCountdownQrLink}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ mirrorCountdownQrLink: e.target.value })
+              }}
+            />
+            <p className="field-hint">If empty, the default audience link is used. This applies to pre-show countdown and On Break QR.</p>
+          </div>
+
+          <div className="field-row">
+            <label htmlFor="gig-mirror-countdown-qr-text-input">Countdown/Break QR text (optional)</label>
+            <input
+              id="gig-mirror-countdown-qr-text-input"
+              type="text"
+              maxLength={180}
+              placeholder="Scan to join the room"
+              value={state.mirrorCountdownQrText}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ mirrorCountdownQrText: e.target.value })
+              }}
+            />
+            <p className="field-hint">Custom text shown below the QR when Countdown QR Link Text is turned on.</p>
           </div>
 
           <div className="field-row">
