@@ -5,6 +5,7 @@ import './gig-settings.css'
 import './admin-settings.css'
 import './components/ui/ui.css'
 import './styles/mirror.css'
+import './styles/qr-landing.css'
 import { Suspense, lazy, useEffect } from 'react'
 import { Navigate, createBrowserRouter, isRouteErrorResponse, useNavigate, useRouteError, useParams } from 'react-router-dom'
 import AppCrashBoundary from './components/AppCrashBoundary'
@@ -70,6 +71,7 @@ const GigsPage = lazyWithChunkReload(() => import('./pages/GigsPage'))
 const HealthCheckPage = lazyWithChunkReload(() => import('./pages/HealthCheckPage'))
 const HomePage = lazyWithChunkReload(() => import('./pages/HomePage'))
 const LoungeLinkPage = lazyWithChunkReload(() => import('./pages/LoungeLinkPage'))
+const QrLandingPage = lazyWithChunkReload(() => import('./pages/QrLandingPage'))
 const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
 const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
@@ -332,6 +334,11 @@ const router = createBrowserRouter([
   {
     path: '/lounge-link',
     element: withCrashBoundary('Lounge Link', withSuspense(<LoungeLinkPage />)),
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: '/qr-landing',
+    element: withCrashBoundary('QR Landing', withSuspense(<QrLandingPage />)),
     errorElement: <RouteErrorFallback />,
   },
 ])

@@ -70,9 +70,13 @@ type SettingsState = {
   mirrorCountdownEnabled: boolean
   mirrorCountdownShowQrLink: boolean
   mirrorCountdownQrLink: string
+  mirrorCountdownQrCustomEnabled: boolean
+  mirrorCountdownQrCustomUrl: string
   mirrorCountdownQrText: string
   mirrorCountdownQrFlashEnabled: boolean
   mirrorCountdownQrFlashVenue: string
+  mirrorBreakQrEnabled: boolean
+  mirrorBreakQrCustomUrl: string
   mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: string
@@ -408,9 +412,13 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     mirrorCountdownEnabled: event.mirrorCountdownEnabled,
     mirrorCountdownShowQrLink: event.mirrorCountdownShowQrLink ?? true,
     mirrorCountdownQrLink: event.mirrorCountdownQrLink ?? '',
+    mirrorCountdownQrCustomEnabled: event.mirrorCountdownQrCustomEnabled ?? false,
+    mirrorCountdownQrCustomUrl: event.mirrorCountdownQrCustomUrl ?? '',
     mirrorCountdownQrText: event.mirrorCountdownQrText ?? '',
     mirrorCountdownQrFlashEnabled: event.mirrorCountdownQrFlashEnabled ?? true,
     mirrorCountdownQrFlashVenue: event.mirrorCountdownQrFlashVenue ?? (event.venue ?? ''),
+    mirrorBreakQrEnabled: event.mirrorBreakQrEnabled ?? false,
+    mirrorBreakQrCustomUrl: event.mirrorBreakQrCustomUrl ?? '',
     mirrorBannerEnabled: event.mirrorBannerEnabled ?? true,
     allowDuplicateRequests: event.allowDuplicateRequests,
     maxActiveRequestsPerUser: normalizeRequestCapValue(event.maxActiveRequestsPerUser),
@@ -806,9 +814,13 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
           mirrorCountdownShowQrLink: saveState.mirrorCountdownShowQrLink,
           mirrorCountdownQrLink: saveState.mirrorCountdownQrLink.trim() || null,
+          mirrorCountdownQrCustomEnabled: saveState.mirrorCountdownQrCustomEnabled,
+          mirrorCountdownQrCustomUrl: saveState.mirrorCountdownQrCustomUrl.trim() || null,
           mirrorCountdownQrText: saveState.mirrorCountdownQrText.trim() || null,
           mirrorCountdownQrFlashEnabled: saveState.mirrorCountdownQrFlashEnabled,
           mirrorCountdownQrFlashVenue: saveState.mirrorCountdownQrFlashVenue.trim() || null,
+          mirrorBreakQrEnabled: saveState.mirrorBreakQrEnabled,
+          mirrorBreakQrCustomUrl: saveState.mirrorBreakQrCustomUrl.trim() || null,
           mirrorBannerEnabled: saveState.mirrorBannerEnabled,
           allowDuplicateRequests: saveState.allowDuplicateRequests,
           maxActiveRequestsPerUser: parsedLimit,
@@ -1277,9 +1289,13 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.mirrorCountdownEnabled !== event.mirrorCountdownEnabled
     || state.mirrorCountdownShowQrLink !== (event.mirrorCountdownShowQrLink ?? true)
     || state.mirrorCountdownQrLink !== (event.mirrorCountdownQrLink ?? '')
+    || state.mirrorCountdownQrCustomEnabled !== (event.mirrorCountdownQrCustomEnabled ?? false)
+    || state.mirrorCountdownQrCustomUrl !== (event.mirrorCountdownQrCustomUrl ?? '')
     || state.mirrorCountdownQrText !== (event.mirrorCountdownQrText ?? '')
     || state.mirrorCountdownQrFlashEnabled !== (event.mirrorCountdownQrFlashEnabled ?? true)
     || state.mirrorCountdownQrFlashVenue !== (event.mirrorCountdownQrFlashVenue ?? (event.venue ?? ''))
+    || state.mirrorBreakQrEnabled !== (event.mirrorBreakQrEnabled ?? false)
+    || state.mirrorBreakQrCustomUrl !== (event.mirrorBreakQrCustomUrl ?? '')
     || state.mirrorBannerEnabled !== (event.mirrorBannerEnabled ?? true)
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
     || normalizeRequestCapValue(state.maxActiveRequestsPerUser) !== normalizeRequestCapValue(event.maxActiveRequestsPerUser)
@@ -1955,6 +1971,81 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             />
             <p className="field-hint">If empty, the default audience link is used. This applies to pre-show countdown and On Break QR. The rotating QR flash text below is automatic.</p>
           </div>
+
+          <div className="toggle-group">
+            <label className="toggle-card" htmlFor="gig-mirror-countdown-qr-custom">
+              <input
+                id="gig-mirror-countdown-qr-custom"
+                type="checkbox"
+                checked={state.mirrorCountdownQrCustomEnabled}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mirrorCountdownQrCustomEnabled: e.target.checked })
+                }}
+              />
+              <div>
+                <strong>{state.mirrorCountdownQrCustomEnabled ? '✓ Countdown Custom QR On' : '⊘ Countdown Custom QR Off'}</strong>
+                <span>Show a custom QR code on the pre-show countdown screen</span>
+              </div>
+            </label>
+            <label className="toggle-card" htmlFor="gig-mirror-break-qr-custom">
+              <input
+                id="gig-mirror-break-qr-custom"
+                type="checkbox"
+                checked={state.mirrorBreakQrEnabled}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mirrorBreakQrEnabled: e.target.checked })
+                }}
+              />
+              <div>
+                <strong>{state.mirrorBreakQrEnabled ? '✓ Break Custom QR On' : '⊘ Break Custom QR Off'}</strong>
+                <span>Show a custom QR code on the break screen</span>
+              </div>
+            </label>
+          </div>
+
+          {state.mirrorCountdownQrCustomEnabled ? (
+            <div className="field-row">
+              <label htmlFor="gig-mirror-countdown-qr-custom-url-input">Countdown Screen Custom QR Link</label>
+              <input
+                id="gig-mirror-countdown-qr-custom-url-input"
+                type="text"
+                inputMode="url"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="https://example.com"
+                value={state.mirrorCountdownQrCustomUrl}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mirrorCountdownQrCustomUrl: e.target.value })
+                }}
+              />
+              <p className="field-hint">The URL this QR code will link to. Users will see your content plus a button to go to the lounge.</p>
+            </div>
+          ) : null}
+
+          {state.mirrorBreakQrEnabled ? (
+            <div className="field-row">
+              <label htmlFor="gig-mirror-break-qr-custom-url-input">Break Screen Custom QR Link</label>
+              <input
+                id="gig-mirror-break-qr-custom-url-input"
+                type="text"
+                inputMode="url"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="https://example.com"
+                value={state.mirrorBreakQrCustomUrl}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mirrorBreakQrCustomUrl: e.target.value })
+                }}
+              />
+              <p className="field-hint">The URL this QR code will link to. Users will see your content plus a button to go to the lounge.</p>
+            </div>
+          ) : null}
 
           <div className="field-row">
             <label htmlFor="gig-mirror-countdown-qr-flash-venue-input">QR flash text venue name (optional)</label>

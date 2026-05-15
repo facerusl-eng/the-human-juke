@@ -58,9 +58,13 @@ type EventSettingsUpdates = {
   mirrorCountdownEnabled: boolean
   mirrorCountdownShowQrLink: boolean
   mirrorCountdownQrLink: string | null
+  mirrorCountdownQrCustomEnabled: boolean
+  mirrorCountdownQrCustomUrl: string | null
   mirrorCountdownQrText: string | null
   mirrorCountdownQrFlashEnabled: boolean
   mirrorCountdownQrFlashVenue: string | null
+  mirrorBreakQrEnabled: boolean
+  mirrorBreakQrCustomUrl: string | null
   mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
@@ -110,9 +114,13 @@ type EventState = {
   mirrorCountdownEnabled: boolean
   mirrorCountdownShowQrLink: boolean
   mirrorCountdownQrLink: string | null
+  mirrorCountdownQrCustomEnabled: boolean
+  mirrorCountdownQrCustomUrl: string | null
   mirrorCountdownQrText: string | null
   mirrorCountdownQrFlashEnabled: boolean
   mirrorCountdownQrFlashVenue: string | null
+  mirrorBreakQrEnabled: boolean
+  mirrorBreakQrCustomUrl: string | null
   mirrorBannerEnabled: boolean
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
@@ -1336,15 +1344,15 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const loadMirrorQrSettings = async (): Promise<{ mirror_brb_qr_link: string | null; mirror_brb_qr_text: string | null }> => {
+    const loadMirrorQrSettings = async (): Promise<{ mirror_brb_qr_link: string | null; mirror_brb_qr_text: string | null; mirror_countdown_qr_custom_enabled: boolean; mirror_countdown_qr_custom_url: string | null; mirror_break_qr_enabled: boolean; mirror_break_qr_custom_url: string | null }> => {
       try {
         if (!hasMirrorQrSettingsColumns) {
-          return { mirror_brb_qr_link: null, mirror_brb_qr_text: null }
+          return { mirror_brb_qr_link: null, mirror_brb_qr_text: null, mirror_countdown_qr_custom_enabled: false, mirror_countdown_qr_custom_url: null, mirror_break_qr_enabled: false, mirror_break_qr_custom_url: null }
         }
 
         const { data, error } = await supabase
           .from('events')
-          .select('mirror_brb_qr_link, mirror_brb_qr_text')
+          .select('mirror_brb_qr_link, mirror_brb_qr_text, mirror_countdown_qr_custom_enabled, mirror_countdown_qr_custom_url, mirror_break_qr_enabled, mirror_break_qr_custom_url')
           .eq('id', activeEventId)
           .single()
 
@@ -1354,16 +1362,20 @@ function QueueProvider({ children }: PropsWithChildren) {
             markMissingColumnInCache('mirrorQrSettings')
           }
 
-          return { mirror_brb_qr_link: null, mirror_brb_qr_text: null }
+          return { mirror_brb_qr_link: null, mirror_brb_qr_text: null, mirror_countdown_qr_custom_enabled: false, mirror_countdown_qr_custom_url: null, mirror_break_qr_enabled: false, mirror_break_qr_custom_url: null }
         }
 
         const row = (data ?? {}) as Record<string, unknown>
         return {
           mirror_brb_qr_link: (row.mirror_brb_qr_link as string | null) ?? null,
           mirror_brb_qr_text: (row.mirror_brb_qr_text as string | null) ?? null,
+          mirror_countdown_qr_custom_enabled: (row.mirror_countdown_qr_custom_enabled as boolean | null) ?? false,
+          mirror_countdown_qr_custom_url: (row.mirror_countdown_qr_custom_url as string | null) ?? null,
+          mirror_break_qr_enabled: (row.mirror_break_qr_enabled as boolean | null) ?? false,
+          mirror_break_qr_custom_url: (row.mirror_break_qr_custom_url as string | null) ?? null,
         }
       } catch {
-        return { mirror_brb_qr_link: null, mirror_brb_qr_text: null }
+        return { mirror_brb_qr_link: null, mirror_brb_qr_text: null, mirror_countdown_qr_custom_enabled: false, mirror_countdown_qr_custom_url: null, mirror_break_qr_enabled: false, mirror_break_qr_custom_url: null }
       }
     }
 
@@ -1685,9 +1697,13 @@ function QueueProvider({ children }: PropsWithChildren) {
       mirrorCountdownEnabled: ((eventData as Record<string, unknown>).mirror_countdown_enabled as boolean | null) ?? true,
       mirrorCountdownShowQrLink: ((eventData as Record<string, unknown>).mirror_countdown_show_qr_link as boolean | null) ?? true,
       mirrorCountdownQrLink: mirrorQrSettings.mirror_brb_qr_link,
+      mirrorCountdownQrCustomEnabled: mirrorQrSettings.mirror_countdown_qr_custom_enabled,
+      mirrorCountdownQrCustomUrl: mirrorQrSettings.mirror_countdown_qr_custom_url,
       mirrorCountdownQrText: mirrorQrSettings.mirror_brb_qr_text,
       mirrorCountdownQrFlashEnabled: mirrorQrFlashSettings.mirror_brb_qr_flash_enabled,
       mirrorCountdownQrFlashVenue: mirrorQrFlashSettings.mirror_brb_qr_flash_venue,
+      mirrorBreakQrEnabled: mirrorQrSettings.mirror_break_qr_enabled,
+      mirrorBreakQrCustomUrl: mirrorQrSettings.mirror_break_qr_custom_url,
       mirrorBannerEnabled: ((eventData as Record<string, unknown>).mirror_banner_enabled as boolean | null) ?? true,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
@@ -3675,9 +3691,13 @@ function QueueProvider({ children }: PropsWithChildren) {
           mirrorCountdownEnabled: true,
           mirrorCountdownShowQrLink: true,
           mirrorCountdownQrLink: null,
+          mirrorCountdownQrCustomEnabled: false,
+          mirrorCountdownQrCustomUrl: null,
           mirrorCountdownQrText: null,
           mirrorCountdownQrFlashEnabled: true,
           mirrorCountdownQrFlashVenue: null,
+          mirrorBreakQrEnabled: false,
+          mirrorBreakQrCustomUrl: null,
           mirrorBannerEnabled: true,
           allowDuplicateRequests: true,
           maxActiveRequestsPerUser: null,

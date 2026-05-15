@@ -1371,6 +1371,19 @@ function MirrorPageContent() {
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
   const countdownQrDestination = customCountdownQrLink || audienceUrl
   const countdownQrText = countdownQrDestination
+  
+  // Custom QR code logic for countdown and break screens
+  const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && (event?.mirrorCountdownQrCustomUrl?.trim() ?? '').length > 0
+  const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && (event?.mirrorBreakQrCustomUrl?.trim() ?? '').length > 0
+  
+  const countdownQrCodeUrl = useCustomCountdownQr
+    ? `/qr-landing?url=${encodeURIComponent(event!.mirrorCountdownQrCustomUrl!)}`
+    : countdownQrDestination
+    
+  const breakQrCodeUrl = useCustomBreakQr
+    ? `/qr-landing?url=${encodeURIComponent(event!.mirrorBreakQrCustomUrl!)}`
+    : countdownQrDestination
+  
   const qrFlashLines = useMemo(() => {
     if (customQrFlashVenueName) {
       return [...QR_FLASH_BASE_LINES, customQrFlashVenueName]
@@ -1383,7 +1396,8 @@ function MirrorPageContent() {
     ? qrFlashLines[qrFlashTextIndex % qrFlashLines.length] ?? null
     : null
   const audienceQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(audienceUrl)}`
-  const countdownQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(countdownQrDestination)}`
+  const countdownQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(countdownQrCodeUrl)}`
+  const breakQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(breakQrCodeUrl)}`
   const playbackSong = playbackState?.currentSongId
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
@@ -3314,7 +3328,7 @@ function MirrorPageContent() {
                 {showCountdownQrLink ? <p className="mirror-qr-url">{countdownQrText}</p> : null}
                 {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
                 <a
-                  href={countdownQrDestination}
+                  href={countdownQrCodeUrl}
                   target="_blank"
                   rel="noreferrer noopener"
                   className="mirror-qr-open-button"
@@ -3590,12 +3604,12 @@ function MirrorPageContent() {
             <p className="mirror-brb-message">{playbackState.brbMessage?.trim() || DEFAULT_BRB_MESSAGE}</p>
           </div>
           <div className="mirror-brb-qr-panel">
-            <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
+            <img src={breakQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
             <p className="mirror-brb-qr-label">Scan for the pints. Log in for the tunes.</p>
             {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
             <a
-              href={countdownQrDestination}
+              href={breakQrCodeUrl}
               target="_blank"
               rel="noreferrer noopener"
               className="mirror-qr-open-button"
