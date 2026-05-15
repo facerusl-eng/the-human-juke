@@ -49,7 +49,6 @@ const QUICK_EMOJIS = ['🔥', '🎶', '👏', '😍', '😂', '🥳', '🤘', '�
 const AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
 const DEMO_FEED_STORAGE_KEY = 'human-jukebox-demo-feed-posts-v1'
 const DEMO_FEED_BROADCAST_CHANNEL = 'human-jukebox-demo-feed-sync'
-const FEED_IMAGE_QUEUE_INTERVAL_MS = 7000
 const FEED_POLL_INTERVAL_MS = 10000
 const FEED_FETCH_DEBOUNCE_MS = 300
 const FEED_MAX_POSTS = 40
@@ -175,42 +174,19 @@ function formatPostTime(createdAt: string) {
   }).format(new Date(createdAt))
 }
 
+function getAuthorInitial(authorName: string) {
+  const trimmedName = authorName.trim()
 
-function resolveVisiblePosts(posts: FeedPost[], now: number) {
-
-  const imagePostsOldestFirst = [...posts]
-    .filter((post) => Boolean(normalizeImageSource(post.image_data_url)))
-    .sort((left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime())
-
-  const unlockByImagePostId = new Map<string, number>()
-  let previousUnlockAt = 0
-
-  for (const imagePost of imagePostsOldestFirst) {
-    const createdAtMs = new Date(imagePost.created_at).getTime()
-    const safeCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : now
-    const baseUnlockAt = safeCreatedAtMs
-    const unlockAt = previousUnlockAt > 0
-      ? Math.max(baseUnlockAt, previousUnlockAt + FEED_IMAGE_QUEUE_INTERVAL_MS)
-      : baseUnlockAt
-
-    unlockByImagePostId.set(imagePost.id, unlockAt)
-    previousUnlockAt = unlockAt
+  if (!trimmedName) {
+    return '?'
   }
 
-  return posts.filter((post) => {
-    const normalizedImageSource = normalizeImageSource(post.image_data_url)
+  return trimmedName.charAt(0).toUpperCase()
+}
 
-    if (!normalizedImageSource) {
-      return true
-    }
 
-    const unlockAt = unlockByImagePostId.get(post.id)
-    if (!unlockAt) {
-      return true
-    }
-
-    return unlockAt <= now
-  })
+function resolveVisiblePosts(posts: FeedPost[]) {
+  return posts.filter((post) => !normalizeImageSource(post.image_data_url))
 }
 
 function hasSupportedImageExtension(fileName: string) {
@@ -284,7 +260,6 @@ function LiveFeedPanel({
   const [errorText, setErrorText] = useState<string | null>(null)
   const [selectedImageName, setSelectedImageName] = useState<string | null>(null)
   const [imageStatusText, setImageStatusText] = useState<string | null>(null)
-  const [feedNow, setFeedNow] = useState(() => Date.now())
   const suggestedAuthorName = useMemo(
     () => getSuggestedAuthorName(user?.email, isHost),
     [isHost, user?.email],
@@ -294,8 +269,8 @@ function LiveFeedPanel({
   const isMirrorMode = mode === 'mirror'
   const previewImageSrc = imagePreviewUrl ?? imageDataUrl
   const visiblePosts = useMemo(
-    () => (isMirrorMode ? resolveVisiblePosts(posts, feedNow) : posts),
-    [feedNow, isMirrorMode, posts],
+    () => (isMirrorMode ? resolveVisiblePosts(posts) : posts),
+    [isMirrorMode, posts],
   )
 
   const [userBlockedStatus, setUserBlockedStatus] = useState<boolean | null>(null)
@@ -336,20 +311,6 @@ function LiveFeedPanel({
       console.warn('LiveFeedPanel: failed to save author name to localStorage', result.error)
     }
   }, [authorName])
-
-  useEffect(() => {
-    if (!isMirrorMode) {
-      return
-    }
-
-    const timer = window.setInterval(() => {
-      setFeedNow(Date.now())
-    }, 1000)
-
-    return () => {
-      window.clearInterval(timer)
-    }
-  }, [isMirrorMode])
 
   useEffect(() => {
     return () => {
@@ -1126,22 +1087,8 @@ function LiveFeedPanel({
       {!loading ? (
         <div className="live-feed-list">
           {!isMirrorMode && (
-            <div style={{
-              backgroundColor: 'rgba(255, 107, 53, 0.15)',
-              borderLeft: '4px solid #ff6b35',
-              padding: '1rem',
-              marginBottom: '1.5rem',
-              borderRadius: '8px',
-            }}>
-              <p style={{
-                margin: 0,
-                fontSize: '0.95rem',
-                fontWeight: 600,
-                color: '#ff6b35',
-                lineHeight: '1.5',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}>
+            <div className="live-feed-warning-box">
+              <p className="live-feed-warning-text">
                 ⚠️ {composerCopy.warningText}
               </p>
             </div>
@@ -1159,6 +1106,9 @@ function LiveFeedPanel({
               const hasImage = Boolean(normalizedPostImageSource)
               const useMirrorPhotoLayout = isMirrorMode && hasImage
               const isMirrorTextPost = isMirrorMode && !hasImage && Boolean(post.message?.trim())
+              const postTypeLabel = hasImage ? 'Photo' : 'Message'
+              const postTimeLabel = formatPostTime(post.created_at)
+              const authorInitial = getAuthorInitial(post.author_name)
               const imageNode = normalizedPostImageSource ? (
                 <div className="live-feed-post-image-wrapper">
                   <img src={normalizedPostImageSource} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
@@ -1169,19 +1119,23 @@ function LiveFeedPanel({
               return (
                 <article
                   key={post.id}
-                  className={`live-feed-post queue-slide-in ${hasImage ? 'live-feed-post-polaroid' : ''} ${isMirrorTextPost ? 'live-feed-post-mirror-text' : ''}`.trim()}
+                  className={`live-feed-post queue-slide-in ${isMirrorMode ? 'live-feed-post-mirror' : 'live-feed-post-page'} ${hasImage ? 'live-feed-post-polaroid' : ''} ${isMirrorTextPost ? 'live-feed-post-mirror-text' : ''}`.trim()}
                 >
                   {isMirrorMode ? imageNode : null}
 
                   <div className="live-feed-post-head">
-                    {useMirrorPhotoLayout ? <span>{formatPostTime(post.created_at)}</span> : (
-                      <div>
-                        <strong>{post.author_name}</strong>
-                        <span>{formatPostTime(post.created_at)}</span>
+                    <div className="live-feed-post-meta">
+                      {!useMirrorPhotoLayout ? <span className="live-feed-post-avatar" aria-hidden="true">{authorInitial}</span> : null}
+                      <div className="live-feed-post-author-group">
+                        {!useMirrorPhotoLayout ? <strong>{post.author_name}</strong> : null}
+                        <div className="live-feed-post-detail-row">
+                          <span className="live-feed-post-time">{postTimeLabel}</span>
+                          <span className="live-feed-post-kind">{postTypeLabel}</span>
+                        </div>
                       </div>
-                    )}
+                    </div>
                     {canDelete ? (
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <div className="live-feed-post-actions">
                         <PrimaryButton type="button" variant="ghost" className="ghost-button live-feed-delete" onClick={() => { void deletePost(post.id) }}>
                           Remove
                         </PrimaryButton>

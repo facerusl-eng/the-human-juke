@@ -6743,7 +6743,7 @@
 
 .live-feed-image-name,
 .live-feed-helper-text,
-.live-feed-post-head span {
+.live-feed-post-time {
   font-size: 0.82rem;
 }
 
@@ -6789,18 +6789,27 @@
 .live-feed-post-actions {
   display: flex;
   gap: 0.5rem;
+  align-items: flex-start;
 }
 
 .live-feed-post {
   display: grid;
-  gap: 8px;
-  padding: 16px;
+  gap: 10px;
+  padding: 16px 17px;
   border: none;
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(93, 215, 255, 0.14) 0%, rgba(93, 215, 255, 0.08) 100%);
-  box-shadow: 0 6px 16px rgba(93, 215, 255, 0.12);
+  background:
+    radial-gradient(circle at 9% 10%, rgba(93, 215, 255, 0.16) 0%, transparent 34%),
+    linear-gradient(135deg, rgba(93, 215, 255, 0.14) 0%, rgba(93, 215, 255, 0.08) 100%);
+  box-shadow:
+    0 10px 24px rgba(6, 10, 28, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   max-width: 85%;
   margin-right: auto;
+}
+
+.live-feed-post-page {
+  width: min(100%, 560px);
 }
 
 .live-feed-post-polaroid {
@@ -6825,21 +6834,83 @@
 
 .live-feed-post-head {
   display: flex;
-  justify-content: flex-start;
-  gap: 8px;
-  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
 }
 
-.live-feed-post-head strong,
-.live-feed-post-head span {
+.live-feed-post-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.66rem;
+  min-width: 0;
+}
+
+.live-feed-post-avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(93, 215, 255, 0.46);
+  background: linear-gradient(145deg, rgba(93, 215, 255, 0.28), rgba(255, 126, 175, 0.24));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #f7fbff;
+  box-shadow: 0 8px 16px rgba(4, 8, 22, 0.26);
+}
+
+.live-feed-post-author-group {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.live-feed-post-head strong {
   display: block;
+  color: #e8f6ff;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.live-feed-post-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  flex-wrap: wrap;
+}
+
+.live-feed-post-time {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(184, 210, 255, 0.74);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.live-feed-post-kind {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(93, 215, 255, 0.35);
+  background: rgba(8, 16, 38, 0.72);
+  padding: 0.15rem 0.46rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d6eeff;
+  font-weight: 700;
 }
 
 .live-feed-post-message {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #e7f3ff;
 }
 
 .live-feed-delete {
@@ -9394,10 +9465,26 @@
   align-items: flex-start;
 }
 
-.live-feed-panel-mirror .live-feed-post-head span {
+.live-feed-panel-mirror .live-feed-post-meta {
+  gap: 0.5rem;
+}
+
+.live-feed-panel-mirror .live-feed-post-time {
   font-size: clamp(0.74rem, 0.84vw, 0.82rem);
   line-height: 1.08;
   color: #544a3e;
+}
+
+.live-feed-panel-mirror .live-feed-post-kind {
+  border-color: rgba(84, 74, 62, 0.3);
+  background: rgba(247, 244, 234, 0.74);
+  color: #4a3f34;
+}
+
+.live-feed-panel-mirror .live-feed-post-avatar {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-color: rgba(93, 215, 255, 0.52);
 }
 
 .live-feed-panel-mirror .live-feed-post-message {
@@ -9406,16 +9493,20 @@
 
 .live-feed-panel-mirror .live-feed-post-mirror-text {
   width: 100%;
-  padding: clamp(0.42rem, 0.6vw, 0.64rem) clamp(0.5rem, 0.8vw, 0.8rem);
-  border-radius: 10px;
-  border: 1px solid rgba(93, 215, 255, 0.18);
-  background: linear-gradient(145deg, rgba(93, 215, 255, 0.13) 0%, rgba(93, 215, 255, 0.08) 100%);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  padding: clamp(0.48rem, 0.72vw, 0.74rem) clamp(0.56rem, 0.9vw, 0.92rem);
+  border-radius: 12px;
+  border: 1px solid rgba(93, 215, 255, 0.24);
+  background:
+    radial-gradient(circle at 8% 16%, rgba(93, 215, 255, 0.16) 0%, transparent 32%),
+    linear-gradient(145deg, rgba(10, 20, 44, 0.88) 0%, rgba(14, 28, 54, 0.84) 100%);
+  box-shadow:
+    0 10px 18px rgba(3, 8, 22, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-areas: "head message";
   align-items: start;
-  gap: clamp(0.4rem, 0.72vw, 0.72rem);
+  gap: clamp(0.46rem, 0.78vw, 0.8rem);
 }
 
 .live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head {
@@ -9426,36 +9517,46 @@
   align-items: flex-start;
 }
 
-.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head div {
+.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-author-group {
   display: grid;
   justify-items: start;
-  gap: 0.12rem;
+  gap: 0.16rem;
+}
+
+.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-detail-row {
+  gap: 0.34rem;
 }
 
 .live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head strong {
   font-family: var(--font-head);
-  font-size: clamp(0.76rem, 0.92vw, 0.96rem);
+  font-size: clamp(0.78rem, 0.95vw, 1rem);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #d7ecff;
+  color: #e4f3ff;
 }
 
-.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-head span {
-  font-size: clamp(0.7rem, 0.8vw, 0.78rem);
-  color: rgba(184, 210, 255, 0.72);
+.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-time {
+  font-size: clamp(0.68rem, 0.78vw, 0.76rem);
+  color: rgba(184, 210, 255, 0.84);
+}
+
+.live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-kind {
+  border-color: rgba(93, 215, 255, 0.3);
+  background: rgba(7, 14, 30, 0.74);
+  color: rgba(219, 241, 255, 0.92);
 }
 
 .live-feed-panel-mirror .live-feed-post-mirror-text .live-feed-post-message {
   margin: 0;
   grid-area: message;
   max-width: 100%;
-  font-family: var(--font-head);
+  font-family: var(--font-body);
   font-size: clamp(0.84rem, 1.06vw, 1.14rem);
-  line-height: 1.18;
+  line-height: 1.34;
   letter-spacing: 0.01em;
   color: #f5fbff;
   text-shadow: 0 0 16px rgba(93, 215, 255, 0.16);
-  text-align: right;
+  text-align: left;
 }
 
 @media (max-width: 1180px) {
