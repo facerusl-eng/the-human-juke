@@ -5,12 +5,45 @@ export function openMirrorScreen() {
   mirrorUrl.searchParams.set('safeMargins', '1')
   mirrorUrl.searchParams.set('density', 'medium')
 
-  const newWindow = window.open(mirrorUrl.toString(), '_blank', 'noopener,noreferrer')
+  const targetWidth = window.screen?.availWidth ?? window.outerWidth ?? 1600
+  const targetHeight = window.screen?.availHeight ?? window.outerHeight ?? 900
 
-  if (!newWindow) {
+  const mirrorWindow = window.open(
+    mirrorUrl.toString(),
+    'human-jukebox-mirror',
+    [
+      'popup=yes',
+      'noopener=yes',
+      'noreferrer=yes',
+      'resizable=yes',
+      'scrollbars=no',
+      'toolbar=no',
+      'location=no',
+      'menubar=no',
+      'status=no',
+      `left=0`,
+      `top=0`,
+      `width=${targetWidth}`,
+      `height=${targetHeight}`,
+    ].join(','),
+  )
+
+  if (!mirrorWindow) {
     window.location.assign(mirrorUrl.toString())
     return
   }
 
-  newWindow.focus()
+  const maximizeMirrorWindow = () => {
+    try {
+      mirrorWindow.moveTo(0, 0)
+      mirrorWindow.resizeTo(targetWidth, targetHeight)
+    } catch {
+      // Some browsers block window geometry APIs for user safety.
+    }
+  }
+
+  maximizeMirrorWindow()
+  window.setTimeout(maximizeMirrorWindow, 80)
+  window.setTimeout(maximizeMirrorWindow, 250)
+  mirrorWindow.focus()
 }
