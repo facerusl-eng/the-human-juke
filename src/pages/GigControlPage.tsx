@@ -279,6 +279,19 @@ function GigControlPage() {
   const nowPlaying = songs[0]
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
+  const mirrorPreviewUpNext = useMemo(() => {
+    const candidateSongs = songs.slice(1)
+
+    return [...candidateSongs].sort((songA, songB) => {
+      if (songB.votes_count !== songA.votes_count) {
+        return songB.votes_count - songA.votes_count
+      }
+
+      const positionA = typeof songA.position === 'number' ? songA.position : Number.MAX_SAFE_INTEGER
+      const positionB = typeof songB.position === 'number' ? songB.position : Number.MAX_SAFE_INTEGER
+      return positionA - positionB
+    })
+  }, [songs])
   const nextUpSong = upNext[0] ?? null
   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
   const nowPlayingRequesters = parseRequesterNames(nowPlaying?.createdByName)
@@ -2055,7 +2068,7 @@ function GigControlPage() {
                 </div>
                 <p className="gig-mirror-preview-label">Up Next</p>
                 <ul className="gig-mirror-preview-list">
-                  {upNext.slice(0, 3).map((song) => {
+                  {mirrorPreviewUpNext.slice(0, 3).map((song) => {
                     const chosenBy = song.createdByName?.trim() ?? ''
 
                     return (
@@ -2090,7 +2103,7 @@ function GigControlPage() {
                     </li>
                     )
                   })}
-                  {upNext.length === 0 ? <li><span>No songs queued</span><span>+0</span></li> : null}
+                  {mirrorPreviewUpNext.length === 0 ? <li><span>No songs queued</span><span>+0</span></li> : null}
                 </ul>
               </div>
             </div>

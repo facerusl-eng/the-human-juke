@@ -1344,17 +1344,28 @@ function MirrorPageContent() {
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
   const activeSong = playbackSong ?? nowPlaying
-  // In demo mode, treat the first song as already playing so the now-playing
-  // card shows album art + title instead of the "between songs" quote.
-  const liveSessionIsNowPlaying = Boolean(isLive && nowPlaying)
+  // Keep demo mode in always-playing mode for screenshots and promo captures.
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
-    : liveSessionIsNowPlaying || Boolean(playbackState?.isStarted && playbackState.currentSongId)
-  const isQuoteModeActive = forceQuoteMode || !isNowPlayingStarted || !activeSong
+    : Boolean(playbackState?.isStarted && playbackState.currentSongId)
+  const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)
+  const isQuoteModeActive = forceQuoteMode || isBetweenSongs || !activeSong
   const shouldCompactQueue = safeSongs.length > 6
-  const upNext = isNowPlayingStarted
-    ? safeSongs.filter((song) => song.id !== (playbackSong?.id ?? nowPlaying?.id))
-    : safeSongs
+  const upNext = useMemo(() => {
+    const candidateSongs = isNowPlayingStarted
+      ? safeSongs.filter((song) => song.id !== activeSong?.id)
+      : safeSongs.slice(1)
+
+    return [...candidateSongs].sort((songA, songB) => {
+      if (songB.votes_count !== songA.votes_count) {
+        return songB.votes_count - songA.votes_count
+      }
+
+      const positionA = typeof songA.position === 'number' ? songA.position : Number.MAX_SAFE_INTEGER
+      const positionB = typeof songB.position === 'number' ? songB.position : Number.MAX_SAFE_INTEGER
+      return positionA - positionB
+    })
+  }, [safeSongs, isNowPlayingStarted, activeSong?.id])
   const normalizedBetweenSongQuoteIndex = Number.isFinite(betweenSongQuoteIndex)
     ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length
     : 0
@@ -3423,7 +3434,7 @@ function MirrorPageContent() {
 
                         return (
                           <li key={song.id} className={`mirror-queue-item ${index === 0 ? 'mirror-queue-item-next' : ''}`.trim()}>
-                            <span className="mirror-queue-pos">{index + (isNowPlayingStarted ? 2 : 1)}</span>
+                            <span className="mirror-queue-pos">{index + 1}</span>
                             {song.cover_url && !failedCoverUrls[song.cover_url] ? (
                               <img
                                 src={song.cover_url}
