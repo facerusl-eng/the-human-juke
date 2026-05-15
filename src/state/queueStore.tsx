@@ -768,23 +768,52 @@ async function fetchLatestActiveEventId() {
 }
 
 async function fetchHostEvents(hostId: string) {
-  const { data, error } = await withTimeout(
-    supabase
-      .from('events')
-      .select('id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type, event_theme, gig_date, gig_start_time, auto_live_enabled, intro_audio_url')
-      .eq('host_id', hostId)
-      .order('created_at', { ascending: false }),
+  const fullSelect = 'id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type, event_theme, gig_date, gig_start_time, auto_live_enabled, intro_audio_url'
+  const fallbackSelect = 'id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type, gig_date, gig_start_time'
+
+  let data: Array<Record<string, unknown>> | null = null
+
+  const { data: fullData, error: fullError } = await withTimeout(
+    withAuthLockRetry(() =>
+      supabase
+        .from('events')
+        .select(fullSelect)
+        .eq('host_id', hostId)
+        .order('created_at', { ascending: false }),
+    ),
     DEFAULT_DB_TIMEOUT_MS,
     'Loading gigs timed out. Please try again.',
   )
 
-  if (error) {
-    throw error
+  if (fullError) {
+    if (!isMissingNewerEventColumnsError(fullError)) {
+      throw fullError
+    }
+
+    const { data: fallbackData, error: fallbackError } = await withTimeout(
+      withAuthLockRetry(() =>
+        supabase
+          .from('events')
+          .select(fallbackSelect)
+          .eq('host_id', hostId)
+          .order('created_at', { ascending: false }),
+      ),
+      DEFAULT_DB_TIMEOUT_MS,
+      'Loading gigs timed out. Please try again.',
+    )
+
+    if (fallbackError) {
+      throw fallbackError
+    }
+
+    data = (fallbackData ?? []) as Array<Record<string, unknown>>
+  } else {
+    data = (fullData ?? []) as Array<Record<string, unknown>>
   }
 
   const testGigMap = readTestGigMap()
 
-  return ((data ?? []) as Array<Record<string, unknown>>).map((eventData) => {
+  return (data ?? []).map((eventData) => {
     const eventId = String(eventData.id ?? '')
     const rawEventType = eventData.event_type as string | null
     const resolvedEventType = (rawEventType === 'karaoke' ? 'karaoke' : rawEventType === 'build-self' ? 'build-self' : 'halli-live') as 'halli-live' | 'karaoke' | 'build-self'
