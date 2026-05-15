@@ -16,8 +16,13 @@ Realtime event music queue with guest requests, host moderation, and protected a
 
 ```
 VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=... (optional legacy key)
 VITE_SUPABASE_PUBLISHABLE_KEY=...
 VITE_ALLOWED_HOST_EMAIL=...
+RESEND_API_KEY=... (required for /api/get-updates)
+UPDATES_EMAIL_FROM=... (required for /api/get-updates sender)
+BOOKING_WEBHOOK_URL=... (optional override for /api/book-show)
+GITHUB_TOKEN=... (required only if using /api/report-issue)
 ```
 
 3. For local phone testing only, optionally set:
@@ -50,8 +55,21 @@ Set these in Vercel Project Settings -> Environment Variables:
 
 ```
 VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY (optional legacy key)
 VITE_SUPABASE_PUBLISHABLE_KEY
 VITE_ALLOWED_HOST_EMAIL
+RESEND_API_KEY
+UPDATES_EMAIL_FROM
+```
+
+### Optional Vercel Environment Variables
+
+Configure these when their matching features are enabled:
+
+```
+BOOKING_WEBHOOK_URL   # Override booking webhook target for /api/book-show
+GITHUB_TOKEN          # Required for /api/report-issue
+VITE_BOOKING_URL      # Link used in update emails
 ```
 
 Do not add `VITE_DEV_PUBLIC_ORIGIN` in production.

@@ -14,6 +14,13 @@ const spotifyRedirectUriOverride = process.env.SPOTIFY_REDIRECT_URI?.trim() ?? '
 const spotifyRedirectUriDev = process.env.SPOTIFY_REDIRECT_URI_DEV ?? 'http://localhost:5173/callback'
 const spotifyRedirectUriProd = process.env.SPOTIFY_REDIRECT_URI_PROD ?? spotifyRedirectUriDev
 const spotifyScopes = 'user-read-playback-state user-modify-playback-state streaming'
+const resendApiUrl = 'https://api.resend.com/emails'
+const defaultBookingWebhookUrl = process.env.BOOKING_WEBHOOK_URL?.trim() || 'https://book-jukebox.base44.app/api/functions/receiveExternalBooking'
+const fallbackBookingWebhookUrls = [
+  'https://preview--book-jukebox.base44.app/api/functions/receiveExternalBooking',
+  'https://preview--book-jukebox.base44.app/api/webhook/receiveExternalBooking',
+  'https://book-jukebox.base44.app/api/webhook/receiveExternalBooking',
+]
 
 let latestRefreshToken = process.env.SPOTIFY_REFRESH_TOKEN ?? null
 
@@ -87,6 +94,41 @@ function getSpotifyRedirectUri() {
   }
 
   return spotifyRedirectUriProd
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? '').trim())
+}
+
+function buildBookingWebhookTargets(primaryUrl) {
+  const targets = [String(primaryUrl || '').trim(), ...fallbackBookingWebhookUrls]
+  return [...new Set(targets.filter(Boolean))]
+}
+
+function buildUpdatesEmailHtml(bookingUrl, lang = 'en') {
+  if (lang === 'da') {
+    return `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a44;">
+        <h2 style="margin-bottom: 8px;">Tak for din interesse i The Human Jukebox</h2>
+        <p style="margin-top: 0;">Her er et hurtigt overblik over konceptet og hvordan booking fungerer.</p>
+        <p>
+          Klar til at planlaegge din dato?
+          <a href="${bookingUrl}" style="color: #0b63ce; font-weight: 700;">Book showet her</a>.
+        </p>
+      </div>
+    `
+  }
+
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a44;">
+      <h2 style="margin-bottom: 8px;">Thanks for your interest in The Human Jukebox</h2>
+      <p style="margin-top: 0;">Here is a quick overview of the concept and how booking works.</p>
+      <p>
+        Ready to plan your date?
+        <a href="${bookingUrl}" style="color: #0b63ce; font-weight: 700;">Book the show here</a>.
+      </p>
+    </div>
+  `
 }
 
 function getAuthorizeUrl() {
@@ -235,6 +277,148 @@ app.get('/api/spotify/token', async (_req, res) => {
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Spotify token refresh failed.',
     })
+  }
+})
+
+app.post('/api/book-show', async (req, res) => {
+  const booking = req.body?.booking ?? req.body ?? {}
+  const venueName = String(booking.venue_name || '').trim()
+  const date = String(booking.date || '').trim()
+  const gigType = String(booking.gig_type || '').trim()
+  const notes = String(booking.notes || '').trim()
+  const externalContactEmail = String(booking.contact_email || booking.external_contact_email || '').trim()
+  const fee = booking.requested_fee ?? booking.fee
+  const webhookTargets = buildBookingWebhookTargets(defaultBookingWebhookUrl)
+
+  if (webhookTargets.length === 0) {
+    res.status(400).json({ success: false, message: 'Webhook URL is required.' })
+    return
+  }
+
+  if (!venueName) {
+    res.status(400).json({ success: false, message: 'venue_name is required.' })
+    return
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ success: false, message: 'date must be YYYY-MM-DD.' })
+    return
+  }
+
+  if (!['afternoon', 'evening', 'both'].includes(gigType)) {
+    res.status(400).json({ success: false, message: 'gig_type must be afternoon, evening, or both.' })
+    return
+  }
+
+  if (!isValidEmail(externalContactEmail)) {
+    res.status(400).json({ success: false, message: 'external_contact_email is required and must be valid.' })
+    return
+  }
+
+  if (fee !== undefined && fee !== null && fee !== '' && Number.isNaN(Number(fee))) {
+    res.status(400).json({ success: false, message: 'fee must be a number when provided.' })
+    return
+  }
+
+  const payload = {
+    venue_name: venueName,
+    date,
+    gig_type: gigType,
+    requested_fee: fee === undefined || fee === null || fee === '' ? undefined : Number(fee),
+    contact_email: externalContactEmail,
+    notes: notes || undefined,
+  }
+
+  const failures = []
+
+  for (const target of webhookTargets) {
+    try {
+      const response = await fetch(target, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => '')
+        failures.push({ target, status: response.status, details: bodyText.slice(0, 500) })
+        continue
+      }
+
+      const upstream = await response.json().catch(() => ({}))
+      res.status(200).json({
+        success: true,
+        gig_id: upstream?.gig_id || '',
+        message: upstream?.message || 'Booking received',
+        routed_to: target,
+      })
+      return
+    } catch (error) {
+      failures.push({ target, status: 0, details: error instanceof Error ? error.message : 'Network error' })
+    }
+  }
+
+  res.status(502).json({
+    success: false,
+    message: 'External booking webhook failed',
+    details: failures,
+  })
+})
+
+app.post('/api/get-updates', async (req, res) => {
+  const toEmail = String(req.body?.email || '').trim().toLowerCase()
+  const emailLang = req.body?.lang === 'da' ? 'da' : 'en'
+
+  if (!isValidEmail(toEmail)) {
+    res.status(400).json({ success: false, message: 'A valid email is required.' })
+    return
+  }
+
+  const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
+  const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <noreply@the-human-jukebox.org>'
+  const bookingUrl = process.env.VITE_BOOKING_URL?.trim() || 'https://www.the-human-jukebox.org/?booking=1'
+
+  if (!resendApiKey) {
+    res.status(500).json({ success: false, message: 'Email service is not configured.' })
+    return
+  }
+
+  try {
+    const emailSubject = emailLang === 'da'
+      ? 'Din Human Jukebox-koncept og bookinginfo'
+      : 'Your Human Jukebox concept and booking info'
+
+    const response = await fetch(resendApiUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [toEmail],
+        subject: emailSubject,
+        html: buildUpdatesEmailHtml(bookingUrl, emailLang),
+      }),
+    })
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null)
+      const errorText = errorBody?.message || errorBody?.name || JSON.stringify(errorBody) || ''
+      res.status(502).json({
+        success: false,
+        message: `Email could not be sent: ${errorText || response.status}`,
+        details: errorBody,
+      })
+      return
+    }
+
+    res.status(200).json({ success: true, message: 'Update email sent.' })
+  } catch (error) {
+    console.error('get-updates local dev error', error)
+    res.status(500).json({ success: false, message: 'Could not send update email.' })
   }
 })
 

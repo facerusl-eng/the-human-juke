@@ -9,6 +9,10 @@ const DEFAULT_DESCRIPTION = 'Join the Human Jukebox - request songs and vote liv
 // Real browsers won't match any of these, so they get an instant redirect.
 const CRAWLER_UA_PATTERN = /facebookexternalhit|facebot|twitterbot|linkedinbot|whatsapp|telegram|slackbot|discordbot|googlebot|bingbot|yandex|applebot|duckduckbot|pinterestbot|vkshare|w3c_validator|preview/i
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value ?? '').trim())
+}
+
 function isCrawler(req) {
   const ua = req?.headers?.['user-agent'] ?? ''
   return CRAWLER_UA_PATTERN.test(ua)
@@ -96,7 +100,8 @@ function buildDescription(eventMeta) {
 }
 
 export default async function handler(req, res) {
-  const eventId = typeof req.query?.event === 'string' ? req.query.event.trim() : ''
+  const rawEventId = typeof req.query?.event === 'string' ? req.query.event.trim() : ''
+  const eventId = isUuid(rawEventId) ? rawEventId : ''
   const origin = toAbsoluteOrigin(req)
   const targetUrl = eventId ? `${origin}/audience?event=${encodeURIComponent(eventId)}` : `${origin}/audience`
 

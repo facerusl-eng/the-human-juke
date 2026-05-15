@@ -771,8 +771,6 @@ async function fetchHostEvents(hostId: string) {
   const fullSelect = 'id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type, event_theme, gig_date, gig_start_time, auto_live_enabled, intro_audio_url'
   const fallbackSelect = 'id, name, venue, is_active, show_in_audience_no_gig, created_at, event_type, gig_date, gig_start_time'
 
-  let data: Array<Record<string, unknown>> | null = null
-
   const { data: fullData, error: fullError } = await withTimeout(
     withAuthLockRetry(() =>
       supabase
@@ -785,7 +783,8 @@ async function fetchHostEvents(hostId: string) {
     'Loading gigs timed out. Please try again.',
   )
 
-  if (fullError) {
+  const data: Array<Record<string, unknown>> = fullError
+    ? await (async () => {
     if (!isMissingNewerEventColumnsError(fullError)) {
       throw fullError
     }
@@ -806,14 +805,13 @@ async function fetchHostEvents(hostId: string) {
       throw fallbackError
     }
 
-    data = (fallbackData ?? []) as Array<Record<string, unknown>>
-  } else {
-    data = (fullData ?? []) as Array<Record<string, unknown>>
-  }
+    return (fallbackData ?? []) as Array<Record<string, unknown>>
+  })()
+    : ((fullData ?? []) as Array<Record<string, unknown>>)
 
   const testGigMap = readTestGigMap()
 
-  return (data ?? []).map((eventData) => {
+  return data.map((eventData) => {
     const eventId = String(eventData.id ?? '')
     const rawEventType = eventData.event_type as string | null
     const resolvedEventType = (rawEventType === 'karaoke' ? 'karaoke' : rawEventType === 'build-self' ? 'build-self' : 'halli-live') as 'halli-live' | 'karaoke' | 'build-self'

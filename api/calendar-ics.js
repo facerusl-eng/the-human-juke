@@ -2,6 +2,10 @@ function clean(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clean(value))
+}
+
 function normalizeTimeForDate(value) {
   const normalized = clean(value)
   if (!normalized) return null
@@ -80,6 +84,11 @@ export default async function handler(req, res) {
   const eventId = clean(req.query?.event)
   if (!eventId) {
     res.status(400).send('Missing event id')
+    return
+  }
+
+  if (!isUuid(eventId)) {
+    res.status(400).send('Invalid event id')
     return
   }
 
