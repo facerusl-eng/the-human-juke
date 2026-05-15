@@ -935,6 +935,65 @@ async function fetchHostEvents(hostId: string) {
   })
 }
 
+function buildEventFallbackFromHostEvent(hostEvent: HostEventSummary, hostId: string | null): EventState {
+  return {
+    id: hostEvent.id,
+    hostId,
+    name: hostEvent.name,
+    venue: hostEvent.venue,
+    gigDate: hostEvent.gigDate,
+    gigStartTime: hostEvent.gigStartTime,
+    gigEndTime: null,
+    subtitle: null,
+    requestInstructions: null,
+    instagramUrl: null,
+    tiktokUrl: null,
+    youtubeUrl: null,
+    facebookUrl: null,
+    paypalUrl: null,
+    mobilpayUrl: null,
+    contactEmail: null,
+    playlistOnlyRequests: true,
+    mirrorPhotoSpotlightEnabled: true,
+    mirrorCountdownEnabled: true,
+    mirrorCountdownShowQrLink: true,
+    mirrorCountdownQrLink: null,
+    mirrorCountdownQrCustomEnabled: false,
+    mirrorCountdownQrCustomUrl: null,
+    mirrorCountdownQrText: null,
+    mirrorCountdownQrFlashEnabled: true,
+    mirrorCountdownQrFlashVenue: null,
+    mirrorBreakQrEnabled: false,
+    mirrorBreakQrCustomUrl: null,
+    mirrorBannerEnabled: true,
+    allowDuplicateRequests: true,
+    maxActiveRequestsPerUser: null,
+    maxQueueSize: null,
+    roomOpen: false,
+    explicitFilterEnabled: false,
+    showInAudienceNoGig: hostEvent.showInAudienceNoGig,
+    coverImageUrl: null,
+    venueLogoUrl: null,
+    venueLogoScale: 100,
+    venueLogoOffsetX: 0,
+    venueLogoOffsetY: 0,
+    showCustomButton: false,
+    customButtonLabel: null,
+    customButtonLink: null,
+    tipThankYouMessageDA: null,
+    tipThankYouMessageEN: null,
+    eventType: hostEvent.eventType,
+    eventTheme: hostEvent.eventTheme,
+    karafunUrl: null,
+    artistName: null,
+    audienceVotingEnabled: true,
+    audienceIcelandicEnabled: false,
+    autoLiveEnabled: hostEvent.autoLiveEnabled,
+    introAudioUrl: hostEvent.introAudioUrl,
+    isTestGig: hostEvent.isTestGig,
+  }
+}
+
 async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
   const allPlaylists: Array<{ id: string; name: string; created_at: string; playlist_type: 'human_jukebox' | 'karaoke' }> = []
 
@@ -1114,6 +1173,7 @@ function QueueProvider({ children }: PropsWithChildren) {
   const activeEventIdRef = useRef<string | null>(null)
   const prevConnectionStatusRef = useRef<'connecting' | 'connected' | 'reconnecting' | 'offline'>('connecting')
   const queueOperatingModeRef = useRef<'normal' | 'degraded'>('normal')
+  const hostEventsRef = useRef<HostEventSummary[]>([])
 
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
@@ -1127,6 +1187,10 @@ function QueueProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     queueOperatingModeRef.current = queueOperatingMode
   }, [queueOperatingMode])
+
+  useEffect(() => {
+    hostEventsRef.current = hostEvents
+  }, [hostEvents])
 
   useEffect(() => {
     const snapshot = readFromLocalStorage<PersistedQueueSnapshot | null>(QUEUE_STATE_STORAGE_KEY, null)
@@ -2015,6 +2079,8 @@ function QueueProvider({ children }: PropsWithChildren) {
         setLoading(true)
       }
 
+      let latestHostEvents: HostEventSummary[] = hostEventsRef.current
+
       try {
         let targetEventId: string | null = null
         const requestedEventId = readRequestedEventIdFromUrl()
@@ -2059,6 +2125,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         if (runAsHostSession) {
           const nextHostEvents = await withTransientRetry(() => fetchHostEvents(user.id))
+          latestHostEvents = nextHostEvents
 
           if (isCurrent) {
             setHostEvents(nextHostEvents)
@@ -2449,6 +2516,28 @@ function QueueProvider({ children }: PropsWithChildren) {
         markSnapshotFailure(error)
         setAudienceConnectionStatus('reconnecting')
         console.warn('queueStore: initial queue load failed', error)
+        const shouldFallbackToHostShell = isHostSession && !isAudienceRoutePath()
+
+        if (isCurrent && shouldFallbackToHostShell && latestHostEvents.length > 0) {
+          const fallbackHostEvent = latestHostEvents.find((hostEvent) => hostEvent.id === eventId)
+            ?? latestHostEvents.find((hostEvent) => hostEvent.isActive)
+            ?? latestHostEvents[0]
+
+          if (fallbackHostEvent) {
+            activeEventIdRef.current = fallbackHostEvent.id
+            setEvent((currentEvent) => {
+              if (currentEvent?.id === fallbackHostEvent.id) {
+                return currentEvent
+              }
+
+              return buildEventFallbackFromHostEvent(fallbackHostEvent, user.id)
+            })
+            setSongs([])
+            setPerformedSongs([])
+            setQueueOperatingMode('degraded')
+            setQueueHealthMessage(`Live data is temporarily unavailable. Keeping Gig Control online in fallback mode while retrying. (${getReadableErrorMessage(error)})`)
+          }
+        }
         // Keep previous state so transient failures do not blank the UI.
         if (isCurrent) {
           setLoading(false)
@@ -2762,6 +2851,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error('Host account required to set the active gig.')
         }
 
+        let nextHostEvents: HostEventSummary[] = []
+
         try {
           const { error: deactivateError } = await withTimeout(
             withAuthLockRetry(() =>
@@ -2833,16 +2924,51 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         try {
-          const [nextHostEvents] = await Promise.all([
-            fetchHostEvents(user.id),
-            fetchQueueSnapshot(nextEventId),
-          ])
-
+          nextHostEvents = await fetchHostEvents(user.id)
           setHostEvents(nextHostEvents)
+        } catch (error) {
+          console.error('queueStore: setActiveEvent host events refresh failed', error)
+        }
+
+        try {
+          await fetchQueueSnapshot(nextEventId)
+          setQueueOperatingMode('normal')
+          setQueueHealthMessage(null)
           setPerformedSongs([])
         } catch (error) {
           console.error('queueStore: setActiveEvent fetch step failed', error)
-          throw new Error(`Failed to refresh gig data: ${getReadableErrorMessage(error)}`, { cause: error })
+
+          if (!isTransientLoadError(error)) {
+            throw new Error(`Failed to refresh gig data: ${getReadableErrorMessage(error)}`, { cause: error })
+          }
+
+          const fallbackHostEvent = nextHostEvents.find((hostEvent) => hostEvent.id === nextEventId)
+          if (fallbackHostEvent) {
+            activeEventIdRef.current = fallbackHostEvent.id
+            setEvent((currentEvent) => {
+              if (currentEvent?.id === fallbackHostEvent.id) {
+                return {
+                  ...currentEvent,
+                  name: fallbackHostEvent.name,
+                  venue: fallbackHostEvent.venue,
+                  gigDate: fallbackHostEvent.gigDate,
+                  gigStartTime: fallbackHostEvent.gigStartTime,
+                  eventType: fallbackHostEvent.eventType,
+                  eventTheme: fallbackHostEvent.eventTheme,
+                  autoLiveEnabled: fallbackHostEvent.autoLiveEnabled,
+                  introAudioUrl: fallbackHostEvent.introAudioUrl,
+                  isTestGig: fallbackHostEvent.isTestGig,
+                }
+              }
+
+              return buildEventFallbackFromHostEvent(fallbackHostEvent, user.id)
+            })
+            setSongs([])
+            setPerformedSongs([])
+          }
+
+          setQueueOperatingMode('degraded')
+          setQueueHealthMessage(`Live queue data is delayed right now. Retrying in the background. (${getReadableErrorMessage(error)})`)
         }
       },
       endGig: async (targetEventId: string) => {
