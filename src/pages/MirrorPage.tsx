@@ -1186,6 +1186,7 @@ function MirrorPageContent() {
     const persistedEnabled = readTextFromLocalStorage(MIRROR_LAYOUT_EDIT_STORAGE_KEY) === '1'
     return queryEnabled || persistedEnabled
   })
+  const [hasSetlistSongs, setHasSetlistSongs] = useState(false)
   const [mirrorLayoutState, setMirrorLayoutState] = useState<MirrorLayoutState>(() => {
     if (typeof window === 'undefined') {
       return DEFAULT_MIRROR_LAYOUT_STATE
@@ -1532,6 +1533,66 @@ function MirrorPageContent() {
     ? formatMirrorCountdownLabel(countdownRemainingMs)
     : null
   const countdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget, audienceLocale) : null
+  const shouldShowPreShow = !isLive && !nowPlaying && !demoMode && !hasSetlistSongs
+
+  useEffect(() => {
+    if (!event?.id || isLive || nowPlaying || demoMode) {
+      setHasSetlistSongs(false)
+      return
+    }
+
+    let cancelled = false
+
+    const refreshSetlistPresence = async () => {
+      try {
+        const { data: linkedPlaylists, error: linkError } = await supabase
+          .from('event_playlists')
+          .select('playlist_id')
+          .eq('event_id', event.id)
+
+        if (linkError) {
+          if (!cancelled) {
+            setHasSetlistSongs(false)
+          }
+          return
+        }
+
+        const playlistIds = ((linkedPlaylists ?? []) as Array<{ playlist_id?: string | null }>)
+          .map((row) => row.playlist_id)
+          .filter((playlistId): playlistId is string => Boolean(playlistId))
+
+        if (playlistIds.length === 0) {
+          if (!cancelled) {
+            setHasSetlistSongs(false)
+          }
+          return
+        }
+
+        const { count, error: songsError } = await supabase
+          .from('playlist_songs')
+          .select('playlist_id', { head: true, count: 'exact' })
+          .in('playlist_id', playlistIds)
+
+        if (!cancelled) {
+          setHasSetlistSongs(!songsError && Boolean(count && count > 0))
+        }
+      } catch {
+        if (!cancelled) {
+          setHasSetlistSongs(false)
+        }
+      }
+    }
+
+    void refreshSetlistPresence()
+    const timerId = window.setInterval(() => {
+      void refreshSetlistPresence()
+    }, 15000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timerId)
+    }
+  }, [demoMode, event?.id, isLive, nowPlaying])
 
   const onCoverLoadError = (coverUrl: string | null | undefined) => {
     if (!coverUrl) {
@@ -3211,7 +3272,7 @@ function MirrorPageContent() {
       ) : null}
 
       <main className={`mirror-stage ${(isLive || demoMode) ? 'mirror-stage-live' : ''}`}>
-        {!isLive && !nowPlaying && !demoMode ? (
+        {shouldShowPreShow ? (
           <section
             className={`mirror-pre-show ${showCountdown ? 'mirror-pre-show-has-countdown' : ''}`.trim()}
             aria-label="Pre-show welcome"
