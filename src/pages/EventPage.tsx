@@ -2604,6 +2604,16 @@ function EventPage() {
               ))}
             </div>
           ) : null}
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              const mirrorUrl = event?.id ? `/mirror?event=${encodeURIComponent(event.id)}` : '/mirror'
+              window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
+            }}
+          >
+            📺 View Mirror Screen
+          </button>
           {hasRequestedEventParam ? (
             <button
               type="button"
