@@ -3466,16 +3466,17 @@
   height: clamp(220px, min(24vw, 28dvh), 360px);
 }
 
-/* Queue row structure: left picked-by, center karaoke/band, right song info. */
+/* Queue row structure: left song info, center karaoke/band, right picked-by. */
 .mirror-song-queue-frame .mirror-queue-item {
   align-items: center;
+  overflow: hidden;
 }
 
 .mirror-song-queue-frame .mirror-queue-info {
   flex: 1;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.1fr) auto minmax(0, 0.9fr);
   align-items: center;
   gap: clamp(0.36rem, 0.62vw, 0.62rem);
 }
@@ -3483,10 +3484,13 @@
 .mirror-song-queue-frame .mirror-queue-picker {
   margin: 0;
   max-width: 100%;
+  width: 100%;
+  justify-self: end;
   text-align: right;
   line-height: 1.2;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mirror-song-queue-frame .mirror-queue-signal {
@@ -3526,10 +3530,13 @@
 .mirror-song-queue-frame .mirror-queue-song-info .mirror-queue-artist {
   width: 100%;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue-info {
-  grid-template-columns: minmax(0, 0.95fr) auto minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1.05fr) auto minmax(0, 0.95fr);
 }
 
 .mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue-picker {
