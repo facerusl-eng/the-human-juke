@@ -1378,6 +1378,39 @@ function MirrorPageContent() {
   }, [eventId])
   const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
+  const countdownJoinPath = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return '/audience'
+    }
+
+    const resolveSameSitePath = (rawValue: string) => {
+      const trimmedValue = rawValue.trim()
+
+      if (!trimmedValue) {
+        return null
+      }
+
+      if (trimmedValue.startsWith('/') && !trimmedValue.startsWith('//')) {
+        return trimmedValue
+      }
+
+      try {
+        const parsedUrl = new URL(trimmedValue, window.location.origin)
+
+        if (parsedUrl.origin !== window.location.origin) {
+          return null
+        }
+
+        return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
+      } catch {
+        return null
+      }
+    }
+
+    return resolveSameSitePath(customCountdownQrLink)
+      ?? resolveSameSitePath(audienceUrl)
+      ?? '/audience'
+  }, [customCountdownQrLink, audienceUrl])
   const loungeChoiceUrl = useMemo(() => {
     if (typeof window === 'undefined') {
       return '/lounge-link?chooser=1'
@@ -1385,14 +1418,15 @@ function MirrorPageContent() {
 
     const url = new URL('/lounge-link', window.location.origin)
     url.searchParams.set('chooser', '1')
+    url.searchParams.set('join', countdownJoinPath)
 
     if (eventId) {
       url.searchParams.set('event', eventId)
     }
 
     return url.toString()
-  }, [eventId])
-  const countdownQrDestination = customCountdownQrLink || loungeChoiceUrl
+  }, [countdownJoinPath, eventId])
+  const countdownQrDestination = loungeChoiceUrl
   const qrFlashLines = useMemo(() => {
     const lines = customQrFlashVenueName
       ? [...QR_FLASH_BASE_LINES, customQrFlashVenueName]
