@@ -94,6 +94,15 @@ function hasFutureCountdownTarget(events: AudienceUpcomingEvent[]): boolean {
   })
 }
 
+function isFutureCountdownEvent(eventRow: AudienceUpcomingEvent | null | undefined): boolean {
+  if (!eventRow) {
+    return false
+  }
+
+  const startsAtMs = parseEventStartMs(eventRow.gigDate, eventRow.gigStartTime)
+  return startsAtMs !== null && startsAtMs > Date.now()
+}
+
 function isMissingCoverImageColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -1929,6 +1938,42 @@ function EventPage() {
     let channel: ReturnType<typeof supabase.channel> | null = null
     let pollTimerId: number | null = null
 
+    const resolveCountdownFallback = async (events: AudienceUpcomingEvent[]) => {
+      if (!isCurrent) {
+        return
+      }
+
+      if (hasFutureCountdownTarget(events)) {
+        setCountdownFallbackEvent(null)
+        return
+      }
+
+      try {
+        const fallbackEvent = await fetchCountdownFallbackEventFromApi()
+
+        if (!isCurrent) {
+          return
+        }
+
+        if (fallbackEvent && !events.some((eventRow) => eventRow.id === fallbackEvent.id)) {
+          setCountdownFallbackEvent(fallbackEvent)
+          return
+        }
+
+        setCountdownFallbackEvent((currentFallbackEvent) => (
+          isFutureCountdownEvent(currentFallbackEvent) ? currentFallbackEvent : null
+        ))
+      } catch {
+        if (!isCurrent) {
+          return
+        }
+
+        setCountdownFallbackEvent((currentFallbackEvent) => (
+          isFutureCountdownEvent(currentFallbackEvent) ? currentFallbackEvent : null
+        ))
+      }
+    }
+
     const loadUpcomingEvents = async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
       const now = Date.now()
 
@@ -1955,29 +2000,7 @@ function EventPage() {
 
         setUpcomingEvents(mappedEvents)
         saveUpcomingEventsCache(mappedEvents)
-        if (hasFutureCountdownTarget(mappedEvents)) {
-          setCountdownFallbackEvent(null)
-        } else {
-          void (async () => {
-            try {
-              const fallbackEvent = await fetchCountdownFallbackEventFromApi()
-
-              if (!isCurrent) {
-                return
-              }
-
-              if (fallbackEvent && !mappedEvents.some((eventRow) => eventRow.id === fallbackEvent.id)) {
-                setCountdownFallbackEvent(fallbackEvent)
-              } else {
-                setCountdownFallbackEvent(null)
-              }
-            } catch {
-              if (isCurrent) {
-                setCountdownFallbackEvent(null)
-              }
-            }
-          })()
-        }
+        void resolveCountdownFallback(mappedEvents)
         upcomingFailureCountRef.current = 0
         upcomingNextRefreshAtRef.current = 0
         upcomingBaseFetchHealthyRef.current = true
@@ -2007,7 +2030,7 @@ function EventPage() {
 
                 setUpcomingEvents(refreshedEvents)
                 saveUpcomingEventsCache(refreshedEvents)
-                setCountdownFallbackEvent(null)
+                void resolveCountdownFallback(refreshedEvents)
 
                 if (refreshedEvents.length > 0) {
                   setUpcomingNoticeDebounced(null, 300)
@@ -2051,7 +2074,7 @@ function EventPage() {
             if (isCurrent) {
               setUpcomingEvents(mappedEvents)
               saveUpcomingEventsCache(mappedEvents)
-              setCountdownFallbackEvent(null)
+              void resolveCountdownFallback(mappedEvents)
               upcomingFailureCountRef.current = 0
               upcomingNextRefreshAtRef.current = 0
               upcomingBaseFetchHealthyRef.current = true
@@ -2070,7 +2093,6 @@ function EventPage() {
         }
 
         if (isCurrent) {
-          setCountdownFallbackEvent(null)
           upcomingFailureCountRef.current += 1
           const retryDelay = getUpcomingRetryDelayMs(upcomingFailureCountRef.current)
           upcomingNextRefreshAtRef.current = Date.now() + retryDelay
@@ -2080,6 +2102,7 @@ function EventPage() {
 
           if (staleCachedEvents.length > 0) {
             setUpcomingEvents(staleCachedEvents)
+            void resolveCountdownFallback(staleCachedEvents)
             setUpcomingNoticeDebounced('Refreshing upcoming gigs...', 250)
             return
           }
