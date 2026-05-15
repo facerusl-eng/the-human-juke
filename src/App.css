@@ -4947,6 +4947,76 @@
   font-size: 0.88rem;
 }
 
+.gig-mirror-preview-brb-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  background: rgba(10, 15, 29, 0.94);
+  border: 1px solid rgba(255, 196, 102, 0.34);
+}
+
+.gig-mirror-preview-brb-icon {
+  margin: 0;
+  font-size: 2.1rem;
+  line-height: 1;
+}
+
+.gig-mirror-preview-brb-heading {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.gig-mirror-preview-brb-message {
+  margin: 0;
+  color: #f9d9ad;
+  font-size: 0.86rem;
+  font-weight: 600;
+  max-width: 32ch;
+}
+
+.gig-mirror-preview-transition-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 0.7rem;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: min(92%, 32rem);
+  border-radius: 0.7rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.44);
+  background: rgba(15, 23, 42, 0.92);
+  text-align: center;
+}
+
+.gig-mirror-preview-transition-toast p {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.gig-mirror-preview-transition-toast.is-on-break {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(68, 42, 8, 0.92);
+}
+
+.gig-mirror-preview-transition-toast.is-back-live {
+  border-color: rgba(34, 197, 94, 0.48);
+  background: rgba(16, 67, 41, 0.9);
+}
+
 .gig-mirror-preview-top {
   display: flex;
   justify-content: space-between;
@@ -11188,6 +11258,41 @@
   font-size: 1.5rem;
   color: #94a3b8;
   margin: 0;
+}
+
+.mirror-break-transition-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 2.2rem;
+  transform: translateX(-50%);
+  z-index: 8200;
+  min-width: min(92vw, 34rem);
+  padding: 0.85rem 1.2rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.88);
+  color: #f8fafc;
+  box-shadow: 0 10px 28px rgba(2, 6, 23, 0.42);
+  text-align: center;
+}
+
+.mirror-break-transition-toast p {
+  margin: 0;
+  font-size: 1.06rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.mirror-break-transition-toast.is-on-break {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(69, 41, 0, 0.92);
+  color: #ffefc7;
+}
+
+.mirror-break-transition-toast.is-back-live {
+  border-color: rgba(34, 197, 94, 0.58);
+  background: rgba(9, 56, 34, 0.92);
+  color: #d8ffe9;
 }
 
 /* ─── Keyboard Shortcuts Panel ───────────────────────────────────────── */

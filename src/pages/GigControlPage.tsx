@@ -27,8 +27,10 @@ const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport
 const GIG_CONTROL_NOW_PLAYING_STORAGE_KEY = 'human-jukebox-gig-control-now-playing'
 const GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS = 12 * 60 * 60 * 1000
 const BACKGROUND_SYNC_TAG = 'jukebox-sync'
+const MIRROR_PREVIEW_TRANSITION_MS = 4200
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
+type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
 
 type PersistedGigControlNowPlaying = {
   eventId: string
@@ -225,6 +227,8 @@ function GigControlPage() {
   const gigStartedAtRef = useRef<number>(Date.now())
   const [isBrbActive, setIsBrbActive] = useState(false)
   const [brbCustomMessage, setBrbCustomMessage] = useState('')
+  const [mirrorPreviewTransitionMessage, setMirrorPreviewTransitionMessage] = useState<string | null>(null)
+  const [mirrorPreviewTransitionTone, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
   const [mirrorReadabilityCheckEnabled, setMirrorReadabilityCheckEnabled] = useState(false)
   const [lastMirrorSyncAt, setLastMirrorSyncAt] = useState<number>(() => Date.now())
   const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
@@ -259,6 +263,7 @@ function GigControlPage() {
   const liveHealthGuardLastRunAtRef = useRef(0)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveInFlightRef = useRef(false)
+  const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   // Tracks event IDs whose intro audio has already played this page session.
   // Prevents the intro from replaying if the host pauses and re-opens the room.
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
@@ -799,6 +804,21 @@ function GigControlPage() {
     }
   }, [event, gigActions, playIntroAudioWithSpotifyBridge, runGoLivePreflight])
 
+  const showMirrorPreviewTransition = useCallback((message: string, tone: MirrorPreviewTransitionTone) => {
+    if (mirrorPreviewTransitionTimerRef.current !== null) {
+      window.clearTimeout(mirrorPreviewTransitionTimerRef.current)
+      mirrorPreviewTransitionTimerRef.current = null
+    }
+
+    setMirrorPreviewTransitionTone(tone)
+    setMirrorPreviewTransitionMessage(message)
+
+    mirrorPreviewTransitionTimerRef.current = window.setTimeout(() => {
+      setMirrorPreviewTransitionMessage(null)
+      mirrorPreviewTransitionTimerRef.current = null
+    }, MIRROR_PREVIEW_TRANSITION_MS)
+  }, [])
+
   const setMirrorOverlayMessage = useCallback(async (message: string | null) => {
     if (!event?.id) {
       return false
@@ -824,6 +844,12 @@ function GigControlPage() {
         brbMessage: message,
       })
 
+      if (nextBrbActive) {
+        showMirrorPreviewTransition(message?.trim() || 'On break now. Grab a beer and stay tuned.', 'on-break')
+      } else if (previousBrbActive) {
+        showMirrorPreviewTransition('Back from break. Show is live again!', 'back-live')
+      }
+
       return true
     } catch (error) {
       setIsBrbActive(previousBrbActive)
@@ -832,7 +858,7 @@ function GigControlPage() {
       setErrorText('Failed to update mirror overlay.')
       return false
     }
-  }, [brbCustomMessage, event?.id, isBrbActive, nowPlaying?.id, resolveCoverUrlForSong])
+  }, [brbCustomMessage, event?.id, isBrbActive, nowPlaying?.id, resolveCoverUrlForSong, showMirrorPreviewTransition])
 
   const toggleBrbState = useCallback(async () => {
     const nextBrb = !isBrbActive
@@ -843,6 +869,15 @@ function GigControlPage() {
     const message = getEmergencyOverlayMessage(preset)
     await setMirrorOverlayMessage(message)
   }, [setMirrorOverlayMessage])
+
+  useEffect(() => {
+    return () => {
+      if (mirrorPreviewTransitionTimerRef.current !== null) {
+        window.clearTimeout(mirrorPreviewTransitionTimerRef.current)
+        mirrorPreviewTransitionTimerRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!event?.roomOpen || preflightBusy || audienceConnectionStatus === 'connected') {
@@ -1908,6 +1943,18 @@ function GigControlPage() {
           <div className="gig-mirror-preview-frame" role="img" aria-label="Mirror screen preview">
             <div className="gig-mirror-preview-scale-shell">
               <div className={`gig-mirror-preview-scale-canvas ${mirrorReadabilityCheckEnabled ? 'is-readability-check' : ''}`}>
+                {isBrbActive ? (
+                  <div className="gig-mirror-preview-brb-overlay" aria-live="polite" role="status">
+                    <p className="gig-mirror-preview-brb-icon" aria-hidden="true">🍺</p>
+                    <p className="gig-mirror-preview-brb-heading">On Break</p>
+                    <p className="gig-mirror-preview-brb-message">{brbCustomMessage.trim() || 'On break now. Grab a beer and stay tuned.'}</p>
+                  </div>
+                ) : null}
+                {mirrorPreviewTransitionMessage ? (
+                  <div className={`gig-mirror-preview-transition-toast is-${mirrorPreviewTransitionTone}`} aria-live="polite" role="status">
+                    <p>{mirrorPreviewTransitionMessage}</p>
+                  </div>
+                ) : null}
                 <div className="gig-mirror-preview-top">
                   <div className="gig-mirror-preview-brand-shell">
                     {event.venueLogoUrl ? (

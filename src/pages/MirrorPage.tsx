@@ -79,6 +79,7 @@ const MIRROR_LAYOUT_EDIT_STORAGE_KEY = 'human-jukebox-mirror-layout-edit-mode'
 const MIRROR_LAYOUT_STATE_STORAGE_KEY = 'human-jukebox-mirror-layout-state'
 const MIRROR_LAYOUT_STATE_PROFILE_COLUMN = 'default_mirror_layout_state'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
+const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
@@ -1139,6 +1140,8 @@ function MirrorPageContent() {
   const [flashActive, setFlashActive] = useState(false)
   const [queuedSpotlightCount, setQueuedSpotlightCount] = useState(0)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
+  const [breakTransitionMessage, setBreakTransitionMessage] = useState<string | null>(null)
+  const [breakTransitionTone, setBreakTransitionTone] = useState<'on-break' | 'back-live'>('on-break')
   const [mirrorWarning, setMirrorWarning] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
@@ -1196,6 +1199,8 @@ function MirrorPageContent() {
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
   const mirrorWarningLastShownAtRef = useRef<number>(0)
+  const previousBrbActiveRef = useRef<boolean | null>(null)
+  const breakTransitionTimerRef = useRef<number | null>(null)
   const spotlightQueueRef = useRef<SpotlightQueueItem[]>([])
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
@@ -1516,6 +1521,49 @@ function MirrorPageContent() {
       return { ...currentUrls, [coverUrl]: true }
     })
   }
+
+  useEffect(() => {
+    const nextBrbActive = Boolean(playbackState?.brbActive)
+    const previousBrbActive = previousBrbActiveRef.current
+
+    if (previousBrbActive === null) {
+      previousBrbActiveRef.current = nextBrbActive
+      return
+    }
+
+    if (previousBrbActive === nextBrbActive) {
+      return
+    }
+
+    if (breakTransitionTimerRef.current !== null) {
+      window.clearTimeout(breakTransitionTimerRef.current)
+      breakTransitionTimerRef.current = null
+    }
+
+    if (nextBrbActive) {
+      setBreakTransitionTone('on-break')
+      setBreakTransitionMessage(playbackState?.brbMessage?.trim() || 'On break now. Grab a beer and stay tuned.')
+    } else {
+      setBreakTransitionTone('back-live')
+      setBreakTransitionMessage('Back from break. Show is live again!')
+    }
+
+    breakTransitionTimerRef.current = window.setTimeout(() => {
+      setBreakTransitionMessage(null)
+      breakTransitionTimerRef.current = null
+    }, MIRROR_BREAK_TRANSITION_NOTICE_MS)
+
+    previousBrbActiveRef.current = nextBrbActive
+  }, [playbackState?.brbActive, playbackState?.brbMessage])
+
+  useEffect(() => {
+    return () => {
+      if (breakTransitionTimerRef.current !== null) {
+        window.clearTimeout(breakTransitionTimerRef.current)
+        breakTransitionTimerRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (layoutEditMode) {
@@ -3457,10 +3505,16 @@ function MirrorPageContent() {
       {playbackState?.brbActive ? (
         <div className="mirror-brb-overlay" aria-live="polite" role="status">
           <p className="mirror-brb-icon" aria-hidden="true">🍺</p>
-          <p className="mirror-brb-heading">Be Right Back</p>
+          <p className="mirror-brb-heading">On Break</p>
           {playbackState.brbMessage ? (
             <p className="mirror-brb-message">{playbackState.brbMessage}</p>
           ) : null}
+        </div>
+      ) : null}
+
+      {breakTransitionMessage ? (
+        <div className={`mirror-break-transition-toast is-${breakTransitionTone}`} aria-live="polite" role="status">
+          <p>{breakTransitionMessage}</p>
         </div>
       ) : null}
 
