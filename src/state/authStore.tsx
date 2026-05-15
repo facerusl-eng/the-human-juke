@@ -9,8 +9,8 @@ const AUTH_REQUEST_TIMEOUT_MS = 20_000
 const AUTH_TRANSIENT_RETRY_COUNT = 2
 const AUTH_PROFILE_REQUEST_TIMEOUT_MS = 20_000
 const AUTH_PROFILE_RETRY_COUNT = 3
-const AUTH_HOST_SIGN_IN_TIMEOUT_MS = 25_000
-const AUTH_HOST_SIGN_IN_RETRY_COUNT = 3
+const AUTH_HOST_SIGN_IN_TIMEOUT_MS = 12_000
+const AUTH_HOST_SIGN_IN_RETRY_COUNT = 2
 const AUTH_TRANSIENT_WARN_THROTTLE_MS = 60_000
 const AUTH_SESSION_STORAGE_KEY = 'human-jukebox-auth-session-snapshot'
 const AUTH_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000
@@ -150,6 +150,10 @@ function mapHostSignInError(error: unknown) {
     return 'Email not confirmed. Open your inbox and click the confirmation link.'
   }
 
+  if (isRateLimitedAuthError(error)) {
+    return 'Too many sign-in attempts. Please wait 1 minute and try again.'
+  }
+
   if (isTransientAuthError(error)) {
     return 'Sign-in is taking too long or network is unstable. Please try again.'
   }
@@ -193,6 +197,10 @@ async function retryTransientAuthOperation<T>(operation: () => Promise<T>, attem
       lastError = error
 
       const isFinalAttempt = attemptIndex === attempts - 1
+
+      if (isRateLimitedAuthError(error)) {
+        throw error
+      }
 
       if (!isTransientAuthError(error) || isFinalAttempt) {
         throw error

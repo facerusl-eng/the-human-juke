@@ -3,6 +3,23 @@ import type { PropsWithChildren } from 'react'
 import { useAuthStore } from '../state/authStore'
 
 const HOST_GATE_LOADING_TIMEOUT_MS = 2500
+const HOST_SIGN_IN_UI_TIMEOUT_MS = 15_000
+
+function withHostSignInUiTimeout<T>(promise: Promise<T>) {
+  let timeoutId: number | null = null
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error('Sign-in is taking too long. Please try again.'))
+    }, HOST_SIGN_IN_UI_TIMEOUT_MS)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId)
+    }
+  }) as Promise<T>
+}
 
 function RequireHost({ children }: PropsWithChildren) {
   const {
@@ -90,7 +107,7 @@ function RequireHost({ children }: PropsWithChildren) {
     setIsSigningIn(true)
 
     try {
-      await signInHost(hostEmail, hostPassword)
+      await withHostSignInUiTimeout(signInHost(hostEmail, hostPassword))
       setHostEmail('')
       setHostPassword('')
     } catch (error) {

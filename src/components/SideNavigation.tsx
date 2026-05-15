@@ -12,6 +12,24 @@ type SideNavigationProps = {
   isMobile: boolean
 }
 
+const HOST_SIGN_IN_UI_TIMEOUT_MS = 15_000
+
+function withHostSignInUiTimeout<T>(promise: Promise<T>) {
+  let timeoutId: number | null = null
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error('Sign-in is taking too long. Please try again.'))
+    }, HOST_SIGN_IN_UI_TIMEOUT_MS)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId)
+    }
+  }) as Promise<T>
+}
+
 type NavigationItem = {
   label: string
   to: string
@@ -110,7 +128,7 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
     setAuthBusy('signin')
 
     try {
-      await signInHost(hostEmail, hostPassword)
+      await withHostSignInUiTimeout(signInHost(hostEmail, hostPassword))
       setHostPassword('')
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Sign in failed. Please try again.')
