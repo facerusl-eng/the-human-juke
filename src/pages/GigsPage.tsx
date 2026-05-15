@@ -42,18 +42,44 @@ function formatGigDate(createdAt: string) {
   }).format(new Date(createdAt))
 }
 
-function formatEventTypeLabel(eventType: 'halli-live' | 'karaoke' | 'build-self') {
-  if (eventType === 'karaoke') return 'Karaoke'
-  if (eventType === 'build-self') return 'Build Self Gig'
-  return 'Halli Playing Music'
+function resolveGigVisualTheme(
+  eventType: 'halli-live' | 'karaoke' | 'build-self',
+  eventTheme: 'harald-live' | 'human-jukebox' | 'karaoke',
+) {
+  if (eventType === 'karaoke' || eventTheme === 'karaoke') {
+    return 'karaoke' as const
+  }
+
+  if (eventTheme === 'harald-live') {
+    return 'harald-live' as const
+  }
+
+  return 'human-jukebox' as const
 }
 
-function getGigPlaylistImageUrl(eventType: 'halli-live' | 'karaoke' | 'build-self') {
-  if (eventType === 'karaoke') {
+function formatEventTypeLabel(
+  eventType: 'halli-live' | 'karaoke' | 'build-self',
+  eventTheme: 'harald-live' | 'human-jukebox' | 'karaoke',
+) {
+  const visualTheme = resolveGigVisualTheme(eventType, eventTheme)
+
+  if (visualTheme === 'karaoke') return 'Karaoke'
+  if (eventType === 'build-self') return 'Build Self Gig'
+  if (visualTheme === 'harald-live') return 'Harald Live'
+  return 'The Human Jukebox'
+}
+
+function getGigPlaylistImageUrl(
+  eventType: 'halli-live' | 'karaoke' | 'build-self',
+  eventTheme: 'harald-live' | 'human-jukebox' | 'karaoke',
+) {
+  const visualTheme = resolveGigVisualTheme(eventType, eventTheme)
+
+  if (visualTheme === 'karaoke') {
     return '/images/Karaoke%20live%20playlist.png'
   }
 
-  if (eventType === 'halli-live') {
+  if (visualTheme === 'harald-live') {
     return '/images/Harald%20Live%20playlist.png'
   }
 
@@ -403,15 +429,15 @@ function GigsPage() {
                 <li key={hostEvent.id} className="gig-management-entry">
                   <div className="gig-management-image">
                     <img
-                      src={getGigPlaylistImageUrl(hostEvent.eventType)}
-                      alt={`${formatEventTypeLabel(hostEvent.eventType)} playlist`}
+                      src={getGigPlaylistImageUrl(hostEvent.eventType, hostEvent.eventTheme)}
+                      alt={`${formatEventTypeLabel(hostEvent.eventType, hostEvent.eventTheme)} playlist`}
                       className="gig-playlist-thumbnail"
                     />
                   </div>
                   <div className="gig-management-main">
                     <div className="gig-management-title-row">
                       <p className="gig-management-title">{hostEvent.name}</p>
-                      <span className="meta-badge">{formatEventTypeLabel(hostEvent.eventType)}</span>
+                      <span className="meta-badge">{formatEventTypeLabel(hostEvent.eventType, hostEvent.eventTheme)}</span>
                       {hostEvent.isTestGig ? <span className="meta-badge">Test Gig (Private)</span> : null}
                       {hostEvent.autoLiveEnabled ? <span className="meta-badge">Auto Live</span> : null}
                       {hostEvent.isActive ? <span className="meta-badge">Live for audience</span> : null}
