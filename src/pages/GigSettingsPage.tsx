@@ -106,6 +106,16 @@ type GigSettingsFormProps = {
 const MAX_UNDO_STATES = 20
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
+const VENUE_LOGO_SCALE_MIN = 20
+const VENUE_LOGO_SCALE_MAX = 500
+
+function clampVenueLogoScale(value: number) {
+  if (!Number.isFinite(value)) {
+    return 100
+  }
+
+  return Math.min(VENUE_LOGO_SCALE_MAX, Math.max(VENUE_LOGO_SCALE_MIN, Math.round(value)))
+}
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -1770,7 +1780,29 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name.</p>
             {state.venueLogoUrl ? (
               <div className="photo-preview">
-                <img src={state.venueLogoUrl} alt="Venue logo preview" />
+                <img
+                  src={state.venueLogoUrl}
+                  alt="Venue logo preview"
+                  style={{
+                    transform: `scale(${clampVenueLogoScale(state.venueLogoScale) / 100})`,
+                    transformOrigin: 'center center',
+                  }}
+                />
+                <label htmlFor="gig-venue-logo-scale">Logo Zoom ({clampVenueLogoScale(state.venueLogoScale)}%)</label>
+                <input
+                  id="gig-venue-logo-scale"
+                  type="range"
+                  min={VENUE_LOGO_SCALE_MIN}
+                  max={VENUE_LOGO_SCALE_MAX}
+                  step={1}
+                  value={clampVenueLogoScale(state.venueLogoScale)}
+                  onChange={(e) => {
+                    pushUndoState()
+                    updateState({ venueLogoScale: clampVenueLogoScale(Number(e.target.value)) })
+                  }}
+                  disabled={busy}
+                />
+                <p className="field-hint">Adjust how much space the logo uses in the mirror logo block.</p>
                 <button
                   type="button"
                   className="secondary-button"
@@ -1780,6 +1812,17 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                   }}
                 >
                   Remove logo
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    pushUndoState()
+                    updateState({ venueLogoScale: 100 })
+                  }}
+                  disabled={busy || clampVenueLogoScale(state.venueLogoScale) === 100}
+                >
+                  Reset zoom
                 </button>
               </div>
             ) : null}

@@ -1404,6 +1404,15 @@ function MirrorPageContent() {
   const brbQrCodeUrl = brbBridgeUrl
     ? `https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=M&margin=8&data=${encodeURIComponent(brbBridgeUrl)}`
     : null
+  const venueLogoScale = Number.isFinite(event?.venueLogoScale)
+    ? Math.min(500, Math.max(20, Number(event?.venueLogoScale ?? 100)))
+    : 100
+  const venueLogoOffsetX = Number.isFinite(event?.venueLogoOffsetX)
+    ? Math.max(-300, Math.min(300, Number(event?.venueLogoOffsetX ?? 0)))
+    : 0
+  const venueLogoOffsetY = Number.isFinite(event?.venueLogoOffsetY)
+    ? Math.max(-300, Math.min(300, Number(event?.venueLogoOffsetY ?? 0)))
+    : 0
   const preShowQrLink = brbBridgeUrl ?? audienceUrl
   const preShowQrText = brbBridgeUrl
     ? (brbQrText || 'Scan this code while we prep the show.')
@@ -3109,6 +3118,10 @@ function MirrorPageContent() {
                   src={event.venueLogoUrl}
                   alt={`${event.venue || 'Venue'} logo`}
                   className="mirror-venue-logo-image"
+                  style={{
+                    transform: `translate(${venueLogoOffsetX}px, ${venueLogoOffsetY}px) scale(${venueLogoScale / 100})`,
+                    transformOrigin: 'center center',
+                  }}
                 />
               </p>
             ) : (
