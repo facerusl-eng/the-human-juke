@@ -80,6 +80,8 @@ const MIRROR_LAYOUT_STATE_STORAGE_KEY = 'human-jukebox-mirror-layout-state'
 const MIRROR_LAYOUT_STATE_PROFILE_COLUMN = 'default_mirror_layout_state'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
+const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
+const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
@@ -1542,10 +1544,10 @@ function MirrorPageContent() {
 
     if (nextBrbActive) {
       setBreakTransitionTone('on-break')
-      setBreakTransitionMessage(playbackState?.brbMessage?.trim() || 'On break now. Grab a beer and stay tuned.')
+      setBreakTransitionMessage(playbackState?.brbMessage?.trim() || DEFAULT_BRB_MESSAGE)
     } else {
       setBreakTransitionTone('back-live')
-      setBreakTransitionMessage('Back from break. Show is live again!')
+      setBreakTransitionMessage(BREAK_TRANSITION_BACK_MESSAGE)
     }
 
     breakTransitionTimerRef.current = window.setTimeout(() => {
@@ -3506,9 +3508,7 @@ function MirrorPageContent() {
         <div className="mirror-brb-overlay" aria-live="polite" role="status">
           <p className="mirror-brb-icon" aria-hidden="true">🍺</p>
           <p className="mirror-brb-heading">On Break</p>
-          {playbackState.brbMessage ? (
-            <p className="mirror-brb-message">{playbackState.brbMessage}</p>
-          ) : null}
+          <p className="mirror-brb-message">{playbackState.brbMessage?.trim() || DEFAULT_BRB_MESSAGE}</p>
         </div>
       ) : null}
 

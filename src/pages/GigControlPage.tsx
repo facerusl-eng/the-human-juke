@@ -28,6 +28,9 @@ const GIG_CONTROL_NOW_PLAYING_STORAGE_KEY = 'human-jukebox-gig-control-now-playi
 const GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS = 12 * 60 * 60 * 1000
 const BACKGROUND_SYNC_TAG = 'jukebox-sync'
 const MIRROR_PREVIEW_TRANSITION_MS = 4200
+const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
+const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
+const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
 type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
@@ -227,6 +230,7 @@ function GigControlPage() {
   const gigStartedAtRef = useRef<number>(Date.now())
   const [isBrbActive, setIsBrbActive] = useState(false)
   const [brbCustomMessage, setBrbCustomMessage] = useState('')
+  const [mirrorOverlayUpdateBusy, setMirrorOverlayUpdateBusy] = useState(false)
   const [mirrorPreviewTransitionMessage, setMirrorPreviewTransitionMessage] = useState<string | null>(null)
   const [mirrorPreviewTransitionTone, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
   const [mirrorReadabilityCheckEnabled, setMirrorReadabilityCheckEnabled] = useState(false)
@@ -264,6 +268,7 @@ function GigControlPage() {
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveInFlightRef = useRef(false)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
+  const mirrorOverlayBusyRef = useRef(false)
   // Tracks event IDs whose intro audio has already played this page session.
   // Prevents the intro from replaying if the host pauses and re-opens the room.
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
@@ -820,34 +825,42 @@ function GigControlPage() {
   }, [])
 
   const setMirrorOverlayMessage = useCallback(async (message: string | null) => {
-    if (!event?.id) {
+    if (!event?.id || mirrorOverlayBusyRef.current) {
       return false
     }
 
     const nextBrbActive = Boolean(message)
     const previousBrbActive = isBrbActive
     const previousBrbMessage = brbCustomMessage
+    const resolvedMessage = nextBrbActive ? (message?.trim() || DEFAULT_BRB_MESSAGE) : null
+
+    mirrorOverlayBusyRef.current = true
+    setMirrorOverlayUpdateBusy(true)
 
     setIsBrbActive(nextBrbActive)
 
-    if (message) {
-      setBrbCustomMessage(message)
+    if (resolvedMessage) {
+      setBrbCustomMessage(resolvedMessage)
     }
 
     try {
-      await writeSharedPlaybackState(event.id, {
+      const writeSucceeded = await writeSharedPlaybackState(event.id, {
         currentSongId: nowPlaying?.id ?? null,
         currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
-        isStarted: false,
+        isStarted: isNowPlayingStarted,
         quoteIndex: quoteIndexRef.current,
         brbActive: nextBrbActive,
-        brbMessage: message,
+        brbMessage: resolvedMessage,
       })
 
+      if (!writeSucceeded) {
+        throw new Error('Mirror overlay write did not persist.')
+      }
+
       if (nextBrbActive) {
-        showMirrorPreviewTransition(message?.trim() || 'On break now. Grab a beer and stay tuned.', 'on-break')
+        showMirrorPreviewTransition(resolvedMessage || BREAK_TRANSITION_ON_MESSAGE, 'on-break')
       } else if (previousBrbActive) {
-        showMirrorPreviewTransition('Back from break. Show is live again!', 'back-live')
+        showMirrorPreviewTransition(BREAK_TRANSITION_BACK_MESSAGE, 'back-live')
       }
 
       return true
@@ -857,12 +870,23 @@ function GigControlPage() {
       console.warn('GigControlPage: mirror overlay update failed', error)
       setErrorText('Failed to update mirror overlay.')
       return false
+    } finally {
+      mirrorOverlayBusyRef.current = false
+      setMirrorOverlayUpdateBusy(false)
     }
-  }, [brbCustomMessage, event?.id, isBrbActive, nowPlaying?.id, resolveCoverUrlForSong, showMirrorPreviewTransition])
+  }, [
+    brbCustomMessage,
+    event?.id,
+    isBrbActive,
+    isNowPlayingStarted,
+    nowPlaying?.id,
+    resolveCoverUrlForSong,
+    showMirrorPreviewTransition,
+  ])
 
   const toggleBrbState = useCallback(async () => {
     const nextBrb = !isBrbActive
-    await setMirrorOverlayMessage(nextBrb ? (brbCustomMessage.trim() || 'Be right back - grabbing a pint of courage.') : null)
+    await setMirrorOverlayMessage(nextBrb ? (brbCustomMessage.trim() || DEFAULT_BRB_MESSAGE) : null)
   }, [brbCustomMessage, isBrbActive, setMirrorOverlayMessage])
 
   const triggerEmergencyOverlay = useCallback(async (preset: EmergencyOverlayPreset) => {
@@ -1668,6 +1692,7 @@ function GigControlPage() {
       label: isBrbActive ? 'Cancel BRB' : 'BRB Screen',
       title: isBrbActive ? 'Cancel BRB — return to the normal live screen' : 'Show a "Be Right Back" screen to the audience while you take a break',
       onClick: toggleBrbState,
+      disabled: mirrorOverlayUpdateBusy,
       variant: 'ghost' as const,
     },
     {
@@ -1793,6 +1818,7 @@ function GigControlPage() {
           <button
             type="button"
             className="secondary-button"
+            disabled={mirrorOverlayUpdateBusy}
             onClick={async () => {
               await toggleBrbState()
             }}
@@ -1879,7 +1905,7 @@ function GigControlPage() {
               onChange={(changeEvent) => {
                 setBrbCustomMessage(changeEvent.target.value)
               }}
-              placeholder="Be right back — grabbing a pint of courage."
+              placeholder={DEFAULT_BRB_MESSAGE}
             />
           </div>
         </article>
@@ -1905,6 +1931,7 @@ function GigControlPage() {
             <button
               type="button"
               className="secondary-button"
+              disabled={mirrorOverlayUpdateBusy}
               onClick={() => {
                 void triggerEmergencyOverlay('tech-issue')
               }}
@@ -1914,6 +1941,7 @@ function GigControlPage() {
             <button
               type="button"
               className="ghost-button"
+              disabled={mirrorOverlayUpdateBusy}
               onClick={() => {
                 void triggerEmergencyOverlay('scan-qr')
               }}
@@ -1923,6 +1951,7 @@ function GigControlPage() {
             <button
               type="button"
               className="ghost-button"
+              disabled={mirrorOverlayUpdateBusy}
               onClick={() => {
                 void triggerEmergencyOverlay('closing-soon')
               }}
@@ -1932,7 +1961,7 @@ function GigControlPage() {
             <button
               type="button"
               className="ghost-button"
-              disabled={!isBrbActive}
+              disabled={!isBrbActive || mirrorOverlayUpdateBusy}
               onClick={() => {
                 void setMirrorOverlayMessage(null)
               }}
@@ -1947,7 +1976,7 @@ function GigControlPage() {
                   <div className="gig-mirror-preview-brb-overlay" aria-live="polite" role="status">
                     <p className="gig-mirror-preview-brb-icon" aria-hidden="true">🍺</p>
                     <p className="gig-mirror-preview-brb-heading">On Break</p>
-                    <p className="gig-mirror-preview-brb-message">{brbCustomMessage.trim() || 'On break now. Grab a beer and stay tuned.'}</p>
+                    <p className="gig-mirror-preview-brb-message">{brbCustomMessage.trim() || DEFAULT_BRB_MESSAGE}</p>
                   </div>
                 ) : null}
                 {mirrorPreviewTransitionMessage ? (

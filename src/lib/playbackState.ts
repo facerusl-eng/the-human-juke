@@ -197,7 +197,7 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
   }
 }
 
-export async function writeSharedPlaybackState(eventId: string, state: SharedPlaybackState): Promise<void> {
+export async function writeSharedPlaybackState(eventId: string, state: SharedPlaybackState): Promise<boolean> {
   try {
     const normalizedQuoteIndex = Number.isFinite(state.quoteIndex) ? state.quoteIndex : 0
     const previousState = readLastBroadcastPlaybackState(eventId)
@@ -235,7 +235,7 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
     })
 
     if (!isUuidLikeEventId(eventId)) {
-      return
+      return true
     }
 
     const withBrbPayload = {
@@ -267,16 +267,20 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
 
       if (legacyWriteError) {
         console.error('Failed to write playback state:', legacyWriteError)
+        return false
       }
 
-      return
+      return true
     }
 
     if (error) {
       console.error('Failed to write playback state:', error)
-      return
+      return false
     }
+
+    return true
   } catch (err) {
     console.error('Error writing playback state:', err)
+    return false
   }
 }
