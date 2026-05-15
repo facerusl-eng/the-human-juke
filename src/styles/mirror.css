@@ -1335,9 +1335,21 @@
   font-size: clamp(0.72rem, 1vw, 0.9rem);
   font-weight: 700;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
+  text-transform: none;
   color: rgba(93, 215, 255, 0.75);
   text-align: center;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.mirror-qr-label-main {
+  display: block;
+}
+
+.mirror-qr-label-subline {
+  display: block;
+  font-size: 0.88em;
+  letter-spacing: 0.05em;
 }
 
 .mirror-qr-url {

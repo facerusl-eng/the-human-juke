@@ -11446,7 +11446,20 @@
   font-size: 1rem;
   font-weight: 800;
   letter-spacing: 0.03em;
-  text-transform: uppercase;
+  text-transform: none;
+  text-align: center;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.mirror-brb-qr-label-main {
+  display: block;
+}
+
+.mirror-brb-qr-label-subline {
+  display: block;
+  font-size: 0.88em;
+  letter-spacing: 0.02em;
 }
 
 .mirror-brb-qr-url {

@@ -1395,7 +1395,7 @@ function MirrorPageContent() {
   const countdownQrDestination = customCountdownQrLink || loungeChoiceUrl
   const qrFlashLines = useMemo(() => {
     const lines = customQrFlashVenueName
-      ? [...QR_FLASH_BASE_LINES, `Tonight at ${customQrFlashVenueName}`]
+      ? [...QR_FLASH_BASE_LINES, customQrFlashVenueName]
       : QR_FLASH_BASE_LINES
 
     return lines
@@ -3334,9 +3334,8 @@ function MirrorPageContent() {
               <div className="mirror-pre-show-qr-col">
                 <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
                 <p className="mirror-qr-label">
-                  Scan in. Drink up....
-                  <br />
-                  That is the question
+                  <span className="mirror-qr-label-main">Scan in. Drink up....</span>
+                  <span className="mirror-qr-label-subline">That is the question</span>
                 </p>
                 {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
               </div>
@@ -3615,9 +3614,8 @@ function MirrorPageContent() {
           >
             <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
             <p className="mirror-brb-qr-label">
-              Scan in. Drink up....
-              <br />
-              That is the question
+              <span className="mirror-brb-qr-label-main">Scan in. Drink up....</span>
+              <span className="mirror-brb-qr-label-subline">That is the question</span>
             </p>
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </a>
