@@ -1302,11 +1302,18 @@
 .mirror-qr-flash-line {
   margin: 0.15rem 0 0;
   min-height: 1.2em;
-  font-size: clamp(0.8rem, 1.05vw, 1rem);
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: #ffd166;
+  font-size: clamp(1.2rem, 1.8vw, 1.6rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #ffffff;
   text-align: center;
+  text-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.8),
+    0 4px 8px rgba(0, 0, 0, 0.6),
+    0 0 20px rgba(255, 200, 100, 0.8),
+    0 0 40px rgba(255, 150, 0, 0.6),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.4),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.3);
   animation: mirror-qr-flash-pulse 5s ease-in-out infinite;
 }
 
