@@ -645,6 +645,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     try {
       const normalizedLimit = saveState.maxActiveRequestsPerUser.trim()
       const parsedLimit = normalizedLimit ? Number.parseInt(normalizedLimit, 10) : null
+      const shouldSyncSelectedPlaylists = !arePlaylistSelectionsEqual(saveState.selectedPlaylistIds, initialSelectedPlaylistIds)
 
       if (parsedLimit !== null && (!Number.isFinite(parsedLimit) || parsedLimit < 1)) {
         setErrorText('Request cap must be at least 1, or left blank for no cap.')
@@ -676,7 +677,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         mobilpayUrl: saveState.mobilpayUrl.trim(),
         contactEmail: saveState.contactEmail.trim(),
         playlistOnlyRequests: saveState.playlistOnlyRequests,
-        selectedPlaylistIds: saveState.selectedPlaylistIds,
+        selectedPlaylistIds: shouldSyncSelectedPlaylists ? saveState.selectedPlaylistIds : undefined,
         mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
         mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
         mirrorCountdownShowQrLink: saveState.mirrorCountdownShowQrLink,
@@ -703,8 +704,10 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         tipThankYouMessageEN: saveState.tipThankYouMessageEN.trim() || null,
       })
 
-      await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
-      setInitialSelectedPlaylistIds(normalizePlaylistIds(saveState.selectedPlaylistIds))
+      if (shouldSyncSelectedPlaylists) {
+        await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
+        setInitialSelectedPlaylistIds(normalizePlaylistIds(saveState.selectedPlaylistIds))
+      }
       markSaved()
       await registerBackgroundSync('jukebox-sync')
     } catch (error) {

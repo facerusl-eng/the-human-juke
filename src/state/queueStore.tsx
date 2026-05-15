@@ -53,7 +53,7 @@ type EventSettingsUpdates = {
   mobilpayUrl: string
   contactEmail: string
   playlistOnlyRequests: boolean
-  selectedPlaylistIds: string[]
+  selectedPlaylistIds?: string[]
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
   mirrorCountdownShowQrLink: boolean
@@ -3236,95 +3236,97 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw error
         }
 
-        const normalizedPlaylistIds = [...new Set(
-          updates.selectedPlaylistIds
-            .map((playlistId) => (typeof playlistId === 'string' ? playlistId.trim() : ''))
-            .filter((playlistId) => playlistId.length > 0),
-        )]
+        if (Array.isArray(updates.selectedPlaylistIds)) {
+          const normalizedPlaylistIds = [...new Set(
+            updates.selectedPlaylistIds
+              .map((playlistId) => (typeof playlistId === 'string' ? playlistId.trim() : ''))
+              .filter((playlistId) => playlistId.length > 0),
+          )]
 
-        const { data: currentPlaylistLinks, error: currentPlaylistLinksError } = await withTransientRetry(async () => {
-          const readResult = await withTimeout(
-            withAuthLockRetry(() =>
-              supabase
-                .from('event_playlists')
-                .select('playlist_id')
-                .eq('event_id', event.id),
-            ),
-            DEFAULT_DB_TIMEOUT_MS,
-            'Timed out while loading selected playlists. Please try again.',
-          )
-
-          if (readResult.error && isTransientLoadError(readResult.error)) {
-            throw readResult.error
-          }
-
-          return readResult
-        }, 2)
-
-        if (currentPlaylistLinksError) {
-          throw currentPlaylistLinksError
-        }
-
-        const normalizedCurrentPlaylistIds = [...new Set(
-          ((currentPlaylistLinks ?? []) as Array<{ playlist_id?: string | null }>)
-            .map((row) => (typeof row.playlist_id === 'string' ? row.playlist_id.trim() : ''))
-            .filter((playlistId) => playlistId.length > 0),
-        )].sort()
-
-        const normalizedTargetPlaylistIds = [...normalizedPlaylistIds].sort()
-        const playlistsChanged = normalizedCurrentPlaylistIds.length !== normalizedTargetPlaylistIds.length
-          || normalizedCurrentPlaylistIds.some((playlistId, index) => playlistId !== normalizedTargetPlaylistIds[index])
-
-        if (playlistsChanged) {
-          const { error: clearPlaylistsError } = await withTransientRetry(async () => {
-            const clearResult = await withTimeout(
+          const { data: currentPlaylistLinks, error: currentPlaylistLinksError } = await withTransientRetry(async () => {
+            const readResult = await withTimeout(
               withAuthLockRetry(() =>
                 supabase
                   .from('event_playlists')
-                  .delete()
+                  .select('playlist_id')
                   .eq('event_id', event.id),
               ),
               DEFAULT_DB_TIMEOUT_MS,
-              'Timed out while updating gig playlists. Please try again.',
+              'Timed out while loading selected playlists. Please try again.',
             )
 
-            if (clearResult.error && isTransientLoadError(clearResult.error)) {
-              throw clearResult.error
+            if (readResult.error && isTransientLoadError(readResult.error)) {
+              throw readResult.error
             }
 
-            return clearResult
-          }, 3)
+            return readResult
+          }, 2)
 
-          if (clearPlaylistsError) {
-            throw clearPlaylistsError
+          if (currentPlaylistLinksError) {
+            throw currentPlaylistLinksError
           }
 
-          if (normalizedPlaylistIds.length > 0) {
-            const { error: addPlaylistsError } = await withTransientRetry(async () => {
-              const addResult = await withTimeout(
+          const normalizedCurrentPlaylistIds = [...new Set(
+            ((currentPlaylistLinks ?? []) as Array<{ playlist_id?: string | null }>)
+              .map((row) => (typeof row.playlist_id === 'string' ? row.playlist_id.trim() : ''))
+              .filter((playlistId) => playlistId.length > 0),
+          )].sort()
+
+          const normalizedTargetPlaylistIds = [...normalizedPlaylistIds].sort()
+          const playlistsChanged = normalizedCurrentPlaylistIds.length !== normalizedTargetPlaylistIds.length
+            || normalizedCurrentPlaylistIds.some((playlistId, index) => playlistId !== normalizedTargetPlaylistIds[index])
+
+          if (playlistsChanged) {
+            const { error: clearPlaylistsError } = await withTransientRetry(async () => {
+              const clearResult = await withTimeout(
                 withAuthLockRetry(() =>
                   supabase
                     .from('event_playlists')
-                    .insert(
-                      normalizedPlaylistIds.map((playlistId) => ({
-                        event_id: event.id,
-                        playlist_id: playlistId,
-                      })),
-                    ),
+                    .delete()
+                    .eq('event_id', event.id),
                 ),
                 DEFAULT_DB_TIMEOUT_MS,
-                'Timed out while saving selected playlists. Please try again.',
+                'Timed out while updating gig playlists. Please try again.',
               )
 
-              if (addResult.error && isTransientLoadError(addResult.error)) {
-                throw addResult.error
+              if (clearResult.error && isTransientLoadError(clearResult.error)) {
+                throw clearResult.error
               }
 
-              return addResult
+              return clearResult
             }, 3)
 
-            if (addPlaylistsError) {
-              throw addPlaylistsError
+            if (clearPlaylistsError) {
+              throw clearPlaylistsError
+            }
+
+            if (normalizedPlaylistIds.length > 0) {
+              const { error: addPlaylistsError } = await withTransientRetry(async () => {
+                const addResult = await withTimeout(
+                  withAuthLockRetry(() =>
+                    supabase
+                      .from('event_playlists')
+                      .insert(
+                        normalizedPlaylistIds.map((playlistId) => ({
+                          event_id: event.id,
+                          playlist_id: playlistId,
+                        })),
+                      ),
+                  ),
+                  DEFAULT_DB_TIMEOUT_MS,
+                  'Timed out while saving selected playlists. Please try again.',
+                )
+
+                if (addResult.error && isTransientLoadError(addResult.error)) {
+                  throw addResult.error
+                }
+
+                return addResult
+              }, 3)
+
+              if (addPlaylistsError) {
+                throw addPlaylistsError
+              }
             }
           }
         }
