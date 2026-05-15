@@ -1943,6 +1943,13 @@
   gap: 0.42rem;
 }
 
+.mirror-cast-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.36rem;
+}
+
 .mirror-cast-button {
   border: 1px solid rgba(125, 211, 252, 0.45);
   border-radius: 999px;
@@ -1965,6 +1972,18 @@
 .mirror-cast-button:disabled {
   opacity: 0.7;
   cursor: progress;
+}
+
+.mirror-cast-button-browser {
+  border-color: rgba(248, 113, 113, 0.46);
+  background: rgba(34, 11, 16, 0.78);
+  color: #ffe2e2;
+}
+
+.mirror-cast-button-browser:hover:not(:disabled),
+.mirror-cast-button-browser:focus-visible:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.72);
+  background: rgba(56, 14, 22, 0.92);
 }
 
 .mirror-cast-quick-action {

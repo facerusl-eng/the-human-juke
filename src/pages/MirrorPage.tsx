@@ -1320,6 +1320,28 @@ function MirrorPageContent() {
     }
   }
 
+  const startBrowserMenuCast = async () => {
+    if (castActionBusy || typeof window === 'undefined') {
+      return
+    }
+
+    setCastActionBusy(true)
+
+    try {
+      if (getActiveFullscreenElement()) {
+        await exitFullscreenSafe()
+      }
+
+      setShowCastPromptControls(true)
+      setMirrorWarningMessage('Browser cast ready. Open browser menu (three dots) > Cast..., then choose this Mirror tab.')
+    } catch (error) {
+      console.warn('MirrorPage: browser cast helper failed', error)
+      setMirrorWarningMessage('Use browser menu > Cast... and choose this Mirror tab.')
+    } finally {
+      setCastActionBusy(false)
+    }
+  }
+
   useEffect(() => {
     mirrorLayoutStateRef.current = mirrorLayoutState
   }, [mirrorLayoutState])
@@ -3090,14 +3112,24 @@ function MirrorPageContent() {
 
   const renderMirrorCastQuickAction = () => (
     <div className="mirror-cast-quick-action" aria-label="Mirror cast quick action">
-      <button
-        type="button"
-        className="mirror-cast-button mirror-cast-button-quick"
-        onClick={() => { void startMirrorCast() }}
-        disabled={castActionBusy}
-      >
-        {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
-      </button>
+      <div className="mirror-cast-actions" role="group" aria-label="Cast actions">
+        <button
+          type="button"
+          className="mirror-cast-button mirror-cast-button-quick"
+          onClick={() => { void startMirrorCast() }}
+          disabled={castActionBusy}
+        >
+          {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
+        </button>
+        <button
+          type="button"
+          className="mirror-cast-button mirror-cast-button-browser"
+          onClick={() => { void startBrowserMenuCast() }}
+          disabled={castActionBusy}
+        >
+          Browser Menu Cast
+        </button>
+      </div>
       {mirrorWarning ? (
         <p className="mirror-warning mirror-warning-quick" role="status">{mirrorWarning}</p>
       ) : null}
@@ -3202,14 +3234,24 @@ function MirrorPageContent() {
               {liveBadgeLabel}
             </span>
             {shouldShowCastButton ? (
-              <button
-                type="button"
-                className="mirror-cast-button"
-                onClick={() => { void startMirrorCast() }}
-                disabled={castActionBusy}
-              >
-                {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
-              </button>
+              <div className="mirror-cast-actions" role="group" aria-label="Cast actions">
+                <button
+                  type="button"
+                  className="mirror-cast-button"
+                  onClick={() => { void startMirrorCast() }}
+                  disabled={castActionBusy}
+                >
+                  {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
+                </button>
+                <button
+                  type="button"
+                  className="mirror-cast-button mirror-cast-button-browser"
+                  onClick={() => { void startBrowserMenuCast() }}
+                  disabled={castActionBusy}
+                >
+                  Browser Menu Cast
+                </button>
+              </div>
             ) : null}
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
