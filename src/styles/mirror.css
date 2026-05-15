@@ -1257,6 +1257,15 @@
   border-radius: 16px;
   border: 1px solid rgba(93, 215, 255, 0.15);
   background: rgba(8, 14, 32, 0.38);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease, border-color 0.2s ease;
+}
+
+.mirror-pre-show-qr-col:hover {
+  transform: scale(1.02);
+  filter: brightness(1.1);
+  border-color: rgba(93, 215, 255, 0.35);
 }
 
 .mirror-pre-show-steps-col {

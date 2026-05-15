@@ -3308,12 +3308,18 @@ function MirrorPageContent() {
 
             {/* ── MIDDLE: QR (left) + How it works (right) ── */}
             <div className="mirror-pre-show-middle">
-              <div className="mirror-pre-show-qr-col">
+              <a
+                className="mirror-pre-show-qr-col"
+                href={countdownQrDestination}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="Open audience lounge or scan QR code"
+              >
                 <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
                 <p className="mirror-qr-label">Scan for the pints. Log in for the tunes.</p>
                 {showCountdownQrLink ? <p className="mirror-qr-url">{countdownQrText}</p> : null}
                 {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
-              </div>
+              </a>
               <div className="mirror-pre-show-steps-col">
                 <div className="mirror-how-it-works" aria-label="How it works">
                   <p className="mirror-how-it-works-label">How It Works</p>
