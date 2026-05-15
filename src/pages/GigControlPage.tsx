@@ -28,6 +28,7 @@ const GIG_CONTROL_NOW_PLAYING_STORAGE_KEY = 'human-jukebox-gig-control-now-playi
 const GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS = 12 * 60 * 60 * 1000
 const BACKGROUND_SYNC_TAG = 'jukebox-sync'
 const MIRROR_PREVIEW_TRANSITION_MS = 4200
+const MIRROR_LAUNCH_STATUS_DURATION_MS = 7000
 const SPACEBAR_ACTION_COOLDOWN_MS = 300
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
@@ -236,6 +237,7 @@ function GigControlPage() {
   const [mirrorPreviewTransitionTone, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
   const [mirrorReadabilityCheckEnabled, setMirrorReadabilityCheckEnabled] = useState(false)
   const [lastMirrorSyncAt, setLastMirrorSyncAt] = useState<number>(() => Date.now())
+  const [mirrorLaunchStatusText, setMirrorLaunchStatusText] = useState<string | null>(null)
   const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
   const [showEndGigHideConfirm, setShowEndGigHideConfirm] = useState(false)
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
@@ -271,6 +273,7 @@ function GigControlPage() {
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveInFlightRef = useRef(false)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
+  const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
   // Tracks event IDs whose intro audio has already played this page session.
   // Prevents the intro from replaying if the host pauses and re-opens the room.
@@ -1177,6 +1180,14 @@ function GigControlPage() {
   }, [copyError])
 
   useEffect(() => {
+    return () => {
+      if (mirrorLaunchStatusTimerRef.current) {
+        window.clearTimeout(mirrorLaunchStatusTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     if (!event) {
       previousRoomOpenRef.current = null
       return
@@ -1661,6 +1672,24 @@ function GigControlPage() {
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
   }, [])
 
+  const openMirrorFromGigControl = useCallback(() => {
+    const { openedInPopupWindow } = openMirrorScreen()
+
+    if (mirrorLaunchStatusTimerRef.current) {
+      window.clearTimeout(mirrorLaunchStatusTimerRef.current)
+    }
+
+    const statusMessage = openedInPopupWindow
+      ? 'Mirror window opened. Keep Gig Control on this screen and move Mirror to TV/projector.'
+      : 'Mirror popup was blocked, so Mirror opened in this tab.'
+
+    setMirrorLaunchStatusText(statusMessage)
+    mirrorLaunchStatusTimerRef.current = window.setTimeout(() => {
+      setMirrorLaunchStatusText(null)
+      mirrorLaunchStatusTimerRef.current = null
+    }, MIRROR_LAUNCH_STATUS_DURATION_MS)
+  }, [])
+
   const headerActions: ActionButtonConfig[] = [
     {
       id: 'connect-spotify',
@@ -1735,7 +1764,7 @@ function GigControlPage() {
       id: 'open-mirror-screen',
       label: 'Open Mirror Screen',
       title: 'Open the audience-facing mirror display in a new window — show this on a TV or projector',
-      onClick: () => openMirrorScreen(),
+      onClick: openMirrorFromGigControl,
       variant: 'ghost',
     },
     {
@@ -1854,7 +1883,7 @@ function GigControlPage() {
           >
             {isBrbActive ? 'Resume From Break' : 'Go on Break'}
           </button>
-          <button type="button" className="ghost-button" onClick={() => openMirrorScreen()}>
+          <button type="button" className="ghost-button" onClick={openMirrorFromGigControl}>
             Mirror Screen
           </button>
           <button type="button" className="ghost-button" onClick={() => navigate('/admin/gig-settings')}>
@@ -1908,6 +1937,9 @@ function GigControlPage() {
             </p>
             {preflightStatusText ? (
               <p className="meta-badge" aria-live="polite">{preflightStatusText}</p>
+            ) : null}
+            {mirrorLaunchStatusText ? (
+              <p className="meta-badge" aria-live="polite">{mirrorLaunchStatusText}</p>
             ) : null}
             {autoLiveCountdown ? (
               <p className="meta-badge gig-auto-live-countdown" aria-live="polite">⏱ {autoLiveCountdown}</p>

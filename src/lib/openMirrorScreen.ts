@@ -1,4 +1,8 @@
-export function openMirrorScreen() {
+export type OpenMirrorScreenResult = {
+  openedInPopupWindow: boolean
+}
+
+export function openMirrorScreen(): OpenMirrorScreenResult {
   const mirrorUrl = new URL('/mirror', window.location.origin)
   mirrorUrl.searchParams.set('launchFullscreen', '1')
   mirrorUrl.searchParams.set('cast', '1')
@@ -30,7 +34,7 @@ export function openMirrorScreen() {
 
   if (!mirrorWindow) {
     window.location.assign(mirrorUrl.toString())
-    return
+    return { openedInPopupWindow: false }
   }
 
   const maximizeMirrorWindow = () => {
@@ -46,4 +50,6 @@ export function openMirrorScreen() {
   window.setTimeout(maximizeMirrorWindow, 80)
   window.setTimeout(maximizeMirrorWindow, 250)
   mirrorWindow.focus()
+
+  return { openedInPopupWindow: true }
 }
