@@ -10728,6 +10728,8 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow: none;
+  border-color: rgba(176, 225, 255, 0.36);
+  background: linear-gradient(170deg, rgba(5, 11, 24, 0.94) 0%, rgba(10, 18, 36, 0.96) 100%);
 }
 
 .audience-entry-artist {
@@ -10770,6 +10772,46 @@
 .mirror-shell-cast-clarity .mirror-artist,
 .mirror-shell-cast-clarity .mirror-song-fact {
   text-shadow: none;
+}
+
+.mirror-shell-cast-clarity .mirror-pre-show,
+.mirror-shell-cast-clarity .mirror-between-songs,
+.mirror-shell-cast-clarity .mirror-join-strip {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(93, 215, 255, 0.08) 0%, transparent 30%),
+    linear-gradient(160deg, rgba(4, 9, 20, 0.97) 0%, rgba(8, 15, 30, 0.97) 100%);
+  border-color: rgba(176, 225, 255, 0.38);
+}
+
+.mirror-shell-cast-clarity .mirror-event-name,
+.mirror-shell-cast-clarity .mirror-event-subtitle,
+.mirror-shell-cast-clarity .mirror-queue-artist,
+.mirror-shell-cast-clarity .mirror-picked-by,
+.mirror-shell-cast-clarity .mirror-song-fact,
+.mirror-shell-cast-clarity .mirror-queue-picker,
+.mirror-shell-cast-clarity .mirror-pre-show-subtitle,
+.mirror-shell-cast-clarity .mirror-countdown-meta,
+.mirror-shell-cast-clarity .mirror-how-it-works p,
+.mirror-shell-cast-clarity .mirror-qr-url,
+.mirror-shell-cast-clarity .mirror-warning,
+.mirror-shell-cast-clarity .mirror-between-songs-hint {
+  color: #eaf5ff;
+  text-shadow: none;
+}
+
+.mirror-shell-cast-clarity .mirror-status {
+  border-color: rgba(220, 242, 255, 0.6);
+}
+
+.mirror-shell-cast-clarity .mirror-countdown-value,
+.mirror-shell-cast-clarity .mirror-qr-flash-line,
+.mirror-shell-cast-clarity .mirror-qr-label,
+.mirror-shell-cast-clarity .mirror-title,
+.mirror-shell-cast-clarity .mirror-pre-show-title {
+  color: #ffffff;
+  text-shadow:
+    0 0 4px rgba(0, 0, 0, 0.82),
+    0 1px 2px rgba(0, 0, 0, 0.86);
 }
 
 .mirror-now-playing-qr {
