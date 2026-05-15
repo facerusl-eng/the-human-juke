@@ -11,7 +11,6 @@ function RequireHost({ children }: PropsWithChildren) {
     loading,
     authError,
     signInHost,
-    signInHostWithPasskey,
     registerHostPasskey,
     isPasskeySupported,
   } = useAuthStore()
@@ -105,20 +104,6 @@ function RequireHost({ children }: PropsWithChildren) {
     }
   }
 
-  const handlePasskeySignIn = async () => {
-    setSignInError(null)
-    setPasskeyNotice(null)
-    setIsSigningIn(true)
-
-    try {
-      await signInHostWithPasskey()
-    } catch (error) {
-      setSignInError(error instanceof Error ? error.message : 'Face ID sign-in failed. Please try again.')
-    } finally {
-      setIsSigningIn(false)
-    }
-  }
-
   const handleEnablePasskey = async () => {
     setSignInError(null)
     setPasskeyNotice(null)
@@ -127,7 +112,7 @@ function RequireHost({ children }: PropsWithChildren) {
     try {
       await signInHost(hostEmail, hostPassword)
       await registerHostPasskey('Host Face ID')
-      setPasskeyNotice('Face ID is enabled on this iPhone. Next time you can use "Sign in with Face ID".')
+      setPasskeyNotice('Face ID is enabled on this iPhone.')
       setHostPassword('')
     } catch (error) {
       setSignInError(error instanceof Error ? error.message : 'Face ID setup failed. Please try again.')
@@ -142,19 +127,6 @@ function RequireHost({ children }: PropsWithChildren) {
       <p className="subcopy">
         This account does not have admin access. Sign in below with your host email and password.
       </p>
-
-      {isPasskeySupported ? (
-        <div className="hero-actions no-margin-bottom">
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={isSigningIn}
-            onClick={handlePasskeySignIn}
-          >
-            {isSigningIn ? 'Checking Face ID...' : 'Sign in with Face ID'}
-          </button>
-        </div>
-      ) : null}
       
       <form onSubmit={handleHostSignIn} className="admin-mobile-action-grid">
         <div className="form-group">

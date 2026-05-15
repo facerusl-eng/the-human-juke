@@ -91,10 +91,10 @@ const NAV_ITEMS: NavEntry[] = [
 ]
 
 function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }: SideNavigationProps) {
-  const { user, isHost, loading, signInHost, signOut, isPasskeySupported, signInHostWithPasskey } = useAuthStore()
+  const { user, isHost, loading, signInHost, signOut } = useAuthStore()
   const [hostEmail, setHostEmail] = useState('')
   const [hostPassword, setHostPassword] = useState('')
-  const [authBusy, setAuthBusy] = useState<null | 'signin' | 'signout' | 'passkey'>(null)
+  const [authBusy, setAuthBusy] = useState<null | 'signin' | 'signout'>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [gigsOpen, setGigsOpen] = useState(() =>
     NAV_ITEMS.some((e) => isGroup(e) && e.groupMatch(currentPath))
@@ -114,23 +114,6 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
       setHostPassword('')
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Sign in failed. Please try again.')
-    } finally {
-      setAuthBusy(null)
-    }
-  }
-
-  const handlePasskeySignIn = async () => {
-    if (authBusy) {
-      return
-    }
-
-    setAuthError(null)
-    setAuthBusy('passkey')
-
-    try {
-      await signInHostWithPasskey()
-    } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Face ID sign-in failed. Please try again.')
     } finally {
       setAuthBusy(null)
     }
@@ -318,16 +301,6 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
                   >
                     {authBusy === 'signin' ? 'Signing in...' : 'Sign in to admin'}
                   </button>
-                  {isPasskeySupported ? (
-                    <button
-                      type="button"
-                      onClick={handlePasskeySignIn}
-                      disabled={Boolean(authBusy)}
-                      className="h-9 w-full rounded-lg border border-fuchsia-400/35 bg-fuchsia-500/10 text-xs font-semibold text-fuchsia-200 transition-all duration-200 hover:shadow-[0_0_14px_rgba(255,0,255,0.25)] disabled:opacity-60"
-                    >
-                      {authBusy === 'passkey' ? 'Checking Face ID...' : 'Sign in with Face ID'}
-                    </button>
-                  ) : null}
                 </form>
               )}
 
