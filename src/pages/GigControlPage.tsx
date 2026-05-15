@@ -105,6 +105,44 @@ function getEmergencyOverlayMessage(preset: EmergencyOverlayPreset) {
   return 'Last song coming up soon. Get your final request in now!'
 }
 
+type MirrorSyncHealthBadgeProps = {
+  audienceConnectionStatus: string
+  lastMirrorSyncAt: number
+}
+
+function MirrorSyncHealthBadge({
+  audienceConnectionStatus,
+  lastMirrorSyncAt,
+}: MirrorSyncHealthBadgeProps) {
+  const [healthNow, setHealthNow] = useState<number>(() => Date.now())
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setHealthNow(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [])
+
+  const secondsSinceMirrorSync = Math.max(0, Math.floor((healthNow - lastMirrorSyncAt) / 1000))
+  const mirrorHealthState = audienceConnectionStatus === 'connected'
+    ? (secondsSinceMirrorSync <= 20 ? 'ok' : 'delayed')
+    : (audienceConnectionStatus === 'reconnecting' || audienceConnectionStatus === 'connecting')
+      ? 'reconnecting'
+      : 'offline'
+  const mirrorHealthLabel = mirrorHealthState === 'ok'
+    ? `Sync OK · ${secondsSinceMirrorSync}s ago`
+    : mirrorHealthState === 'delayed'
+      ? `Sync delayed · ${secondsSinceMirrorSync}s`
+      : mirrorHealthState === 'reconnecting'
+        ? 'Reconnecting mirror sync...'
+        : 'Mirror sync offline'
+
+  return <span className={`gig-mirror-health-badge is-${mirrorHealthState}`}>{mirrorHealthLabel}</span>
+}
+
 async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
   if (typeof window === 'undefined') {
     return false
@@ -189,7 +227,6 @@ function GigControlPage() {
   const [brbCustomMessage, setBrbCustomMessage] = useState('')
   const [mirrorReadabilityCheckEnabled, setMirrorReadabilityCheckEnabled] = useState(false)
   const [lastMirrorSyncAt, setLastMirrorSyncAt] = useState<number>(() => Date.now())
-  const [mirrorHealthNow, setMirrorHealthNow] = useState<number>(() => Date.now())
   const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
   const [showEndGigHideConfirm, setShowEndGigHideConfirm] = useState(false)
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
@@ -260,19 +297,6 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
-  const secondsSinceMirrorSync = Math.max(0, Math.floor((mirrorHealthNow - lastMirrorSyncAt) / 1000))
-  const mirrorHealthState = audienceConnectionStatus === 'connected'
-    ? (secondsSinceMirrorSync <= 20 ? 'ok' : 'delayed')
-    : (audienceConnectionStatus === 'reconnecting' || audienceConnectionStatus === 'connecting')
-      ? 'reconnecting'
-      : 'offline'
-  const mirrorHealthLabel = mirrorHealthState === 'ok'
-    ? `Sync OK · ${secondsSinceMirrorSync}s ago`
-    : mirrorHealthState === 'delayed'
-      ? `Sync delayed · ${secondsSinceMirrorSync}s`
-      : mirrorHealthState === 'reconnecting'
-        ? 'Reconnecting mirror sync...'
-        : 'Mirror sync offline'
 
   const resolveCoverUrlForSong = useCallback((songId: string | null) => {
     if (!songId) {
@@ -287,16 +311,6 @@ function GigControlPage() {
       setLastMirrorSyncAt(Date.now())
     }
   }, [audienceConnectionStatus])
-
-  useEffect(() => {
-    const timerId = window.setInterval(() => {
-      setMirrorHealthNow(Date.now())
-    }, 1000)
-
-    return () => {
-      window.clearInterval(timerId)
-    }
-  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -1838,7 +1852,10 @@ function GigControlPage() {
         <article className="gig-mirror-preview-card" aria-label="Live mirror preview">
           <p className="gig-control-card-label">Live Mirror Preview</p>
           <div className="gig-mirror-preview-toolbar" role="status" aria-live="polite">
-            <span className={`gig-mirror-health-badge is-${mirrorHealthState}`}>{mirrorHealthLabel}</span>
+            <MirrorSyncHealthBadge
+              audienceConnectionStatus={audienceConnectionStatus}
+              lastMirrorSyncAt={lastMirrorSyncAt}
+            />
             <button
               type="button"
               className={`ghost-button gig-mirror-readability-toggle ${mirrorReadabilityCheckEnabled ? 'is-active' : ''}`}
