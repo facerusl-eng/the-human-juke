@@ -14,6 +14,9 @@ const AUTH_HOST_SIGN_IN_RETRY_COUNT = 3
 const AUTH_TRANSIENT_WARN_THROTTLE_MS = 60_000
 const AUTH_SESSION_STORAGE_KEY = 'human-jukebox-auth-session-snapshot'
 const AUTH_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000
+const AUTH_AUDIENCE_RETRY_BASE_DELAY_MS = 3_000
+const AUTH_AUDIENCE_RETRY_MAX_DELAY_MS = 60_000
+const AUTH_AUDIENCE_RATE_LIMIT_DELAY_MS = 90_000
 
 type PersistedAuthSession = {
   userId: string
@@ -41,6 +44,17 @@ function shouldAutoCreateAudienceSession() {
   }
 
   const { pathname } = window.location
+  if (pathname.startsWith('/audience')) {
+    const params = new URLSearchParams(window.location.search)
+    const hasRequestedEventParam = Boolean(params.get('event') || params.get('eventId'))
+
+    // Keep no-gig screen functional even when anonymous auth is rate-limited.
+    // We only auto-create audience sessions when a concrete event is requested.
+    if (!hasRequestedEventParam && pathname === '/audience') {
+      return false
+    }
+  }
+
   return pathname.startsWith('/audience')
     || pathname.startsWith('/feed')
     || pathname.startsWith('/a/')
@@ -118,6 +132,11 @@ function isTransientAuthError(error: unknown) {
     || text.includes('rate limit')
     || text.includes('503')
     || text.includes('504')
+}
+
+function isRateLimitedAuthError(error: unknown) {
+  const text = getErrorText(error)
+  return text.includes('rate limit') || text.includes('429')
 }
 
 function mapHostSignInError(error: unknown) {
@@ -523,6 +542,7 @@ function AuthProvider({ children }: PropsWithChildren) {
 
     let isCancelled = false
     let retryTimerId: number | null = null
+    let retryAttempt = 0
 
     const retryEnsureAudienceSession = async () => {
       if (isCancelled) {
@@ -546,9 +566,15 @@ function AuthProvider({ children }: PropsWithChildren) {
         }
 
         if (!isCancelled) {
+          const retryDelayMs = isRateLimitedAuthError(error)
+            ? AUTH_AUDIENCE_RATE_LIMIT_DELAY_MS
+            : Math.min(AUTH_AUDIENCE_RETRY_BASE_DELAY_MS * (2 ** retryAttempt), AUTH_AUDIENCE_RETRY_MAX_DELAY_MS)
+
+          retryAttempt += 1
+
           retryTimerId = window.setTimeout(() => {
             void retryEnsureAudienceSession()
-          }, 3000)
+          }, retryDelayMs)
         }
       }
     }
