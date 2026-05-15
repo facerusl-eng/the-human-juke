@@ -1967,6 +1967,27 @@
   cursor: progress;
 }
 
+.mirror-cast-quick-action {
+  position: fixed;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: var(--z-overlay);
+  display: grid;
+  justify-items: end;
+  gap: 0.32rem;
+  max-width: min(36rem, calc(100vw - 1.8rem));
+}
+
+.mirror-cast-button-quick {
+  box-shadow: 0 10px 22px rgba(2, 8, 22, 0.36);
+}
+
+.mirror-warning-quick {
+  margin: 0;
+  max-width: min(52ch, calc(100vw - 2.2rem));
+  text-align: right;
+}
+
 .mirror-status {
   font-size: clamp(0.95rem, 1.4vw, 1.12rem);
   letter-spacing: 0.08em;

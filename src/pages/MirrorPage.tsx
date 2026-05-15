@@ -3088,9 +3088,26 @@ function MirrorPageContent() {
       .join('\n')
   }, [layoutEditMode, mirrorLayoutState])
 
+  const renderMirrorCastQuickAction = () => (
+    <div className="mirror-cast-quick-action" aria-label="Mirror cast quick action">
+      <button
+        type="button"
+        className="mirror-cast-button mirror-cast-button-quick"
+        onClick={() => { void startMirrorCast() }}
+        disabled={castActionBusy}
+      >
+        {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
+      </button>
+      {mirrorWarning ? (
+        <p className="mirror-warning mirror-warning-quick" role="status">{mirrorWarning}</p>
+      ) : null}
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="mirror-shell">
+        {renderMirrorCastQuickAction()}
         <p className="mirror-loading">Connecting to stage…</p>
       </div>
     )
@@ -3099,6 +3116,7 @@ function MirrorPageContent() {
   if (!hasCheckedMirrorNetworkAccess) {
     return (
       <div className="mirror-shell">
+        {renderMirrorCastQuickAction()}
         <p className="mirror-loading">Checking secure mirror access…</p>
       </div>
     )
@@ -3107,6 +3125,7 @@ function MirrorPageContent() {
   if (!isMirrorNetworkAllowed) {
     return (
       <div className="mirror-shell mirror-shell-paused" aria-label="Mirror access restricted">
+        {renderMirrorCastQuickAction()}
         <section className="mirror-pre-show" aria-label="Mirror access blocked">
           <div className="mirror-pre-show-top">
             <h1 className="mirror-pre-show-title">Skærmen er låst 🔒</h1>
