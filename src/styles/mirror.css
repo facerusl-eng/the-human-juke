@@ -1267,6 +1267,7 @@
 }
 
 .mirror-qr-open-button {
+  display: none;
   margin-top: 0.5rem;
   padding: clamp(0.48rem, 0.8vw, 0.6rem) clamp(0.92rem, 1.4vw, 1.2rem);
   border-radius: 8px;
