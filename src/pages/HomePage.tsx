@@ -293,7 +293,20 @@ function HomePage() {
           throw new Error(body?.message || `Signup failed with status ${response.status}`)
         }
 
-        setSignupNotice(lang === 'da' ? 'Tak for din interesse. Din email kommer snart.' : 'Thank you for your interest. Your email will arrive soon.')
+        const usedFallbackDelivery = body?.delivery === 'fallback' || body?.fallback_routed === true
+        if (usedFallbackDelivery) {
+          setSignupNotice(
+            lang === 'da'
+              ? 'Tak. Din forespoergsel er modtaget. Vi kontakter dig snart med info.'
+              : 'Thanks. Your request was received, and we will contact you shortly with details.',
+          )
+        } else {
+          setSignupNotice(
+            lang === 'da'
+              ? 'Tak for din interesse. Opdateringsmailen er sendt.'
+              : 'Thank you for your interest. Your update email has been sent.',
+          )
+        }
         setSignupEmail('')
       } catch (error) {
         setSignupError(error instanceof Error ? error.message : 'Could not send update email. Please try again.')

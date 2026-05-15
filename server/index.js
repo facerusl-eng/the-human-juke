@@ -482,6 +482,7 @@ app.post('/api/get-updates', async (req, res) => {
               success: true,
               message: 'Update request received. We will contact you shortly.',
               fallback_routed: true,
+              delivery: 'fallback',
             })
             return
           }
@@ -498,7 +499,11 @@ app.post('/api/get-updates', async (req, res) => {
       return
     }
 
-    res.status(200).json({ success: true, message: 'Update email sent.' })
+    res.status(200).json({
+      success: true,
+      message: 'Update email sent.',
+      delivery: 'direct',
+    })
   } catch (error) {
     console.error('get-updates local dev error', error)
     res.status(500).json({ success: false, message: 'Could not send update email.' })

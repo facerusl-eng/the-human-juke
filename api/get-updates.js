@@ -223,6 +223,7 @@ export default async function handler(req, res) {
               success: true,
               message: 'Update request received. We will contact you shortly.',
               fallback_routed: true,
+              delivery: 'fallback',
             })
           }
 
@@ -238,7 +239,11 @@ export default async function handler(req, res) {
       })
     }
 
-    return res.status(200).json({ success: true, message: 'Update email sent.' })
+    return res.status(200).json({
+      success: true,
+      message: 'Update email sent.',
+      delivery: 'direct',
+    })
   } catch (error) {
     console.error('get-updates error', error)
     return res.status(500).json({ success: false, message: 'Could not send update email.' })
