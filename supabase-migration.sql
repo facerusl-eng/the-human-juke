@@ -1106,3 +1106,28 @@ ALTER TABLE public.profiles
 ALTER TABLE public.playback_state
   ADD COLUMN IF NOT EXISTS brb_active BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS brb_message TEXT;
+
+-- ─── Host queue moderation update policy (May 2026) ─────────────────────────
+-- Required so host actions (mark played / skip / reorder) can persist under RLS.
+DROP POLICY IF EXISTS queue_songs_update_host ON public.queue_songs;
+CREATE POLICY queue_songs_update_host ON public.queue_songs
+  FOR UPDATE TO authenticated
+  USING (is_host_for_event(event_id))
+  WITH CHECK (is_host_for_event(event_id));
+
+-- ─── Host ownership helper hardening (May 2026) ──────────────────────────────
+-- Use canonical event ownership; profile.active_event_id may be null/stale.
+CREATE OR REPLACE FUNCTION public.is_host_for_event(target_event_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.events e
+    WHERE e.id = target_event_id
+      AND e.host_id = auth.uid()
+  );
+$$;

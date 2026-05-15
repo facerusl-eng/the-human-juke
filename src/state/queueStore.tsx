@@ -3635,8 +3635,15 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         const currentSong = songs[0]
+        const previousSongs = songs
+        const previousPerformedSongs = performedSongs
         const remainingSongs = songs.slice(1)
         const performedAt = new Date().toISOString()
+
+        const rollbackMarkPlayed = () => {
+          setSongs(previousSongs)
+          setPerformedSongs(previousPerformedSongs)
+        }
 
         setSongs(remainingSongs)
         setPerformedSongs((currentPerformedSongs) => [
@@ -3652,26 +3659,30 @@ function QueueProvider({ children }: PropsWithChildren) {
             ? { is_removed: true, performed_at: performedAt }
             : { is_removed: true }
 
-          return supabase
+          const { data, error } = await supabase
             .from('queue_songs')
             .update(payload)
             .eq('id', currentSong.id)
+            .select('id')
+
+          return {
+            error,
+            rowUpdated: Array.isArray(data) ? data.length > 0 : false,
+          }
         }
 
-        const { error } = await updatePlayedState(hasPerformedAtColumn)
+        const { error, rowUpdated } = await updatePlayedState(hasPerformedAtColumn)
 
         if (error && isMissingPerformedAtColumnError(error)) {
           hasPerformedAtColumn = false
           markMissingColumnInCache('performedAt')
-          const { error: fallbackError } = await updatePlayedState(false)
+          const { error: fallbackError, rowUpdated: fallbackRowUpdated } = await updatePlayedState(false)
 
-          if (fallbackError) {
-            setSongs(songs)
-            setPerformedSongs((currentPerformedSongs) =>
-              currentPerformedSongs.filter(
-                (song) => !(song.id === currentSong.id && song.performedAt === performedAt),
-              ),
-            )
+          if (fallbackError || !fallbackRowUpdated) {
+            rollbackMarkPlayed()
+            if (!fallbackError && !fallbackRowUpdated) {
+              throw new Error('Host update was not applied. Please verify queue_songs UPDATE policy for hosts.')
+            }
             throw fallbackError
           }
 
@@ -3682,13 +3693,11 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
-        if (error) {
-          setSongs(songs)
-          setPerformedSongs((currentPerformedSongs) =>
-            currentPerformedSongs.filter(
-              (song) => !(song.id === currentSong.id && song.performedAt === performedAt),
-            ),
-          )
+        if (error || !rowUpdated) {
+          rollbackMarkPlayed()
+          if (!error && !rowUpdated) {
+            throw new Error('Host update was not applied. Please verify queue_songs UPDATE policy for hosts.')
+          }
           throw error
         }
 
