@@ -69,6 +69,8 @@ type SettingsState = {
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
   mirrorBannerEnabled: boolean
+  mirrorBrbQrLink: string
+  mirrorBrbQrText: string
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: string
   selectedPlaylistIds: string[]
@@ -278,6 +280,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     mirrorPhotoSpotlightEnabled: event.mirrorPhotoSpotlightEnabled,
     mirrorCountdownEnabled: event.mirrorCountdownEnabled,
     mirrorBannerEnabled: event.mirrorBannerEnabled ?? true,
+    mirrorBrbQrLink: event.mirrorBrbQrLink ?? '',
+    mirrorBrbQrText: event.mirrorBrbQrText ?? '',
     allowDuplicateRequests: event.allowDuplicateRequests,
     maxActiveRequestsPerUser: normalizeRequestCapValue(event.maxActiveRequestsPerUser),
     selectedPlaylistIds: [],
@@ -667,6 +671,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
         mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
         mirrorBannerEnabled: saveState.mirrorBannerEnabled,
+        mirrorBrbQrLink: saveState.mirrorBrbQrLink.trim() || null,
+        mirrorBrbQrText: saveState.mirrorBrbQrText.trim() || null,
         allowDuplicateRequests: saveState.allowDuplicateRequests,
         maxActiveRequestsPerUser: parsedLimit,
         maxQueueSize: null,
@@ -1092,6 +1098,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.mirrorPhotoSpotlightEnabled !== event.mirrorPhotoSpotlightEnabled
     || state.mirrorCountdownEnabled !== event.mirrorCountdownEnabled
     || state.mirrorBannerEnabled !== (event.mirrorBannerEnabled ?? true)
+    || state.mirrorBrbQrLink !== (event.mirrorBrbQrLink ?? '')
+    || state.mirrorBrbQrText !== (event.mirrorBrbQrText ?? '')
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
     || normalizeRequestCapValue(state.maxActiveRequestsPerUser) !== normalizeRequestCapValue(event.maxActiveRequestsPerUser)
     || state.roomOpen !== event.roomOpen
@@ -1683,7 +1691,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               />
               <div>
                 <strong>{state.mirrorPhotoSpotlightEnabled ? '✓ Photo Spotlight On' : '⊘ Photo Spotlight Off'}</strong>
-                <span>Show audience photos as large 7-second spotlight on mirror</span>
+                <span>Show audience photos as large 10-second spotlight on mirror</span>
               </div>
             </label>
             <label className="toggle-card" htmlFor="gig-mirror-countdown">
@@ -1716,6 +1724,36 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 <span>Show or hide the promotional scrolling banner on the mirror screen</span>
               </div>
             </label>
+          </div>
+
+          <div className="field-row">
+            <label htmlFor="gig-mirror-brb-qr-link">Break Screen QR Link (Optional)</label>
+            <input
+              id="gig-mirror-brb-qr-link"
+              type="url"
+              placeholder="https://example.com/offers"
+              value={state.mirrorBrbQrLink}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ mirrorBrbQrLink: e.target.value })
+              }}
+            />
+            <p className="field-hint">When break mode or countdown mode is active, this link is turned into a QR code on the mirror.</p>
+          </div>
+
+          <div className="field-row">
+            <label htmlFor="gig-mirror-brb-qr-text">Break Screen QR Text (Optional)</label>
+            <input
+              id="gig-mirror-brb-qr-text"
+              type="text"
+              placeholder="Scan for menu, offers, or socials"
+              value={state.mirrorBrbQrText}
+              onChange={(e) => {
+                pushUndoState()
+                updateState({ mirrorBrbQrText: e.target.value })
+              }}
+            />
+            <p className="field-hint">Short text shown under that QR code on break and countdown screens.</p>
           </div>
 
           <div className="field-row">

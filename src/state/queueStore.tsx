@@ -57,6 +57,8 @@ type EventSettingsUpdates = {
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
   mirrorBannerEnabled: boolean
+  mirrorBrbQrLink: string | null
+  mirrorBrbQrText: string | null
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   maxQueueSize: number | null
@@ -104,6 +106,8 @@ type EventState = {
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
   mirrorBannerEnabled: boolean
+  mirrorBrbQrLink: string | null
+  mirrorBrbQrText: string | null
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   maxQueueSize: number | null
@@ -521,7 +525,30 @@ function isMissingNewerEventColumnsError(error: unknown) {
       || text.includes('intro_audio_url')
       || text.includes('event_artist_name')
       || text.includes('event_theme')
+      || text.includes('mirror_brb_qr_link')
+      || text.includes('mirror_brb_qr_text')
     )
+}
+
+function isMissingMirrorBrbQrColumnsError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204')
+    && (text.includes('mirror_brb_qr_link') || text.includes('mirror_brb_qr_text'))
 }
 
 function resolveEventTheme(rawTheme: string | null | undefined, eventType: 'halli-live' | 'karaoke' | 'build-self'): EventTheme {
@@ -1242,7 +1269,33 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings] = await Promise.all([
+    const loadBrbQrSettings = async (): Promise<{ mirror_brb_qr_link: string | null; mirror_brb_qr_text: string | null }> => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('mirror_brb_qr_link, mirror_brb_qr_text')
+          .eq('id', activeEventId)
+          .single()
+
+        if (error) {
+          if (isMissingMirrorBrbQrColumnsError(error)) {
+            return { mirror_brb_qr_link: null, mirror_brb_qr_text: null }
+          }
+
+          throw error
+        }
+
+        const row = data as Record<string, unknown>
+        return {
+          mirror_brb_qr_link: (row.mirror_brb_qr_link as string | null) ?? null,
+          mirror_brb_qr_text: (row.mirror_brb_qr_text as string | null) ?? null,
+        }
+      } catch {
+        return { mirror_brb_qr_link: null, mirror_brb_qr_text: null }
+      }
+    }
+
+    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, brbQrSettings] = await Promise.all([
       withTimeout(
         loadEventSnapshot(),
         DEFAULT_DB_TIMEOUT_MS,
@@ -1252,6 +1305,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       loadEventTypeSettings(),
       loadAudienceLocaleSettings(),
       loadVenueLogoLayoutSettings(),
+      loadBrbQrSettings(),
     ])
 
     const resolvedEventId = String((eventData as Record<string, unknown>).id ?? '')
@@ -1526,6 +1580,8 @@ function QueueProvider({ children }: PropsWithChildren) {
       mirrorPhotoSpotlightEnabled: ((eventData as Record<string, unknown>).mirror_photo_spotlight_enabled as boolean | null) ?? true,
       mirrorCountdownEnabled: ((eventData as Record<string, unknown>).mirror_countdown_enabled as boolean | null) ?? true,
       mirrorBannerEnabled: ((eventData as Record<string, unknown>).mirror_banner_enabled as boolean | null) ?? true,
+      mirrorBrbQrLink: brbQrSettings.mirror_brb_qr_link,
+      mirrorBrbQrText: brbQrSettings.mirror_brb_qr_text,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
       maxQueueSize: (eventData as Record<string, unknown>).max_queue_size as number | null ?? null,
@@ -2906,6 +2962,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
           mirror_countdown_enabled: updates.mirrorCountdownEnabled,
           mirror_banner_enabled: updates.mirrorBannerEnabled,
+          mirror_brb_qr_link: updates.mirrorBrbQrLink ?? null,
+          mirror_brb_qr_text: updates.mirrorBrbQrText ?? null,
           allow_duplicate_requests: updates.allowDuplicateRequests,
           max_active_requests_per_user: updates.maxActiveRequestsPerUser,
           room_open: updates.roomOpen,
@@ -2945,7 +3003,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingNewerEventColumnsError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingMirrorBrbQrColumnsError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -2979,6 +3037,11 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.intro_audio_url
             delete fallbackPayload.event_artist_name
             delete fallbackPayload.event_theme
+          }
+
+          if (isMissingMirrorBrbQrColumnsError(error)) {
+            delete fallbackPayload.mirror_brb_qr_link
+            delete fallbackPayload.mirror_brb_qr_text
           }
 
           const { error: fallbackError } = await withTimeout(
@@ -3384,6 +3447,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           mirrorPhotoSpotlightEnabled: true,
           mirrorCountdownEnabled: true,
           mirrorBannerEnabled: true,
+          mirrorBrbQrLink: null,
+          mirrorBrbQrText: null,
           allowDuplicateRequests: true,
           maxActiveRequestsPerUser: null,
           maxQueueSize: null,

@@ -69,6 +69,7 @@ const GigSettingsPage = lazyWithChunkReload(() => import('./pages/GigSettingsPag
 const GigsPage = lazyWithChunkReload(() => import('./pages/GigsPage'))
 const HealthCheckPage = lazyWithChunkReload(() => import('./pages/HealthCheckPage'))
 const HomePage = lazyWithChunkReload(() => import('./pages/HomePage'))
+const LoungeLinkPage = lazyWithChunkReload(() => import('./pages/LoungeLinkPage'))
 const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
 const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
@@ -326,6 +327,11 @@ const router = createBrowserRouter([
         ? <DemoAuthProvider><DemoQueueProvider>{withSuspense(<MirrorPage />)}</DemoQueueProvider></DemoAuthProvider>
         : <AuthProvider><QueueProvider>{withSuspense(<MirrorPage />)}</QueueProvider></AuthProvider>,
     ),
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: '/lounge-link',
+    element: withCrashBoundary('Lounge Link', withSuspense(<LoungeLinkPage />)),
     errorElement: <RouteErrorFallback />,
   },
 ])

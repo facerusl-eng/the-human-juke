@@ -345,7 +345,11 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
 
   const value = useMemo(
     () => ({
-      event: { ...DEMO_EVENT },
+      event: {
+        ...DEMO_EVENT,
+        mirrorBrbQrLink: null,
+        mirrorBrbQrText: null,
+      },
       hostEvents: [],
       songs,
       performedSongs,

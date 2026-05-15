@@ -105,6 +105,45 @@ type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
 type FunFactsCache = Record<string, string[]>
 type SongWithMirrorFacts = QueueSong & { mirrorFunFacts?: string[] }
 
+function normalizeBrbQrLink(rawLink: string | null | undefined) {
+  const trimmed = rawLink?.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  const normalized = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`
+
+  try {
+    const parsed = new URL(normalized)
+
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
+
+function buildLoungeBridgeUrl(targetUrl: string, backUrl: string) {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const bridgeUrl = new URL('/lounge-link', window.location.origin)
+    bridgeUrl.searchParams.set('target', targetUrl)
+    bridgeUrl.searchParams.set('back', backUrl)
+    return bridgeUrl.toString()
+  } catch {
+    return null
+  }
+}
+
 function mergeMirrorLayoutState(rawState: unknown): MirrorLayoutState {
   if (!rawState || typeof rawState !== 'object') {
     return DEFAULT_MIRROR_LAYOUT_STATE
@@ -1357,6 +1396,20 @@ function MirrorPageContent() {
     }
   }, [eventId])
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(audienceUrl)}`
+  const brbQrLink = normalizeBrbQrLink(event?.mirrorBrbQrLink)
+  const brbQrText = event?.mirrorBrbQrText?.trim() ?? ''
+  const brbBridgeUrl = brbQrLink
+    ? (buildLoungeBridgeUrl(brbQrLink, audienceUrl) ?? brbQrLink)
+    : null
+  const brbQrCodeUrl = brbBridgeUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=900x900&ecc=M&margin=8&data=${encodeURIComponent(brbBridgeUrl)}`
+    : null
+  const preShowQrLink = brbBridgeUrl ?? audienceUrl
+  const preShowQrText = brbBridgeUrl
+    ? (brbQrText || 'Scan this code while we prep the show.')
+    : `Open the audience app at ${audienceUrl}`
+  const preShowQrLabel = brbBridgeUrl ? 'Scan this QR' : 'Scan to join'
+  const preShowQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(preShowQrLink)}`
   const playbackSong = playbackState?.currentSongId
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
@@ -3232,9 +3285,9 @@ function MirrorPageContent() {
             {/* ── MIDDLE: QR (left) + How it works (right) ── */}
             <div className="mirror-pre-show-middle">
               <div className="mirror-pre-show-qr-col">
-                <img src={qrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
-                <p className="mirror-qr-label">Scan to join</p>
-                <p className="mirror-qr-url">Open the audience app at <strong>{audienceUrl}</strong></p>
+                <img src={preShowQrUrl} alt="QR code for mirror pre-show" className="mirror-qr-image" />
+                <p className="mirror-qr-label">{preShowQrLabel}</p>
+                <p className="mirror-qr-url"><strong>{preShowQrText}</strong></p>
               </div>
               <div className="mirror-pre-show-steps-col">
                 <div className="mirror-how-it-works" aria-label="How it works">
@@ -3499,9 +3552,17 @@ function MirrorPageContent() {
 
       {playbackState?.brbActive ? (
         <div className="mirror-brb-overlay" aria-live="polite" role="status">
-          <p className="mirror-brb-icon" aria-hidden="true">🍺</p>
-          <p className="mirror-brb-heading">On Break</p>
-          <p className="mirror-brb-message">{playbackState.brbMessage?.trim() || DEFAULT_BRB_MESSAGE}</p>
+          <div className="mirror-brb-content">
+            <p className="mirror-brb-icon" aria-hidden="true">🍺</p>
+            <p className="mirror-brb-heading">On Break</p>
+            <p className="mirror-brb-message">{playbackState.brbMessage?.trim() || DEFAULT_BRB_MESSAGE}</p>
+          </div>
+          {brbQrCodeUrl ? (
+            <a className="mirror-brb-qr-card" href={brbBridgeUrl ?? undefined} target="_blank" rel="noreferrer noopener" aria-label="Break screen QR link">
+              <img src={brbQrCodeUrl} alt="Break screen QR code" className="mirror-brb-qr-image" />
+              <p className="mirror-brb-qr-text">{brbQrText || 'Scan while we are on break.'}</p>
+            </a>
+          ) : null}
         </div>
       ) : null}
 

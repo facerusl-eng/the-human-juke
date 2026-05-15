@@ -1095,7 +1095,9 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS audience_voting_enabled BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS auto_live_enabled BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS intro_audio_url TEXT,
-  ADD COLUMN IF NOT EXISTS event_artist_name TEXT;
+  ADD COLUMN IF NOT EXISTS event_artist_name TEXT,
+  ADD COLUMN IF NOT EXISTS mirror_brb_qr_link TEXT,
+  ADD COLUMN IF NOT EXISTS mirror_brb_qr_text TEXT;
 
 -- ─── Global mirror layout state on profiles (May 2026) ───────────────────────
 ALTER TABLE public.profiles
