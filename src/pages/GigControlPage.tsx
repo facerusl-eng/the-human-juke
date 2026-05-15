@@ -30,6 +30,7 @@ const BACKGROUND_SYNC_TAG = 'jukebox-sync'
 const MIRROR_PREVIEW_TRANSITION_MS = 4200
 const MIRROR_LAUNCH_STATUS_DURATION_MS = 7000
 const SPACEBAR_ACTION_COOLDOWN_MS = 300
+const GIG_CONTROL_LOADING_RECOVERY_MS = 14_000
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
@@ -198,6 +199,8 @@ function GigControlPage() {
     toggleExplicitFilter,
     setShowInAudienceNoGig,
     audienceConnectionStatus,
+    queueOperatingMode,
+    queueHealthMessage,
   } = useQueueStore()
 
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -241,6 +244,7 @@ function GigControlPage() {
   const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
   const [showEndGigHideConfirm, setShowEndGigHideConfirm] = useState(false)
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
+  const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -326,6 +330,21 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
+
+  useEffect(() => {
+    if (!loading) {
+      setShowLoadingRecovery(false)
+      return
+    }
+
+    const timerId = window.setTimeout(() => {
+      setShowLoadingRecovery(true)
+    }, GIG_CONTROL_LOADING_RECOVERY_MS)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [loading])
 
   const resolveCoverUrlForSong = useCallback((songId: string | null) => {
     if (!songId) {
@@ -1785,6 +1804,56 @@ function GigControlPage() {
   ]
 
   if (loading) {
+    if (showLoadingRecovery) {
+      return (
+        <section className="gig-control-shell" aria-label="Gig control recovery">
+          <section className="queue-panel" role="status" aria-live="polite">
+            <p className="eyebrow">Live Control</p>
+            <h1>Reconnecting live controls...</h1>
+            <p className="subcopy">
+              {queueHealthMessage
+                ?? 'The live queue is taking longer than expected to load. We are still retrying in the background.'}
+            </p>
+            {signedInEmail ? (
+              <p className="meta-badge" aria-live="polite">Signed in as {signedInEmail}</p>
+            ) : null}
+            <p className="subcopy">
+              Mode: {queueOperatingMode === 'degraded' ? 'Degraded (fallback retries active)' : 'Normal'}
+            </p>
+            <div className="hero-actions no-margin-bottom">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  window.location.reload()
+                }}
+              >
+                Retry Now
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  navigate('/admin/gigs')
+                }}
+              >
+                Open Gig List
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => {
+                  navigate('/audience')
+                }}
+              >
+                Open Audience
+              </button>
+            </div>
+          </section>
+        </section>
+      )
+    }
+
     return (
       <section className="gig-control-shell" aria-label="Gig control loading">
         <section className="queue-panel gig-control-loading" role="status" aria-live="polite">
