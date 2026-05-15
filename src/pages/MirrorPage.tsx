@@ -3456,7 +3456,7 @@ function MirrorPageContent() {
 
       {playbackState?.brbActive ? (
         <div className="mirror-brb-overlay" aria-live="polite" role="status">
-          <p className="mirror-brb-icon" aria-hidden="true">☕</p>
+          <p className="mirror-brb-icon" aria-hidden="true">🍺</p>
           <p className="mirror-brb-heading">Be Right Back</p>
           {playbackState.brbMessage ? (
             <p className="mirror-brb-message">{playbackState.brbMessage}</p>
