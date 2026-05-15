@@ -3441,7 +3441,7 @@ function MirrorPageContent() {
                     <ol className="mirror-queue">
                       {upNext.map((song, index) => {
                         const queueChosenByLine = song.createdByName
-                          ? (getChosenByLine(song.id, song.createdByName) ?? `Chosen by ${song.createdByName}`)
+                          ? `Picked by ${song.createdByName}`
                           : null
                         const queueChosenByAccentClass = getChosenByAccentClass(song.id)
 
@@ -3457,12 +3457,21 @@ function MirrorPageContent() {
                               />
                             ) : null}
                             <div className="mirror-queue-info">
-                              <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
-                              <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
-                              {queueChosenByLine ? (
-                                <span className={`mirror-queue-picker mirror-queue-artist-picker ${queueChosenByAccentClass}`}>{queueChosenByLine}</span>
-                              ) : null}
-                              {song.audience_sings ? <span className="mirror-karaoke-tag karaoke-badge">Karaoke Request</span> : null}
+                              <div className="mirror-queue-picker-slot">
+                                {queueChosenByLine ? (
+                                  <span className={`mirror-queue-picker mirror-queue-artist-picker ${queueChosenByAccentClass}`}>{queueChosenByLine}</span>
+                                ) : null}
+                              </div>
+                              <span
+                                className={`mirror-queue-signal ${song.audience_sings ? 'mirror-queue-signal-karaoke' : 'mirror-queue-signal-band'}`.trim()}
+                                aria-label={song.audience_sings ? 'Karaoke request' : 'Band request'}
+                              >
+                                {song.audience_sings ? 'Karaoke' : 'Band'}
+                              </span>
+                              <div className="mirror-queue-details">
+                                <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                                <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                              </div>
                             </div>
                             <span className="mirror-queue-votes">+{song.votes_count}</span>
                           </li>

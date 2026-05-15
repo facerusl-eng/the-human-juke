@@ -3430,3 +3430,71 @@
   width: clamp(220px, min(24vw, 28dvh), 360px);
   height: clamp(220px, min(24vw, 28dvh), 360px);
 }
+
+/* Queue row order: picked-by left, request type center, song details right. */
+.mirror-song-queue-frame .mirror-queue-item {
+  align-items: center;
+}
+
+.mirror-song-queue-frame .mirror-queue-info {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(0.34rem, 0.62vw, 0.62rem);
+}
+
+.mirror-song-queue-frame .mirror-queue-picker-slot {
+  min-width: 0;
+  justify-self: start;
+  grid-column: 1;
+}
+
+.mirror-song-queue-frame .mirror-queue-picker-slot .mirror-queue-picker {
+  margin: 0;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.mirror-song-queue-frame .mirror-queue-signal {
+  grid-column: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  border-radius: 999px;
+  padding: clamp(0.12rem, 0.24vw, 0.2rem) clamp(0.56rem, 0.9vw, 0.78rem);
+  font-size: clamp(0.66rem, 0.94vw, 0.84rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.12;
+  white-space: nowrap;
+}
+
+.mirror-song-queue-frame .mirror-queue-signal-karaoke {
+  border: 1px solid rgba(255, 68, 95, 0.72);
+  background: rgba(89, 12, 27, 0.56);
+  color: #ffd3da;
+}
+
+.mirror-song-queue-frame .mirror-queue-signal-band {
+  border: 1px solid rgba(125, 211, 252, 0.58);
+  background: rgba(13, 38, 61, 0.52);
+  color: #d7ecff;
+}
+
+.mirror-song-queue-frame .mirror-queue-details {
+  min-width: 0;
+  display: grid;
+  gap: clamp(0.08rem, 0.16vw, 0.16rem);
+  justify-items: end;
+  text-align: right;
+  grid-column: 3;
+}
+
+.mirror-song-queue-frame .mirror-queue-details .mirror-queue-title,
+.mirror-song-queue-frame .mirror-queue-details .mirror-queue-artist {
+  text-align: right;
+}
