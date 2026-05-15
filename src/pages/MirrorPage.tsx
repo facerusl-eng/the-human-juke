@@ -1225,6 +1225,7 @@ function MirrorPageContent() {
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
   const mirrorShellRef = useRef<HTMLDivElement | null>(null)
+  const venueLogoImageRef = useRef<HTMLImageElement | null>(null)
   const autoFullscreenAttemptedRef = useRef(false)
   const mirrorLayoutStageRef = useRef<HTMLDivElement | null>(null)
   const layoutInteractionRef = useRef<{
@@ -1533,7 +1534,22 @@ function MirrorPageContent() {
     ? formatMirrorCountdownLabel(countdownRemainingMs)
     : null
   const countdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget, audienceLocale) : null
+  const venueLogoScale = Math.min(220, Math.max(60, event?.venueLogoScale ?? 100))
+  const venueLogoOffsetX = Math.min(100, Math.max(-100, event?.venueLogoOffsetX ?? 0))
+  const venueLogoOffsetY = Math.min(100, Math.max(-100, event?.venueLogoOffsetY ?? 0))
   const shouldShowPreShow = !isLive && !nowPlaying && !demoMode && !hasSetlistSongs
+
+  useEffect(() => {
+    const imageElement = venueLogoImageRef.current
+
+    if (!imageElement) {
+      return
+    }
+
+    imageElement.style.setProperty('--mirror-venue-logo-scale', String(venueLogoScale / 100))
+    imageElement.style.setProperty('--mirror-venue-logo-offset-x', `${venueLogoOffsetX}%`)
+    imageElement.style.setProperty('--mirror-venue-logo-offset-y', `${venueLogoOffsetY}%`)
+  }, [venueLogoOffsetX, venueLogoOffsetY, venueLogoScale, event?.venueLogoUrl])
 
   useEffect(() => {
     if (!event?.id || isLive || nowPlaying || demoMode) {
@@ -3137,6 +3153,7 @@ function MirrorPageContent() {
             {event?.venueLogoUrl ? (
               <p className="mirror-venue-logo" aria-label="Venue logo">
                 <img
+                  ref={venueLogoImageRef}
                   src={event.venueLogoUrl}
                   alt={`${event.venue || 'Venue'} logo`}
                   className="mirror-venue-logo-image"

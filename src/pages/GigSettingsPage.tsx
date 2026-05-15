@@ -325,6 +325,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
   const coverImageInFlightRef = useRef(false)
   const venueLogoInFlightRef = useRef(false)
   const introAudioInFlightRef = useRef(false)
+  const venueLogoCropShellRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!user?.id) {
@@ -809,7 +810,12 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       }
 
       pushUndoState()
-      updateState({ venueLogoUrl: dataUrl })
+      updateState({
+        venueLogoUrl: dataUrl,
+        venueLogoScale: 100,
+        venueLogoOffsetX: 0,
+        venueLogoOffsetY: 0,
+      })
       setErrorText(null)
     } catch (error) {
       if (!isMountedRef.current) {
@@ -1041,6 +1047,22 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       setErrorText(copyError)
     }
   }, [copyError])
+
+  useEffect(() => {
+    const cropShell = venueLogoCropShellRef.current
+
+    if (!cropShell) {
+      return
+    }
+
+    const clampedScale = Math.min(220, Math.max(60, state.venueLogoScale))
+    const clampedOffsetX = Math.min(100, Math.max(-100, state.venueLogoOffsetX))
+    const clampedOffsetY = Math.min(100, Math.max(-100, state.venueLogoOffsetY))
+
+    cropShell.style.setProperty('--gig-venue-logo-scale', String(clampedScale / 100))
+    cropShell.style.setProperty('--gig-venue-logo-offset-x', `${clampedOffsetX}%`)
+    cropShell.style.setProperty('--gig-venue-logo-offset-y', `${clampedOffsetY}%`)
+  }, [state.venueLogoOffsetX, state.venueLogoOffsetY, state.venueLogoScale])
 
   const selectedHumanJukeboxPlaylistId = state.selectedPlaylistIds.find((playlistId) => (
     playlists.find((playlist) => playlist.id === playlistId)?.playlist_type === 'human_jukebox'
@@ -1793,8 +1815,73 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             />
             <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name.</p>
             {state.venueLogoUrl ? (
-              <div className="photo-preview">
-                <img src={state.venueLogoUrl} alt="Venue logo preview" />
+              <div className="photo-preview gig-venue-logo-crop-shell" ref={venueLogoCropShellRef}>
+                <img
+                  src={state.venueLogoUrl}
+                  alt="Venue logo preview"
+                  className="gig-venue-logo-preview-image"
+                />
+                <div className="gig-venue-logo-crop-preview" aria-label="Venue logo crop preview">
+                  <img
+                    src={state.venueLogoUrl}
+                    alt="Venue logo crop frame preview"
+                    className="gig-venue-logo-crop-preview-image"
+                  />
+                </div>
+                <div className="gig-venue-logo-crop-controls">
+                  <label htmlFor="gig-venue-logo-scale">Crop zoom: {state.venueLogoScale}%</label>
+                  <input
+                    id="gig-venue-logo-scale"
+                    type="range"
+                    min={60}
+                    max={220}
+                    step={1}
+                    value={state.venueLogoScale}
+                    onChange={(e) => {
+                      pushUndoState()
+                      updateState({ venueLogoScale: Number.parseInt(e.target.value, 10) || 100 })
+                    }}
+                  />
+
+                  <label htmlFor="gig-venue-logo-offset-x">Crop left/right: {state.venueLogoOffsetX}%</label>
+                  <input
+                    id="gig-venue-logo-offset-x"
+                    type="range"
+                    min={-100}
+                    max={100}
+                    step={1}
+                    value={state.venueLogoOffsetX}
+                    onChange={(e) => {
+                      pushUndoState()
+                      updateState({ venueLogoOffsetX: Number.parseInt(e.target.value, 10) || 0 })
+                    }}
+                  />
+
+                  <label htmlFor="gig-venue-logo-offset-y">Crop up/down: {state.venueLogoOffsetY}%</label>
+                  <input
+                    id="gig-venue-logo-offset-y"
+                    type="range"
+                    min={-100}
+                    max={100}
+                    step={1}
+                    value={state.venueLogoOffsetY}
+                    onChange={(e) => {
+                      pushUndoState()
+                      updateState({ venueLogoOffsetY: Number.parseInt(e.target.value, 10) || 0 })
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      pushUndoState()
+                      updateState({ venueLogoScale: 100, venueLogoOffsetX: 0, venueLogoOffsetY: 0 })
+                    }}
+                  >
+                    Reset crop
+                  </button>
+                </div>
                 <button
                   type="button"
                   className="secondary-button"
