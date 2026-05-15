@@ -1673,7 +1673,7 @@ function GigControlPage() {
   }, [])
 
   const openMirrorFromGigControl = useCallback((castAssist = false) => {
-    const { openedInPopupWindow } = openMirrorScreen({ castAssist })
+    const { openedInPopupWindow, openedInNewTabWindow } = openMirrorScreen({ castAssist })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
@@ -1683,9 +1683,11 @@ function GigControlPage() {
       ? castAssist
         ? 'Mirror opened in cast-assist mode. Cast controls stay visible for 10 seconds.'
         : 'Mirror window opened. Keep Gig Control on this screen and move Mirror to TV/projector.'
-      : castAssist
-        ? 'Mirror popup was blocked, so cast-assist opened in this tab.'
-        : 'Mirror popup was blocked, so Mirror opened in this tab.'
+      : openedInNewTabWindow
+        ? castAssist
+          ? 'Mirror popup was blocked, so cast-assist opened in a new browser tab.'
+          : 'Mirror popup was blocked, so Mirror opened in a new browser tab.'
+        : 'Browser blocked opening Mirror. Allow popups/new tabs for this site and try again.'
 
     setMirrorLaunchStatusText(statusMessage)
     mirrorLaunchStatusTimerRef.current = window.setTimeout(() => {

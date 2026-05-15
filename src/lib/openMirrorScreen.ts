@@ -1,5 +1,6 @@
 export type OpenMirrorScreenResult = {
   openedInPopupWindow: boolean
+  openedInNewTabWindow: boolean
 }
 
 export type OpenMirrorScreenOptions = {
@@ -41,8 +42,19 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
   )
 
   if (!mirrorWindow) {
-    window.location.assign(mirrorUrl.toString())
-    return { openedInPopupWindow: false }
+    const fallbackTab = window.open(mirrorUrl.toString(), '_blank', 'noopener,noreferrer')
+
+    if (fallbackTab) {
+      return {
+        openedInPopupWindow: false,
+        openedInNewTabWindow: true,
+      }
+    }
+
+    return {
+      openedInPopupWindow: false,
+      openedInNewTabWindow: false,
+    }
   }
 
   const maximizeMirrorWindow = () => {
@@ -59,5 +71,8 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
   window.setTimeout(maximizeMirrorWindow, 250)
   mirrorWindow.focus()
 
-  return { openedInPopupWindow: true }
+  return {
+    openedInPopupWindow: true,
+    openedInNewTabWindow: false,
+  }
 }

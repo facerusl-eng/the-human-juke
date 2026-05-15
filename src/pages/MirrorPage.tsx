@@ -1549,7 +1549,7 @@ function MirrorPageContent() {
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
   const shouldShowEditorControls = false
   const shouldShowAdminElements = false
-  const shouldShowCastButton = !hideControlsForAudience || showCastPromptControls
+  const shouldShowCastButton = !hideControlsForAudience || showCastPromptControls || isFullscreen
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
   const liveBadgeLabel = demoMode ? '● Demo' : event?.roomOpen ? '● Live' : '● Paused'
 
