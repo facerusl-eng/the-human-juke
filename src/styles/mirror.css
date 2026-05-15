@@ -3483,7 +3483,7 @@
 .mirror-song-queue-frame .mirror-queue-picker {
   margin: 0;
   max-width: 100%;
-  text-align: left;
+  text-align: right;
   line-height: 1.2;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -3517,15 +3517,15 @@
 .mirror-song-queue-frame .mirror-queue-song-info {
   min-width: 0;
   display: grid;
-  justify-items: end;
-  text-align: right;
+  justify-items: start;
+  text-align: left;
   gap: clamp(0.08rem, 0.18vw, 0.16rem);
 }
 
 .mirror-song-queue-frame .mirror-queue-song-info .mirror-queue-title,
 .mirror-song-queue-frame .mirror-queue-song-info .mirror-queue-artist {
   width: 100%;
-  text-align: right;
+  text-align: left;
 }
 
 .mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue-info {

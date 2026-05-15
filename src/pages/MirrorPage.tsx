@@ -3536,17 +3536,17 @@ function MirrorPageContent() {
                               />
                             ) : null}
                             <div className="mirror-queue-info">
-                              <span className={queuePickerClassName}>{queuePickedByText}</span>
+                              <div className="mirror-queue-song-info">
+                                <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                                <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                              </div>
                               <span
                                 className={`mirror-queue-signal ${song.audience_sings ? 'mirror-queue-signal-karaoke' : 'mirror-queue-signal-band'}`}
                                 aria-label={song.audience_sings ? 'Karaoke request' : 'Band performance request'}
                               >
                                 {song.audience_sings ? 'Karaoke' : 'Band'}
                               </span>
-                              <div className="mirror-queue-song-info">
-                                <span className="mirror-queue-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
-                                <span className="mirror-queue-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
-                              </div>
+                              <span className={queuePickerClassName}>{queuePickedByText}</span>
                             </div>
                             <span className="mirror-queue-votes">+{song.votes_count}</span>
                           </li>
