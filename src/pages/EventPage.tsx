@@ -263,6 +263,8 @@ const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 const UPCOMING_EVENTS_DEGRADED_POLL_INTERVAL_MS = 60000
 const LIVE_GIG_POLL_INTERVAL_MS = 12000
 const PLAYBACK_SYNC_POLL_INTERVAL_MS = 10000
+const PLAYBACK_NULL_SYNC_GRACE_MISSES = 3
+const PLAYBACK_STALE_UPDATE_TOLERANCE_MS = 2500
 const LIVE_GIG_API_POLLING_ENABLED = import.meta.env.VITE_ENABLE_LIVE_GIG_API?.trim() === '1'
 const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
@@ -652,6 +654,21 @@ function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlay
     && left.currentSongCoverUrl === right.currentSongCoverUrl
     && left.isStarted === right.isStarted
     && left.quoteIndex === right.quoteIndex
+    && (left.brbActive ?? false) === (right.brbActive ?? false)
+    && (left.brbMessage ?? null) === (right.brbMessage ?? null)
+}
+
+function coercePlaybackTimestampMs(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsedTimestamp = Date.parse(value)
+    return Number.isFinite(parsedTimestamp) ? parsedTimestamp : null
+  }
+
+  return null
 }
 
 function getLiveGigIdFromApiPayload(payload: unknown): string | null {
@@ -2114,31 +2131,70 @@ function EventPage() {
     let subscription: ReturnType<typeof supabase.channel> | null = null
     let playbackBroadcastChannel: BroadcastChannel | null = null
     let syncTimerId: number | null = null
+    let nullSyncMissCount = 0
+    let latestPlaybackState: SharedPlaybackState | null = null
+    let lastAppliedPlaybackTimestampMs = 0
+
+    const applyIncomingPlaybackState = (nextState: SharedPlaybackState | null, timestampHint?: unknown) => {
+      if (!isCurrent) {
+        return
+      }
+
+      const inferredTimestampMs = coercePlaybackTimestampMs(timestampHint) ?? Date.now()
+      const nextStateDiffers = !isSamePlaybackState(latestPlaybackState, nextState)
+
+      if (
+        nextStateDiffers
+        && inferredTimestampMs + PLAYBACK_STALE_UPDATE_TOLERANCE_MS < lastAppliedPlaybackTimestampMs
+      ) {
+        return
+      }
+
+      if (!nextStateDiffers) {
+        lastAppliedPlaybackTimestampMs = Math.max(lastAppliedPlaybackTimestampMs, inferredTimestampMs)
+        return
+      }
+
+      latestPlaybackState = nextState
+      lastAppliedPlaybackTimestampMs = Math.max(lastAppliedPlaybackTimestampMs, inferredTimestampMs)
+      setPlaybackState(nextState)
+    }
 
     const syncPlaybackState = async () => {
       if (!isCurrent) return
 
       try {
         const state = await readSharedPlaybackState(eventId)
-        if (isCurrent) {
-          setPlaybackState((currentState) => (isSamePlaybackState(currentState, state) ? currentState : state))
+        if (!isCurrent) {
+          return
         }
+
+        if (state === null) {
+          nullSyncMissCount += 1
+
+          if (nullSyncMissCount < PLAYBACK_NULL_SYNC_GRACE_MISSES) {
+            return
+          }
+
+          applyIncomingPlaybackState(null)
+          return
+        }
+
+        nullSyncMissCount = 0
+        applyIncomingPlaybackState(state)
       } catch (error) {
         console.warn('EventPage: playback sync failed', error)
       }
     }
 
-    const cachedPlaybackMessage = readFromLocalStorage<{ eventId?: string; state?: SharedPlaybackState } | null>(
+    const cachedPlaybackMessage = readFromLocalStorage<{ eventId?: string; state?: SharedPlaybackState; timestamp?: unknown } | null>(
       PLAYBACK_STATE_STORAGE_KEY,
       null,
     )
 
     if (cachedPlaybackMessage?.eventId === eventId && cachedPlaybackMessage.state) {
-      setPlaybackState((currentState) => (
-        isSamePlaybackState(currentState, cachedPlaybackMessage.state ?? null)
-          ? currentState
-          : (cachedPlaybackMessage.state ?? null)
-      ))
+      nullSyncMissCount = 0
+      applyIncomingPlaybackState(cachedPlaybackMessage.state ?? null, cachedPlaybackMessage.timestamp)
     }
 
     subscription = supabase
@@ -2158,6 +2214,9 @@ function EventPage() {
             current_song_cover_url?: string | null
             is_started?: boolean | null
             quote_index?: number | null
+            brb_active?: boolean | null
+            brb_message?: string | null
+            updated_at?: string | null
           } | null
         }) => {
           const nextRow = payload?.new
@@ -2175,9 +2234,12 @@ function EventPage() {
               quoteIndex: Number.isFinite(nextRow.quote_index)
                 ? (nextRow.quote_index as number)
                 : 0,
+              brbActive: Boolean(nextRow.brb_active),
+              brbMessage: typeof nextRow.brb_message === 'string' ? nextRow.brb_message : null,
             }
 
-            setPlaybackState((currentState) => (isSamePlaybackState(currentState, nextState) ? currentState : nextState))
+            nullSyncMissCount = 0
+            applyIncomingPlaybackState(nextState, nextRow.updated_at)
             return
           }
 
@@ -2185,16 +2247,23 @@ function EventPage() {
         },
       )
       .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          void syncPlaybackState()
+          return
+        }
+
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           console.warn('EventPage: playback subscription reconnecting', { eventId, status })
+          void syncPlaybackState()
         }
       })
 
     const onPlaybackStateEvent = (nextEvent: Event) => {
-      const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState }>).detail
+      const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState; timestamp?: unknown }>).detail
 
       if (detail?.eventId === eventId) {
-        setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state) ? currentState : detail.state))
+        nullSyncMissCount = 0
+        applyIncomingPlaybackState(detail.state ?? null, detail.timestamp)
       }
     }
 
@@ -2204,13 +2273,14 @@ function EventPage() {
       }
 
       try {
-        const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
+        const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState; timestamp?: unknown }
 
         if (detail.eventId !== eventId || !detail.state) {
           return
         }
 
-        setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state ?? null) ? currentState : detail.state ?? null))
+        nullSyncMissCount = 0
+        applyIncomingPlaybackState(detail.state ?? null, detail.timestamp)
       } catch {
         // Ignore malformed cross-tab sync payloads.
       }
@@ -2218,6 +2288,12 @@ function EventPage() {
 
     const onAudiencePlaybackWake = () => {
       void syncPlaybackState()
+    }
+
+    const onAudiencePlaybackVisibilityChange = () => {
+      if (!document.hidden) {
+        void syncPlaybackState()
+      }
     }
 
     void syncPlaybackState()
@@ -2233,17 +2309,19 @@ function EventPage() {
     window.addEventListener('focus', onAudiencePlaybackWake)
     window.addEventListener('online', onAudiencePlaybackWake)
     window.addEventListener('pageshow', onAudiencePlaybackWake)
+    document.addEventListener('visibilitychange', onAudiencePlaybackVisibilityChange)
 
     if ('BroadcastChannel' in window) {
       playbackBroadcastChannel = new BroadcastChannel(PLAYBACK_STATE_BROADCAST_CHANNEL)
-      playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
+      playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState; timestamp?: unknown }>) => {
         const detail = messageEvent.data
 
         if (detail?.eventId !== eventId || !detail.state) {
           return
         }
 
-        setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state ?? null) ? currentState : detail.state ?? null))
+        nullSyncMissCount = 0
+        applyIncomingPlaybackState(detail.state ?? null, detail.timestamp)
       }
     }
 
@@ -2260,6 +2338,7 @@ function EventPage() {
       window.removeEventListener('focus', onAudiencePlaybackWake)
       window.removeEventListener('online', onAudiencePlaybackWake)
       window.removeEventListener('pageshow', onAudiencePlaybackWake)
+      document.removeEventListener('visibilitychange', onAudiencePlaybackVisibilityChange)
       playbackBroadcastChannel?.close()
     }
   }, [event?.id])
