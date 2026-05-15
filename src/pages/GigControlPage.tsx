@@ -330,6 +330,7 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
+  const isGigLoadFailureState = queueOperatingMode === 'degraded' || Boolean(queueHealthMessage)
 
   useEffect(() => {
     if (!loading) {
@@ -1870,10 +1871,12 @@ function GigControlPage() {
     return (
       <section className="gig-control-shell" aria-label="Gig control">
         <section className="hero-card admin-card">
-          <p className="eyebrow">No active gig</p>
-          <h1>No Gig Running</h1>
+          <p className="eyebrow">{isGigLoadFailureState ? 'Live Control Recovery' : 'No active gig'}</p>
+          <h1>{isGigLoadFailureState ? 'Could Not Load Gig Control' : 'No Gig Running'}</h1>
           <p className="subcopy">
-            {hostEvents.length === 0
+            {isGigLoadFailureState
+              ? (queueHealthMessage ?? 'Live data is temporarily unavailable. Retry now or open Gig List while the service recovers.')
+              : hostEvents.length === 0
               ? 'No gigs were found for the currently signed-in host account.'
               : 'Could not load a live gig for this account right now.'}
           </p>
@@ -1884,10 +1887,22 @@ function GigControlPage() {
             If this is the wrong account, sign out and sign in with the host account that created your gigs.
           </p>
           <div className="hero-actions">
-            <button type="button" className="primary-button" onClick={() => navigate('/admin/create-gig')}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => {
+                window.location.reload()
+              }}
+            >
+              Retry Now
+            </button>
+            <button type="button" className="secondary-button" onClick={() => navigate('/admin/gigs')}>
+              Open Gig List
+            </button>
+            <button type="button" className="ghost-button" onClick={() => navigate('/admin/create-gig')}>
               Create Gig
             </button>
-            <button type="button" className="secondary-button" onClick={() => navigate('/admin')}>
+            <button type="button" className="ghost-button" onClick={() => navigate('/admin')}>
               Go to Admin Sign In
             </button>
           </div>
