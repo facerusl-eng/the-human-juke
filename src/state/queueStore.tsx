@@ -3343,7 +3343,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         const normalizedName = name.trim()
         const resolvedShowInAudienceNoGig = options?.isTestGig
           ? false
-          : (options?.showInAudienceNoGig ?? false)
+          : (options?.showInAudienceNoGig ?? true)
 
         if (!normalizedName) {
           throw new Error('Gig name is required.')

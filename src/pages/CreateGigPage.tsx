@@ -56,7 +56,7 @@ function CreateGigPage() {
   const [karafunUrl, setKarafunUrl] = useState('')
   const [artistName, setArtistName] = useState('')
   const [audienceVotingEnabled, setAudienceVotingEnabled] = useState(true)
-  const [showInAudienceNoGig, setShowInAudienceNoGig] = useState(false)
+  const [showInAudienceNoGig, setShowInAudienceNoGig] = useState(true)
   const [isTestGig, setIsTestGig] = useState(false)
   const [autoLiveEnabled, setAutoLiveEnabled] = useState(false)
   const [introAudioUrl, setIntroAudioUrl] = useState<string | null>(null)
@@ -796,7 +796,14 @@ function CreateGigPage() {
               id="is-test-gig"
               type="checkbox"
               checked={isTestGig}
-              onChange={(e) => setIsTestGig(e.target.checked)}
+              onChange={(e) => {
+                const nextIsTestGig = e.target.checked
+                setIsTestGig(nextIsTestGig)
+
+                if (nextIsTestGig) {
+                  setShowInAudienceNoGig(false)
+                }
+              }}
             />
             <span>Create as private Test Gig (host-only)</span>
           </label>
