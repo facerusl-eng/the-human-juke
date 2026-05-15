@@ -3400,10 +3400,27 @@
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-qr-panel {
+  min-height: clamp(280px, 30vh, 450px);
   padding: clamp(0.7rem, 1vw, 0.94rem);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-qr {
-  width: min(100%, clamp(228px, 18vw, 340px));
+  width: min(100%, clamp(236px, 19vw, 356px));
+  max-width: 100%;
+  max-height: calc(100% - clamp(0.22rem, 0.5vw, 0.52rem));
   height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  display: block;
+}
+
+.mirror-shell-hide-controls .mirror-pre-show-qr-col {
+  min-height: clamp(300px, 33vh, 480px);
+}
+
+.mirror-shell-hide-controls .mirror-qr-image {
+  width: clamp(220px, min(24vw, 28dvh), 360px);
+  height: clamp(220px, min(24vw, 28dvh), 360px);
 }

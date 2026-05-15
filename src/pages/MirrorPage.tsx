@@ -42,14 +42,14 @@ const SPOTLIGHT_CAPTION_BUILDERS = [
 ]
 
 const CHOSEN_BY_BUILDERS = [
-  (name: string) => `Chosen by ${name} - excellent taste, no notes.`,
-  (name: string) => `Chosen by ${name} - a cracking pick, frankly.`,
-  (name: string) => `Chosen by ${name} - proper tune, that one.`,
-  (name: string) => `Chosen by ${name} - bold, brilliant, and slightly dangerous.`,
-  (name: string) => `Chosen by ${name} - the crowd approves with nods and pints.`,
-  (name: string) => `Chosen by ${name} - certified banger behaviour.`,
-  (name: string) => `Chosen by ${name} - top shelf decision-making.`,
-  (name: string) => `Chosen by ${name} - absolutely spot on, mate.`,
+  (name: string) => `Picked by ${name} - give that legend a massive cheer!`,
+  (name: string) => `Picked by ${name} - elite taste and zero fear.`,
+  (name: string) => `Picked by ${name} - dance-floor approved, scientifically.`,
+  (name: string) => `Picked by ${name} - bold choice, brilliant chaos.`,
+  (name: string) => `Picked by ${name} - crowd says yes, loudly.`,
+  (name: string) => `Picked by ${name} - this one slaps harder than Monday.`,
+  (name: string) => `Picked by ${name} - certified party wizard.`,
+  (name: string) => `Picked by ${name} - the room is smiling already.`,
 ]
 
 const CHOSEN_BY_ACCENT_CLASSES = [
@@ -1402,7 +1402,7 @@ function MirrorPageContent() {
     const phraseBuildersCount = CHOSEN_BY_BUILDERS.length
 
     if (phraseBuildersCount <= 0) {
-      return `Chosen by ${normalizedName}`
+      return `Picked by ${normalizedName}`
     }
 
     const cachedPhraseIndex = chosenByPhraseIndexBySongIdRef.current[songId]
@@ -1424,7 +1424,7 @@ function MirrorPageContent() {
       lastChosenByPhraseIndexRef.current = phraseIndex
     }
 
-    return buildChosenByLine(normalizedName, phraseIndex) ?? `Chosen by ${normalizedName}`
+    return buildChosenByLine(normalizedName, phraseIndex) ?? `Picked by ${normalizedName}`
   }
 
   const getChosenByAccentClass = (songId: string) => {
@@ -1438,9 +1438,7 @@ function MirrorPageContent() {
   }
 
   const activeSongChosenByLine = activeSong?.createdByName
-    ? (activeSong.audience_sings
-      ? `Picked by ${activeSong.createdByName}`
-      : getChosenByLine(activeSong.id, activeSong.createdByName) ?? `Chosen by ${activeSong.createdByName}`)
+    ? (getChosenByLine(activeSong.id, activeSong.createdByName) ?? `Picked by ${activeSong.createdByName}`)
     : null
   const activeSongChosenByAccentClass = activeSong?.id
     ? getChosenByAccentClass(activeSong.id)
