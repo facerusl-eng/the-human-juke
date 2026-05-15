@@ -644,6 +644,68 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
     })
   }
 
+  const pausePlayback = async () => {
+    const playbackDeviceId = await resolvePlaybackDeviceId()
+
+    return withRefreshRetry(async (token) => {
+      const response = await requestWithSpotifyRetry(() => fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${encodeURIComponent(playbackDeviceId)}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }))
+
+      if (response.status === 401) {
+        throw new Error('Spotify access token expired.')
+      }
+
+      if (response.status === 403 || response.status === 404) {
+        return false
+      }
+
+      if (!response.ok) {
+        const payload = await parseJson(response)
+        const message = payload?.error?.message || payload?.error_description || 'Pause playback failed.'
+        throw new Error(mapSpotifyApiError(message))
+      }
+
+      return true
+    })
+  }
+
+  const getPlaybackIsPlaying = async () => {
+    return withRefreshRetry(async (token) => {
+      const response = await requestWithSpotifyRetry(() => fetch('https://api.spotify.com/v1/me/player', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }))
+
+      if (response.status === 401) {
+        throw new Error('Spotify access token expired.')
+      }
+
+      if (response.status === 204 || response.status === 404) {
+        return null
+      }
+
+      if (!response.ok) {
+        const payload = await parseJson(response)
+        const message = payload?.error?.message || payload?.error_description || 'Failed to read playback state.'
+        throw new Error(mapSpotifyApiError(message))
+      }
+
+      const payload = await parseJson(response)
+
+      if (typeof payload?.is_playing === 'boolean') {
+        return payload.is_playing
+      }
+
+      return null
+    })
+  }
+
   const startPlayback = async (spotifyUri) => {
     const normalizedTrackUri = normalizeTrackUri(spotifyUri)
 
@@ -730,17 +792,45 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
   }
 
   useEffect(() => {
-    if (!transportCommand || !deviceId || !playerRef.current) {
+    if (!transportCommand) {
       return
     }
 
     const executeTransportCommand = async (nextTransportCommand) => {
-      if (!nextTransportCommand || !playerRef.current) {
+      if (!nextTransportCommand) {
         return
       }
 
       try {
         if (nextTransportCommand.mode === 'toggle') {
+          if (!playerRef.current) {
+            const isPlayingViaApi = await getPlaybackIsPlaying()
+
+            if (isPlayingViaApi) {
+              const paused = await pausePlayback()
+
+              if (paused) {
+                setPlayerStatus('Spotify playback paused from Gig Control toggle shortcut.')
+                return
+              }
+            }
+
+            const resumed = await resumePlayback()
+
+            if (resumed) {
+              setPlayerStatus('Spotify playback resumed from where it stopped.')
+              return
+            }
+
+            if (playlistInput.trim()) {
+              await startPlaylistPlayback(playlistInput)
+              setPlayerStatus('Spotify playlist playback started from Gig Control toggle shortcut.')
+              return
+            }
+
+            throw new Error('Set a Between Songs Playlist first, then use Toggle Spotify Playlist.')
+          }
+
           const currentState = await playerRef.current.getCurrentState?.()
 
           if (!currentState) {
@@ -790,6 +880,23 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
         }
 
         if (nextTransportCommand.mode === 'play') {
+          if (!playerRef.current) {
+            const resumed = await resumePlayback()
+
+            if (resumed) {
+              setPlayerStatus('Between-song Spotify playback resumed from Gig Control.')
+              return
+            }
+
+            if (playlistInput.trim()) {
+              await startPlaylistPlayback(playlistInput)
+              setPlayerStatus('Started between-song playlist (no paused context was available).')
+              return
+            }
+
+            throw new Error('No paused Spotify context found. Set a Between Songs Playlist first.')
+          }
+
           const normalizedConfiguredPlaylist = normalizePlaylistContextUri(playlistInput)
 
           // If the configured playlist changed, force playback to start from the new playlist
@@ -832,6 +939,25 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand })
 
             throw new Error('No paused Spotify context found. Set a Between Songs Playlist first.')
           }
+        }
+
+        if (!playerRef.current) {
+          const isPlayingViaApi = await getPlaybackIsPlaying()
+
+          if (isPlayingViaApi === false) {
+            setPlayerStatus('Between-song Spotify playback is already paused.')
+            return
+          }
+
+          const paused = await pausePlayback()
+
+          if (paused) {
+            setPlayerStatus('Between-song Spotify playback paused for now playing track.')
+            return
+          }
+
+          setPlayerStatus('No active Spotify playback was available to pause.')
+          return
         }
 
         await syncTogglePlayState(false)
