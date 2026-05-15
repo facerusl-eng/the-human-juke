@@ -11462,11 +11462,12 @@
   margin: 0.2rem 0 0;
   width: 100%;
   min-height: 1.2em;
-  font-size: 1rem;
+  font-size: clamp(1.08rem, 1.45vw, 1.42rem);
   font-weight: 800;
-  letter-spacing: 0.02em;
-  color: #fcd34d;
+  letter-spacing: 0.03em;
+  color: #ffffff;
   text-align: center;
+  text-shadow: 0 0 14px rgba(255, 255, 255, 0.48);
   animation: mirror-qr-flash-pulse 5s ease-in-out infinite;
 }
 

@@ -86,7 +86,7 @@ const QR_FLASH_ROTATE_INTERVAL_MS = 5000
 const QR_FLASH_BASE_LINES = [
   'Thirsty?',
   "The bar's got options",
-  '. Some of them even make sense.',
+  'Some of them even make sense',
 ]
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
@@ -1069,6 +1069,13 @@ function buildChosenByLine(name: string | null | undefined, phraseIndex: number)
   return chosenByBuilder(normalizedName)
 }
 
+function sanitizeQrFlashLine(text: string) {
+  return text
+    .replace(/[.,]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 function getMirrorCountdownTarget(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
   const normalizedDate = gigDate?.trim()
 
@@ -1371,11 +1378,13 @@ function MirrorPageContent() {
   const countdownQrDestination = customCountdownQrLink || audienceUrl
   const countdownQrText = countdownQrDestination
   const qrFlashLines = useMemo(() => {
-    if (customQrFlashVenueName) {
-      return [...QR_FLASH_BASE_LINES, `Tonight at ${customQrFlashVenueName}`]
-    }
+    const lines = customQrFlashVenueName
+      ? [...QR_FLASH_BASE_LINES, `Tonight at ${customQrFlashVenueName}`]
+      : QR_FLASH_BASE_LINES
 
-    return QR_FLASH_BASE_LINES
+    return lines
+      .map((line) => sanitizeQrFlashLine(line))
+      .filter((line) => line.length > 0)
   }, [customQrFlashVenueName])
   const showQrFlashText = (event?.mirrorCountdownQrFlashEnabled ?? true) && qrFlashLines.length > 0
   const activeQrFlashText = showQrFlashText

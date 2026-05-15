@@ -1302,23 +1302,24 @@
 .mirror-qr-flash-line {
   margin: 0.15rem 0 0;
   min-height: 1.2em;
-  font-size: clamp(0.8rem, 1.05vw, 1rem);
+  font-size: clamp(1rem, 1.35vw, 1.3rem);
   font-weight: 800;
-  letter-spacing: 0.02em;
-  color: #ffd166;
+  letter-spacing: 0.03em;
+  color: #ffffff;
   text-align: center;
+  text-shadow: 0 0 14px rgba(255, 255, 255, 0.5);
   animation: mirror-qr-flash-pulse 5s ease-in-out infinite;
 }
 
 @keyframes mirror-qr-flash-pulse {
   0%,
   100% {
-    opacity: 0.56;
+    opacity: 0.28;
     transform: translateY(1px);
   }
 
-  15%,
-  70% {
+  18%,
+  72% {
     opacity: 1;
     transform: translateY(0);
   }
@@ -1412,7 +1413,7 @@
 .mirror-pre-show-has-countdown .mirror-qr-url,
 .mirror-pre-show-has-countdown .mirror-qr-flash-line,
 .mirror-pre-show-has-countdown .mirror-how-it-works p {
-  font-size: clamp(0.82rem, min(1.06vw, 1.82dvh), 1.02rem);
+  font-size: clamp(0.92rem, min(1.2vw, 2dvh), 1.16rem);
   line-height: 1.3;
 }
 
