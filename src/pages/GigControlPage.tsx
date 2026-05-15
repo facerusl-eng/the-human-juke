@@ -31,6 +31,7 @@ const MIRROR_PREVIEW_TRANSITION_MS = 4200
 const MIRROR_LAUNCH_STATUS_DURATION_MS = 7000
 const SPACEBAR_ACTION_COOLDOWN_MS = 300
 const GIG_CONTROL_LOADING_RECOVERY_MS = 14_000
+const GIG_CONTROL_AUTO_REDIRECT_SECONDS = 12
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
@@ -245,6 +246,8 @@ function GigControlPage() {
   const [showEndGigHideConfirm, setShowEndGigHideConfirm] = useState(false)
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
+  const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
+  const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -331,6 +334,45 @@ function GigControlPage() {
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
   const isGigLoadFailureState = queueOperatingMode === 'degraded' || Boolean(queueHealthMessage)
+
+  useEffect(() => {
+    const shouldAutoRedirect = !loading && !event && isGigLoadFailureState && !autoRedirectCancelled
+
+    if (!shouldAutoRedirect) {
+      setAutoRedirectCountdown(null)
+      return
+    }
+
+    setAutoRedirectCountdown(GIG_CONTROL_AUTO_REDIRECT_SECONDS)
+
+    const intervalId = window.setInterval(() => {
+      setAutoRedirectCountdown((currentCount) => {
+        if (currentCount === null) {
+          return currentCount
+        }
+
+        if (currentCount <= 1) {
+          window.clearInterval(intervalId)
+          navigate('/admin/gigs')
+          return 0
+        }
+
+        return currentCount - 1
+      })
+    }, 1000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [autoRedirectCancelled, event, isGigLoadFailureState, loading, navigate])
+
+  useEffect(() => {
+    if (!loading && !event && isGigLoadFailureState) {
+      return
+    }
+
+    setAutoRedirectCancelled(false)
+  }, [event, isGigLoadFailureState, loading])
 
   useEffect(() => {
     if (!loading) {
@@ -1886,6 +1928,11 @@ function GigControlPage() {
           <p className="subcopy">
             If this is the wrong account, sign out and sign in with the host account that created your gigs.
           </p>
+          {!autoRedirectCancelled && autoRedirectCountdown !== null ? (
+            <p className="subcopy">
+              Opening Gig List automatically in {autoRedirectCountdown}s so you can continue operating.
+            </p>
+          ) : null}
           <div className="hero-actions">
             <button
               type="button"
@@ -1899,6 +1946,11 @@ function GigControlPage() {
             <button type="button" className="secondary-button" onClick={() => navigate('/admin/gigs')}>
               Open Gig List
             </button>
+            {!autoRedirectCancelled && autoRedirectCountdown !== null ? (
+              <button type="button" className="ghost-button" onClick={() => setAutoRedirectCancelled(true)}>
+                Stay Here
+              </button>
+            ) : null}
             <button type="button" className="ghost-button" onClick={() => navigate('/admin/create-gig')}>
               Create Gig
             </button>
