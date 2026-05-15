@@ -3327,15 +3327,6 @@ function MirrorPageContent() {
                 <p className="mirror-qr-label">Scan for the pints. Log in for the tunes.</p>
                 {showCountdownQrLink ? <p className="mirror-qr-url">{countdownQrText}</p> : null}
                 {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
-                <a
-                  href={countdownQrCodeUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="mirror-qr-open-button"
-                  aria-label="Open audience lounge"
-                >
-                  Open Lounge
-                </a>
               </div>
               <div className="mirror-pre-show-steps-col">
                 <div className="mirror-how-it-works" aria-label="How it works">
@@ -3608,15 +3599,6 @@ function MirrorPageContent() {
             <p className="mirror-brb-qr-label">Scan for the pints. Log in for the tunes.</p>
             {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
-            <a
-              href={breakQrCodeUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="mirror-qr-open-button"
-              aria-label="Open audience lounge"
-            >
-              Open Lounge
-            </a>
           </div>
         </div>
       ) : null}
