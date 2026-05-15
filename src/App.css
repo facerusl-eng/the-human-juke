@@ -11462,12 +11462,14 @@
   margin: 0.2rem 0 0;
   width: 100%;
   min-height: 1.2em;
-  font-size: clamp(1.28rem, 1.9vw, 2.08rem);
-  font-weight: 800;
-  letter-spacing: 0.03em;
+  font-size: clamp(1.9rem, 3vw, 3.3rem);
+  font-weight: 900;
+  letter-spacing: 0.045em;
   color: #ffffff;
   text-align: center;
-  text-shadow: 0 0 14px rgba(255, 255, 255, 0.48);
+  text-shadow:
+    0 0 16px rgba(255, 255, 255, 0.72),
+    0 0 34px rgba(255, 255, 255, 0.34);
   animation: mirror-qr-flash-pulse 5s ease-in-out infinite;
 }
 
