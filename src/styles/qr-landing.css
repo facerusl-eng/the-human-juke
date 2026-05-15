@@ -30,7 +30,7 @@
 
 .qr-landing-button-overlay {
   position: fixed;
-  bottom: clamp(1rem, 4vh, 2rem);
+  top: clamp(1rem, 3vh, 1.5rem);
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
