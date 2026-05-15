@@ -1191,36 +1191,112 @@ function QueueProvider({ children }: PropsWithChildren) {
     const loadEventSnapshot = async () => {
       const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, mirror_countdown_show_qr_link, mirror_banner_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
       const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, mirror_countdown_show_qr_link, mirror_banner_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
+      const minimalSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, mirror_banner_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig'
 
-      const { data, error } = await supabase
-        .from('events')
-        .select(withCoverSelect)
-        .eq('id', activeEventId)
-        .single()
+      const hydrateMinimalEventSnapshot = (row: Record<string, unknown>) => ({
+        ...row,
+        instagram_url: null,
+        tiktok_url: null,
+        youtube_url: null,
+        facebook_url: null,
+        paypal_url: null,
+        mobilpay_url: null,
+        contact_email: null,
+        cover_image_url: null,
+        venue_logo_url: null,
+        show_custom_button: false,
+        custom_button_label: null,
+        custom_button_link: null,
+        mirror_countdown_show_qr_link: true,
+      })
+
+      const { data, error } = await withTransientRetry(async () => {
+        const queryResult = await withTimeout(
+          withAuthLockRetry(() =>
+            supabase
+              .from('events')
+              .select(withCoverSelect)
+              .eq('id', activeEventId)
+              .single(),
+          ),
+          DEFAULT_DB_TIMEOUT_MS,
+          'Loading the active gig timed out. Please try again.',
+        )
+
+        if (queryResult.error && isTransientLoadError(queryResult.error)) {
+          throw queryResult.error
+        }
+
+        return queryResult
+      }, 2)
 
       if (!error) {
         return data as Record<string, unknown>
       }
 
-      if (!isMissingCoverImageColumnError(error)) {
-        throw error
+      if (isMissingCoverImageColumnError(error)) {
+        const { data: fallbackData, error: fallbackError } = await withTransientRetry(async () => {
+          const fallbackResult = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('events')
+                .select(withoutCoverSelect)
+                .eq('id', activeEventId)
+                .single(),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Loading the active gig timed out. Please try again.',
+          )
+
+          if (fallbackResult.error && isTransientLoadError(fallbackResult.error)) {
+            throw fallbackResult.error
+          }
+
+          return fallbackResult
+        }, 2)
+
+        if (fallbackError) {
+          throw fallbackError
+        }
+
+        return {
+          ...(fallbackData as Record<string, unknown>),
+          cover_image_url: null,
+          venue_logo_url: (fallbackData as Record<string, unknown>).venue_logo_url ?? null,
+        }
       }
 
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('events')
-        .select(withoutCoverSelect)
-        .eq('id', activeEventId)
-        .single()
+      if (isTransientLoadError(error)) {
+        const { data: minimalData, error: minimalError } = await withTransientRetry(async () => {
+          const minimalResult = await withTimeout(
+            withAuthLockRetry(() =>
+              supabase
+                .from('events')
+                .select(minimalSelect)
+                .eq('id', activeEventId)
+                .single(),
+            ),
+            DEFAULT_DB_TIMEOUT_MS,
+            'Loading the active gig timed out. Please try again.',
+          )
 
-      if (fallbackError) {
-        throw fallbackError
+          if (minimalResult.error && isTransientLoadError(minimalResult.error)) {
+            throw minimalResult.error
+          }
+
+          return minimalResult
+        }, 2)
+
+        if (!minimalError && minimalData) {
+          return hydrateMinimalEventSnapshot(minimalData as Record<string, unknown>)
+        }
+
+        if (minimalError) {
+          throw minimalError
+        }
       }
 
-      return {
-        ...(fallbackData as Record<string, unknown>),
-        cover_image_url: null,
-        venue_logo_url: (fallbackData as Record<string, unknown>).venue_logo_url ?? null,
-      }
+      throw error
     }
 
     // Separately fetch tip thank-you messages (columns may not exist in older DB schemas).
