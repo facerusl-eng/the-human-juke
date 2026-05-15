@@ -1257,21 +1257,52 @@
   border-radius: 16px;
   border: 1px solid rgba(93, 215, 255, 0.15);
   background: rgba(8, 14, 32, 0.38);
-  text-decoration: none;
-  cursor: pointer;
-  transition: transform 0.2s ease, filter 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  transition: filter 0.2s ease, border-color 0.2s ease;
 }
 
 .mirror-pre-show-qr-col:hover {
-  transform: scale(1.02);
-  filter: brightness(1.1);
-  border-color: rgba(93, 215, 255, 0.35);
+  filter: brightness(1.08);
+  border-color: rgba(93, 215, 255, 0.3);
 }
 
-.mirror-pre-show-steps-col {
+.mirror-qr-open-button {
+  margin-top: 0.5rem;
+  padding: clamp(0.48rem, 0.8vw, 0.6rem) clamp(0.92rem, 1.4vw, 1.2rem);
+  border-radius: 8px;
+  border: 2px solid rgba(255, 200, 100, 0.8);
+  background: linear-gradient(135deg, rgba(255, 150, 0, 0.25), rgba(255, 180, 0, 0.15));
+  color: #ffffff;
+  font-size: clamp(0.82rem, 1.1vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.6),
+    0 0 12px rgba(255, 150, 0, 0.4);
+  box-shadow:
+    0 0 16px rgba(255, 150, 0, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.mirror-qr-open-button:hover {
+  border-color: rgba(255, 200, 100, 1);
+  background: linear-gradient(135deg, rgba(255, 150, 0, 0.4), rgba(255, 180, 0, 0.25));
+  transform: scale(1.05);
+  box-shadow:
+    0 0 24px rgba(255, 150, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+.mirror-brb-qr-panel {
   display: grid;
-  min-height: 0;
-  align-content: center;
+  justify-items: center;
+  gap: 0.65rem;
+  align-self: end;
+  position: relative;
 }
 
 /* ── QR image ─────────────────────────────────────────────────────────────── */
