@@ -139,6 +139,17 @@ function isRateLimitedAuthError(error: unknown) {
   return text.includes('rate limit') || text.includes('429')
 }
 
+function isAuthServiceUnavailableError(error: unknown) {
+  const text = getErrorText(error)
+
+  return text.includes('504')
+    || text.includes('503')
+    || text.includes('500')
+    || text.includes('context deadline exceeded')
+    || text.includes('database error')
+    || text.includes('failed to fetch')
+}
+
 function mapHostSignInError(error: unknown) {
   const text = getErrorText(error)
 
@@ -152,6 +163,10 @@ function mapHostSignInError(error: unknown) {
 
   if (isRateLimitedAuthError(error)) {
     return 'Too many sign-in attempts. Please wait 1 minute and try again.'
+  }
+
+  if (isAuthServiceUnavailableError(error)) {
+    return 'Auth service is temporarily unavailable. Please retry in a minute.'
   }
 
   if (isTransientAuthError(error)) {
@@ -466,6 +481,9 @@ function AuthProvider({ children }: PropsWithChildren) {
 
         if (error) {
           console.warn('authStore: getSession failed', error)
+          if (isTransientAuthError(error) || isAuthServiceUnavailableError(error)) {
+            setAuthError('Auth service is temporarily unavailable. Some admin features may be unavailable.')
+          }
           setSession(null)
           setUser(null)
           setProfile(null)
@@ -500,6 +518,9 @@ function AuthProvider({ children }: PropsWithChildren) {
         }
 
         console.warn('authStore: unexpected getSession exception', error)
+        if (isTransientAuthError(error) || isAuthServiceUnavailableError(error)) {
+          setAuthError('Auth service is temporarily unavailable. Some admin features may be unavailable.')
+        }
 
         setSession(null)
         setUser(null)

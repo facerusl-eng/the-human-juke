@@ -109,7 +109,7 @@ const NAV_ITEMS: NavEntry[] = [
 ]
 
 function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }: SideNavigationProps) {
-  const { user, isHost, loading, signInHost, signOut } = useAuthStore()
+  const { user, isHost, loading, authError: storeAuthError, signInHost, signOut } = useAuthStore()
   const [hostEmail, setHostEmail] = useState('')
   const [hostPassword, setHostPassword] = useState('')
   const [authBusy, setAuthBusy] = useState<null | 'signin' | 'signout'>(null)
@@ -117,6 +117,7 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
   const [gigsOpen, setGigsOpen] = useState(() =>
     NAV_ITEMS.some((e) => isGroup(e) && e.groupMatch(currentPath))
   )
+  const shownAuthError = authError ?? storeAuthError
 
   const handleHostSignIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -322,7 +323,7 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
                 </form>
               )}
 
-              {authError ? <p className="mt-2 text-xs text-rose-300">{authError}</p> : null}
+              {shownAuthError ? <p className="mt-2 text-xs text-rose-300">{shownAuthError}</p> : null}
             </div>
           ) : null}
         </div>

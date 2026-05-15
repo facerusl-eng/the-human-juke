@@ -6,7 +6,7 @@ import './admin-settings.css'
 import './components/ui/ui.css'
 import './styles/mirror.css'
 import './styles/qr-landing.css'
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { Navigate, createBrowserRouter, isRouteErrorResponse, useNavigate, useRouteError, useParams } from 'react-router-dom'
 import AppCrashBoundary from './components/AppCrashBoundary'
 import RequireHost from './components/RequireHost'
@@ -21,6 +21,7 @@ import { DemoAuthProvider } from './demo/DemoAuthProvider'
 import { DemoQueueProvider } from './demo/DemoQueueProvider'
 
 const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
+const ROUTE_LOADING_RECOVERY_TIMEOUT_MS = 12_000
 
 function isChunkLoadFailure(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
@@ -79,9 +80,51 @@ const SettingsPage = lazyWithChunkReload(() => import('./pages/SettingsPage'))
 const SpotifyCallbackPage = lazyWithChunkReload(() => import('./pages/SpotifyCallbackPage'))
 
 function RouteLoading() {
+  const [showRecoveryOptions, setShowRecoveryOptions] = useState(false)
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      setShowRecoveryOptions(true)
+    }, ROUTE_LOADING_RECOVERY_TIMEOUT_MS)
+
+    return () => {
+      window.clearTimeout(timerId)
+    }
+  }, [])
+
   return (
     <section className="page-logo-loader-shell" role="status" aria-live="polite" aria-label="Loading page">
       <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
+      {showRecoveryOptions ? (
+        <section className="queue-panel route-loading-recovery" aria-live="polite">
+          <p className="eyebrow">Still loading</p>
+          <h2>Page load is taking longer than expected</h2>
+          <p className="subcopy">
+            This can happen during network hiccups or after a fresh deploy.
+          </p>
+          <div className="hero-actions no-margin-bottom">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => {
+                window.sessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY)
+                window.location.reload()
+              }}
+            >
+              Retry Loading
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                window.location.assign('/audience')
+              }}
+            >
+              Open Audience
+            </button>
+          </div>
+        </section>
+      ) : null}
     </section>
   )
 }

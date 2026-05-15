@@ -93,6 +93,27 @@ function RequireHost({ children }: PropsWithChildren) {
       <section className="queue-panel host-gate">
         <h2>Admin sign in required</h2>
         <p className="subcopy">Sign in with the host email and password from the top bar.</p>
+        {authError ? <p className="error-text">{authError}</p> : null}
+        <div className="hero-actions no-margin-bottom">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              window.location.reload()
+            }}
+          >
+            Retry
+          </button>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => {
+              window.location.assign('/audience')
+            }}
+          >
+            Open Audience
+          </button>
+        </div>
       </section>
     )
   }
