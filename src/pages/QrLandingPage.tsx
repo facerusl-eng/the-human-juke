@@ -1,8 +1,7 @@
-import { useEffect, useMemo } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 
 function QrLandingPage() {
-  const navigate = useNavigate()
   const { search } = useLocation()
   
   const customUrl = useMemo(() => {
