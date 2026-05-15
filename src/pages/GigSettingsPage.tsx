@@ -110,6 +110,7 @@ const MAX_UNDO_STATES = 20
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_VENUE_LOGO_IMAGE_BYTES = 10 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
+const FALLBACK_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.avif', '.heic', '.heif']
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -795,7 +796,11 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       return
     }
 
-    if (!selectedFile.type.startsWith('image/')) {
+    const lowerFileName = selectedFile.name.toLowerCase()
+    const hasKnownImageExtension = FALLBACK_IMAGE_EXTENSIONS.some((extension) => lowerFileName.endsWith(extension))
+    const isImageFile = selectedFile.type.startsWith('image/') || (selectedFile.type.trim() === '' && hasKnownImageExtension)
+
+    if (!isImageFile) {
       setErrorText('Please choose an image file for the venue logo.')
       venueLogoInFlightRef.current = false
       setProcessingVenueLogo(false)

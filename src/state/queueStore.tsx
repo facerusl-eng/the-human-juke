@@ -578,6 +578,19 @@ function isMissingMirrorQrFlashColumnError(error: unknown) {
     && (text.includes('mirror_brb_qr_flash_enabled') || text.includes('mirror_brb_qr_flash_venue'))
 }
 
+function isMissingColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  return code === '42703' || code === 'PGRST204'
+}
+
 function isMissingNewerEventColumnsError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -3109,7 +3122,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingColumnError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -3159,6 +3172,30 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (isMissingNewerEventColumnsError(error)) {
             delete fallbackPayload.venue_logo_url
+            delete fallbackPayload.auto_live_enabled
+            delete fallbackPayload.intro_audio_url
+            delete fallbackPayload.event_artist_name
+            delete fallbackPayload.event_theme
+          }
+
+          // Mixed schema drift can surface one missing column at a time.
+          // When any missing-column error appears, strip all optional newer columns
+          // so the fallback write can still succeed on partially-migrated databases.
+          if (isMissingColumnError(error)) {
+            delete fallbackPayload.cover_image_url
+            delete fallbackPayload.tip_thank_you_message_da
+            delete fallbackPayload.tip_thank_you_message_en
+            delete fallbackPayload.audience_icelandic_enabled
+            delete fallbackPayload.audience_voting_enabled
+            delete fallbackPayload.mirror_countdown_show_qr_link
+            delete fallbackPayload.mirror_brb_qr_link
+            delete fallbackPayload.mirror_brb_qr_text
+            delete fallbackPayload.mirror_brb_qr_flash_enabled
+            delete fallbackPayload.mirror_brb_qr_flash_venue
+            delete fallbackPayload.venue_logo_url
+            delete fallbackPayload.venue_logo_scale
+            delete fallbackPayload.venue_logo_offset_x
+            delete fallbackPayload.venue_logo_offset_y
             delete fallbackPayload.auto_live_enabled
             delete fallbackPayload.intro_audio_url
             delete fallbackPayload.event_artist_name
