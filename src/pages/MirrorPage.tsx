@@ -1377,11 +1377,11 @@ function MirrorPageContent() {
   const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && (event?.mirrorBreakQrCustomUrl?.trim() ?? '').length > 0
   
   const countdownQrCodeUrl = useCustomCountdownQr
-    ? `/qr-landing?url=${encodeURIComponent(event!.mirrorCountdownQrCustomUrl!)}`
+    ? `/qr-landing?event=${encodeURIComponent(eventId)}&url=${encodeURIComponent(event!.mirrorCountdownQrCustomUrl!)}`
     : countdownQrDestination
     
   const breakQrCodeUrl = useCustomBreakQr
-    ? `/qr-landing?url=${encodeURIComponent(event!.mirrorBreakQrCustomUrl!)}`
+    ? `/qr-landing?event=${encodeURIComponent(eventId)}&url=${encodeURIComponent(event!.mirrorBreakQrCustomUrl!)}`
     : countdownQrDestination
   
   const qrFlashLines = useMemo(() => {
