@@ -9,10 +9,11 @@ import { AppUpdateNotification } from './components/AppUpdateNotification'
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const CHUNK_RECOVERY_LAST_ATTEMPT_KEY = 'human-jukebox-chunk-recovery-last-attempt'
 const CHUNK_RECOVERY_THROTTLE_MS = 15_000
+const BUILD_UPDATE_RELOAD_LAST_ATTEMPT_KEY = 'human-jukebox-build-update-reload-last-attempt'
+const BUILD_UPDATE_RELOAD_THROTTLE_MS = 20_000
 const IOS_SW_BYPASS_STORAGE_KEY = 'human-jukebox-ios-sw-cache-bypass'
 const MOBILE_ZOOM_UNLOCK_STORAGE_KEY = 'human-jukebox-mobile-zoom-unlock'
 const MOBILE_ZOOM_PREF_EVENT = 'human-jukebox-mobile-zoom-preference-changed'
-const VIEWPORT_CONTENT_LOCKED = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
 const VIEWPORT_CONTENT_ACCESSIBLE = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
 
 function isLocalPreviewHost() {
@@ -106,7 +107,9 @@ function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
 
   emitRuntimeNotice('A new app build was detected. Reloading to recover...')
   window.setTimeout(() => {
-    window.location.reload()
+    const hardRefreshUrl = new URL(window.location.href)
+    hardRefreshUrl.searchParams.set('build-refresh', Date.now().toString(36))
+    window.location.replace(hardRefreshUrl.toString())
   }, 60)
 
   return true
@@ -209,15 +212,7 @@ function applyViewportZoomPreference() {
     return
   }
 
-  const zoomUnlocked = (() => {
-    try {
-      return window.localStorage.getItem(MOBILE_ZOOM_UNLOCK_STORAGE_KEY) === '1'
-    } catch {
-      return false
-    }
-  })()
-
-  viewportMeta.setAttribute('content', zoomUnlocked ? VIEWPORT_CONTENT_ACCESSIBLE : VIEWPORT_CONTENT_LOCKED)
+  viewportMeta.setAttribute('content', VIEWPORT_CONTENT_ACCESSIBLE)
 }
 
 function installViewportZoomPreferenceSync() {
@@ -352,6 +347,15 @@ function setupBuildUpdateRefresh() {
       return
     }
 
+    const now = Date.now()
+    const previousAttempt = Number(window.sessionStorage.getItem(BUILD_UPDATE_RELOAD_LAST_ATTEMPT_KEY) ?? '0')
+
+    if (Number.isFinite(previousAttempt) && now - previousAttempt < BUILD_UPDATE_RELOAD_THROTTLE_MS) {
+      return
+    }
+
+    window.sessionStorage.setItem(BUILD_UPDATE_RELOAD_LAST_ATTEMPT_KEY, `${now}`)
+
     hasTriggeredBuildReload = true
     emitRuntimeNotice('A new app update was found. Reloading into the latest version...')
 
@@ -364,8 +368,19 @@ function setupBuildUpdateRefresh() {
       }
     }
 
+    if ('caches' in window) {
+      try {
+        const cacheKeys = await caches.keys()
+        await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)))
+      } catch {
+        // Ignore cache cleanup failures and continue with a forced navigation.
+      }
+    }
+
     window.setTimeout(() => {
-      window.location.reload()
+      const hardRefreshUrl = new URL(window.location.href)
+      hardRefreshUrl.searchParams.set('build-refresh', Date.now().toString(36))
+      window.location.replace(hardRefreshUrl.toString())
     }, 120)
   }
 
@@ -431,6 +446,8 @@ function setupBuildUpdateRefresh() {
       void checkForUpdatedBuild()
     }
   }, 60_000)
+
+  void checkForUpdatedBuild()
 }
 
 function installGlobalRuntimeHooks() {
