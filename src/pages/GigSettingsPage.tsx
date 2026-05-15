@@ -1138,7 +1138,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       </section>
 
       {/* Main Content */}
-      <form className="gig-settings-form" onSubmit={onManualSave}>
+      <form className="gig-settings-form" onSubmit={onManualSave} noValidate>
         {/* Undo/Redo & Status Bar */}
         <div className="gig-settings-toolbar">
           <div className="toolbar-group">
