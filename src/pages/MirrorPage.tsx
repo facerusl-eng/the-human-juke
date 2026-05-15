@@ -1376,7 +1376,6 @@ function MirrorPageContent() {
   const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
   const countdownQrDestination = customCountdownQrLink || audienceUrl
-  const countdownQrText = countdownQrDestination
   const qrFlashLines = useMemo(() => {
     const lines = customQrFlashVenueName
       ? [...QR_FLASH_BASE_LINES, `Tonight at ${customQrFlashVenueName}`]
@@ -1557,7 +1556,6 @@ function MirrorPageContent() {
     && (event?.mirrorCountdownEnabled ?? true)
     && Boolean(countdownTarget)
     && Boolean(countdownRemainingMs && countdownRemainingMs > 0)
-  const showCountdownQrLink = event?.mirrorCountdownShowQrLink ?? true
   const countdownLabel = showCountdown && countdownRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownRemainingMs)
     : null
@@ -3319,7 +3317,6 @@ function MirrorPageContent() {
               <div className="mirror-pre-show-qr-col">
                 <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
                 <p className="mirror-qr-label">Scan to join</p>
-                {showCountdownQrLink ? <p className="mirror-qr-url">{countdownQrText}</p> : null}
                 {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
               </div>
               <div className="mirror-pre-show-steps-col">
@@ -3597,7 +3594,6 @@ function MirrorPageContent() {
           >
             <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
             <p className="mirror-brb-qr-label">Scan to join</p>
-            {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </a>
         </div>
