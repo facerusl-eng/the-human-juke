@@ -1542,6 +1542,7 @@ function MirrorPageContent() {
     }
 
     let cancelled = false
+    const setlistPollIntervalMs = hasSetlistSongs ? 12000 : 2000
 
     const refreshSetlistPresence = async () => {
       try {
@@ -1584,15 +1585,31 @@ function MirrorPageContent() {
     }
 
     void refreshSetlistPresence()
+
+    const refreshOnFocus = () => {
+      void refreshSetlistPresence()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshSetlistPresence()
+      }
+    }
+
+    window.addEventListener('focus', refreshOnFocus)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
     const timerId = window.setInterval(() => {
       void refreshSetlistPresence()
-    }, 15000)
+    }, setlistPollIntervalMs)
 
     return () => {
       cancelled = true
+      window.removeEventListener('focus', refreshOnFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       window.clearInterval(timerId)
     }
-  }, [demoMode, event?.id, isLive, nowPlaying])
+  }, [demoMode, event?.id, hasSetlistSongs, isLive, nowPlaying])
 
   const onCoverLoadError = (coverUrl: string | null | undefined) => {
     if (!coverUrl) {
