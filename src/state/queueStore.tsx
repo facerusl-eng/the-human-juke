@@ -1813,6 +1813,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         let targetEventId: string | null = null
         const requestedEventId = readRequestedEventIdFromUrl()
         const runAsHostSession = isHostSession && !isAudienceRoutePath()
+        const isHostGigsRoute = runAsHostSession && isAdminGigsRoutePath()
         setAudienceConnectionStatus(runAsHostSession ? 'connected' : 'connecting')
 
         const syncAudienceActiveEventId = async (nextEventId: string) => {
@@ -1855,6 +1856,12 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (isCurrent) {
             setHostEvents(nextHostEvents)
+
+            // Admin gig list should render as soon as the host gigs are known.
+            // Keep queue snapshot loading in the background to avoid a long blank state.
+            if (isHostGigsRoute) {
+              setLoading(false)
+            }
           }
 
           targetEventId = nextHostEvents.find((nextEvent) => nextEvent.id === eventId)?.id
