@@ -82,13 +82,11 @@ const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
-const SPOTIFY_TOGGLE_BASE_VOLUME = 0.8
-const INTRO_MP3_VOLUME = Math.min(1, SPOTIFY_TOGGLE_BASE_VOLUME * 1.2)
 const QR_FLASH_ROTATE_INTERVAL_MS = 5000
 const QR_FLASH_BASE_LINES = [
   'Thirsty?',
   "The bar's got options",
-  'Some of them even make sense',
+  '. Some of them even make sense.',
 ]
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
@@ -756,7 +754,6 @@ async function playIntroAudioWithSpotifyBridge(introAudioUrl: string) {
 
   const introAudio = new Audio(introAudioUrl)
   introAudio.preload = 'auto'
-  introAudio.volume = INTRO_MP3_VOLUME
 
   try {
     await introAudio.play()
@@ -1072,13 +1069,6 @@ function buildChosenByLine(name: string | null | undefined, phraseIndex: number)
   return chosenByBuilder(normalizedName)
 }
 
-function sanitizeQrFlashLine(text: string) {
-  return text
-    .replace(/[.,]/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-}
-
 function getMirrorCountdownTarget(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
   const normalizedDate = gigDate?.trim()
 
@@ -1378,31 +1368,14 @@ function MirrorPageContent() {
   }, [eventId])
   const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
-  const countdownJoinDestination = customCountdownQrLink || audienceUrl
-  const loungeChoiceUrl = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return '/lounge-link?chooser=1'
-    }
-
-    const url = new URL('/lounge-link', window.location.origin)
-    url.searchParams.set('chooser', '1')
-    url.searchParams.set('join', countdownJoinDestination)
-
-    if (eventId) {
-      url.searchParams.set('event', eventId)
-    }
-
-    return url.toString()
-  }, [countdownJoinDestination, eventId])
-  const countdownQrDestination = loungeChoiceUrl
+  const countdownQrDestination = customCountdownQrLink || audienceUrl
+  const countdownQrText = countdownQrDestination
   const qrFlashLines = useMemo(() => {
-    const lines = customQrFlashVenueName
-      ? [...QR_FLASH_BASE_LINES, customQrFlashVenueName]
-      : QR_FLASH_BASE_LINES
+    if (customQrFlashVenueName) {
+      return [...QR_FLASH_BASE_LINES, `Tonight at ${customQrFlashVenueName}`]
+    }
 
-    return lines
-      .map((line) => sanitizeQrFlashLine(line))
-      .filter((line) => line.length > 0)
+    return QR_FLASH_BASE_LINES
   }, [customQrFlashVenueName])
   const showQrFlashText = (event?.mirrorCountdownQrFlashEnabled ?? true) && qrFlashLines.length > 0
   const activeQrFlashText = showQrFlashText
@@ -1575,6 +1548,7 @@ function MirrorPageContent() {
     && (event?.mirrorCountdownEnabled ?? true)
     && Boolean(countdownTarget)
     && Boolean(countdownRemainingMs && countdownRemainingMs > 0)
+  const showCountdownQrLink = event?.mirrorCountdownShowQrLink ?? true
   const countdownLabel = showCountdown && countdownRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownRemainingMs)
     : null
@@ -3335,10 +3309,8 @@ function MirrorPageContent() {
             <div className="mirror-pre-show-middle">
               <div className="mirror-pre-show-qr-col">
                 <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
-                <p className="mirror-qr-label">
-                  <span className="mirror-qr-label-main">Scan in. Drink up....</span>
-                  <span className="mirror-qr-label-subline">That is the question</span>
-                </p>
+                <p className="mirror-qr-label">Scan to join</p>
+                {showCountdownQrLink ? <p className="mirror-qr-url">{countdownQrText}</p> : null}
                 {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
               </div>
               <div className="mirror-pre-show-steps-col">
@@ -3615,10 +3587,8 @@ function MirrorPageContent() {
             aria-label="Audience request page QR link"
           >
             <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
-            <p className="mirror-brb-qr-label">
-              <span className="mirror-brb-qr-label-main">Scan in. Drink up....</span>
-              <span className="mirror-brb-qr-label-subline">That is the question</span>
-            </p>
+            <p className="mirror-brb-qr-label">Scan to join</p>
+            {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </a>
         </div>

@@ -212,53 +212,6 @@
   line-height: 1.24;
 }
 
-.mirror-shell-hide-controls {
-  background:
-    linear-gradient(180deg, rgba(2, 6, 16, 0.72) 0%, rgba(2, 6, 16, 0.9) 100%),
-    url('/images/Human%20Jukebox%20Mirror%20background.png') center center / cover no-repeat;
-}
-
-.mirror-shell-hide-controls .mirror-header,
-.mirror-shell-hide-controls .mirror-now-playing,
-.mirror-shell-hide-controls .mirror-now-playing-frame,
-.mirror-shell-hide-controls .mirror-up-next,
-.mirror-shell-hide-controls .mirror-queue-item,
-.mirror-shell-hide-controls .mirror-join-strip,
-.mirror-shell-hide-controls .live-feed-panel-mirror,
-.mirror-shell-hide-controls .mirror-pre-show,
-.mirror-shell-hide-controls .mirror-pre-show-qr-col,
-.mirror-shell-hide-controls .mirror-how-it-works,
-.mirror-shell-hide-controls .mirror-between-songs {
-  background: rgba(3, 8, 20, 0.86);
-  border-color: rgba(220, 236, 255, 0.42);
-  box-shadow:
-    0 24px 44px rgba(0, 0, 0, 0.54),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-.mirror-shell-hide-controls .mirror-title,
-.mirror-shell-hide-controls .mirror-pre-show-title,
-.mirror-shell-hide-controls .mirror-queue-title,
-.mirror-shell-hide-controls .mirror-song-fact,
-.mirror-shell-hide-controls .mirror-between-songs-quote {
-  color: #ffffff;
-  text-shadow:
-    0 2px 10px rgba(0, 0, 0, 0.66),
-    0 0 26px rgba(255, 255, 255, 0.14);
-}
-
-.mirror-shell-hide-controls .mirror-artist,
-.mirror-shell-hide-controls .mirror-queue-artist,
-.mirror-shell-hide-controls .mirror-queue-picker,
-.mirror-shell-hide-controls .mirror-picked-by,
-.mirror-shell-hide-controls .mirror-pre-show-subtitle,
-.mirror-shell-hide-controls .mirror-how-it-works p,
-.mirror-shell-hide-controls .mirror-between-songs-hint,
-.mirror-shell-hide-controls .mirror-event-subtitle,
-.mirror-shell-hide-controls .mirror-join-strip-url {
-  color: rgba(236, 244, 255, 0.96);
-}
-
 .mirror-shell-hide-controls .mirror-karaoke-cheer {
   margin-top: 0.18rem;
   font-size: clamp(0.74rem, 1.2vw, 0.96rem);
@@ -1299,9 +1252,7 @@
 .mirror-pre-show-qr-col {
   display: grid;
   justify-items: center;
-  align-content: start;
   gap: 0.75rem;
-  min-height: clamp(360px, 42vh, 560px);
   padding: clamp(1rem, 1.6vw, 1.6rem);
   border-radius: 16px;
   border: 1px solid rgba(93, 215, 255, 0.15);
@@ -1317,8 +1268,8 @@
 /* ── QR image ─────────────────────────────────────────────────────────────── */
 
 .mirror-qr-image {
-  width: clamp(150px, min(24vw, 22dvh), 360px);
-  height: clamp(150px, min(24vw, 22dvh), 360px);
+  width: clamp(122px, min(20vw, 18dvh), 300px);
+  height: clamp(122px, min(20vw, 18dvh), 300px);
   border-radius: 14px;
   background: #ffffff;
   padding: clamp(0.34rem, 0.72vw, 0.56rem);
@@ -1335,21 +1286,9 @@
   font-size: clamp(0.72rem, 1vw, 0.9rem);
   font-weight: 700;
   letter-spacing: 0.1em;
-  text-transform: none;
+  text-transform: uppercase;
   color: rgba(93, 215, 255, 0.75);
   text-align: center;
-  display: grid;
-  gap: 0.12rem;
-}
-
-.mirror-qr-label-main {
-  display: block;
-}
-
-.mirror-qr-label-subline {
-  display: block;
-  font-size: 0.88em;
-  letter-spacing: 0.05em;
 }
 
 .mirror-qr-url {
@@ -1363,26 +1302,23 @@
 .mirror-qr-flash-line {
   margin: 0.15rem 0 0;
   min-height: 1.2em;
-  font-size: clamp(1.8rem, 3vw, 3.2rem);
-  font-weight: 900;
-  letter-spacing: 0.045em;
-  color: #ffffff;
+  font-size: clamp(0.8rem, 1.05vw, 1rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #ffd166;
   text-align: center;
-  text-shadow:
-    0 0 16px rgba(255, 255, 255, 0.72),
-    0 0 34px rgba(255, 255, 255, 0.34);
   animation: mirror-qr-flash-pulse 5s ease-in-out infinite;
 }
 
 @keyframes mirror-qr-flash-pulse {
   0%,
   100% {
-    opacity: 0.28;
+    opacity: 0.56;
     transform: translateY(1px);
   }
 
-  18%,
-  72% {
+  15%,
+  70% {
     opacity: 1;
     transform: translateY(0);
   }
@@ -1455,7 +1391,6 @@
 }
 
 .mirror-pre-show-has-countdown .mirror-pre-show-middle {
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   gap: clamp(0.72rem, 1.2vw, 1.2rem);
 }
 
@@ -1464,13 +1399,9 @@
   padding: clamp(0.7rem, 1vw, 0.95rem);
 }
 
-.mirror-pre-show-has-countdown .mirror-pre-show-qr-col {
-  min-height: clamp(310px, 36vh, 460px);
-}
-
 .mirror-pre-show-has-countdown .mirror-qr-image {
-  width: clamp(138px, min(22vw, 19dvh), 320px);
-  height: clamp(138px, min(22vw, 19dvh), 320px);
+  width: clamp(120px, min(19vw, 16.2dvh), 260px);
+  height: clamp(120px, min(19vw, 16.2dvh), 260px);
 }
 
 .mirror-pre-show-has-countdown .mirror-qr-label,
@@ -1479,14 +1410,10 @@
 }
 
 .mirror-pre-show-has-countdown .mirror-qr-url,
+.mirror-pre-show-has-countdown .mirror-qr-flash-line,
 .mirror-pre-show-has-countdown .mirror-how-it-works p {
-  font-size: clamp(1.04rem, min(1.4vw, 2.26dvh), 1.34rem);
+  font-size: clamp(0.82rem, min(1.06vw, 1.82dvh), 1.02rem);
   line-height: 1.3;
-}
-
-.mirror-pre-show-has-countdown .mirror-qr-flash-line {
-  font-size: clamp(1.26rem, min(2vw, 3.2dvh), 2.1rem);
-  line-height: 1.18;
 }
 
 @media (max-aspect-ratio: 3/2) {
@@ -1503,8 +1430,8 @@
   }
 
   .mirror-pre-show-has-countdown .mirror-qr-image {
-    width: clamp(116px, min(17.2vw, 14.2dvh), 224px);
-    height: clamp(116px, min(17.2vw, 14.2dvh), 224px);
+    width: clamp(104px, min(15.2vw, 12.6dvh), 192px);
+    height: clamp(104px, min(15.2vw, 12.6dvh), 192px);
   }
 
   .mirror-pre-show-has-countdown .mirror-how-it-works p {
@@ -3317,57 +3244,6 @@
   line-height: 1.3;
 }
 
-/* Keep countdown/live blocks inside the visible stage and avoid panel overlap. */
-.mirror-pre-show,
-.mirror-pre-show-middle,
-.mirror-pre-show-qr-col,
-.mirror-pre-show-steps-col,
-.mirror-how-it-works,
-.mirror-kiosk-columns,
-.mirror-kiosk-right,
-.mirror-now-playing,
-.mirror-live-feed-frame,
-.mirror-song-queue-frame {
-  min-height: 0;
-  box-sizing: border-box;
-}
-
-.mirror-pre-show,
-.mirror-kiosk-columns,
-.mirror-kiosk-right,
-.mirror-now-playing,
-.mirror-live-feed-frame,
-.mirror-song-queue-frame,
-.mirror-pre-show-qr-col {
-  overflow: hidden;
-}
-
-.mirror-pre-show-middle {
-  align-items: stretch;
-}
-
-.mirror-pre-show-qr-col,
-.mirror-pre-show-steps-col,
-.mirror-how-it-works {
-  height: 100%;
-}
-
-.mirror-how-it-works {
-  overflow: auto;
-  align-content: start;
-}
-
-.mirror-pre-show-has-countdown .mirror-pre-show-qr-col {
-  min-height: 0;
-}
-
-.mirror-qr-flash-line {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  line-height: 1.14;
-}
-
 .mirror-shell-hide-controls .mirror-now-playing-track {
   gap: clamp(0.28rem, 0.45vw, 0.46rem);
 }
@@ -3590,17 +3466,16 @@
   height: clamp(220px, min(24vw, 28dvh), 360px);
 }
 
-/* Queue row structure: left song info, center karaoke/band, right picked-by. */
+/* Queue row structure: left picked-by, center karaoke/band, right song info. */
 .mirror-song-queue-frame .mirror-queue-item {
   align-items: center;
-  overflow: hidden;
 }
 
 .mirror-song-queue-frame .mirror-queue-info {
   flex: 1;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) auto minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: clamp(0.36rem, 0.62vw, 0.62rem);
 }
@@ -3608,13 +3483,10 @@
 .mirror-song-queue-frame .mirror-queue-picker {
   margin: 0;
   max-width: 100%;
-  width: 100%;
-  justify-self: end;
   text-align: right;
   line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mirror-song-queue-frame .mirror-queue-signal {
@@ -3654,13 +3526,10 @@
 .mirror-song-queue-frame .mirror-queue-song-info .mirror-queue-artist {
   width: 100%;
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue-info {
-  grid-template-columns: minmax(0, 1.05fr) auto minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 0.95fr) auto minmax(0, 1.05fr);
 }
 
 .mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue-picker {
@@ -3695,92 +3564,4 @@
 
 .mirror-debug-badge p {
   margin: 0;
-}
-
-/* Final cast-safe pass: keep all mirror blocks aligned and within viewport bounds. */
-.mirror-shell-hide-controls .mirror-kiosk-columns {
-  gap: clamp(0.52rem, 0.74vw, 0.86rem);
-  grid-template-rows: minmax(0, 0.46fr) minmax(0, 0.54fr);
-}
-
-.mirror-shell-hide-controls .mirror-kiosk-right {
-  gap: clamp(0.46rem, 0.7vw, 0.82rem);
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-}
-
-.mirror-shell-hide-controls .mirror-now-playing,
-.mirror-shell-hide-controls .mirror-live-feed-frame,
-.mirror-shell-hide-controls .mirror-song-queue-frame,
-.mirror-shell-hide-controls .mirror-pre-show,
-.mirror-shell-hide-controls .mirror-pre-show-middle,
-.mirror-shell-hide-controls .mirror-pre-show-qr-col,
-.mirror-shell-hide-controls .mirror-pre-show-steps-col,
-.mirror-shell-hide-controls .mirror-how-it-works {
-  min-height: 0;
-  max-height: 100%;
-}
-
-.mirror-shell-hide-controls .mirror-live-feed-frame,
-.mirror-shell-hide-controls .mirror-song-queue-frame,
-.mirror-shell-hide-controls .mirror-now-playing,
-.mirror-shell-hide-controls .mirror-pre-show,
-.mirror-shell-hide-controls .mirror-pre-show-qr-col,
-.mirror-shell-hide-controls .mirror-how-it-works {
-  overflow: hidden;
-}
-
-.mirror-shell-hide-controls .mirror-live-feed-frame .live-feed-panel-mirror {
-  min-height: 0;
-  height: 100%;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.mirror-shell-hide-controls .mirror-live-feed-frame .live-feed-panel-mirror .live-feed-list,
-.mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue {
-  min-height: 0;
-  max-height: 100%;
-}
-
-.mirror-shell-hide-controls .mirror-pre-show-middle {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: stretch;
-}
-
-.mirror-shell-hide-controls .mirror-how-it-works {
-  align-content: start;
-  overflow: auto;
-}
-
-/* 1080-height cast tuning: reduce crowding while preserving readability. */
-@media (min-width: 1400px) and (max-height: 1080px) {
-  .mirror-shell-hide-controls .mirror-kiosk-columns {
-    gap: clamp(0.42rem, 0.62vw, 0.72rem);
-    grid-template-rows: minmax(0, 0.45fr) minmax(0, 0.55fr);
-  }
-
-  .mirror-shell-hide-controls .mirror-kiosk-right {
-    gap: clamp(0.4rem, 0.58vw, 0.66rem);
-  }
-
-  .mirror-shell-hide-controls .mirror-now-playing {
-    padding: clamp(0.54rem, 0.82vw, 0.72rem);
-    gap: clamp(0.46rem, 0.68vw, 0.62rem);
-  }
-
-  .mirror-shell-hide-controls .mirror-live-feed-frame,
-  .mirror-shell-hide-controls .mirror-song-queue-frame {
-    padding: clamp(0.48rem, 0.72vw, 0.68rem);
-  }
-
-  .mirror-shell-hide-controls .mirror-pre-show {
-    gap: clamp(0.66rem, 0.94vw, 0.92rem);
-    padding: clamp(0.58rem, 0.9vw, 0.82rem) clamp(0.76rem, 1.1vw, 1rem);
-  }
-
-  .mirror-shell-hide-controls .mirror-pre-show-qr-col,
-  .mirror-shell-hide-controls .mirror-how-it-works {
-    padding: clamp(0.54rem, 0.74vw, 0.72rem);
-  }
 }
