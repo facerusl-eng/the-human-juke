@@ -1522,6 +1522,7 @@ function MirrorPageContent() {
     && (event?.mirrorCountdownEnabled ?? true)
     && Boolean(countdownTarget)
     && Boolean(countdownRemainingMs && countdownRemainingMs > 0)
+  const showCountdownQrLink = event?.mirrorCountdownShowQrLink ?? true
   const countdownLabel = showCountdown && countdownRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownRemainingMs)
     : null
@@ -3234,7 +3235,7 @@ function MirrorPageContent() {
               <div className="mirror-pre-show-qr-col">
                 <img src={qrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
                 <p className="mirror-qr-label">Scan to join</p>
-                <p className="mirror-qr-url">Open the audience app at <strong>{audienceUrl}</strong></p>
+                {showCountdownQrLink ? <p className="mirror-qr-url">Open the audience app at <strong>{audienceUrl}</strong></p> : null}
               </div>
               <div className="mirror-pre-show-steps-col">
                 <div className="mirror-how-it-works" aria-label="How it works">

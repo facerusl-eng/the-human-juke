@@ -146,6 +146,7 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS playlist_only_requests BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS mirror_photo_spotlight_enabled BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS mirror_countdown_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS mirror_countdown_show_qr_link BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS mirror_banner_enabled BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS allow_duplicate_requests BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS max_active_requests_per_user INTEGER,

@@ -68,9 +68,8 @@ type SettingsState = {
   playlistOnlyRequests: boolean
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
+  mirrorCountdownShowQrLink: boolean
   mirrorBannerEnabled: boolean
-  mirrorBrbQrLink: string
-  mirrorBrbQrText: string
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: string
   selectedPlaylistIds: string[]
@@ -106,16 +105,6 @@ type GigSettingsFormProps = {
 const MAX_UNDO_STATES = 20
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
-const VENUE_LOGO_SCALE_MIN = 20
-const VENUE_LOGO_SCALE_MAX = 500
-
-function clampVenueLogoScale(value: number) {
-  if (!Number.isFinite(value)) {
-    return 100
-  }
-
-  return Math.min(VENUE_LOGO_SCALE_MAX, Math.max(VENUE_LOGO_SCALE_MIN, Math.round(value)))
-}
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -289,9 +278,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     playlistOnlyRequests: event.playlistOnlyRequests,
     mirrorPhotoSpotlightEnabled: event.mirrorPhotoSpotlightEnabled,
     mirrorCountdownEnabled: event.mirrorCountdownEnabled,
+    mirrorCountdownShowQrLink: event.mirrorCountdownShowQrLink ?? true,
     mirrorBannerEnabled: event.mirrorBannerEnabled ?? true,
-    mirrorBrbQrLink: event.mirrorBrbQrLink ?? '',
-    mirrorBrbQrText: event.mirrorBrbQrText ?? '',
     allowDuplicateRequests: event.allowDuplicateRequests,
     maxActiveRequestsPerUser: normalizeRequestCapValue(event.maxActiveRequestsPerUser),
     selectedPlaylistIds: [],
@@ -680,9 +668,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         selectedPlaylistIds: saveState.selectedPlaylistIds,
         mirrorPhotoSpotlightEnabled: saveState.mirrorPhotoSpotlightEnabled,
         mirrorCountdownEnabled: saveState.mirrorCountdownEnabled,
+        mirrorCountdownShowQrLink: saveState.mirrorCountdownShowQrLink,
         mirrorBannerEnabled: saveState.mirrorBannerEnabled,
-        mirrorBrbQrLink: saveState.mirrorBrbQrLink.trim() || null,
-        mirrorBrbQrText: saveState.mirrorBrbQrText.trim() || null,
         allowDuplicateRequests: saveState.allowDuplicateRequests,
         maxActiveRequestsPerUser: parsedLimit,
         maxQueueSize: null,
@@ -1107,9 +1094,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.playlistOnlyRequests !== event.playlistOnlyRequests
     || state.mirrorPhotoSpotlightEnabled !== event.mirrorPhotoSpotlightEnabled
     || state.mirrorCountdownEnabled !== event.mirrorCountdownEnabled
+    || state.mirrorCountdownShowQrLink !== (event.mirrorCountdownShowQrLink ?? true)
     || state.mirrorBannerEnabled !== (event.mirrorBannerEnabled ?? true)
-    || state.mirrorBrbQrLink !== (event.mirrorBrbQrLink ?? '')
-    || state.mirrorBrbQrText !== (event.mirrorBrbQrText ?? '')
     || state.allowDuplicateRequests !== event.allowDuplicateRequests
     || normalizeRequestCapValue(state.maxActiveRequestsPerUser) !== normalizeRequestCapValue(event.maxActiveRequestsPerUser)
     || state.roomOpen !== event.roomOpen
@@ -1719,6 +1705,21 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 <span>Show a live countdown on the mirror before the gig goes live</span>
               </div>
             </label>
+            <label className="toggle-card" htmlFor="gig-mirror-countdown-qr-link">
+              <input
+                id="gig-mirror-countdown-qr-link"
+                type="checkbox"
+                checked={state.mirrorCountdownShowQrLink}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ mirrorCountdownShowQrLink: e.target.checked })
+                }}
+              />
+              <div>
+                <strong>{state.mirrorCountdownShowQrLink ? '✓ Countdown QR Link Text On' : '⊘ Countdown QR Link Text Off'}</strong>
+                <span>Show or hide the audience URL text under the QR code in pre-show/countdown mode</span>
+              </div>
+            </label>
             <label className="toggle-card" htmlFor="gig-mirror-banner">
               <input
                 id="gig-mirror-banner"
@@ -1737,36 +1738,6 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           </div>
 
           <div className="field-row">
-            <label htmlFor="gig-mirror-brb-qr-link">Break Screen QR Link (Optional)</label>
-            <input
-              id="gig-mirror-brb-qr-link"
-              type="url"
-              placeholder="https://example.com/offers"
-              value={state.mirrorBrbQrLink}
-              onChange={(e) => {
-                pushUndoState()
-                updateState({ mirrorBrbQrLink: e.target.value })
-              }}
-            />
-            <p className="field-hint">When break mode or countdown mode is active, this link is turned into a QR code on the mirror.</p>
-          </div>
-
-          <div className="field-row">
-            <label htmlFor="gig-mirror-brb-qr-text">Break Screen QR Text (Optional)</label>
-            <input
-              id="gig-mirror-brb-qr-text"
-              type="text"
-              placeholder="Scan for menu, offers, or socials"
-              value={state.mirrorBrbQrText}
-              onChange={(e) => {
-                pushUndoState()
-                updateState({ mirrorBrbQrText: e.target.value })
-              }}
-            />
-            <p className="field-hint">Short text shown under that QR code on break and countdown screens.</p>
-          </div>
-
-          <div className="field-row">
             <label htmlFor="gig-venue-logo">Venue Logo (Optional)</label>
             <input
               id="gig-venue-logo"
@@ -1780,29 +1751,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name.</p>
             {state.venueLogoUrl ? (
               <div className="photo-preview">
-                <img
-                  src={state.venueLogoUrl}
-                  alt="Venue logo preview"
-                  style={{
-                    transform: `scale(${clampVenueLogoScale(state.venueLogoScale) / 100})`,
-                    transformOrigin: 'center center',
-                  }}
-                />
-                <label htmlFor="gig-venue-logo-scale">Logo Zoom ({clampVenueLogoScale(state.venueLogoScale)}%)</label>
-                <input
-                  id="gig-venue-logo-scale"
-                  type="range"
-                  min={VENUE_LOGO_SCALE_MIN}
-                  max={VENUE_LOGO_SCALE_MAX}
-                  step={1}
-                  value={clampVenueLogoScale(state.venueLogoScale)}
-                  onChange={(e) => {
-                    pushUndoState()
-                    updateState({ venueLogoScale: clampVenueLogoScale(Number(e.target.value)) })
-                  }}
-                  disabled={busy}
-                />
-                <p className="field-hint">Adjust how much space the logo uses in the mirror logo block.</p>
+                <img src={state.venueLogoUrl} alt="Venue logo preview" />
                 <button
                   type="button"
                   className="secondary-button"
@@ -1812,17 +1761,6 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                   }}
                 >
                   Remove logo
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => {
-                    pushUndoState()
-                    updateState({ venueLogoScale: 100 })
-                  }}
-                  disabled={busy || clampVenueLogoScale(state.venueLogoScale) === 100}
-                >
-                  Reset zoom
                 </button>
               </div>
             ) : null}

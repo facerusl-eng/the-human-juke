@@ -56,9 +56,8 @@ type EventSettingsUpdates = {
   selectedPlaylistIds: string[]
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
+  mirrorCountdownShowQrLink: boolean
   mirrorBannerEnabled: boolean
-  mirrorBrbQrLink: string | null
-  mirrorBrbQrText: string | null
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   maxQueueSize: number | null
@@ -105,9 +104,8 @@ type EventState = {
   playlistOnlyRequests: boolean
   mirrorPhotoSpotlightEnabled: boolean
   mirrorCountdownEnabled: boolean
+  mirrorCountdownShowQrLink: boolean
   mirrorBannerEnabled: boolean
-  mirrorBrbQrLink: string | null
-  mirrorBrbQrText: string | null
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   maxQueueSize: number | null
@@ -226,6 +224,7 @@ const VENUE_LOGO_OFFSET_LIMIT = 100
 type MissingColumnsCache = {
   venueLogoLayout?: boolean
   performedAt?: boolean
+  mirrorCountdownQrLink?: boolean
 }
 
 function readMissingColumnsCache(): MissingColumnsCache {
@@ -238,6 +237,7 @@ function readMissingColumnsCache(): MissingColumnsCache {
   return {
     venueLogoLayout: parsed.venueLogoLayout === true,
     performedAt: parsed.performedAt === true,
+    mirrorCountdownQrLink: parsed.mirrorCountdownQrLink === true,
   }
 }
 
@@ -257,6 +257,7 @@ function markMissingColumnInCache(column: keyof MissingColumnsCache) {
 const missingColumnsCache = readMissingColumnsCache()
 let hasVenueLogoLayoutColumns = missingColumnsCache.venueLogoLayout !== true
 let hasPerformedAtColumn = missingColumnsCache.performedAt !== true
+let hasMirrorCountdownQrLinkColumn = missingColumnsCache.mirrorCountdownQrLink !== true
 
 function getLiveDiscoveryPollInterval(operatingMode: 'normal' | 'degraded') {
   return operatingMode === 'degraded'
@@ -501,6 +502,26 @@ function isMissingVenueLogoLayoutColumnError(error: unknown) {
     && (text.includes('venue_logo_scale') || text.includes('venue_logo_offset_x') || text.includes('venue_logo_offset_y'))
 }
 
+function isMissingMirrorCountdownQrLinkColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('mirror_countdown_show_qr_link')
+}
+
 function isMissingNewerEventColumnsError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -526,27 +547,6 @@ function isMissingNewerEventColumnsError(error: unknown) {
       || text.includes('event_artist_name')
       || text.includes('event_theme')
     )
-}
-
-function isMissingMirrorBrbQrColumnsError(error: unknown) {
-  if (!error || typeof error !== 'object') {
-    return false
-  }
-
-  const normalizedError = error as {
-    code?: unknown
-    message?: unknown
-    details?: unknown
-    hint?: unknown
-  }
-
-  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
-  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
-    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
-    .join(' ')
-
-  return (code === '42703' || code === 'PGRST204')
-    && (text.includes('mirror_brb_qr_link') || text.includes('mirror_brb_qr_text'))
 }
 
 function resolveEventTheme(rawTheme: string | null | undefined, eventType: 'halli-live' | 'karaoke' | 'build-self'): EventTheme {
@@ -1107,8 +1107,8 @@ function QueueProvider({ children }: PropsWithChildren) {
 
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
-      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
-      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
+      const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, mirror_countdown_show_qr_link, mirror_banner_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
+      const withoutCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, mirror_countdown_show_qr_link, mirror_banner_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
 
       const { data, error } = await supabase
         .from('events')
@@ -1267,33 +1267,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
-    const loadBrbQrSettings = async (): Promise<{ mirror_brb_qr_link: string | null; mirror_brb_qr_text: string | null }> => {
-      try {
-        const { data, error } = await supabase
-          .from('events')
-          .select('mirror_brb_qr_link, mirror_brb_qr_text')
-          .eq('id', activeEventId)
-          .single()
-
-        if (error) {
-          if (isMissingMirrorBrbQrColumnsError(error)) {
-            return { mirror_brb_qr_link: null, mirror_brb_qr_text: null }
-          }
-
-          throw error
-        }
-
-        const row = data as Record<string, unknown>
-        return {
-          mirror_brb_qr_link: (row.mirror_brb_qr_link as string | null) ?? null,
-          mirror_brb_qr_text: (row.mirror_brb_qr_text as string | null) ?? null,
-        }
-      } catch {
-        return { mirror_brb_qr_link: null, mirror_brb_qr_text: null }
-      }
-    }
-
-    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, brbQrSettings] = await Promise.all([
+    const [eventData, tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings] = await Promise.all([
       withTimeout(
         loadEventSnapshot(),
         DEFAULT_DB_TIMEOUT_MS,
@@ -1303,7 +1277,6 @@ function QueueProvider({ children }: PropsWithChildren) {
       loadEventTypeSettings(),
       loadAudienceLocaleSettings(),
       loadVenueLogoLayoutSettings(),
-      loadBrbQrSettings(),
     ])
 
     const resolvedEventId = String((eventData as Record<string, unknown>).id ?? '')
@@ -1577,9 +1550,8 @@ function QueueProvider({ children }: PropsWithChildren) {
       playlistOnlyRequests: ((eventData as Record<string, unknown>).playlist_only_requests as boolean | null) ?? false,
       mirrorPhotoSpotlightEnabled: ((eventData as Record<string, unknown>).mirror_photo_spotlight_enabled as boolean | null) ?? true,
       mirrorCountdownEnabled: ((eventData as Record<string, unknown>).mirror_countdown_enabled as boolean | null) ?? true,
+      mirrorCountdownShowQrLink: ((eventData as Record<string, unknown>).mirror_countdown_show_qr_link as boolean | null) ?? true,
       mirrorBannerEnabled: ((eventData as Record<string, unknown>).mirror_banner_enabled as boolean | null) ?? true,
-      mirrorBrbQrLink: brbQrSettings.mirror_brb_qr_link,
-      mirrorBrbQrText: brbQrSettings.mirror_brb_qr_text,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
       maxQueueSize: (eventData as Record<string, unknown>).max_queue_size as number | null ?? null,
@@ -2960,8 +2932,6 @@ function QueueProvider({ children }: PropsWithChildren) {
           mirror_photo_spotlight_enabled: updates.mirrorPhotoSpotlightEnabled,
           mirror_countdown_enabled: updates.mirrorCountdownEnabled,
           mirror_banner_enabled: updates.mirrorBannerEnabled,
-          mirror_brb_qr_link: updates.mirrorBrbQrLink ?? null,
-          mirror_brb_qr_text: updates.mirrorBrbQrText ?? null,
           allow_duplicate_requests: updates.allowDuplicateRequests,
           max_active_requests_per_user: updates.maxActiveRequestsPerUser,
           room_open: updates.roomOpen,
@@ -2984,6 +2954,10 @@ function QueueProvider({ children }: PropsWithChildren) {
           intro_audio_url: updates.introAudioUrl ?? null,
         }
 
+        if (hasMirrorCountdownQrLinkColumn) {
+          eventUpdatePayload.mirror_countdown_show_qr_link = updates.mirrorCountdownShowQrLink
+        }
+
         if (hasVenueLogoLayoutColumns) {
           eventUpdatePayload.venue_logo_scale = updates.venueLogoScale
           eventUpdatePayload.venue_logo_offset_x = updates.venueLogoOffsetX
@@ -3001,7 +2975,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           'Timed out while saving event settings. Please try again.',
         )
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingMirrorBrbQrColumnsError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingNewerEventColumnsError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -3029,17 +3003,18 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.venue_logo_offset_y
           }
 
+          if (isMissingMirrorCountdownQrLinkColumnError(error)) {
+            hasMirrorCountdownQrLinkColumn = false
+            markMissingColumnInCache('mirrorCountdownQrLink')
+            delete fallbackPayload.mirror_countdown_show_qr_link
+          }
+
           if (isMissingNewerEventColumnsError(error)) {
             delete fallbackPayload.venue_logo_url
             delete fallbackPayload.auto_live_enabled
             delete fallbackPayload.intro_audio_url
             delete fallbackPayload.event_artist_name
             delete fallbackPayload.event_theme
-          }
-
-          if (isMissingMirrorBrbQrColumnsError(error)) {
-            delete fallbackPayload.mirror_brb_qr_link
-            delete fallbackPayload.mirror_brb_qr_text
           }
 
           const { error: fallbackError } = await withTimeout(
@@ -3444,9 +3419,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           playlistOnlyRequests: true,
           mirrorPhotoSpotlightEnabled: true,
           mirrorCountdownEnabled: true,
+          mirrorCountdownShowQrLink: true,
           mirrorBannerEnabled: true,
-          mirrorBrbQrLink: null,
-          mirrorBrbQrText: null,
           allowDuplicateRequests: true,
           maxActiveRequestsPerUser: null,
           maxQueueSize: null,
