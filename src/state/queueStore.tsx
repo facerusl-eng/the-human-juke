@@ -3114,6 +3114,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         if (hasMirrorQrSettingsColumns) {
           eventUpdatePayload.mirror_brb_qr_link = updates.mirrorCountdownQrLink
           eventUpdatePayload.mirror_brb_qr_text = updates.mirrorCountdownQrText
+          eventUpdatePayload.mirror_countdown_qr_custom_enabled = updates.mirrorCountdownQrCustomEnabled
+          eventUpdatePayload.mirror_countdown_qr_custom_url = updates.mirrorCountdownQrCustomUrl
+          eventUpdatePayload.mirror_break_qr_enabled = updates.mirrorBreakQrEnabled
+          eventUpdatePayload.mirror_break_qr_custom_url = updates.mirrorBreakQrCustomUrl
         }
 
         if (hasMirrorQrFlashColumns) {
