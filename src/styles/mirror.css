@@ -3361,3 +3361,49 @@
     font-size: clamp(0.44rem, 0.54vw, 0.62rem);
   }
 }
+
+/* Sunlight readability boost for fullscreen mirror mode. */
+.mirror-shell-hide-controls {
+  filter: contrast(1.12) saturate(1.04);
+}
+
+.mirror-shell-hide-controls .mirror-header,
+.mirror-shell-hide-controls .mirror-now-playing,
+.mirror-shell-hide-controls .mirror-live-feed-frame,
+.mirror-shell-hide-controls .mirror-song-queue-frame {
+  border-color: rgba(224, 241, 255, 0.72) !important;
+  background:
+    linear-gradient(145deg, rgba(4, 10, 22, 0.96) 0%, rgba(7, 16, 34, 0.95) 100%) !important;
+  box-shadow:
+    0 26px 52px rgba(0, 0, 0, 0.68),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+.mirror-shell-hide-controls .mirror-title,
+.mirror-shell-hide-controls .mirror-artist,
+.mirror-shell-hide-controls .mirror-picked-by,
+.mirror-shell-hide-controls .mirror-song-fact,
+.mirror-shell-hide-controls .mirror-queue-title,
+.mirror-shell-hide-controls .mirror-queue-artist,
+.mirror-shell-hide-controls .mirror-queue-picker,
+.mirror-shell-hide-controls .mirror-header-event-name,
+.mirror-shell-hide-controls .mirror-warning {
+  color: #ffffff !important;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.92),
+    0 0 24px rgba(0, 0, 0, 0.78) !important;
+}
+
+/* Larger QR in the now-playing right-side block (both width and height). */
+.mirror-shell-hide-controls .mirror-now-playing {
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 20vw, 390px);
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-qr-panel {
+  padding: clamp(0.7rem, 1vw, 0.94rem);
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-qr {
+  width: min(100%, clamp(228px, 18vw, 340px));
+  height: auto;
+}
