@@ -201,6 +201,7 @@ function resolveUpcomingEventCoverUrl(event: AudienceUpcomingEvent): string {
 
 function AudienceNoGigState({
   upcomingEvents,
+  countdownFallbackEvent = null,
   loadingUpcomingEvents = false,
   upcomingEventsNotice = null,
   getEventHref,
@@ -208,6 +209,7 @@ function AudienceNoGigState({
   socialLinks = [],
 }: {
   upcomingEvents: AudienceUpcomingEvent[]
+  countdownFallbackEvent?: AudienceUpcomingEvent | null
   loadingUpcomingEvents?: boolean
   upcomingEventsNotice?: string | null
   getEventHref?: (eventId: string) => string
@@ -216,7 +218,11 @@ function AudienceNoGigState({
 }) {
   const [showHowJukeboxWorks, setShowHowJukeboxWorks] = useState(false)
   const [showHowKaraokeWorks, setShowHowKaraokeWorks] = useState(false)
-  const countdown = useCountdownToEvent(upcomingEvents)
+  const countdownCandidates = countdownFallbackEvent
+    && !upcomingEvents.some((eventRow) => eventRow.id === countdownFallbackEvent.id)
+    ? [countdownFallbackEvent, ...upcomingEvents]
+    : upcomingEvents
+  const countdown = useCountdownToEvent(countdownCandidates)
 
   const copy = locale === 'da'
     ? {

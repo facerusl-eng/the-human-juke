@@ -54,6 +54,46 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
   return trimmedCoverUrl.replace(/^http:\/\//i, 'https://')
 }
 
+function normalizeEventTimeForDate(value: string | null | undefined): string | null {
+  if (!value) {
+    return null
+  }
+
+  const trimmedValue = value.trim()
+
+  if (!trimmedValue) {
+    return null
+  }
+
+  return trimmedValue.length > 5 && trimmedValue[2] === ':' && trimmedValue[5] === ':'
+    ? trimmedValue.slice(0, 5)
+    : trimmedValue
+}
+
+function parseEventStartMs(gigDate: string | null | undefined, gigStartTime: string | null | undefined): number | null {
+  const normalizedDate = gigDate?.trim()
+
+  if (!normalizedDate) {
+    return null
+  }
+
+  const baseTime = normalizeEventTimeForDate(gigStartTime)
+  const safeTime = baseTime ? `${baseTime}:00` : '18:00:00'
+  const parsedDate = new Date(`${normalizedDate}T${safeTime}`)
+  const parsedMs = parsedDate.getTime()
+
+  return Number.isNaN(parsedMs) ? null : parsedMs
+}
+
+function hasFutureCountdownTarget(events: AudienceUpcomingEvent[]): boolean {
+  const now = Date.now()
+
+  return events.some((eventRow) => {
+    const eventStartMs = parseEventStartMs(eventRow.gigDate, eventRow.gigStartTime)
+    return eventStartMs !== null && eventStartMs > now
+  })
+}
+
 function isMissingCoverImageColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -832,6 +872,36 @@ async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
   }
 }
 
+async function fetchCountdownFallbackEventFromApi(): Promise<AudienceUpcomingEvent | null> {
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, event_theme, karafun_url, cover_image_url')
+    .or(`gig_date.gte.${todayIso}`)
+    .order('gig_date', { ascending: true, nullsFirst: false })
+    .order('gig_start_time', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+    .limit(50)
+
+  if (error) {
+    throw error
+  }
+
+  const now = Date.now()
+  const mappedEvents = mapUpcomingEvents((data ?? []) as Array<Record<string, unknown>>)
+  const nextEvent = mappedEvents
+    .map((eventRow) => ({
+      eventRow,
+      startsAtMs: parseEventStartMs(eventRow.gigDate, eventRow.gigStartTime),
+    }))
+    .filter((candidate): candidate is { eventRow: AudienceUpcomingEvent; startsAtMs: number } => (
+      candidate.startsAtMs !== null && candidate.startsAtMs > now
+    ))
+    .sort((a, b) => a.startsAtMs - b.startsAtMs)[0]
+
+  return nextEvent?.eventRow ?? null
+}
+
 function hasUnsafeControlChars(value: string) {
   for (let index = 0; index < value.length; index += 1) {
     const charCode = value.charCodeAt(index)
@@ -919,6 +989,7 @@ function EventPage() {
   const tipThankYouTimerRef = useRef<number | null>(null)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>(() => readUpcomingEventsCache())
+  const [countdownFallbackEvent, setCountdownFallbackEvent] = useState<AudienceUpcomingEvent | null>(null)
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(() => readUpcomingEventsCache().length === 0)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(true)
@@ -1841,6 +1912,7 @@ function EventPage() {
   useEffect(() => {
     if (event) {
       setUpcomingEvents([])
+      setCountdownFallbackEvent(null)
       upcomingEventsRef.current = []
       upcomingBaseFetchHealthyRef.current = false
       setUpcomingEventsLoading(false)
@@ -1883,6 +1955,29 @@ function EventPage() {
 
         setUpcomingEvents(mappedEvents)
         saveUpcomingEventsCache(mappedEvents)
+        if (hasFutureCountdownTarget(mappedEvents)) {
+          setCountdownFallbackEvent(null)
+        } else {
+          void (async () => {
+            try {
+              const fallbackEvent = await fetchCountdownFallbackEventFromApi()
+
+              if (!isCurrent) {
+                return
+              }
+
+              if (fallbackEvent && !mappedEvents.some((eventRow) => eventRow.id === fallbackEvent.id)) {
+                setCountdownFallbackEvent(fallbackEvent)
+              } else {
+                setCountdownFallbackEvent(null)
+              }
+            } catch {
+              if (isCurrent) {
+                setCountdownFallbackEvent(null)
+              }
+            }
+          })()
+        }
         upcomingFailureCountRef.current = 0
         upcomingNextRefreshAtRef.current = 0
         upcomingBaseFetchHealthyRef.current = true
@@ -1912,6 +2007,7 @@ function EventPage() {
 
                 setUpcomingEvents(refreshedEvents)
                 saveUpcomingEventsCache(refreshedEvents)
+                setCountdownFallbackEvent(null)
 
                 if (refreshedEvents.length > 0) {
                   setUpcomingNoticeDebounced(null, 300)
@@ -1955,6 +2051,7 @@ function EventPage() {
             if (isCurrent) {
               setUpcomingEvents(mappedEvents)
               saveUpcomingEventsCache(mappedEvents)
+              setCountdownFallbackEvent(null)
               upcomingFailureCountRef.current = 0
               upcomingNextRefreshAtRef.current = 0
               upcomingBaseFetchHealthyRef.current = true
@@ -1973,6 +2070,7 @@ function EventPage() {
         }
 
         if (isCurrent) {
+          setCountdownFallbackEvent(null)
           upcomingFailureCountRef.current += 1
           const retryDelay = getUpcomingRetryDelayMs(upcomingFailureCountRef.current)
           upcomingNextRefreshAtRef.current = Date.now() + retryDelay
@@ -2466,6 +2564,7 @@ function EventPage() {
     return (
       <AudienceNoGigState
         upcomingEvents={upcomingEvents}
+        countdownFallbackEvent={countdownFallbackEvent}
         loadingUpcomingEvents={upcomingEventsLoading}
         upcomingEventsNotice={upcomingEventsNotice ?? authError}
         getEventHref={(eventId) => `/audience?event=${encodeURIComponent(eventId)}&v=${audienceLinkVersionRef.current}`}
