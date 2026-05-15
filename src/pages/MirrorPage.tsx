@@ -3072,7 +3072,9 @@ function MirrorPageContent() {
             <span className={`mirror-status ${event?.roomOpen ? 'mirror-open live-pulse' : 'mirror-paused'}`.trim()}>
               {liveBadgeLabel}
             </span>
-            <p className="mirror-edge-cast-hint" role="note">Edge cast: open browser menu (three dots) and choose Cast media to device.</p>
+            {!hideControlsForAudience ? (
+              <p className="mirror-edge-cast-hint" role="note">Edge cast: open browser menu (three dots) and choose Cast media to device.</p>
+            ) : null}
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
             ) : (
@@ -3313,26 +3315,36 @@ function MirrorPageContent() {
                       )}
                     </div>
                     <div className="mirror-now-playing-meta">
-                      <h1 className="mirror-title">
-                        <span className="mirror-title-song">
-                          {normalizeMirrorText(activeSong.title, 'Waiting for requests…')}
+                      <div className="mirror-now-playing-topline">
+                        <div className="mirror-now-playing-details">
+                          <h1 className="mirror-title">
+                            <span className="mirror-title-song">
+                              {normalizeMirrorText(activeSong.title, 'Waiting for requests…')}
+                            </span>
+                          </h1>
+                          <p className="mirror-artist">
+                            {(() => {
+                              const artistText = normalizeMirrorText(activeSong.artist, 'Be first to request a tune.')
+                              return artistText.charAt(0).toUpperCase() + artistText.slice(1)
+                            })()}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`mirror-now-playing-signal ${activeSong.audience_sings ? 'mirror-now-playing-signal-karaoke' : 'mirror-now-playing-signal-band'}`.trim()}
+                          aria-label={activeSong.audience_sings ? 'Karaoke request' : 'Band performance request'}
+                        >
+                          {activeSong.audience_sings ? 'Karaoke' : 'Band'}
                         </span>
-                        <span className="mirror-title-separator"> - </span>
-                        <span className="mirror-title-artist">
-                          {(() => {
-                            const artistText = normalizeMirrorText(activeSong.artist, 'Be first to request a tune.')
-                            return artistText.charAt(0).toUpperCase() + artistText.slice(1)
-                          })()}
-                          {activeSong.audience_sings ? (
-                            <span className="mirror-now-playing-karaoke-inline" aria-label="Karaoke request">Karaoke</span>
+
+                        <div className="mirror-now-playing-picker-slot">
+                          {activeSongChosenByLine ? (
+                            <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
+                              {activeSongChosenByLine}
+                            </p>
                           ) : null}
-                        </span>
-                      </h1>
-                      {activeSongChosenByLine ? (
-                        <p className={`mirror-picked-by ${activeSongChosenByAccentClass}`}>
-                          {activeSongChosenByLine}
-                        </p>
-                      ) : null}
+                        </div>
+                      </div>
                       <div className="mirror-song-fact-box" aria-live="polite">
                         <p className="mirror-song-fact-label">Now Playing</p>
                         <p key={`${activeSong.id}-${currentFactIndex}`} className="mirror-song-fact">
@@ -3351,8 +3363,6 @@ function MirrorPageContent() {
                     aria-label="Audience request page QR link"
                   >
                     <img src={qrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
-                    <p className="mirror-now-playing-qr-label">Scan to request</p>
-                    <p className="mirror-now-playing-qr-url">{audienceUrl}</p>
                   </a>
                 ) : null}
                 {layoutEditMode ? (
