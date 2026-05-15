@@ -42,6 +42,39 @@ function formatGigDate(createdAt: string) {
   }).format(new Date(createdAt))
 }
 
+function formatScheduledGigDate(gigDate: string | null, gigStartTime: string | null) {
+  if (!gigDate) {
+    return 'Not scheduled yet'
+  }
+
+  const normalizedTime = gigStartTime
+    ? (gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime)
+    : '18:00:00'
+
+  const scheduledAt = new Date(`${gigDate}T${normalizedTime}`)
+
+  if (Number.isNaN(scheduledAt.getTime())) {
+    return gigDate
+  }
+
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(scheduledAt)
+
+  if (!gigStartTime) {
+    return dateLabel
+  }
+
+  const timeLabel = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(scheduledAt)
+
+  return `${dateLabel} at ${timeLabel}`
+}
+
 function resolveGigVisualTheme(
   eventType: 'halli-live' | 'karaoke' | 'build-self',
   eventTheme: 'harald-live' | 'human-jukebox' | 'karaoke',
@@ -445,6 +478,7 @@ function GigsPage() {
                       {isCurrentGig ? <span className="meta-badge">Open in control panel</span> : null}
                     </div>
                     <p className="gig-management-meta">{hostEvent.venue ?? 'No venue set'}</p>
+                    <p className="gig-management-meta">Gig date {formatScheduledGigDate(hostEvent.gigDate, hostEvent.gigStartTime)}</p>
                     <p className="gig-management-meta">Created {formatGigDate(hostEvent.createdAt)}</p>
                     <div className="form-grid two-col">
                       <label>
