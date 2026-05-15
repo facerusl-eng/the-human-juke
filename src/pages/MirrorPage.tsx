@@ -1346,6 +1346,8 @@ function MirrorPageContent() {
   const isLive = event?.roomOpen ?? false
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
+  const showMirrorDebugOverlay =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mirrorDebug') === '1'
   const eventId = event?.id ?? null
   const mirrorLayoutOwnerId = event?.hostId ?? (isHost ? user?.id ?? null : null)
   const audienceUrl = useMemo(() => {
@@ -1557,6 +1559,17 @@ function MirrorPageContent() {
   const shouldShowPreShow = !isLive
     && !demoMode
     && ((event?.mirrorCountdownEnabled ?? true) || !nowPlaying)
+  const mirrorDebugRows = [
+    `event=${event?.id ?? 'null'}`,
+    `roomOpen=${String(isLive)}`,
+    `countdownEnabled=${String(event?.mirrorCountdownEnabled ?? true)}`,
+    `preShow=${String(shouldShowPreShow)}`,
+    `showCountdown=${String(showCountdown)}`,
+    `gigDate=${event?.gigDate ?? 'null'}`,
+    `gigStart=${event?.gigStartTime ?? 'null'}`,
+    `songs=${String(safeSongs.length)}`,
+    `nowPlaying=${nowPlaying?.id ?? 'null'}`,
+  ]
 
   useEffect(() => {
     if (!showQrFlashText) {
@@ -3607,6 +3620,13 @@ function MirrorPageContent() {
       {showSpotlight && flashActive ? <div className="mirror-spotlight-flash" aria-hidden="true" /> : null}
       {showSpotlight && showShutterFallbackPulse ? <div className="mirror-spotlight-fallback-pulse" aria-hidden="true" /> : null}
       {!isLive && showSafeMargins && shouldShowAdminElements ? <div className="mirror-safe-margins-overlay" aria-hidden="true" /> : null}
+      {showMirrorDebugOverlay ? (
+        <aside className="mirror-debug-badge" aria-label="Mirror debug telemetry">
+          {mirrorDebugRows.map((row) => (
+            <p key={row}>{row}</p>
+          ))}
+        </aside>
+      ) : null}
     </div>
   )
 }

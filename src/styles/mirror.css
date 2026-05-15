@@ -3540,3 +3540,28 @@
   font-size: clamp(0.56rem, 0.72vw, 0.7rem);
   padding: clamp(0.1rem, 0.2vw, 0.16rem) clamp(0.42rem, 0.64vw, 0.62rem);
 }
+
+.mirror-debug-badge {
+  position: fixed;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  z-index: 50;
+  display: grid;
+  gap: 0.14rem;
+  min-width: 290px;
+  max-width: min(94vw, 460px);
+  padding: 0.62rem 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 0.56rem;
+  background: rgba(7, 12, 24, 0.88);
+  color: #f6f8ff;
+  font-family: 'IBM Plex Mono', 'Cascadia Mono', Consolas, monospace;
+  font-size: clamp(0.64rem, 0.76vw, 0.76rem);
+  line-height: 1.3;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.mirror-debug-badge p {
+  margin: 0;
+}
