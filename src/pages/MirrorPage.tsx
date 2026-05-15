@@ -2924,7 +2924,7 @@ function MirrorPageContent() {
   }, [isHost, user?.id])
 
   useEffect(() => {
-    if (!mirrorLayoutOwnerId) {
+    if (!mirrorLayoutOwnerId || !UUID_PATTERN.test(mirrorLayoutOwnerId)) {
       return
     }
 

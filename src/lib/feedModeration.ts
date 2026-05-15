@@ -1,5 +1,25 @@
 import { supabase } from './supabase'
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function normalizeUuid(value?: string) {
+  const trimmed = value?.trim()
+  if (!trimmed || !UUID_PATTERN.test(trimmed)) {
+    return null
+  }
+
+  return trimmed
+}
+
+function normalizeIp(value?: string) {
+  const trimmed = value?.trim()
+  if (!trimmed || trimmed.toLowerCase() === 'undefined') {
+    return null
+  }
+
+  return trimmed
+}
+
 export type BlockUserOptions = {
   eventId: string
   blockedUserId?: string
@@ -11,16 +31,28 @@ export type BlockUserOptions = {
  * Check if a user is blocked from posting to a specific event
  */
 export async function isUserBlocked(eventId: string, userId?: string, userIp?: string): Promise<boolean> {
-  if (!userId && !userIp) {
+  const normalizedUserId = normalizeUuid(userId)
+  const normalizedUserIp = normalizeIp(userIp)
+
+  if (!normalizedUserId && !normalizedUserIp) {
     return false
   }
 
   try {
+    const blockedFilters = [
+      normalizedUserId ? `blocked_user_id.eq.${normalizedUserId}` : null,
+      normalizedUserIp ? `blocked_ip.eq.${normalizedUserIp}` : null,
+    ].filter(Boolean)
+
+    if (blockedFilters.length === 0) {
+      return false
+    }
+
     const { data, error } = await supabase
       .from('blocked_users')
       .select('id')
       .eq('event_id', eventId)
-      .or(`blocked_user_id.eq.${userId},blocked_ip.eq.${userIp}`)
+      .or(blockedFilters.join(','))
       .single()
 
     if (error && error.code === 'PGRST116') {
@@ -46,7 +78,10 @@ export async function isUserBlocked(eventId: string, userId?: string, userIp?: s
 export async function blockUser(options: BlockUserOptions): Promise<{ success: boolean; error?: string }> {
   const { eventId, blockedUserId, blockedIp, reason } = options
 
-  if (!blockedUserId && !blockedIp) {
+  const normalizedBlockedUserId = normalizeUuid(blockedUserId)
+  const normalizedBlockedIp = normalizeIp(blockedIp)
+
+  if (!normalizedBlockedUserId && !normalizedBlockedIp) {
     return { success: false, error: 'Either user ID or IP must be provided' }
   }
 
@@ -55,8 +90,8 @@ export async function blockUser(options: BlockUserOptions): Promise<{ success: b
       .from('blocked_users')
       .insert({
         event_id: eventId,
-        blocked_user_id: blockedUserId || null,
-        blocked_ip: blockedIp || null,
+        blocked_user_id: normalizedBlockedUserId,
+        blocked_ip: normalizedBlockedIp,
         reason: reason || null,
         blocked_by: (await supabase.auth.getUser()).data.user?.id,
       })
