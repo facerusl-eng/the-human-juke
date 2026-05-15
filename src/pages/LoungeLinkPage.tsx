@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 function normalizeHttpUrl(rawUrl: string | null) {
   if (!rawUrl) {
@@ -52,6 +53,8 @@ function resolveBackToLoungeUrl(rawUrl: string | null) {
 }
 
 function LoungeLinkPage() {
+  const navigate = useNavigate()
+
   const targetUrl = useMemo(() => {
     if (typeof window === 'undefined') {
       return null
@@ -70,10 +73,19 @@ function LoungeLinkPage() {
     return resolveBackToLoungeUrl(searchParams.get('back'))
   }, [])
 
+  const onBackToLounge = useCallback(() => {
+    try {
+      // Replace history so users do not bounce back to the bridge screen.
+      navigate(backToLoungeUrl, { replace: true })
+    } catch {
+      window.location.assign(backToLoungeUrl)
+    }
+  }, [backToLoungeUrl, navigate])
+
   return (
     <section className="lounge-link-shell" aria-label="Lounge link bridge">
       <header className="lounge-link-header">
-        <a className="secondary-button" href={backToLoungeUrl}>Back to Lounge</a>
+        <button type="button" className="secondary-button" onClick={onBackToLounge}>Back to Lounge</button>
         {targetUrl ? <a className="primary-button" href={targetUrl} target="_blank" rel="noreferrer noopener">Open in new tab</a> : null}
       </header>
 
