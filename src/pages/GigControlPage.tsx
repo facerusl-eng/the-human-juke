@@ -28,6 +28,7 @@ const GIG_CONTROL_NOW_PLAYING_STORAGE_KEY = 'human-jukebox-gig-control-now-playi
 const GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS = 12 * 60 * 60 * 1000
 const BACKGROUND_SYNC_TAG = 'jukebox-sync'
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle'
+type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
 
 type PersistedGigControlNowPlaying = {
   eventId: string
@@ -90,6 +91,18 @@ function resolveGigStartAt(gigDate: string | null | undefined, gigStartTime: str
   const normalizedTime = gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime
   const startAt = new Date(`${gigDate}T${normalizedTime}`)
   return Number.isNaN(startAt.getTime()) ? null : startAt
+}
+
+function getEmergencyOverlayMessage(preset: EmergencyOverlayPreset) {
+  if (preset === 'tech-issue') {
+    return 'Technical issue on stage. We will be back in about 2 minutes. Thank you for your patience.'
+  }
+
+  if (preset === 'scan-qr') {
+    return 'Scan the QR now to join the queue and drop your requests.'
+  }
+
+  return 'Last song coming up soon. Get your final request in now!'
 }
 
 async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
@@ -174,6 +187,9 @@ function GigControlPage() {
   const gigStartedAtRef = useRef<number>(Date.now())
   const [isBrbActive, setIsBrbActive] = useState(false)
   const [brbCustomMessage, setBrbCustomMessage] = useState('')
+  const [mirrorReadabilityCheckEnabled, setMirrorReadabilityCheckEnabled] = useState(false)
+  const [lastMirrorSyncAt, setLastMirrorSyncAt] = useState<number>(() => Date.now())
+  const [mirrorHealthNow, setMirrorHealthNow] = useState<number>(() => Date.now())
   const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
   const [showEndGigHideConfirm, setShowEndGigHideConfirm] = useState(false)
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
@@ -244,6 +260,19 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
+  const secondsSinceMirrorSync = Math.max(0, Math.floor((mirrorHealthNow - lastMirrorSyncAt) / 1000))
+  const mirrorHealthState = audienceConnectionStatus === 'connected'
+    ? (secondsSinceMirrorSync <= 20 ? 'ok' : 'delayed')
+    : (audienceConnectionStatus === 'reconnecting' || audienceConnectionStatus === 'connecting')
+      ? 'reconnecting'
+      : 'offline'
+  const mirrorHealthLabel = mirrorHealthState === 'ok'
+    ? `Sync OK · ${secondsSinceMirrorSync}s ago`
+    : mirrorHealthState === 'delayed'
+      ? `Sync delayed · ${secondsSinceMirrorSync}s`
+      : mirrorHealthState === 'reconnecting'
+        ? 'Reconnecting mirror sync...'
+        : 'Mirror sync offline'
 
   const resolveCoverUrlForSong = useCallback((songId: string | null) => {
     if (!songId) {
@@ -252,6 +281,22 @@ function GigControlPage() {
 
     return songs.find((song) => song.id === songId)?.cover_url ?? null
   }, [songs])
+
+  useEffect(() => {
+    if (audienceConnectionStatus === 'connected') {
+      setLastMirrorSyncAt(Date.now())
+    }
+  }, [audienceConnectionStatus])
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setMirrorHealthNow(Date.now())
+    }, 1000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -740,25 +785,50 @@ function GigControlPage() {
     }
   }, [event, gigActions, playIntroAudioWithSpotifyBridge, runGoLivePreflight])
 
-  const toggleBrbState = useCallback(async () => {
-    if (!event?.id) return
-    const nextBrb = !isBrbActive
-    setIsBrbActive(nextBrb)
+  const setMirrorOverlayMessage = useCallback(async (message: string | null) => {
+    if (!event?.id) {
+      return false
+    }
+
+    const nextBrbActive = Boolean(message)
+    const previousBrbActive = isBrbActive
+    const previousBrbMessage = brbCustomMessage
+
+    setIsBrbActive(nextBrbActive)
+
+    if (message) {
+      setBrbCustomMessage(message)
+    }
+
     try {
       await writeSharedPlaybackState(event.id, {
         currentSongId: nowPlaying?.id ?? null,
         currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
         isStarted: false,
         quoteIndex: quoteIndexRef.current,
-        brbActive: nextBrb,
-        brbMessage: nextBrb ? (brbCustomMessage.trim() || 'Be right back - grabbing a pint of courage.') : null,
+        brbActive: nextBrbActive,
+        brbMessage: message,
       })
+
+      return true
     } catch (error) {
-      setIsBrbActive(isBrbActive)
-      console.warn('GigControlPage: BRB toggle failed', error)
-      setErrorText('Failed to toggle BRB screen.')
+      setIsBrbActive(previousBrbActive)
+      setBrbCustomMessage(previousBrbMessage)
+      console.warn('GigControlPage: mirror overlay update failed', error)
+      setErrorText('Failed to update mirror overlay.')
+      return false
     }
   }, [brbCustomMessage, event?.id, isBrbActive, nowPlaying?.id, resolveCoverUrlForSong])
+
+  const toggleBrbState = useCallback(async () => {
+    const nextBrb = !isBrbActive
+    await setMirrorOverlayMessage(nextBrb ? (brbCustomMessage.trim() || 'Be right back - grabbing a pint of courage.') : null)
+  }, [brbCustomMessage, isBrbActive, setMirrorOverlayMessage])
+
+  const triggerEmergencyOverlay = useCallback(async (preset: EmergencyOverlayPreset) => {
+    const message = getEmergencyOverlayMessage(preset)
+    await setMirrorOverlayMessage(message)
+  }, [setMirrorOverlayMessage])
 
   useEffect(() => {
     if (!event?.roomOpen || preflightBusy || audienceConnectionStatus === 'connected') {
@@ -1767,9 +1837,60 @@ function GigControlPage() {
 
         <article className="gig-mirror-preview-card" aria-label="Live mirror preview">
           <p className="gig-control-card-label">Live Mirror Preview</p>
+          <div className="gig-mirror-preview-toolbar" role="status" aria-live="polite">
+            <span className={`gig-mirror-health-badge is-${mirrorHealthState}`}>{mirrorHealthLabel}</span>
+            <button
+              type="button"
+              className={`ghost-button gig-mirror-readability-toggle ${mirrorReadabilityCheckEnabled ? 'is-active' : ''}`}
+              onClick={() => {
+                setMirrorReadabilityCheckEnabled((currentValue) => !currentValue)
+              }}
+            >
+              {mirrorReadabilityCheckEnabled ? 'Readability Check: On' : 'Readability Check'}
+            </button>
+          </div>
+          <div className="gig-mirror-preview-emergency-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void triggerEmergencyOverlay('tech-issue')
+              }}
+            >
+              Tech Issue (2m)
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                void triggerEmergencyOverlay('scan-qr')
+              }}
+            >
+              Scan QR Now
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                void triggerEmergencyOverlay('closing-soon')
+              }}
+            >
+              Last Song Soon
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={!isBrbActive}
+              onClick={() => {
+                void setMirrorOverlayMessage(null)
+              }}
+            >
+              Clear Overlay
+            </button>
+          </div>
           <div className="gig-mirror-preview-frame" role="img" aria-label="Mirror screen preview">
             <div className="gig-mirror-preview-scale-shell">
-              <div className="gig-mirror-preview-scale-canvas">
+              <div className={`gig-mirror-preview-scale-canvas ${mirrorReadabilityCheckEnabled ? 'is-readability-check' : ''}`}>
                 <div className="gig-mirror-preview-top">
                   <div className="gig-mirror-preview-brand-shell">
                     {event.venueLogoUrl ? (
