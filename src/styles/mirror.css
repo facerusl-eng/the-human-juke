@@ -1943,6 +1943,30 @@
   gap: 0.42rem;
 }
 
+.mirror-cast-button {
+  border: 1px solid rgba(125, 211, 252, 0.45);
+  border-radius: 999px;
+  background: rgba(7, 16, 34, 0.82);
+  color: #dff3ff;
+  font-size: clamp(0.72rem, 0.86vw, 0.84rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.62rem;
+  cursor: pointer;
+}
+
+.mirror-cast-button:hover:not(:disabled),
+.mirror-cast-button:focus-visible:not(:disabled) {
+  border-color: rgba(125, 211, 252, 0.72);
+  background: rgba(11, 24, 49, 0.92);
+}
+
+.mirror-cast-button:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
 .mirror-status {
   font-size: clamp(0.95rem, 1.4vw, 1.12rem);
   letter-spacing: 0.08em;

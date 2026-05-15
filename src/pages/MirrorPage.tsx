@@ -949,6 +949,23 @@ function normalizeMirrorText(value: unknown, fallback: string) {
   return trimmedValue || fallback
 }
 
+function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlaybackState | null) {
+  if (left === right) {
+    return true
+  }
+
+  if (!left || !right) {
+    return false
+  }
+
+  return left.currentSongId === right.currentSongId
+    && left.currentSongCoverUrl === right.currentSongCoverUrl
+    && left.isStarted === right.isStarted
+    && left.quoteIndex === right.quoteIndex
+    && left.brbActive === right.brbActive
+    && left.brbMessage === right.brbMessage
+}
+
 type FullscreenDocument = Document & {
   webkitFullscreenElement?: Element | null
   webkitExitFullscreen?: () => Promise<void> | void
@@ -1149,6 +1166,7 @@ function MirrorPageContent() {
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
     () => new URLSearchParams(window.location.search).get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) === '1',
   )
+  const [castActionBusy, setCastActionBusy] = useState(false)
   const [highContrastMode, setHighContrastMode] = useState(false)
   const [castClarityMode, setCastClarityMode] = useState(false)
   const [densityMode, setDensityMode] = useState<MirrorDensityMode>('medium')
@@ -1252,6 +1270,50 @@ function MirrorPageContent() {
     }, delayMs)
   }
 
+  const startMirrorCast = async () => {
+    if (castActionBusy || typeof window === 'undefined') {
+      return
+    }
+
+    setCastActionBusy(true)
+
+    try {
+      const castUrl = new URL(window.location.href)
+      castUrl.searchParams.set('cast', '1')
+      castUrl.searchParams.set('launchFullscreen', '1')
+
+      const presentationWindow = window as Window & {
+        PresentationRequest?: new (urls: string | string[]) => {
+          start: () => Promise<unknown>
+        }
+      }
+      const presentationNavigator = navigator as Navigator & {
+        presentation?: {
+          defaultRequest?: unknown
+        }
+      }
+
+      if (typeof presentationWindow.PresentationRequest === 'function') {
+        const presentationRequest = new presentationWindow.PresentationRequest(castUrl.toString())
+
+        if (presentationNavigator.presentation) {
+          presentationNavigator.presentation.defaultRequest = presentationRequest
+        }
+
+        await presentationRequest.start()
+        setMirrorWarningMessage('Cast session started. Mirror is now sending to your selected display.')
+        return
+      }
+
+      setMirrorWarningMessage('Cast picker unavailable here. Use browser menu > Cast... and choose this Mirror tab.')
+    } catch (error) {
+      console.warn('MirrorPage: cast start failed', error)
+      setMirrorWarningMessage('Cast did not start. Use browser menu > Cast... and choose this Mirror tab.')
+    } finally {
+      setCastActionBusy(false)
+    }
+  }
+
   useEffect(() => {
     mirrorLayoutStateRef.current = mirrorLayoutState
   }, [mirrorLayoutState])
@@ -1349,7 +1411,7 @@ function MirrorPageContent() {
     ? Boolean(nowPlaying)
     : Boolean(playbackState?.isStarted && playbackState.currentSongId)
   const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)
-  const isQuoteModeActive = forceQuoteMode || isBetweenSongs || !activeSong
+  const isQuoteModeActive = (demoMode && forceQuoteMode) || isBetweenSongs || !activeSong
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = useMemo(() => {
     const candidateSongs = isNowPlayingStarted
@@ -2045,6 +2107,10 @@ function MirrorPageContent() {
         return
       }
 
+      if (!demoMode) {
+        return
+      }
+
       if (keyEvent.altKey || keyEvent.ctrlKey || keyEvent.metaKey || keyEvent.shiftKey) {
         return
       }
@@ -2275,7 +2341,7 @@ function MirrorPageContent() {
 
         if (isCurrent) {
           if (state) {
-            setPlaybackState(state)
+            setPlaybackState((currentState) => (isSamePlaybackState(currentState, state) ? currentState : state))
             clearMirrorWarningSmoothly()
             return
           }
@@ -2327,7 +2393,7 @@ function MirrorPageContent() {
             }
 
             if (nextRow) {
-              setPlaybackState({
+              const nextState: SharedPlaybackState = {
                 currentSongId: nextRow.current_song_id ?? null,
                 currentSongCoverUrl: nextRow.current_song_cover_url ?? null,
                 isStarted: Boolean(nextRow.is_started),
@@ -2336,7 +2402,8 @@ function MirrorPageContent() {
                   : 0,
                 brbActive: nextRow.brb_active ?? false,
                 brbMessage: nextRow.brb_message ?? null,
-              })
+              }
+              setPlaybackState((currentState) => (isSamePlaybackState(currentState, nextState) ? currentState : nextState))
               clearMirrorWarningSmoothly()
               return
             }
@@ -2423,7 +2490,7 @@ function MirrorPageContent() {
       const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState }>).detail
 
       if (detail?.eventId === eventId) {
-        setPlaybackState(detail.state)
+        setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state) ? currentState : detail.state))
         clearMirrorWarningSmoothly()
       }
     }
@@ -2436,7 +2503,7 @@ function MirrorPageContent() {
       try {
         const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
         if (detail.eventId === eventId && detail.state) {
-          setPlaybackState(detail.state)
+          setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state) ? currentState : detail.state))
           clearMirrorWarningSmoothly()
         }
       } catch {
@@ -2457,7 +2524,7 @@ function MirrorPageContent() {
       playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
         const detail = messageEvent.data
         if (detail?.eventId === eventId && detail.state) {
-          setPlaybackState(detail.state)
+          setPlaybackState((currentState) => (isSamePlaybackState(currentState, detail.state) ? currentState : detail.state))
           clearMirrorWarningSmoothly()
         }
       }
@@ -3068,6 +3135,14 @@ function MirrorPageContent() {
             <span className={`mirror-status ${event?.roomOpen ? 'mirror-open live-pulse' : 'mirror-paused'}`.trim()}>
               {liveBadgeLabel}
             </span>
+            <button
+              type="button"
+              className="mirror-cast-button"
+              onClick={() => { void startMirrorCast() }}
+              disabled={castActionBusy}
+            >
+              {castActionBusy ? 'Opening cast...' : 'Cast Screen'}
+            </button>
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
             ) : (
