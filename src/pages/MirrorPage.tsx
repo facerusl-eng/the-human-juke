@@ -3333,7 +3333,11 @@ function MirrorPageContent() {
             <div className="mirror-pre-show-middle">
               <div className="mirror-pre-show-qr-col">
                 <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
-                <p className="mirror-qr-label">Scan to join and choose</p>
+                <p className="mirror-qr-label">
+                  Scan in. Drink up....
+                  <br />
+                  That is the question
+                </p>
                 {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
               </div>
               <div className="mirror-pre-show-steps-col">
@@ -3610,7 +3614,11 @@ function MirrorPageContent() {
             aria-label="Audience request page QR link"
           >
             <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
-            <p className="mirror-brb-qr-label">Scan to join and choose</p>
+            <p className="mirror-brb-qr-label">
+              Scan in. Drink up....
+              <br />
+              That is the question
+            </p>
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </a>
         </div>
