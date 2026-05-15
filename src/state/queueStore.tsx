@@ -525,8 +525,6 @@ function isMissingNewerEventColumnsError(error: unknown) {
       || text.includes('intro_audio_url')
       || text.includes('event_artist_name')
       || text.includes('event_theme')
-      || text.includes('mirror_brb_qr_link')
-      || text.includes('mirror_brb_qr_text')
     )
 }
 
