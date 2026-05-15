@@ -16,49 +16,31 @@ function QrLandingPage() {
     return null
   }, [search])
 
-  useEffect(() => {
-    // If no valid URL is provided, redirect to audience
-    if (!customUrl) {
-      const redirectTimer = window.setTimeout(() => {
-        navigate('/audience', { replace: true })
-      }, 500)
-
-      return () => {
-        window.clearTimeout(redirectTimer)
-      }
-    }
-  }, [customUrl, navigate])
-
-  if (!customUrl) {
-    return (
-      <section className="app-shell" aria-label="Invalid QR link">
-        <section className="queue-panel">
-          <p className="eyebrow">Invalid Link</p>
-          <h1>Redirecting...</h1>
-          <p className="subcopy">Taking you to the lounge now.</p>
-        </section>
-      </section>
-    )
-  }
-
   return (
     <section className="qr-landing-shell" aria-label="QR code landing page">
+      <div className="qr-landing-button-overlay">
+        <a
+          href="/audience"
+          className="qr-landing-button"
+          aria-label="Go to audience lounge"
+        >
+          Go to Lounge
+        </a>
+      </div>
+      
       <div className="qr-landing-container">
-        <iframe
-          src={customUrl}
-          className="qr-landing-iframe"
-          title="QR code destination content"
-          sandbox="allow-same-origin allow-forms allow-scripts allow-popups"
-        />
-        <div className="qr-landing-button-overlay">
-          <a
-            href="/audience"
-            className="qr-landing-button"
-            aria-label="Go to audience lounge"
-          >
-            Go to Lounge
-          </a>
-        </div>
+        {customUrl ? (
+          <iframe
+            src={customUrl}
+            className="qr-landing-iframe"
+            title="QR code destination content"
+            sandbox="allow-same-origin allow-forms allow-scripts allow-popups"
+          />
+        ) : (
+          <div className="qr-landing-empty-state">
+            <p>Welcome! Click the button above to join the lounge.</p>
+          </div>
+        )}
       </div>
     </section>
   )
