@@ -2378,14 +2378,17 @@
 
 .audience-no-gig-countdown {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.45rem;
   padding: clamp(0.9rem, 3vw, 1.2rem);
   border-radius: 18px;
-  border: 1px solid rgba(93, 215, 255, 0.28);
+  border: 1px solid rgba(136, 225, 255, 0.38);
   background:
-    radial-gradient(circle at 50% 0%, rgba(93, 215, 255, 0.14) 0%, transparent 52%),
-    linear-gradient(145deg, rgba(10, 18, 39, 0.9) 0%, rgba(12, 27, 44, 0.84) 100%);
+    radial-gradient(circle at 50% 0%, rgba(93, 215, 255, 0.2) 0%, transparent 58%),
+    linear-gradient(145deg, rgba(9, 18, 41, 0.94) 0%, rgba(11, 30, 48, 0.9) 100%);
   text-align: center;
+  box-shadow:
+    0 16px 34px rgba(2, 6, 18, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .audience-no-gig-countdown-label {
@@ -2409,7 +2412,30 @@
 .audience-no-gig-countdown-event {
   margin: 0;
   font-size: 0.82rem;
-  color: rgba(184, 210, 255, 0.72);
+  color: rgba(196, 223, 255, 0.86);
+}
+
+.audience-no-gig-countdown-meta {
+  margin: 0;
+  font-size: 0.76rem;
+  color: rgba(168, 210, 255, 0.84);
+  letter-spacing: 0.02em;
+}
+
+.audience-no-gig-countdown-support {
+  margin: 0.15rem 0 0;
+  font-size: 0.86rem;
+  color: rgba(226, 241, 255, 0.88);
+}
+
+.audience-no-gig-countdown-quote {
+  margin: 0;
+  font-size: clamp(0.94rem, 2.6vw, 1.06rem);
+  line-height: 1.35;
+  color: #f3fbff;
+  font-style: italic;
+  overflow-wrap: break-word;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.32);
 }
 
 .audience-no-gig-copy {

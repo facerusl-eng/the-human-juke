@@ -33,6 +33,27 @@ const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
   ],
 }
 
+const COUNTDOWN_SUPPORT_QUOTES: Record<AudienceLocale, string[]> = {
+  en: [
+    'You are early. The legends usually are.',
+    'Warm-up mode: smile, hydrate, and pretend this was your plan all along.',
+    'The stage is stretching. So are the vibes.',
+    'Countdown in progress. Glamour loading at high speed.',
+  ],
+  da: [
+    'Du er tidligt ude. Det er typisk for legender.',
+    'Opvarmning: smil, drik vand og lad som om det hele er planlagt.',
+    'Scenen strækker ud. Stemningen gør det samme.',
+    'Nedtællingen kører. Glimmeret er på vej.',
+  ],
+  is: [
+    'Thu mættir snemma. Hetjur gera thad.',
+    'Upphitun: brostu, drekktu vatn og vertu cool.',
+    'Svidid er ad hita upp. Stemningin lika.',
+    'Nidurteljari i gangi. Showid er ad maeta.',
+  ],
+}
+
 function toIntlLocale(locale: AudienceLocale) {
   if (locale === 'da') {
     return 'da-DK'
@@ -68,6 +89,22 @@ function formatCountdownLabel(ms: number): string {
   const seconds = totalSeconds % 60
   if (days > 0) return `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function formatCountdownStartLabel(gigDate: string | null, gigStartTime: string | null, locale: AudienceLocale): string | null {
+  const countdownStartDate = parseEventDate(gigDate, gigStartTime)
+
+  if (!countdownStartDate) {
+    return null
+  }
+
+  return new Intl.DateTimeFormat(toIntlLocale(locale), {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(countdownStartDate)
 }
 
 function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | null, locale: AudienceLocale) {
@@ -218,11 +255,34 @@ function AudienceNoGigState({
 }) {
   const [showHowJukeboxWorks, setShowHowJukeboxWorks] = useState(false)
   const [showHowKaraokeWorks, setShowHowKaraokeWorks] = useState(false)
+  const [countdownQuoteIndex, setCountdownQuoteIndex] = useState(0)
   const countdownCandidates = countdownFallbackEvent
     && !upcomingEvents.some((eventRow) => eventRow.id === countdownFallbackEvent.id)
     ? [countdownFallbackEvent, ...upcomingEvents]
     : upcomingEvents
   const countdown = useCountdownToEvent(countdownCandidates)
+  const countdownEventId = countdown?.event.id ?? null
+  const countdownStartLabel = countdown
+    ? formatCountdownStartLabel(countdown.event.gigDate, countdown.event.gigStartTime, locale)
+    : null
+
+  useEffect(() => {
+    if (!countdownEventId) {
+      setCountdownQuoteIndex(0)
+      return
+    }
+
+    const quoteRotateTimerId = window.setInterval(() => {
+      setCountdownQuoteIndex((currentIndex) => currentIndex + 1)
+    }, 7000)
+
+    return () => {
+      window.clearInterval(quoteRotateTimerId)
+    }
+  }, [countdownEventId])
+
+  const countdownQuotes = COUNTDOWN_SUPPORT_QUOTES[locale]
+  const activeCountdownQuote = countdownQuotes[countdownQuoteIndex % countdownQuotes.length] ?? countdownQuotes[0]
 
   const copy = locale === 'da'
     ? {
@@ -240,6 +300,9 @@ function AudienceNoGigState({
         addToCalendar: 'Tilføj til kalender',
         confirmAddToCalendar: 'Er du sikker på, at du vil tilføje "{event}" til din kalender?',
         countdownLabel: 'Næste show starter om',
+        countdownSupportLabel: 'Hold ud - vi varmer op bag tæppet.',
+        countdownScheduledLabel: 'Planlagt start',
+        countdownScheduledFallback: 'Snart',
         countdownFor: 'til',
         howItWorks: 'Sådan virker Human Jukebox',
         hideHowItWorks: 'Skjul guide',
@@ -277,6 +340,9 @@ function AudienceNoGigState({
         addToCalendar: 'Bæta við dagatal',
         confirmAddToCalendar: 'Ertu viss um að þú viljir bæta "{event}" við dagatalið?',
         countdownLabel: 'Naesta show hefst eftir',
+        countdownSupportLabel: 'Haldu ut - við erum ad hita upp bak vid tjoldin.',
+        countdownScheduledLabel: 'Aetlud byrjun',
+        countdownScheduledFallback: 'Mjog snart',
         countdownFor: 'fyrir',
         howItWorks: 'Svona virkar Human Jukebox',
         hideHowItWorks: 'Fela leidbeiningar',
@@ -313,6 +379,9 @@ function AudienceNoGigState({
         addToCalendar: 'Add to Calendar',
         confirmAddToCalendar: 'Are you sure you want to add "{event}" to your calendar?',
         countdownLabel: 'Next show starts in',
+        countdownSupportLabel: 'Hold tight - we are warming up backstage.',
+        countdownScheduledLabel: 'Scheduled start',
+        countdownScheduledFallback: 'Very soon',
         countdownFor: 'for',
         howItWorks: 'How Human Jukebox Works',
         hideHowItWorks: 'Hide guide',
@@ -349,7 +418,10 @@ function AudienceNoGigState({
           <div className="audience-no-gig-countdown">
             <p className="audience-no-gig-countdown-label">{copy.countdownLabel}</p>
             <p className="audience-no-gig-countdown-value">{formatCountdownLabel(countdown.remainingMs)}</p>
+            <p className="audience-no-gig-countdown-meta">{copy.countdownScheduledLabel}: {countdownStartLabel ?? copy.countdownScheduledFallback}</p>
             <p className="audience-no-gig-countdown-event">{countdown.event.name}{countdown.event.venue ? ` · ${countdown.event.venue}` : ''}</p>
+            <p className="audience-no-gig-countdown-support">{copy.countdownSupportLabel}</p>
+            <p className="audience-no-gig-countdown-quote" aria-live="polite">{activeCountdownQuote}</p>
           </div>
         ) : null}
 
