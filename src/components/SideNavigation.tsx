@@ -141,8 +141,8 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
       className={[
         'border-r border-cyan-400/20 bg-[#0A0A0A] transition-all duration-200',
         isMobile
-          ? `fixed inset-y-0 left-0 z-50 h-dvh w-[240px] transform shadow-2xl ${collapsed ? '-translate-x-full' : 'translate-x-0'}`
-          : `sticky left-0 top-0 z-40 h-screen shrink-0 ${collapsed ? 'w-[80px]' : 'w-[240px]'}`,
+          ? `fixed inset-y-0 left-0 z-50 h-dvh w-60 transform shadow-2xl ${collapsed ? '-translate-x-full' : 'translate-x-0'}`
+          : `sticky left-0 top-0 z-40 h-screen shrink-0 ${collapsed ? 'w-20' : 'w-60'}`,
       ].join(' ')}
       aria-label="Application navigation"
     >
