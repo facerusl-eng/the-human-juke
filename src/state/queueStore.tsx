@@ -2879,9 +2879,6 @@ function QueueProvider({ children }: PropsWithChildren) {
           show_in_audience_no_gig: updates.showInAudienceNoGig,
           cover_image_url: updates.coverImageUrl,
           venue_logo_url: updates.venueLogoUrl,
-          venue_logo_scale: updates.venueLogoScale,
-          venue_logo_offset_x: updates.venueLogoOffsetX,
-          venue_logo_offset_y: updates.venueLogoOffsetY,
           show_custom_button: updates.showCustomButton,
           custom_button_label: updates.customButtonLabel || null,
           custom_button_link: updates.customButtonLink || null,
@@ -2895,6 +2892,12 @@ function QueueProvider({ children }: PropsWithChildren) {
           audience_icelandic_enabled: updates.audienceIcelandicEnabled ?? false,
           auto_live_enabled: updates.autoLiveEnabled ?? false,
           intro_audio_url: updates.introAudioUrl ?? null,
+        }
+
+        if (hasVenueLogoLayoutColumns) {
+          eventUpdatePayload.venue_logo_scale = updates.venueLogoScale
+          eventUpdatePayload.venue_logo_offset_x = updates.venueLogoOffsetX
+          eventUpdatePayload.venue_logo_offset_y = updates.venueLogoOffsetY
         }
 
         const { error } = await withTimeout(
@@ -2929,6 +2932,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
 
           if (isMissingVenueLogoLayoutColumnError(error)) {
+            hasVenueLogoLayoutColumns = false
+            markMissingColumnInCache('venueLogoLayout')
             delete fallbackPayload.venue_logo_scale
             delete fallbackPayload.venue_logo_offset_x
             delete fallbackPayload.venue_logo_offset_y
