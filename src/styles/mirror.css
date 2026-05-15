@@ -1292,11 +1292,16 @@
 }
 
 .mirror-qr-url {
+  display: none;
   margin: 0;
   font-size: clamp(0.72rem, 0.95vw, 0.88rem);
   color: rgba(184, 210, 255, 0.72);
   text-align: center;
   word-break: break-all;
+}
+
+.mirror-brb-qr-url {
+  display: none;
 }
 
 .mirror-qr-flash-line {
@@ -2429,6 +2434,7 @@
 }
 
 .mirror-now-playing-qr-url {
+  display: none;
   margin: 0;
   font-size: clamp(0.7rem, 0.88vw, 0.82rem);
   line-height: 1.3;
