@@ -1749,7 +1749,11 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             <label htmlFor="gig-mirror-countdown-qr-link-input">Countdown/Break QR destination link (optional)</label>
             <input
               id="gig-mirror-countdown-qr-link-input"
-              type="url"
+              type="text"
+              inputMode="url"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="https://www.the-human-jukebox.org/audience"
               value={state.mirrorCountdownQrLink}
               onChange={(e) => {
