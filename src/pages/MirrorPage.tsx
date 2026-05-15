@@ -1378,7 +1378,21 @@ function MirrorPageContent() {
   }, [eventId])
   const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
-  const countdownQrDestination = customCountdownQrLink || audienceUrl
+  const loungeChoiceUrl = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return '/lounge-link?chooser=1'
+    }
+
+    const url = new URL('/lounge-link', window.location.origin)
+    url.searchParams.set('chooser', '1')
+
+    if (eventId) {
+      url.searchParams.set('event', eventId)
+    }
+
+    return url.toString()
+  }, [eventId])
+  const countdownQrDestination = customCountdownQrLink || loungeChoiceUrl
   const qrFlashLines = useMemo(() => {
     const lines = customQrFlashVenueName
       ? [...QR_FLASH_BASE_LINES, `Tonight at ${customQrFlashVenueName}`]
@@ -3319,7 +3333,7 @@ function MirrorPageContent() {
             <div className="mirror-pre-show-middle">
               <div className="mirror-pre-show-qr-col">
                 <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
-                <p className="mirror-qr-label">Scan to join</p>
+                <p className="mirror-qr-label">Scan to join and choose</p>
                 {activeQrFlashText ? <p className="mirror-qr-flash-line">{activeQrFlashText}</p> : null}
               </div>
               <div className="mirror-pre-show-steps-col">
@@ -3596,7 +3610,7 @@ function MirrorPageContent() {
             aria-label="Audience request page QR link"
           >
             <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
-            <p className="mirror-brb-qr-label">Scan to join</p>
+            <p className="mirror-brb-qr-label">Scan to join and choose</p>
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </a>
         </div>
