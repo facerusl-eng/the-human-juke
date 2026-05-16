@@ -1409,12 +1409,30 @@ function MirrorPageContent() {
     : countdownQrDestination
   
   const qrFlashLines = useMemo(() => {
+    const baseLines = [...QR_FLASH_BASE_LINES]
+    
+    // Add custom flash text from banner if it contains "-" delimiter
+    if (event?.mirrorBannerText?.trim()) {
+      const bannerText = event.mirrorBannerText.trim()
+      // If banner contains "-", split into multiple lines
+      if (bannerText.includes('-')) {
+        const customLines = bannerText
+          .split('-')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+        return [...baseLines, ...customLines]
+      }
+      // Otherwise, treat it as single custom venue name
+      return [...baseLines, bannerText]
+    }
+    
+    // Fallback to custom venue name if no banner text
     if (customQrFlashVenueName) {
-      return [...QR_FLASH_BASE_LINES, customQrFlashVenueName]
+      return [...baseLines, customQrFlashVenueName]
     }
 
-    return QR_FLASH_BASE_LINES
-  }, [customQrFlashVenueName])
+    return baseLines
+  }, [event?.mirrorBannerText, customQrFlashVenueName])
   const showQrFlashText = (event?.mirrorCountdownQrFlashEnabled ?? true) && qrFlashLines.length > 0
   const activeQrFlashText = showQrFlashText
     ? qrFlashLines[qrFlashTextIndex % qrFlashLines.length] ?? null
@@ -3382,7 +3400,7 @@ function MirrorPageContent() {
                 id="mirror-banner-input"
                 type="text"
                 className="mirror-banner-input"
-                placeholder="e.g. 🍺 2-for-1 beers until 22:00 · Happy hour all night!"
+                placeholder="e.g. 🍺 2-for-1 beers - Happy hour - All night! (use - for flash text lines)"
                 value={bannerText}
                 maxLength={250}
                 onChange={(e) => {
