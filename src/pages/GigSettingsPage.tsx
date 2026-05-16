@@ -1120,7 +1120,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
     try {
       const sanitizedFileName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const storagePath = `${user.id}/${event.id}/${Date.now()}-${sanitizedFileName}`
+      // Store intro tracks in the shared host library path so they are selectable across gigs.
+      const storagePath = `${user.id}/${Date.now()}-${sanitizedFileName}`
 
       const { error: uploadError } = await supabase
         .storage
@@ -1147,6 +1148,24 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       pushUndoState()
       updateState({ introAudioUrl: publicUrlData.publicUrl })
       setSelectedIntroAudioPath(storagePath)
+      setIntroAudioLibrary((currentLibrary) => {
+        const existing = currentLibrary.find((track) => track.path === storagePath)
+
+        if (existing) {
+          return currentLibrary
+        }
+
+        return [
+          {
+            path: storagePath,
+            name: selectedFile.name,
+            url: publicUrlData.publicUrl,
+            createdAt: new Date().toISOString(),
+            source: 'library',
+          },
+          ...currentLibrary,
+        ]
+      })
       setErrorText(null)
     } catch (error) {
       if (!isMountedRef.current) {

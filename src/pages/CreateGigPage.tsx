@@ -156,8 +156,8 @@ function CreateGigPage() {
         throw new Error(error.message)
       }
 
-      const nextLibrary = (data ?? [])
-        .filter((file) => !file.name.endsWith('/'))
+      const rootItems = data ?? []
+      const rootTracks = rootItems
         .filter((file) => file.name.toLowerCase().endsWith('.mp3'))
         .map((file) => {
           const path = `${user.id}/${file.name}`
@@ -173,6 +173,55 @@ function CreateGigPage() {
             createdAt: file.created_at ?? null,
           } satisfies IntroAudioLibraryItem
         })
+
+      const folderCandidates = rootItems
+        .filter((item) => !item.name.toLowerCase().endsWith('.mp3'))
+        .map((item) => item.name)
+
+      const nestedTrackGroups = await Promise.all(
+        folderCandidates.map(async (folderName) => {
+          const { data: nestedItems, error: nestedError } = await supabase
+            .storage
+            .from('gig-intro-audio')
+            .list(`${user.id}/${folderName}`, {
+              limit: 100,
+              sortBy: { column: 'created_at', order: 'desc' },
+            })
+
+          if (nestedError || !nestedItems) {
+            return [] as IntroAudioLibraryItem[]
+          }
+
+          return nestedItems
+            .filter((file) => file.name.toLowerCase().endsWith('.mp3'))
+            .map((file) => {
+              const path = `${user.id}/${folderName}/${file.name}`
+              const { data: publicUrlData } = supabase
+                .storage
+                .from('gig-intro-audio')
+                .getPublicUrl(path)
+
+              return {
+                path,
+                name: file.name,
+                url: publicUrlData.publicUrl,
+                createdAt: file.created_at ?? null,
+              } satisfies IntroAudioLibraryItem
+            })
+        }),
+      )
+
+      const dedupedLibrary = Array.from(
+        new Map(
+          [...rootTracks, ...nestedTrackGroups.flat()].map((track) => [track.path, track]),
+        ).values(),
+      )
+
+      const nextLibrary = dedupedLibrary.sort((leftTrack, rightTrack) => {
+        const leftTime = leftTrack.createdAt ? new Date(leftTrack.createdAt).getTime() : 0
+        const rightTime = rightTrack.createdAt ? new Date(rightTrack.createdAt).getTime() : 0
+        return rightTime - leftTime
+      })
 
       setIntroAudioLibrary(nextLibrary)
     } catch (error) {
