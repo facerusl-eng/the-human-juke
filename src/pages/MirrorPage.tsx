@@ -1576,7 +1576,7 @@ function MirrorPageContent() {
   const venueLogoOffsetX = Math.min(100, Math.max(-100, event?.venueLogoOffsetX ?? 0))
   const venueLogoOffsetY = Math.min(100, Math.max(-100, event?.venueLogoOffsetY ?? 0))
   const shouldShowPreShow = !isLive
-    && !demoMode
+    && (!demoMode || showCountdown)
     && ((event?.mirrorCountdownEnabled ?? true) || !nowPlaying)
   const mirrorDebugRows = [
     `event=${event?.id ?? 'null'}`,
