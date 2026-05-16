@@ -11,9 +11,9 @@
 ; 4  = Ch 4  Click Track (F alias)
 ; 5  = Ch 5              (G alias)
 ; 6  = Ch 6              (H alias)
-; Q  = Ch 15+16  Jamzone L+R
-; W  = Bus 5+6   Jamzone Bus
-; +  = Master LR
+; Numpad 7 = Ch 15+16  Jamzone L+R
+; Numpad 8 = AUX (Bus 5+6)
+; Numpad 9 = Master LR
 ; Numpad controls are mapped globally to keep non-numpad keys normal
 ; ─────────────────────────────────────────────────────────────────────────────
 
@@ -111,5 +111,7 @@ NumpadRight:: Toggle(["ch06"],    ["/ch/06/mix/on"],                    "Ch 6")
 Numpad7::
 NumpadHome:: Toggle(["ch15","ch16"], ["/ch/15/mix/on","/ch/16/mix/on"], "Ch 15+16 - Jamzone L+R")
 Numpad8::
-NumpadUp:: Toggle(["bus05","bus06"], ["/bus/05/mix/on","/bus/06/mix/on"], "Bus 5+6  - Jamzone Bus")
+NumpadUp:: Toggle(["bus05","bus06"], ["/bus/05/mix/on","/bus/06/mix/on"], "AUX - Bus 5+6")
+Numpad9::
+NumpadPgUp::
 NumpadAdd:: Toggle(["master"], ["/main/st/mix/on"], "MASTER LR")
