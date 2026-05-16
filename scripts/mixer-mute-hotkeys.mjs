@@ -5,12 +5,12 @@
  * Press keys to toggle mute on any channel instantly via OSC.
  *
  * Hotkeys:
- *   A  →  Ch 1  (Host Mic)
- *   S  →  Ch 2  (Karaoke Mic)
- *   D  →  Ch 3  (Guitar)
- *   F  →  Ch 4  (Click Track)
- *   G  →  Ch 5
- *   H  →  Ch 6
+ *   1  →  Ch 1  (Host Mic)
+ *   2  →  Ch 2  (Karaoke Mic)
+ *   3  →  Ch 3  (Guitar)
+ *   4  →  Ch 4  (Click Track)
+ *   5  →  Ch 5
+ *   6  →  Ch 6
  *   Q  →  Ch 15 + 16  (Jamzone L+R)
  *   W  →  Bus 5 + 6   (Jamzone submix)
  *   +  →  Master LR
@@ -76,11 +76,17 @@ function toggle(keys, addresses, label) {
 
 function handleKey(key) {
   switch (key.toLowerCase()) {
+    case '1':
     case 'a': toggle(['ch01'],          ['/ch/01/mix/on'],                         'Ch 1  — Host Mic');       break;
+    case '2':
     case 's': toggle(['ch02'],          ['/ch/02/mix/on'],                         'Ch 2  — Karaoke Mic');    break;
+    case '3':
     case 'd': toggle(['ch03'],          ['/ch/03/mix/on'],                         'Ch 3  — Guitar');         break;
+    case '4':
     case 'f': toggle(['ch04'],          ['/ch/04/mix/on'],                         'Ch 4  — Click Track');    break;
+    case '5':
     case 'g': toggle(['ch05'],          ['/ch/05/mix/on'],                         'Ch 5');                   break;
+    case '6':
     case 'h': toggle(['ch06'],          ['/ch/06/mix/on'],                         'Ch 6');                   break;
     case 'q': toggle(['ch15','ch16'],   ['/ch/15/mix/on','/ch/16/mix/on'],         'Ch 15+16 — Jamzone L+R'); break;
     case 'w': toggle(['bus05','bus06'], ['/bus/05/mix/on','/bus/06/mix/on'],       'Bus 5+6  — Jamzone Bus'); break;
@@ -113,12 +119,12 @@ function start() {
   console.log('╔══════════════════════════════════════════════════════╗');
   console.log('║    THE HUMAN JUKEBOX — Mute Hotkeys (OSC)           ║');
   console.log('╠══════════════════════════════════════════════════════╣');
-  console.log('║  A  →  Ch 1   Host Mic                              ║');
-  console.log('║  S  →  Ch 2   Karaoke Mic                           ║');
-  console.log('║  D  →  Ch 3   Guitar                                ║');
-  console.log('║  F  →  Ch 4   Click Track                           ║');
-  console.log('║  G  →  Ch 5                                         ║');
-  console.log('║  H  →  Ch 6                                         ║');
+  console.log('║  1  →  Ch 1   Host Mic   (A alias)                  ║');
+  console.log('║  2  →  Ch 2   Karaoke Mic (S alias)                 ║');
+  console.log('║  3  →  Ch 3   Guitar      (D alias)                 ║');
+  console.log('║  4  →  Ch 4   Click Track (F alias)                 ║');
+  console.log('║  5  →  Ch 5             (G alias)                   ║');
+  console.log('║  6  →  Ch 6             (H alias)                   ║');
   console.log('║  Q  →  Ch 15+16   Jamzone L+R                       ║');
   console.log('║  W  →  Bus 5+6    Jamzone Bus                       ║');
   console.log('║  +  →  MASTER LR                                    ║');

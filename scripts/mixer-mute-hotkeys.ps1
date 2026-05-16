@@ -37,12 +37,12 @@ Clear-Host
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host "  THE HUMAN JUKEBOX - Mute Hotkeys" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "  A -> Ch 1   Host Mic" -ForegroundColor Cyan
-Write-Host "  S -> Ch 2   Karaoke Mic" -ForegroundColor Cyan
-Write-Host "  D -> Ch 3   Guitar" -ForegroundColor Cyan
-Write-Host "  F -> Ch 4   Click Track" -ForegroundColor Cyan
-Write-Host "  G -> Ch 5" -ForegroundColor Cyan
-Write-Host "  H -> Ch 6" -ForegroundColor Cyan
+Write-Host "  1 -> Ch 1   Host Mic       (A alias)" -ForegroundColor Cyan
+Write-Host "  2 -> Ch 2   Karaoke Mic    (S alias)" -ForegroundColor Cyan
+Write-Host "  3 -> Ch 3   Guitar         (D alias)" -ForegroundColor Cyan
+Write-Host "  4 -> Ch 4   Click Track    (F alias)" -ForegroundColor Cyan
+Write-Host "  5 -> Ch 5                  (G alias)" -ForegroundColor Cyan
+Write-Host "  6 -> Ch 6                  (H alias)" -ForegroundColor Cyan
 Write-Host "  Q -> Ch 15+16  Jamzone L+R" -ForegroundColor Cyan
 Write-Host "  W -> Bus 5+6   Jamzone Bus" -ForegroundColor Cyan
 Write-Host "  + -> MASTER LR" -ForegroundColor Cyan
@@ -55,6 +55,12 @@ Write-Host ""
 while ($true) {
     $k = [System.Console]::ReadKey($true)
     switch ($k.KeyChar.ToString().ToLower()) {
+        '1' { Toggle @('ch01')          @('/ch/01/mix/on')                   'Ch 1   - Host Mic'       }
+        '2' { Toggle @('ch02')          @('/ch/02/mix/on')                   'Ch 2   - Karaoke Mic'    }
+        '3' { Toggle @('ch03')          @('/ch/03/mix/on')                   'Ch 3   - Guitar'         }
+        '4' { Toggle @('ch04')          @('/ch/04/mix/on')                   'Ch 4   - Click Track'    }
+        '5' { Toggle @('ch05')          @('/ch/05/mix/on')                   'Ch 5'                    }
+        '6' { Toggle @('ch06')          @('/ch/06/mix/on')                   'Ch 6'                    }
         'a' { Toggle @('ch01')          @('/ch/01/mix/on')                   'Ch 1   - Host Mic'       }
         's' { Toggle @('ch02')          @('/ch/02/mix/on')                   'Ch 2   - Karaoke Mic'    }
         'd' { Toggle @('ch03')          @('/ch/03/mix/on')                   'Ch 3   - Guitar'         }
