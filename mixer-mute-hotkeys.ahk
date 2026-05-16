@@ -14,7 +14,7 @@
 ; Q  = Ch 15+16  Jamzone L+R
 ; W  = Bus 5+6   Jamzone Bus
 ; +  = Master LR
-; Numpad 1..8 + Add are also mapped (NumLock on/off friendly)
+; Numpad controls are mapped globally to keep non-numpad keys normal
 ; ─────────────────────────────────────────────────────────────────────────────
 
 envMixerIp := EnvGet("XR18_IP")
@@ -96,13 +96,6 @@ Toggle(keys, addresses, label) {
 
 ; ── Hotkeys ───────────────────────────────────────────────────────────────────
 
-1:: Toggle(["ch01"],          ["/ch/01/mix/on"],                        "Ch 1  - Host Mic")
-2:: Toggle(["ch02"],          ["/ch/02/mix/on"],                        "Ch 2  - Karaoke Mic")
-3:: Toggle(["ch03"],          ["/ch/03/mix/on"],                        "Ch 3  - Guitar")
-4:: Toggle(["ch04"],          ["/ch/04/mix/on"],                        "Ch 4  - Click Track")
-5:: Toggle(["ch05"],          ["/ch/05/mix/on"],                        "Ch 5")
-6:: Toggle(["ch06"],          ["/ch/06/mix/on"],                        "Ch 6")
-
 Numpad1::
 NumpadEnd:: Toggle(["ch01"],      ["/ch/01/mix/on"],                    "Ch 1  - Host Mic")
 Numpad2::
@@ -120,13 +113,3 @@ NumpadHome:: Toggle(["ch15","ch16"], ["/ch/15/mix/on","/ch/16/mix/on"], "Ch 15+1
 Numpad8::
 NumpadUp:: Toggle(["bus05","bus06"], ["/bus/05/mix/on","/bus/06/mix/on"], "Bus 5+6  - Jamzone Bus")
 NumpadAdd:: Toggle(["master"], ["/main/st/mix/on"], "MASTER LR")
-
-a:: Toggle(["ch01"],          ["/ch/01/mix/on"],                        "Ch 1  - Host Mic")
-s:: Toggle(["ch02"],          ["/ch/02/mix/on"],                        "Ch 2  - Karaoke Mic")
-d:: Toggle(["ch03"],          ["/ch/03/mix/on"],                        "Ch 3  - Guitar")
-f:: Toggle(["ch04"],          ["/ch/04/mix/on"],                        "Ch 4  - Click Track")
-g:: Toggle(["ch05"],          ["/ch/05/mix/on"],                        "Ch 5")
-h:: Toggle(["ch06"],          ["/ch/06/mix/on"],                        "Ch 6")
-q:: Toggle(["ch15","ch16"],   ["/ch/15/mix/on","/ch/16/mix/on"],        "Ch 15+16 - Jamzone L+R")
-w:: Toggle(["bus05","bus06"], ["/bus/05/mix/on","/bus/06/mix/on"],      "Bus 5+6  - Jamzone Bus")
-+:: Toggle(["master"],        ["/main/st/mix/on"],                      "MASTER LR")
