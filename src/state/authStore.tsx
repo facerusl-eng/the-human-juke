@@ -5,6 +5,7 @@ import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { supabase } from '../lib/supabase'
 
 const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
+const IS_DEV_ENV = import.meta.env.DEV
 const AUTH_REQUEST_TIMEOUT_MS = 20_000
 const AUTH_TRANSIENT_RETRY_COUNT = 2
 const AUTH_PROFILE_REQUEST_TIMEOUT_MS = 20_000
@@ -359,7 +360,14 @@ function AuthProvider({ children }: PropsWithChildren) {
 
   const syncAllowedHostRole = useCallback(
     async (currentUser: User, currentProfile: Profile | null) => {
-      if (!isAllowedHostEmail(currentUser.email) || currentProfile?.role === 'host') {
+      if (currentProfile?.role === 'host') {
+        return currentProfile
+      }
+
+      const shouldPromoteHost = isAllowedHostEmail(currentUser.email)
+        || (IS_DEV_ENV && !ALLOWED_HOST_EMAIL)
+
+      if (!shouldPromoteHost) {
         return currentProfile
       }
 
@@ -684,6 +692,33 @@ function AuthProvider({ children }: PropsWithChildren) {
               'Session sync timed out.',
             )
             await applySessionState(sessionData.session ?? null)
+          }
+
+          const refreshedSession = await withTimeout(
+            supabase.auth.getSession(),
+            AUTH_REQUEST_TIMEOUT_MS,
+            'Session sync timed out.',
+          )
+          const refreshedUser = refreshedSession.data.session?.user ?? null
+
+          if (refreshedUser) {
+            const refreshedProfile = await retryTransientAuthOperation(
+              () => withTimeout(getProfile(refreshedUser.id), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Profile loading timed out.'),
+              AUTH_PROFILE_RETRY_COUNT,
+            )
+            const syncedProfile = await retryTransientAuthOperation(
+              () => withTimeout(syncAllowedHostRole(refreshedUser, refreshedProfile), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Host role sync timed out.'),
+              AUTH_PROFILE_RETRY_COUNT,
+            )
+            setProfile(syncedProfile)
+
+            if (syncedProfile?.role !== 'host') {
+              throw new Error(
+                ALLOWED_HOST_EMAIL
+                  ? `Signed in, but this account is not a host. Use ${ALLOWED_HOST_EMAIL} or grant host role in profiles.`
+                  : 'Signed in, but this account is not a host. Set VITE_ALLOWED_HOST_EMAIL in .env or grant host role in profiles.',
+              )
+            }
           }
 
           return
