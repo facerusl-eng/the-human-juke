@@ -424,6 +424,14 @@ function isAudienceRoutePath() {
   return pathname.startsWith('/audience') || pathname.startsWith('/a/') || pathname.startsWith('/j/')
 }
 
+function isMirrorRoutePath() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.pathname.startsWith('/mirror')
+}
+
 function isTestAudiencePreviewMode() {
   if (typeof window === 'undefined') {
     return false
@@ -912,6 +920,26 @@ async function fetchLatestActiveEventId() {
       .maybeSingle(),
     DEFAULT_DB_TIMEOUT_MS,
     'Loading the active gig timed out. Please try again.',
+  )
+
+  if (error) {
+    throw error
+  }
+
+  return data?.id ?? null
+}
+
+async function fetchLatestMirrorEventId() {
+  const { data, error } = await withTimeout(
+    supabase
+      .from('events')
+      .select('id')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    DEFAULT_DB_TIMEOUT_MS,
+    'Loading the mirror gig timed out. Please try again.',
   )
 
   if (error) {
@@ -2171,6 +2199,9 @@ function QueueProvider({ children }: PropsWithChildren) {
         const requestedEventId = readRequestedEventIdFromUrl()
         const runAsHostSession = isHostSession && !isAudienceRoutePath()
         const isHostGigsRoute = runAsHostSession && isAdminGigsRoutePath()
+        const resolveLatestPublicEventId = async () => (isMirrorRoutePath()
+          ? fetchLatestMirrorEventId()
+          : fetchLatestActiveEventId())
         setAudienceConnectionStatus(runAsHostSession ? 'connected' : 'connecting')
 
         const syncAudienceActiveEventId = async (nextEventId: string) => {
@@ -2229,7 +2260,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         } else {
           // Audience default behavior: prefer explicit event in URL.
           // Otherwise, only auto-attach to currently live gigs (room open).
-          targetEventId = requestedEventId ?? await fetchLatestActiveEventId()
+          targetEventId = requestedEventId ?? await resolveLatestPublicEventId()
         }
 
         const requestAudienceReload = () => {
@@ -2260,7 +2291,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
 
           try {
-            const latestActiveEventId = await fetchLatestActiveEventId()
+            const latestActiveEventId = await resolveLatestPublicEventId()
 
             if (latestActiveEventId && latestActiveEventId !== activeEventIdRef.current) {
               requestAudienceReload()
@@ -2361,7 +2392,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             // If the event ID is stale (FK violation), fall back to the current live event.
             if (syncError instanceof Error && (syncError as Error & { isForeignKeyViolation?: boolean }).isForeignKeyViolation) {
               console.warn('queueStore: requested event no longer exists, falling back to latest active event', syncError)
-              const latestActiveEventId = await fetchLatestActiveEventId()
+              const latestActiveEventId = await resolveLatestPublicEventId()
               if (!latestActiveEventId) {
                 activeEventIdRef.current = null
                 if (isCurrent) {
@@ -2398,7 +2429,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             throw new Error('Unable to load requested event.', { cause: error })
           }
 
-          const latestActiveEventId = await fetchLatestActiveEventId()
+          const latestActiveEventId = await resolveLatestPublicEventId()
 
           if (!latestActiveEventId) {
             throw new Error('No active gig found.', { cause: error })
@@ -2466,7 +2497,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             }
 
             if (!runAsHostSession && !requestedEventIdFromUrl) {
-              const latestActiveEventId = await fetchLatestActiveEventId()
+              const latestActiveEventId = await resolveLatestPublicEventId()
 
               if (!latestActiveEventId) {
                 activeEventIdRef.current = null
@@ -3619,8 +3650,107 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }))
 
-        eventOptionalSettingsCache.delete(event.id)
-        await fetchQueueSnapshot(event.id)
+        eventOptionalSettingsCache.set(event.id, {
+          tipMessages: {
+            tip_thank_you_message_da: updates.tipThankYouMessageDA || null,
+            tip_thank_you_message_en: updates.tipThankYouMessageEN || null,
+          },
+          eventTypeSettings: {
+            event_type: updates.eventType ?? 'halli-live',
+            event_theme: updates.eventTheme ?? ((updates.eventType ?? 'halli-live') === 'karaoke' ? 'karaoke' : 'human-jukebox'),
+            karafun_url: updates.karafunUrl ?? null,
+            artist_name: updates.artistName ?? null,
+            audience_voting_enabled: updates.audienceVotingEnabled ?? true,
+            auto_live_enabled: updates.autoLiveEnabled ?? false,
+            intro_audio_url: updates.introAudioUrl ?? null,
+          },
+          audienceLocaleSettings: {
+            audience_icelandic_enabled: updates.audienceIcelandicEnabled ?? false,
+          },
+          venueLogoLayoutSettings: {
+            venue_logo_scale: updates.venueLogoScale,
+            venue_logo_offset_x: updates.venueLogoOffsetX,
+            venue_logo_offset_y: updates.venueLogoOffsetY,
+          },
+          mirrorQrSettings: {
+            mirror_brb_qr_link: updates.mirrorCountdownQrLink,
+            mirror_brb_qr_text: updates.mirrorCountdownQrText,
+            mirror_countdown_qr_custom_enabled: updates.mirrorCountdownQrCustomEnabled,
+            mirror_countdown_qr_custom_url: updates.mirrorCountdownQrCustomUrl,
+            mirror_break_qr_enabled: updates.mirrorBreakQrEnabled,
+            mirror_break_qr_custom_url: updates.mirrorBreakQrCustomUrl,
+          },
+          mirrorQrFlashSettings: {
+            mirror_brb_qr_flash_enabled: updates.mirrorCountdownQrFlashEnabled,
+            mirror_brb_qr_flash_venue: updates.mirrorCountdownQrFlashVenue,
+          },
+          fetchedAt: Date.now(),
+        })
+
+        setEvent((currentEvent) => {
+          if (!currentEvent || currentEvent.id !== event.id) {
+            return currentEvent
+          }
+
+          return {
+            ...currentEvent,
+            name: updates.name,
+            venue: updates.venue || null,
+            gigDate: updates.gigDate || null,
+            gigStartTime: updates.gigStartTime || null,
+            gigEndTime: updates.gigEndTime || null,
+            subtitle: updates.subtitle || null,
+            requestInstructions: updates.requestInstructions || null,
+            instagramUrl: updates.instagramUrl || null,
+            tiktokUrl: updates.tiktokUrl || null,
+            youtubeUrl: updates.youtubeUrl || null,
+            facebookUrl: updates.facebookUrl || null,
+            paypalUrl: updates.paypalUrl || null,
+            mobilpayUrl: updates.mobilpayUrl || null,
+            contactEmail: updates.contactEmail || null,
+            playlistOnlyRequests: updates.playlistOnlyRequests,
+            mirrorPhotoSpotlightEnabled: updates.mirrorPhotoSpotlightEnabled,
+            mirrorCountdownEnabled: updates.mirrorCountdownEnabled,
+            mirrorCountdownShowQrLink: updates.mirrorCountdownShowQrLink,
+            mirrorCountdownQrLink: updates.mirrorCountdownQrLink,
+            mirrorCountdownQrCustomEnabled: updates.mirrorCountdownQrCustomEnabled,
+            mirrorCountdownQrCustomUrl: updates.mirrorCountdownQrCustomUrl,
+            mirrorCountdownQrText: updates.mirrorCountdownQrText,
+            mirrorCountdownQrFlashEnabled: updates.mirrorCountdownQrFlashEnabled,
+            mirrorCountdownQrFlashVenue: updates.mirrorCountdownQrFlashVenue,
+            mirrorBreakQrEnabled: updates.mirrorBreakQrEnabled,
+            mirrorBreakQrCustomUrl: updates.mirrorBreakQrCustomUrl,
+            mirrorBannerEnabled: updates.mirrorBannerEnabled,
+            allowDuplicateRequests: updates.allowDuplicateRequests,
+            maxActiveRequestsPerUser: updates.maxActiveRequestsPerUser,
+            maxQueueSize: updates.maxQueueSize,
+            roomOpen: updates.roomOpen,
+            explicitFilterEnabled: updates.explicitFilterEnabled,
+            showInAudienceNoGig: updates.showInAudienceNoGig,
+            coverImageUrl: updates.coverImageUrl,
+            venueLogoUrl: updates.venueLogoUrl,
+            venueLogoScale: updates.venueLogoScale,
+            venueLogoOffsetX: updates.venueLogoOffsetX,
+            venueLogoOffsetY: updates.venueLogoOffsetY,
+            showCustomButton: updates.showCustomButton,
+            customButtonLabel: updates.customButtonLabel || null,
+            customButtonLink: updates.customButtonLink || null,
+            tipThankYouMessageDA: updates.tipThankYouMessageDA || null,
+            tipThankYouMessageEN: updates.tipThankYouMessageEN || null,
+            eventType: updates.eventType,
+            eventTheme: updates.eventTheme,
+            karafunUrl: updates.karafunUrl ?? null,
+            artistName: updates.artistName ?? null,
+            audienceVotingEnabled: updates.audienceVotingEnabled,
+            audienceIcelandicEnabled: updates.audienceIcelandicEnabled,
+            autoLiveEnabled: updates.autoLiveEnabled,
+            introAudioUrl: updates.introAudioUrl ?? null,
+          }
+        })
+
+        void fetchQueueSnapshot(event.id).catch((snapshotError) => {
+          console.warn('queueStore: background refresh failed after event settings save', snapshotError)
+        })
       },
       upvoteSong: async (songId: string) => {
         if (!songId) {
