@@ -240,6 +240,7 @@ const VENUE_LOGO_SCALE_MIN = 20
 const VENUE_LOGO_SCALE_MAX = 500
 const VENUE_LOGO_OFFSET_LIMIT = 100
 const EVENT_OPTIONAL_SETTINGS_CACHE_TTL_MS = 120_000
+const IS_DEV_ENV = import.meta.env.DEV
 
 type TipMessages = {
   tip_thank_you_message_da: string | null
@@ -998,9 +999,34 @@ async function fetchHostEvents(hostId: string) {
   })()
     : ((fullData ?? []) as Array<Record<string, unknown>>)
 
+  let resolvedData = data
+
+  // Local dev safety net: if host mapping drifted, show available gigs instead of a blank list.
+  if (IS_DEV_ENV && resolvedData.length === 0) {
+    try {
+      const { data: devFallbackData, error: devFallbackError } = await withTimeout(
+        withAuthLockRetry(() =>
+          supabase
+            .from('events')
+            .select(fullSelect)
+            .order('created_at', { ascending: false })
+            .limit(100),
+        ),
+        DEFAULT_DB_TIMEOUT_MS,
+        'Loading gigs timed out. Please try again.',
+      )
+
+      if (!devFallbackError && Array.isArray(devFallbackData) && devFallbackData.length > 0) {
+        resolvedData = devFallbackData as Array<Record<string, unknown>>
+      }
+    } catch {
+      // Keep primary host-scoped result when fallback is unavailable.
+    }
+  }
+
   const testGigMap = readTestGigMap()
 
-  return data.map((eventData) => {
+  return resolvedData.map((eventData) => {
     const eventId = String(eventData.id ?? '')
     const rawEventType = eventData.event_type as string | null
     const resolvedEventType = (rawEventType === 'karaoke' ? 'karaoke' : rawEventType === 'build-self' ? 'build-self' : 'halli-live') as 'halli-live' | 'karaoke' | 'build-self'
