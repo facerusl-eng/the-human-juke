@@ -1636,21 +1636,19 @@ function MirrorPageContent() {
     [event?.gigDate, event?.gigStartTime],
   )
   const countdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : null
-  const showCountdown = !isLive
-    && (event?.mirrorCountdownEnabled ?? true)
-    && Boolean(countdownTarget)
-    && Boolean(countdownRemainingMs && countdownRemainingMs > 0)
+  const countdownDisplayRemainingMs = countdownRemainingMs === null
+    ? null
+    : Math.max(0, countdownRemainingMs)
+  const showCountdown = !isLive && Boolean(countdownTarget)
   const showCountdownQrLink = event?.mirrorCountdownShowQrLink ?? true
-  const countdownLabel = showCountdown && countdownRemainingMs !== null
-    ? formatMirrorCountdownLabel(countdownRemainingMs)
+  const countdownLabel = showCountdown && countdownDisplayRemainingMs !== null
+    ? formatMirrorCountdownLabel(countdownDisplayRemainingMs)
     : null
   const countdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget, audienceLocale) : null
   const venueLogoScale = Math.min(220, Math.max(60, event?.venueLogoScale ?? 100))
   const venueLogoOffsetX = Math.min(100, Math.max(-100, event?.venueLogoOffsetX ?? 0))
   const venueLogoOffsetY = Math.min(100, Math.max(-100, event?.venueLogoOffsetY ?? 0))
   const shouldShowPreShow = !isLive
-    && (!demoMode || showCountdown)
-    && ((event?.mirrorCountdownEnabled ?? true) || !nowPlaying)
   const mirrorDebugRows = [
     `event=${event?.id ?? 'null'}`,
     `roomOpen=${String(isLive)}`,
