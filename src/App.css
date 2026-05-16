@@ -6217,7 +6217,22 @@
   padding: 0.75rem 0;
 }
 
+.gig-venue-logo-preview-stage {
+  width: min(24rem, 100%);
+  height: 11rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(93, 215, 255, 0.28);
+  background: linear-gradient(180deg, rgba(10, 18, 38, 0.82), rgba(9, 16, 34, 0.66));
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
 .gig-venue-logo-preview-image {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   transform: translate(var(--gig-venue-logo-offset-x), var(--gig-venue-logo-offset-y)) scale(var(--gig-venue-logo-scale));
   transform-origin: center center;
@@ -6248,7 +6263,11 @@
 .gig-venue-logo-crop-controls {
   width: min(24rem, 100%);
   display: grid;
-  gap: 0.35rem;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(93, 215, 255, 0.2);
+  background: rgba(8, 14, 34, 0.45);
 }
 
 .gig-venue-logo-crop-controls label {
@@ -6259,6 +6278,11 @@
 
 .gig-venue-logo-crop-controls input[type='range'] {
   width: 100%;
+}
+
+.gig-countdown-requirements {
+  margin-top: -0.15rem;
+  margin-left: 0.4rem;
 }
 
 .gig-snapshot-restore-button {

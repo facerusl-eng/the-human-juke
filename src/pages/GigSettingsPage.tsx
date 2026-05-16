@@ -841,8 +841,10 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         })
 
         if (shouldSyncSelectedPlaylists) {
-          await ensurePlaylistArtwork(saveState.selectedPlaylistIds)
           setInitialSelectedPlaylistIds(normalizePlaylistIds(saveState.selectedPlaylistIds))
+          void ensurePlaylistArtwork(saveState.selectedPlaylistIds).catch((artworkError) => {
+            console.warn('GigSettingsPage: playlist artwork backfill failed after save', artworkError)
+          })
         }
         markSaved()
         await registerBackgroundSync('jukebox-sync')
@@ -1860,21 +1862,6 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           expandedClassName="expanded"
           collapsedClassName="collapsed"
         >
-          <div className="field-row">
-            <label>Scrolling banner</label>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                pushUndoState()
-                updateState({ mirrorBannerEnabled: !state.mirrorBannerEnabled })
-              }}
-            >
-              {state.mirrorBannerEnabled ? 'Turn Banner Off' : 'Turn Banner On'}
-            </button>
-            <p className="field-hint">Quick toggle for the mirror scroller banner.</p>
-          </div>
-
           <div className="toggle-group">
             <label className="toggle-card" htmlFor="gig-mirror-spotlight">
               <input
@@ -1907,31 +1894,13 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               </div>
             </label>
             {state.mirrorCountdownEnabled ? (
-              <div className="create-gig-time-row gig-countdown-datetime-row">
-                <div className="field-row">
-                  <label htmlFor="gig-date-mirror">Gig date</label>
-                  <input
-                    id="gig-date-mirror"
-                    type="date"
-                    value={state.gigDate}
-                    onChange={(e) => {
-                      pushUndoState()
-                      updateState({ gigDate: e.target.value })
-                    }}
-                  />
-                </div>
-                <div className="field-row">
-                  <label htmlFor="gig-start-time-mirror">Start time</label>
-                  <input
-                    id="gig-start-time-mirror"
-                    type="time"
-                    value={state.gigStartTime}
-                    onChange={(e) => {
-                      pushUndoState()
-                      updateState({ gigStartTime: e.target.value })
-                    }}
-                  />
-                </div>
+              <div className="gig-countdown-requirements">
+                <p className="field-hint">
+                  Countdown uses the <strong>Gig Info</strong> date and start time above.
+                </p>
+                {!state.gigDate || !state.gigStartTime ? (
+                  <p className="error-text request-error-inline">Set both date and start time in Gig Info to show countdown on mirror.</p>
+                ) : null}
               </div>
             ) : null}
             <label className="toggle-card" htmlFor="gig-mirror-countdown-qr-link">
@@ -2105,11 +2074,13 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
             <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name. Supports common image formats up to 10 MB.</p>
             {state.venueLogoUrl ? (
               <div className="photo-preview gig-venue-logo-crop-shell" ref={venueLogoCropShellRef}>
-                <img
-                  src={state.venueLogoUrl}
-                  alt="Venue logo preview"
-                  className="gig-venue-logo-preview-image"
-                />
+                <div className="gig-venue-logo-preview-stage" aria-label="Venue logo full preview">
+                  <img
+                    src={state.venueLogoUrl}
+                    alt="Venue logo preview"
+                    className="gig-venue-logo-preview-image"
+                  />
+                </div>
                 <div className="gig-venue-logo-crop-preview" aria-label="Venue logo crop preview">
                   <img
                     src={state.venueLogoUrl}
