@@ -342,6 +342,29 @@ function normalizeTimeValue(value: string | null | undefined): string {
   return trimmed.length > 5 && trimmed[2] === ':' && trimmed[5] === ':' ? trimmed.slice(0, 5) : trimmed
 }
 
+function normalizeTimeInputForSave(value: string): string {
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return ''
+  }
+
+  // Some browsers/locales can surface dot-separated times (e.g. 19.30).
+  const dottedMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})$/)
+  if (dottedMatch) {
+    const hours = Number.parseInt(dottedMatch[1], 10)
+    const minutes = Number.parseInt(dottedMatch[2], 10)
+
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+    }
+  }
+
+  const normalized = normalizeTimeValue(trimmed)
+  const validTimePattern = /^([01]\d|2[0-3]):([0-5]\d)$/
+  return validTimePattern.test(normalized) ? normalized : ''
+}
+
 function normalizeRequestCapValue(value: number | string | null | undefined): string {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
     return String(Math.trunc(value))
@@ -778,6 +801,20 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         const normalizedLimit = saveState.maxActiveRequestsPerUser.trim()
         const parsedLimit = normalizedLimit ? Number.parseInt(normalizedLimit, 10) : null
         const shouldSyncSelectedPlaylists = !arePlaylistSelectionsEqual(saveState.selectedPlaylistIds, initialSelectedPlaylistIds)
+        const normalizedGigStartTime = normalizeTimeInputForSave(saveState.gigStartTime)
+        const normalizedGigEndTime = normalizeTimeInputForSave(saveState.gigEndTime)
+
+        if (saveState.gigStartTime.trim() && !normalizedGigStartTime) {
+          setErrorText('Start time must be valid (for example 19:30).')
+          markError()
+          return
+        }
+
+        if (saveState.gigEndTime.trim() && !normalizedGigEndTime) {
+          setErrorText('End time must be valid (for example 23:00).')
+          markError()
+          return
+        }
 
         if (parsedLimit !== null && (!Number.isFinite(parsedLimit) || parsedLimit < 1)) {
           setErrorText('Request cap must be at least 1, or left blank for no cap.')
@@ -795,10 +832,10 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           audienceVotingEnabled: saveState.audienceVotingEnabled,
           audienceIcelandicEnabled: saveState.audienceIcelandicEnabled,
           gigDate: saveState.gigDate,
-          gigStartTime: saveState.gigStartTime,
+          gigStartTime: normalizedGigStartTime,
           autoLiveEnabled: saveState.autoLiveEnabled,
           introAudioUrl: saveState.introAudioUrl.trim() || null,
-          gigEndTime: saveState.gigEndTime,
+          gigEndTime: normalizedGigEndTime,
           subtitle: saveState.subtitle.trim(),
           requestInstructions: saveState.requestInstructions.trim(),
           instagramUrl: saveState.instagramUrl.trim(),
