@@ -87,7 +87,6 @@ const QR_FLASH_BASE_LINES = [
   'Thirsty?',
   "The bar's got options",
   'Some of them even make sense',
-  'Tonight',
 ]
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
