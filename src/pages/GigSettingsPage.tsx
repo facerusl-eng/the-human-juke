@@ -803,6 +803,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         const shouldSyncSelectedPlaylists = !arePlaylistSelectionsEqual(saveState.selectedPlaylistIds, initialSelectedPlaylistIds)
         const normalizedGigStartTime = normalizeTimeInputForSave(saveState.gigStartTime)
         const normalizedGigEndTime = normalizeTimeInputForSave(saveState.gigEndTime)
+        const normalizedVenue = saveState.venue.trim()
+        const normalizedMirrorCountdownQrFlashVenue = saveState.mirrorCountdownQrFlashVenue.trim()
+        const persistedMirrorCountdownQrFlashVenue = normalizedMirrorCountdownQrFlashVenue || normalizedVenue
 
         if (saveState.gigStartTime.trim() && !normalizedGigStartTime) {
           setErrorText('Start time must be valid (for example 19:30).')
@@ -824,7 +827,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
 
         await updateEventSettings({
           name: saveState.gigName.trim(),
-          venue: saveState.venue.trim(),
+          venue: normalizedVenue,
           eventType: normalizeEventTypeForSave(saveState.eventType),
           eventTheme: normalizeEventThemeForSave(saveState.eventType),
           karafunUrl: saveState.karafunUrl.trim() || null,
@@ -855,7 +858,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           mirrorCountdownQrCustomUrl: saveState.mirrorCountdownQrCustomUrl.trim() || null,
           mirrorCountdownQrText: saveState.mirrorCountdownQrText.trim() || null,
           mirrorCountdownQrFlashEnabled: saveState.mirrorCountdownQrFlashEnabled,
-          mirrorCountdownQrFlashVenue: saveState.mirrorCountdownQrFlashVenue.trim() || null,
+          mirrorCountdownQrFlashVenue: persistedMirrorCountdownQrFlashVenue || null,
           mirrorBreakQrEnabled: saveState.mirrorBreakQrEnabled,
           mirrorBreakQrCustomUrl: saveState.mirrorBreakQrCustomUrl.trim() || null,
           mirrorBannerEnabled: saveState.mirrorBannerEnabled,
@@ -875,6 +878,44 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           customButtonLink: saveState.customButtonLink.trim() || null,
           tipThankYouMessageDA: saveState.tipThankYouMessageDA.trim() || null,
           tipThankYouMessageEN: saveState.tipThankYouMessageEN.trim() || null,
+        })
+
+        setState((currentState) => {
+          if (currentState !== saveState) {
+            return currentState
+          }
+
+          return {
+            ...saveState,
+            gigName: saveState.gigName.trim(),
+            venue: normalizedVenue,
+            karafunUrl: saveState.karafunUrl.trim(),
+            artistName: saveState.artistName.trim(),
+            gigStartTime: normalizedGigStartTime,
+            gigEndTime: normalizedGigEndTime,
+            subtitle: saveState.subtitle.trim(),
+            requestInstructions: saveState.requestInstructions.trim(),
+            instagramUrl: saveState.instagramUrl.trim(),
+            tiktokUrl: saveState.tiktokUrl.trim(),
+            youtubeUrl: saveState.youtubeUrl.trim(),
+            facebookUrl: saveState.facebookUrl.trim(),
+            paypalUrl: saveState.paypalUrl.trim(),
+            mobilpayUrl: saveState.mobilpayUrl.trim(),
+            contactEmail: saveState.contactEmail.trim(),
+            mirrorCountdownQrLink: saveState.mirrorCountdownQrLink.trim(),
+            mirrorCountdownQrCustomUrl: saveState.mirrorCountdownQrCustomUrl.trim(),
+            mirrorCountdownQrText: saveState.mirrorCountdownQrText.trim(),
+            mirrorCountdownQrFlashVenue: persistedMirrorCountdownQrFlashVenue,
+            mirrorBreakQrCustomUrl: saveState.mirrorBreakQrCustomUrl.trim(),
+            maxActiveRequestsPerUser: parsedLimit === null ? '' : String(parsedLimit),
+            coverImageUrl: saveState.coverImageUrl.trim(),
+            venueLogoUrl: saveState.venueLogoUrl.trim(),
+            customButtonLabel: saveState.customButtonLabel.trim(),
+            customButtonLink: saveState.customButtonLink.trim(),
+            tipThankYouMessageDA: saveState.tipThankYouMessageDA.trim(),
+            tipThankYouMessageEN: saveState.tipThankYouMessageEN.trim(),
+            introAudioUrl: saveState.introAudioUrl.trim(),
+          }
         })
 
         if (shouldSyncSelectedPlaylists) {
