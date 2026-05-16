@@ -1369,28 +1369,32 @@
 
 .mirror-qr-flash-line {
   margin: 0;
-  font-size: clamp(1.15rem, 1.6vw, 1.5rem);
-  font-weight: 900;
-  letter-spacing: 0.03em;
-  color: #ffffff;
+  font-size: clamp(1.08rem, 1.45vw, 1.36rem);
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: rgba(255, 246, 224, 0.98);
   text-align: center;
   line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
-  padding: clamp(0.2rem, 0.45vw, 0.34rem) clamp(0.5rem, 0.95vw, 0.78rem);
+  padding: clamp(0.24rem, 0.5vw, 0.38rem) clamp(0.6rem, 1.1vw, 0.9rem);
   border-radius: 999px;
-  border: 1px solid rgba(255, 200, 100, 0.32);
-  background: linear-gradient(180deg, rgba(255, 188, 94, 0.2), rgba(255, 120, 0, 0.1));
+  border: 1px solid rgba(255, 201, 112, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 198, 92, 0.18), rgba(255, 133, 23, 0.1)),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+  -webkit-backdrop-filter: blur(1.5px);
+  backdrop-filter: blur(1.5px);
   text-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.8),
-    0 4px 8px rgba(0, 0, 0, 0.6),
-    0 0 20px rgba(255, 200, 100, 0.8),
-    0 0 40px rgba(255, 150, 0, 0.6),
-    inset -1px -1px 2px rgba(0, 0, 0, 0.4),
-    inset 1px 1px 2px rgba(255, 255, 255, 0.3);
-  animation: mirror-qr-flash-pulse 5s ease-in-out infinite;
+    0 1px 2px rgba(0, 0, 0, 0.72),
+    0 0 12px rgba(255, 186, 80, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 20px rgba(5, 9, 24, 0.3);
+  animation: mirror-qr-flash-pulse 5.8s ease-in-out infinite;
 }
 
 .mirror-qr-flash-slot {
@@ -1404,14 +1408,12 @@
 @keyframes mirror-qr-flash-pulse {
   0%,
   100% {
-    opacity: 0.56;
-    transform: translateY(1px);
+    opacity: 0.82;
   }
 
   15%,
   70% {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
