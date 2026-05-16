@@ -1662,6 +1662,10 @@ function MirrorPageContent() {
   const countdownLabel = showCountdown && countdownDisplayRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownDisplayRemainingMs)
     : null
+  const finalCountdownSeconds = showCountdown && countdownRemainingMs !== null && countdownRemainingMs > 0 && countdownRemainingMs <= 10_000
+    ? Math.ceil(countdownRemainingMs / 1000)
+    : null
+  const showFinalCountdownOverlay = finalCountdownSeconds !== null
   const countdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget, audienceLocale) : null
   const venueLogoScale = Math.min(220, Math.max(60, event?.venueLogoScale ?? 100))
   const venueLogoOffsetX = Math.min(100, Math.max(-100, event?.venueLogoOffsetX ?? 0))
@@ -3429,6 +3433,12 @@ function MirrorPageContent() {
             className={`mirror-pre-show ${showCountdown ? 'mirror-pre-show-has-countdown' : ''}`.trim()}
             aria-label="Pre-show welcome"
           >
+
+            {showFinalCountdownOverlay ? (
+              <div className="mirror-final-countdown-overlay" aria-live="assertive" aria-label="Final countdown">
+                <p className="mirror-final-countdown-number">{finalCountdownSeconds}</p>
+              </div>
+            ) : null}
 
             {/* ── TOP: headline + status ── */}
             <div className="mirror-pre-show-top">
