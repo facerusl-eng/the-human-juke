@@ -12,8 +12,8 @@
 ; 5  = Ch 5              (G alias)
 ; 6  = Ch 6              (H alias)
 ; Numpad 7 = Ch 15+16  Jamzone L+R
-; Numpad 8 = AUX (Bus 5+6)
-; Numpad 9 = Master LR
+; Numpad 8 = AUX source to Bus 5+6
+; Numpad 9 = Master channel (Bus 5+6)
 ; Numpad controls are mapped globally to keep non-numpad keys normal
 ; ─────────────────────────────────────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ state := Map(
     "ch01",  true, "ch02",  true, "ch03",  true, "ch04", true,
     "ch05",  true, "ch06",  true,
     "ch15",  true, "ch16",  true,
-    "bus05", true, "bus06", true,
+    "aux",   true,
     "master",true
 )
 
@@ -111,7 +111,7 @@ NumpadRight:: Toggle(["ch06"],    ["/ch/06/mix/on"],                    "Ch 6")
 Numpad7::
 NumpadHome:: Toggle(["ch15","ch16"], ["/ch/15/mix/on","/ch/16/mix/on"], "Ch 15+16 - Jamzone L+R")
 Numpad8::
-NumpadUp:: Toggle(["bus05","bus06"], ["/bus/05/mix/on","/bus/06/mix/on"], "AUX - Bus 5+6")
+NumpadUp:: Toggle(["aux"], ["/rtn/aux/mix/05/on","/rtn/aux/mix/06/on"], "AUX Source")
 Numpad9::
 NumpadPgUp::
-NumpadAdd:: Toggle(["master"], ["/main/st/mix/on"], "MASTER LR")
+NumpadAdd:: Toggle(["master"], ["/bus/05/mix/on","/bus/06/mix/on"], "MASTER Channel (Bus 5+6)")
