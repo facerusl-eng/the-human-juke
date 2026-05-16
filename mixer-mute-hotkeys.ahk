@@ -5,15 +5,16 @@
 ; Runs in system tray. Works even when window is in background.
 ; Right-click tray icon → Suspend to disable while typing normally.
 ;
-; A  = Ch 1  Host Mic
-; S  = Ch 2  Karaoke Mic
-; D  = Ch 3  Guitar
-; F  = Ch 4  Click Track
-; G  = Ch 5
-; H  = Ch 6
+; 1  = Ch 1  Host Mic   (A alias)
+; 2  = Ch 2  Karaoke Mic (S alias)
+; 3  = Ch 3  Guitar      (D alias)
+; 4  = Ch 4  Click Track (F alias)
+; 5  = Ch 5              (G alias)
+; 6  = Ch 6              (H alias)
 ; Q  = Ch 15+16  Jamzone L+R
 ; W  = Bus 5+6   Jamzone Bus
 ; +  = Master LR
+; Numpad 1..8 + Add are also mapped (NumLock on/off friendly)
 ; ─────────────────────────────────────────────────────────────────────────────
 
 MIXER_IP   := "192.168.10.70"
@@ -93,6 +94,31 @@ Toggle(keys, addresses, label) {
 }
 
 ; ── Hotkeys ───────────────────────────────────────────────────────────────────
+
+1:: Toggle(["ch01"],          ["/ch/01/mix/on"],                        "Ch 1  - Host Mic")
+2:: Toggle(["ch02"],          ["/ch/02/mix/on"],                        "Ch 2  - Karaoke Mic")
+3:: Toggle(["ch03"],          ["/ch/03/mix/on"],                        "Ch 3  - Guitar")
+4:: Toggle(["ch04"],          ["/ch/04/mix/on"],                        "Ch 4  - Click Track")
+5:: Toggle(["ch05"],          ["/ch/05/mix/on"],                        "Ch 5")
+6:: Toggle(["ch06"],          ["/ch/06/mix/on"],                        "Ch 6")
+
+Numpad1::
+NumpadEnd:: Toggle(["ch01"],      ["/ch/01/mix/on"],                    "Ch 1  - Host Mic")
+Numpad2::
+NumpadDown:: Toggle(["ch02"],     ["/ch/02/mix/on"],                    "Ch 2  - Karaoke Mic")
+Numpad3::
+NumpadPgDn:: Toggle(["ch03"],     ["/ch/03/mix/on"],                    "Ch 3  - Guitar")
+Numpad4::
+NumpadLeft:: Toggle(["ch04"],     ["/ch/04/mix/on"],                    "Ch 4  - Click Track")
+Numpad5::
+NumpadClear:: Toggle(["ch05"],    ["/ch/05/mix/on"],                    "Ch 5")
+Numpad6::
+NumpadRight:: Toggle(["ch06"],    ["/ch/06/mix/on"],                    "Ch 6")
+Numpad7::
+NumpadHome:: Toggle(["ch15","ch16"], ["/ch/15/mix/on","/ch/16/mix/on"], "Ch 15+16 - Jamzone L+R")
+Numpad8::
+NumpadUp:: Toggle(["bus05","bus06"], ["/bus/05/mix/on","/bus/06/mix/on"], "Bus 5+6  - Jamzone Bus")
+NumpadAdd:: Toggle(["master"], ["/main/st/mix/on"], "MASTER LR")
 
 a:: Toggle(["ch01"],          ["/ch/01/mix/on"],                        "Ch 1  - Host Mic")
 s:: Toggle(["ch02"],          ["/ch/02/mix/on"],                        "Ch 2  - Karaoke Mic")
