@@ -1522,8 +1522,8 @@ function MirrorPageContent() {
   }, [safeSongs])
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
-  const shouldShowEditorControls = isHost && !isEmbeddedPreview
-  const shouldShowAdminElements = isHost && !isEmbeddedPreview
+  const shouldShowEditorControls = isHost && !isEmbeddedPreview && layoutEditMode
+  const shouldShowAdminElements = isHost && !isEmbeddedPreview && layoutEditMode
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
   const liveBadgeLabel = demoMode ? '● Demo' : event?.roomOpen ? '● Live' : '● Paused'
 
