@@ -571,7 +571,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     return () => {
       isCurrent = false
     }
-  }, [event.id, state.introAudioUrl, user?.id])
+  }, [event.id, user?.id])
   const otherAudienceFallbackGigCount = hostEvents.filter(
     (hostEvent) => hostEvent.id !== event.id && hostEvent.showInAudienceNoGig,
   ).length
@@ -582,7 +582,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     markError,
     scheduleAutosave,
   } = useAutosaveSaveLifecycle({
-    autosaveDelayMs: 2000,
+    autosaveDelayMs: 3500,
     savedResetDelayMs: 2000,
   })
 
