@@ -411,6 +411,12 @@ function AdminDashboardContent({
       disabled: !event || quickGigActions.quickActionBusy,
     },
     {
+      id: 'open-setlist-control',
+      label: 'Setlist Control',
+      onClick: openSetlistLibrary,
+      disabled: quickGigActions.quickActionBusy,
+    },
+    {
       id: 'toggle-explicit-filter',
       label: quickGigActions.explicitToggleBusy
         ? 'Updating...'
@@ -426,6 +432,7 @@ function AdminDashboardContent({
     event,
     openAudienceScreen,
     openMirrorScreen,
+    openSetlistLibrary,
     quickGigActions,
   ])
   const queueShortcutActions: ActionButtonConfig[] = [
@@ -497,6 +504,11 @@ function AdminDashboardContent({
         label: 'Audience',
         onClick: openAudienceScreen,
       },
+      {
+        id: 'strip-open-setlist-control',
+        label: 'Setlist',
+        onClick: openSetlistLibrary,
+      },
     ]
 
     if (contextualStripAction === 'explicit') {
@@ -528,6 +540,7 @@ function AdminDashboardContent({
     event,
     openAudienceScreen,
     openMirrorScreen,
+    openSetlistLibrary,
     quickGigActions,
   ])
 
