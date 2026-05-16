@@ -32,6 +32,7 @@ export const DEMO_EVENT = {
   mirrorBreakQrEnabled: false,
   mirrorBreakQrCustomUrl: null,
   mirrorBannerEnabled: true,
+  mirrorBannerText: 'Welcome legends - requests are open all night!',
   allowDuplicateRequests: false,
   maxActiveRequestsPerUser: 2,
   maxQueueSize: 30,

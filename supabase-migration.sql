@@ -150,6 +150,7 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS mirror_brb_qr_flash_enabled BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS mirror_brb_qr_flash_venue TEXT,
   ADD COLUMN IF NOT EXISTS mirror_banner_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS mirror_banner_text TEXT,
   ADD COLUMN IF NOT EXISTS allow_duplicate_requests BOOLEAN NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS max_active_requests_per_user INTEGER,
   ADD COLUMN IF NOT EXISTS show_in_audience_no_gig BOOLEAN NOT NULL DEFAULT false,

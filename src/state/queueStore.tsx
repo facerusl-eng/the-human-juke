@@ -66,6 +66,7 @@ type EventSettingsUpdates = {
   mirrorBreakQrEnabled: boolean
   mirrorBreakQrCustomUrl: string | null
   mirrorBannerEnabled: boolean
+  mirrorBannerText?: string | null
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   maxQueueSize: number | null
@@ -122,6 +123,7 @@ type EventState = {
   mirrorBreakQrEnabled: boolean
   mirrorBreakQrCustomUrl: string | null
   mirrorBannerEnabled: boolean
+  mirrorBannerText: string | null
   allowDuplicateRequests: boolean
   maxActiveRequestsPerUser: number | null
   maxQueueSize: number | null
@@ -278,6 +280,10 @@ type MirrorQrFlashSettings = {
   mirror_brb_qr_flash_venue: string | null
 }
 
+type MirrorBannerSettings = {
+  mirror_banner_text: string | null
+}
+
 type EventOptionalSettingsBundle = {
   tipMessages: TipMessages
   eventTypeSettings: EventTypeSettings
@@ -285,6 +291,7 @@ type EventOptionalSettingsBundle = {
   venueLogoLayoutSettings: VenueLogoLayoutSettings
   mirrorQrSettings: MirrorQrSettings
   mirrorQrFlashSettings: MirrorQrFlashSettings
+  mirrorBannerSettings: MirrorBannerSettings
   fetchedAt: number
 }
 
@@ -1046,6 +1053,7 @@ function buildEventFallbackFromHostEvent(hostEvent: HostEventSummary, hostId: st
     mirrorBreakQrEnabled: false,
     mirrorBreakQrCustomUrl: null,
     mirrorBannerEnabled: true,
+    mirrorBannerText: null,
     allowDuplicateRequests: true,
     maxActiveRequestsPerUser: null,
     maxQueueSize: null,
@@ -1554,6 +1562,27 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
+    const loadMirrorBannerSettings = async (): Promise<MirrorBannerSettings> => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('mirror_banner_text')
+          .eq('id', activeEventId)
+          .single()
+
+        if (error || !data) {
+          return { mirror_banner_text: null }
+        }
+
+        const row = data as Record<string, unknown>
+        return {
+          mirror_banner_text: (row.mirror_banner_text as string | null) ?? null,
+        }
+      } catch {
+        return { mirror_banner_text: null }
+      }
+    }
+
     const eventData = await withTimeout(
       loadEventSnapshot(),
       DEFAULT_DB_TIMEOUT_MS,
@@ -1569,13 +1598,14 @@ function QueueProvider({ children }: PropsWithChildren) {
     const optionalSettings = shouldReuseOptionalSettings
       ? cachedOptionalSettings!
       : await (async (): Promise<EventOptionalSettingsBundle> => {
-        const [tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, mirrorQrSettings, mirrorQrFlashSettings] = await Promise.all([
+        const [tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, mirrorQrSettings, mirrorQrFlashSettings, mirrorBannerSettings] = await Promise.all([
           loadTipMessages(),
           loadEventTypeSettings(),
           loadAudienceLocaleSettings(),
           loadVenueLogoLayoutSettings(),
           loadMirrorQrSettings(),
           loadMirrorQrFlashSettings(),
+          loadMirrorBannerSettings(),
         ])
 
         const nextBundle: EventOptionalSettingsBundle = {
@@ -1585,6 +1615,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           venueLogoLayoutSettings,
           mirrorQrSettings,
           mirrorQrFlashSettings,
+          mirrorBannerSettings,
           fetchedAt: Date.now(),
         }
 
@@ -1599,6 +1630,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       venueLogoLayoutSettings,
       mirrorQrSettings,
       mirrorQrFlashSettings,
+      mirrorBannerSettings,
     } = optionalSettings
 
     const resolvedEventId = String((eventData as Record<string, unknown>).id ?? '')
@@ -1882,6 +1914,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       mirrorBreakQrEnabled: mirrorQrSettings.mirror_break_qr_enabled,
       mirrorBreakQrCustomUrl: mirrorQrSettings.mirror_break_qr_custom_url,
       mirrorBannerEnabled: ((eventData as Record<string, unknown>).mirror_banner_enabled as boolean | null) ?? true,
+      mirrorBannerText: mirrorBannerSettings.mirror_banner_text,
       allowDuplicateRequests: ((eventData as Record<string, unknown>).allow_duplicate_requests as boolean | null) ?? true,
       maxActiveRequestsPerUser: (eventData as Record<string, unknown>).max_active_requests_per_user as number | null ?? null,
       maxQueueSize: (eventData as Record<string, unknown>).max_queue_size as number | null ?? null,
@@ -3684,6 +3717,9 @@ function QueueProvider({ children }: PropsWithChildren) {
             mirror_brb_qr_flash_enabled: updates.mirrorCountdownQrFlashEnabled,
             mirror_brb_qr_flash_venue: updates.mirrorCountdownQrFlashVenue,
           },
+          mirrorBannerSettings: {
+            mirror_banner_text: event?.mirrorBannerText ?? null,
+          },
           fetchedAt: Date.now(),
         })
 
@@ -3721,6 +3757,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             mirrorBreakQrEnabled: updates.mirrorBreakQrEnabled,
             mirrorBreakQrCustomUrl: updates.mirrorBreakQrCustomUrl,
             mirrorBannerEnabled: updates.mirrorBannerEnabled,
+            mirrorBannerText: currentEvent.mirrorBannerText,
             allowDuplicateRequests: updates.allowDuplicateRequests,
             maxActiveRequestsPerUser: updates.maxActiveRequestsPerUser,
             maxQueueSize: updates.maxQueueSize,
@@ -4087,6 +4124,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           mirrorBreakQrEnabled: false,
           mirrorBreakQrCustomUrl: null,
           mirrorBannerEnabled: true,
+          mirrorBannerText: null,
           allowDuplicateRequests: true,
           maxActiveRequestsPerUser: null,
           maxQueueSize: null,

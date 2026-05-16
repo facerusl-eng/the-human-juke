@@ -150,6 +150,26 @@ function isMissingMirrorLayoutProfileColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes(MIRROR_LAYOUT_STATE_PROFILE_COLUMN)
 }
 
+function isMissingMirrorBannerTextColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('mirror_banner_text')
+}
+
 async function loadGlobalMirrorLayoutState(userId: string) {
   const { data, error } = await supabase
     .from('profiles')
@@ -1178,7 +1198,7 @@ function MirrorPageContent() {
   const [densityMode, setDensityMode] = useState<MirrorDensityMode>('medium')
   const [venueMode, setVenueMode] = useState<MirrorVenueMode>('lounge')
   const [showSafeMargins, setShowSafeMargins] = useState(false)
-  const [bannerText, setBannerText] = useState<string>(() => readTextFromLocalStorage(MIRROR_BANNER_STORAGE_KEY) ?? '')
+  const [bannerText, setBannerText] = useState<string>('')
   const [bannerEnabledOverride, setBannerEnabledOverride] = useState<boolean | null>(null)
   const [, setStorageError] = useState<string | null>(null)
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
@@ -1228,6 +1248,7 @@ function MirrorPageContent() {
   const mirrorWarningLastShownAtRef = useRef<number>(0)
   const previousBrbActiveRef = useRef<boolean | null>(null)
   const breakTransitionTimerRef = useRef<number | null>(null)
+  const bannerSaveDebounceTimerRef = useRef<number | null>(null)
   const spotlightQueueRef = useRef<SpotlightQueueItem[]>([])
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
@@ -1505,6 +1526,58 @@ function MirrorPageContent() {
   const shouldShowAdminElements = isHost && !isEmbeddedPreview
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
   const liveBadgeLabel = demoMode ? '● Demo' : event?.roomOpen ? '● Live' : '● Paused'
+
+  useEffect(() => {
+    const eventBannerText = event?.mirrorBannerText
+    const fallbackLocalBannerText = readTextFromLocalStorage(MIRROR_BANNER_STORAGE_KEY)
+    const nextBannerText = typeof eventBannerText === 'string'
+      ? eventBannerText
+      : (fallbackLocalBannerText ?? '')
+
+    setBannerText(nextBannerText)
+  }, [event?.id, event?.mirrorBannerText])
+
+  useEffect(() => {
+    if (bannerSaveDebounceTimerRef.current !== null) {
+      window.clearTimeout(bannerSaveDebounceTimerRef.current)
+      bannerSaveDebounceTimerRef.current = null
+    }
+
+    if (!shouldShowEditorControls || demoMode || !event?.id) {
+      return
+    }
+
+    const nextBannerText = bannerText.trim()
+    const persistedBannerText = (event?.mirrorBannerText ?? '').trim()
+
+    if (nextBannerText === persistedBannerText) {
+      return
+    }
+
+    bannerSaveDebounceTimerRef.current = window.setTimeout(() => {
+      void supabase
+        .from('events')
+        .update({ mirror_banner_text: nextBannerText || null })
+        .eq('id', event.id)
+        .then(({ error }) => {
+          if (error) {
+            if (isMissingMirrorBannerTextColumnError(error)) {
+              return
+            }
+
+            setMirrorWarningMessage('Could not save banner text. Please try again.')
+          }
+        })
+      bannerSaveDebounceTimerRef.current = null
+    }, 450)
+
+    return () => {
+      if (bannerSaveDebounceTimerRef.current !== null) {
+        window.clearTimeout(bannerSaveDebounceTimerRef.current)
+        bannerSaveDebounceTimerRef.current = null
+      }
+    }
+  }, [bannerText, shouldShowEditorControls, demoMode, event?.id, event?.mirrorBannerText])
 
   useEffect(() => {
     let isCurrent = true
