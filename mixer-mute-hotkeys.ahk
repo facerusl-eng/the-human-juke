@@ -17,7 +17,8 @@
 ; Numpad 1..8 + Add are also mapped (NumLock on/off friendly)
 ; ─────────────────────────────────────────────────────────────────────────────
 
-MIXER_IP   := "192.168.10.70"
+envMixerIp := EnvGet("XR18_IP")
+MIXER_IP   := (envMixerIp != "") ? envMixerIp : "10.1.1.70"
 MIXER_PORT := 10024
 
 ; Mute state: true = live, false = muted
