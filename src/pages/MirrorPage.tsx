@@ -3436,9 +3436,6 @@ function MirrorPageContent() {
                 <img src={countdownQrUrl} alt="QR code for the audience request page" className="mirror-qr-image" />
                 <p className="mirror-qr-label">Scan for the pints. Log in for the tunes.</p>
                 {showCountdownQrLink ? <p className="mirror-qr-url">{countdownQrText}</p> : null}
-                <div className="mirror-qr-flash-slot" aria-live="polite">
-                  <p className="mirror-qr-flash-line">{activeQrFlashText || '\u00A0'}</p>
-                </div>
               </div>
               <div className="mirror-pre-show-steps-col">
                 <div className="mirror-how-it-works" aria-label="How it works">
@@ -3450,6 +3447,13 @@ function MirrorPageContent() {
                 </div>
               </div>
             </div>
+
+            {/* ── FLASH TEXT: large flashing text block beneath QR ── */}
+            {activeQrFlashText ? (
+              <div className="mirror-countdown-flash-block" aria-live="polite" aria-label="Rotating prompt text">
+                <p className="mirror-countdown-flash-text">{activeQrFlashText}</p>
+              </div>
+            ) : null}
 
             {/* ── BOTTOM: reserved for future features ── */}
             <div className="mirror-pre-show-bottom" />
