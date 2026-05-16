@@ -87,7 +87,8 @@ const QR_FLASH_BASE_LINES = [
   'Thirsty?',
   'The Bar Got Options',
   'Some Of Them Even Make Sence',
-  'Check Out The Amazing Drink/Beer Selection',
+  'Check Out Tis Amazingm',
+  'Cold Drink Selection',
 ]
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
