@@ -2256,6 +2256,41 @@ function MirrorPageContent() {
   }, [layoutEditMode])
 
   useEffect(() => {
+    if (!isHost || isEmbeddedPreview) {
+      return
+    }
+
+    const onLayoutEditToggleKeyDown = (keyEvent: KeyboardEvent) => {
+      if (!keyEvent.isTrusted || keyEvent.defaultPrevented) {
+        return
+      }
+
+      if (keyEvent.key.toLowerCase() !== 'e') {
+        return
+      }
+
+      if (keyEvent.altKey || keyEvent.ctrlKey || keyEvent.metaKey) {
+        return
+      }
+
+      const target = keyEvent.target as HTMLElement | null
+      const activeElement = document.activeElement as HTMLElement | null
+      const interactiveTarget = target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="button"], [role="textbox"], [data-spacebar-ignore="true"]')
+      const isTypingTarget = Boolean(interactiveTarget || activeElement?.isContentEditable)
+
+      if (isTypingTarget) {
+        return
+      }
+
+      keyEvent.preventDefault()
+      setLayoutEditMode((currentMode) => !currentMode)
+    }
+
+    window.addEventListener('keydown', onLayoutEditToggleKeyDown as unknown as EventListener)
+    return () => window.removeEventListener('keydown', onLayoutEditToggleKeyDown as unknown as EventListener)
+  }, [isHost, isEmbeddedPreview])
+
+  useEffect(() => {
     if (layoutEditMode) {
       return
     }
@@ -3315,7 +3350,7 @@ function MirrorPageContent() {
               Venue: {venueMode === 'club' ? 'Club' : venueMode === 'festival' ? 'Festival' : 'Lounge'}
             </button>
             <p className="mirror-control-shortcuts" aria-live="polite">
-              Shortcuts: <strong>F</strong> fullscreen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
+              Shortcuts: <strong>E</strong> edit mode, <strong>F</strong> fullscreen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
             </p>
             <div className="mirror-banner-editor">
               <label className="mirror-banner-label" htmlFor="mirror-banner-input">📢 Scrolling Banner</label>
