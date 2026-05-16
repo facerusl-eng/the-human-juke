@@ -13,6 +13,17 @@ const ADMIN_LOAD_TIMEOUT_MS = 9000
 const ADMIN_AUTO_RECOVERY_DELAY_MS = 1200
 const ADMIN_SAFE_MODE_AUTO_RETRY_MS = 5000
 const ADMIN_MAX_AUTO_RECOVERY_ATTEMPTS = 3
+const ADMIN_AUTO_LIVE_CHECK_INTERVAL_MS = 20_000
+
+function resolveGigStartAt(gigDate: string | null, gigStartTime: string | null) {
+  if (!gigDate || !gigStartTime) {
+    return null
+  }
+
+  const normalizedTime = gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime
+  const startAt = new Date(`${gigDate}T${normalizedTime}`)
+  return Number.isNaN(startAt.getTime()) ? null : startAt
+}
 
 type AdminInitErrorBoundaryProps = {
   children: ReactNode
@@ -201,6 +212,8 @@ function AdminDashboardContent({
   const [profileError, setProfileError] = useState<string | null>(null)
   const [subscriptionState, setSubscriptionState] = useState<'connecting' | 'healthy' | 'degraded'>('connecting')
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
+  const autoLiveInFlightRef = useRef(false)
+  const attemptedAutoLiveGigIdsRef = useRef<Set<string>>(new Set())
 
   const activeGigActions = useGigActions({
     setActiveEvent,
@@ -272,6 +285,78 @@ function AdminDashboardContent({
       window.clearTimeout(timerId)
     }
   }, [loading, onRecoverableFailure, recoveryKey])
+
+  useEffect(() => {
+    const validGigIds = new Set(
+      hostEvents
+        .filter((hostEvent) => hostEvent.autoLiveEnabled && !hostEvent.isActive)
+        .map((hostEvent) => hostEvent.id),
+    )
+
+    attemptedAutoLiveGigIdsRef.current = new Set(
+      [...attemptedAutoLiveGigIdsRef.current].filter((gigId) => validGigIds.has(gigId)),
+    )
+  }, [hostEvents])
+
+  useEffect(() => {
+    const runAutoLiveCheck = async () => {
+      if (autoLiveInFlightRef.current) {
+        return
+      }
+
+      const now = Date.now()
+      const dueEvents = hostEvents
+        .filter((hostEvent) => {
+          if (hostEvent.isActive || !hostEvent.autoLiveEnabled) {
+            return false
+          }
+
+          if (attemptedAutoLiveGigIdsRef.current.has(hostEvent.id)) {
+            return false
+          }
+
+          const startAt = resolveGigStartAt(hostEvent.gigDate, hostEvent.gigStartTime)
+          return Boolean(startAt && startAt.getTime() <= now)
+        })
+        .sort((leftGig, rightGig) => {
+          const leftStartAt = resolveGigStartAt(leftGig.gigDate, leftGig.gigStartTime)?.getTime() ?? Number.POSITIVE_INFINITY
+          const rightStartAt = resolveGigStartAt(rightGig.gigDate, rightGig.gigStartTime)?.getTime() ?? Number.POSITIVE_INFINITY
+          return leftStartAt - rightStartAt
+        })
+
+      const dueEvent = dueEvents[0]
+
+      if (!dueEvent) {
+        return
+      }
+
+      autoLiveInFlightRef.current = true
+      attemptedAutoLiveGigIdsRef.current.add(dueEvent.id)
+
+      try {
+        const switched = await activeGigActions.switchActiveGig(dueEvent.id)
+
+        if (!switched) {
+          return
+        }
+
+        setActiveSwitchError(null)
+      } catch (error) {
+        setActiveSwitchError(error instanceof Error ? error.message : 'Auto Live could not activate the scheduled gig.')
+      } finally {
+        autoLiveInFlightRef.current = false
+      }
+    }
+
+    void runAutoLiveCheck()
+    const timerId = window.setInterval(() => {
+      void runAutoLiveCheck()
+    }, ADMIN_AUTO_LIVE_CHECK_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [activeGigActions, hostEvents])
 
   useEffect(() => {
     let isCurrent = true
