@@ -1409,7 +1409,8 @@
 .mirror-countdown-flash-block {
   width: 100%;
   max-width: 100vw;
-  padding: clamp(1.2rem, 1.8vw, 1.8rem) clamp(1rem, 2vw, 2rem);
+  height: clamp(3.2rem, 5vw, 4.2rem);
+  padding: clamp(0.9rem, 1.2vw, 1.2rem) clamp(1rem, 2vw, 2rem);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1418,20 +1419,23 @@
   border-bottom: 1px solid rgba(93, 215, 255, 0.1);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
 }
 
 .mirror-countdown-flash-text {
   margin: 0;
-  font-size: clamp(1.6rem, 3.2vw, 2.8rem);
+  font-size: clamp(1.4rem, 2.8vw, 2.4rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgba(93, 215, 255, 0.95);
   text-align: center;
-  line-height: 1.2;
-  white-space: normal;
-  word-break: break-word;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 0 clamp(0.5rem, 1vw, 1.5rem);
+  max-width: 100%;
   text-shadow:
     0 2px 4px rgba(0, 0, 0, 0.5),
     0 0 20px rgba(93, 215, 255, 0.4),
@@ -1542,6 +1546,16 @@
 .mirror-pre-show-has-countdown .mirror-qr-image {
   width: clamp(120px, min(19vw, 16.2dvh), 260px);
   height: clamp(120px, min(19vw, 16.2dvh), 260px);
+}
+
+.mirror-pre-show-has-countdown .mirror-countdown-flash-block {
+  height: clamp(2.8rem, 4.2vw, 3.8rem);
+  padding: clamp(0.7rem, 1vw, 1rem) clamp(1rem, 2vw, 2rem);
+  margin-top: clamp(0.8rem, 1.2vw, 1.2rem);
+}
+
+.mirror-pre-show-has-countdown .mirror-countdown-flash-text {
+  font-size: clamp(1.2rem, 2.2vw, 2rem);
 }
 
 .mirror-pre-show-has-countdown .mirror-qr-label,
