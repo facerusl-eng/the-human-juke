@@ -3844,10 +3844,6 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
-        if (event.isTestGig && !event.roomOpen) {
-          throw new Error('Test gigs are private and cannot be opened for audience access.')
-        }
-
         const nextRoomOpen = !event.roomOpen
 
         setEvent((currentEvent) => {
