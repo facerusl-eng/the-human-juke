@@ -85,8 +85,9 @@ const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostl
 const QR_FLASH_ROTATE_INTERVAL_MS = 5000
 const QR_FLASH_BASE_LINES = [
   'Thirsty?',
-  "The bar's got options",
-  'Some of them even make sense',
+  'The Bar Got Options',
+  'Some Of Them Even Make Sence',
+  'Check Out The Amazing Drink/Beer Selection',
 ]
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
