@@ -71,6 +71,17 @@ function resolveFallbackRecipient(errorBody) {
   return ''
 }
 
+function buildManualFallbackResponse(lang) {
+  return {
+    success: true,
+    message: lang === 'da'
+      ? 'Din forespoergsel er modtaget. Vi kontakter dig snart med detaljer.'
+      : 'Your request was received. We will contact you shortly with details.',
+    fallback_routed: true,
+    delivery: 'manual-fallback',
+  }
+}
+
 async function sendResendEmail(resendApiKey, payload) {
   const response = await fetch(RESEND_API_URL, {
     method: 'POST',
@@ -197,11 +208,13 @@ export default async function handler(req, res) {
   const bookingUrl = process.env.VITE_BOOKING_URL?.trim() || 'https://www.the-human-jukebox.org/?booking=1'
 
   if (!resendApiKey) {
-    return res.status(503).json({
-      success: false,
-      code: 'updates_service_unavailable',
-      message: 'Updates service is temporarily unavailable. Please use the booking form for now.',
+    console.warn('get-updates manual fallback: RESEND_API_KEY missing', {
+      email: toEmail,
+      lang: emailLang,
+      source: body.source ?? null,
+      intent: body.intent ?? null,
     })
+    return res.status(200).json(buildManualFallbackResponse(emailLang))
   }
 
   try {
@@ -220,12 +233,14 @@ export default async function handler(req, res) {
       const errorText = errorBody?.message || errorBody?.name || JSON.stringify(errorBody) || ''
 
       if (isResendAuthConfigurationError(errorBody)) {
-        console.error('Resend auth/config error', response.status, errorBody)
-        return res.status(503).json({
-          success: false,
-          code: 'updates_service_unavailable',
-          message: 'Updates service is temporarily unavailable. Please use the booking form for now.',
+        console.error('Resend auth/config error; switching to manual fallback', response.status, errorBody)
+        console.warn('get-updates manual fallback: invalid Resend configuration', {
+          email: toEmail,
+          lang: emailLang,
+          source: body.source ?? null,
+          intent: body.intent ?? null,
         })
+        return res.status(200).json(buildManualFallbackResponse(emailLang))
       }
 
       if (isResendTestingRestriction(errorBody)) {

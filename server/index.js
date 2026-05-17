@@ -191,6 +191,17 @@ function buildUpdatesFallbackLeadHtml(requestedEmail, lang, bookingUrl) {
   `
 }
 
+function buildUpdatesManualFallbackResponse(lang) {
+  return {
+    success: true,
+    message: lang === 'da'
+      ? 'Din forespoergsel er modtaget. Vi kontakter dig snart med detaljer.'
+      : 'Your request was received. We will contact you shortly with details.',
+    fallback_routed: true,
+    delivery: 'manual-fallback',
+  }
+}
+
 async function sendResendEmail(resendApiKey, payload) {
   const response = await fetch(resendApiUrl, {
     method: 'POST',
@@ -455,11 +466,13 @@ app.post('/api/get-updates', async (req, res) => {
   const bookingUrl = process.env.VITE_BOOKING_URL?.trim() || 'https://www.the-human-jukebox.org/?booking=1'
 
   if (!resendApiKey) {
-    res.status(503).json({
-      success: false,
-      code: 'updates_service_unavailable',
-      message: 'Updates service is temporarily unavailable. Please use the booking form for now.',
+    console.warn('get-updates local dev manual fallback: RESEND_API_KEY missing', {
+      email: toEmail,
+      lang: emailLang,
+      source: req.body?.source ?? null,
+      intent: req.body?.intent ?? null,
     })
+    res.status(200).json(buildUpdatesManualFallbackResponse(emailLang))
     return
   }
 
@@ -477,12 +490,14 @@ app.post('/api/get-updates', async (req, res) => {
 
     if (!response.ok) {
       if (isResendAuthConfigurationError(errorBody)) {
-        console.error('Resend auth/config error (local dev)', response.status, errorBody)
-        res.status(503).json({
-          success: false,
-          code: 'updates_service_unavailable',
-          message: 'Updates service is temporarily unavailable. Please use the booking form for now.',
+        console.error('Resend auth/config error (local dev); switching to manual fallback', response.status, errorBody)
+        console.warn('get-updates local dev manual fallback: invalid Resend configuration', {
+          email: toEmail,
+          lang: emailLang,
+          source: req.body?.source ?? null,
+          intent: req.body?.intent ?? null,
         })
+        res.status(200).json(buildUpdatesManualFallbackResponse(emailLang))
         return
       }
 
