@@ -97,6 +97,7 @@ function CreateGigPage() {
   const [playlists, setPlaylists] = useState<HostPlaylist[]>([])
   const [loadingPlaylists, setLoadingPlaylists] = useState(false)
   const [selectedPrimaryPlaylistId, setSelectedPrimaryPlaylistId] = useState('')
+  const [selectedKaraokePlaylistId, setSelectedKaraokePlaylistId] = useState('')
   const isMountedRef = useRef(true)
   const pendingTimerIdsRef = useRef<number[]>([])
 
@@ -337,6 +338,7 @@ function CreateGigPage() {
   }, [isHost, user?.id])
 
   const humanJukeboxPlaylists = playlists.filter((playlist) => playlist.playlist_type === 'human_jukebox')
+  const karaokePlaylists = playlists.filter((playlist) => playlist.playlist_type === 'karaoke')
 
   const isAuthLockError = (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
@@ -472,7 +474,7 @@ function CreateGigPage() {
       audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
       autoLiveEnabled,
       introAudioUrl,
-      selectedPlaylistIds: selectedPrimaryPlaylistId ? [selectedPrimaryPlaylistId] : undefined,
+      selectedPlaylistIds: [...new Set([selectedPrimaryPlaylistId, selectedKaraokePlaylistId].filter((playlistId): playlistId is string => Boolean(playlistId)))],
       isTestGig,
     }
 
@@ -902,6 +904,29 @@ function CreateGigPage() {
             ) : null}
             {!loadingPlaylists && humanJukeboxPlaylists.length > 0 ? (
               <p className="field-hint">If selected, this setlist is linked to the gig when it is created.</p>
+            ) : null}
+          </div>
+          <div className="field-row">
+            <label htmlFor="gig-karaoke-setlist">Choose karaoke setlist (optional)</label>
+            <select
+              id="gig-karaoke-setlist"
+              value={selectedKaraokePlaylistId}
+              onChange={(e) => setSelectedKaraokePlaylistId(e.target.value)}
+              disabled={loadingPlaylists || busy}
+            >
+              <option value="">No karaoke setlist</option>
+              {karaokePlaylists.map((playlist) => (
+                <option key={playlist.id} value={playlist.id}>
+                  {playlist.name}
+                </option>
+              ))}
+            </select>
+            {loadingPlaylists ? <p className="field-hint">Loading your karaoke setlists…</p> : null}
+            {!loadingPlaylists && karaokePlaylists.length === 0 ? (
+              <p className="field-hint">No karaoke setlists found yet. Create one in Setlist Library if you want a karaoke lane.</p>
+            ) : null}
+            {!loadingPlaylists && karaokePlaylists.length > 0 ? (
+              <p className="field-hint">This is the optional second lane for karaoke requests.</p>
             ) : null}
           </div>
           {eventType === 'karaoke' ? (
