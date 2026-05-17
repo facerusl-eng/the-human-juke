@@ -10,7 +10,7 @@ const AUTH_REQUEST_TIMEOUT_MS = 20_000
 const AUTH_TRANSIENT_RETRY_COUNT = 2
 const AUTH_PROFILE_REQUEST_TIMEOUT_MS = 20_000
 const AUTH_PROFILE_RETRY_COUNT = 3
-const AUTH_HOST_SIGN_IN_TIMEOUT_MS = 12_000
+const AUTH_HOST_SIGN_IN_TIMEOUT_MS = 25_000
 const AUTH_HOST_SIGN_IN_RETRY_COUNT = 2
 const AUTH_TRANSIENT_WARN_THROTTLE_MS = 60_000
 const AUTH_SESSION_STORAGE_KEY = 'human-jukebox-auth-session-snapshot'
@@ -643,44 +643,46 @@ function AuthProvider({ children }: PropsWithChildren) {
 
         isHostSignInInProgressRef.current = true
 
-        let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>
-
         try {
-          signInResult = await retryTransientAuthOperation(
-            () => withTimeout(
-              supabase.auth.signInWithPassword({
-                email: normalizedEmail,
-                password,
-              }),
-              AUTH_HOST_SIGN_IN_TIMEOUT_MS,
-              'Admin sign-in timed out. Please try again.',
-            ),
-            AUTH_HOST_SIGN_IN_RETRY_COUNT,
-          )
-        } catch (error) {
-          if (isTransientAuthError(error)) {
-            try {
-              const { data: sessionData } = await withTimeout(
-                supabase.auth.getSession(),
-                AUTH_REQUEST_TIMEOUT_MS,
-                'Session recovery timed out.',
-              )
+          let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>
 
-              if (sessionData.session) {
-                await applySessionState(sessionData.session)
-                return
+          try {
+            signInResult = await retryTransientAuthOperation(
+              () => withTimeout(
+                supabase.auth.signInWithPassword({
+                  email: normalizedEmail,
+                  password,
+                }),
+                AUTH_HOST_SIGN_IN_TIMEOUT_MS,
+                'Admin sign-in timed out. Please try again.',
+              ),
+              AUTH_HOST_SIGN_IN_RETRY_COUNT,
+            )
+          } catch (error) {
+            if (isTransientAuthError(error)) {
+              try {
+                const { data: sessionData } = await withTimeout(
+                  supabase.auth.getSession(),
+                  AUTH_REQUEST_TIMEOUT_MS,
+                  'Session recovery timed out.',
+                )
+
+                if (sessionData.session) {
+                  await applySessionState(sessionData.session)
+                  return
+                }
+              } catch (sessionError) {
+                console.warn('authStore: session recovery failed after transient host sign-in error', sessionError)
               }
-            } catch (sessionError) {
-              console.warn('authStore: session recovery failed after transient host sign-in error', sessionError)
             }
+
+            throw new Error(mapHostSignInError(error))
           }
 
-          throw error
-        } finally {
-          isHostSignInInProgressRef.current = false
-        }
+          if (signInResult.error) {
+            throw new Error(mapHostSignInError(signInResult.error))
+          }
 
-        if (!signInResult.error) {
           const returnedSession = signInResult.data.session
 
           if (returnedSession) {
@@ -702,36 +704,55 @@ function AuthProvider({ children }: PropsWithChildren) {
           const refreshedUser = refreshedSession.data.session?.user ?? null
 
           if (refreshedUser) {
-            const refreshedProfile = await retryTransientAuthOperation(
-              () => withTimeout(getProfile(refreshedUser.id), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Profile loading timed out.'),
-              AUTH_PROFILE_RETRY_COUNT,
-            )
-            const syncedProfile = await retryTransientAuthOperation(
-              () => withTimeout(syncAllowedHostRole(refreshedUser, refreshedProfile), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Host role sync timed out.'),
-              AUTH_PROFILE_RETRY_COUNT,
-            )
-            setProfile(syncedProfile)
-
-            if (syncedProfile?.role !== 'host') {
-              throw new Error(
-                ALLOWED_HOST_EMAIL
-                  ? `Signed in, but this account is not a host. Use ${ALLOWED_HOST_EMAIL} or grant host role in profiles.`
-                  : 'Signed in, but this account is not a host. Set VITE_ALLOWED_HOST_EMAIL in .env or grant host role in profiles.',
+            try {
+              const refreshedProfile = await retryTransientAuthOperation(
+                () => withTimeout(getProfile(refreshedUser.id), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Profile loading timed out.'),
+                AUTH_PROFILE_RETRY_COUNT,
               )
+              const syncedProfile = await retryTransientAuthOperation(
+                () => withTimeout(syncAllowedHostRole(refreshedUser, refreshedProfile), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Host role sync timed out.'),
+                AUTH_PROFILE_RETRY_COUNT,
+              )
+              setProfile(syncedProfile)
+
+              if (syncedProfile?.role !== 'host') {
+                throw new Error(
+                  ALLOWED_HOST_EMAIL
+                    ? `Signed in, but this account is not a host. Use ${ALLOWED_HOST_EMAIL} or grant host role in profiles.`
+                    : 'Signed in, but this account is not a host. Set VITE_ALLOWED_HOST_EMAIL in .env or grant host role in profiles.',
+                )
+              }
+            } catch (profileSyncError) {
+              const allowEmailFallback = isAllowedHostEmail(refreshedUser.email)
+                || (IS_DEV_ENV && !ALLOWED_HOST_EMAIL)
+
+              if (allowEmailFallback && isTransientAuthError(profileSyncError)) {
+                setProfile((currentProfile) => {
+                  if (currentProfile?.role === 'host') {
+                    return currentProfile
+                  }
+
+                  return {
+                    role: 'host',
+                    active_event_id: currentProfile?.active_event_id ?? null,
+                    theme_preset: currentProfile?.theme_preset ?? null,
+                    accent_color: currentProfile?.accent_color ?? null,
+                  }
+                })
+
+                void refreshProfile().catch((refreshError) => {
+                  console.warn('authStore: deferred host profile refresh failed after sign-in fallback', refreshError)
+                })
+
+                return
+              }
+
+              throw profileSyncError
             }
           }
-
-          return
+        } finally {
+          isHostSignInInProgressRef.current = false
         }
-
-        const signInErrorMessage = signInResult.error.message.toLowerCase()
-        const isInvalidCredentials = signInErrorMessage.includes('invalid login credentials')
-
-        if (!isInvalidCredentials) {
-          throw new Error(mapHostSignInError(signInResult.error))
-        }
-
-        throw new Error(mapHostSignInError(signInResult.error))
       },
       signInHostWithPasskey: async () => {
         if (!supportsWebAuthn()) {

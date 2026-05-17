@@ -3,7 +3,7 @@ import type { PropsWithChildren } from 'react'
 import { useAuthStore } from '../state/authStore'
 
 const HOST_GATE_LOADING_TIMEOUT_MS = 2500
-const HOST_SIGN_IN_UI_TIMEOUT_MS = 15_000
+const HOST_SIGN_IN_UI_TIMEOUT_MS = 30_000
 
 function withHostSignInUiTimeout<T>(promise: Promise<T>) {
   let timeoutId: number | null = null
