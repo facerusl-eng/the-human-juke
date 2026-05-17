@@ -7,6 +7,13 @@ import { supabase } from '../lib/supabase'
 
 type Step = 'info' | 'datetime'
 type EventType = 'halli-live' | 'harald-live' | 'karaoke' | 'build-self'
+type PlaylistType = 'human_jukebox' | 'karaoke'
+
+type HostPlaylist = {
+  id: string
+  name: string
+  playlist_type: PlaylistType
+}
 
 type IntroAudioLibraryItem = {
   path: string
@@ -17,6 +24,24 @@ type IntroAudioLibraryItem = {
 
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
+
+function isMissingPlaylistTypeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const maybeError = error as { code?: unknown; message?: unknown }
+  return maybeError.code === '42703' && typeof maybeError.message === 'string' && maybeError.message.includes('playlist_type')
+}
+
+function inferPlaylistType(rawType: string | null | undefined, playlistName: string | null | undefined): PlaylistType {
+  if (rawType === 'karaoke') {
+    return 'karaoke'
+  }
+
+  const normalizedName = (playlistName ?? '').toLowerCase()
+  return normalizedName.includes('karaoke') ? 'karaoke' : 'human_jukebox'
+}
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -69,6 +94,9 @@ function CreateGigPage() {
   const [processingIntroAudio, setProcessingIntroAudio] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [playlists, setPlaylists] = useState<HostPlaylist[]>([])
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false)
+  const [selectedPrimaryPlaylistId, setSelectedPrimaryPlaylistId] = useState('')
   const isMountedRef = useRef(true)
   const pendingTimerIdsRef = useRef<number[]>([])
 
@@ -237,6 +265,79 @@ function CreateGigPage() {
     void refreshIntroAudioLibrary()
   }, [refreshIntroAudioLibrary])
 
+  useEffect(() => {
+    if (!user?.id || !isHost) {
+      setPlaylists([])
+      return
+    }
+
+    let isCurrent = true
+
+    const loadPlaylists = async () => {
+      setLoadingPlaylists(true)
+
+      try {
+        let loadedPlaylists: HostPlaylist[] = []
+
+        const { data: playlistsWithType, error: playlistsWithTypeError } = await supabase
+          .from('playlists')
+          .select('id, name, playlist_type')
+          .eq('user_id', user.id)
+          .order('name', { ascending: true })
+
+        if (playlistsWithTypeError && !isMissingPlaylistTypeColumnError(playlistsWithTypeError)) {
+          throw playlistsWithTypeError
+        }
+
+        if (playlistsWithTypeError && isMissingPlaylistTypeColumnError(playlistsWithTypeError)) {
+          const { data: playlistsWithoutType, error: playlistsWithoutTypeError } = await supabase
+            .from('playlists')
+            .select('id, name')
+            .eq('user_id', user.id)
+            .order('name', { ascending: true })
+
+          if (playlistsWithoutTypeError) {
+            throw playlistsWithoutTypeError
+          }
+
+          loadedPlaylists = ((playlistsWithoutType ?? []) as Array<{ id: string; name: string }>).map((playlist) => ({
+            ...playlist,
+            playlist_type: inferPlaylistType(null, playlist.name),
+          }))
+        } else {
+          loadedPlaylists = ((playlistsWithType ?? []) as Array<{ id: string; name: string; playlist_type?: string | null }>).map((playlist) => ({
+            id: playlist.id,
+            name: playlist.name,
+            playlist_type: inferPlaylistType(playlist.playlist_type, playlist.name),
+          }))
+        }
+
+        if (!isCurrent) {
+          return
+        }
+
+        setPlaylists(loadedPlaylists)
+      } catch (error) {
+        console.warn('CreateGigPage: failed to load playlists', error)
+        if (isCurrent) {
+          setPlaylists([])
+        }
+      } finally {
+        if (isCurrent) {
+          setLoadingPlaylists(false)
+        }
+      }
+    }
+
+    void loadPlaylists()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [isHost, user?.id])
+
+  const humanJukeboxPlaylists = playlists.filter((playlist) => playlist.playlist_type === 'human_jukebox')
+
   const isAuthLockError = (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
     return /lock broken|steal option|navigatorlockacquiretimeouterror|auth-token|released because another request stole it/i.test(message)
@@ -264,6 +365,7 @@ function CreateGigPage() {
       audienceVotingEnabled?: boolean
       autoLiveEnabled?: boolean
       introAudioUrl?: string | null
+      selectedPlaylistIds?: string[]
     },
   ) => {
     const maxAttempts = 6
@@ -370,6 +472,7 @@ function CreateGigPage() {
       audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
       autoLiveEnabled,
       introAudioUrl,
+      selectedPlaylistIds: selectedPrimaryPlaylistId ? [selectedPrimaryPlaylistId] : undefined,
       isTestGig,
     }
 
@@ -777,6 +880,29 @@ function CreateGigPage() {
               <option value="karaoke">Karaoke Event</option>
               <option value="build-self">Build Self Gig</option>
             </select>
+          </div>
+          <div className="field-row">
+            <label htmlFor="gig-primary-setlist">Choose setlist (optional)</label>
+            <select
+              id="gig-primary-setlist"
+              value={selectedPrimaryPlaylistId}
+              onChange={(e) => setSelectedPrimaryPlaylistId(e.target.value)}
+              disabled={loadingPlaylists || busy}
+            >
+              <option value="">Auto-attach default setlists</option>
+              {humanJukeboxPlaylists.map((playlist) => (
+                <option key={playlist.id} value={playlist.id}>
+                  {playlist.name}
+                </option>
+              ))}
+            </select>
+            {loadingPlaylists ? <p className="field-hint">Loading your setlists…</p> : null}
+            {!loadingPlaylists && humanJukeboxPlaylists.length === 0 ? (
+              <p className="field-hint">No Human Jukebox setlists found yet. Create one in Setlist Library and come back here.</p>
+            ) : null}
+            {!loadingPlaylists && humanJukeboxPlaylists.length > 0 ? (
+              <p className="field-hint">If selected, this setlist is linked to the gig when it is created.</p>
+            ) : null}
           </div>
           {eventType === 'karaoke' ? (
             <div className="field-row">

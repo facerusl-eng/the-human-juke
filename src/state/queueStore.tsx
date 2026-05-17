@@ -166,6 +166,7 @@ type CreateEventOptions = {
   audienceIcelandicEnabled?: boolean
   autoLiveEnabled?: boolean
   introAudioUrl?: string | null
+  selectedPlaylistIds?: string[]
   isTestGig?: boolean
 }
 
@@ -4141,6 +4142,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         const authenticatedUserId = authUserData.user.id
+        const selectedPlaylistIds = [...new Set((options?.selectedPlaylistIds ?? []).filter((playlistId): playlistId is string => Boolean(playlistId)))]
 
         const createdAtIso = new Date().toISOString()
 
@@ -4272,6 +4274,42 @@ function QueueProvider({ children }: PropsWithChildren) {
               })
           }
 
+          if (selectedPlaylistIds.length > 0) {
+            const { error: clearPlaylistsError } = await withTimeout(
+              withAuthLockRetry(() =>
+                supabase
+                  .from('event_playlists')
+                  .delete()
+                  .eq('event_id', createdGigId),
+              ),
+              DEFAULT_DB_TIMEOUT_MS,
+              'Timed out while preparing selected setlists for the new gig. Please try again.',
+            )
+
+            if (clearPlaylistsError) {
+              console.warn('queueStore: failed to clear default setlists after rpc create', clearPlaylistsError)
+            } else {
+              const { error: linkSelectedPlaylistsError } = await withTimeout(
+                withAuthLockRetry(() =>
+                  supabase
+                    .from('event_playlists')
+                    .insert(
+                      selectedPlaylistIds.map((playlistId) => ({
+                        event_id: createdGigId,
+                        playlist_id: playlistId,
+                      })),
+                    ),
+                ),
+                DEFAULT_DB_TIMEOUT_MS,
+                'Timed out while linking selected setlists to the new gig. Please try again.',
+              )
+
+              if (linkSelectedPlaylistsError) {
+                console.warn('queueStore: failed to link selected setlists after rpc create', linkSelectedPlaylistsError)
+              }
+            }
+          }
+
           setHostEvents((currentHostEvents) => {
             const nextSummary: HostEventSummary = {
               id: createdGigId,
@@ -4388,9 +4426,12 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         setTestGigFlag(newEvent.id, options?.isTestGig ?? false)
 
-        const { defaultPlaylistId, karaokePlaylistId } = await ensureDefaultHostPlaylists(authenticatedUserId, normalizedName)
+        let playlistIdsForGig = selectedPlaylistIds
 
-        const playlistIdsForGig = [...new Set([defaultPlaylistId, karaokePlaylistId].filter((playlistId): playlistId is string => Boolean(playlistId)))]
+        if (playlistIdsForGig.length === 0) {
+          const { defaultPlaylistId, karaokePlaylistId } = await ensureDefaultHostPlaylists(authenticatedUserId, normalizedName)
+          playlistIdsForGig = [...new Set([defaultPlaylistId, karaokePlaylistId].filter((playlistId): playlistId is string => Boolean(playlistId)))]
+        }
 
         if (playlistIdsForGig.length > 0) {
           const { error: linkPlaylistError } = await withTimeout(
