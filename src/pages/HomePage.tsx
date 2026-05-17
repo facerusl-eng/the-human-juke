@@ -146,7 +146,7 @@ function HomePage() {
   const [bookingFee, setBookingFee] = useState('')
   const [bookingNotes, setBookingNotes] = useState('')
   const [bookingContactEmail, setBookingContactEmail] = useState('')
-  const [lang, setLang] = useState<HomeLang>(() => {
+  const [lang] = useState<HomeLang>(() => {
     const stored = readCommittedAudienceLocale()
     return stored === 'da' ? 'da' : 'en'
   })
@@ -188,18 +188,6 @@ function HomePage() {
     setBookingNotice(null)
     setBookingError(null)
     scrollToBookingForm()
-  }
-
-  const toggleBookingFlow = () => {
-    setBookingFormOpen((current) => {
-      const next = !current
-      if (next) {
-        scrollToBookingForm()
-      }
-      return next
-    })
-    setBookingNotice(null)
-    setBookingError(null)
   }
 
   const submitBookingRequest = (event: FormEvent<HTMLFormElement>) => {
