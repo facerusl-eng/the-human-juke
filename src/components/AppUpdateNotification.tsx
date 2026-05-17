@@ -17,9 +17,13 @@ export function AppUpdateNotification() {
     const handleRuntimeNotice = (event: Event) => {
       const customEvent = event as Event & { detail?: unknown }
       const message = typeof customEvent.detail === 'string' ? customEvent.detail : ''
+      const normalizedMessage = message.toLowerCase()
 
       // Detect update-related messages
-      if (message.includes('new app update is available')) {
+      if (
+        normalizedMessage.includes('new app update')
+        || normalizedMessage.includes('new app build was detected')
+      ) {
         setUpdateAvailable(true)
       }
     }

@@ -338,6 +338,12 @@ function setupBuildUpdateRefresh() {
   }
 
   const currentEntryPath = new URL(import.meta.url, window.location.href).pathname
+  const currentStylesheetHref = document
+    .querySelector('link[rel="stylesheet"][href*="/assets/"]')
+    ?.getAttribute('href')
+  const currentStylesheetPath = currentStylesheetHref
+    ? new URL(currentStylesheetHref, window.location.origin).pathname
+    : ''
   let checking = false
   let hasNotifiedBuildUpdate = false
   let hasTriggeredBuildReload = false
@@ -401,15 +407,24 @@ function setupBuildUpdateRefresh() {
       }
 
       const html = await response.text()
-      const match = html.match(/<script[^>]+src="([^"]*\/assets\/index-[^"]+\.js)"/i)
+      const scriptMatch = html.match(/<script[^>]+src=["']([^"']*\/assets\/index-[^"']+\.js)["']/i)
+      const stylesheetMatch = html.match(/<link[^>]+href=["']([^"']*\/assets\/index-[^"']+\.css)["']/i)
 
-      if (!match?.[1]) {
+      if (!scriptMatch?.[1]) {
         return
       }
 
-      const deployedEntryPath = new URL(match[1], window.location.origin).pathname
+      const deployedEntryPath = new URL(scriptMatch[1], window.location.origin).pathname
+      const deployedStylesheetPath = stylesheetMatch?.[1]
+        ? new URL(stylesheetMatch[1], window.location.origin).pathname
+        : ''
 
-      if (deployedEntryPath !== currentEntryPath) {
+      const hasStylesheetChanged = Boolean(currentStylesheetPath)
+        && Boolean(deployedStylesheetPath)
+        && deployedStylesheetPath !== currentStylesheetPath
+      const hasBuildChanged = deployedEntryPath !== currentEntryPath || hasStylesheetChanged
+
+      if (hasBuildChanged) {
         if (!hasNotifiedBuildUpdate) {
           hasNotifiedBuildUpdate = true
         }
