@@ -3272,8 +3272,8 @@ function MirrorPageContent() {
             </p>
           </div>
 
-          <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
-            {event?.venueLogoUrl ? (
+          {event?.venueLogoUrl ? (
+            <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
               <p className="mirror-venue-logo" aria-label="Venue logo">
                 <img
                   ref={venueLogoImageRef}
@@ -3282,13 +3282,8 @@ function MirrorPageContent() {
                   className="mirror-venue-logo-image"
                 />
               </p>
-            ) : (
-              <p className="mirror-venue-logo-placeholder" aria-label="Venue logo placeholder">
-                <span className="mirror-venue-logo-placeholder-title">Your Logo</span>
-                <span className="mirror-venue-logo-placeholder-copy">Designed to sit here</span>
-              </p>
-            )}
-          </div>
+            </div>
+          ) : null}
 
           <div className="mirror-header-live-stack">
             <span className={`mirror-status ${event?.roomOpen ? 'mirror-open live-pulse' : 'mirror-paused'}`.trim()}>

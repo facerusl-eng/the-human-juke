@@ -369,14 +369,10 @@
   transform: translateX(-50%);
   width: clamp(170px, 18vw, 268px);
   height: clamp(70px, 7.8vw, 108px);
-  padding: 0.28rem;
-  border-radius: 14px;
-  border: 1px solid rgba(93, 215, 255, 0.34);
-  background:
-    linear-gradient(145deg, rgba(9, 17, 36, 0.78) 0%, rgba(12, 23, 48, 0.82) 100%);
-  box-shadow:
-    0 10px 24px rgba(3, 8, 22, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   z-index: 2;
 }
 
@@ -1461,8 +1457,8 @@
   background: linear-gradient(180deg, rgba(93, 215, 255, 0.08), rgba(93, 215, 255, 0.04));
   border-top: 1px solid rgba(93, 215, 255, 0.15);
   border-bottom: 1px solid rgba(93, 215, 255, 0.1);
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   overflow: hidden;
 }
 
