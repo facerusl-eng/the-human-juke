@@ -66,6 +66,32 @@ function isValidHexColor(value: string | null | undefined) {
   return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value.trim())
 }
 
+function getRuntimeBuildTag() {
+  const appVersion = import.meta.env.VITE_APP_VERSION?.trim()
+  const commitSha = import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA?.trim() || import.meta.env.VITE_GIT_COMMIT_SHA?.trim()
+
+  if (appVersion && commitSha) {
+    return `v${appVersion} (${commitSha.slice(0, 7)})`
+  }
+
+  if (appVersion) {
+    return `v${appVersion}`
+  }
+
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const runtimePath = new URL(import.meta.url, window.location.href).pathname
+  const hashedAssetMatch = runtimePath.match(/-([a-z0-9]{8,})\.(?:m?js)$/i)
+
+  if (hashedAssetMatch?.[1]) {
+    return hashedAssetMatch[1].slice(0, 10)
+  }
+
+  return import.meta.env.DEV ? 'dev' : null
+}
+
 function ShellLayout() {
   const { profile, user, loading, authError } = useAuthStore()
   const { queueOperatingMode, queueHealthMessage } = useQueueStore()
@@ -73,6 +99,7 @@ function ShellLayout() {
   const navigate = useNavigate()
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
   const [dismissedDegradedBanner, setDismissedDegradedBanner] = useState(false)
+  const [runtimeBuildTag] = useState(() => getRuntimeBuildTag())
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') {
       return false
@@ -253,6 +280,7 @@ function ShellLayout() {
             branding, and related content are proprietary. Unauthorized use, reproduction, or distribution is
             prohibited.
           </p>
+          {runtimeBuildTag ? <p className="site-build-tag">Build {runtimeBuildTag}</p> : null}
         </footer>
         </section>
 

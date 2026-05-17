@@ -1,0 +1,12 @@
+
+ name                       value               environments                created    
+ VITE_ALLOWED_HOST_EMAIL    Encrypted           Preview, Production         24h ago    
+ VITE_BOOKING_URL           Encrypted           Preview, Production         24h ago    
+ BOOKING_WEBHOOK_URL        Encrypted           Preview, Production         24h ago    
+ UPDATES_EMAIL_FROM         Encrypted           Preview                     2d ago     
+ GITHUB_TOKEN               Encrypted           Production, Preview         5d ago     
+ AI_PROVIDER                Encrypted           Production, Preview         8d ago     
+ AI_MODEL                   Encrypted           Preview, Production         8d ago     
+ OPENAI_API_KEY             Encrypted           Preview, Production         9d ago     
+ SPOTIFY_CLIENT_SECRET      Encrypted           Production, Preview         16d ago    
+

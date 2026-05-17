@@ -110,6 +110,8 @@ type GigSettingsFormProps = {
   updateEventSettings: ReturnType<typeof useQueueStore>['updateEventSettings']
 }
 
+type GigSettingsEventState = NonNullable<ReturnType<typeof useQueueStore>['event']>
+
 const MAX_UNDO_STATES = 20
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_VENUE_LOGO_IMAGE_BYTES = 10 * 1024 * 1024
@@ -398,6 +400,115 @@ function normalizeEventThemeForSave(eventType: SettingsState['eventType']): 'har
   }
 
   return 'human-jukebox'
+}
+
+function getPendingSaveChangeLabels(
+  saveState: SettingsState,
+  event: GigSettingsEventState,
+  initialSelectedPlaylistIds: string[],
+) {
+  const changedLabels: string[] = []
+
+  if (saveState.gigName.trim() !== event.name.trim()) {
+    changedLabels.push('gig name')
+  }
+
+  if (saveState.venue.trim() !== (event.venue ?? '').trim()) {
+    changedLabels.push('venue')
+  }
+
+  if (saveState.gigDate !== (event.gigDate ?? '')) {
+    changedLabels.push('gig date')
+  }
+
+  if (normalizeTimeInputForSave(saveState.gigStartTime) !== normalizeTimeValue(event.gigStartTime)) {
+    changedLabels.push('start time')
+  }
+
+  if (normalizeTimeInputForSave(saveState.gigEndTime) !== normalizeTimeValue(event.gigEndTime)) {
+    changedLabels.push('end time')
+  }
+
+  if (saveState.subtitle.trim() !== (event.subtitle ?? '').trim()) {
+    changedLabels.push('subtitle')
+  }
+
+  if (saveState.requestInstructions.trim() !== (event.requestInstructions ?? '').trim()) {
+    changedLabels.push('request instructions')
+  }
+
+  if (normalizeEventTypeForSave(saveState.eventType) !== (event.eventType ?? 'halli-live')) {
+    changedLabels.push('event type')
+  }
+
+  if (normalizeEventThemeForSave(saveState.eventType) !== (event.eventTheme ?? 'human-jukebox')) {
+    changedLabels.push('event theme')
+  }
+
+  if (saveState.karafunUrl.trim() !== (event.karafunUrl ?? '').trim()) {
+    changedLabels.push('karaoke URL')
+  }
+
+  if (saveState.artistName.trim() !== (event.artistName ?? '').trim()) {
+    changedLabels.push('artist name')
+  }
+
+  if (saveState.audienceVotingEnabled !== (event.audienceVotingEnabled ?? true)) {
+    changedLabels.push('audience voting')
+  }
+
+  if (saveState.audienceIcelandicEnabled !== (event.audienceIcelandicEnabled ?? false)) {
+    changedLabels.push('Icelandic audience mode')
+  }
+
+  if (saveState.autoLiveEnabled !== (event.autoLiveEnabled ?? false)) {
+    changedLabels.push('auto live mode')
+  }
+
+  if (saveState.introAudioUrl.trim() !== (event.introAudioUrl ?? '').trim()) {
+    changedLabels.push('intro audio')
+  }
+
+  if (!arePlaylistSelectionsEqual(saveState.selectedPlaylistIds, initialSelectedPlaylistIds)) {
+    changedLabels.push('selected playlists')
+  }
+
+  if (saveState.coverImageUrl.trim() !== (event.coverImageUrl ?? '').trim()) {
+    changedLabels.push('cover image')
+  }
+
+  if (saveState.venueLogoUrl.trim() !== (event.venueLogoUrl ?? '').trim()) {
+    changedLabels.push('venue logo')
+  }
+
+  if (saveState.roomOpen !== event.roomOpen) {
+    changedLabels.push('room open state')
+  }
+
+  if (saveState.explicitFilterEnabled !== event.explicitFilterEnabled) {
+    changedLabels.push('explicit filter')
+  }
+
+  if (saveState.showInAudienceNoGig !== event.showInAudienceNoGig) {
+    changedLabels.push('audience no-gig visibility')
+  }
+
+  return changedLabels
+}
+
+function summarizePendingSaveChanges(changedLabels: string[]) {
+  if (changedLabels.length === 0) {
+    return 'your latest edits'
+  }
+
+  const maxVisible = 6
+  const visibleLabels = changedLabels.slice(0, maxVisible)
+
+  if (changedLabels.length <= maxVisible) {
+    return visibleLabels.join(', ')
+  }
+
+  return `${visibleLabels.join(', ')} (+${changedLabels.length - maxVisible} more)`
 }
 
 function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: GigSettingsFormProps) {
@@ -797,6 +908,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         return
       }
 
+      const pendingSaveChanges = getPendingSaveChangeLabels(saveState, event, initialSelectedPlaylistIds)
+
       try {
         const normalizedLimit = saveState.maxActiveRequestsPerUser.trim()
         const parsedLimit = normalizedLimit ? Number.parseInt(normalizedLimit, 10) : null
@@ -927,15 +1040,22 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         markSaved()
         await registerBackgroundSync('jukebox-sync')
       } catch (error) {
-        console.warn('GigSettingsPage: failed to save settings', error)
+        console.warn('GigSettingsPage: failed to save settings', {
+          error,
+          pendingSaveChanges,
+          coverImageChars: saveState.coverImageUrl.length,
+          venueLogoChars: saveState.venueLogoUrl.length,
+        })
         const rawMessage = error instanceof Error
           ? error.message
           : (typeof error === 'object' && error !== null && 'message' in error)
             ? String((error as { message: unknown }).message)
             : 'Unable to save gig settings.'
 
+        const pendingSaveSummary = summarizePendingSaveChanges(pendingSaveChanges)
+
         const message = /statement timeout|timed out|57014/i.test(rawMessage)
-          ? 'Save took too long on the server. Please press Save again in a few seconds.'
+          ? `Save took too long on the server while saving ${pendingSaveSummary}. Please press Save again in a few seconds.`
           : rawMessage
 
         setErrorText(message)

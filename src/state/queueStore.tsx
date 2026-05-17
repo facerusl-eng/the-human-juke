@@ -240,6 +240,7 @@ const VENUE_LOGO_SCALE_MIN = 20
 const VENUE_LOGO_SCALE_MAX = 500
 const VENUE_LOGO_OFFSET_LIMIT = 100
 const EVENT_OPTIONAL_SETTINGS_CACHE_TTL_MS = 120_000
+const EVENT_SETTINGS_SAVE_TIMEOUT_MS = 45_000
 const IS_DEV_ENV = import.meta.env.DEV
 
 type TipMessages = {
@@ -3450,6 +3451,33 @@ function QueueProvider({ children }: PropsWithChildren) {
           intro_audio_url: updates.introAudioUrl ?? null,
         }
 
+        const nextCoverImageUrl = updates.coverImageUrl ?? null
+        const nextVenueLogoUrl = updates.venueLogoUrl ?? null
+        const nextIntroAudioUrl = updates.introAudioUrl ?? null
+
+        // Large data URLs can make repeat saves slow; skip unchanged heavy fields.
+        if ((event.coverImageUrl ?? null) === nextCoverImageUrl) {
+          delete eventUpdatePayload.cover_image_url
+        }
+
+        if ((event.venueLogoUrl ?? null) === nextVenueLogoUrl) {
+          delete eventUpdatePayload.venue_logo_url
+        }
+
+        if ((event.introAudioUrl ?? null) === nextIntroAudioUrl) {
+          delete eventUpdatePayload.intro_audio_url
+        }
+
+        const venueLogoLayoutUnchanged = (event.venueLogoScale ?? 100) === updates.venueLogoScale
+          && (event.venueLogoOffsetX ?? 0) === updates.venueLogoOffsetX
+          && (event.venueLogoOffsetY ?? 0) === updates.venueLogoOffsetY
+
+        if (venueLogoLayoutUnchanged) {
+          delete eventUpdatePayload.venue_logo_scale
+          delete eventUpdatePayload.venue_logo_offset_x
+          delete eventUpdatePayload.venue_logo_offset_y
+        }
+
         if (hasMirrorCountdownQrLinkColumn) {
           eventUpdatePayload.mirror_countdown_show_qr_link = updates.mirrorCountdownShowQrLink
         }
@@ -3482,7 +3510,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 .update(eventUpdatePayload)
                 .eq('id', event.id),
             ),
-            DEFAULT_DB_TIMEOUT_MS,
+            EVENT_SETTINGS_SAVE_TIMEOUT_MS,
             'Timed out while saving event settings. Please try again.',
           )
 
@@ -3581,7 +3609,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                   .update(fallbackPayload)
                   .eq('id', event.id),
               ),
-              DEFAULT_DB_TIMEOUT_MS,
+              EVENT_SETTINGS_SAVE_TIMEOUT_MS,
               'Timed out while saving event settings. Please try again.',
             )
 
@@ -3614,7 +3642,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                   .select('playlist_id')
                   .eq('event_id', event.id),
               ),
-              DEFAULT_DB_TIMEOUT_MS,
+              EVENT_SETTINGS_SAVE_TIMEOUT_MS,
               'Timed out while loading selected playlists. Please try again.',
             )
 
@@ -3648,7 +3676,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                     .delete()
                     .eq('event_id', event.id),
                 ),
-                DEFAULT_DB_TIMEOUT_MS,
+                EVENT_SETTINGS_SAVE_TIMEOUT_MS,
                 'Timed out while updating gig playlists. Please try again.',
               )
 
@@ -3676,7 +3704,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                         })),
                       ),
                   ),
-                  DEFAULT_DB_TIMEOUT_MS,
+                  EVENT_SETTINGS_SAVE_TIMEOUT_MS,
                   'Timed out while saving selected playlists. Please try again.',
                 )
 

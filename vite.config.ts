@@ -15,12 +15,9 @@ export default defineConfig({
       injectRegister: null,
       registerType: 'autoUpdate',
       workbox: {
-        // Precache every Vite build artifact so returning users get instant load.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
-        // SPA navigation fallback: unknown paths return the app shell.
-        navigateFallback: '/index.html',
-        // Don't intercept API, join-redirect, or Vercel edge routes.
-        navigateFallbackDenylist: [/^\/api\//, /^\/join\//, /^\/a\//, /^\/j\//],
+        // Precache immutable build artifacts, but never HTML app shell.
+        // This prevents stale startup versions when users reopen the site.
+        globPatterns: ['**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // Take control of all clients immediately — no waiting for old tabs to close.

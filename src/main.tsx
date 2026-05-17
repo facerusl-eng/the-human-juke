@@ -522,9 +522,10 @@ function scheduleNonCriticalStartupTasks() {
     return
   }
 
-  const run = () => {
-    setupBuildUpdateRefresh()
+  // Start build freshness checks immediately so stale startup tabs self-heal fast.
+  setupBuildUpdateRefresh()
 
+  const run = () => {
     if (isIOSLikeDevice() && !shouldBypassServiceWorkerCachingOnIOS()) {
       void disableServiceWorkerCachingOnIOS()
       return

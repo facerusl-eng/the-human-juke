@@ -1239,6 +1239,17 @@
   color: rgba(214, 227, 255, 0.78);
 }
 
+.site-build-tag {
+  margin-top: 0.38rem;
+  text-align: center;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(93, 215, 255, 0.86);
+}
+
 @media (min-width: 1200px) {
   .app-shell {
     width: min(1240px, calc(100% - 3rem));

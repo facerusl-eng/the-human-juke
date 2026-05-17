@@ -199,6 +199,7 @@ function GigControlPage() {
     toggleRoomOpen,
     toggleExplicitFilter,
     setShowInAudienceNoGig,
+    forceFallbackMode,
     audienceConnectionStatus,
     queueOperatingMode,
     queueHealthMessage,
@@ -1792,6 +1793,21 @@ function GigControlPage() {
       variant: 'ghost',
     },
     {
+      id: 'force-fallback-mode',
+      label: queueOperatingMode === 'degraded' ? 'Fallback Enabled' : 'Force Fallback Mode',
+      title: 'Keep Gig Control usable with a local fallback shell while live queue data retries in the background',
+      onClick: async () => {
+        try {
+          await forceFallbackMode()
+          setErrorText(null)
+        } catch (error) {
+          setErrorText(error instanceof Error ? error.message : 'Failed to enable fallback mode.')
+        }
+      },
+      disabled: queueOperatingMode === 'degraded',
+      variant: 'ghost',
+    },
+    {
       id: 'toggle-explicit-filter',
       label: gigActions.explicitToggleBusy ? 'Updating...' : event?.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit',
       title: event?.explicitFilterEnabled ? 'Currently blocking explicit songs — click to allow them' : 'Currently allowing explicit songs — click to block them',
@@ -1946,6 +1962,19 @@ function GigControlPage() {
             <button type="button" className="secondary-button" onClick={() => navigate('/admin/gigs')}>
               Open Gig List
             </button>
+            {hostEvents.length > 0 ? (
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => {
+                  void forceFallbackMode().catch((error) => {
+                    setErrorText(error instanceof Error ? error.message : 'Failed to enable fallback mode.')
+                  })
+                }}
+              >
+                Force Fallback Mode
+              </button>
+            ) : null}
             {!autoRedirectCancelled && autoRedirectCountdown !== null ? (
               <button type="button" className="ghost-button" onClick={() => setAutoRedirectCancelled(true)}>
                 Stay Here
