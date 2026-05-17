@@ -60,6 +60,40 @@ type IntroAudioPlayLock = {
   expiresAt: number
 }
 
+function readIntroAudioPlayLock(eventId: string | null): IntroAudioPlayLock | null {
+  if (typeof window === 'undefined' || !eventId) {
+    return null
+  }
+
+  try {
+    const raw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as Partial<IntroAudioPlayLock>
+    const hasValidOwner = typeof parsed.ownerId === 'string' && parsed.ownerId.trim().length > 0
+    const hasValidExpiry = typeof parsed.expiresAt === 'number' && Number.isFinite(parsed.expiresAt)
+
+    if (parsed.eventId !== eventId || !hasValidOwner || !hasValidExpiry) {
+      return null
+    }
+
+    if ((parsed.expiresAt as number) <= Date.now()) {
+      return null
+    }
+
+    return {
+      eventId,
+      ownerId: parsed.ownerId as string,
+      expiresAt: parsed.expiresAt as number,
+    }
+  } catch {
+    return null
+  }
+}
+
 function acquireIntroAudioPlayLock(eventId: string): string | null {
   if (typeof window === 'undefined') {
     return null
@@ -320,6 +354,7 @@ function GigControlPage() {
   const [showEndGigHideConfirm, setShowEndGigHideConfirm] = useState(false)
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
   const [autoLiveLastError, setAutoLiveLastError] = useState<string | null>(null)
+  const [autoLiveLockBadgeText, setAutoLiveLockBadgeText] = useState<string | null>(null)
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
@@ -355,6 +390,7 @@ function GigControlPage() {
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveNextRetryAtRef = useRef(0)
   const autoLiveInFlightRef = useRef(false)
+  const introAudioLockOwnerRef = useRef<string | null>(null)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
@@ -422,6 +458,48 @@ function GigControlPage() {
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
   const isGigLoadFailureState = queueOperatingMode === 'degraded' || Boolean(queueHealthMessage)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !event?.id) {
+      setAutoLiveLockBadgeText(null)
+      introAudioLockOwnerRef.current = null
+      return
+    }
+
+    const refreshAutoLiveLockBadge = () => {
+      const lock = readIntroAudioPlayLock(event.id)
+
+      if (!lock) {
+        setAutoLiveLockBadgeText(null)
+        return
+      }
+
+      const remainingSeconds = Math.max(1, Math.ceil((lock.expiresAt - Date.now()) / 1000))
+      const isOwnedByCurrentTab = introAudioLockOwnerRef.current === lock.ownerId
+
+      setAutoLiveLockBadgeText(
+        isOwnedByCurrentTab
+          ? `Auto Live lock: this tab (${remainingSeconds}s)`
+          : `Auto Live lock active in another host tab (${remainingSeconds}s)`,
+      )
+    }
+
+    refreshAutoLiveLockBadge()
+
+    const timerId = window.setInterval(refreshAutoLiveLockBadge, 1000)
+    const onStorageUpdate = (storageEvent: StorageEvent) => {
+      if (storageEvent.key === INTRO_AUDIO_LOCK_STORAGE_KEY) {
+        refreshAutoLiveLockBadge()
+      }
+    }
+
+    window.addEventListener('storage', onStorageUpdate)
+
+    return () => {
+      window.clearInterval(timerId)
+      window.removeEventListener('storage', onStorageUpdate)
+    }
+  }, [event?.id])
 
   useEffect(() => {
     const shouldAutoRedirect = !loading && !event && isGigLoadFailureState && !autoRedirectCancelled
@@ -1004,6 +1082,7 @@ function GigControlPage() {
       return
     }
 
+    introAudioLockOwnerRef.current = introAudioLockOwner
     introAudioPlayedEventIdsRef.current.add(eventId)
 
     try {
@@ -1012,6 +1091,9 @@ function GigControlPage() {
       setErrorText(autoplayBlockedMessage)
     } finally {
       releaseIntroAudioPlayLock(eventId, introAudioLockOwner)
+      if (introAudioLockOwnerRef.current === introAudioLockOwner) {
+        introAudioLockOwnerRef.current = null
+      }
     }
   }, [playIntroAudioWithSpotifyBridge])
 
@@ -2332,6 +2414,9 @@ function GigControlPage() {
             ) : null}
             {autoLiveCountdown ? (
               <p className="meta-badge gig-auto-live-countdown" aria-live="polite">⏱ {autoLiveCountdown}</p>
+            ) : null}
+            {autoLiveLockBadgeText ? (
+              <p className="meta-badge" aria-live="polite">{autoLiveLockBadgeText}</p>
             ) : null}
             {autoLiveLastError ? (
               <p className="meta-badge" aria-live="polite">Auto Live issue: {autoLiveLastError}</p>

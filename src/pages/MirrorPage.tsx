@@ -77,6 +77,7 @@ const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_BANNER_STORAGE_KEY = 'human-jukebox-mirror-banner-text'
 const MIRROR_LAYOUT_EDIT_STORAGE_KEY = 'human-jukebox-mirror-layout-edit-mode'
 const MIRROR_LAYOUT_STATE_STORAGE_KEY = 'human-jukebox-mirror-layout-state'
+const INTRO_AUDIO_LOCK_STORAGE_KEY = 'human-jukebox-intro-audio-play-lock'
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL = 'human-jukebox-mirror-venue-logo-layout-preview'
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY = 'human-jukebox-mirror-venue-logo-layout-preview'
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_MAX_AGE_MS = 30_000
@@ -113,12 +114,51 @@ type MirrorLayoutVisibilityState = Record<MirrorLayoutPanelId, boolean>
 type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
 type FunFactsCache = Record<string, string[]>
 type SongWithMirrorFacts = QueueSong & { mirrorFunFacts?: string[] }
+type IntroAudioPlayLock = {
+  eventId: string
+  ownerId: string
+  expiresAt: number
+}
 type MirrorVenueLogoLayoutPreviewMessage = {
   eventId: string
   venueLogoScale: number
   venueLogoOffsetX: number
   venueLogoOffsetY: number
   sentAt: number
+}
+
+function readIntroAudioPlayLockForEvent(eventId: string | null): IntroAudioPlayLock | null {
+  if (typeof window === 'undefined' || !eventId) {
+    return null
+  }
+
+  try {
+    const raw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as Partial<IntroAudioPlayLock>
+    const hasValidOwner = typeof parsed.ownerId === 'string' && parsed.ownerId.trim().length > 0
+    const hasValidExpiry = typeof parsed.expiresAt === 'number' && Number.isFinite(parsed.expiresAt)
+
+    if (parsed.eventId !== eventId || !hasValidOwner || !hasValidExpiry) {
+      return null
+    }
+
+    if ((parsed.expiresAt as number) <= Date.now()) {
+      return null
+    }
+
+    return {
+      eventId,
+      ownerId: parsed.ownerId as string,
+      expiresAt: parsed.expiresAt as number,
+    }
+  } catch {
+    return null
+  }
 }
 
 function parseVenueLogoLayoutPreviewMessage(raw: unknown): MirrorVenueLogoLayoutPreviewMessage | null {
@@ -1137,6 +1177,7 @@ function MirrorPageContent() {
   const [breakTransitionMessage, setBreakTransitionMessage] = useState<string | null>(null)
   const [breakTransitionTone, setBreakTransitionTone] = useState<'on-break' | 'back-live'>('on-break')
   const [mirrorWarning, setMirrorWarning] = useState<string | null>(null)
+  const [autoLiveLockDebugText, setAutoLiveLockDebugText] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
     () => new URLSearchParams(window.location.search).get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) === '1',
@@ -1489,6 +1530,7 @@ function MirrorPageContent() {
   }, [safeSongs])
 
   const showSpotlight = (event?.mirrorPhotoSpotlightEnabled ?? true) && !isEmbeddedPreview
+  const shouldShowHostDebugHints = isHost && !isEmbeddedPreview
   const shouldShowEditorControls = isHost && !isEmbeddedPreview && layoutEditMode
   const shouldShowAdminElements = isHost && !isEmbeddedPreview && layoutEditMode
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
@@ -1724,6 +1766,41 @@ function MirrorPageContent() {
       window.clearTimeout(timeoutId)
     }
   }, [activeVenueLogoLayoutPreview, event?.venueLogoOffsetX, event?.venueLogoOffsetY, event?.venueLogoScale, eventId])
+
+  useEffect(() => {
+    if (!shouldShowHostDebugHints || !eventId) {
+      setAutoLiveLockDebugText(null)
+      return
+    }
+
+    const refreshAutoLiveLockDebugText = () => {
+      const lock = readIntroAudioPlayLockForEvent(eventId)
+
+      if (!lock) {
+        setAutoLiveLockDebugText(null)
+        return
+      }
+
+      const remainingSeconds = Math.max(1, Math.ceil((lock.expiresAt - Date.now()) / 1000))
+      setAutoLiveLockDebugText(`Auto Live lock active in another host tab (${remainingSeconds}s)`)
+    }
+
+    refreshAutoLiveLockDebugText()
+
+    const timerId = window.setInterval(refreshAutoLiveLockDebugText, 1000)
+    const onStorageUpdate = (storageEvent: StorageEvent) => {
+      if (storageEvent.key === INTRO_AUDIO_LOCK_STORAGE_KEY) {
+        refreshAutoLiveLockDebugText()
+      }
+    }
+
+    window.addEventListener('storage', onStorageUpdate)
+
+    return () => {
+      window.clearInterval(timerId)
+      window.removeEventListener('storage', onStorageUpdate)
+    }
+  }, [eventId, shouldShowHostDebugHints])
 
   useEffect(() => {
     if (!showQrFlashText) {
@@ -3324,6 +3401,9 @@ function MirrorPageContent() {
             </span>
             {!hideControlsForAudience ? (
               <p className="mirror-edge-cast-hint" role="note">Edge cast: open browser menu (three dots) and choose Cast media to device.</p>
+            ) : null}
+            {shouldShowHostDebugHints && autoLiveLockDebugText ? (
+              <p className="mirror-warning" role="status">{autoLiveLockDebugText}</p>
             ) : null}
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
