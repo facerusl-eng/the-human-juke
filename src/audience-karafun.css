@@ -1652,3 +1652,63 @@
 .audience-karafun .audience-no-gig-countdown-value {
   font-size: clamp(1.6rem, 8.2vw, 2.35rem);
 }
+
+@media (max-width: 480px) {
+  .audience-karafun .audience-entry-card,
+  .audience-karafun .audience-start-actions-panel,
+  .audience-karafun .now-playing-card,
+  .audience-karafun .queue-panel,
+  .audience-karafun .live-feed-panel {
+    padding: 0.86rem 0.78rem;
+    border-radius: 14px;
+  }
+
+  .audience-karafun .audience-fixed-header h1 {
+    font-size: clamp(0.92rem, 3.9vw, 1.2rem);
+  }
+
+  .audience-karafun .audience-entry-card h1 {
+    font-size: clamp(1.08rem, 5vw, 1.44rem);
+  }
+
+  .audience-karafun .now-playing-card h2 {
+    font-size: clamp(1.06rem, 4.8vw, 1.48rem);
+  }
+
+  .audience-karafun .subcopy,
+  .audience-karafun .audience-entry-copy,
+  .audience-karafun .audience-request-note,
+  .audience-karafun .audience-no-gig-copy .subcopy,
+  .audience-karafun .audience-no-gig-event-meta,
+  .audience-karafun .live-feed-post-message {
+    font-size: 0.79rem;
+    line-height: 1.34;
+  }
+
+  .audience-karafun .queue-panel .panel-head h2,
+  .audience-karafun .live-feed-panel h2 {
+    font-size: 0.84rem;
+  }
+
+  .audience-karafun .audience-song-card .song,
+  .audience-karafun .audience-song-row .song,
+  .audience-karafun .audience-no-gig-event-title {
+    font-size: 0.86rem;
+  }
+
+  .audience-karafun .audience-song-card .artist,
+  .audience-karafun .audience-song-row .artist,
+  .audience-karafun .audience-song-chosen-by,
+  .audience-karafun .votes,
+  .audience-karafun .link-chip,
+  .audience-karafun .tip-jar-provider,
+  .audience-karafun .meta-badge,
+  .audience-karafun .audience-soon-badge,
+  .audience-karafun .audience-going-live-banner {
+    font-size: 0.71rem;
+  }
+
+  .audience-karafun .audience-no-gig-countdown-value {
+    font-size: clamp(1.42rem, 7.4vw, 2.05rem);
+  }
+}
