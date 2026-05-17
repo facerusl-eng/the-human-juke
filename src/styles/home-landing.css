@@ -172,10 +172,9 @@
   margin-top: 1.25rem;
   display: inline-flex;
   gap: 0.45rem;
-  padding: 0.28rem;
-  border-radius: 999px;
-  border: 1px solid rgba(111, 139, 209, 0.45);
-  background: rgba(13, 18, 35, 0.76);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .lp-lang-btn {
