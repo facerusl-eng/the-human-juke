@@ -190,15 +190,20 @@ function buildUpdatesEmailHtml(bookingUrl, lang = 'en') {
   const copy = getSignupEmailCopy(lang)
 
   return `
-    <div style="margin:0;padding:24px 0;background:#070b1a;">
+    <div style="margin:0;padding:24px 0;background:#f1f4fa;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td align="center" style="padding:0 12px;">
-            <table role="presentation" width="595" cellpadding="0" cellspacing="0" border="0" style="width:595px;max-width:595px;border-radius:14px;overflow:hidden;background-color:#101737;background-image:linear-gradient(180deg, rgba(8, 11, 24, 0.58) 0%, rgba(8, 11, 24, 0.9) 42%, rgba(8, 11, 24, 0.97) 100%), url('${backgroundImageUrl}');background-size:cover;background-position:center top;">
+            <table role="presentation" width="595" cellpadding="0" cellspacing="0" border="0" style="width:595px;max-width:595px;border-radius:14px;overflow:hidden;background:#ffffff;border:1px solid #d7deea;">
               <tr>
-                <td valign="top" style="height:842px;padding:42px 38px;font-family:Arial, sans-serif;color:#ffffff;line-height:1.55;background-color:rgba(5,9,22,0.72);border:1px solid rgba(255,255,255,0.14);border-radius:12px;text-shadow:0 2px 3px rgba(0,0,0,0.6);">
-                  <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#ffe089;">${copy.teaser}</p>
-                  <p style="margin:0 0 18px;font-size:20px;font-weight:700;">${copy.greeting}</p>
+                <td style="padding:0;">
+                  <img src="${backgroundImageUrl}" alt="The Human Jukebox" width="595" style="display:block;width:100%;max-width:595px;height:auto;border:0;" />
+                </td>
+              </tr>
+              <tr>
+                <td valign="top" style="padding:34px 34px 32px;font-family:Arial, sans-serif;color:#16233f;line-height:1.6;">
+                  <p style="margin:0 0 16px;font-size:18px;font-weight:700;color:#b42c78;">${copy.teaser}</p>
+                  <p style="margin:0 0 14px;font-size:22px;font-weight:700;color:#0e1b34;">${copy.greeting}</p>
                   <p style="margin:0 0 14px;font-size:16px;">${copy.intro}</p>
                   <p style="margin:0 0 10px;font-size:16px;font-weight:700;">${copy.simpleLead}</p>
                   <p style="margin:0 0 4px;font-size:16px;">${copy.simpleLine1}</p>
@@ -207,7 +212,7 @@ function buildUpdatesEmailHtml(bookingUrl, lang = 'en') {
                   <p style="margin:0 0 14px;font-size:16px;">${copy.audience}</p>
                   <p style="margin:0 0 14px;font-size:16px;">${copy.roles}</p>
                   <p style="margin:0 0 10px;font-size:16px;font-weight:700;">${copy.signupLead}</p>
-                  <ul style="margin:0 0 22px;padding-left:20px;font-size:16px;">
+                  <ul style="margin:0 0 22px;padding-left:20px;font-size:16px;color:#13213f;">
                     <li style="margin-bottom:6px;">${copy.bullet1}</li>
                     <li style="margin-bottom:6px;">${copy.bullet2}</li>
                     <li style="margin-bottom:6px;">${copy.bullet3}</li>
@@ -218,7 +223,7 @@ function buildUpdatesEmailHtml(bookingUrl, lang = 'en') {
                   <p style="margin:0 0 24px;font-size:16px;">${copy.signoff}<br/>${copy.signature}</p>
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0;">
                     <tr>
-                      <td style="border-radius:999px;background:linear-gradient(90deg,#ff4fb2 0%,#5cc6ff 100%);padding:12px 22px;">
+                      <td style="border-radius:999px;background:#0f5fd6;padding:12px 22px;">
                         <a href="${bookingUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;">${copy.ctaText}</a>
                       </td>
                     </tr>
@@ -619,8 +624,8 @@ app.post('/api/get-updates', async (req, res) => {
 
   try {
     const emailSubject = emailLang === 'da'
-      ? 'Din Human Jukebox-koncept og bookinginfo'
-      : 'Your Human Jukebox concept and booking info'
+      ? 'Din anmodede Human Jukebox-opdatering'
+      : 'Your requested Human Jukebox update'
 
     const directPayload = {
       from: fromEmail,
