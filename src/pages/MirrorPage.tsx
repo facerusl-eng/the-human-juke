@@ -1382,7 +1382,10 @@ function MirrorPageContent() {
       return '/audience'
     }
   }, [eventId, isTestGigAudienceMode])
-  const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
+  const legacyCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
+  const customCountdownQrLink = event?.mirrorCountdownQrCustomUrl?.trim() || ''
+  const customBreakQrLink = event?.mirrorBreakQrCustomUrl?.trim() || ''
+  const configuredCountdownQrText = event?.mirrorCountdownQrText?.trim() || ''
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const linkCountdownTarget = getMirrorCountdownTarget(event?.gigDate ?? null, event?.gigStartTime ?? null)
@@ -1409,20 +1412,27 @@ function MirrorPageContent() {
     return `${appOrigin}/qr-landing?${queryParams.toString()}`
   }
   // Route old QR link field through landing page so "Go to Lounge" button appears automatically
-  const countdownQrDestination = buildCountdownLandingUrl(customCountdownQrLink || null)
-  const countdownQrText = customCountdownQrLink || audienceUrl
+  const countdownQrDestination = buildCountdownLandingUrl(legacyCountdownQrLink || null)
   
   // Custom QR code logic for countdown and break screens
-  const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && (event?.mirrorCountdownQrCustomUrl?.trim() ?? '').length > 0 && eventId !== null
-  const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && (event?.mirrorBreakQrCustomUrl?.trim() ?? '').length > 0 && eventId !== null
-  
-  const countdownQrCodeUrl = useCustomCountdownQr && eventId
-    ? buildCountdownLandingUrl(event!.mirrorCountdownQrCustomUrl ?? null)
+  const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && customCountdownQrLink.length > 0 && eventId !== null
+  const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && customBreakQrLink.length > 0 && eventId !== null
+
+  const countdownQrCodeUrl = useCustomCountdownQr
+    ? buildCountdownLandingUrl(customCountdownQrLink)
     : countdownQrDestination
     
-  const breakQrCodeUrl = useCustomBreakQr && eventId
-    ? buildCountdownLandingUrl(event!.mirrorBreakQrCustomUrl ?? null)
+  const breakQrCodeUrl = useCustomBreakQr
+    ? buildCountdownLandingUrl(customBreakQrLink)
     : countdownQrDestination
+  const countdownQrDestinationLabel = useCustomCountdownQr
+    ? customCountdownQrLink
+    : (legacyCountdownQrLink || audienceUrl)
+  const breakQrDestinationLabel = useCustomBreakQr
+    ? customBreakQrLink
+    : countdownQrDestinationLabel
+  const countdownQrText = configuredCountdownQrText || countdownQrDestinationLabel
+  const breakQrText = configuredCountdownQrText || breakQrDestinationLabel
   
   const qrFlashLines = useMemo(() => {
     const baseLines = [...QR_FLASH_BASE_LINES]
@@ -1470,7 +1480,7 @@ function MirrorPageContent() {
   const upNext = useMemo(() => {
     const candidateSongs = isNowPlayingStarted
       ? safeSongs.filter((song) => song.id !== activeSong?.id)
-      : safeSongs.slice(1)
+      : safeSongs
 
     return [...candidateSongs].sort((songA, songB) => {
       if (songB.votes_count !== songA.votes_count) {
@@ -3875,7 +3885,7 @@ function MirrorPageContent() {
           <div className="mirror-brb-qr-panel">
             <img src={breakQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
             <p className="mirror-brb-qr-label">Scan for the pints. Log in for the tunes.</p>
-            {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
+              {showCountdownQrLink ? <p className="mirror-brb-qr-url">{breakQrText}</p> : null}
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </div>
         </div>

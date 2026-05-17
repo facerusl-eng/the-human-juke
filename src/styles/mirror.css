@@ -3771,3 +3771,70 @@
 .mirror-debug-badge p {
   margin: 0;
 }
+
+/* Live layout stability: prevent top media from collapsing queue/feed area. */
+.mirror-shell-hide-controls .mirror-kiosk-columns {
+  grid-template-rows: minmax(0, 0.36fr) minmax(0, 0.64fr);
+}
+
+.mirror-shell-hide-controls .mirror-kiosk-right {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mirror-shell-hide-controls .mirror-now-playing {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-band-label {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-track {
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 0;
+  overflow: hidden;
+  align-content: center;
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-qr-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-height: 0;
+  align-self: stretch;
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-artwork-slot {
+  min-height: 0;
+}
+
+.mirror-shell-hide-controls .mirror-now-playing-cover,
+.mirror-shell-hide-controls .mirror-now-playing-karaoke-mark {
+  width: clamp(106px, 9.8vw, 172px);
+  min-width: clamp(106px, 9.8vw, 172px);
+  min-height: clamp(106px, 9.8vw, 172px);
+}
+
+.mirror-shell-hide-controls .mirror-live-feed-frame,
+.mirror-shell-hide-controls .mirror-song-queue-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue {
+  display: grid;
+  grid-template-rows: none !important;
+  grid-auto-rows: minmax(0, auto);
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue > .mirror-queue-item:nth-child(n + 6) {
+  display: flex;
+}
