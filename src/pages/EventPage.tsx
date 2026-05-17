@@ -1160,7 +1160,7 @@ function EventPage() {
     ? {
         audienceApp: 'Publikumsapp',
         entryEyebrow: 'Official Audience Lounge',
-        entryCopy: 'Du går ind i den live publikumsapp. Ønsk sange og stem dine favoritter til tops.',
+        entryCopy: 'Du er på vej ind i den live publikumsapp. Ønsk sange og stem dine favoritter til tops.',
         nameLabel: 'Dit navn',
         namePlaceholder: 'f.eks. Alex',
         languageLabel: 'Sprog',
@@ -1190,7 +1190,7 @@ function EventPage() {
         playedSongs: 'Spillede sange',
         latestOnTop: 'Nyeste øverst',
         noSongsPlayed: 'Ingen sange spillet endnu.',
-        performerLinks: 'Artistlinks',
+        performerLinks: 'Kunstnerlinks',
         tipJarCopy: 'Hvis den sidste sang fik dig til at synge, så giv artisten en skilling. Klapsalver er søde, men huslejen larmer mere.',
         tipThankYou: event?.tipThankYouMessageDA?.trim() || 'Tusind tak for din støtte — det betyder meget. — Harald',
         enterName: 'Skriv dit navn for at fortsætte.',

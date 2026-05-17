@@ -56,43 +56,43 @@ const COPY = {
     signupCta: 'Get updates',
   },
   da: {
-    eyebrow: 'Booket af steder der vil have fuldt hus',
+    eyebrow: 'Booket af steder, der vil have fuldt hus',
     h1Line1: 'Dine gaester vaelger sangene.',
     h1Line2: 'Din aften bliver',
-    h1Accent: 'den folk bliver laengere til.',
-    subtitle: 'Jeg hedder Harald - en live performer der bringer en interaktiv jukebox til din pub. Gaesterne onsker sange, stemmer pa koen og bliver hvirvlet ind i noget, der gor aftenen mere social og mere levende.',
+    h1Accent: 'den, folk bliver haengende til.',
+    subtitle: 'Jeg hedder Harald - en live performer, der bringer en interaktiv jukebox til din pub. Gaesterne oensker sange, stemmer paa koen og bliver en aktiv del af showet, saa aftenen foeles mere social og levende.',
     bookCta: 'Book showet',
     demoCta: 'Se hvordan det virker',
     mirrorPreviewLabel: 'Mirror demo',
     mirrorPreviewTitle: 'Forhaandsvis den live mirror-skaerm her',
-    mirrorPreviewCopy: 'Det er den samme visning gaesterne ser pa venue-skaermen: now playing, ko, live feed og QR samlet et sted.',
-    mirrorPreviewAction: 'Aabn mirror demo i fuld skaerm',
+    mirrorPreviewCopy: 'Det er den samme visning, gaesterne ser paa venue-skaermen: now playing, ko, live feed og QR samlet et sted.',
+    mirrorPreviewAction: 'Aabn mirror-demo i fuld skaerm',
     stats: [
-      { value: '500+', label: 'Sangonsker per show' },
+      { value: '500+', label: 'Sangoensker pr. show' },
       { value: '100%', label: 'Publikumsstyret saetliste' },
       { value: '0', label: 'Apps gaesterne skal installere' },
       { value: '40+', label: 'Spillesteder underholdt' },
     ],
-    featuresTitle: 'Sadan virker det',
+    featuresTitle: 'Saadan virker det',
     features: [
-      { icon: 'building', label: 'Du booker showet', copy: 'En besked er alt, der skal til. Jeg moder op fuldt klar til at spille.' },
-      { icon: 'phone', label: 'Gaester scanner og deltager', copy: 'Ingen app at installere. Gaester onsker og stemmer fra enhver telefon.' },
-      { icon: 'chat', label: 'Publikum styrer saettet', copy: 'Live onsker og stemmer flytter koen i realtid hele aftenen.' },
+      { icon: 'building', label: 'Du booker showet', copy: 'En besked er alt, der skal til. Jeg moeder op fuldt klar til at spille.' },
+      { icon: 'phone', label: 'Gaester scanner og deltager', copy: 'Ingen app at installere. Gaester oensker og stemmer fra enhver telefon.' },
+      { icon: 'chat', label: 'Publikum styrer saettet', copy: 'Live oensker og stemmer flytter koen i realtid hele aftenen.' },
     ],
     socialTitle: 'Betroet af spillesteder, der vil have fulde huse',
     socialProof: [
-      { quote: 'Gaesterne blev laengere og brugte mere, fordi de folte ejerskab over koen.', name: 'Spillestedsejer, Kobenhavn' },
-      { quote: 'Den nemmeste liveaften vi har afholdt. Opsaetningen var smidig, og gaesterne elskede det.', name: 'Barmanager, Reykjavik' },
+      { quote: 'Gaesterne blev laengere og brugte mere, fordi de foelte ejerskab over koen.', name: 'Spillestedsejer, Kobenhavn' },
+      { quote: 'Den nemmeste liveaften, vi har afholdt. Opsaetningen var smidig, og gaesterne elskede det.', name: 'Barmanager, Reykjavik' },
       { quote: 'Ingen app-friktion. Folk kom i gang med det samme og blev ved med at stemme hele aftenen.', name: 'Eventvaert, Aarhus' },
     ],
     ctaEyebrow: 'Klar til at give din pub en aften de taler om?',
     ctaHeading: 'Book The Human Jukebox til din pubs naeste event',
     ctaSub: 'Pubber, barer, restauranter, private fester og festivaler. En besked er nok - jeg klarer resten.',
     ctaBook: 'Book showet',
-    ctaDemo: 'Prov demo forst',
-    signupLabel: 'Fa ledige datoer pa email',
+    ctaDemo: 'Proev demo foerst',
+    signupLabel: 'Faa ledige datoer paa email',
     signupPlaceholder: 'dig@spillested.dk',
-    signupCta: 'Fa updates',
+    signupCta: 'Faa updates',
   },
 }
 
@@ -298,7 +298,7 @@ function HomePage() {
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
     if (!emailPattern.test(normalizedEmail)) {
-      setSignupError(lang === 'da' ? 'Indtast en gyldig email.' : 'Enter a valid email address.')
+      setSignupError(lang === 'da' ? 'Indtast en gyldig emailadresse.' : 'Enter a valid email address.')
       return
     }
 
@@ -329,7 +329,7 @@ function HomePage() {
         if (usedFallbackDelivery) {
           setSignupNotice(
             lang === 'da'
-              ? 'Tak. Din forespoergsel er modtaget. Vi kontakter dig snart med info.'
+              ? 'Tak. Din forespoergsel er modtaget. Vi kontakter dig snart med mere info.'
               : 'Thanks. Your request was received, and we will contact you shortly with details.',
           )
         } else {
