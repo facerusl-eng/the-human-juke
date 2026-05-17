@@ -100,6 +100,33 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value ?? '').trim())
 }
 
+function extractEmailAddress(addressValue) {
+  const value = String(addressValue || '').trim()
+  const match = value.match(/<([^>]+)>/)
+  const candidate = (match ? match[1] : value).trim().toLowerCase()
+  return isValidEmail(candidate) ? candidate : ''
+}
+
+function resolveUpdatesReplyToEmail(fromEmail) {
+  const configuredReplyTo = process.env.UPDATES_EMAIL_REPLY_TO?.trim().toLowerCase() || ''
+  if (isValidEmail(configuredReplyTo)) {
+    return configuredReplyTo
+  }
+
+  const bookingContact = process.env.BOOKING_TO_EMAIL?.trim().toLowerCase() || ''
+  if (isValidEmail(bookingContact)) {
+    return bookingContact
+  }
+
+  return extractEmailAddress(fromEmail)
+}
+
+function buildListUnsubscribeHeader(replyToEmail) {
+  return isValidEmail(replyToEmail)
+    ? `<mailto:${replyToEmail}?subject=unsubscribe>`
+    : ''
+}
+
 function buildBookingWebhookTargets(primaryUrl) {
   const targets = [String(primaryUrl || '').trim(), ...fallbackBookingWebhookUrls]
   return [...new Set(targets.filter(Boolean))]
@@ -129,6 +156,32 @@ function buildUpdatesEmailHtml(bookingUrl, lang = 'en') {
       </p>
     </div>
   `
+}
+
+function buildUpdatesEmailText(bookingUrl, lang = 'en') {
+  if (lang === 'da') {
+    return [
+      'Tak for din interesse i The Human Jukebox.',
+      '',
+      'Her er et hurtigt overblik over konceptet og hvordan booking fungerer.',
+      '',
+      'Klar til at planlaegge din dato?',
+      `Book showet her: ${bookingUrl}`,
+      '',
+      'Du modtog denne besked, fordi du anmodede om opdateringer pa The Human Jukebox-webstedet.',
+    ].join('\n')
+  }
+
+  return [
+    'Thanks for your interest in The Human Jukebox.',
+    '',
+    'Here is a quick overview of the concept and how booking works.',
+    '',
+    'Ready to plan your date?',
+    `Book the show here: ${bookingUrl}`,
+    '',
+    'You received this because you requested availability updates on the Human Jukebox website.',
+  ].join('\n')
 }
 
 function parseResendAllowedTestRecipient(errorMessage) {
@@ -462,7 +515,9 @@ app.post('/api/get-updates', async (req, res) => {
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
-  const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <noreply@the-human-jukebox.org>'
+  const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <updates@the-human-jukebox.org>'
+  const replyToEmail = resolveUpdatesReplyToEmail(fromEmail)
+  const listUnsubscribeHeader = buildListUnsubscribeHeader(replyToEmail)
   const bookingUrl = process.env.VITE_BOOKING_URL?.trim() || 'https://www.the-human-jukebox.org/?booking=1'
 
   if (!resendApiKey) {
@@ -481,12 +536,23 @@ app.post('/api/get-updates', async (req, res) => {
       ? 'Din Human Jukebox-koncept og bookinginfo'
       : 'Your Human Jukebox concept and booking info'
 
-    const { response, responseBody: errorBody } = await sendResendEmail(resendApiKey, {
+    const directPayload = {
       from: fromEmail,
       to: [toEmail],
       subject: emailSubject,
       html: buildUpdatesEmailHtml(bookingUrl, emailLang),
-    })
+      text: buildUpdatesEmailText(bookingUrl, emailLang),
+    }
+
+    if (isValidEmail(replyToEmail)) {
+      directPayload.reply_to = replyToEmail
+    }
+
+    if (listUnsubscribeHeader) {
+      directPayload.headers = { 'List-Unsubscribe': listUnsubscribeHeader }
+    }
+
+    const { response, responseBody: errorBody } = await sendResendEmail(resendApiKey, directPayload)
 
     if (!response.ok) {
       if (isResendAuthConfigurationError(errorBody)) {

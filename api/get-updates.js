@@ -71,6 +71,33 @@ function resolveFallbackRecipient(errorBody) {
   return ''
 }
 
+function extractEmailAddress(addressValue) {
+  const value = String(addressValue || '').trim()
+  const match = value.match(/<([^>]+)>/)
+  const candidate = (match ? match[1] : value).trim().toLowerCase()
+  return EMAIL_PATTERN.test(candidate) ? candidate : ''
+}
+
+function resolveReplyToEmail(fromEmail) {
+  const configuredReplyTo = process.env.UPDATES_EMAIL_REPLY_TO?.trim().toLowerCase() || ''
+  if (EMAIL_PATTERN.test(configuredReplyTo)) {
+    return configuredReplyTo
+  }
+
+  const bookingContact = process.env.BOOKING_TO_EMAIL?.trim().toLowerCase() || ''
+  if (EMAIL_PATTERN.test(bookingContact)) {
+    return bookingContact
+  }
+
+  return extractEmailAddress(fromEmail)
+}
+
+function buildListUnsubscribeHeader(replyToEmail) {
+  return EMAIL_PATTERN.test(replyToEmail)
+    ? `<mailto:${replyToEmail}?subject=unsubscribe>`
+    : ''
+}
+
 function buildManualFallbackResponse(lang) {
   return {
     success: true,
@@ -179,6 +206,32 @@ function buildEmailHtml(bookingUrl, lang = 'en') {
   `
 }
 
+function buildEmailText(bookingUrl, lang = 'en') {
+  if (lang === 'da') {
+    return [
+      'Tak for din interesse i The Human Jukebox.',
+      '',
+      'Her er et hurtigt overblik over konceptet og hvordan booking fungerer.',
+      '',
+      'Klar til at planlaegge din dato?',
+      `Book showet her: ${bookingUrl}`,
+      '',
+      'Du modtog denne besked, fordi du anmodede om opdateringer pa The Human Jukebox-webstedet.',
+    ].join('\n')
+  }
+
+  return [
+    'Thanks for your interest in The Human Jukebox.',
+    '',
+    'Here is a quick overview of the concept and how booking works.',
+    '',
+    'Ready to plan your date?',
+    `Book the show here: ${bookingUrl}`,
+    '',
+    'You received this because you requested availability updates on the Human Jukebox website.',
+  ].join('\n')
+}
+
 export default async function handler(req, res) {
   const origin = req.headers.origin || ''
 
@@ -204,7 +257,9 @@ export default async function handler(req, res) {
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
-  const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <noreply@the-human-jukebox.org>'
+  const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <updates@the-human-jukebox.org>'
+  const replyToEmail = resolveReplyToEmail(fromEmail)
+  const listUnsubscribeHeader = buildListUnsubscribeHeader(replyToEmail)
   const bookingUrl = process.env.VITE_BOOKING_URL?.trim() || 'https://www.the-human-jukebox.org/?booking=1'
 
   if (!resendApiKey) {
@@ -222,12 +277,23 @@ export default async function handler(req, res) {
       ? 'Din Human Jukebox-koncept og bookinginfo' 
       : 'Your Human Jukebox concept and booking info'
 
-    const { response, responseBody: errorBody } = await sendResendEmail(resendApiKey, {
+    const directPayload = {
       from: fromEmail,
       to: [toEmail],
       subject: emailSubject,
       html: buildEmailHtml(bookingUrl, emailLang),
-    })
+      text: buildEmailText(bookingUrl, emailLang),
+    }
+
+    if (EMAIL_PATTERN.test(replyToEmail)) {
+      directPayload.reply_to = replyToEmail
+    }
+
+    if (listUnsubscribeHeader) {
+      directPayload.headers = { 'List-Unsubscribe': listUnsubscribeHeader }
+    }
+
+    const { response, responseBody: errorBody } = await sendResendEmail(resendApiKey, directPayload)
 
     if (!response.ok) {
       const errorText = errorBody?.message || errorBody?.name || JSON.stringify(errorBody) || ''
