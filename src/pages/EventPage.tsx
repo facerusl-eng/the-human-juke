@@ -85,6 +85,20 @@ function parseEventStartMs(gigDate: string | null | undefined, gigStartTime: str
   return Number.isNaN(parsedMs) ? null : parsedMs
 }
 
+function formatCompactCountdownLabel(remainingMs: number): string {
+  const totalSeconds = Math.floor(Math.max(0, remainingMs) / 1000)
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  if (days > 0) {
+    return `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 function hasFutureCountdownTarget(events: AudienceUpcomingEvent[]): boolean {
   const now = Date.now()
 
@@ -310,7 +324,7 @@ async function fetchUpcomingEventCoverById(eventId: string, timeoutMs = 8000): P
 const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 const UPCOMING_EVENTS_DEGRADED_POLL_INTERVAL_MS = 60000
-const LIVE_GIG_POLL_INTERVAL_MS = 12000
+const LIVE_GIG_POLL_INTERVAL_MS = 4000
 const PLAYBACK_SYNC_POLL_INTERVAL_MS = 10000
 const PLAYBACK_NULL_SYNC_GRACE_MISSES = 3
 const PLAYBACK_STALE_UPDATE_TOLERANCE_MS = 2500
@@ -1072,6 +1086,26 @@ function EventPage() {
   }, [event?.roomOpen])
 
   const roomOpen = event?.roomOpen ?? false
+  const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => Date.now())
+  const waitingRoomStartMs = useMemo(() => {
+    if (!event?.id || roomOpen) {
+      return null
+    }
+
+    return parseEventStartMs(event.gigDate, event.gigStartTime)
+  }, [event?.gigDate, event?.gigStartTime, event?.id, roomOpen])
+  const waitingRoomCountdownLabel = useMemo(() => {
+    if (waitingRoomStartMs === null) {
+      return null
+    }
+
+    const remainingMs = waitingRoomStartMs - waitingRoomNowMs
+    if (remainingMs <= 0) {
+      return '00:00:00'
+    }
+
+    return formatCompactCountdownLabel(remainingMs)
+  }, [waitingRoomNowMs, waitingRoomStartMs])
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
   const activeRequestCap = event?.maxActiveRequestsPerUser ?? null
   const queueSizeCap = event?.maxQueueSize ?? null
@@ -1304,6 +1338,23 @@ function EventPage() {
       🏠 {copy.backToHome}
     </button>
   )
+
+  useEffect(() => {
+    if (!event?.id || roomOpen || waitingRoomStartMs === null) {
+      return
+    }
+
+    const tick = () => {
+      setWaitingRoomNowMs(Date.now())
+    }
+
+    tick()
+    const timerId = window.setInterval(tick, 1000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [event?.id, roomOpen, waitingRoomStartMs])
 
   useEffect(() => {
     if (demoMode) return
@@ -1738,13 +1789,15 @@ function EventPage() {
         }
 
         if (liveGigId) {
-          if (!requestedEventId && requestedEventId !== liveGigId) {
+          if (!event && requestedEventId !== liveGigId) {
             navigate(`/audience?event=${encodeURIComponent(liveGigId)}&v=${audienceLinkVersionRef.current}`, {
               replace: true,
             })
           }
 
-          setUpcomingEventsNotice('A live show just started. Connecting now...')
+          if (!event) {
+            setUpcomingEventsNotice('A live show just started. Connecting now...')
+          }
           setHasCompletedInitialLiveGigProbe(true)
           return
         }
@@ -2705,7 +2758,9 @@ function EventPage() {
           <h1>{copy.waitingTitle}</h1>
           <p className="subcopy audience-entry-copy">{copy.waitingCopy}</p>
           {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
-          <p className="meta-badge audience-soon-badge">{copy.startingSoon}</p>
+          <p className="meta-badge audience-soon-badge">
+            {waitingRoomCountdownLabel ? `${copy.startingSoon} · ${waitingRoomCountdownLabel}` : copy.startingSoon}
+          </p>
           {event?.name ? (
             <div className="audience-waiting-event-info">
               <p className="audience-waiting-event-name">{event.name}</p>

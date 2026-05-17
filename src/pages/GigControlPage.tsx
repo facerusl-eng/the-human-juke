@@ -1448,10 +1448,21 @@ function GigControlPage() {
 
     const timerId = window.setInterval(() => {
       void runAutoLiveCountdownCheck()
-    }, 5000)
+    }, 1000)
+
+    const onHostWindowResume = () => {
+      if (!document.hidden) {
+        void runAutoLiveCountdownCheck()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onHostWindowResume)
+    window.addEventListener('focus', onHostWindowResume)
 
     return () => {
       window.clearInterval(timerId)
+      document.removeEventListener('visibilitychange', onHostWindowResume)
+      window.removeEventListener('focus', onHostWindowResume)
     }
   }, [
     event?.id,
