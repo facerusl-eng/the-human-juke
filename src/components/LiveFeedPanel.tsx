@@ -1104,14 +1104,18 @@ function LiveFeedPanel({
               const canDelete = showModerationControls && isHost
               const normalizedPostImageSource = normalizeImageSource(post.image_data_url)
               const hasImage = Boolean(normalizedPostImageSource)
-              const useMirrorPhotoLayout = isMirrorMode && hasImage
+              const useMirrorPhotoLayout = false
+              const showInlineImageNode = Boolean(normalizedPostImageSource) && !isMirrorMode
+              const mirrorPhotoFallbackMessage = isMirrorMode && hasImage && !post.message
+                ? `${post.author_name} shared a photo`
+                : null
               const isMirrorTextPost = isMirrorMode && !hasImage && Boolean(post.message?.trim())
               const postTypeLabel = hasImage ? 'Photo' : 'Message'
               const postTimeLabel = formatPostTime(post.created_at)
               const authorInitial = getAuthorInitial(post.author_name)
-              const imageNode = normalizedPostImageSource ? (
+              const imageNode = showInlineImageNode ? (
                 <div className="live-feed-post-image-wrapper">
-                  <img src={normalizedPostImageSource} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
+                  <img src={normalizedPostImageSource ?? undefined} alt={`Shared by ${post.author_name}`} className="live-feed-post-image" />
                   {useMirrorPhotoLayout ? <strong className="live-feed-post-image-author">{post.author_name}</strong> : null}
                 </div>
               ) : null
@@ -1119,7 +1123,7 @@ function LiveFeedPanel({
               return (
                 <article
                   key={post.id}
-                  className={`live-feed-post queue-slide-in ${isMirrorMode ? 'live-feed-post-mirror' : 'live-feed-post-page'} ${hasImage ? 'live-feed-post-polaroid' : ''} ${isMirrorTextPost ? 'live-feed-post-mirror-text' : ''}`.trim()}
+                  className={`live-feed-post queue-slide-in ${isMirrorMode ? 'live-feed-post-mirror' : 'live-feed-post-page'} ${!isMirrorMode && hasImage ? 'live-feed-post-polaroid' : ''} ${isMirrorTextPost ? 'live-feed-post-mirror-text' : ''}`.trim()}
                 >
                   {isMirrorMode ? imageNode : null}
 
@@ -1147,6 +1151,9 @@ function LiveFeedPanel({
                   </div>
 
                   {post.message ? <p className="live-feed-post-message">{post.message}</p> : null}
+                  {!post.message && mirrorPhotoFallbackMessage ? (
+                    <p className="live-feed-post-message">{mirrorPhotoFallbackMessage}</p>
+                  ) : null}
                   {!isMirrorMode ? imageNode : null}
                 </article>
               )

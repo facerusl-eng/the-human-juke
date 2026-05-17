@@ -1385,13 +1385,31 @@ function MirrorPageContent() {
   const customCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
-  const testPreviewQuery = isTestGigAudienceMode ? 'test=1&' : ''
   const linkCountdownTarget = getMirrorCountdownTarget(event?.gigDate ?? null, event?.gigStartTime ?? null)
-  const countdownTargetQuery = linkCountdownTarget ? `ct=${encodeURIComponent(String(linkCountdownTarget.getTime()))}&` : ''
+  const buildCountdownLandingUrl = (customUrl: string | null) => {
+    const queryParams = new URLSearchParams()
+
+    if (eventId) {
+      queryParams.set('event', eventId)
+    }
+
+    if (isTestGigAudienceMode) {
+      queryParams.set('test', '1')
+    }
+
+    if (linkCountdownTarget) {
+      queryParams.set('ct', String(linkCountdownTarget.getTime()))
+    }
+
+    const trimmedCustomUrl = customUrl?.trim()
+    if (trimmedCustomUrl) {
+      queryParams.set('url', trimmedCustomUrl)
+    }
+
+    return `${appOrigin}/qr-landing?${queryParams.toString()}`
+  }
   // Route old QR link field through landing page so "Go to Lounge" button appears automatically
-  const countdownQrDestination = customCountdownQrLink
-    ? `${appOrigin}/qr-landing?${eventId ? `event=${encodeURIComponent(eventId)}&` : ''}${testPreviewQuery}${countdownTargetQuery}url=${encodeURIComponent(customCountdownQrLink)}`
-    : audienceUrl
+  const countdownQrDestination = buildCountdownLandingUrl(customCountdownQrLink || null)
   const countdownQrText = customCountdownQrLink || audienceUrl
   
   // Custom QR code logic for countdown and break screens
@@ -1399,11 +1417,11 @@ function MirrorPageContent() {
   const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && (event?.mirrorBreakQrCustomUrl?.trim() ?? '').length > 0 && eventId !== null
   
   const countdownQrCodeUrl = useCustomCountdownQr && eventId
-    ? `${appOrigin}/qr-landing?event=${encodeURIComponent(eventId)}&${testPreviewQuery}${countdownTargetQuery}url=${encodeURIComponent(event!.mirrorCountdownQrCustomUrl!)}`
+    ? buildCountdownLandingUrl(event!.mirrorCountdownQrCustomUrl ?? null)
     : countdownQrDestination
     
   const breakQrCodeUrl = useCustomBreakQr && eventId
-    ? `${appOrigin}/qr-landing?event=${encodeURIComponent(eventId)}&${testPreviewQuery}${countdownTargetQuery}url=${encodeURIComponent(event!.mirrorBreakQrCustomUrl!)}`
+    ? buildCountdownLandingUrl(event!.mirrorBreakQrCustomUrl ?? null)
     : countdownQrDestination
   
   const qrFlashLines = useMemo(() => {
