@@ -305,7 +305,7 @@ function GigControlPage() {
     setRoomOpen,
     toggleRoomOpen,
     toggleExplicitFilter,
-    setShowInAudienceNoGig,
+    deleteEvent,
     forceFallbackMode,
     audienceConnectionStatus,
     queueOperatingMode,
@@ -351,7 +351,8 @@ function GigControlPage() {
   const [lastMirrorSyncAt, setLastMirrorSyncAt] = useState<number>(() => Date.now())
   const [mirrorLaunchStatusText, setMirrorLaunchStatusText] = useState<string | null>(null)
   const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
-  const [showEndGigHideConfirm, setShowEndGigHideConfirm] = useState(false)
+  const [endGigPromptEvent, setEndGigPromptEvent] = useState<{ id: string; name: string } | null>(null)
+  const [endGigDecisionBusy, setEndGigDecisionBusy] = useState<'keep-offline' | 'delete' | null>(null)
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
   const [autoLiveLastError, setAutoLiveLastError] = useState<string | null>(null)
   const [autoLiveLockBadgeText, setAutoLiveLockBadgeText] = useState<string | null>(null)
@@ -1110,6 +1111,12 @@ function GigControlPage() {
       if (isOpeningRoom) {
         setAutoLiveLastError(null)
         await runGoLivePreflight()
+      } else {
+        setEndGigPromptEvent({
+          id: currentEvent.id,
+          name: currentEvent.name,
+        })
+        return
       }
 
       await ensureRoomOpenState(isOpeningRoom)
@@ -1137,6 +1144,40 @@ function GigControlPage() {
       )
     }
   }, [ensureRoomOpenState, playIntroAudioOnceSafely, runGoLivePreflight])
+
+  const runEndGigDecision = useCallback(async (decision: 'keep-offline' | 'delete') => {
+    const targetEvent = endGigPromptEvent ?? eventRef.current
+
+    if (!targetEvent?.id) {
+      setErrorText('No active gig selected.')
+      setEndGigPromptEvent(null)
+      return
+    }
+
+    setErrorText(null)
+    setEndGigDecisionBusy(decision)
+
+    try {
+      await ensureRoomOpenState(false)
+
+      if (decision === 'delete') {
+        await deleteEvent(targetEvent.id)
+      }
+
+      setAutoLiveLastError(null)
+      setEndGigPromptEvent(null)
+    } catch (error) {
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : decision === 'delete'
+          ? 'Could not delete gig. Please try again.'
+          : 'Could not end gig. Please try again.',
+      )
+    } finally {
+      setEndGigDecisionBusy(null)
+    }
+  }, [deleteEvent, endGigPromptEvent, ensureRoomOpenState])
 
   const showMirrorPreviewTransition = useCallback((message: string, tone: MirrorPreviewTransitionTone) => {
     if (mirrorPreviewTransitionTimerRef.current !== null) {
@@ -1524,13 +1565,7 @@ function GigControlPage() {
         startedAt: gigStartedAtRef.current,
       })
     }
-
-    if (!hasJustEnded || !event.showInAudienceNoGig) {
-      return
-    }
-
-    setShowEndGigHideConfirm(true)
-  }, [event, performedSongs, setShowInAudienceNoGig])
+  }, [event, performedSongs])
 
   useEffect(() => {
     if (!event?.id || !event.autoLiveEnabled) {
@@ -2080,7 +2115,7 @@ function GigControlPage() {
         : 'Go Live',
       onClick: toggleLiveState,
       title: event?.roomOpen ? 'Pause the live event — the audience will see a waiting screen' : 'Run health checks and open the room so the audience can join',
-      disabled: gigActions.quickActionBusy || preflightBusy,
+      disabled: gigActions.quickActionBusy || preflightBusy || endGigDecisionBusy !== null,
       variant: event?.roomOpen ? 'secondary' : lastReadinessVerdict === 'fail' ? 'secondary' : 'primary',
     },
     {
@@ -2301,24 +2336,37 @@ function GigControlPage() {
   return (
     <section className="gig-control-shell" aria-label="Gig control panel">
       {/* Gig header */}
-      {showEndGigHideConfirm ? (
-        <section className="queue-panel admin-inline-confirm-banner" role="alertdialog" aria-label="Gig ended">
-          <p className="subcopy">Gig ended. Remove this gig from the offline Audience page so visitors aren't confused?</p>
+      {endGigPromptEvent ? (
+        <section className="queue-panel admin-inline-confirm-banner" role="alertdialog" aria-label="End gig options">
+          <p className="subcopy">End "{endGigPromptEvent.name}" now. Keep it offline, or delete it entirely from the app and Gig Control?</p>
           <div className="hero-actions no-margin-bottom">
             <button
               type="button"
               className="secondary-button"
               onClick={() => {
-                void setShowInAudienceNoGig(false).catch((error: unknown) => {
-                  setErrorText(error instanceof Error ? error.message : 'Could not update visibility.')
-                })
-                setShowEndGigHideConfirm(false)
+                void runEndGigDecision('keep-offline')
               }}
+              disabled={endGigDecisionBusy !== null}
             >
-              Yes, Hide It
+              {endGigDecisionBusy === 'keep-offline' ? 'Ending Gig...' : 'Keep Offline'}
             </button>
-            <button type="button" className="ghost-button" onClick={() => setShowEndGigHideConfirm(false)}>
-              Keep Visible
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => {
+                void runEndGigDecision('delete')
+              }}
+              disabled={endGigDecisionBusy !== null}
+            >
+              {endGigDecisionBusy === 'delete' ? 'Deleting Gig...' : 'Delete Gig'}
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setEndGigPromptEvent(null)}
+              disabled={endGigDecisionBusy !== null}
+            >
+              Cancel
             </button>
           </div>
         </section>
@@ -2337,7 +2385,7 @@ function GigControlPage() {
           <button
             type="button"
             className="primary-button"
-            disabled={gigActions.quickActionBusy || preflightBusy}
+            disabled={gigActions.quickActionBusy || preflightBusy || endGigDecisionBusy !== null}
             onClick={async () => {
               await toggleLiveState()
             }}
