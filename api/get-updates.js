@@ -145,90 +145,86 @@ function buildFallbackLeadHtml(requestedEmail, lang, bookingUrl) {
   `
 }
 
-function buildEmailHtml(bookingUrl, lang = 'en') {
-  if (lang === 'da') {
-    return `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a44;">
-        <h2 style="margin-bottom: 8px;">Tak for din interesse i The Human Jukebox</h2>
-        <p style="margin-top: 0;">Her er et hurtigt overblik over konceptet og hvordan booking fungerer.</p>
+function buildEmailHtml(bookingUrl) {
+  const backgroundImageUrl = process.env.UPDATES_EMAIL_BACKGROUND_URL?.trim()
+    || 'https://www.the-human-jukebox.org/images/Harald%20live%20Mirror%20background.png'
 
-        <h3 style="margin-bottom: 6px;">Sådan fungerer konceptet</h3>
-        <ul style="padding-left: 18px; margin-top: 0;">
-          <li>Gæsterne scanner en QR-kode og deltager øjeblikkeligt fra deres telefon.</li>
-          <li>De ønsker sange og stemmer live, så rummet former setlisten sammen.</li>
-          <li>En fælles live-skærm holder alle engagerede med nu-spiller og kø-opdateringer.</li>
-        </ul>
-
-        <h3 style="margin-bottom: 6px;">Hvorfor spillesteder bruger det</h3>
-        <ul style="padding-left: 18px; margin-top: 0;">
-          <li>Ingen app-friktioner for gæster.</li>
-          <li>Simpel drift for personalet under servicen.</li>
-          <li>Interaktive aftener der holder momentum.</li>
-        </ul>
-
-        <p>
-          Klar til at planlægge din dato?
-          <a href="${bookingUrl}" style="color: #0b63ce; font-weight: 700;">Book showet her</a>.
-        </p>
-
-        <p style="font-size: 13px; color: #57607a;">Du modtog denne besked, fordi du anmodede om opdateringer på The Human Jukebox-webstedet.</p>
-      </div>
-    `
-  }
-
-  // English (default)
   return `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2a44;">
-      <h2 style="margin-bottom: 8px;">Thanks for your interest in The Human Jukebox</h2>
-      <p style="margin-top: 0;">Here is a quick overview of the concept and how booking works.</p>
-
-      <h3 style="margin-bottom: 6px;">How the concept works</h3>
-      <ul style="padding-left: 18px; margin-top: 0;">
-        <li>Guests scan a QR and join instantly from any phone.</li>
-        <li>They request songs and vote live, so the room shapes the setlist together.</li>
-        <li>A shared live screen keeps everyone engaged with now playing and queue updates.</li>
-      </ul>
-
-      <h3 style="margin-bottom: 6px;">Why venues use it</h3>
-      <ul style="padding-left: 18px; margin-top: 0;">
-        <li>No app friction for guests.</li>
-        <li>Simple operation for staff during service.</li>
-        <li>Interactive nights that keep momentum high.</li>
-      </ul>
-
-      <p>
-        Ready to plan your date?
-        <a href="${bookingUrl}" style="color: #0b63ce; font-weight: 700;">Book the show here</a>.
-      </p>
-
-      <p style="font-size: 13px; color: #57607a;">You received this because you requested availability updates on the Human Jukebox website.</p>
+    <div style="margin:0;padding:24px 0;background:#070b1a;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td align="center" style="padding:0 12px;">
+            <table role="presentation" width="595" cellpadding="0" cellspacing="0" border="0" style="width:595px;max-width:595px;border-radius:14px;overflow:hidden;background-color:#101737;background-image:linear-gradient(180deg, rgba(8, 11, 24, 0.32) 0%, rgba(8, 11, 24, 0.82) 42%, rgba(8, 11, 24, 0.94) 100%), url('${backgroundImageUrl}');background-size:cover;background-position:center top;">
+              <tr>
+                <td valign="top" style="height:842px;padding:42px 38px;font-family:Arial, sans-serif;color:#f5f8ff;line-height:1.55;">
+                  <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#ffe089;">...because you deserve entertainment that's alive, unpredictable, and slightly unhinged.</p>
+                  <p style="margin:0 0 18px;font-size:20px;font-weight:700;">Hey there</p>
+                  <p style="margin:0 0 14px;font-size:16px;">If you want to stay in the loop about new shows, special events, bar takeovers, private parties, and all the ridiculous things I somehow get myself into on stage, then you're in the right place.</p>
+                  <p style="margin:0 0 10px;font-size:16px;font-weight:700;">The Human Jukebox is simple:</p>
+                  <p style="margin:0 0 4px;font-size:16px;">You pick the songs.</p>
+                  <p style="margin:0 0 4px;font-size:16px;">I perform them live.</p>
+                  <p style="margin:0 0 18px;font-size:16px;">No backing tracks. No safety net.<br/>Just me, a guitar, a voice, and questionable decision-making skills.</p>
+                  <p style="margin:0 0 14px;font-size:16px;">Your audience becomes part of the show - sending requests, voting, cheering, roasting me (gently), and turning a normal night out into a "did-that-really-happen" memory.</p>
+                  <p style="margin:0 0 14px;font-size:16px;">Whether you're a bar owner, event planner, party host, or just someone who enjoys watching a grown man sing whatever strangers throw at him... I've got updates you'll actually want to read.</p>
+                  <p style="margin:0 0 10px;font-size:16px;font-weight:700;">Sign up, and I'll send you:</p>
+                  <ul style="margin:0 0 22px;padding-left:20px;font-size:16px;">
+                    <li style="margin-bottom:6px;">Upcoming show dates</li>
+                    <li style="margin-bottom:6px;">Booking opportunities</li>
+                    <li style="margin-bottom:6px;">New features in the live request system</li>
+                    <li style="margin-bottom:6px;">Behind-the-scenes chaos</li>
+                    <li>Occasional jokes that may or may not be funny</li>
+                  </ul>
+                  <p style="margin:0 0 10px;font-size:16px;">No spam. No nonsense.<br/>Just pure Human Jukebox energy.</p>
+                  <p style="margin:0 0 24px;font-size:16px;">See you on the request list<br/>- Harald 🎤✨</p>
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0;">
+                    <tr>
+                      <td style="border-radius:999px;background:linear-gradient(90deg,#ff4fb2 0%,#5cc6ff 100%);padding:12px 22px;">
+                        <a href="${bookingUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;">Book now</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </div>
   `
 }
 
-function buildEmailText(bookingUrl, lang = 'en') {
-  if (lang === 'da') {
-    return [
-      'Tak for din interesse i The Human Jukebox.',
-      '',
-      'Her er et hurtigt overblik over konceptet og hvordan booking fungerer.',
-      '',
-      'Klar til at planlaegge din dato?',
-      `Book showet her: ${bookingUrl}`,
-      '',
-      'Du modtog denne besked, fordi du anmodede om opdateringer pa The Human Jukebox-webstedet.',
-    ].join('\n')
-  }
-
+function buildEmailText(bookingUrl) {
   return [
-    'Thanks for your interest in The Human Jukebox.',
+    "...because you deserve entertainment that's alive, unpredictable, and slightly unhinged.",
     '',
-    'Here is a quick overview of the concept and how booking works.',
+    'Hey there',
     '',
-    'Ready to plan your date?',
-    `Book the show here: ${bookingUrl}`,
+    "If you want to stay in the loop about new shows, special events, bar takeovers, private parties, and all the ridiculous things I somehow get myself into on stage, then you're in the right place.",
     '',
-    'You received this because you requested availability updates on the Human Jukebox website.',
+    'The Human Jukebox is simple:',
+    'You pick the songs.',
+    'I perform them live.',
+    'No backing tracks. No safety net.',
+    'Just me, a guitar, a voice, and questionable decision-making skills.',
+    '',
+    "Your audience becomes part of the show - sending requests, voting, cheering, roasting me (gently), and turning a normal night out into a \"did-that-really-happen\" memory.",
+    '',
+    "Whether you're a bar owner, event planner, party host, or just someone who enjoys watching a grown man sing whatever strangers throw at him... I've got updates you'll actually want to read.",
+    '',
+    "Sign up, and I'll send you:",
+    '- Upcoming show dates',
+    '- Booking opportunities',
+    '- New features in the live request system',
+    '- Behind-the-scenes chaos',
+    '- Occasional jokes that may or may not be funny',
+    '',
+    'No spam. No nonsense.',
+    'Just pure Human Jukebox energy.',
+    '',
+    'See you on the request list',
+    '- Harald 🎤✨',
+    '',
+    `Book now: ${bookingUrl}`,
   ].join('\n')
 }
 
