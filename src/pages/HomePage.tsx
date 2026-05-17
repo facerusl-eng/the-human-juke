@@ -5,7 +5,7 @@ import { Building2, MessageCircle, Smartphone } from 'lucide-react'
 import { resetOGTags } from '../lib/metaTags'
 import { PrimaryButton } from '../components/ui'
 import { demoMode } from '../demo/demoMode'
-import { readCommittedAudienceLocale } from '../lib/audienceIdentity'
+import { readCommittedAudienceLocale, commitAudienceLocale } from '../lib/audienceIdentity'
 import '../styles/home-landing.css'
 
 type HomeLang = 'en' | 'da'
@@ -146,12 +146,17 @@ function HomePage() {
   const [bookingFee, setBookingFee] = useState('')
   const [bookingNotes, setBookingNotes] = useState('')
   const [bookingContactEmail, setBookingContactEmail] = useState('')
-  const [lang] = useState<HomeLang>(() => {
+  const [lang, setLang] = useState<HomeLang>(() => {
     const stored = readCommittedAudienceLocale()
     return stored === 'da' ? 'da' : 'en'
   })
 
   const copy = COPY[lang]
+
+  const switchLang = (next: HomeLang) => {
+    setLang(next)
+    commitAudienceLocale(next)
+  }
 
   const openAudienceDemo = () => {
     if (typeof window !== 'undefined') {
@@ -188,6 +193,18 @@ function HomePage() {
     setBookingNotice(null)
     setBookingError(null)
     scrollToBookingForm()
+  }
+
+  const toggleBookingFlow = () => {
+    setBookingFormOpen((current) => {
+      const next = !current
+      if (next) {
+        scrollToBookingForm()
+      }
+      return next
+    })
+    setBookingNotice(null)
+    setBookingError(null)
   }
 
   const submitBookingRequest = (event: FormEvent<HTMLFormElement>) => {
@@ -401,6 +418,33 @@ function HomePage() {
                 {copy.h1Line2} <span>{copy.h1Accent}</span>
               </h1>
               <p className="lp-subtitle">{copy.subtitle}</p>
+            </div>
+
+            <div className="lp-copy-block-actions">
+              <div className="lp-lang-toggle" role="group" aria-label="Language">
+                <button
+                  type="button"
+                  className={`lp-lang-btn${lang === 'en' ? ' lp-lang-btn-active' : ''}`}
+                  onClick={() => switchLang('en')}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  className={`lp-lang-btn${lang === 'da' ? ' lp-lang-btn-active' : ''}`}
+                  onClick={() => switchLang('da')}
+                >
+                  DA
+                </button>
+              </div>
+              <div className="lp-hero-cta" aria-label="Primary actions">
+                <PrimaryButton onClick={toggleBookingFlow} disabled={bookingBusy}>
+                  {bookingFormOpen ? 'Close booking form' : 'Request Booking'}
+                </PrimaryButton>
+                <PrimaryButton variant="secondary" onClick={openAudienceDemo}>
+                  {copy.demoCta}
+                </PrimaryButton>
+              </div>
             </div>
 
             {bookingFormOpen ? (
