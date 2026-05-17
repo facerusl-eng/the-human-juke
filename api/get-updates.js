@@ -145,9 +145,62 @@ function buildFallbackLeadHtml(requestedEmail, lang, bookingUrl) {
   `
 }
 
-function buildEmailHtml(bookingUrl) {
+function getSignupEmailCopy(lang = 'en') {
+  if (lang === 'da') {
+    return {
+      teaser: '...fordi du fortjener underholdning, der er levende, uforudsigelig og en smule ustyrlig.',
+      greeting: 'Hey du',
+      intro: 'Hvis du vil holde dig opdateret om nye shows, special events, bar takeovers, private fester og alle de latterlige ting, jeg paa en eller anden maade ender med paa scenen, saa er du landet det rigtige sted.',
+      simpleLead: 'The Human Jukebox er simpelt:',
+      simpleLine1: 'Du vaelger sangene.',
+      simpleLine2: 'Jeg spiller dem live.',
+      simpleLine3: 'Ingen backing tracks. Intet sikkerhedsnet.',
+      simpleLine4: 'Kun mig, en guitar, en stemme og tvivlsomme beslutningsevner.',
+      audience: 'Dit publikum bliver en del af showet - sender requests, stemmer, jubler, driller mig (blidt) og forvandler en helt almindelig aften til et "skete-det-virkelig"-minde.',
+      roles: 'Uanset om du ejer en bar, planlaegger events, holder fest, eller bare nyder at se en voksen mand synge hvad end fremmede kaster efter ham... saa har jeg opdateringer, du faktisk gider laese.',
+      signupLead: 'Tilmeld dig, saa sender jeg:',
+      bullet1: 'Kommende showdatoer',
+      bullet2: 'Bookingmuligheder',
+      bullet3: 'Nye features i live request-systemet',
+      bullet4: 'Bagom-kaos',
+      bullet5: 'Lejlighedsvise jokes, som maaske er sjove',
+      closeLine1: 'Ingen spam. Ingen nonsens.',
+      closeLine2: 'Bare rendyrket Human Jukebox-energi.',
+      signoff: 'Vi ses paa request-listen',
+      signature: '- Harald',
+      ctaText: 'Book now',
+    }
+  }
+
+  return {
+    teaser: "...because you deserve entertainment that's alive, unpredictable, and slightly unhinged.",
+    greeting: 'Hey there',
+    intro: "If you want to stay in the loop about new shows, special events, bar takeovers, private parties, and all the ridiculous things I somehow get myself into on stage, then you're in the right place.",
+    simpleLead: 'The Human Jukebox is simple:',
+    simpleLine1: 'You pick the songs.',
+    simpleLine2: 'I perform them live.',
+    simpleLine3: 'No backing tracks. No safety net.',
+    simpleLine4: 'Just me, a guitar, a voice, and questionable decision-making skills.',
+    audience: 'Your audience becomes part of the show - sending requests, voting, cheering, roasting me (gently), and turning a normal night out into a "did-that-really-happen" memory.',
+    roles: "Whether you're a bar owner, event planner, party host, or just someone who enjoys watching a grown man sing whatever strangers throw at him... I've got updates you'll actually want to read.",
+    signupLead: "Sign up, and I'll send you:",
+    bullet1: 'Upcoming show dates',
+    bullet2: 'Booking opportunities',
+    bullet3: 'New features in the live request system',
+    bullet4: 'Behind-the-scenes chaos',
+    bullet5: 'Occasional jokes that may or may not be funny',
+    closeLine1: 'No spam. No nonsense.',
+    closeLine2: 'Just pure Human Jukebox energy.',
+    signoff: 'See you on the request list',
+    signature: '- Harald',
+    ctaText: 'Book now',
+  }
+}
+
+function buildEmailHtml(bookingUrl, lang = 'en') {
   const backgroundImageUrl = process.env.UPDATES_EMAIL_BACKGROUND_URL?.trim()
     || 'https://www.the-human-jukebox.org/images/Harald%20live%20Mirror%20background.png'
+  const copy = getSignupEmailCopy(lang)
 
   return `
     <div style="margin:0;padding:24px 0;background:#070b1a;">
@@ -157,29 +210,29 @@ function buildEmailHtml(bookingUrl) {
             <table role="presentation" width="595" cellpadding="0" cellspacing="0" border="0" style="width:595px;max-width:595px;border-radius:14px;overflow:hidden;background-color:#101737;background-image:linear-gradient(180deg, rgba(8, 11, 24, 0.32) 0%, rgba(8, 11, 24, 0.82) 42%, rgba(8, 11, 24, 0.94) 100%), url('${backgroundImageUrl}');background-size:cover;background-position:center top;">
               <tr>
                 <td valign="top" style="height:842px;padding:42px 38px;font-family:Arial, sans-serif;color:#f5f8ff;line-height:1.55;">
-                  <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#ffe089;">...because you deserve entertainment that's alive, unpredictable, and slightly unhinged.</p>
-                  <p style="margin:0 0 18px;font-size:20px;font-weight:700;">Hey there</p>
-                  <p style="margin:0 0 14px;font-size:16px;">If you want to stay in the loop about new shows, special events, bar takeovers, private parties, and all the ridiculous things I somehow get myself into on stage, then you're in the right place.</p>
-                  <p style="margin:0 0 10px;font-size:16px;font-weight:700;">The Human Jukebox is simple:</p>
-                  <p style="margin:0 0 4px;font-size:16px;">You pick the songs.</p>
-                  <p style="margin:0 0 4px;font-size:16px;">I perform them live.</p>
-                  <p style="margin:0 0 18px;font-size:16px;">No backing tracks. No safety net.<br/>Just me, a guitar, a voice, and questionable decision-making skills.</p>
-                  <p style="margin:0 0 14px;font-size:16px;">Your audience becomes part of the show - sending requests, voting, cheering, roasting me (gently), and turning a normal night out into a "did-that-really-happen" memory.</p>
-                  <p style="margin:0 0 14px;font-size:16px;">Whether you're a bar owner, event planner, party host, or just someone who enjoys watching a grown man sing whatever strangers throw at him... I've got updates you'll actually want to read.</p>
-                  <p style="margin:0 0 10px;font-size:16px;font-weight:700;">Sign up, and I'll send you:</p>
+                  <p style="margin:0 0 20px;font-size:18px;font-weight:700;color:#ffe089;">${copy.teaser}</p>
+                  <p style="margin:0 0 18px;font-size:20px;font-weight:700;">${copy.greeting}</p>
+                  <p style="margin:0 0 14px;font-size:16px;">${copy.intro}</p>
+                  <p style="margin:0 0 10px;font-size:16px;font-weight:700;">${copy.simpleLead}</p>
+                  <p style="margin:0 0 4px;font-size:16px;">${copy.simpleLine1}</p>
+                  <p style="margin:0 0 4px;font-size:16px;">${copy.simpleLine2}</p>
+                  <p style="margin:0 0 18px;font-size:16px;">${copy.simpleLine3}<br/>${copy.simpleLine4}</p>
+                  <p style="margin:0 0 14px;font-size:16px;">${copy.audience}</p>
+                  <p style="margin:0 0 14px;font-size:16px;">${copy.roles}</p>
+                  <p style="margin:0 0 10px;font-size:16px;font-weight:700;">${copy.signupLead}</p>
                   <ul style="margin:0 0 22px;padding-left:20px;font-size:16px;">
-                    <li style="margin-bottom:6px;">Upcoming show dates</li>
-                    <li style="margin-bottom:6px;">Booking opportunities</li>
-                    <li style="margin-bottom:6px;">New features in the live request system</li>
-                    <li style="margin-bottom:6px;">Behind-the-scenes chaos</li>
-                    <li>Occasional jokes that may or may not be funny</li>
+                    <li style="margin-bottom:6px;">${copy.bullet1}</li>
+                    <li style="margin-bottom:6px;">${copy.bullet2}</li>
+                    <li style="margin-bottom:6px;">${copy.bullet3}</li>
+                    <li style="margin-bottom:6px;">${copy.bullet4}</li>
+                    <li>${copy.bullet5}</li>
                   </ul>
-                  <p style="margin:0 0 10px;font-size:16px;">No spam. No nonsense.<br/>Just pure Human Jukebox energy.</p>
-                  <p style="margin:0 0 24px;font-size:16px;">See you on the request list<br/>- Harald 🎤✨</p>
+                  <p style="margin:0 0 10px;font-size:16px;">${copy.closeLine1}<br/>${copy.closeLine2}</p>
+                  <p style="margin:0 0 24px;font-size:16px;">${copy.signoff}<br/>${copy.signature}</p>
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0;">
                     <tr>
                       <td style="border-radius:999px;background:linear-gradient(90deg,#ff4fb2 0%,#5cc6ff 100%);padding:12px 22px;">
-                        <a href="${bookingUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;">Book now</a>
+                        <a href="${bookingUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;">${copy.ctaText}</a>
                       </td>
                     </tr>
                   </table>
@@ -193,38 +246,40 @@ function buildEmailHtml(bookingUrl) {
   `
 }
 
-function buildEmailText(bookingUrl) {
+function buildEmailText(bookingUrl, lang = 'en') {
+  const copy = getSignupEmailCopy(lang)
+
   return [
-    "...because you deserve entertainment that's alive, unpredictable, and slightly unhinged.",
+    copy.teaser,
     '',
-    'Hey there',
+    copy.greeting,
     '',
-    "If you want to stay in the loop about new shows, special events, bar takeovers, private parties, and all the ridiculous things I somehow get myself into on stage, then you're in the right place.",
+    copy.intro,
     '',
-    'The Human Jukebox is simple:',
-    'You pick the songs.',
-    'I perform them live.',
-    'No backing tracks. No safety net.',
-    'Just me, a guitar, a voice, and questionable decision-making skills.',
+    copy.simpleLead,
+    copy.simpleLine1,
+    copy.simpleLine2,
+    copy.simpleLine3,
+    copy.simpleLine4,
     '',
-    "Your audience becomes part of the show - sending requests, voting, cheering, roasting me (gently), and turning a normal night out into a \"did-that-really-happen\" memory.",
+    copy.audience,
     '',
-    "Whether you're a bar owner, event planner, party host, or just someone who enjoys watching a grown man sing whatever strangers throw at him... I've got updates you'll actually want to read.",
+    copy.roles,
     '',
-    "Sign up, and I'll send you:",
-    '- Upcoming show dates',
-    '- Booking opportunities',
-    '- New features in the live request system',
-    '- Behind-the-scenes chaos',
-    '- Occasional jokes that may or may not be funny',
+    copy.signupLead,
+    `- ${copy.bullet1}`,
+    `- ${copy.bullet2}`,
+    `- ${copy.bullet3}`,
+    `- ${copy.bullet4}`,
+    `- ${copy.bullet5}`,
     '',
-    'No spam. No nonsense.',
-    'Just pure Human Jukebox energy.',
+    copy.closeLine1,
+    copy.closeLine2,
     '',
-    'See you on the request list',
-    '- Harald 🎤✨',
+    copy.signoff,
+    copy.signature,
     '',
-    `Book now: ${bookingUrl}`,
+    `${copy.ctaText}: ${bookingUrl}`,
   ].join('\n')
 }
 
