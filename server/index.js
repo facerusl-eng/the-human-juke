@@ -141,6 +141,15 @@ function isResendTestingRestriction(errorBody) {
   return text.includes('only send testing emails to your own email address')
 }
 
+function isResendAuthConfigurationError(errorBody) {
+  const text = `${String(errorBody?.name || '')} ${String(errorBody?.message || '')}`.toLowerCase()
+  return text.includes('api key is invalid')
+    || text.includes('invalid api key')
+    || text.includes('missing api key')
+    || text.includes('unauthorized')
+    || text.includes('authentication')
+}
+
 function resolveUpdatesFallbackRecipient(errorBody) {
   const configuredFallback = process.env.UPDATES_FALLBACK_TO_EMAIL?.trim().toLowerCase() || ''
   if (isValidEmail(configuredFallback)) {
@@ -446,7 +455,11 @@ app.post('/api/get-updates', async (req, res) => {
   const bookingUrl = process.env.VITE_BOOKING_URL?.trim() || 'https://www.the-human-jukebox.org/?booking=1'
 
   if (!resendApiKey) {
-    res.status(500).json({ success: false, message: 'Email service is not configured.' })
+    res.status(503).json({
+      success: false,
+      code: 'updates_service_unavailable',
+      message: 'Updates service is temporarily unavailable. Please use the booking form for now.',
+    })
     return
   }
 
@@ -463,7 +476,15 @@ app.post('/api/get-updates', async (req, res) => {
     })
 
     if (!response.ok) {
-      const errorText = errorBody?.message || errorBody?.name || JSON.stringify(errorBody) || ''
+      if (isResendAuthConfigurationError(errorBody)) {
+        console.error('Resend auth/config error (local dev)', response.status, errorBody)
+        res.status(503).json({
+          success: false,
+          code: 'updates_service_unavailable',
+          message: 'Updates service is temporarily unavailable. Please use the booking form for now.',
+        })
+        return
+      }
 
       if (isResendTestingRestriction(errorBody)) {
         const fallbackRecipient = resolveUpdatesFallbackRecipient(errorBody)
@@ -493,8 +514,8 @@ app.post('/api/get-updates', async (req, res) => {
 
       res.status(502).json({
         success: false,
-        message: `Email could not be sent: ${errorText || response.status}`,
-        details: errorBody,
+        code: 'updates_delivery_failed',
+        message: 'Could not send update email right now. Please try again shortly.',
       })
       return
     }
@@ -506,7 +527,11 @@ app.post('/api/get-updates', async (req, res) => {
     })
   } catch (error) {
     console.error('get-updates local dev error', error)
-    res.status(500).json({ success: false, message: 'Could not send update email.' })
+    res.status(500).json({
+      success: false,
+      code: 'updates_delivery_failed',
+      message: 'Could not send update email right now. Please try again shortly.',
+    })
   }
 })
 

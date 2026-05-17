@@ -96,6 +96,38 @@ const COPY = {
   },
 }
 
+function resolveSignupErrorMessage(body: unknown, status: number, lang: HomeLang) {
+  const fallbackMessage = lang === 'da'
+    ? 'Kunne ikke sende update-mail lige nu. Proev igen om lidt.'
+    : 'Could not send update email right now. Please try again shortly.'
+
+  if (!body || typeof body !== 'object') {
+    return fallbackMessage
+  }
+
+  const normalizedBody = body as { code?: unknown; message?: unknown }
+  const code = typeof normalizedBody.code === 'string' ? normalizedBody.code : ''
+  const message = typeof normalizedBody.message === 'string' ? normalizedBody.message : ''
+  const normalizedMessage = message.toLowerCase()
+
+  const serviceUnavailable = code === 'updates_service_unavailable'
+    || status === 503
+    || normalizedMessage.includes('api key is invalid')
+    || normalizedMessage.includes('email service is not configured')
+
+  if (serviceUnavailable) {
+    return lang === 'da'
+      ? 'Update-mail er midlertidigt utilgaengelig. Brug bookingformularen, saa kontakter vi dig.'
+      : 'Updates email is temporarily unavailable. Please use the booking form and we will contact you.'
+  }
+
+  if (message.trim()) {
+    return message
+  }
+
+  return fallbackMessage
+}
+
 function HomePage() {
   const navigate = useNavigate()
   const bookingFormRef = useRef<HTMLFormElement | null>(null)
@@ -290,7 +322,7 @@ function HomePage() {
 
         const body = await response.json().catch(() => null)
         if (!response.ok || !body?.success) {
-          throw new Error(body?.message || `Signup failed with status ${response.status}`)
+          throw new Error(resolveSignupErrorMessage(body, response.status, lang))
         }
 
         const usedFallbackDelivery = body?.delivery === 'fallback' || body?.fallback_routed === true
