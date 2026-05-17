@@ -21,6 +21,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=...
 VITE_ALLOWED_HOST_EMAIL=...
 RESEND_API_KEY=... (required for /api/get-updates)
 UPDATES_EMAIL_FROM=... (required for /api/get-updates sender)
+RESEND_UPDATES_AUDIENCE_ID=... (required to auto-store subscriber contacts)
+UPDATES_BROADCAST_TOKEN=... (required to authorize broadcast trigger endpoint)
 UPDATES_FALLBACK_TO_EMAIL=... (optional fallback lead inbox for Resend test mode)
 BOOKING_WEBHOOK_URL=... (optional override for /api/book-show)
 GITHUB_TOKEN=... (required only if using /api/report-issue)
@@ -61,6 +63,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY
 VITE_ALLOWED_HOST_EMAIL
 RESEND_API_KEY
 UPDATES_EMAIL_FROM
+RESEND_UPDATES_AUDIENCE_ID
+UPDATES_BROADCAST_TOKEN
 ```
 
 ### Optional Vercel Environment Variables
@@ -72,6 +76,7 @@ BOOKING_WEBHOOK_URL   # Override booking webhook target for /api/book-show
 GITHUB_TOKEN          # Required for /api/report-issue
 VITE_BOOKING_URL      # Link used in update emails
 UPDATES_FALLBACK_TO_EMAIL  # Optional fallback inbox for /api/get-updates in Resend test mode
+UPDATES_BROADCAST_API_URL  # Optional override for CLI trigger target (defaults to production endpoint)
 ```
 
 Do not add `VITE_DEV_PUBLIC_ORIGIN` in production.
@@ -105,6 +110,27 @@ Without anonymous auth enabled, new audience users on phones may remain stuck ou
 - `npm run build`
 - `npm run preview`
 - `npm run test:responsive` (requires the app running at `BASE_URL`, default `http://127.0.0.1:5173`)
+- `npm run send:updates -- --subject "Your update" --message "Line 1\nLine 2"` (sends a broadcast to all contacts in `RESEND_UPDATES_AUDIENCE_ID`)
+
+## Sending Updates To Subscribers
+
+1. Create a Resend Audience and copy its ID into `RESEND_UPDATES_AUDIENCE_ID`.
+2. Set `UPDATES_BROADCAST_TOKEN` in local env and Vercel env.
+3. New signups from `/api/get-updates` are auto-added to that audience.
+4. Trigger broadcast to all subscribers with either:
+
+```bash
+npm run send:updates -- --subject "New June Shows" --message "We just added new dates and booking slots."
+```
+
+Or call endpoint directly:
+
+```bash
+curl -X POST https://www.the-human-jukebox.org/api/send-updates-broadcast \
+	-H "Content-Type: application/json" \
+	-H "x-broadcast-token: YOUR_TOKEN" \
+	-d '{"subject":"New June Shows","message":"We just added new dates and booking slots."}'
+```
 
 ## Responsive Baseline
 

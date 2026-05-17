@@ -1,4 +1,5 @@
 const RESEND_API_URL = 'https://api.resend.com/emails'
+const RESEND_API_ROOT = 'https://api.resend.com'
 
 const ALLOWED_ORIGINS = [
   'https://www.the-human-jukebox.org',
@@ -121,6 +122,45 @@ async function sendResendEmail(resendApiKey, payload) {
 
   const responseBody = await response.json().catch(() => null)
   return { response, responseBody }
+}
+
+async function addContactToResendAudience(resendApiKey, audienceId, email, name) {
+  const trimmedAudienceId = String(audienceId || '').trim()
+  if (!trimmedAudienceId || !EMAIL_PATTERN.test(email)) {
+    return { ok: true, skipped: true }
+  }
+
+  const payload = {
+    email,
+    first_name: String(name || '').trim().slice(0, 80) || undefined,
+    unsubscribed: false,
+  }
+
+  const response = await fetch(`${RESEND_API_ROOT}/audiences/${encodeURIComponent(trimmedAudienceId)}/contacts`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  const responseBody = await response.json().catch(() => null)
+  if (response.ok) {
+    return { ok: true, responseBody }
+  }
+
+  const responseText = `${String(responseBody?.name || '')} ${String(responseBody?.message || '')}`.toLowerCase()
+  const alreadyExists = response.status === 409
+    || responseText.includes('already exists')
+    || responseText.includes('already in this audience')
+    || responseText.includes('duplicate')
+
+  if (alreadyExists) {
+    return { ok: true, duplicate: true, responseBody }
+  }
+
+  return { ok: false, status: response.status, responseBody }
 }
 
 function buildFallbackLeadHtml(requestedEmail, lang, bookingUrl) {
@@ -321,6 +361,7 @@ export default async function handler(req, res) {
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
+  const updatesAudienceId = process.env.RESEND_UPDATES_AUDIENCE_ID?.trim() || ''
   const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <updates@the-human-jukebox.org>'
   const replyToEmail = resolveReplyToEmail(fromEmail)
   const listUnsubscribeHeader = buildListUnsubscribeHeader(replyToEmail)
@@ -337,6 +378,18 @@ export default async function handler(req, res) {
   }
 
   try {
+    const signupName = String(body.name || '').trim()
+    if (updatesAudienceId) {
+      const audienceResult = await addContactToResendAudience(resendApiKey, updatesAudienceId, toEmail, signupName)
+      if (!audienceResult.ok) {
+        console.warn('get-updates audience add failed', {
+          status: audienceResult.status,
+          response: audienceResult.responseBody,
+          email: toEmail,
+        })
+      }
+    }
+
     const emailSubject = emailLang === 'da' 
       ? 'Din forespoergsel om opdateringer er modtaget' 
       : 'Your updates request was received'

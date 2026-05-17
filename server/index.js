@@ -15,6 +15,7 @@ const spotifyRedirectUriDev = process.env.SPOTIFY_REDIRECT_URI_DEV ?? 'http://lo
 const spotifyRedirectUriProd = process.env.SPOTIFY_REDIRECT_URI_PROD ?? spotifyRedirectUriDev
 const spotifyScopes = 'user-read-playback-state user-modify-playback-state streaming'
 const resendApiUrl = 'https://api.resend.com/emails'
+const resendApiRoot = 'https://api.resend.com'
 const defaultBookingWebhookUrl = process.env.BOOKING_WEBHOOK_URL?.trim() || 'https://book-jukebox.base44.app/api/functions/receiveExternalBooking'
 const fallbackBookingWebhookUrls = [
   'https://preview--book-jukebox.base44.app/api/functions/receiveExternalBooking',
@@ -368,6 +369,45 @@ async function sendResendEmail(resendApiKey, payload) {
   return { response, responseBody }
 }
 
+async function addContactToResendAudience(resendApiKey, audienceId, email, name) {
+  const trimmedAudienceId = String(audienceId || '').trim()
+  if (!trimmedAudienceId || !isValidEmail(email)) {
+    return { ok: true, skipped: true }
+  }
+
+  const payload = {
+    email,
+    first_name: String(name || '').trim().slice(0, 80) || undefined,
+    unsubscribed: false,
+  }
+
+  const response = await fetch(`${resendApiRoot}/audiences/${encodeURIComponent(trimmedAudienceId)}/contacts`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  const responseBody = await response.json().catch(() => null)
+  if (response.ok) {
+    return { ok: true, responseBody }
+  }
+
+  const responseText = `${String(responseBody?.name || '')} ${String(responseBody?.message || '')}`.toLowerCase()
+  const alreadyExists = response.status === 409
+    || responseText.includes('already exists')
+    || responseText.includes('already in this audience')
+    || responseText.includes('duplicate')
+
+  if (alreadyExists) {
+    return { ok: true, duplicate: true, responseBody }
+  }
+
+  return { ok: false, status: response.status, responseBody }
+}
+
 function getAuthorizeUrl() {
   const redirectUri = getSpotifyRedirectUri()
   const params = new URLSearchParams({
@@ -614,6 +654,7 @@ app.post('/api/get-updates', async (req, res) => {
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || ''
+  const updatesAudienceId = process.env.RESEND_UPDATES_AUDIENCE_ID?.trim() || ''
   const fromEmail = process.env.UPDATES_EMAIL_FROM?.trim() || 'The Human Jukebox <updates@the-human-jukebox.org>'
   const replyToEmail = resolveUpdatesReplyToEmail(fromEmail)
   const listUnsubscribeHeader = buildListUnsubscribeHeader(replyToEmail)
@@ -631,6 +672,18 @@ app.post('/api/get-updates', async (req, res) => {
   }
 
   try {
+    const signupName = String(req.body?.name || '').trim()
+    if (updatesAudienceId) {
+      const audienceResult = await addContactToResendAudience(resendApiKey, updatesAudienceId, toEmail, signupName)
+      if (!audienceResult.ok) {
+        console.warn('get-updates local audience add failed', {
+          status: audienceResult.status,
+          response: audienceResult.responseBody,
+          email: toEmail,
+        })
+      }
+    }
+
     const emailSubject = emailLang === 'da'
       ? 'Din forespoergsel om opdateringer er modtaget'
       : 'Your updates request was received'
