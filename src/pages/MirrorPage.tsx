@@ -77,6 +77,9 @@ const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_BANNER_STORAGE_KEY = 'human-jukebox-mirror-banner-text'
 const MIRROR_LAYOUT_EDIT_STORAGE_KEY = 'human-jukebox-mirror-layout-edit-mode'
 const MIRROR_LAYOUT_STATE_STORAGE_KEY = 'human-jukebox-mirror-layout-state'
+const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL = 'human-jukebox-mirror-venue-logo-layout-preview'
+const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY = 'human-jukebox-mirror-venue-logo-layout-preview'
+const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_MAX_AGE_MS = 30_000
 const MIRROR_LAYOUT_STATE_PROFILE_COLUMN = 'default_mirror_layout_state'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
@@ -112,6 +115,38 @@ type MirrorLayoutVisibilityState = Record<MirrorLayoutPanelId, boolean>
 type NowPlayingInfoSong = Pick<QueueSong, 'title' | 'artist' | 'is_explicit'>
 type FunFactsCache = Record<string, string[]>
 type SongWithMirrorFacts = QueueSong & { mirrorFunFacts?: string[] }
+type MirrorVenueLogoLayoutPreviewMessage = {
+  eventId: string
+  venueLogoScale: number
+  venueLogoOffsetX: number
+  venueLogoOffsetY: number
+  sentAt: number
+}
+
+function parseVenueLogoLayoutPreviewMessage(raw: unknown): MirrorVenueLogoLayoutPreviewMessage | null {
+  if (!raw || typeof raw !== 'object') {
+    return null
+  }
+
+  const payload = raw as Record<string, unknown>
+  const eventId = typeof payload.eventId === 'string' ? payload.eventId.trim() : ''
+  const venueLogoScale = typeof payload.venueLogoScale === 'number' ? payload.venueLogoScale : Number(payload.venueLogoScale)
+  const venueLogoOffsetX = typeof payload.venueLogoOffsetX === 'number' ? payload.venueLogoOffsetX : Number(payload.venueLogoOffsetX)
+  const venueLogoOffsetY = typeof payload.venueLogoOffsetY === 'number' ? payload.venueLogoOffsetY : Number(payload.venueLogoOffsetY)
+  const sentAt = typeof payload.sentAt === 'number' ? payload.sentAt : Number(payload.sentAt)
+
+  if (!eventId || !Number.isFinite(venueLogoScale) || !Number.isFinite(venueLogoOffsetX) || !Number.isFinite(venueLogoOffsetY) || !Number.isFinite(sentAt)) {
+    return null
+  }
+
+  return {
+    eventId,
+    venueLogoScale,
+    venueLogoOffsetX,
+    venueLogoOffsetY,
+    sentAt,
+  }
+}
 
 function mergeMirrorLayoutState(rawState: unknown): MirrorLayoutState {
   if (!rawState || typeof rawState !== 'object') {
@@ -1204,6 +1239,7 @@ function MirrorPageContent() {
   const [, setStorageError] = useState<string | null>(null)
   const [hideControlsForAudience, setHideControlsForAudience] = useState(false)
   const [globalMirrorLayoutSaveBusy, setGlobalMirrorLayoutSaveBusy] = useState(false)
+  const [venueLogoLayoutPreview, setVenueLogoLayoutPreview] = useState<MirrorVenueLogoLayoutPreviewMessage | null>(null)
   const [layoutEditMode, setLayoutEditMode] = useState(() => {
     if (typeof window === 'undefined') {
       return false
@@ -1678,9 +1714,12 @@ function MirrorPageContent() {
     : null
   const showFinalCountdownOverlay = finalCountdownSeconds !== null
   const countdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget, audienceLocale) : null
-  const venueLogoScale = Math.min(220, Math.max(60, event?.venueLogoScale ?? 100))
-  const venueLogoOffsetX = Math.min(100, Math.max(-100, event?.venueLogoOffsetX ?? 0))
-  const venueLogoOffsetY = Math.min(100, Math.max(-100, event?.venueLogoOffsetY ?? 0))
+  const activeVenueLogoLayoutPreview = venueLogoLayoutPreview?.eventId === eventId
+    ? venueLogoLayoutPreview
+    : null
+  const venueLogoScale = Math.min(220, Math.max(60, activeVenueLogoLayoutPreview?.venueLogoScale ?? event?.venueLogoScale ?? 100))
+  const venueLogoOffsetX = Math.min(100, Math.max(-100, activeVenueLogoLayoutPreview?.venueLogoOffsetX ?? event?.venueLogoOffsetX ?? 0))
+  const venueLogoOffsetY = Math.min(100, Math.max(-100, activeVenueLogoLayoutPreview?.venueLogoOffsetY ?? event?.venueLogoOffsetY ?? 0))
   const shouldShowPreShow = !isLive
   const mirrorDebugRows = [
     `event=${event?.id ?? 'null'}`,
@@ -1693,6 +1732,86 @@ function MirrorPageContent() {
     `songs=${String(safeSongs.length)}`,
     `nowPlaying=${nowPlaying?.id ?? 'null'}`,
   ]
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !eventId) {
+      setVenueLogoLayoutPreview(null)
+      return
+    }
+
+    const applyPreviewPayload = (rawPayload: unknown) => {
+      const parsedPreview = parseVenueLogoLayoutPreviewMessage(rawPayload)
+
+      if (!parsedPreview || parsedPreview.eventId !== eventId) {
+        return
+      }
+
+      setVenueLogoLayoutPreview(parsedPreview)
+    }
+
+    const savedPreviewText = readTextFromLocalStorage(MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY)
+
+    if (savedPreviewText) {
+      try {
+        applyPreviewPayload(JSON.parse(savedPreviewText))
+      } catch {
+        // Ignore malformed preview payloads.
+      }
+    }
+
+    const onStoragePreview = (storageEvent: StorageEvent) => {
+      if (storageEvent.key !== MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY || !storageEvent.newValue) {
+        return
+      }
+
+      try {
+        applyPreviewPayload(JSON.parse(storageEvent.newValue))
+      } catch {
+        // Ignore malformed preview payloads.
+      }
+    }
+
+    let previewChannel: BroadcastChannel | null = null
+
+    if ('BroadcastChannel' in window) {
+      previewChannel = new BroadcastChannel(MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL)
+      previewChannel.onmessage = (messageEvent: MessageEvent<unknown>) => {
+        applyPreviewPayload(messageEvent.data)
+      }
+    }
+
+    window.addEventListener('storage', onStoragePreview)
+
+    return () => {
+      window.removeEventListener('storage', onStoragePreview)
+      previewChannel?.close()
+    }
+  }, [eventId])
+
+  useEffect(() => {
+    if (!activeVenueLogoLayoutPreview || !eventId) {
+      return
+    }
+
+    const serverStateMatchesPreview = (event?.venueLogoScale ?? 100) === activeVenueLogoLayoutPreview.venueLogoScale
+      && (event?.venueLogoOffsetX ?? 0) === activeVenueLogoLayoutPreview.venueLogoOffsetX
+      && (event?.venueLogoOffsetY ?? 0) === activeVenueLogoLayoutPreview.venueLogoOffsetY
+
+    if (serverStateMatchesPreview) {
+      setVenueLogoLayoutPreview(null)
+      return
+    }
+
+    const elapsedMs = Date.now() - activeVenueLogoLayoutPreview.sentAt
+    const remainingMs = Math.max(0, MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_MAX_AGE_MS - elapsedMs)
+    const timeoutId = window.setTimeout(() => {
+      setVenueLogoLayoutPreview(null)
+    }, remainingMs)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [activeVenueLogoLayoutPreview, event?.venueLogoOffsetX, event?.venueLogoOffsetY, event?.venueLogoScale, eventId])
 
   useEffect(() => {
     if (!showQrFlashText) {

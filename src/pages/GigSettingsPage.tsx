@@ -119,6 +119,27 @@ const MAX_GIG_VENUE_LOGO_DATA_URL_CHARS = 1_500_000
 const MAX_GIG_VENUE_LOGO_DIMENSION_PX = 1600
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
 const FALLBACK_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.avif', '.heic', '.heif']
+const VENUE_LOGO_SCALE_MIN = 60
+const VENUE_LOGO_SCALE_MAX = 220
+const VENUE_LOGO_OFFSET_LIMIT = 100
+const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL = 'human-jukebox-mirror-venue-logo-layout-preview'
+const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY = 'human-jukebox-mirror-venue-logo-layout-preview'
+
+type MirrorVenueLogoLayoutPreviewMessage = {
+  eventId: string
+  venueLogoScale: number
+  venueLogoOffsetX: number
+  venueLogoOffsetY: number
+  sentAt: number
+}
+
+function clampVenueLogoScale(value: number) {
+  return Math.min(VENUE_LOGO_SCALE_MAX, Math.max(VENUE_LOGO_SCALE_MIN, value))
+}
+
+function clampVenueLogoOffset(value: number) {
+  return Math.min(VENUE_LOGO_OFFSET_LIMIT, Math.max(-VENUE_LOGO_OFFSET_LIMIT, value))
+}
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -1439,14 +1460,44 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       return
     }
 
-    const clampedScale = Math.min(220, Math.max(60, state.venueLogoScale))
-    const clampedOffsetX = Math.min(100, Math.max(-100, state.venueLogoOffsetX))
-    const clampedOffsetY = Math.min(100, Math.max(-100, state.venueLogoOffsetY))
+    const clampedScale = clampVenueLogoScale(state.venueLogoScale)
+    const clampedOffsetX = clampVenueLogoOffset(state.venueLogoOffsetX)
+    const clampedOffsetY = clampVenueLogoOffset(state.venueLogoOffsetY)
 
     cropShell.style.setProperty('--gig-venue-logo-scale', String(clampedScale / 100))
     cropShell.style.setProperty('--gig-venue-logo-offset-x', `${clampedOffsetX}%`)
     cropShell.style.setProperty('--gig-venue-logo-offset-y', `${clampedOffsetY}%`)
   }, [state.venueLogoOffsetX, state.venueLogoOffsetY, state.venueLogoScale])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !event?.id) {
+      return
+    }
+
+    const message: MirrorVenueLogoLayoutPreviewMessage = {
+      eventId: event.id,
+      venueLogoScale: clampVenueLogoScale(state.venueLogoScale),
+      venueLogoOffsetX: clampVenueLogoOffset(state.venueLogoOffsetX),
+      venueLogoOffsetY: clampVenueLogoOffset(state.venueLogoOffsetY),
+      sentAt: Date.now(),
+    }
+
+    try {
+      if ('BroadcastChannel' in window) {
+        const previewChannel = new BroadcastChannel(MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL)
+        previewChannel.postMessage(message)
+        previewChannel.close()
+      }
+    } catch {
+      // Best-effort preview sync only.
+    }
+
+    try {
+      window.localStorage.setItem(MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY, JSON.stringify(message))
+    } catch {
+      // Ignore localStorage write failures in private/incognito contexts.
+    }
+  }, [event?.id, state.venueLogoScale, state.venueLogoOffsetX, state.venueLogoOffsetY])
 
   const selectedHumanJukeboxPlaylistId = state.selectedPlaylistIds.find((playlistId) => (
     playlists.find((playlist) => playlist.id === playlistId)?.playlist_type === 'human_jukebox'
