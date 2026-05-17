@@ -60,6 +60,12 @@ type IntroAudioPlayLock = {
   expiresAt: number
 }
 
+type PrimedIntroAudio = {
+  eventId: string
+  url: string
+  element: HTMLAudioElement
+}
+
 function readIntroAudioPlayLock(eventId: string | null): IntroAudioPlayLock | null {
   if (typeof window === 'undefined' || !eventId) {
     return null
@@ -392,6 +398,7 @@ function GigControlPage() {
   const autoLiveNextRetryAtRef = useRef(0)
   const autoLiveInFlightRef = useRef(false)
   const introAudioLockOwnerRef = useRef<string | null>(null)
+  const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
@@ -639,12 +646,47 @@ function GigControlPage() {
     setSpotifyTransportCommand({ mode, nonce: Date.now() })
   }, [spotifyAutoTransportEnabled])
 
-  const playIntroAudioWithSpotifyBridge = useCallback(async (introAudioUrl: string) => {
+  const primeIntroAudioPlayback = useCallback((eventId: string, introAudioUrl: string) => {
     if (typeof window === 'undefined' || typeof Audio === 'undefined') {
       return
     }
 
-    const introAudio = new Audio(introAudioUrl)
+    const existingPrimedIntro = primedIntroAudioRef.current
+    if (existingPrimedIntro && existingPrimedIntro.eventId === eventId && existingPrimedIntro.url === introAudioUrl) {
+      return
+    }
+
+    const primedElement = new Audio(introAudioUrl)
+    primedElement.preload = 'auto'
+    primedElement.muted = true
+
+    // Prime playback inside the user gesture so later play() can succeed
+    // even after async preflight and network operations complete.
+    void primedElement.play()
+      .then(() => {
+        primedElement.pause()
+        primedElement.currentTime = 0
+      })
+      .catch(() => {
+        // Best-effort priming only.
+      })
+
+    primedIntroAudioRef.current = {
+      eventId,
+      url: introAudioUrl,
+      element: primedElement,
+    }
+  }, [])
+
+  const playIntroAudioWithSpotifyBridge = useCallback(async (introAudioUrl: string, primedAudioElement?: HTMLAudioElement | null) => {
+    if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+      return
+    }
+
+    const introAudio = primedAudioElement ?? new Audio(introAudioUrl)
+    introAudio.muted = false
+    introAudio.volume = 1
+    introAudio.currentTime = 0
     introAudio.preload = 'auto'
 
     // Duck Spotify while the intro stinger runs, then restore when it ends.
@@ -1073,7 +1115,12 @@ function GigControlPage() {
     )
   }, [setRoomOpen])
 
-  const playIntroAudioOnceSafely = useCallback(async (eventId: string, introAudioUrl: string, autoplayBlockedMessage: string) => {
+  const playIntroAudioOnceSafely = useCallback(async (
+    eventId: string,
+    introAudioUrl: string,
+    autoplayBlockedMessage: string,
+    primedAudioElement?: HTMLAudioElement | null,
+  ) => {
     if (introAudioPlayedEventIdsRef.current.has(eventId)) {
       return
     }
@@ -1084,10 +1131,10 @@ function GigControlPage() {
     }
 
     introAudioLockOwnerRef.current = introAudioLockOwner
-    introAudioPlayedEventIdsRef.current.add(eventId)
 
     try {
-      await playIntroAudioWithSpotifyBridge(introAudioUrl)
+      await playIntroAudioWithSpotifyBridge(introAudioUrl, primedAudioElement)
+      introAudioPlayedEventIdsRef.current.add(eventId)
     } catch {
       setErrorText(autoplayBlockedMessage)
     } finally {
@@ -1109,6 +1156,10 @@ function GigControlPage() {
 
     try {
       if (isOpeningRoom) {
+        if (currentEvent.introAudioUrl) {
+          primeIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl)
+        }
+
         setAutoLiveLastError(null)
         await runGoLivePreflight()
       } else {
@@ -1128,10 +1179,19 @@ function GigControlPage() {
       }
 
       if (latestEvent.introAudioUrl) {
+        const primedIntroAudio = primedIntroAudioRef.current
+        const primedElement =
+          primedIntroAudio
+          && primedIntroAudio.eventId === latestEvent.id
+          && primedIntroAudio.url === latestEvent.introAudioUrl
+            ? primedIntroAudio.element
+            : null
+
         await playIntroAudioOnceSafely(
           latestEvent.id,
           latestEvent.introAudioUrl,
           'Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport was restored.',
+          primedElement,
         )
       }
     } catch (error) {
@@ -1143,7 +1203,7 @@ function GigControlPage() {
           : 'Could not end gig. Please try again.',
       )
     }
-  }, [ensureRoomOpenState, playIntroAudioOnceSafely, runGoLivePreflight])
+  }, [ensureRoomOpenState, playIntroAudioOnceSafely, primeIntroAudioPlayback, runGoLivePreflight])
 
   const runEndGigDecision = useCallback(async (decision: 'keep-offline' | 'delete') => {
     const targetEvent = endGigPromptEvent ?? eventRef.current
@@ -1555,6 +1615,11 @@ function GigControlPage() {
     previousRoomOpenRef.current = event.roomOpen
 
     if (hasJustEnded) {
+      introAudioPlayedEventIdsRef.current.delete(event.id)
+      if (primedIntroAudioRef.current?.eventId === event.id) {
+        primedIntroAudioRef.current = null
+      }
+
       // Show post-gig summary.
       const topSong = performedSongs.length > 0
         ? [...performedSongs].sort((a, b) => b.votes_count - a.votes_count)[0]?.title ?? null
