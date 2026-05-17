@@ -4,6 +4,18 @@ import { useLocation, useNavigate } from 'react-router-dom'
 function resolveLoungeDestination(search: string) {
   const params = new URLSearchParams(search)
   const explicitPath = params.get('to')?.trim() ?? ''
+  const isTestPreviewMode = params.get('test') === '1'
+  const locale = params.get('locale')?.trim() || params.get('lang')?.trim() || ''
+
+  const audienceParams = new URLSearchParams()
+
+  if (isTestPreviewMode) {
+    audienceParams.set('test', '1')
+  }
+
+  if (locale) {
+    audienceParams.set('locale', locale)
+  }
 
   // Allow same-site route redirects only.
   if (explicitPath.startsWith('/') && !explicitPath.startsWith('//')) {
@@ -13,10 +25,12 @@ function resolveLoungeDestination(search: string) {
   const eventId = params.get('event')?.trim() || params.get('eventId')?.trim()
 
   if (eventId) {
-    return `/audience?event=${encodeURIComponent(eventId)}`
+    audienceParams.set('event', eventId)
+    return `/audience?${audienceParams.toString()}`
   }
 
-  return '/audience'
+  const audienceQueryString = audienceParams.toString()
+  return audienceQueryString ? `/audience?${audienceQueryString}` : '/audience'
 }
 
 function LoungeLinkPage() {
