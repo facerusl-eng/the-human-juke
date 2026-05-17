@@ -153,6 +153,22 @@ function QrLandingPage() {
     const value = params.get('event')?.trim() || params.get('eventId')?.trim() || ''
     return value || null
   }, [search])
+  const countdownTargetMsFromLink = useMemo(() => {
+    const params = new URLSearchParams(search)
+    const rawValue = params.get('ct')?.trim() || params.get('countdownTargetMs')?.trim() || ''
+
+    if (!rawValue) {
+      return null
+    }
+
+    const parsedValue = Number(rawValue)
+
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+      return null
+    }
+
+    return parsedValue
+  }, [search])
   const isTestPreviewMode = useMemo(() => {
     const params = new URLSearchParams(search)
     return params.get('test') === '1'
@@ -188,6 +204,14 @@ function QrLandingPage() {
       : copy.buttonSyncingStatus
     : copy.buttonGoToLounge
   const shouldDisableLoungeButton = waitingForLive && syncStatusReason === null
+
+  useEffect(() => {
+    if (!eventId || countdownTargetMsFromLink === null) {
+      return
+    }
+
+    setEventStartMs((currentStartMs) => currentStartMs ?? countdownTargetMsFromLink)
+  }, [countdownTargetMsFromLink, eventId])
 
   useEffect(() => {
     if (!eventId || eventRoomOpen) {
@@ -253,7 +277,7 @@ function QrLandingPage() {
         }
 
         const startMs = parseEventStartMs(data.gig_date as string | null, data.gig_start_time as string | null)
-        setEventStartMs(startMs)
+        setEventStartMs(startMs ?? countdownTargetMsFromLink)
         setEventRoomOpen(Boolean(data.room_open))
         setSyncStatusReason(null)
       } catch {
@@ -282,7 +306,7 @@ function QrLandingPage() {
         window.clearInterval(timerId)
       }
     }
-  }, [eventId])
+  }, [countdownTargetMsFromLink, eventId])
 
   useEffect(() => {
     if (!eventId || !eventRoomOpen || didAutoNavigateRef.current) {
