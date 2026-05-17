@@ -167,6 +167,7 @@ function getSignupEmailCopy(lang = 'en') {
       bullet5: 'Lejlighedsvise jokes, som maaske er sjove',
       closeLine1: 'Ingen spam. Ingen nonsens.',
       closeLine2: 'Bare rendyrket Human Jukebox-energi.',
+      consentLine: 'Du modtager denne mail, fordi du selv tilmeldte dig opdateringer paa the-human-jukebox.org. Svar med "afmeld" for at stoppe mails.',
       ctaText: 'Se booking og ledige datoer',
       signoff: 'Venlig hilsen',
       signature: 'Harald - The Human Jukebox',
@@ -193,6 +194,7 @@ function getSignupEmailCopy(lang = 'en') {
     bullet5: 'Occasional jokes that may or may not be funny',
     closeLine1: 'No spam. No nonsense.',
     closeLine2: 'Just pure Human Jukebox energy.',
+    consentLine: 'You are receiving this because you signed up for updates at the-human-jukebox.org. Reply with "unsubscribe" to stop update emails.',
     ctaText: 'Book now',
     signoff: 'Best regards',
     signature: 'Harald - The Human Jukebox',
@@ -243,6 +245,7 @@ function buildEmailHtml(bookingUrl, lang = 'en') {
                       </td>
                     </tr>
                   </table>
+                  <p style="margin:14px 0 0;font-size:12px;color:#6b7894;">${copy.consentLine}</p>
                   <p style="margin:18px 0 0;font-size:14px;">${copy.signoff}<br/>${copy.signature}</p>
                 </td>
               </tr>
@@ -285,6 +288,8 @@ function buildEmailText(bookingUrl, lang = 'en') {
     copy.closeLine2,
     '',
     `${copy.ctaText}: ${bookingUrl}`,
+    '',
+    copy.consentLine,
     '',
     `${copy.signoff},`,
     copy.signature,
