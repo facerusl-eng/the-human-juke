@@ -873,6 +873,28 @@ function isQueueReadPolicyDenied(error: unknown) {
     || text.includes('permission denied')
 }
 
+function isMissingEventSnapshotError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code.toUpperCase() : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return code === 'PGRST116'
+    || (text.includes('json object requested') && (text.includes('0 rows') || text.includes('no rows')))
+    || text.includes('event not found')
+}
+
 async function withTransientRetry<T>(operation: () => Promise<T>, attempts = TRANSIENT_LOAD_RETRY_ATTEMPTS) {
   let lastError: unknown
 
@@ -2580,6 +2602,19 @@ function QueueProvider({ children }: PropsWithChildren) {
             await withTransientRetry(() => fetchQueueSnapshot(resolvedEventId), 2)
             markSnapshotSuccess()
           } catch (error) {
+            if (!runAsHostSession && isMissingEventSnapshotError(error)) {
+              // If the active event is deleted while audience is connected,
+              // clear stale state and trigger the standard live-gig re-discovery path.
+              activeEventIdRef.current = null
+              setEvent(null)
+              setSongs([])
+              setPerformedSongs([])
+              setQueueOperatingMode('normal')
+              setQueueHealthMessage(null)
+              requestAudienceReload()
+              return
+            }
+
             markSnapshotFailure(error)
             console.warn('queueStore: transient snapshot refresh failure', error)
             // Keep the last known snapshot when transient network errors occur.
@@ -2621,7 +2656,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             .on(
               'postgres_changes',
               {
-                event: 'UPDATE',
+                event: '*',
                 schema: 'public',
                 table: 'events',
                 filter: `id=eq.${resolvedEventId}`,

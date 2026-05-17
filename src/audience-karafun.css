@@ -1579,3 +1579,76 @@
   opacity: 0.7;
   margin: 0.25rem 0 0;
 }
+
+/* ── Audience Compact Text Mode ─────────────────────────────── */
+.audience-karafun .audience-stage {
+  gap: 12px;
+}
+
+.audience-karafun .subcopy,
+.audience-karafun .audience-entry-copy,
+.audience-karafun .audience-request-note,
+.audience-karafun .audience-no-gig-copy .subcopy,
+.audience-karafun .audience-no-gig-event-meta,
+.audience-karafun .live-feed-post-message {
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.audience-karafun .audience-fixed-header h1 {
+  font-size: clamp(0.98rem, 4.1vw, 1.34rem);
+}
+
+.audience-karafun .audience-entry-card h1 {
+  font-size: clamp(1.2rem, 5.2vw, 1.7rem);
+  line-height: 1.14;
+}
+
+.audience-karafun .now-playing-card h2 {
+  font-size: clamp(1.18rem, 5vw, 1.72rem);
+  line-height: 1.1;
+}
+
+.audience-karafun .now-playing-artist {
+  font-size: 0.9rem;
+}
+
+.audience-karafun .queue-panel .panel-head h2,
+.audience-karafun .live-feed-panel h2 {
+  font-size: 0.9rem;
+}
+
+.audience-karafun .audience-song-card .song,
+.audience-karafun .audience-song-row .song,
+.audience-karafun .audience-no-gig-event-title {
+  font-size: 0.9rem;
+  line-height: 1.28;
+}
+
+.audience-karafun .audience-song-card .artist,
+.audience-karafun .audience-song-row .artist,
+.audience-karafun .audience-song-chosen-by,
+.audience-karafun .votes,
+.audience-karafun .link-chip,
+.audience-karafun .tip-jar-provider {
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.audience-karafun .meta-badge,
+.audience-karafun .audience-soon-badge,
+.audience-karafun .audience-going-live-banner {
+  font-size: 0.72rem;
+}
+
+.audience-karafun .audience-entry-card,
+.audience-karafun .audience-start-actions-panel,
+.audience-karafun .now-playing-card,
+.audience-karafun .queue-panel,
+.audience-karafun .live-feed-panel {
+  padding: 1rem 0.9rem;
+}
+
+.audience-karafun .audience-no-gig-countdown-value {
+  font-size: clamp(1.6rem, 8.2vw, 2.35rem);
+}

@@ -1208,7 +1208,10 @@ function EventPage() {
         waitingGreeting: 'Hej',
         waitingTitle: 'Velkommen til showet, skønne mennesker!',
         waitingCopy: 'Find jer til rette, se selvsikre ud, og giv den kunstneriske ledelse skylden for alt kaos.',
+        waitingEndedTitle: 'Aftenens gig er afsluttet.',
+        waitingEndedCopy: 'Tak for i aften. Hold øje med de næste gigs her i appen.',
         startingSoon: 'Event starter snart',
+        gigEnded: 'Gig er afsluttet',
         goingLiveNow: 'Går live nu...',
         viewUpcoming: 'Se alle kommende events',
         audienceLive: 'Publikum Live',
@@ -1252,7 +1255,10 @@ function EventPage() {
         waitingGreeting: 'Halló',
         waitingTitle: 'Velkomin í sýninguna, frábæru gestir!',
         waitingCopy: 'Komdu þér fyrir, vertu svalur, og kenndu liststjórninni um allt kaos.',
+        waitingEndedTitle: 'Tónleikunum er lokið.',
+        waitingEndedCopy: 'Takk fyrir kvöldið. Skoðaðu næstu viðburði hér í appinu.',
         startingSoon: 'Viðburður hefst bráðum',
+        gigEnded: 'Viðburði lokið',
         goingLiveNow: 'Fer i loftid nu...',
         viewUpcoming: 'Sjá alla komandi viðburði',
         audienceLive: 'Beint frá viðburði',
@@ -1295,7 +1301,10 @@ function EventPage() {
         waitingGreeting: 'Hi',
         waitingTitle: 'Welcome to the show, you lovely lot!',
         waitingCopy: 'Settle in, look confident, and blame any chaos on artistic direction.',
+        waitingEndedTitle: 'Tonight\'s gig has ended.',
+        waitingEndedCopy: 'Thanks for joining. Check upcoming gigs in the audience app.',
         startingSoon: 'Event starting soon',
+        gigEnded: 'Gig ended',
         goingLiveNow: 'Going live now...',
         viewUpcoming: 'View all upcoming gigs',
         audienceLive: 'Audience Live',
@@ -1325,6 +1334,15 @@ function EventPage() {
         saveFailed: 'Failed to save your name.',
         backToHome: 'Back to Home Page',
       }
+
+  const waitingRoomHasEnded = waitingRoomRemainingMs !== null && waitingRoomRemainingMs <= -15_000
+  const waitingRoomTitle = waitingRoomHasEnded ? copy.waitingEndedTitle : copy.waitingTitle
+  const waitingRoomCopy = waitingRoomHasEnded ? copy.waitingEndedCopy : copy.waitingCopy
+  const waitingRoomStatusLabel = waitingRoomHasEnded
+    ? copy.gigEnded
+    : waitingRoomCountdownLabel
+    ? `${copy.startingSoon} · ${waitingRoomCountdownLabel}`
+    : copy.startingSoon
 
   const demoBackToHomeButton = demoMode ? (
     <button
@@ -2762,13 +2780,13 @@ function EventPage() {
       <section className="audience-entry-shell audience-karafun" aria-label="Audience waiting room">
         <article className="queue-panel audience-entry-card">
           <p className="eyebrow audience-entry-eyebrow">{audienceName ? `${copy.waitingGreeting} ${audienceName}` : copy.entryEyebrow}</p>
-          <h1>{copy.waitingTitle}</h1>
-          <p className="subcopy audience-entry-copy">{copy.waitingCopy}</p>
+          <h1>{waitingRoomTitle}</h1>
+          <p className="subcopy audience-entry-copy">{waitingRoomCopy}</p>
           {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
           <p className="meta-badge audience-soon-badge">
-            {waitingRoomCountdownLabel ? `${copy.startingSoon} · ${waitingRoomCountdownLabel}` : copy.startingSoon}
+            {waitingRoomStatusLabel}
           </p>
-          {showGoingLiveNowBanner ? (
+          {showGoingLiveNowBanner && !waitingRoomHasEnded ? (
             <p className="meta-badge audience-going-live-banner" aria-live="assertive">{copy.goingLiveNow}</p>
           ) : null}
           {event?.name ? (

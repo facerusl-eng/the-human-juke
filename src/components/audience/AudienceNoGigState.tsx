@@ -405,7 +405,7 @@ function AudienceNoGigState({
       }
 
   return (
-    <section className="audience-entry-shell audience-no-gig-shell" aria-label="Audience app no live gig state">
+    <section className="audience-entry-shell audience-no-gig-shell audience-karafun" aria-label="Audience app no live gig state">
       <article className="queue-panel audience-entry-card audience-no-gig-card">
         <div className="audience-no-gig-motion" aria-hidden="true">
           <span></span>
