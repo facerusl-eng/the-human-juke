@@ -249,6 +249,7 @@ function GigControlPage() {
   const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
   const [showEndGigHideConfirm, setShowEndGigHideConfirm] = useState(false)
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
+  const [autoLiveLastError, setAutoLiveLastError] = useState<string | null>(null)
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
@@ -923,10 +924,12 @@ function GigControlPage() {
 
     try {
       if (isOpeningRoom) {
+        setAutoLiveLastError(null)
         await runGoLivePreflight()
       }
 
       await ensureRoomOpenState(isOpeningRoom)
+      setAutoLiveLastError(null)
 
       const latestEvent = eventRef.current
       if (!isOpeningRoom || !latestEvent?.id || latestEvent.id !== currentEvent.id) {
@@ -1350,6 +1353,7 @@ function GigControlPage() {
     if (!event?.id || !event.autoLiveEnabled) {
       autoLiveAttemptedEventIdRef.current = null
       autoLiveNextRetryAtRef.current = 0
+      setAutoLiveLastError(null)
       return
     }
   }, [event?.id, event?.autoLiveEnabled])
@@ -1367,6 +1371,7 @@ function GigControlPage() {
     const scheduleKey = `${event.id}|${event.gigDate ?? ''}|${event.gigStartTime ?? ''}`
     autoLiveAttemptedEventIdRef.current = scheduleKey
     autoLiveNextRetryAtRef.current = 0
+    setAutoLiveLastError(null)
   }, [event?.id, event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen])
 
   useEffect(() => {
@@ -1406,6 +1411,7 @@ function GigControlPage() {
 
         autoLiveAttemptedEventIdRef.current = scheduleKey
         autoLiveNextRetryAtRef.current = 0
+        setAutoLiveLastError(null)
 
         if (latestEvent.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(latestEvent.id)) {
           introAudioPlayedEventIdsRef.current.add(latestEvent.id)
@@ -1430,7 +1436,9 @@ function GigControlPage() {
         setPreflightStatusText('Auto Live triggered from scheduled countdown.')
       } catch (error) {
         autoLiveNextRetryAtRef.current = Date.now() + AUTO_LIVE_RETRY_DELAY_MS
-        setErrorText(error instanceof Error ? error.message : 'Auto Live failed when countdown ended. Please use Go Live manually.')
+        const message = error instanceof Error ? error.message : 'Auto Live failed when countdown ended. Please use Go Live manually.'
+        setAutoLiveLastError(message)
+        setErrorText(message)
       } finally {
         autoLiveInFlightRef.current = false
       }
@@ -2213,6 +2221,9 @@ function GigControlPage() {
             ) : null}
             {autoLiveCountdown ? (
               <p className="meta-badge gig-auto-live-countdown" aria-live="polite">⏱ {autoLiveCountdown}</p>
+            ) : null}
+            {autoLiveLastError ? (
+              <p className="meta-badge" aria-live="polite">Auto Live issue: {autoLiveLastError}</p>
             ) : null}
             {nextUpSong ? (
               <p className="subcopy gig-next-up-hint" aria-live="polite">
