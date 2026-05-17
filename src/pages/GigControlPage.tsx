@@ -32,6 +32,9 @@ const MIRROR_LAUNCH_STATUS_DURATION_MS = 7000
 const SPACEBAR_ACTION_COOLDOWN_MS = 300
 const GIG_CONTROL_LOADING_RECOVERY_MS = 14_000
 const GIG_CONTROL_AUTO_REDIRECT_SECONDS = 12
+const ROOM_STATE_ENSURE_MAX_ATTEMPTS = 3
+const ROOM_STATE_ENSURE_RETRY_DELAY_MS = 650
+const AUTO_LIVE_RETRY_DELAY_MS = 15_000
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
@@ -279,10 +282,12 @@ function GigControlPage() {
   const gigWorkerRef = useRef<Worker | null>(null)
   const liveHealthGuardLastRunAtRef = useRef(0)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
+  const autoLiveNextRetryAtRef = useRef(0)
   const autoLiveInFlightRef = useRef(false)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
+  const eventRef = useRef(event)
   // Tracks event IDs whose intro audio has already played this page session.
   // Prevents the intro from replaying if the host pauses and re-opens the room.
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
@@ -872,28 +877,80 @@ function GigControlPage() {
     }
   }, [attemptAutomaticHealthRepair, event, persistReadinessVerdict, runPreflightChecks])
 
-  const toggleLiveState = useCallback(async () => {
-    try {
-      const isOpeningRoom = Boolean(event && !event.roomOpen)
+  const ensureRoomOpenState = useCallback(async (targetRoomOpen: boolean) => {
+    const wait = (ms: number) => new Promise<void>((resolve) => {
+      window.setTimeout(resolve, ms)
+    })
 
+    for (let attempt = 1; attempt <= ROOM_STATE_ENSURE_MAX_ATTEMPTS; attempt += 1) {
+      const currentEvent = eventRef.current
+      if (!currentEvent?.id) {
+        throw new Error('No active gig selected.')
+      }
+
+      if (currentEvent.roomOpen === targetRoomOpen) {
+        return true
+      }
+
+      await gigActions.runToggleRoomOpen()
+      await wait(220)
+
+      const latestEvent = eventRef.current
+      if (latestEvent?.id === currentEvent.id && latestEvent.roomOpen === targetRoomOpen) {
+        return true
+      }
+
+      if (attempt < ROOM_STATE_ENSURE_MAX_ATTEMPTS) {
+        await wait(ROOM_STATE_ENSURE_RETRY_DELAY_MS * attempt)
+      }
+    }
+
+    throw new Error(
+      targetRoomOpen
+        ? 'Could not open room after multiple retries. Please check connection and try again.'
+        : 'Could not end gig after multiple retries. Please check connection and try again.',
+    )
+  }, [gigActions])
+
+  const toggleLiveState = useCallback(async () => {
+    const currentEvent = eventRef.current
+    if (!currentEvent?.id) {
+      setErrorText('No active gig selected.')
+      return
+    }
+
+    const isOpeningRoom = !currentEvent.roomOpen
+
+    try {
       if (isOpeningRoom) {
         await runGoLivePreflight()
       }
 
-      const toggled = await gigActions.runToggleRoomOpen()
+      await ensureRoomOpenState(isOpeningRoom)
 
-      if (isOpeningRoom && toggled && event?.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(event.id)) {
-        introAudioPlayedEventIdsRef.current.add(event.id)
+      const latestEvent = eventRef.current
+      if (!isOpeningRoom || !latestEvent?.id || latestEvent.id !== currentEvent.id) {
+        return
+      }
+
+      if (latestEvent.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(latestEvent.id)) {
+        introAudioPlayedEventIdsRef.current.add(latestEvent.id)
         try {
-          await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
+          await playIntroAudioWithSpotifyBridge(latestEvent.introAudioUrl)
         } catch {
           setErrorText('Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport was restored.')
         }
       }
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : 'Go Live preflight failed.')
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : isOpeningRoom
+          ? 'Go Live preflight failed.'
+          : 'Could not end gig. Please try again.',
+      )
     }
-  }, [event, gigActions, playIntroAudioWithSpotifyBridge, runGoLivePreflight])
+  }, [ensureRoomOpenState, playIntroAudioWithSpotifyBridge, runGoLivePreflight])
 
   const showMirrorPreviewTransition = useCallback((message: string, tone: MirrorPreviewTransitionTone) => {
     if (mirrorPreviewTransitionTimerRef.current !== null) {
@@ -1243,6 +1300,10 @@ function GigControlPage() {
   }, [copyError])
 
   useEffect(() => {
+    eventRef.current = event
+  }, [event])
+
+  useEffect(() => {
     return () => {
       if (mirrorLaunchStatusTimerRef.current) {
         window.clearTimeout(mirrorLaunchStatusTimerRef.current)
@@ -1286,19 +1347,35 @@ function GigControlPage() {
   }, [event, performedSongs, setShowInAudienceNoGig])
 
   useEffect(() => {
-    if (!event?.id) {
+    if (!event?.id || !event.autoLiveEnabled) {
       autoLiveAttemptedEventIdRef.current = null
+      autoLiveNextRetryAtRef.current = 0
+      return
+    }
+  }, [event?.id, event?.autoLiveEnabled])
+
+  useEffect(() => {
+    if (!event?.id || !event.autoLiveEnabled || !event.roomOpen) {
       return
     }
 
-    if (!event.autoLiveEnabled || event.roomOpen) {
-      autoLiveAttemptedEventIdRef.current = null
+    const startAt = resolveGigStartAt(event.gigDate, event.gigStartTime)
+    if (!startAt || startAt.getTime() > Date.now()) {
+      return
     }
-  }, [event?.id, event?.autoLiveEnabled, event?.roomOpen])
+
+    const scheduleKey = `${event.id}|${event.gigDate ?? ''}|${event.gigStartTime ?? ''}`
+    autoLiveAttemptedEventIdRef.current = scheduleKey
+    autoLiveNextRetryAtRef.current = 0
+  }, [event?.id, event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen])
 
   useEffect(() => {
     const runAutoLiveCountdownCheck = async () => {
       if (!event?.id || !event.autoLiveEnabled || event.roomOpen || autoLiveInFlightRef.current) {
+        return
+      }
+
+      if (autoLiveNextRetryAtRef.current > Date.now()) {
         return
       }
 
@@ -1307,27 +1384,39 @@ function GigControlPage() {
         return
       }
 
-      if (autoLiveAttemptedEventIdRef.current === event.id) {
+      const scheduleKey = `${event.id}|${event.gigDate ?? ''}|${event.gigStartTime ?? ''}`
+      if (autoLiveAttemptedEventIdRef.current === scheduleKey) {
         return
       }
 
-      autoLiveAttemptedEventIdRef.current = event.id
       autoLiveInFlightRef.current = true
 
       try {
         await runGoLivePreflight().catch(() => {})
-        const opened = await gigActions.runToggleRoomOpen()
+        await ensureRoomOpenState(true)
 
-        if (opened && event.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(event.id)) {
-          introAudioPlayedEventIdsRef.current.add(event.id)
+        const latestEvent = eventRef.current
+        if (!latestEvent?.id || latestEvent.id !== event.id) {
+          return
+        }
+
+        if (!latestEvent.roomOpen) {
+          throw new Error('Auto Live could not confirm that the room opened. Retrying shortly.')
+        }
+
+        autoLiveAttemptedEventIdRef.current = scheduleKey
+        autoLiveNextRetryAtRef.current = 0
+
+        if (latestEvent.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(latestEvent.id)) {
+          introAudioPlayedEventIdsRef.current.add(latestEvent.id)
           try {
-            await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
+            await playIntroAudioWithSpotifyBridge(latestEvent.introAudioUrl)
           } catch {
             setErrorText('Auto Live intro audio was blocked by browser autoplay settings. Spotify transport was restored.')
           }
         }
 
-        if (opened && nowPlaying?.id && !isNowPlayingStarted) {
+        if (nowPlaying?.id && !isNowPlayingStarted) {
           await writeSharedPlaybackState(event.id, {
             currentSongId: nowPlaying.id,
             currentSongCoverUrl: nowPlaying.cover_url ?? null,
@@ -1338,10 +1427,9 @@ function GigControlPage() {
           sendSpotifyTransportCommand('pause')
         }
 
-        if (opened) {
-          setPreflightStatusText('Auto Live triggered from scheduled countdown.')
-        }
+        setPreflightStatusText('Auto Live triggered from scheduled countdown.')
       } catch (error) {
+        autoLiveNextRetryAtRef.current = Date.now() + AUTO_LIVE_RETRY_DELAY_MS
         setErrorText(error instanceof Error ? error.message : 'Auto Live failed when countdown ended. Please use Go Live manually.')
       } finally {
         autoLiveInFlightRef.current = false
@@ -1364,7 +1452,7 @@ function GigControlPage() {
     event?.gigDate,
     event?.gigStartTime,
     event?.introAudioUrl,
-    gigActions,
+    ensureRoomOpenState,
     isNowPlayingStarted,
     nowPlaying?.cover_url,
     nowPlaying?.id,
@@ -1403,6 +1491,12 @@ function GigControlPage() {
       return
     }
 
+    const scheduleKey = `${event.id ?? ''}|${event.gigDate ?? ''}|${event.gigStartTime ?? ''}`
+    if (autoLiveAttemptedEventIdRef.current === scheduleKey) {
+      setAutoLiveCountdown(null)
+      return
+    }
+
     const startAt = resolveGigStartAt(event.gigDate, event.gigStartTime)
     if (!startAt) {
       setAutoLiveCountdown(null)
@@ -1412,6 +1506,17 @@ function GigControlPage() {
     const tick = () => {
       const diffMs = startAt.getTime() - Date.now()
       if (diffMs <= 0) {
+        if (autoLiveInFlightRef.current) {
+          setAutoLiveCountdown('Auto Live triggering...')
+          return
+        }
+
+        if (autoLiveNextRetryAtRef.current > Date.now()) {
+          const retryInSeconds = Math.max(1, Math.ceil((autoLiveNextRetryAtRef.current - Date.now()) / 1000))
+          setAutoLiveCountdown(`Auto Live retry in ${retryInSeconds}s`)
+          return
+        }
+
         setAutoLiveCountdown('Auto Live triggering...')
         return
       }
@@ -1427,7 +1532,7 @@ function GigControlPage() {
     tick()
     const timerId = window.setInterval(tick, 1000)
     return () => window.clearInterval(timerId)
-  }, [event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen])
+  }, [event?.id, event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen])
 
   useEffect(() => {
     const activeEventId = event?.id
