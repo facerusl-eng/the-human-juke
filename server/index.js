@@ -135,99 +135,60 @@ function buildBookingWebhookTargets(primaryUrl) {
 function getSignupEmailCopy(lang = 'en') {
   if (lang === 'da') {
     return {
-      teaser: '...fordi du fortjener underholdning, der er levende, uforudsigelig og lidt ude af kontrol.',
-      greeting: 'Hey du',
-      intro: 'Hvis du vil vaere foerst med nye shows, special events, bar takeovers, private fester og alt det kaos, jeg paa en eller anden maade faar sat i gang paa scenen, saa er du landet det rigtige sted.',
-      simpleLead: 'The Human Jukebox er simpelt:',
-      simpleLine1: 'Du vaelger sangene.',
-      simpleLine2: 'Jeg spiller dem live.',
-      simpleLine3: 'Ingen backing tracks. Intet sikkerhedsnet.',
-      simpleLine4: 'Kun mig, en guitar, en stemme og tvivlsomme beslutninger i realtid.',
-      audience: 'Publikum bliver en del af showet - sender requests, stemmer, jubler, driller mig (kaerligt) og forvandler en helt almindelig aften til et "skete-det-virkelig"-minde.',
-      roles: 'Uanset om du ejer en bar, planlaegger events, holder fest, eller bare elsker at se en voksen mand synge hvad end fremmede finder paa... saa har jeg opdateringer, du faktisk gider laese.',
-      signupLead: 'Tilmeld dig, saa sender jeg:',
-      bullet1: 'Kommende showdatoer',
-      bullet2: 'Bookingmuligheder',
-      bullet3: 'Nye features i live request-systemet',
-      bullet4: 'Bagom-kaos og backstage-oeblikke',
-      bullet5: 'Lejlighedsvise jokes, som maaske er sjove',
-      closeLine1: 'Ingen spam. Ingen nonsens.',
-      closeLine2: 'Bare rendyrket Human Jukebox-energi.',
-      signoff: 'Vi ses paa request-listen',
-      signature: '- Harald',
-      ctaText: 'Book nu',
+      preview: 'Din forespoergsel om opdateringer er modtaget.',
+      greeting: 'Hej',
+      line1: 'Tak fordi du bad om opdateringer fra The Human Jukebox.',
+      line2: 'Vi sender kun mails om nye datoer, ledige bookinger og vigtige nyheder.',
+      line3: 'Hvis du ikke har bedt om denne mail, kan du ignorere den.',
+      ctaText: 'Se booking og ledige datoer',
+      signoff: 'Venlig hilsen',
+      signature: 'Harald - The Human Jukebox',
     }
   }
 
   return {
-    teaser: "...because you deserve entertainment that's alive, unpredictable, and slightly unhinged.",
-    greeting: 'Hey there',
-    intro: "If you want to stay in the loop about new shows, special events, bar takeovers, private parties, and all the ridiculous things I somehow get myself into on stage, then you're in the right place.",
-    simpleLead: 'The Human Jukebox is simple:',
-    simpleLine1: 'You pick the songs.',
-    simpleLine2: 'I perform them live.',
-    simpleLine3: 'No backing tracks. No safety net.',
-    simpleLine4: 'Just me, a guitar, a voice, and questionable decision-making skills.',
-    audience: 'Your audience becomes part of the show - sending requests, voting, cheering, roasting me (gently), and turning a normal night out into a "did-that-really-happen" memory.',
-    roles: "Whether you're a bar owner, event planner, party host, or just someone who enjoys watching a grown man sing whatever strangers throw at him... I've got updates you'll actually want to read.",
-    signupLead: "Sign up, and I'll send you:",
-    bullet1: 'Upcoming show dates',
-    bullet2: 'Booking opportunities',
-    bullet3: 'New features in the live request system',
-    bullet4: 'Behind-the-scenes chaos',
-    bullet5: 'Occasional jokes that may or may not be funny',
-    closeLine1: 'No spam. No nonsense.',
-    closeLine2: 'Just pure Human Jukebox energy.',
-    signoff: 'See you on the request list',
-    signature: '- Harald',
-    ctaText: 'Book now',
+    preview: 'Your updates request was received.',
+    greeting: 'Hi',
+    line1: 'Thanks for requesting updates from The Human Jukebox.',
+    line2: 'We only send emails about new dates, booking availability, and key updates.',
+    line3: 'If you did not request this email, you can safely ignore it.',
+    ctaText: 'View booking and availability',
+    signoff: 'Best regards',
+    signature: 'Harald - The Human Jukebox',
   }
 }
 
 function buildUpdatesEmailHtml(bookingUrl, lang = 'en') {
+  const includeImage = process.env.UPDATES_EMAIL_INCLUDE_IMAGE === '1'
   const backgroundImageUrl = process.env.UPDATES_EMAIL_BACKGROUND_URL?.trim()
     || 'https://www.the-human-jukebox.org/images/Human%20Jukebox%20Mirror%20background.png'
   const copy = getSignupEmailCopy(lang)
+  const imageBlock = includeImage
+    ? `<tr><td style="padding:0;"><img src="${backgroundImageUrl}" alt="The Human Jukebox" width="560" style="display:block;width:100%;height:auto;border:0;" /></td></tr>`
+    : ''
 
   return `
-    <div style="margin:0;padding:24px 0;background:#f1f4fa;">
+    <div style="margin:0;padding:20px 0;background:#f1f4fa;">
+      <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${copy.preview}</div>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td align="center" style="padding:0 12px;">
-            <table role="presentation" width="595" cellpadding="0" cellspacing="0" border="0" style="width:595px;max-width:595px;border-radius:14px;overflow:hidden;background:#ffffff;border:1px solid #d7deea;">
+            <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:560px;border-radius:10px;overflow:hidden;background:#ffffff;border:1px solid #d7deea;">
+              ${imageBlock}
               <tr>
-                <td style="padding:0;">
-                  <img src="${backgroundImageUrl}" alt="The Human Jukebox" width="595" style="display:block;width:100%;max-width:595px;height:auto;border:0;" />
-                </td>
-              </tr>
-              <tr>
-                <td valign="top" style="padding:34px 34px 32px;font-family:Arial, sans-serif;color:#16233f;line-height:1.6;">
-                  <p style="margin:0 0 16px;font-size:18px;font-weight:700;color:#b42c78;">${copy.teaser}</p>
-                  <p style="margin:0 0 14px;font-size:22px;font-weight:700;color:#0e1b34;">${copy.greeting}</p>
-                  <p style="margin:0 0 14px;font-size:16px;">${copy.intro}</p>
-                  <p style="margin:0 0 10px;font-size:16px;font-weight:700;">${copy.simpleLead}</p>
-                  <p style="margin:0 0 4px;font-size:16px;">${copy.simpleLine1}</p>
-                  <p style="margin:0 0 4px;font-size:16px;">${copy.simpleLine2}</p>
-                  <p style="margin:0 0 18px;font-size:16px;">${copy.simpleLine3}<br/>${copy.simpleLine4}</p>
-                  <p style="margin:0 0 14px;font-size:16px;">${copy.audience}</p>
-                  <p style="margin:0 0 14px;font-size:16px;">${copy.roles}</p>
-                  <p style="margin:0 0 10px;font-size:16px;font-weight:700;">${copy.signupLead}</p>
-                  <ul style="margin:0 0 22px;padding-left:20px;font-size:16px;color:#13213f;">
-                    <li style="margin-bottom:6px;">${copy.bullet1}</li>
-                    <li style="margin-bottom:6px;">${copy.bullet2}</li>
-                    <li style="margin-bottom:6px;">${copy.bullet3}</li>
-                    <li style="margin-bottom:6px;">${copy.bullet4}</li>
-                    <li>${copy.bullet5}</li>
-                  </ul>
-                  <p style="margin:0 0 10px;font-size:16px;">${copy.closeLine1}<br/>${copy.closeLine2}</p>
-                  <p style="margin:0 0 24px;font-size:16px;">${copy.signoff}<br/>${copy.signature}</p>
+                <td valign="top" style="padding:26px 26px 24px;font-family:Arial, sans-serif;color:#16233f;line-height:1.6;">
+                  <p style="margin:0 0 12px;font-size:18px;font-weight:700;color:#0e1b34;">${copy.greeting}</p>
+                  <p style="margin:0 0 10px;font-size:15px;">${copy.line1}</p>
+                  <p style="margin:0 0 10px;font-size:15px;">${copy.line2}</p>
+                  <p style="margin:0 0 18px;font-size:14px;color:#4b5a7a;">${copy.line3}</p>
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0;">
                     <tr>
-                      <td style="border-radius:999px;background:#0f5fd6;padding:12px 22px;">
-                        <a href="${bookingUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;">${copy.ctaText}</a>
+                      <td style="border-radius:999px;background:#0f5fd6;padding:10px 18px;">
+                        <a href="${bookingUrl}" style="display:inline-block;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;">${copy.ctaText}</a>
                       </td>
                     </tr>
                   </table>
+                  <p style="margin:18px 0 0;font-size:14px;">${copy.signoff}<br/>${copy.signature}</p>
                 </td>
               </tr>
             </table>
@@ -242,36 +203,16 @@ function buildUpdatesEmailText(bookingUrl, lang = 'en') {
   const copy = getSignupEmailCopy(lang)
 
   return [
-    copy.teaser,
-    '',
     copy.greeting,
     '',
-    copy.intro,
-    '',
-    copy.simpleLead,
-    copy.simpleLine1,
-    copy.simpleLine2,
-    copy.simpleLine3,
-    copy.simpleLine4,
-    '',
-    copy.audience,
-    '',
-    copy.roles,
-    '',
-    copy.signupLead,
-    `- ${copy.bullet1}`,
-    `- ${copy.bullet2}`,
-    `- ${copy.bullet3}`,
-    `- ${copy.bullet4}`,
-    `- ${copy.bullet5}`,
-    '',
-    copy.closeLine1,
-    copy.closeLine2,
-    '',
-    copy.signoff,
-    copy.signature,
+    copy.line1,
+    copy.line2,
+    copy.line3,
     '',
     `${copy.ctaText}: ${bookingUrl}`,
+    '',
+    `${copy.signoff},`,
+    copy.signature,
   ].join('\n')
 }
 
@@ -624,8 +565,8 @@ app.post('/api/get-updates', async (req, res) => {
 
   try {
     const emailSubject = emailLang === 'da'
-      ? 'Din anmodede Human Jukebox-opdatering'
-      : 'Your requested Human Jukebox update'
+      ? 'Din forespoergsel om opdateringer er modtaget'
+      : 'Your updates request was received'
 
     const directPayload = {
       from: fromEmail,
@@ -639,9 +580,12 @@ app.post('/api/get-updates', async (req, res) => {
       directPayload.reply_to = replyToEmail
     }
 
+    const emailHeaders = { 'X-Auto-Response-Suppress': 'All' }
     if (listUnsubscribeHeader) {
-      directPayload.headers = { 'List-Unsubscribe': listUnsubscribeHeader }
+      emailHeaders['List-Unsubscribe'] = listUnsubscribeHeader
+      emailHeaders['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
     }
+    directPayload.headers = emailHeaders
 
     const { response, responseBody: errorBody } = await sendResendEmail(resendApiKey, directPayload)
 
