@@ -1106,6 +1106,10 @@ function EventPage() {
 
     return formatCompactCountdownLabel(remainingMs)
   }, [waitingRoomNowMs, waitingRoomStartMs])
+  const waitingRoomRemainingMs = waitingRoomStartMs === null ? null : waitingRoomStartMs - waitingRoomNowMs
+  const showGoingLiveNowBanner = waitingRoomRemainingMs !== null
+    && waitingRoomRemainingMs <= 10_000
+    && waitingRoomRemainingMs > -15_000
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
   const activeRequestCap = event?.maxActiveRequestsPerUser ?? null
   const queueSizeCap = event?.maxQueueSize ?? null
@@ -1205,6 +1209,7 @@ function EventPage() {
         waitingTitle: 'Velkommen til showet, skønne mennesker!',
         waitingCopy: 'Find jer til rette, se selvsikre ud, og giv den kunstneriske ledelse skylden for alt kaos.',
         startingSoon: 'Event starter snart',
+        goingLiveNow: 'Går live nu...',
         viewUpcoming: 'Se alle kommende events',
         audienceLive: 'Publikum Live',
         audienceHome: 'Publikumsforside',
@@ -1248,6 +1253,7 @@ function EventPage() {
         waitingTitle: 'Velkomin í sýninguna, frábæru gestir!',
         waitingCopy: 'Komdu þér fyrir, vertu svalur, og kenndu liststjórninni um allt kaos.',
         startingSoon: 'Viðburður hefst bráðum',
+        goingLiveNow: 'Fer i loftid nu...',
         viewUpcoming: 'Sjá alla komandi viðburði',
         audienceLive: 'Beint frá viðburði',
         audienceHome: 'Áhorfenda Forsíða',
@@ -1290,6 +1296,7 @@ function EventPage() {
         waitingTitle: 'Welcome to the show, you lovely lot!',
         waitingCopy: 'Settle in, look confident, and blame any chaos on artistic direction.',
         startingSoon: 'Event starting soon',
+        goingLiveNow: 'Going live now...',
         viewUpcoming: 'View all upcoming gigs',
         audienceLive: 'Audience Live',
         audienceHome: 'Audience Home',
@@ -2761,6 +2768,9 @@ function EventPage() {
           <p className="meta-badge audience-soon-badge">
             {waitingRoomCountdownLabel ? `${copy.startingSoon} · ${waitingRoomCountdownLabel}` : copy.startingSoon}
           </p>
+          {showGoingLiveNowBanner ? (
+            <p className="meta-badge audience-going-live-banner" aria-live="assertive">{copy.goingLiveNow}</p>
+          ) : null}
           {event?.name ? (
             <div className="audience-waiting-event-info">
               <p className="audience-waiting-event-name">{event.name}</p>

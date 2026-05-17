@@ -857,6 +857,27 @@
   font-size: 0.82rem;
 }
 
+.audience-karafun .audience-going-live-banner {
+  background: rgba(255, 93, 176, 0.18);
+  border-color: rgba(255, 93, 176, 0.36);
+  color: #ffd6ec;
+  font-size: 0.84rem;
+  animation: audience-going-live-pulse 800ms ease-in-out infinite;
+}
+
+@keyframes audience-going-live-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 93, 176, 0);
+  }
+
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0.65rem rgba(255, 93, 176, 0.32);
+  }
+}
+
 /* Loading skeleton shimmer in kf dark bg */
 .audience-karafun .loading-skeleton {
   background: linear-gradient(
