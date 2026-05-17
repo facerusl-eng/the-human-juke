@@ -85,6 +85,43 @@ function parseEventStartMs(gigDate: string | null | undefined, gigStartTime: str
   return Number.isNaN(parsedMs) ? null : parsedMs
 }
 
+async function fetchServerClockOffsetMs(): Promise<number | null> {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const requestStartedAt = Date.now()
+
+  try {
+    const response = await fetch(`/api/keepwarm?clock-sync=${Date.now()}`, {
+      method: 'GET',
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const requestEndedAt = Date.now()
+    const serverDateHeader = response.headers.get('date')
+
+    if (!serverDateHeader) {
+      return null
+    }
+
+    const serverNowMs = Date.parse(serverDateHeader)
+
+    if (!Number.isFinite(serverNowMs)) {
+      return null
+    }
+
+    const estimatedClientNowMs = Math.round((requestStartedAt + requestEndedAt) / 2)
+    return serverNowMs - estimatedClientNowMs
+  } catch {
+    return null
+  }
+}
+
 function formatCompactCountdownLabel(remainingMs: number): string {
   const totalSeconds = Math.floor(Math.max(0, remainingMs) / 1000)
   const days = Math.floor(totalSeconds / 86400)
@@ -99,22 +136,21 @@ function formatCompactCountdownLabel(remainingMs: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function hasFutureCountdownTarget(events: AudienceUpcomingEvent[]): boolean {
-  const now = Date.now()
+function hasFutureCountdownTarget(events: AudienceUpcomingEvent[], nowMs = Date.now()): boolean {
 
   return events.some((eventRow) => {
     const eventStartMs = parseEventStartMs(eventRow.gigDate, eventRow.gigStartTime)
-    return eventStartMs !== null && eventStartMs > now
+    return eventStartMs !== null && eventStartMs > nowMs
   })
 }
 
-function isFutureCountdownEvent(eventRow: AudienceUpcomingEvent | null | undefined): boolean {
+function isFutureCountdownEvent(eventRow: AudienceUpcomingEvent | null | undefined, nowMs = Date.now()): boolean {
   if (!eventRow) {
     return false
   }
 
   const startsAtMs = parseEventStartMs(eventRow.gigDate, eventRow.gigStartTime)
-  return startsAtMs !== null && startsAtMs > Date.now()
+  return startsAtMs !== null && startsAtMs > nowMs
 }
 
 function isMissingCoverImageColumnError(error: unknown) {
@@ -1018,6 +1054,7 @@ function EventPage() {
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(true)
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
+  const [audienceClockOffsetMs, setAudienceClockOffsetMs] = useState(0)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
   const upcomingCoverFetchInFlightRef = useRef<Set<string>>(new Set())
   const upcomingCoverFetchRetryAfterRef = useRef<Map<string, number>>(new Map())
@@ -1028,6 +1065,7 @@ function EventPage() {
   const upcomingNextRefreshAtRef = useRef(0)
   const upcomingFailureCountRef = useRef(0)
   const upcomingBaseFetchHealthyRef = useRef(false)
+  const audienceClockOffsetRef = useRef(0)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -1037,6 +1075,37 @@ function EventPage() {
   const votingSongIdsRef = useRef<Record<string, boolean>>({})
   const confirmationTimerRef = useRef<number | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const getAudienceNowMs = useCallback(() => Date.now() + audienceClockOffsetRef.current, [])
+
+  useEffect(() => {
+    audienceClockOffsetRef.current = audienceClockOffsetMs
+  }, [audienceClockOffsetMs])
+
+  useEffect(() => {
+    let isCurrent = true
+
+    const syncClockOffset = async () => {
+      const nextOffsetMs = await fetchServerClockOffsetMs()
+
+      if (!isCurrent || nextOffsetMs === null) {
+        return
+      }
+
+      audienceClockOffsetRef.current = nextOffsetMs
+      setAudienceClockOffsetMs(nextOffsetMs)
+    }
+
+    void syncClockOffset()
+
+    const timerId = window.setInterval(() => {
+      void syncClockOffset()
+    }, 120_000)
+
+    return () => {
+      isCurrent = false
+      window.clearInterval(timerId)
+    }
+  }, [])
 
   // Acquire a screen wake lock while the audience is in an active live gig.
   // This prevents the phone screen from locking mid-concert when browsing the queue.
@@ -1086,7 +1155,7 @@ function EventPage() {
   }, [event?.roomOpen])
 
   const roomOpen = event?.roomOpen ?? false
-  const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => Date.now())
+  const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => getAudienceNowMs())
   const waitingRoomStartMs = useMemo(() => {
     if (!event?.id || roomOpen) {
       return null
@@ -1370,7 +1439,7 @@ function EventPage() {
     }
 
     const tick = () => {
-      setWaitingRoomNowMs(Date.now())
+      setWaitingRoomNowMs(getAudienceNowMs())
     }
 
     tick()
@@ -1379,7 +1448,7 @@ function EventPage() {
     return () => {
       window.clearInterval(timerId)
     }
-  }, [event?.id, roomOpen, waitingRoomStartMs])
+  }, [event?.id, getAudienceNowMs, roomOpen, waitingRoomStartMs])
 
   useEffect(() => {
     if (demoMode) return
@@ -2021,7 +2090,9 @@ function EventPage() {
         return
       }
 
-      if (hasFutureCountdownTarget(events)) {
+      const nowMs = getAudienceNowMs()
+
+      if (hasFutureCountdownTarget(events, nowMs)) {
         setCountdownFallbackEvent(null)
         return
       }
@@ -2039,7 +2110,7 @@ function EventPage() {
         }
 
         setCountdownFallbackEvent((currentFallbackEvent) => (
-          isFutureCountdownEvent(currentFallbackEvent) ? currentFallbackEvent : null
+          isFutureCountdownEvent(currentFallbackEvent, getAudienceNowMs()) ? currentFallbackEvent : null
         ))
       } catch {
         if (!isCurrent) {
@@ -2047,7 +2118,7 @@ function EventPage() {
         }
 
         setCountdownFallbackEvent((currentFallbackEvent) => (
-          isFutureCountdownEvent(currentFallbackEvent) ? currentFallbackEvent : null
+          isFutureCountdownEvent(currentFallbackEvent, getAudienceNowMs()) ? currentFallbackEvent : null
         ))
       }
     }
@@ -2666,6 +2737,7 @@ function EventPage() {
       <AudienceNoGigState
         upcomingEvents={upcomingEvents}
         countdownFallbackEvent={countdownFallbackEvent}
+        nowOffsetMs={audienceClockOffsetMs}
         loadingUpcomingEvents={upcomingEventsLoading}
         upcomingEventsNotice={upcomingEventsNotice ?? authError}
         getEventHref={(eventId) => `/audience?event=${encodeURIComponent(eventId)}&v=${audienceLinkVersionRef.current}`}

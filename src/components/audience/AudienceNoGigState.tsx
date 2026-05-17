@@ -138,21 +138,31 @@ function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | 
   return `${dateLabel} · ${timeLabel}`
 }
 
-function useCountdownToEvent(upcomingEvents: AudienceUpcomingEvent[]) {
-  const [now, setNow] = useState(() => Date.now())
+function useCountdownToEvent(upcomingEvents: AudienceUpcomingEvent[], nowOffsetMs = 0) {
+  const [now, setNow] = useState(() => Date.now() + nowOffsetMs)
 
   const target = upcomingEvents
     .map((e) => ({ event: e, date: parseEventDate(e.gigDate, e.gigStartTime) }))
-    .filter((x): x is { event: AudienceUpcomingEvent; date: Date } => x.date !== null && x.date.getTime() > Date.now())
+    .filter((x): x is { event: AudienceUpcomingEvent; date: Date } => x.date !== null && x.date.getTime() > now)
     .sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null
 
   const targetEventId = target?.event.id ?? null
 
   useEffect(() => {
+    const syncNow = () => {
+      setNow(Date.now() + nowOffsetMs)
+    }
+
     if (!targetEventId) return
-    const id = setInterval(() => setNow(Date.now()), 1000)
+
+    syncNow()
+    const id = setInterval(syncNow, 1000)
     return () => clearInterval(id)
-  }, [targetEventId])
+  }, [targetEventId, nowOffsetMs])
+
+  useEffect(() => {
+    setNow(Date.now() + nowOffsetMs)
+  }, [nowOffsetMs])
 
   if (!target) return null
   const remainingMs = target.date.getTime() - now
@@ -239,6 +249,7 @@ function resolveUpcomingEventCoverUrl(event: AudienceUpcomingEvent): string {
 function AudienceNoGigState({
   upcomingEvents,
   countdownFallbackEvent = null,
+  nowOffsetMs = 0,
   loadingUpcomingEvents = false,
   upcomingEventsNotice = null,
   getEventHref,
@@ -247,6 +258,7 @@ function AudienceNoGigState({
 }: {
   upcomingEvents: AudienceUpcomingEvent[]
   countdownFallbackEvent?: AudienceUpcomingEvent | null
+  nowOffsetMs?: number
   loadingUpcomingEvents?: boolean
   upcomingEventsNotice?: string | null
   getEventHref?: (eventId: string) => string
@@ -260,7 +272,7 @@ function AudienceNoGigState({
     && !upcomingEvents.some((eventRow) => eventRow.id === countdownFallbackEvent.id)
     ? [countdownFallbackEvent, ...upcomingEvents]
     : upcomingEvents
-  const countdown = useCountdownToEvent(countdownCandidates)
+  const countdown = useCountdownToEvent(countdownCandidates, nowOffsetMs)
   const countdownEventId = countdown?.event.id ?? null
   const countdownStartLabel = countdown
     ? formatCountdownStartLabel(countdown.event.gigDate, countdown.event.gigStartTime, locale)
