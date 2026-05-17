@@ -148,27 +148,27 @@ function buildFallbackLeadHtml(requestedEmail, lang, bookingUrl) {
 function getSignupEmailCopy(lang = 'en') {
   if (lang === 'da') {
     return {
-      teaser: '...fordi du fortjener underholdning, der er levende, uforudsigelig og en smule ustyrlig.',
+      teaser: '...fordi du fortjener underholdning, der er levende, uforudsigelig og lidt ude af kontrol.',
       greeting: 'Hey du',
-      intro: 'Hvis du vil holde dig opdateret om nye shows, special events, bar takeovers, private fester og alle de latterlige ting, jeg paa en eller anden maade ender med paa scenen, saa er du landet det rigtige sted.',
+      intro: 'Hvis du vil vaere foerst med nye shows, special events, bar takeovers, private fester og alt det kaos, jeg paa en eller anden maade faar sat i gang paa scenen, saa er du landet det rigtige sted.',
       simpleLead: 'The Human Jukebox er simpelt:',
       simpleLine1: 'Du vaelger sangene.',
       simpleLine2: 'Jeg spiller dem live.',
       simpleLine3: 'Ingen backing tracks. Intet sikkerhedsnet.',
-      simpleLine4: 'Kun mig, en guitar, en stemme og tvivlsomme beslutningsevner.',
-      audience: 'Dit publikum bliver en del af showet - sender requests, stemmer, jubler, driller mig (blidt) og forvandler en helt almindelig aften til et "skete-det-virkelig"-minde.',
-      roles: 'Uanset om du ejer en bar, planlaegger events, holder fest, eller bare nyder at se en voksen mand synge hvad end fremmede kaster efter ham... saa har jeg opdateringer, du faktisk gider laese.',
+      simpleLine4: 'Kun mig, en guitar, en stemme og tvivlsomme beslutninger i realtid.',
+      audience: 'Publikum bliver en del af showet - sender requests, stemmer, jubler, driller mig (kaerligt) og forvandler en helt almindelig aften til et "skete-det-virkelig"-minde.',
+      roles: 'Uanset om du ejer en bar, planlaegger events, holder fest, eller bare elsker at se en voksen mand synge hvad end fremmede finder paa... saa har jeg opdateringer, du faktisk gider laese.',
       signupLead: 'Tilmeld dig, saa sender jeg:',
       bullet1: 'Kommende showdatoer',
       bullet2: 'Bookingmuligheder',
       bullet3: 'Nye features i live request-systemet',
-      bullet4: 'Bagom-kaos',
+      bullet4: 'Bagom-kaos og backstage-oeblikke',
       bullet5: 'Lejlighedsvise jokes, som maaske er sjove',
       closeLine1: 'Ingen spam. Ingen nonsens.',
       closeLine2: 'Bare rendyrket Human Jukebox-energi.',
       signoff: 'Vi ses paa request-listen',
       signature: '- Harald',
-      ctaText: 'Book now',
+      ctaText: 'Book nu',
     }
   }
 
