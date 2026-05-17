@@ -203,6 +203,7 @@ export type QueueContextValue = {
   deleteEvent: (targetEventId: string) => Promise<void>
   updateEventSettings: (updates: EventSettingsUpdates) => Promise<void>
   upvoteSong: (songId: string) => Promise<void>
+  setRoomOpen: (nextRoomOpen: boolean) => Promise<void>
   toggleRoomOpen: () => Promise<void>
   toggleExplicitFilter: () => Promise<void>
   toggleAudienceVoting: () => Promise<void>
@@ -3894,12 +3895,22 @@ function QueueProvider({ children }: PropsWithChildren) {
           await fetchQueueSnapshot(event.id)
         }
       },
-      toggleRoomOpen: async () => {
+      setRoomOpen: async (nextRoomOpen: boolean) => {
         if (!event) {
           return
         }
 
-        const nextRoomOpen = !event.roomOpen
+        const previousRoomOpen = event.roomOpen
+
+        if (previousRoomOpen === nextRoomOpen) {
+          saveToLocalStorage(ROOM_OPEN_SYNC_KEY, {
+            eventId: event.id,
+            roomOpen: nextRoomOpen,
+            timestamp: Date.now(),
+          })
+          await fetchQueueSnapshot(event.id)
+          return
+        }
 
         setEvent((currentEvent) => {
           if (!currentEvent || currentEvent.id !== event.id) {
@@ -3925,7 +3936,53 @@ function QueueProvider({ children }: PropsWithChildren) {
 
             return {
               ...currentEvent,
-              roomOpen: event.roomOpen,
+              roomOpen: previousRoomOpen,
+            }
+          })
+          throw error
+        }
+
+        saveToLocalStorage(ROOM_OPEN_SYNC_KEY, {
+          eventId: event.id,
+          roomOpen: nextRoomOpen,
+          timestamp: Date.now(),
+        })
+
+        await fetchQueueSnapshot(event.id)
+      },
+      toggleRoomOpen: async () => {
+        if (!event) {
+          return
+        }
+
+        const nextRoomOpen = !event.roomOpen
+        const previousRoomOpen = event.roomOpen
+
+        setEvent((currentEvent) => {
+          if (!currentEvent || currentEvent.id !== event.id) {
+            return currentEvent
+          }
+
+          return {
+            ...currentEvent,
+            roomOpen: nextRoomOpen,
+          }
+        })
+
+        const { error } = await supabase
+          .from('events')
+          .update({ room_open: nextRoomOpen })
+          .eq('id', event.id)
+
+        if (error) {
+          setEvent((currentEvent) => {
+            if (!currentEvent || currentEvent.id !== event.id) {
+              return currentEvent
+            }
+
+            return {
+              ...currentEvent,
+              roomOpen: previousRoomOpen,
             }
           })
           throw error

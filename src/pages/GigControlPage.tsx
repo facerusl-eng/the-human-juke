@@ -35,6 +35,8 @@ const GIG_CONTROL_AUTO_REDIRECT_SECONDS = 12
 const ROOM_STATE_ENSURE_MAX_ATTEMPTS = 3
 const ROOM_STATE_ENSURE_RETRY_DELAY_MS = 650
 const AUTO_LIVE_RETRY_DELAY_MS = 15_000
+const INTRO_AUDIO_LOCK_STORAGE_KEY = 'human-jukebox-intro-audio-play-lock'
+const INTRO_AUDIO_LOCK_TTL_MS = 90_000
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
@@ -51,6 +53,73 @@ type PersistedGigControlNowPlaying = {
 }
 
 type PreflightIssueCode = 'offline' | 'session' | 'database' | 'realtime' | 'shareLinks' | 'keepwarm' | 'unknown'
+
+type IntroAudioPlayLock = {
+  eventId: string
+  ownerId: string
+  expiresAt: number
+}
+
+function acquireIntroAudioPlayLock(eventId: string): string | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const now = Date.now()
+  const ownerId = `${eventId}:${now}:${Math.random().toString(36).slice(2)}`
+
+  try {
+    const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+
+    if (existingRaw) {
+      const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
+      const sameEvent = existingLock.eventId === eventId
+      const stillValid = typeof existingLock.expiresAt === 'number' && existingLock.expiresAt > now
+
+      if (sameEvent && stillValid) {
+        return null
+      }
+    }
+
+    const nextLock: IntroAudioPlayLock = {
+      eventId,
+      ownerId,
+      expiresAt: now + INTRO_AUDIO_LOCK_TTL_MS,
+    }
+
+    window.localStorage.setItem(INTRO_AUDIO_LOCK_STORAGE_KEY, JSON.stringify(nextLock))
+
+    const confirmationRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+    if (!confirmationRaw) {
+      return null
+    }
+
+    const confirmation = JSON.parse(confirmationRaw) as Partial<IntroAudioPlayLock>
+    return confirmation.ownerId === ownerId && confirmation.eventId === eventId ? ownerId : null
+  } catch {
+    return ownerId
+  }
+}
+
+function releaseIntroAudioPlayLock(eventId: string, ownerId: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+    if (!existingRaw) {
+      return
+    }
+
+    const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
+    if (existingLock.eventId === eventId && existingLock.ownerId === ownerId) {
+      window.localStorage.removeItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+    }
+  } catch {
+    // Best-effort lock release only.
+  }
+}
 
 function parseRequesterNames(rawName: string | null | undefined) {
   if (!rawName) {
@@ -199,6 +268,7 @@ function GigControlPage() {
     moveSong,
     reorderSong,
     setActiveEvent,
+    setRoomOpen,
     toggleRoomOpen,
     toggleExplicitFilter,
     setShowInAudienceNoGig,
@@ -904,7 +974,7 @@ function GigControlPage() {
         return true
       }
 
-      await gigActions.runToggleRoomOpen()
+      await setRoomOpen(targetRoomOpen)
       await wait(220)
 
       const latestEvent = eventRef.current
@@ -922,7 +992,28 @@ function GigControlPage() {
         ? 'Could not open room after multiple retries. Please check connection and try again.'
         : 'Could not end gig after multiple retries. Please check connection and try again.',
     )
-  }, [gigActions])
+  }, [setRoomOpen])
+
+  const playIntroAudioOnceSafely = useCallback(async (eventId: string, introAudioUrl: string, autoplayBlockedMessage: string) => {
+    if (introAudioPlayedEventIdsRef.current.has(eventId)) {
+      return
+    }
+
+    const introAudioLockOwner = acquireIntroAudioPlayLock(eventId)
+    if (!introAudioLockOwner) {
+      return
+    }
+
+    introAudioPlayedEventIdsRef.current.add(eventId)
+
+    try {
+      await playIntroAudioWithSpotifyBridge(introAudioUrl)
+    } catch {
+      setErrorText(autoplayBlockedMessage)
+    } finally {
+      releaseIntroAudioPlayLock(eventId, introAudioLockOwner)
+    }
+  }, [playIntroAudioWithSpotifyBridge])
 
   const toggleLiveState = useCallback(async () => {
     const currentEvent = eventRef.current
@@ -947,13 +1038,12 @@ function GigControlPage() {
         return
       }
 
-      if (latestEvent.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(latestEvent.id)) {
-        introAudioPlayedEventIdsRef.current.add(latestEvent.id)
-        try {
-          await playIntroAudioWithSpotifyBridge(latestEvent.introAudioUrl)
-        } catch {
-          setErrorText('Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport was restored.')
-        }
+      if (latestEvent.introAudioUrl) {
+        await playIntroAudioOnceSafely(
+          latestEvent.id,
+          latestEvent.introAudioUrl,
+          'Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport was restored.',
+        )
       }
     } catch (error) {
       setErrorText(
@@ -964,7 +1054,7 @@ function GigControlPage() {
           : 'Could not end gig. Please try again.',
       )
     }
-  }, [ensureRoomOpenState, playIntroAudioWithSpotifyBridge, runGoLivePreflight])
+  }, [ensureRoomOpenState, playIntroAudioOnceSafely, runGoLivePreflight])
 
   const showMirrorPreviewTransition = useCallback((message: string, tone: MirrorPreviewTransitionTone) => {
     if (mirrorPreviewTransitionTimerRef.current !== null) {
@@ -1247,7 +1337,7 @@ function GigControlPage() {
       }
 
       if (event.roomOpen !== latestSnapshot.roomOpen) {
-        await gigActions.runToggleRoomOpen()
+        await setRoomOpen(latestSnapshot.roomOpen)
       }
 
       if (event.explicitFilterEnabled !== latestSnapshot.explicitFilterEnabled) {
@@ -1261,7 +1351,7 @@ function GigControlPage() {
     } finally {
       setSnapshotRestoreBusy(false)
     }
-  }, [event, gigActions, restoreConfirmPayload, saveQueueSnapshot, user?.id])
+  }, [event, gigActions, restoreConfirmPayload, saveQueueSnapshot, setRoomOpen, user?.id])
 
   useEffect(() => {
     if (!event?.id) {
@@ -1424,13 +1514,12 @@ function GigControlPage() {
         autoLiveNextRetryAtRef.current = 0
         setAutoLiveLastError(null)
 
-        if (latestEvent.introAudioUrl && !introAudioPlayedEventIdsRef.current.has(latestEvent.id)) {
-          introAudioPlayedEventIdsRef.current.add(latestEvent.id)
-          try {
-            await playIntroAudioWithSpotifyBridge(latestEvent.introAudioUrl)
-          } catch {
-            setErrorText('Auto Live intro audio was blocked by browser autoplay settings. Spotify transport was restored.')
-          }
+        if (latestEvent.introAudioUrl) {
+          await playIntroAudioOnceSafely(
+            latestEvent.id,
+            latestEvent.introAudioUrl,
+            'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport was restored.',
+          )
         }
 
         if (nowPlaying?.id && !isNowPlayingStarted) {
@@ -1486,7 +1575,7 @@ function GigControlPage() {
     isNowPlayingStarted,
     nowPlaying?.cover_url,
     nowPlaying?.id,
-    playIntroAudioWithSpotifyBridge,
+    playIntroAudioOnceSafely,
     runGoLivePreflight,
     sendSpotifyTransportCommand,
   ])

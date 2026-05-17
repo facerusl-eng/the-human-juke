@@ -366,6 +366,7 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
       endGig: noop,
       deleteEvent: noop,
       updateEventSettings: noop,
+      setRoomOpen: noop,
       toggleRoomOpen: noop,
       toggleExplicitFilter: noop,
       toggleAudienceVoting: noop,

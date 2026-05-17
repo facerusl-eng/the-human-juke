@@ -95,8 +95,6 @@ const QR_FLASH_BASE_LINES = [
 ]
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
-const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
-const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const isMirrorLayoutEditRequest = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).get(MIRROR_LAYOUT_EDIT_QUERY_PARAM) === '1'
@@ -762,92 +760,6 @@ async function fetchItunesSongFacts(title: string, artist: string, signal: Abort
   return []
 }
 
-function isSpotifyAutoTransportEnabled() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY) !== '0'
-}
-
-async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  const accessToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)?.trim()
-  if (!accessToken) {
-    return false
-  }
-
-  const endpoint = mode === 'pause'
-    ? 'https://api.spotify.com/v1/me/player/pause'
-    : 'https://api.spotify.com/v1/me/player/play'
-
-  try {
-    const response = await fetch(endpoint, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-
-    return response.ok
-  } catch {
-    return false
-  }
-}
-
-async function playIntroAudioWithSpotifyBridge(introAudioUrl: string) {
-  if (typeof window === 'undefined' || typeof Audio === 'undefined') {
-    return
-  }
-
-  const shouldBridgeSpotify = isSpotifyAutoTransportEnabled()
-
-  if (shouldBridgeSpotify) {
-    await sendSpotifyWebApiTransportCommand('pause')
-  }
-
-  const introAudio = new Audio(introAudioUrl)
-  introAudio.preload = 'auto'
-
-  try {
-    await introAudio.play()
-  } catch (error) {
-    if (shouldBridgeSpotify) {
-      await sendSpotifyWebApiTransportCommand('play')
-    }
-    throw error
-  }
-
-  await new Promise<void>((resolve) => {
-    const cleanup = () => {
-      introAudio.removeEventListener('ended', onEnded)
-      introAudio.removeEventListener('error', onError)
-    }
-
-    const onEnded = () => {
-      cleanup()
-      if (shouldBridgeSpotify) {
-        void sendSpotifyWebApiTransportCommand('play')
-      }
-      resolve()
-    }
-
-    const onError = () => {
-      cleanup()
-      if (shouldBridgeSpotify) {
-        void sendSpotifyWebApiTransportCommand('play')
-      }
-      resolve()
-    }
-
-    introAudio.addEventListener('ended', onEnded, { once: true })
-    introAudio.addEventListener('error', onError, { once: true })
-  })
-}
-
 async function fetchWikipediaSummarySentences(title: string, artist: string, signal: AbortSignal) {
   const candidateTitles = [
     `${title} (song)`,
@@ -1213,7 +1125,7 @@ function playShutterSound() {
 }
 
 function MirrorPageContent() {
-  const { event, songs, loading, toggleRoomOpen } = useQueueStore()
+  const { event, songs, loading, setRoomOpen } = useQueueStore()
   const { user, isHost } = useAuthStore()
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [funFacts, setFunFacts] = useState<string[]>([])
@@ -1934,15 +1846,7 @@ function MirrorPageContent() {
       autoLiveInFlightRef.current = true
 
       try {
-        await toggleRoomOpen()
-
-        if (event.introAudioUrl) {
-          try {
-            await playIntroAudioWithSpotifyBridge(event.introAudioUrl)
-          } catch {
-            setMirrorWarningMessage('Auto Live intro audio was blocked by browser autoplay settings.')
-          }
-        }
+        await setRoomOpen(true)
 
         if (nowPlaying?.id) {
           await writeSharedPlaybackState(event.id, {
@@ -1972,7 +1876,7 @@ function MirrorPageContent() {
     isHost,
     nowPlaying?.cover_url,
     nowPlaying?.id,
-    toggleRoomOpen,
+    setRoomOpen,
     layoutEditMode,
   ])
 
