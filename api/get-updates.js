@@ -150,9 +150,23 @@ function getSignupEmailCopy(lang = 'en') {
     return {
       preview: 'Din forespoergsel om opdateringer er modtaget.',
       greeting: 'Hej',
-      line1: 'Tak fordi du bad om opdateringer fra The Human Jukebox.',
-      line2: 'Vi sender kun mails om nye datoer, ledige bookinger og vigtige nyheder.',
-      line3: 'Hvis du ikke har bedt om denne mail, kan du ignorere den.',
+      teaser: '...fordi du fortjener underholdning, der er levende, uforudsigelig og lidt ude af kontrol.',
+      intro: 'Hvis du vil vaere foerst med nye shows, special events, bar takeovers, private fester og alt det kaos, jeg paa en eller anden maade faar sat i gang paa scenen, saa er du landet det rigtige sted.',
+      simpleLead: 'The Human Jukebox er simpelt:',
+      simpleLine1: 'Du vaelger sangene.',
+      simpleLine2: 'Jeg spiller dem live.',
+      simpleLine3: 'Ingen backing tracks. Intet sikkerhedsnet.',
+      simpleLine4: 'Kun mig, en guitar, en stemme og tvivlsomme beslutninger i realtid.',
+      audience: 'Publikum bliver en del af showet - sender requests, stemmer, jubler, driller mig (kaerligt) og forvandler en helt almindelig aften til et "skete-det-virkelig"-minde.',
+      roles: 'Uanset om du ejer en bar, planlaegger events, holder fest, eller bare elsker at se en voksen mand synge hvad end fremmede finder paa... saa har jeg opdateringer, du faktisk gider laese.',
+      signupLead: 'Tilmeld dig, saa sender jeg:',
+      bullet1: 'Kommende showdatoer',
+      bullet2: 'Bookingmuligheder',
+      bullet3: 'Nye features i live request-systemet',
+      bullet4: 'Bagom-kaos og backstage-oeblikke',
+      bullet5: 'Lejlighedsvise jokes, som maaske er sjove',
+      closeLine1: 'Ingen spam. Ingen nonsens.',
+      closeLine2: 'Bare rendyrket Human Jukebox-energi.',
       ctaText: 'Se booking og ledige datoer',
       signoff: 'Venlig hilsen',
       signature: 'Harald - The Human Jukebox',
@@ -162,10 +176,24 @@ function getSignupEmailCopy(lang = 'en') {
   return {
     preview: 'Your updates request was received.',
     greeting: 'Hi',
-    line1: 'Thanks for requesting updates from The Human Jukebox.',
-    line2: 'We only send emails about new dates, booking availability, and key updates.',
-    line3: 'If you did not request this email, you can safely ignore it.',
-    ctaText: 'View booking and availability',
+    teaser: "...because you deserve entertainment that's alive, unpredictable, and slightly unhinged.",
+    intro: "If you want to stay in the loop about new shows, special events, bar takeovers, private parties, and all the ridiculous things I somehow get myself into on stage, then you're in the right place.",
+    simpleLead: 'The Human Jukebox is simple:',
+    simpleLine1: 'You pick the songs.',
+    simpleLine2: 'I perform them live.',
+    simpleLine3: 'No backing tracks. No safety net.',
+    simpleLine4: 'Just me, a guitar, a voice, and questionable decision-making skills.',
+    audience: 'Your audience becomes part of the show - sending requests, voting, cheering, roasting me (gently), and turning a normal night out into a "did-that-really-happen" memory.',
+    roles: "Whether you're a bar owner, event planner, party host, or just someone who enjoys watching a grown man sing whatever strangers throw at him... I've got updates you'll actually want to read.",
+    signupLead: "Sign up, and I'll send you:",
+    bullet1: 'Upcoming show dates',
+    bullet2: 'Booking opportunities',
+    bullet3: 'New features in the live request system',
+    bullet4: 'Behind-the-scenes chaos',
+    bullet5: 'Occasional jokes that may or may not be funny',
+    closeLine1: 'No spam. No nonsense.',
+    closeLine2: 'Just pure Human Jukebox energy.',
+    ctaText: 'Book now',
     signoff: 'Best regards',
     signature: 'Harald - The Human Jukebox',
   }
@@ -191,9 +219,23 @@ function buildEmailHtml(bookingUrl, lang = 'en') {
               <tr>
                 <td valign="top" style="padding:26px 26px 24px;font-family:Arial, sans-serif;color:#16233f;line-height:1.6;">
                   <p style="margin:0 0 12px;font-size:18px;font-weight:700;color:#0e1b34;">${copy.greeting}</p>
-                  <p style="margin:0 0 10px;font-size:15px;">${copy.line1}</p>
-                  <p style="margin:0 0 10px;font-size:15px;">${copy.line2}</p>
-                  <p style="margin:0 0 18px;font-size:14px;color:#4b5a7a;">${copy.line3}</p>
+                  <p style="margin:0 0 12px;font-size:16px;font-weight:700;color:#24355f;">${copy.teaser}</p>
+                  <p style="margin:0 0 10px;font-size:15px;">${copy.intro}</p>
+                  <p style="margin:0 0 8px;font-size:15px;font-weight:700;">${copy.simpleLead}</p>
+                  <p style="margin:0 0 4px;font-size:15px;">${copy.simpleLine1}</p>
+                  <p style="margin:0 0 4px;font-size:15px;">${copy.simpleLine2}</p>
+                  <p style="margin:0 0 12px;font-size:15px;">${copy.simpleLine3}<br/>${copy.simpleLine4}</p>
+                  <p style="margin:0 0 10px;font-size:15px;">${copy.audience}</p>
+                  <p style="margin:0 0 10px;font-size:15px;">${copy.roles}</p>
+                  <p style="margin:0 0 8px;font-size:15px;font-weight:700;">${copy.signupLead}</p>
+                  <ul style="margin:0 0 14px;padding-left:20px;font-size:15px;color:#16233f;">
+                    <li style="margin-bottom:4px;">${copy.bullet1}</li>
+                    <li style="margin-bottom:4px;">${copy.bullet2}</li>
+                    <li style="margin-bottom:4px;">${copy.bullet3}</li>
+                    <li style="margin-bottom:4px;">${copy.bullet4}</li>
+                    <li>${copy.bullet5}</li>
+                  </ul>
+                  <p style="margin:0 0 18px;font-size:15px;">${copy.closeLine1}<br/>${copy.closeLine2}</p>
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0;">
                     <tr>
                       <td style="border-radius:999px;background:#0f5fd6;padding:10px 18px;">
@@ -218,9 +260,29 @@ function buildEmailText(bookingUrl, lang = 'en') {
   return [
     copy.greeting,
     '',
-    copy.line1,
-    copy.line2,
-    copy.line3,
+    copy.teaser,
+    '',
+    copy.intro,
+    '',
+    copy.simpleLead,
+    copy.simpleLine1,
+    copy.simpleLine2,
+    copy.simpleLine3,
+    copy.simpleLine4,
+    '',
+    copy.audience,
+    '',
+    copy.roles,
+    '',
+    copy.signupLead,
+    `- ${copy.bullet1}`,
+    `- ${copy.bullet2}`,
+    `- ${copy.bullet3}`,
+    `- ${copy.bullet4}`,
+    `- ${copy.bullet5}`,
+    '',
+    copy.closeLine1,
+    copy.closeLine2,
     '',
     `${copy.ctaText}: ${bookingUrl}`,
     '',
