@@ -1383,7 +1383,7 @@ function MirrorPageContent() {
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   // Route old QR link field through landing page so "Go to Lounge" button appears automatically
   const countdownQrDestination = customCountdownQrLink
-    ? `${appOrigin}/qr-landing?url=${encodeURIComponent(customCountdownQrLink)}`
+    ? `${appOrigin}/qr-landing?${eventId ? `event=${encodeURIComponent(eventId)}&` : ''}url=${encodeURIComponent(customCountdownQrLink)}`
     : audienceUrl
   const countdownQrText = customCountdownQrLink || audienceUrl
   

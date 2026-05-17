@@ -73,6 +73,7 @@
   box-shadow:
     0 0 20px rgba(93, 215, 255, 0.3),
     inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
@@ -87,6 +88,29 @@
 
 .qr-landing-button:active {
   transform: scale(0.98);
+}
+
+.qr-landing-button-disabled {
+  opacity: 0.9;
+  cursor: wait;
+}
+
+.qr-landing-button-disabled:hover {
+  transform: none;
+  border-color: rgba(93, 215, 255, 0.8);
+  background: linear-gradient(135deg, rgba(93, 215, 255, 0.2), rgba(93, 215, 255, 0.1));
+  box-shadow:
+    0 0 20px rgba(93, 215, 255, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.qr-landing-status {
+  margin: 0.55rem 0 0;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 /* Mobile optimizations */
