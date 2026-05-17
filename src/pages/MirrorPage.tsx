@@ -1544,7 +1544,6 @@ function MirrorPageContent() {
   const shouldShowEditorControls = isHost && !isEmbeddedPreview && layoutEditMode
   const shouldShowAdminElements = isHost && !isEmbeddedPreview && layoutEditMode
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
-  const liveBadgeLabel = demoMode ? '● Demo' : event?.roomOpen ? '● Live' : '● Paused'
 
   useEffect(() => {
     const eventBannerText = event?.mirrorBannerText
@@ -1630,6 +1629,7 @@ function MirrorPageContent() {
   const countdownCopy = audienceLocale === 'da'
     ? {
         live: '● Live',
+        startingSoon: '● Starter snart',
         paused: '● Pause',
         startingIn: 'Starter om',
         scheduledStart: 'Planlagt start',
@@ -1638,6 +1638,7 @@ function MirrorPageContent() {
     : audienceLocale === 'is'
     ? {
         live: '● Live',
+        startingSoon: '● Starting Soon',
         paused: '● I pusu',
         startingIn: 'Hefst eftir',
         scheduledStart: 'Aetlud byrjun',
@@ -1645,6 +1646,7 @@ function MirrorPageContent() {
       }
     : {
         live: '● Live',
+        startingSoon: '● Starting Soon',
         paused: '● Paused',
         startingIn: 'Starting In',
         scheduledStart: 'Scheduled Start',
@@ -1663,6 +1665,14 @@ function MirrorPageContent() {
   const countdownLabel = showCountdown && countdownDisplayRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownDisplayRemainingMs)
     : null
+  const isBeforeScheduledStart = !isLive && countdownRemainingMs !== null && countdownRemainingMs > 0
+  const liveBadgeLabel = demoMode
+    ? '● Demo'
+    : isLive
+    ? countdownCopy.live
+    : isBeforeScheduledStart
+    ? countdownCopy.startingSoon
+    : countdownCopy.paused
   const finalCountdownSeconds = showCountdown && countdownRemainingMs !== null && countdownRemainingMs > 0 && countdownRemainingMs <= 10_000
     ? Math.ceil(countdownRemainingMs / 1000)
     : null

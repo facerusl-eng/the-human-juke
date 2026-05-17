@@ -240,6 +240,8 @@ function AdminDashboardContent({
     return active.reduce((best, s) => s.votes_count > best.votes_count ? s : best)
   }, [songs])
   const queueEstMinutes = Math.round(songs.filter((s) => !s.is_removed).length * 3.5)
+  const activeGigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
+  const isBeforeActiveGigStart = Boolean(event && !event.roomOpen && activeGigStartAt && activeGigStartAt.getTime() > Date.now())
   const activeEventSummary = useMemo(
     () => hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null,
     [hostEvents, event?.id],
@@ -746,7 +748,7 @@ function AdminDashboardContent({
               <>
               <ul className="stats admin-mobile-status-grid" aria-label="Current gig status">
                 <li className={event.roomOpen ? 'admin-stat-green' : 'admin-stat-amber'}>
-                  <strong>{event.roomOpen ? 'Open' : 'Paused'}</strong>
+                  <strong>{event.roomOpen ? 'Open' : isBeforeActiveGigStart ? 'Starting Soon' : 'Paused'}</strong>
                   <span>Gig Status</span>
                 </li>
                 <li>

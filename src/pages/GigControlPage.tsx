@@ -312,18 +312,29 @@ function GigControlPage() {
   const nextUpSong = upNext[0] ?? null
   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
   const nowPlayingRequesters = parseRequesterNames(nowPlaying?.createdByName)
+  const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
+  const isBeforeScheduledStart = Boolean(!event?.roomOpen && gigStartAt && gigStartAt.getTime() > Date.now())
   const mirrorStateLabel = isBrbActive
     ? 'Mirror showing BRB screen'
     : event?.roomOpen
     ? isNowPlayingStarted
       ? 'Mirror showing live now playing'
       : 'Mirror showing between-song transition'
+    : isBeforeScheduledStart
+    ? 'Mirror showing pre-show waiting screen'
     : 'Mirror showing paused waiting screen'
   const liveModeLabel = event?.roomOpen
     ? 'Live'
     : isBrbActive
     ? 'Break'
+    : isBeforeScheduledStart
+    ? 'Starting Soon'
     : 'Paused'
+  const queueModeLabel = event?.roomOpen
+    ? 'Queue Open'
+    : isBeforeScheduledStart
+    ? 'Queue Opens Soon'
+    : 'Queue Paused'
   const activeHostEvent = hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null
   const isCurrentTestGig = activeHostEvent?.isTestGig ?? event?.isTestGig ?? false
   const queuedLibrarySongIds = useMemo(() => (
@@ -2352,7 +2363,7 @@ function GigControlPage() {
                     <span className="gig-mirror-preview-brand">Human Jukebox</span>
                   </div>
                   <span className={`gig-mirror-preview-state ${event.roomOpen ? 'is-live' : 'is-paused'}`}>
-                    {event.roomOpen ? 'Live' : 'Paused'}
+                    {event.roomOpen ? 'Live' : isBeforeScheduledStart ? 'Starting Soon' : 'Paused'}
                   </span>
                 </div>
                 <p className="gig-mirror-preview-label">Now Playing</p>
@@ -2738,7 +2749,7 @@ function GigControlPage() {
       <section className="queue-panel gig-queue-panel">
         <div className="panel-head">
           <h2>Up Next ({upNext.length} tracks)</h2>
-          <span className="meta-badge">{event.roomOpen ? 'Queue Open' : 'Queue Paused'}</span>
+          <span className="meta-badge">{queueModeLabel}</span>
         </div>
         {upNext.length === 0 ? (
           <p className="subcopy queue-empty-note">No more songs in queue.</p>
