@@ -1,8 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { AUDIENCE_LOCALE_STORAGE_KEY, normalizeAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { supabase } from '../lib/supabase'
 
 const LIVE_SYNC_POLL_INTERVAL_MS = 4000
+
+type SyncStatusReason = 'notFound' | 'reconnecting'
+
+function resolveAudienceLocale(search: string): AudienceLocale {
+  const params = new URLSearchParams(search)
+  const localeParam = params.get('locale')?.trim() || params.get('lang')?.trim() || params.get('l')?.trim() || ''
+
+  if (localeParam) {
+    return normalizeAudienceLocale(localeParam)
+  }
+
+  if (typeof window !== 'undefined') {
+    const storedLocale = window.localStorage.getItem(AUDIENCE_LOCALE_STORAGE_KEY)
+
+    if (storedLocale?.trim()) {
+      return normalizeAudienceLocale(storedLocale)
+    }
+
+    const browserLocale = (navigator.language || '').toLowerCase()
+
+    if (browserLocale.startsWith('da')) {
+      return 'da'
+    }
+
+    if (browserLocale.startsWith('is')) {
+      return 'is'
+    }
+  }
+
+  return 'en'
+}
 
 function normalizeEventTimeForDate(value: string | null | undefined): string | null {
   if (!value) {
@@ -58,8 +90,51 @@ function QrLandingPage() {
   const [eventRoomOpen, setEventRoomOpen] = useState(false)
   const [eventStartMs, setEventStartMs] = useState<number | null>(null)
   const [nowMs, setNowMs] = useState(() => Date.now())
-  const [syncStatusText, setSyncStatusText] = useState<string | null>(null)
+  const [syncStatusReason, setSyncStatusReason] = useState<SyncStatusReason | null>(null)
   const didAutoNavigateRef = useRef(false)
+  const locale = useMemo(() => resolveAudienceLocale(search), [search])
+
+  const copy = useMemo(() => {
+    if (locale === 'da') {
+      return {
+        buttonGoToLounge: 'Gå til Lounge',
+        buttonSyncingStatus: 'Synkroniserer live-status...',
+        buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
+        statusGoingLiveIn: 'Går live om',
+        statusCountdownComplete: 'Nedtælling færdig. Venter på at værten går live...',
+        statusNotFound: 'Event blev ikke fundet. Tryk for at åbne lounge.',
+        statusReconnecting: 'Genopretter forbindelse til live-status...',
+        ariaGoToAudienceLounge: 'Gå til publikums-lounge',
+        emptyState: 'Velkommen! Tryk på knappen ovenfor for at gå i loungen.',
+      }
+    }
+
+    if (locale === 'is') {
+      return {
+        buttonGoToLounge: 'Fara i Lounge',
+        buttonSyncingStatus: 'Samstilli live-stodu...',
+        buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
+        statusGoingLiveIn: 'Fer i loftid eftir',
+        statusCountdownComplete: 'Nidurteljari lokid. Bid eftir ad host fari i live ham...',
+        statusNotFound: 'Vidburdur fannst ekki. Smelltu til ad opna lounge.',
+        statusReconnecting: 'Endurtengi vid live-stodu...',
+        ariaGoToAudienceLounge: 'Fara i ahorfenda lounge',
+        emptyState: 'Velkomin! Smelltu a hnappinn ad ofan til ad fara i lounge.',
+      }
+    }
+
+    return {
+      buttonGoToLounge: 'Go to Lounge',
+      buttonSyncingStatus: 'Syncing live status...',
+      buttonSyncingCountdownPrefix: 'Syncing countdown',
+      statusGoingLiveIn: 'Going live in',
+      statusCountdownComplete: 'Countdown complete. Waiting for host to start live mode...',
+      statusNotFound: 'Could not find this event. Tap to open lounge.',
+      statusReconnecting: 'Reconnecting to live status...',
+      ariaGoToAudienceLounge: 'Go to audience lounge',
+      emptyState: 'Welcome! Click the button above to join the lounge.',
+    }
+  }, [locale])
 
   const eventId = useMemo(() => {
     const params = new URLSearchParams(search)
@@ -81,11 +156,16 @@ function QrLandingPage() {
   const waitingForLive = Boolean(eventId) && !eventRoomOpen
   const isCountdownActive = waitingForLive && countdownRemainingMs !== null && countdownRemainingMs > 0
   const countdownText = isCountdownActive ? formatCountdownLabel(countdownRemainingMs) : null
+  const syncStatusText = syncStatusReason === 'notFound'
+    ? copy.statusNotFound
+    : syncStatusReason === 'reconnecting'
+    ? copy.statusReconnecting
+    : null
   const loungeButtonText = isCountdownActive
-    ? `Syncing countdown ${countdownText}`
+    ? `${copy.buttonSyncingCountdownPrefix} ${countdownText}`
     : waitingForLive
-    ? 'Syncing live status...'
-    : 'Go to Lounge'
+    ? copy.buttonSyncingStatus
+    : copy.buttonGoToLounge
 
   useEffect(() => {
     if (!eventId || eventRoomOpen) {
@@ -105,7 +185,7 @@ function QrLandingPage() {
     if (!eventId) {
       setEventRoomOpen(false)
       setEventStartMs(null)
-      setSyncStatusText(null)
+      setSyncStatusReason(null)
       didAutoNavigateRef.current = false
       return
     }
@@ -130,7 +210,7 @@ function QrLandingPage() {
         }
 
         if (!data) {
-          setSyncStatusText('Could not find this event. Tap to open lounge.')
+          setSyncStatusReason('notFound')
           setEventStartMs(null)
           setEventRoomOpen(false)
           return
@@ -139,13 +219,13 @@ function QrLandingPage() {
         const startMs = parseEventStartMs(data.gig_date as string | null, data.gig_start_time as string | null)
         setEventStartMs(startMs)
         setEventRoomOpen(Boolean(data.room_open))
-        setSyncStatusText(null)
+        setSyncStatusReason(null)
       } catch {
         if (!isCurrent) {
           return
         }
 
-        setSyncStatusText('Reconnecting to live status...')
+        setSyncStatusReason('reconnecting')
       }
     }
 
@@ -183,7 +263,7 @@ function QrLandingPage() {
         <button
           type="button"
           className={`qr-landing-button${waitingForLive ? ' qr-landing-button-disabled' : ''}`}
-          aria-label="Go to audience lounge"
+          aria-label={copy.ariaGoToAudienceLounge}
           onClick={() => {
             navigate(loungeDestination)
           }}
@@ -193,7 +273,7 @@ function QrLandingPage() {
         </button>
         {waitingForLive ? (
           <p className="qr-landing-status" role="status" aria-live="polite">
-            {syncStatusText ?? (countdownText ? `Going live in ${countdownText}` : 'Countdown complete. Waiting for host to start live mode...')}
+            {syncStatusText ?? (countdownText ? `${copy.statusGoingLiveIn} ${countdownText}` : copy.statusCountdownComplete)}
           </p>
         ) : null}
       </div>
@@ -208,7 +288,7 @@ function QrLandingPage() {
           />
         ) : (
           <div className="qr-landing-empty-state">
-            <p>Welcome! Click the button above to join the lounge.</p>
+            <p>{copy.emptyState}</p>
           </div>
         )}
       </div>
