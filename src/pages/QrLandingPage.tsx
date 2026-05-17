@@ -100,6 +100,7 @@ function QrLandingPage() {
         buttonGoToLounge: 'Gå til Lounge',
         buttonSyncingStatus: 'Synkroniserer live-status...',
         buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
+        buttonOpenLoungeNow: 'Åbn lounge nu',
         statusGoingLiveIn: 'Går live om',
         statusCountdownComplete: 'Nedtælling færdig. Venter på at værten går live...',
         statusNotFound: 'Event blev ikke fundet. Tryk for at åbne lounge.',
@@ -114,6 +115,7 @@ function QrLandingPage() {
         buttonGoToLounge: 'Fara i Lounge',
         buttonSyncingStatus: 'Samstilli live-stodu...',
         buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
+        buttonOpenLoungeNow: 'Opna lounge nuna',
         statusGoingLiveIn: 'Fer i loftid eftir',
         statusCountdownComplete: 'Nidurteljari lokid. Bid eftir ad host fari i live ham...',
         statusNotFound: 'Vidburdur fannst ekki. Smelltu til ad opna lounge.',
@@ -127,6 +129,7 @@ function QrLandingPage() {
       buttonGoToLounge: 'Go to Lounge',
       buttonSyncingStatus: 'Syncing live status...',
       buttonSyncingCountdownPrefix: 'Syncing countdown',
+      buttonOpenLoungeNow: 'Open Lounge Now',
       statusGoingLiveIn: 'Going live in',
       statusCountdownComplete: 'Countdown complete. Waiting for host to start live mode...',
       statusNotFound: 'Could not find this event. Tap to open lounge.',
@@ -164,8 +167,11 @@ function QrLandingPage() {
   const loungeButtonText = isCountdownActive
     ? `${copy.buttonSyncingCountdownPrefix} ${countdownText}`
     : waitingForLive
-    ? copy.buttonSyncingStatus
+    ? syncStatusReason
+      ? copy.buttonOpenLoungeNow
+      : copy.buttonSyncingStatus
     : copy.buttonGoToLounge
+  const shouldDisableLoungeButton = waitingForLive && syncStatusReason === null
 
   useEffect(() => {
     if (!eventId || eventRoomOpen) {
@@ -195,6 +201,20 @@ function QrLandingPage() {
 
     const syncEventStatus = async () => {
       try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError) {
+          throw sessionError
+        }
+
+        if (!sessionData.session) {
+          const { error: signInError } = await supabase.auth.signInAnonymously()
+
+          if (signInError) {
+            throw signInError
+          }
+        }
+
         const { data, error } = await supabase
           .from('events')
           .select('room_open, gig_date, gig_start_time')
@@ -262,12 +282,12 @@ function QrLandingPage() {
       <div className="qr-landing-button-overlay">
         <button
           type="button"
-          className={`qr-landing-button${waitingForLive ? ' qr-landing-button-disabled' : ''}`}
+          className={`qr-landing-button${shouldDisableLoungeButton ? ' qr-landing-button-disabled' : ''}`}
           aria-label={copy.ariaGoToAudienceLounge}
           onClick={() => {
             navigate(loungeDestination)
           }}
-          disabled={waitingForLive}
+          disabled={shouldDisableLoungeButton}
         >
           {loungeButtonText}
         </button>
