@@ -13597,3 +13597,51 @@ kbd {
     padding: 0.4rem;
   }
 }
+
+/* Gig Control: compact primary action buttons to reduce visual bulk */
+.gig-control-actions.gig-control-primary-actions {
+  gap: 0.45rem;
+}
+
+.gig-control-primary-actions .primary-button,
+.gig-control-primary-actions .secondary-button,
+.gig-control-primary-actions .ghost-button {
+  min-height: 2.55rem;
+  padding: 0.5rem 0.72rem;
+  font-size: 0.84rem;
+  line-height: 1.16;
+  white-space: normal;
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  .gig-control-actions.gig-control-primary-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .gig-control-primary-actions .ghost-button {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .gig-control-primary-actions .ghost-button {
+    grid-column: auto;
+  }
+
+  .gig-control-primary-actions .primary-button,
+  .gig-control-primary-actions .secondary-button,
+  .gig-control-primary-actions .ghost-button {
+    min-height: 2.78rem;
+    padding: 0.52rem 0.58rem;
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .gig-control-primary-actions .primary-button,
+  .gig-control-primary-actions .secondary-button,
+  .gig-control-primary-actions .ghost-button {
+    min-height: 2.64rem;
+    font-size: 0.79rem;
+  }
+}
