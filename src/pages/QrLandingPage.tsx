@@ -36,6 +36,23 @@ function resolveAudienceLocale(search: string): AudienceLocale {
   return 'en'
 }
 
+function resolveCountdownTargetMsFromSearch(search: string): number | null {
+  const params = new URLSearchParams(search)
+  const rawValue = params.get('ct')?.trim() || params.get('countdownTargetMs')?.trim() || ''
+
+  if (!rawValue) {
+    return null
+  }
+
+  const parsedValue = Number(rawValue)
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return null
+  }
+
+  return parsedValue
+}
+
 function normalizeEventTimeForDate(value: string | null | undefined): string | null {
   if (!value) {
     return null
@@ -133,8 +150,9 @@ function resolveLoungeDestination(eventId: string | null, isTestPreviewMode: boo
 function QrLandingPage() {
   const navigate = useNavigate()
   const { search } = useLocation()
+  const countdownTargetMsFromLink = useMemo(() => resolveCountdownTargetMsFromSearch(search), [search])
   const [eventRoomOpen, setEventRoomOpen] = useState(false)
-  const [eventStartMs, setEventStartMs] = useState<number | null>(null)
+  const [eventStartMs, setEventStartMs] = useState<number | null>(() => countdownTargetMsFromLink)
   const [clockOffsetMs, setClockOffsetMs] = useState(0)
   const clockOffsetRef = useRef(0)
   const getSyncedNowMs = useCallback(() => Date.now() + clockOffsetRef.current, [])
@@ -192,22 +210,6 @@ function QrLandingPage() {
     const params = new URLSearchParams(search)
     const value = params.get('event')?.trim() || params.get('eventId')?.trim() || ''
     return value || null
-  }, [search])
-  const countdownTargetMsFromLink = useMemo(() => {
-    const params = new URLSearchParams(search)
-    const rawValue = params.get('ct')?.trim() || params.get('countdownTargetMs')?.trim() || ''
-
-    if (!rawValue) {
-      return null
-    }
-
-    const parsedValue = Number(rawValue)
-
-    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-      return null
-    }
-
-    return parsedValue
   }, [search])
   const isTestPreviewMode = useMemo(() => {
     const params = new URLSearchParams(search)
@@ -277,12 +279,12 @@ function QrLandingPage() {
   }, [])
 
   useEffect(() => {
-    if (!eventId || countdownTargetMsFromLink === null) {
+    if (countdownTargetMsFromLink === null) {
       return
     }
 
     setEventStartMs(countdownTargetMsFromLink)
-  }, [countdownTargetMsFromLink, eventId])
+  }, [countdownTargetMsFromLink])
 
   useEffect(() => {
     if (!eventId || eventRoomOpen) {

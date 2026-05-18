@@ -2714,16 +2714,6 @@ function EventPage() {
       )
     }
 
-    // If auth is still in progress (no user yet), show the loading skeleton.
-    // Showing "no live show" while auth reconnects after a retry is misleading.
-    if (authLoading && !user && upcomingEventsLoading && upcomingEvents.length === 0) {
-      return (
-        <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
-          <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
-        </section>
-      )
-    }
-
     if (!hasRequestedEventParam && !hasCompletedInitialLiveGigProbe) {
       return (
         <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">

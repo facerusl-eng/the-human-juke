@@ -2111,6 +2111,45 @@ function MirrorPageContent() {
   }, [layoutEditMode])
 
   useEffect(() => {
+    if (layoutEditMode || isFullscreen) {
+      return
+    }
+
+    const searchParams = new URLSearchParams(window.location.search)
+
+    if (searchParams.get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) !== '1') {
+      return
+    }
+
+    let didRun = false
+
+    const requestFromInteraction = () => {
+      if (didRun || getActiveFullscreenElement()) {
+        return
+      }
+
+      didRun = true
+
+      void requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+        .then(() => {
+          setShowFullscreenPrompt(false)
+        })
+        .catch(() => {
+          didRun = false
+          setShowFullscreenPrompt(true)
+        })
+    }
+
+    window.addEventListener('pointerdown', requestFromInteraction, true)
+    window.addEventListener('keydown', requestFromInteraction, true)
+
+    return () => {
+      window.removeEventListener('pointerdown', requestFromInteraction, true)
+      window.removeEventListener('keydown', requestFromInteraction, true)
+    }
+  }, [isFullscreen, layoutEditMode])
+
+  useEffect(() => {
     if (layoutEditMode) {
       return
     }
