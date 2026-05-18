@@ -270,6 +270,12 @@ function QrLandingPage() {
     return null
   }, [search])
 
+  const shouldShowVisualContent = useMemo(() => {
+    const params = new URLSearchParams(search)
+    const rawValue = params.get('visual')?.trim().toLowerCase() || ''
+    return rawValue === '1' || rawValue === 'true' || rawValue === 'on'
+  }, [search])
+
   const audienceLinkVersion = useMemo(() => {
     const params = new URLSearchParams(search)
     const version = params.get('v')?.trim() || ''
@@ -459,7 +465,7 @@ function QrLandingPage() {
   }, [audienceDestination, eventId, eventRoomOpen, navigate])
 
   return (
-    <section className="qr-landing-shell" aria-label="QR code landing page">
+    <section className="qr-landing-shell" aria-label="Audience lounge landing page">
       <div className="qr-landing-button-overlay">
         <button
           type="button"
@@ -480,11 +486,11 @@ function QrLandingPage() {
       </div>
 
       <div className="qr-landing-container">
-        {customUrl ? (
+        {customUrl && shouldShowVisualContent ? (
           <iframe
             src={customUrl}
             className="qr-landing-iframe"
-            title="QR code destination content"
+            title="Audience landing visual content"
             sandbox="allow-same-origin allow-forms allow-scripts allow-popups"
           />
         ) : (

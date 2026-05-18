@@ -1274,6 +1274,16 @@ function EventPage() {
       return positionA - positionB
     })
   }, [songs, isNowPlayingStarted, activeSong?.id])
+  const normalizedAudienceName = audienceName.trim().toLowerCase()
+  const myQueuedRequests = useMemo(() => {
+    if (!normalizedAudienceName) {
+      return [] as Array<{ song: QueueSong; queuePosition: number }>
+    }
+
+    return upNext
+      .map((song, songIndex) => ({ song, queuePosition: songIndex + 1 }))
+      .filter(({ song }) => (song.createdByName ?? '').trim().toLowerCase() === normalizedAudienceName)
+  }, [normalizedAudienceName, upNext])
   const isBetweenSongs = playbackState?.isStarted === false
   const normalizedBetweenSongQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
     ? Math.abs(Math.trunc(playbackState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
@@ -1306,9 +1316,6 @@ function EventPage() {
     }
     return shareUrl.toString()
   }, [event?.id])
-  const queuedPositionParam = eventSearchParams.get('queued')
-  const queuedPosition = queuedPositionParam ? parseInt(queuedPositionParam, 10) : null
-  const [showQueuedBanner, setShowQueuedBanner] = useState(Boolean(queuedPosition && queuedPosition > 0))
   const liveGigApiUnavailableRef = useRef(false)
   const audienceLanguageOptions = (event?.audienceIcelandicEnabled ?? false)
     ? [
@@ -1349,6 +1356,10 @@ function EventPage() {
         duplicateBlocked: 'Dubletønsker er blokeret til dette gig.',
         activeRequestLimit: 'Hvert publikumsmedlem kan have {count} aktive ønsker i køen.',
         queueSizeLimit: 'Maksimalt {count} sange i køen ad gangen.',
+        queueStatusNowPlaying: 'Din ønskesang spiller nu.',
+        queueStatusUpNext: 'Din ønskesang er næste nummer!',
+        queueStatusInQueue: 'Din ønskesang er nr. {position} i køen.',
+        queueStatusAdditional: '+{count} flere af dine ønsker ligger i køen.',
         nowPlaying: 'Spiller nu',
         queueThinking: 'Køen tænker sig lige om',
         requestPrompt: 'Ingen sang spiller endnu.',
@@ -1396,6 +1407,10 @@ function EventPage() {
         duplicateBlocked: 'Tvöfold ósk er bönnuð fyrir þetta gigg.',
         activeRequestLimit: 'Hver gestur getur haft {count} virka ósk í röðinni.',
         queueSizeLimit: 'Mest {count} lög í biðröðinni í einu.',
+        queueStatusNowPlaying: 'Lagið þitt er í spilun núna.',
+        queueStatusUpNext: 'Lagið þitt er næst í röð.',
+        queueStatusInQueue: 'Lagið þitt er nr. {position} í röðinni.',
+        queueStatusAdditional: '+{count} fleiri óskir frá þér eru í röðinni.',
         nowPlaying: 'Beint',
         queueThinking: 'Köðurinn er að hugsa sig um',
         requestPrompt: 'Ekkert lag er í gangi enn.',
@@ -1442,6 +1457,10 @@ function EventPage() {
         duplicateBlocked: 'Duplicate requests are blocked for this gig.',
         activeRequestLimit: 'Each audience member can keep {count} active request{suffix} in the queue.',
         queueSizeLimit: 'Max {count} songs in the queue at a time.',
+        queueStatusNowPlaying: 'Your request is playing now.',
+        queueStatusUpNext: 'Your request is up next!',
+        queueStatusInQueue: 'Your request is #{position} in the queue.',
+        queueStatusAdditional: '+{count} more of your requests are in the queue.',
         nowPlaying: 'Now Playing',
         queueThinking: 'Queue is having a polite think',
         requestPrompt: 'No song playing yet.',
@@ -1460,6 +1479,23 @@ function EventPage() {
         saveFailed: 'Failed to save your name.',
         backToHome: 'Back to Home Page',
       }
+
+  const primaryQueuedRequest = myQueuedRequests[0] ?? null
+  const additionalQueuedRequestCount = myQueuedRequests.length > 1 ? myQueuedRequests.length - 1 : 0
+  const isMyRequestNowPlaying = Boolean(
+    normalizedAudienceName
+    && isNowPlayingStarted
+    && (displaySong?.createdByName ?? '').trim().toLowerCase() === normalizedAudienceName,
+  )
+  const shouldShowQueuedBanner = isMyRequestNowPlaying || primaryQueuedRequest !== null
+  const queuedBannerText = isMyRequestNowPlaying
+    ? copy.queueStatusNowPlaying
+    : primaryQueuedRequest?.queuePosition === 1
+    ? copy.queueStatusUpNext
+    : copy.queueStatusInQueue.replace('{position}', String(primaryQueuedRequest?.queuePosition ?? 0))
+  const queuedBannerSecondaryText = additionalQueuedRequestCount > 0
+    ? copy.queueStatusAdditional.replace('{count}', String(additionalQueuedRequestCount))
+    : null
 
   const waitingRoomHasEnded = waitingRoomRemainingMs !== null && waitingRoomRemainingMs <= -15_000
   const waitingRoomTitle = waitingRoomHasEnded ? copy.waitingEndedTitle : copy.waitingTitle
@@ -3192,46 +3228,33 @@ function EventPage() {
         {!isKaraokeEvent ? (
         <>
         <article className="now-playing-card audience-now-playing-panel">
-          {showQueuedBanner && queuedPosition && queuedPosition > 0 ? (
+          {shouldShowQueuedBanner ? (
             <div className="audience-queued-banner" role="status" aria-live="polite">
               <span className="audience-queued-banner-icon" aria-hidden="true">🎵</span>
               <span className="audience-queued-banner-text">
-                {queuedPosition === 1
-                  ? 'Your request is up next!'
-                  : `Your request is #${queuedPosition} in the queue.`}
+                {queuedBannerText}
+                {queuedBannerSecondaryText ? ` ${queuedBannerSecondaryText}` : ''}
               </span>
-              <div className="audience-queued-banner-actions">
-                {audienceName ? (() => {
-                  const mySong = upNext.find((s) => s.createdByName === audienceName)
-                  return mySong && !isNowPlayingStarted ? (
-                    <button
-                      type="button"
-                      className="audience-queued-banner-cancel"
-                      aria-label="Cancel my request"
-                      disabled={cancellingRequestId === mySong.id}
-                      onClick={async () => {
-                        setCancellingRequestId(mySong.id)
-                        try {
-                          await removeSong(mySong.id)
-                          setShowQueuedBanner(false)
-                        } finally {
-                          setCancellingRequestId(null)
-                        }
-                      }}
-                    >
-                      {cancellingRequestId === mySong.id ? '…' : 'Cancel'}
-                    </button>
-                  ) : null
-                })() : null}
-                <button
-                  type="button"
-                  className="audience-queued-banner-dismiss"
-                  aria-label="Dismiss"
-                  onClick={() => setShowQueuedBanner(false)}
-                >
-                  ✕
-                </button>
-              </div>
+              {primaryQueuedRequest && !isNowPlayingStarted ? (
+                <div className="audience-queued-banner-actions">
+                  <button
+                    type="button"
+                    className="audience-queued-banner-cancel"
+                    aria-label="Cancel my request"
+                    disabled={cancellingRequestId === primaryQueuedRequest.song.id}
+                    onClick={async () => {
+                      setCancellingRequestId(primaryQueuedRequest.song.id)
+                      try {
+                        await removeSong(primaryQueuedRequest.song.id)
+                      } finally {
+                        setCancellingRequestId(null)
+                      }
+                    }}
+                  >
+                    {cancellingRequestId === primaryQueuedRequest.song.id ? '…' : 'Cancel'}
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
           <p className="eyebrow"><span aria-hidden="true">🎤</span> {copy.nowPlaying}</p>

@@ -1204,13 +1204,21 @@
 }
 
 .mirror-final-countdown-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: grid;
   place-items: center;
   pointer-events: none;
-  z-index: 9;
+  z-index: 9300;
   background: radial-gradient(circle at center, rgba(7, 15, 38, 0.08) 0%, rgba(7, 15, 38, 0.42) 62%, rgba(7, 15, 38, 0.6) 100%);
+}
+
+.mirror-photo-spotlight,
+.mirror-spotlight-flash,
+.mirror-spotlight-fallback-pulse {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
 }
 
 .mirror-final-countdown-number {
@@ -3071,28 +3079,43 @@
   display: grid;
   align-content: center;
   justify-items: center;
-  justify-self: stretch;
-  width: 100%;
-  gap: 0.6rem;
-  height: 100%;
-  padding: clamp(0.72rem, 1vw, 0.92rem);
+  justify-self: center;
+  align-self: center;
+  width: min(100%, clamp(188px, 15vw, 286px));
+  max-width: 100%;
+  gap: 0;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+  padding: clamp(0.34rem, 0.56vw, 0.5rem);
   border-radius: 14px;
   border: 1px solid rgba(125, 211, 252, 0.28);
   background: linear-gradient(145deg, rgba(12, 20, 40, 0.72) 0%, rgba(11, 20, 37, 0.78) 100%);
   text-decoration: none;
   color: inherit;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .mirror-now-playing-qr {
-  width: min(100%, clamp(150px, 12.4vw, 224px));
-  height: auto;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 10px;
+  padding: clamp(0.2rem, 0.34vw, 0.3rem);
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  box-sizing: border-box;
+  object-fit: contain;
+  display: block;
 }
 
 .mirror-now-playing-qr-panel .mirror-now-playing-qr {
-  display: block !important;
+  position: static;
+  top: auto;
+  right: auto;
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-band-label,
