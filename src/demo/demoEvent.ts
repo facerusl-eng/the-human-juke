@@ -44,6 +44,7 @@ export const DEMO_EVENT = {
   venueLogoScale: 100,
   venueLogoOffsetX: 0,
   venueLogoOffsetY: 0,
+  venueLogoAppearance: 'clean',
   showCustomButton: false,
   customButtonLabel: null,
   customButtonLink: null,

@@ -13,7 +13,7 @@ import {
   BETWEEN_SONG_QUOTES,
 } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
-import { useQueueStore, type QueueSong } from '../state/queueStore'
+import { useQueueStore, type QueueSong, type VenueLogoAppearance } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
@@ -124,7 +124,20 @@ type MirrorVenueLogoLayoutPreviewMessage = {
   venueLogoScale: number
   venueLogoOffsetX: number
   venueLogoOffsetY: number
+  venueLogoAppearance: VenueLogoAppearance
   sentAt: number
+}
+
+function normalizeVenueLogoAppearance(value: unknown): VenueLogoAppearance {
+  if (value === 'soft-glow' || value === 'neon-pop' || value === 'high-contrast' || value === 'clean') {
+    return value
+  }
+
+  return 'clean'
+}
+
+function getVenueLogoAppearanceClassName(appearance: VenueLogoAppearance) {
+  return `mirror-venue-logo-image-appearance-${appearance}`
 }
 
 function readIntroAudioPlayLockForEvent(eventId: string | null): IntroAudioPlayLock | null {
@@ -171,6 +184,7 @@ function parseVenueLogoLayoutPreviewMessage(raw: unknown): MirrorVenueLogoLayout
   const venueLogoScale = typeof payload.venueLogoScale === 'number' ? payload.venueLogoScale : Number(payload.venueLogoScale)
   const venueLogoOffsetX = typeof payload.venueLogoOffsetX === 'number' ? payload.venueLogoOffsetX : Number(payload.venueLogoOffsetX)
   const venueLogoOffsetY = typeof payload.venueLogoOffsetY === 'number' ? payload.venueLogoOffsetY : Number(payload.venueLogoOffsetY)
+  const venueLogoAppearance = normalizeVenueLogoAppearance(payload.venueLogoAppearance)
   const sentAt = typeof payload.sentAt === 'number' ? payload.sentAt : Number(payload.sentAt)
 
   if (!eventId || !Number.isFinite(venueLogoScale) || !Number.isFinite(venueLogoOffsetX) || !Number.isFinite(venueLogoOffsetY) || !Number.isFinite(sentAt)) {
@@ -182,6 +196,7 @@ function parseVenueLogoLayoutPreviewMessage(raw: unknown): MirrorVenueLogoLayout
     venueLogoScale,
     venueLogoOffsetX,
     venueLogoOffsetY,
+    venueLogoAppearance,
     sentAt,
   }
 }
@@ -1787,6 +1802,7 @@ function MirrorPageContent() {
   const venueLogoScale = Math.min(220, Math.max(60, activeVenueLogoLayoutPreview?.venueLogoScale ?? event?.venueLogoScale ?? 100))
   const venueLogoOffsetX = Math.min(100, Math.max(-100, activeVenueLogoLayoutPreview?.venueLogoOffsetX ?? event?.venueLogoOffsetX ?? 0))
   const venueLogoOffsetY = Math.min(100, Math.max(-100, activeVenueLogoLayoutPreview?.venueLogoOffsetY ?? event?.venueLogoOffsetY ?? 0))
+  const venueLogoAppearance = normalizeVenueLogoAppearance(activeVenueLogoLayoutPreview?.venueLogoAppearance ?? event?.venueLogoAppearance)
   const shouldShowPreShow = !isLive
   const mirrorDebugRows = [
     `event=${event?.id ?? 'null'}`,
@@ -1863,6 +1879,7 @@ function MirrorPageContent() {
     const serverStateMatchesPreview = (event?.venueLogoScale ?? 100) === activeVenueLogoLayoutPreview.venueLogoScale
       && (event?.venueLogoOffsetX ?? 0) === activeVenueLogoLayoutPreview.venueLogoOffsetX
       && (event?.venueLogoOffsetY ?? 0) === activeVenueLogoLayoutPreview.venueLogoOffsetY
+      && normalizeVenueLogoAppearance(event?.venueLogoAppearance) === activeVenueLogoLayoutPreview.venueLogoAppearance
 
     if (serverStateMatchesPreview) {
       setVenueLogoLayoutPreview(null)
@@ -1878,7 +1895,7 @@ function MirrorPageContent() {
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [activeVenueLogoLayoutPreview, event?.venueLogoOffsetX, event?.venueLogoOffsetY, event?.venueLogoScale, eventId])
+  }, [activeVenueLogoLayoutPreview, event?.venueLogoAppearance, event?.venueLogoOffsetX, event?.venueLogoOffsetY, event?.venueLogoScale, eventId])
 
   useEffect(() => {
     if (!shouldShowHostDebugHints || !eventId) {
@@ -3542,7 +3559,7 @@ function MirrorPageContent() {
                   ref={venueLogoImageRef}
                   src={event.venueLogoUrl}
                   alt={`${event.venue || 'Venue'} logo`}
-                  className="mirror-venue-logo-image"
+                  className={`mirror-venue-logo-image ${getVenueLogoAppearanceClassName(venueLogoAppearance)}`}
                 />
               </p>
             </div>

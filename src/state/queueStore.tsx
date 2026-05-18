@@ -25,6 +25,8 @@ export type QueueSong = {
   creatorId?: string | null
 }
 
+export type VenueLogoAppearance = 'clean' | 'soft-glow' | 'neon-pop' | 'high-contrast'
+
 export type PerformedSong = QueueSong & {
   performedAt: string
 }
@@ -79,6 +81,7 @@ type EventSettingsUpdates = {
   venueLogoScale: number
   venueLogoOffsetX: number
   venueLogoOffsetY: number
+  venueLogoAppearance: VenueLogoAppearance
   showCustomButton: boolean
   customButtonLabel: string | null
   customButtonLink: string | null
@@ -136,6 +139,7 @@ type EventState = {
   venueLogoScale: number
   venueLogoOffsetX: number
   venueLogoOffsetY: number
+  venueLogoAppearance: VenueLogoAppearance
   showCustomButton: boolean
   customButtonLabel: string | null
   customButtonLink: string | null
@@ -275,6 +279,10 @@ type VenueLogoLayoutSettings = {
   venue_logo_offset_y: number
 }
 
+type VenueLogoAppearanceSettings = {
+  venue_logo_appearance: VenueLogoAppearance
+}
+
 type MirrorQrSettings = {
   mirror_brb_qr_link: string | null
   mirror_brb_qr_text: string | null
@@ -298,6 +306,7 @@ type EventOptionalSettingsBundle = {
   eventTypeSettings: EventTypeSettings
   audienceLocaleSettings: AudienceLocaleSettings
   venueLogoLayoutSettings: VenueLogoLayoutSettings
+  venueLogoAppearanceSettings: VenueLogoAppearanceSettings
   mirrorQrSettings: MirrorQrSettings
   mirrorQrFlashSettings: MirrorQrFlashSettings
   mirrorBannerSettings: MirrorBannerSettings
@@ -306,6 +315,7 @@ type EventOptionalSettingsBundle = {
 
 type MissingColumnsCache = {
   venueLogoLayout?: boolean
+  venueLogoAppearance?: boolean
   performedAt?: boolean
   mirrorCountdownQrLink?: boolean
   mirrorQrSettings?: boolean
@@ -321,6 +331,7 @@ function readMissingColumnsCache(): MissingColumnsCache {
 
   return {
     venueLogoLayout: parsed.venueLogoLayout === true,
+    venueLogoAppearance: parsed.venueLogoAppearance === true,
     performedAt: parsed.performedAt === true,
     mirrorCountdownQrLink: parsed.mirrorCountdownQrLink === true,
     mirrorQrSettings: parsed.mirrorQrSettings === true,
@@ -343,6 +354,7 @@ function markMissingColumnInCache(column: keyof MissingColumnsCache) {
 
 const missingColumnsCache = readMissingColumnsCache()
 let hasVenueLogoLayoutColumns = missingColumnsCache.venueLogoLayout !== true
+let hasVenueLogoAppearanceColumn = missingColumnsCache.venueLogoAppearance !== true
 let hasPerformedAtColumn = missingColumnsCache.performedAt !== true
 let hasMirrorCountdownQrLinkColumn = missingColumnsCache.mirrorCountdownQrLink !== true
 let hasMirrorQrSettingsColumns = missingColumnsCache.mirrorQrSettings !== true
@@ -600,6 +612,26 @@ function isMissingVenueLogoLayoutColumnError(error: unknown) {
     && (text.includes('venue_logo_scale') || text.includes('venue_logo_offset_x') || text.includes('venue_logo_offset_y'))
 }
 
+function isMissingVenueLogoAppearanceColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('venue_logo_appearance')
+}
+
 function isMissingMirrorCountdownQrLinkColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -712,6 +744,14 @@ function resolveEventTheme(rawTheme: string | null | undefined, eventType: 'hall
   }
 
   return 'human-jukebox'
+}
+
+function resolveVenueLogoAppearance(rawAppearance: unknown): VenueLogoAppearance {
+  if (rawAppearance === 'soft-glow' || rawAppearance === 'neon-pop' || rawAppearance === 'high-contrast' || rawAppearance === 'clean') {
+    return rawAppearance
+  }
+
+  return 'clean'
 }
 
 function isMissingPerformedAtColumnError(error: unknown) {
@@ -1121,6 +1161,7 @@ function buildEventFallbackFromHostEvent(hostEvent: HostEventSummary, hostId: st
     venueLogoScale: 100,
     venueLogoOffsetX: 0,
     venueLogoOffsetY: 0,
+    venueLogoAppearance: 'clean',
     showCustomButton: false,
     customButtonLabel: null,
     customButtonLink: null,
@@ -1552,6 +1593,36 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
     }
 
+    const loadVenueLogoAppearanceSettings = async (): Promise<VenueLogoAppearanceSettings> => {
+      try {
+        if (!hasVenueLogoAppearanceColumn) {
+          return { venue_logo_appearance: 'clean' }
+        }
+
+        const { data, error } = await supabase
+          .from('events')
+          .select('venue_logo_appearance')
+          .eq('id', activeEventId)
+          .single()
+
+        if (error) {
+          if (isMissingVenueLogoAppearanceColumnError(error)) {
+            hasVenueLogoAppearanceColumn = false
+            markMissingColumnInCache('venueLogoAppearance')
+          }
+
+          return { venue_logo_appearance: 'clean' }
+        }
+
+        const row = (data ?? {}) as Record<string, unknown>
+        return {
+          venue_logo_appearance: resolveVenueLogoAppearance(row.venue_logo_appearance),
+        }
+      } catch {
+        return { venue_logo_appearance: 'clean' }
+      }
+    }
+
     const loadMirrorQrSettings = async (): Promise<MirrorQrSettings> => {
       try {
         if (!hasMirrorQrSettingsColumns) {
@@ -1654,11 +1725,12 @@ function QueueProvider({ children }: PropsWithChildren) {
     const optionalSettings = shouldReuseOptionalSettings
       ? cachedOptionalSettings!
       : await (async (): Promise<EventOptionalSettingsBundle> => {
-        const [tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, mirrorQrSettings, mirrorQrFlashSettings, mirrorBannerSettings] = await Promise.all([
+        const [tipMessages, eventTypeSettings, audienceLocaleSettings, venueLogoLayoutSettings, venueLogoAppearanceSettings, mirrorQrSettings, mirrorQrFlashSettings, mirrorBannerSettings] = await Promise.all([
           loadTipMessages(),
           loadEventTypeSettings(),
           loadAudienceLocaleSettings(),
           loadVenueLogoLayoutSettings(),
+          loadVenueLogoAppearanceSettings(),
           loadMirrorQrSettings(),
           loadMirrorQrFlashSettings(),
           loadMirrorBannerSettings(),
@@ -1669,6 +1741,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           eventTypeSettings,
           audienceLocaleSettings,
           venueLogoLayoutSettings,
+          venueLogoAppearanceSettings,
           mirrorQrSettings,
           mirrorQrFlashSettings,
           mirrorBannerSettings,
@@ -1684,6 +1757,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       eventTypeSettings,
       audienceLocaleSettings,
       venueLogoLayoutSettings,
+      venueLogoAppearanceSettings,
       mirrorQrSettings,
       mirrorQrFlashSettings,
       mirrorBannerSettings,
@@ -1983,6 +2057,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       venueLogoScale: venueLogoLayoutSettings.venue_logo_scale,
       venueLogoOffsetX: venueLogoLayoutSettings.venue_logo_offset_x,
       venueLogoOffsetY: venueLogoLayoutSettings.venue_logo_offset_y,
+      venueLogoAppearance: venueLogoAppearanceSettings.venue_logo_appearance,
       showCustomButton: ((eventData as Record<string, unknown>).show_custom_button as boolean | null) ?? false,
       customButtonLabel: ((eventData as Record<string, unknown>).custom_button_label as string | null) ?? null,
       customButtonLink: ((eventData as Record<string, unknown>).custom_button_link as string | null) ?? null,
@@ -3479,6 +3554,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           show_in_audience_no_gig: updates.showInAudienceNoGig,
           cover_image_url: updates.coverImageUrl,
           venue_logo_url: updates.venueLogoUrl,
+          venue_logo_appearance: updates.venueLogoAppearance,
           show_custom_button: updates.showCustomButton,
           custom_button_label: updates.customButtonLabel || null,
           custom_button_link: updates.customButtonLink || null,
@@ -3515,10 +3591,16 @@ function QueueProvider({ children }: PropsWithChildren) {
           && (event.venueLogoOffsetX ?? 0) === updates.venueLogoOffsetX
           && (event.venueLogoOffsetY ?? 0) === updates.venueLogoOffsetY
 
+        const venueLogoAppearanceUnchanged = (event.venueLogoAppearance ?? 'clean') === updates.venueLogoAppearance
+
         if (venueLogoLayoutUnchanged) {
           delete eventUpdatePayload.venue_logo_scale
           delete eventUpdatePayload.venue_logo_offset_x
           delete eventUpdatePayload.venue_logo_offset_y
+        }
+
+        if (venueLogoAppearanceUnchanged || !hasVenueLogoAppearanceColumn) {
+          delete eventUpdatePayload.venue_logo_appearance
         }
 
         if (hasMirrorCountdownQrLinkColumn) {
@@ -3564,7 +3646,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           return updateResult
         }, 3)
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingColumnError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingVenueLogoAppearanceColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingColumnError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -3590,6 +3672,12 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.venue_logo_scale
             delete fallbackPayload.venue_logo_offset_x
             delete fallbackPayload.venue_logo_offset_y
+          }
+
+          if (isMissingVenueLogoAppearanceColumnError(error)) {
+            hasVenueLogoAppearanceColumn = false
+            markMissingColumnInCache('venueLogoAppearance')
+            delete fallbackPayload.venue_logo_appearance
           }
 
           if (isMissingMirrorCountdownQrLinkColumnError(error)) {
@@ -3638,6 +3726,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.venue_logo_scale
             delete fallbackPayload.venue_logo_offset_x
             delete fallbackPayload.venue_logo_offset_y
+            delete fallbackPayload.venue_logo_appearance
             delete fallbackPayload.auto_live_enabled
             delete fallbackPayload.intro_audio_url
             delete fallbackPayload.event_artist_name
@@ -3802,6 +3891,9 @@ function QueueProvider({ children }: PropsWithChildren) {
             venue_logo_offset_x: updates.venueLogoOffsetX,
             venue_logo_offset_y: updates.venueLogoOffsetY,
           },
+          venueLogoAppearanceSettings: {
+            venue_logo_appearance: updates.venueLogoAppearance,
+          },
           mirrorQrSettings: {
             mirror_brb_qr_link: updates.mirrorCountdownQrLink,
             mirror_brb_qr_text: updates.mirrorCountdownQrText,
@@ -3866,6 +3958,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             venueLogoScale: updates.venueLogoScale,
             venueLogoOffsetX: updates.venueLogoOffsetX,
             venueLogoOffsetY: updates.venueLogoOffsetY,
+            venueLogoAppearance: updates.venueLogoAppearance,
             showCustomButton: updates.showCustomButton,
             customButtonLabel: updates.customButtonLabel || null,
             customButtonLink: updates.customButtonLink || null,
@@ -4286,6 +4379,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           venueLogoScale: 100,
           venueLogoOffsetX: 0,
           venueLogoOffsetY: 0,
+          venueLogoAppearance: 'clean',
           showCustomButton: false,
           customButtonLabel: null,
           customButtonLink: null,

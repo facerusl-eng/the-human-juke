@@ -13,7 +13,7 @@ import { openMirrorScreen } from '../lib/openMirrorScreen'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
-import { useQueueStore } from '../state/queueStore'
+import { useQueueStore, type VenueLogoAppearance } from '../state/queueStore'
 
 type HostPlaylist = {
   id: string
@@ -89,6 +89,7 @@ type SettingsState = {
   venueLogoScale: number
   venueLogoOffsetX: number
   venueLogoOffsetY: number
+  venueLogoAppearance: VenueLogoAppearance
   showCustomButton: boolean
   customButtonLabel: string
   customButtonLink: string
@@ -122,14 +123,48 @@ const FALLBACK_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.g
 const VENUE_LOGO_SCALE_MIN = 60
 const VENUE_LOGO_SCALE_MAX = 220
 const VENUE_LOGO_OFFSET_LIMIT = 100
+const VENUE_LOGO_BACKGROUND_SAMPLE_ALPHA_MIN = 245
+const VENUE_LOGO_BACKGROUND_CORNER_DISTANCE_MAX = 22
+const VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX = 28
+const VENUE_LOGO_BACKGROUND_SOFT_EDGE_DISTANCE_MAX = 52
+const VENUE_LOGO_BACKGROUND_CLEAR_MIN_RATIO = 0.005
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL = 'human-jukebox-mirror-venue-logo-layout-preview'
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY = 'human-jukebox-mirror-venue-logo-layout-preview'
+const DEFAULT_VENUE_LOGO_APPEARANCE: VenueLogoAppearance = 'clean'
+
+const VENUE_LOGO_APPEARANCE_OPTIONS: Array<{
+  value: VenueLogoAppearance
+  label: string
+  helper: string
+}> = [
+  {
+    value: 'clean',
+    label: 'Clean',
+    helper: 'Natural logo colors with no extra glow.',
+  },
+  {
+    value: 'soft-glow',
+    label: 'Soft Glow',
+    helper: 'Gentle ambient glow that keeps details clear.',
+  },
+  {
+    value: 'neon-pop',
+    label: 'Neon Pop',
+    helper: 'Brighter neon vibe for high-energy rooms.',
+  },
+  {
+    value: 'high-contrast',
+    label: 'High Contrast',
+    helper: 'Sharper edge and contrast for better readability.',
+  },
+]
 
 type MirrorVenueLogoLayoutPreviewMessage = {
   eventId: string
   venueLogoScale: number
   venueLogoOffsetX: number
   venueLogoOffsetY: number
+  venueLogoAppearance: VenueLogoAppearance
   sentAt: number
 }
 
@@ -139,6 +174,18 @@ function clampVenueLogoScale(value: number) {
 
 function clampVenueLogoOffset(value: number) {
   return Math.min(VENUE_LOGO_OFFSET_LIMIT, Math.max(-VENUE_LOGO_OFFSET_LIMIT, value))
+}
+
+function normalizeVenueLogoAppearance(value: unknown): VenueLogoAppearance {
+  if (value === 'soft-glow' || value === 'neon-pop' || value === 'high-contrast' || value === 'clean') {
+    return value
+  }
+
+  return DEFAULT_VENUE_LOGO_APPEARANCE
+}
+
+function getVenueLogoAppearancePreviewClassName(appearance: VenueLogoAppearance) {
+  return `gig-venue-logo-appearance-${appearance}`
 }
 
 function readFileAsDataUrl(file: File) {
@@ -208,7 +255,105 @@ function loadImageFromFile(file: File) {
   })
 }
 
-async function optimizeVenueLogoDataUrl(selectedFile: File) {
+function removeUniformBackgroundFromCanvas(context: CanvasRenderingContext2D, width: number, height: number) {
+  const imageData = context.getImageData(0, 0, width, height)
+  const pixels = imageData.data
+
+  if (!pixels.length) {
+    return false
+  }
+
+  const edgeInset = Math.max(1, Math.min(12, Math.floor(Math.min(width, height) * 0.04)))
+  const samplePoints: Array<[number, number]> = [
+    [0, 0],
+    [width - 1, 0],
+    [0, height - 1],
+    [width - 1, height - 1],
+    [edgeInset, edgeInset],
+    [Math.max(0, width - 1 - edgeInset), edgeInset],
+    [edgeInset, Math.max(0, height - 1 - edgeInset)],
+    [Math.max(0, width - 1 - edgeInset), Math.max(0, height - 1 - edgeInset)],
+  ]
+
+  const opaqueCornerSamples = samplePoints
+    .map(([rawX, rawY]) => {
+      const x = Math.min(Math.max(rawX, 0), width - 1)
+      const y = Math.min(Math.max(rawY, 0), height - 1)
+      const index = (y * width + x) * 4
+      return {
+        red: pixels[index],
+        green: pixels[index + 1],
+        blue: pixels[index + 2],
+        alpha: pixels[index + 3],
+      }
+    })
+    .filter((sample) => sample.alpha >= VENUE_LOGO_BACKGROUND_SAMPLE_ALPHA_MIN)
+
+  if (opaqueCornerSamples.length < 4) {
+    return false
+  }
+
+  const averageRed = opaqueCornerSamples.reduce((sum, sample) => sum + sample.red, 0) / opaqueCornerSamples.length
+  const averageGreen = opaqueCornerSamples.reduce((sum, sample) => sum + sample.green, 0) / opaqueCornerSamples.length
+  const averageBlue = opaqueCornerSamples.reduce((sum, sample) => sum + sample.blue, 0) / opaqueCornerSamples.length
+
+  const maxCornerDistance = opaqueCornerSamples.reduce((maxDistance, sample) => {
+    const redDelta = sample.red - averageRed
+    const greenDelta = sample.green - averageGreen
+    const blueDelta = sample.blue - averageBlue
+    const distance = Math.sqrt(redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta)
+    return Math.max(maxDistance, distance)
+  }, 0)
+
+  if (maxCornerDistance > VENUE_LOGO_BACKGROUND_CORNER_DISTANCE_MAX) {
+    return false
+  }
+
+  let changedPixels = 0
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const alpha = pixels[index + 3]
+
+    if (alpha === 0) {
+      continue
+    }
+
+    const redDelta = pixels[index] - averageRed
+    const greenDelta = pixels[index + 1] - averageGreen
+    const blueDelta = pixels[index + 2] - averageBlue
+    const distance = Math.sqrt(redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta)
+
+    if (distance <= VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX) {
+      pixels[index + 3] = 0
+      changedPixels += 1
+      continue
+    }
+
+    if (distance <= VENUE_LOGO_BACKGROUND_SOFT_EDGE_DISTANCE_MAX) {
+      const softnessRatio = (distance - VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX)
+        / (VENUE_LOGO_BACKGROUND_SOFT_EDGE_DISTANCE_MAX - VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX)
+      const softenedAlpha = Math.max(0, Math.min(255, Math.round(alpha * softnessRatio)))
+
+      if (softenedAlpha < alpha) {
+        pixels[index + 3] = softenedAlpha
+        changedPixels += 1
+      }
+    }
+  }
+
+  if (changedPixels < width * height * VENUE_LOGO_BACKGROUND_CLEAR_MIN_RATIO) {
+    return false
+  }
+
+  context.putImageData(imageData, 0, 0)
+  return true
+}
+
+type OptimizeVenueLogoOptions = {
+  removeBackground?: boolean
+}
+
+async function optimizeVenueLogoDataUrl(selectedFile: File, options?: OptimizeVenueLogoOptions) {
   const lowerFileName = selectedFile.name.toLowerCase()
   const isSvgFile = selectedFile.type === 'image/svg+xml' || lowerFileName.endsWith('.svg')
 
@@ -239,6 +384,10 @@ async function optimizeVenueLogoDataUrl(selectedFile: File) {
 
   context.clearRect(0, 0, targetWidth, targetHeight)
   context.drawImage(sourceImage, 0, 0, targetWidth, targetHeight)
+
+  if (options?.removeBackground) {
+    removeUniformBackgroundFromCanvas(context, targetWidth, targetHeight)
+  }
 
   const qualityCandidates = [0.88, 0.8, 0.72, 0.64]
   let smallestDataUrl: string | null = null
@@ -502,6 +651,10 @@ function getPendingSaveChangeLabels(
     changedLabels.push('venue logo')
   }
 
+  if (saveState.venueLogoAppearance !== normalizeVenueLogoAppearance(event.venueLogoAppearance)) {
+    changedLabels.push('logo appearance')
+  }
+
   if (saveState.roomOpen !== event.roomOpen) {
     changedLabels.push('room open state')
   }
@@ -586,6 +739,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     venueLogoScale: event.venueLogoScale ?? 100,
     venueLogoOffsetX: event.venueLogoOffsetX ?? 0,
     venueLogoOffsetY: event.venueLogoOffsetY ?? 0,
+    venueLogoAppearance: normalizeVenueLogoAppearance(event.venueLogoAppearance),
     showCustomButton: event.showCustomButton ?? false,
     customButtonLabel: event.customButtonLabel ?? '',
     customButtonLink: event.customButtonLink ?? '',
@@ -1007,6 +1161,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           venueLogoScale: saveState.venueLogoScale,
           venueLogoOffsetX: saveState.venueLogoOffsetX,
           venueLogoOffsetY: saveState.venueLogoOffsetY,
+          venueLogoAppearance: saveState.venueLogoAppearance,
           showCustomButton: saveState.showCustomButton,
           customButtonLabel: saveState.customButtonLabel.trim() || null,
           customButtonLink: saveState.customButtonLink.trim() || null,
@@ -1189,7 +1344,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     }
 
     try {
-      const dataUrl = await readFileAsDataUrl(selectedFile)
+      const dataUrl = await optimizeVenueLogoDataUrl(selectedFile, { removeBackground: true })
 
       if (!isMountedRef.current) {
         return
@@ -1479,6 +1634,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       venueLogoScale: clampVenueLogoScale(state.venueLogoScale),
       venueLogoOffsetX: clampVenueLogoOffset(state.venueLogoOffsetX),
       venueLogoOffsetY: clampVenueLogoOffset(state.venueLogoOffsetY),
+      venueLogoAppearance: state.venueLogoAppearance,
       sentAt: Date.now(),
     }
 
@@ -1497,7 +1653,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     } catch {
       // Ignore localStorage write failures in private/incognito contexts.
     }
-  }, [event?.id, state.venueLogoScale, state.venueLogoOffsetX, state.venueLogoOffsetY])
+  }, [event?.id, state.venueLogoAppearance, state.venueLogoScale, state.venueLogoOffsetX, state.venueLogoOffsetY])
 
   const selectedHumanJukeboxPlaylistId = state.selectedPlaylistIds.find((playlistId) => (
     playlists.find((playlist) => playlist.id === playlistId)?.playlist_type === 'human_jukebox'
@@ -1578,6 +1734,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || state.venueLogoScale !== (event.venueLogoScale ?? 100)
     || state.venueLogoOffsetX !== (event.venueLogoOffsetX ?? 0)
     || state.venueLogoOffsetY !== (event.venueLogoOffsetY ?? 0)
+    || state.venueLogoAppearance !== normalizeVenueLogoAppearance(event.venueLogoAppearance)
     || state.showCustomButton !== (event.showCustomButton ?? false)
     || state.customButtonLabel !== (event.customButtonLabel ?? '')
     || state.customButtonLink !== (event.customButtonLink ?? '')
@@ -2339,21 +2496,21 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               }}
               disabled={busy || processingVenueLogo}
             />
-            <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name. Supports common image formats up to 10 MB.</p>
+            <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name. Background cleanup is automatic for most solid-color logo backgrounds. Supports common image formats up to 10 MB.</p>
             {state.venueLogoUrl ? (
               <div className="photo-preview gig-venue-logo-crop-shell" ref={venueLogoCropShellRef}>
                 <div className="gig-venue-logo-preview-stage" aria-label="Venue logo full preview">
                   <img
                     src={state.venueLogoUrl}
                     alt="Venue logo preview"
-                    className="gig-venue-logo-preview-image"
+                    className={`gig-venue-logo-preview-image ${getVenueLogoAppearancePreviewClassName(state.venueLogoAppearance)}`}
                   />
                 </div>
                 <div className="gig-venue-logo-crop-preview" aria-label="Venue logo crop preview">
                   <img
                     src={state.venueLogoUrl}
                     alt="Venue logo crop frame preview"
-                    className="gig-venue-logo-crop-preview-image"
+                    className={`gig-venue-logo-crop-preview-image ${getVenueLogoAppearancePreviewClassName(state.venueLogoAppearance)}`}
                   />
                 </div>
                 <div className="gig-venue-logo-crop-controls">
@@ -2398,6 +2555,35 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                       updateState({ venueLogoOffsetY: Number.parseInt(e.target.value, 10) || 0 })
                     }}
                   />
+
+                  <div className="gig-venue-logo-appearance-controls" role="radiogroup" aria-label="Mirror logo appearance">
+                    <p className="gig-venue-logo-appearance-title">Mirror logo appearance</p>
+                    <div className="gig-venue-logo-appearance-grid">
+                      {VENUE_LOGO_APPEARANCE_OPTIONS.map((option) => {
+                        const isSelected = state.venueLogoAppearance === option.value
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`gig-venue-logo-appearance-option${isSelected ? ' is-selected' : ''}`}
+                            aria-pressed={isSelected}
+                            onClick={() => {
+                              if (isSelected) {
+                                return
+                              }
+
+                              pushUndoState()
+                              updateState({ venueLogoAppearance: option.value })
+                            }}
+                          >
+                            <span className="gig-venue-logo-appearance-option-label">{option.label}</span>
+                            <span className="gig-venue-logo-appearance-option-helper">{option.helper}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
 
                   <button
                     type="button"
