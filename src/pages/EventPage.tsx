@@ -2885,7 +2885,9 @@ function EventPage() {
             type="button"
             className="secondary-button"
             onClick={() => {
-              const mirrorUrl = event?.id ? `/mirror?event=${encodeURIComponent(event.id)}` : '/mirror'
+              const mirrorUrl = event?.id
+                ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
+                : '/mirror?launchFullscreen=1'
               window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
             }}
           >
