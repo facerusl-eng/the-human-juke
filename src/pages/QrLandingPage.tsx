@@ -130,7 +130,13 @@ function formatCountdownLabel(remainingMs: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function resolveLoungeDestination(eventId: string | null, isTestPreviewMode: boolean, locale: AudienceLocale) {
+function resolveLoungeDestination(
+  eventId: string | null,
+  isTestPreviewMode: boolean,
+  locale: AudienceLocale,
+  countdownTargetMs: number | null,
+  audienceLinkVersion: string | null,
+) {
   const params = new URLSearchParams()
 
   if (eventId) {
@@ -139,6 +145,14 @@ function resolveLoungeDestination(eventId: string | null, isTestPreviewMode: boo
 
   if (isTestPreviewMode) {
     params.set('test', '1')
+  }
+
+  if (countdownTargetMs !== null) {
+    params.set('ct', String(countdownTargetMs))
+  }
+
+  if (audienceLinkVersion) {
+    params.set('v', audienceLinkVersion)
   }
 
   params.set('locale', locale)
@@ -225,9 +239,15 @@ function QrLandingPage() {
     return null
   }, [search])
 
+  const audienceLinkVersion = useMemo(() => {
+    const params = new URLSearchParams(search)
+    const version = params.get('v')?.trim() || ''
+    return version || null
+  }, [search])
+
   const loungeDestination = useMemo(
-    () => resolveLoungeDestination(eventId, isTestPreviewMode, locale),
-    [eventId, isTestPreviewMode, locale],
+    () => resolveLoungeDestination(eventId, isTestPreviewMode, locale, countdownTargetMsFromLink, audienceLinkVersion),
+    [audienceLinkVersion, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale],
   )
   const countdownRemainingMs = eventStartMs === null ? null : eventStartMs - nowMs
   const waitingForLive = Boolean(eventId) && !eventRoomOpen

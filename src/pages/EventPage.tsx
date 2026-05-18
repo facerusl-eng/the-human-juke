@@ -85,6 +85,23 @@ function parseEventStartMs(gigDate: string | null | undefined, gigStartTime: str
   return Number.isNaN(parsedMs) ? null : parsedMs
 }
 
+function resolveCountdownTargetMsFromSearch(search: string): number | null {
+  const params = new URLSearchParams(search)
+  const rawValue = params.get('ct')?.trim() || params.get('countdownTargetMs')?.trim() || ''
+
+  if (!rawValue) {
+    return null
+  }
+
+  const parsedValue = Number(rawValue)
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return null
+  }
+
+  return parsedValue
+}
+
 async function fetchServerClockOffsetMs(): Promise<number | null> {
   if (typeof window === 'undefined') {
     return null
@@ -1154,14 +1171,26 @@ function EventPage() {
   }, [event?.roomOpen])
 
   const roomOpen = event?.roomOpen ?? false
+  const eventSearchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
+  const requestedCountdownTargetMs = useMemo(() => resolveCountdownTargetMsFromSearch(location.search), [location.search])
+  const hasRequestedEventParam = Boolean(requestedEventId)
   const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => getAudienceNowMs())
   const waitingRoomStartMs = useMemo(() => {
-    if (!event?.id || roomOpen) {
+    if (roomOpen) {
+      return null
+    }
+
+    if (requestedCountdownTargetMs !== null) {
+      return requestedCountdownTargetMs
+    }
+
+    if (!event?.id) {
       return null
     }
 
     return parseEventStartMs(event.gigDate, event.gigStartTime)
-  }, [event?.gigDate, event?.gigStartTime, event?.id, roomOpen])
+  }, [event?.gigDate, event?.gigStartTime, event?.id, requestedCountdownTargetMs, roomOpen])
   const waitingRoomCountdownLabel = useMemo(() => {
     if (waitingRoomStartMs === null) {
       return null
@@ -1234,9 +1263,6 @@ function EventPage() {
     : ''
   const hottestVoteCount = upNext.reduce((highestVotes, song) => Math.max(highestVotes, song.votes_count), 0)
   const recentlyPlayedSongs = performedSongs.slice(0, 8)
-  const eventSearchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
-  const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
-  const hasRequestedEventParam = Boolean(requestedEventId)
   const audienceShareUrl = useMemo(() => {
     if (typeof window === 'undefined') {
       return null
@@ -1411,6 +1437,9 @@ function EventPage() {
     : waitingRoomCountdownLabel
     ? `${copy.startingSoon} · ${waitingRoomCountdownLabel}`
     : copy.startingSoon
+  const loadingCountdownLabel = waitingRoomCountdownLabel
+    ? `${copy.startingSoon} · ${waitingRoomCountdownLabel}`
+    : copy.startingSoon
 
   const demoBackToHomeButton = demoMode ? (
     <button
@@ -1433,7 +1462,7 @@ function EventPage() {
   )
 
   useEffect(() => {
-    if (!event?.id || roomOpen || waitingRoomStartMs === null) {
+    if (roomOpen || waitingRoomStartMs === null) {
       return
     }
 
@@ -1447,7 +1476,7 @@ function EventPage() {
     return () => {
       window.clearInterval(timerId)
     }
-  }, [event?.id, getAudienceNowMs, roomOpen, waitingRoomStartMs])
+  }, [getAudienceNowMs, roomOpen, waitingRoomStartMs])
 
   useEffect(() => {
     if (demoMode) return
@@ -2686,6 +2715,7 @@ function EventPage() {
     return (
       <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
         <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
+        {requestedCountdownTargetMs !== null ? <p className="subcopy no-margin">{loadingCountdownLabel}</p> : null}
         {audienceHomeButton}
       </section>
     )
@@ -2709,6 +2739,7 @@ function EventPage() {
       return (
         <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
           <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
+          {requestedCountdownTargetMs !== null ? <p className="subcopy no-margin">{loadingCountdownLabel}</p> : null}
           {audienceHomeButton}
         </section>
       )

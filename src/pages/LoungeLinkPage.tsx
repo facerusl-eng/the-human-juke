@@ -6,6 +6,8 @@ function resolveLoungeDestination(search: string) {
   const explicitPath = params.get('to')?.trim() ?? ''
   const isTestPreviewMode = params.get('test') === '1'
   const locale = params.get('locale')?.trim() || params.get('lang')?.trim() || ''
+  const countdownTargetMs = params.get('ct')?.trim() || params.get('countdownTargetMs')?.trim() || ''
+  const audienceLinkVersion = params.get('v')?.trim() || ''
 
   const audienceParams = new URLSearchParams()
 
@@ -15,6 +17,14 @@ function resolveLoungeDestination(search: string) {
 
   if (locale) {
     audienceParams.set('locale', locale)
+  }
+
+  if (countdownTargetMs) {
+    audienceParams.set('ct', countdownTargetMs)
+  }
+
+  if (audienceLinkVersion) {
+    audienceParams.set('v', audienceLinkVersion)
   }
 
   // Allow same-site route redirects only.
