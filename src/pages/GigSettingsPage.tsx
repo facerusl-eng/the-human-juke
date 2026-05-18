@@ -123,11 +123,10 @@ const FALLBACK_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.g
 const VENUE_LOGO_SCALE_MIN = 60
 const VENUE_LOGO_SCALE_MAX = 220
 const VENUE_LOGO_OFFSET_LIMIT = 100
-const VENUE_LOGO_BACKGROUND_SAMPLE_ALPHA_MIN = 245
-const VENUE_LOGO_BACKGROUND_CORNER_DISTANCE_MAX = 22
-const VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX = 28
-const VENUE_LOGO_BACKGROUND_SOFT_EDGE_DISTANCE_MAX = 52
-const VENUE_LOGO_BACKGROUND_CLEAR_MIN_RATIO = 0.005
+const VENUE_LOGO_BACKGROUND_SAMPLE_ALPHA_MIN = 140
+const VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX = 74
+const VENUE_LOGO_BACKGROUND_SOFT_EDGE_DISTANCE_MAX = 108
+const VENUE_LOGO_BACKGROUND_CLEAR_MIN_RATIO = 0.002
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL = 'human-jukebox-mirror-venue-logo-layout-preview'
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY = 'human-jukebox-mirror-venue-logo-layout-preview'
 const DEFAULT_VENUE_LOGO_APPEARANCE: VenueLogoAppearance = 'clean'
@@ -268,90 +267,173 @@ function loadImageFromFile(file: File) {
 function removeUniformBackgroundFromCanvas(context: CanvasRenderingContext2D, width: number, height: number) {
   const imageData = context.getImageData(0, 0, width, height)
   const pixels = imageData.data
+  const pixelCount = width * height
 
-  if (!pixels.length) {
+  if (!pixels.length || pixelCount === 0) {
     return false
   }
 
-  const edgeInset = Math.max(1, Math.min(12, Math.floor(Math.min(width, height) * 0.04)))
-  const samplePoints: Array<[number, number]> = [
-    [0, 0],
-    [width - 1, 0],
-    [0, height - 1],
-    [width - 1, height - 1],
-    [edgeInset, edgeInset],
-    [Math.max(0, width - 1 - edgeInset), edgeInset],
-    [edgeInset, Math.max(0, height - 1 - edgeInset)],
-    [Math.max(0, width - 1 - edgeInset), Math.max(0, height - 1 - edgeInset)],
-  ]
+  const readDistanceSquared = (pixelIndex: number, averageRed: number, averageGreen: number, averageBlue: number) => {
+    const offset = pixelIndex * 4
+    const redDelta = pixels[offset] - averageRed
+    const greenDelta = pixels[offset + 1] - averageGreen
+    const blueDelta = pixels[offset + 2] - averageBlue
+    return redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta
+  }
 
-  const opaqueCornerSamples = samplePoints
-    .map(([rawX, rawY]) => {
-      const x = Math.min(Math.max(rawX, 0), width - 1)
-      const y = Math.min(Math.max(rawY, 0), height - 1)
-      const index = (y * width + x) * 4
-      return {
-        red: pixels[index],
-        green: pixels[index + 1],
-        blue: pixels[index + 2],
-        alpha: pixels[index + 3],
-      }
+  const borderSamples: Array<{ red: number; green: number; blue: number }> = []
+  const borderStride = Math.max(1, Math.floor(Math.min(width, height) / 120))
+
+  const addBorderSample = (x: number, y: number) => {
+    const clampedX = Math.min(Math.max(x, 0), width - 1)
+    const clampedY = Math.min(Math.max(y, 0), height - 1)
+    const offset = (clampedY * width + clampedX) * 4
+
+    if (pixels[offset + 3] < VENUE_LOGO_BACKGROUND_SAMPLE_ALPHA_MIN) {
+      return
+    }
+
+    borderSamples.push({
+      red: pixels[offset],
+      green: pixels[offset + 1],
+      blue: pixels[offset + 2],
     })
-    .filter((sample) => sample.alpha >= VENUE_LOGO_BACKGROUND_SAMPLE_ALPHA_MIN)
+  }
 
-  if (opaqueCornerSamples.length < 4) {
+  for (let x = 0; x < width; x += borderStride) {
+    addBorderSample(x, 0)
+    addBorderSample(x, height - 1)
+  }
+
+  for (let y = 0; y < height; y += borderStride) {
+    addBorderSample(0, y)
+    addBorderSample(width - 1, y)
+  }
+
+  if (borderSamples.length < 8) {
     return false
   }
 
-  const averageRed = opaqueCornerSamples.reduce((sum, sample) => sum + sample.red, 0) / opaqueCornerSamples.length
-  const averageGreen = opaqueCornerSamples.reduce((sum, sample) => sum + sample.green, 0) / opaqueCornerSamples.length
-  const averageBlue = opaqueCornerSamples.reduce((sum, sample) => sum + sample.blue, 0) / opaqueCornerSamples.length
+  const averageRed = borderSamples.reduce((sum, sample) => sum + sample.red, 0) / borderSamples.length
+  const averageGreen = borderSamples.reduce((sum, sample) => sum + sample.green, 0) / borderSamples.length
+  const averageBlue = borderSamples.reduce((sum, sample) => sum + sample.blue, 0) / borderSamples.length
 
-  const maxCornerDistance = opaqueCornerSamples.reduce((maxDistance, sample) => {
-    const redDelta = sample.red - averageRed
-    const greenDelta = sample.green - averageGreen
-    const blueDelta = sample.blue - averageBlue
-    const distance = Math.sqrt(redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta)
-    return Math.max(maxDistance, distance)
-  }, 0)
+  const sampleDistances = borderSamples
+    .map((sample) => {
+      const redDelta = sample.red - averageRed
+      const greenDelta = sample.green - averageGreen
+      const blueDelta = sample.blue - averageBlue
+      return Math.sqrt(redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta)
+    })
+    .sort((left, right) => left - right)
 
-  if (maxCornerDistance > VENUE_LOGO_BACKGROUND_CORNER_DISTANCE_MAX) {
-    return false
+  const percentileIndex = Math.min(sampleDistances.length - 1, Math.floor(sampleDistances.length * 0.82))
+  const adaptiveClearDistance = Math.min(
+    VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX,
+    Math.max(16, (sampleDistances[percentileIndex] ?? 0) + 12),
+  )
+  const adaptiveSoftDistance = Math.min(
+    VENUE_LOGO_BACKGROUND_SOFT_EDGE_DISTANCE_MAX,
+    adaptiveClearDistance + 20,
+  )
+  const clearDistanceSquared = adaptiveClearDistance * adaptiveClearDistance
+  const softDistanceSquared = adaptiveSoftDistance * adaptiveSoftDistance
+
+  const backgroundMask = new Uint8Array(pixelCount)
+  const visited = new Uint8Array(pixelCount)
+  const queue: number[] = []
+
+  const tryQueueBackgroundPixel = (pixelIndex: number) => {
+    if (visited[pixelIndex] === 1) {
+      return
+    }
+
+    visited[pixelIndex] = 1
+
+    const alpha = pixels[pixelIndex * 4 + 3]
+
+    if (alpha <= 8 || readDistanceSquared(pixelIndex, averageRed, averageGreen, averageBlue) <= clearDistanceSquared) {
+      backgroundMask[pixelIndex] = 1
+      queue.push(pixelIndex)
+    }
+  }
+
+  for (let x = 0; x < width; x += 1) {
+    tryQueueBackgroundPixel(x)
+    tryQueueBackgroundPixel((height - 1) * width + x)
+  }
+
+  for (let y = 0; y < height; y += 1) {
+    tryQueueBackgroundPixel(y * width)
+    tryQueueBackgroundPixel(y * width + (width - 1))
+  }
+
+  for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+    const pixelIndex = queue[queueIndex]
+    const x = pixelIndex % width
+    const y = Math.floor(pixelIndex / width)
+
+    if (x > 0) {
+      tryQueueBackgroundPixel(pixelIndex - 1)
+    }
+
+    if (x < width - 1) {
+      tryQueueBackgroundPixel(pixelIndex + 1)
+    }
+
+    if (y > 0) {
+      tryQueueBackgroundPixel(pixelIndex - width)
+    }
+
+    if (y < height - 1) {
+      tryQueueBackgroundPixel(pixelIndex + width)
+    }
+  }
+
+  const hasBackgroundNeighbour = (pixelIndex: number) => {
+    const x = pixelIndex % width
+    const y = Math.floor(pixelIndex / width)
+
+    return (x > 0 && backgroundMask[pixelIndex - 1] === 1)
+      || (x < width - 1 && backgroundMask[pixelIndex + 1] === 1)
+      || (y > 0 && backgroundMask[pixelIndex - width] === 1)
+      || (y < height - 1 && backgroundMask[pixelIndex + width] === 1)
   }
 
   let changedPixels = 0
 
-  for (let index = 0; index < pixels.length; index += 4) {
-    const alpha = pixels[index + 3]
+  for (let pixelIndex = 0; pixelIndex < pixelCount; pixelIndex += 1) {
+    const alphaOffset = pixelIndex * 4 + 3
+    const alpha = pixels[alphaOffset]
 
     if (alpha === 0) {
       continue
     }
 
-    const redDelta = pixels[index] - averageRed
-    const greenDelta = pixels[index + 1] - averageGreen
-    const blueDelta = pixels[index + 2] - averageBlue
-    const distance = Math.sqrt(redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta)
-
-    if (distance <= VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX) {
-      pixels[index + 3] = 0
+    if (backgroundMask[pixelIndex] === 1) {
+      pixels[alphaOffset] = 0
       changedPixels += 1
       continue
     }
 
-    if (distance <= VENUE_LOGO_BACKGROUND_SOFT_EDGE_DISTANCE_MAX) {
-      const softnessRatio = (distance - VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX)
-        / (VENUE_LOGO_BACKGROUND_SOFT_EDGE_DISTANCE_MAX - VENUE_LOGO_BACKGROUND_CLEAR_DISTANCE_MAX)
+    const distanceSquared = readDistanceSquared(pixelIndex, averageRed, averageGreen, averageBlue)
+
+    if (distanceSquared <= softDistanceSquared && hasBackgroundNeighbour(pixelIndex)) {
+      const distance = Math.sqrt(distanceSquared)
+      const softnessRatio = Math.max(
+        0,
+        Math.min(1, (distance - adaptiveClearDistance) / Math.max(1, adaptiveSoftDistance - adaptiveClearDistance)),
+      )
       const softenedAlpha = Math.max(0, Math.min(255, Math.round(alpha * softnessRatio)))
 
       if (softenedAlpha < alpha) {
-        pixels[index + 3] = softenedAlpha
+        pixels[alphaOffset] = softenedAlpha
         changedPixels += 1
       }
     }
   }
 
-  if (changedPixels < width * height * VENUE_LOGO_BACKGROUND_CLEAR_MIN_RATIO) {
+  if (changedPixels < pixelCount * VENUE_LOGO_BACKGROUND_CLEAR_MIN_RATIO) {
     return false
   }
 
