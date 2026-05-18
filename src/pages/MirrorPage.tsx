@@ -1438,7 +1438,7 @@ function MirrorPageContent() {
     try {
       return getAudienceUrl(eventId, {
         compact: true,
-        includeVersion: false,
+        includeVersion: true,
         mode: isTestGigAudienceMode ? 'test' : 'public',
       })
     } catch (error) {
@@ -1453,6 +1453,14 @@ function MirrorPageContent() {
       return '/audience'
     }
   }, [eventId, isTestGigAudienceMode])
+  const audienceUrlVersion = useMemo(() => {
+    try {
+      const parsedUrl = new URL(audienceUrl)
+      return parsedUrl.searchParams.get('v')?.trim() || null
+    } catch {
+      return null
+    }
+  }, [audienceUrl])
   const legacyCountdownQrLink = event?.mirrorCountdownQrLink?.trim() || ''
   const customCountdownQrLink = event?.mirrorCountdownQrCustomUrl?.trim() || ''
   const customBreakQrLink = event?.mirrorBreakQrCustomUrl?.trim() || ''
@@ -1473,6 +1481,10 @@ function MirrorPageContent() {
 
     if (linkCountdownTarget) {
       queryParams.set('ct', String(linkCountdownTarget.getTime()))
+    }
+
+    if (audienceUrlVersion) {
+      queryParams.set('v', audienceUrlVersion)
     }
 
     const trimmedCustomUrl = customUrl?.trim()
