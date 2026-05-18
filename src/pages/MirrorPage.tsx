@@ -1336,6 +1336,9 @@ function MirrorPageContent() {
 
   const setMirrorWarningMessage = (message: string) => {
     if (demoMode) return  // suppress all warnings in demo — reconnects are expected and not real
+    if (message === 'Crowd spotlight sync is reconnecting.') {
+      return
+    }
     if (mirrorWarningClearTimerRef.current !== null) {
       window.clearTimeout(mirrorWarningClearTimerRef.current)
       mirrorWarningClearTimerRef.current = null
@@ -1773,14 +1776,6 @@ function MirrorPageContent() {
   const countdownLabel = showCountdown && countdownDisplayRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownDisplayRemainingMs)
     : null
-  const isBeforeScheduledStart = !isLive && countdownRemainingMs !== null && countdownRemainingMs > 0
-  const liveBadgeLabel = demoMode
-    ? '● Demo'
-    : isLive
-    ? countdownCopy.live
-    : isBeforeScheduledStart
-    ? countdownCopy.startingSoon
-    : countdownCopy.paused
   const finalCountdownSeconds = showCountdown && countdownRemainingMs !== null && countdownRemainingMs > 0 && countdownRemainingMs <= 10_000
     ? Math.ceil(countdownRemainingMs / 1000)
     : null
@@ -3554,9 +3549,6 @@ function MirrorPageContent() {
           ) : null}
 
           <div className="mirror-header-live-stack">
-            <span className={`mirror-status ${event?.roomOpen ? 'mirror-open live-pulse' : 'mirror-paused'}`.trim()}>
-              {liveBadgeLabel}
-            </span>
             {!hideControlsForAudience ? (
               <p className="mirror-edge-cast-hint" role="note">Edge cast: open browser menu (three dots) and choose Cast media to device.</p>
             ) : null}
