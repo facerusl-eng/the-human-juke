@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { AUDIENCE_LOCALE_STORAGE_KEY, normalizeAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { supabase } from '../lib/supabase'
@@ -67,6 +67,43 @@ function parseEventStartMs(gigDate: string | null | undefined, gigStartTime: str
   return Number.isNaN(parsedMs) ? null : parsedMs
 }
 
+async function fetchServerClockOffsetMs(): Promise<number | null> {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const requestStartedAt = Date.now()
+
+  try {
+    const response = await fetch(`/api/keepwarm?clock-sync=${Date.now()}`, {
+      method: 'GET',
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const requestEndedAt = Date.now()
+    const serverDateHeader = response.headers.get('date')
+
+    if (!serverDateHeader) {
+      return null
+    }
+
+    const serverNowMs = Date.parse(serverDateHeader)
+
+    if (!Number.isFinite(serverNowMs)) {
+      return null
+    }
+
+    const estimatedClientNowMs = Math.round((requestStartedAt + requestEndedAt) / 2)
+    return serverNowMs - estimatedClientNowMs
+  } catch {
+    return null
+  }
+}
+
 function formatCountdownLabel(remainingMs: number): string {
   const totalSeconds = Math.floor(Math.max(0, remainingMs) / 1000)
   const hours = Math.floor(totalSeconds / 3600)
@@ -98,6 +135,9 @@ function QrLandingPage() {
   const { search } = useLocation()
   const [eventRoomOpen, setEventRoomOpen] = useState(false)
   const [eventStartMs, setEventStartMs] = useState<number | null>(null)
+  const [clockOffsetMs, setClockOffsetMs] = useState(0)
+  const clockOffsetRef = useRef(0)
+  const getSyncedNowMs = useCallback(() => Date.now() + clockOffsetRef.current, [])
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [syncStatusReason, setSyncStatusReason] = useState<SyncStatusReason | null>(null)
   const didAutoNavigateRef = useRef(false)
@@ -206,11 +246,42 @@ function QrLandingPage() {
   const shouldDisableLoungeButton = waitingForLive && syncStatusReason === null
 
   useEffect(() => {
+    clockOffsetRef.current = clockOffsetMs
+  }, [clockOffsetMs])
+
+  useEffect(() => {
+    let isCurrent = true
+
+    const syncClockOffset = async () => {
+      const nextOffsetMs = await fetchServerClockOffsetMs()
+
+      if (!isCurrent || nextOffsetMs === null) {
+        return
+      }
+
+      clockOffsetRef.current = nextOffsetMs
+      setClockOffsetMs(nextOffsetMs)
+      setNowMs(Date.now() + nextOffsetMs)
+    }
+
+    void syncClockOffset()
+
+    const timerId = window.setInterval(() => {
+      void syncClockOffset()
+    }, 120_000)
+
+    return () => {
+      isCurrent = false
+      window.clearInterval(timerId)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!eventId || countdownTargetMsFromLink === null) {
       return
     }
 
-    setEventStartMs((currentStartMs) => currentStartMs ?? countdownTargetMsFromLink)
+    setEventStartMs(countdownTargetMsFromLink)
   }, [countdownTargetMsFromLink, eventId])
 
   useEffect(() => {
@@ -219,13 +290,13 @@ function QrLandingPage() {
     }
 
     const tickTimerId = window.setInterval(() => {
-      setNowMs(Date.now())
+      setNowMs(getSyncedNowMs())
     }, 1000)
 
     return () => {
       window.clearInterval(tickTimerId)
     }
-  }, [eventId, eventRoomOpen])
+  }, [eventId, eventRoomOpen, getSyncedNowMs])
 
   useEffect(() => {
     if (!eventId) {
@@ -271,13 +342,13 @@ function QrLandingPage() {
 
         if (!data) {
           setSyncStatusReason('notFound')
-          setEventStartMs(null)
+          setEventStartMs(countdownTargetMsFromLink)
           setEventRoomOpen(false)
           return
         }
 
         const startMs = parseEventStartMs(data.gig_date as string | null, data.gig_start_time as string | null)
-        setEventStartMs(startMs ?? countdownTargetMsFromLink)
+        setEventStartMs(countdownTargetMsFromLink ?? startMs)
         setEventRoomOpen(Boolean(data.room_open))
         setSyncStatusReason(null)
       } catch {

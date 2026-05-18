@@ -3464,7 +3464,8 @@ function MirrorPageContent() {
               await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
               setShowFullscreenPrompt(false)
             } catch {
-              setShowFullscreenPrompt(false)
+              setShowFullscreenPrompt(true)
+              setMirrorWarningMessage('Fullscreen was blocked. Tap again or use browser fullscreen (F11).')
             }
           }}
         >
