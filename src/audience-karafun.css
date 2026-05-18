@@ -742,6 +742,12 @@
   justify-content: center;
 }
 
+.audience-entry-shell.audience-no-gig-shell.audience-karafun {
+  background:
+    linear-gradient(140deg, rgba(7, 11, 24, 0.56), rgba(8, 14, 30, 0.68)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center / cover no-repeat;
+}
+
 .audience-karafun .audience-entry-card {
   background: var(--kf-card);
   border: 1px solid var(--kf-border);

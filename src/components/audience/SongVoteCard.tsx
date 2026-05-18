@@ -11,6 +11,7 @@ type SongVoteCardProps = {
   isVoting?: boolean
   disabled: boolean
   myName?: string
+  hostId?: string | null
   onVote: (songId: string) => Promise<void>
   normalizeCoverUrl: (coverUrl: string | null | undefined) => string | null
 }
@@ -24,10 +25,18 @@ function SongVoteCard({
   isVoting = false,
   disabled,
   myName,
+  hostId,
   onVote,
   normalizeCoverUrl,
 }: SongVoteCardProps) {
   const isOwnRequest = Boolean(myName && song.createdByName && song.createdByName === myName)
+  const isHostPick = Boolean(hostId && song.creatorId && song.creatorId === hostId)
+  const chosenByLabel = isHostPick
+    ? 'Picked by host'
+    : (song.createdByName ? `♡ ${song.createdByName}` : null)
+  const infoChosenByLabel = isHostPick
+    ? 'Picked by host'
+    : (song.createdByName ? `♡ Requested by ${song.createdByName}` : null)
   const voteHeatPercent = useMemo(() => (
     hottestVoteCount > 0
       ? Math.round((song.votes_count / hottestVoteCount) * 100)
@@ -67,8 +76,8 @@ function SongVoteCard({
               {song.is_explicit && <span className="song-info-badge song-info-badge-explicit">🅴 Explicit</span>}
               {song.voting_locked && <span className="song-info-badge song-info-badge-locked">🔒 Voting Locked</span>}
             </div>
-            {song.createdByName && (
-              <p className="song-info-chosen-by">♡ Requested by {song.createdByName}</p>
+            {infoChosenByLabel && (
+              <p className="song-info-chosen-by">{infoChosenByLabel}</p>
             )}
             <p className="song-info-votes">{song.votes_count} {song.votes_count === 1 ? 'vote' : 'votes'}</p>
             <PrimaryButton type="button" className="song-info-close" onClick={() => setShowInfo(false)}>
@@ -98,8 +107,8 @@ function SongVoteCard({
               {song.is_explicit ? ' - Explicit' : ''}
               {song.voting_locked ? ' - Voting Locked' : ''}
             </p>
-            {song.createdByName ? (
-              <p className="audience-song-chosen-by" title={song.createdByName}>♡ {song.createdByName}</p>
+            {chosenByLabel ? (
+              <p className="audience-song-chosen-by" title={isHostPick ? 'Picked by host' : (song.createdByName ?? undefined)}>{chosenByLabel}</p>
             ) : null}
           </div>
         </div>

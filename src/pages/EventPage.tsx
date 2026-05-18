@@ -3307,6 +3307,7 @@ function EventPage() {
                 disabled={!roomOpen || song.voting_locked || Boolean(votingSongIds[song.id])}
                 isVoting={Boolean(votingSongIds[song.id])}
                 myName={audienceName || undefined}
+                hostId={event?.hostId}
                 onVote={handleVoteSong}
               />
             ))}

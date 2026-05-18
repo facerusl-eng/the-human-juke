@@ -22,6 +22,7 @@ export type QueueSong = {
   audience_sings: boolean
   position?: number
   createdByName: string | null
+  creatorId?: string | null
 }
 
 export type PerformedSong = QueueSong & {
@@ -1819,6 +1820,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         audience_sings: song.audience_sings,
         position: song.position,
         createdByName: song.createdByName ?? (song.creatorId ? creatorNameById.get(song.creatorId) ?? null : null),
+        creatorId: song.creatorId,
       }))
       queueLoaded = true
     } catch (error) {

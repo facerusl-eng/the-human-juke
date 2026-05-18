@@ -333,7 +333,8 @@
     radial-gradient(circle at 12% 8%, rgba(74, 214, 255, 0.28) 0%, transparent 35%),
     radial-gradient(circle at 86% 10%, rgba(255, 79, 152, 0.26) 0%, transparent 34%),
     radial-gradient(circle at 50% 110%, rgba(255, 148, 70, 0.2) 0%, transparent 40%),
-    linear-gradient(160deg, #080b1f 0%, #0d1534 50%, #11122b 100%);
+    linear-gradient(160deg, rgba(8, 11, 31, 0.72) 0%, rgba(13, 21, 52, 0.78) 50%, rgba(17, 18, 43, 0.82) 100%),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center center / cover no-repeat;
 }
 
 .mirror-shell-paused {
@@ -341,7 +342,8 @@
     radial-gradient(circle at 12% 8%, rgba(74, 214, 255, 0.28) 0%, transparent 35%),
     radial-gradient(circle at 86% 10%, rgba(255, 79, 152, 0.26) 0%, transparent 34%),
     radial-gradient(circle at 50% 110%, rgba(255, 148, 70, 0.2) 0%, transparent 40%),
-    linear-gradient(160deg, #080b1f 0%, #0d1534 50%, #11122b 100%);
+    linear-gradient(160deg, rgba(6, 9, 25, 0.82) 0%, rgba(11, 17, 42, 0.86) 50%, rgba(14, 15, 36, 0.9) 100%),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center center / cover no-repeat;
 }
 
 .mirror-header {
