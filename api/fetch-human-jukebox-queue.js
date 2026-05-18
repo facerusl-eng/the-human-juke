@@ -1,7 +1,10 @@
-const HUMAN_JUKEBOX_BASE_URLS = [
-  'https://www.the-human-jukebox.org',
-  'https://the-human-jukebox.org',
-]
+const HUMAN_JUKEBOX_BASE_URLS = (process.env.HUMAN_JUKEBOX_API_ORIGINS?.split(',') ?? [])
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
+if (HUMAN_JUKEBOX_BASE_URLS.length === 0) {
+  HUMAN_JUKEBOX_BASE_URLS.push('https://www.the-human-jukebox.org', 'https://the-human-jukebox.org')
+}
 
 function parseJsonBody(reqBody) {
   if (!reqBody) {

@@ -25,12 +25,15 @@ const EMPTY_DRAFT: DraftSetlistSong = {
   notes: '',
 }
 
+let fallbackSequence = 0
+
 function createId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
   }
 
-  return `setlist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  fallbackSequence += 1
+  return `setlist-${Date.now()}-${fallbackSequence.toString(36)}`
 }
 
 export default function SetlistManager({ songs, onChange }: SetlistManagerProps) {

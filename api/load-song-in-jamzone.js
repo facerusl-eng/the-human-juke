@@ -1,7 +1,10 @@
-const JAMZONE_BASE_URLS = [
-  'https://api.jamzone.com/v1',
-  'https://api.jamzone.com',
-]
+const JAMZONE_BASE_URLS = (process.env.JAMZONE_API_BASE_URLS?.split(',') ?? [])
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
+if (JAMZONE_BASE_URLS.length === 0) {
+  JAMZONE_BASE_URLS.push('https://api.jamzone.com/v1', 'https://api.jamzone.com')
+}
 
 function parseJsonBody(reqBody) {
   if (!reqBody) {
