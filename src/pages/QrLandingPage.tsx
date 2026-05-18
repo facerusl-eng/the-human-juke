@@ -53,6 +53,27 @@ function resolveCountdownTargetMsFromSearch(search: string): number | null {
   return parsedValue
 }
 
+function resolveClockOffsetMsFromSearch(search: string): number | null {
+  const params = new URLSearchParams(search)
+  const rawValue = params.get('co')?.trim() || params.get('clockOffsetMs')?.trim() || ''
+
+  if (!rawValue) {
+    return null
+  }
+
+  const parsedValue = Number(rawValue)
+
+  if (!Number.isFinite(parsedValue)) {
+    return null
+  }
+
+  if (Math.abs(parsedValue) > 86_400_000) {
+    return null
+  }
+
+  return Math.round(parsedValue)
+}
+
 function normalizeEventTimeForDate(value: string | null | undefined): string | null {
   if (!value) {
     return null
@@ -170,12 +191,13 @@ function QrLandingPage() {
   const navigate = useNavigate()
   const { search } = useLocation()
   const countdownTargetMsFromLink = useMemo(() => resolveCountdownTargetMsFromSearch(search), [search])
+  const clockOffsetMsFromLink = useMemo(() => resolveClockOffsetMsFromSearch(search), [search])
   const [eventRoomOpen, setEventRoomOpen] = useState(false)
   const [eventStartMs, setEventStartMs] = useState<number | null>(() => countdownTargetMsFromLink)
-  const [clockOffsetMs, setClockOffsetMs] = useState(0)
-  const clockOffsetRef = useRef(0)
+  const [clockOffsetMs, setClockOffsetMs] = useState(() => clockOffsetMsFromLink ?? 0)
+  const clockOffsetRef = useRef(clockOffsetMsFromLink ?? 0)
   const getSyncedNowMs = useCallback(() => Date.now() + clockOffsetRef.current, [])
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  const [nowMs, setNowMs] = useState(() => Date.now() + (clockOffsetMsFromLink ?? 0))
   const [syncStatusReason, setSyncStatusReason] = useState<SyncStatusReason | null>(null)
   const didAutoNavigateRef = useRef(false)
   const locale = useMemo(() => resolveAudienceLocale(search), [search])
@@ -286,6 +308,16 @@ function QrLandingPage() {
   useEffect(() => {
     clockOffsetRef.current = clockOffsetMs
   }, [clockOffsetMs])
+
+  useEffect(() => {
+    if (clockOffsetMsFromLink === null) {
+      return
+    }
+
+    clockOffsetRef.current = clockOffsetMsFromLink
+    setClockOffsetMs(clockOffsetMsFromLink)
+    setNowMs(Date.now() + clockOffsetMsFromLink)
+  }, [clockOffsetMsFromLink])
 
   useEffect(() => {
     let isCurrent = true

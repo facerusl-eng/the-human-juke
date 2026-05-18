@@ -1357,13 +1357,30 @@
   height: clamp(122px, min(20vw, 18dvh), 300px);
   border-radius: 14px;
   background: #ffffff;
-  padding: clamp(0.34rem, 0.72vw, 0.56rem);
+  padding: clamp(0.2rem, 0.46vw, 0.4rem);
   image-rendering: -webkit-optimize-contrast;
   image-rendering: pixelated;
+  box-sizing: border-box;
+  object-fit: contain;
+  display: block;
   border: 1px solid rgba(255, 255, 255, 0.48);
   box-shadow:
     0 22px 40px rgba(4, 8, 22, 0.36),
     0 0 28px rgba(93, 215, 255, 0.16);
+}
+
+.mirror-brb-qr-image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: clamp(0.2rem, 0.46vw, 0.4rem);
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
+  box-sizing: border-box;
+  object-fit: contain;
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.48);
 }
 
 .mirror-qr-label {
