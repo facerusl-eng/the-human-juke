@@ -98,6 +98,8 @@ const LoungeLinkPage = lazyWithChunkReload(() => import('./pages/LoungeLinkPage'
 const QrLandingPage = lazyWithChunkReload(() => import('./pages/QrLandingPage'))
 const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
 const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
+const PerformerView = lazyWithChunkReload(() => import('./pages/PerformerView'))
+const PerformerSettingsPage = lazyWithChunkReload(() => import('./pages/PerformerSettingsPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
 const SettingsPage = lazyWithChunkReload(() => import('./pages/SettingsPage'))
 const SpotifyCallbackPage = lazyWithChunkReload(() => import('./pages/SpotifyCallbackPage'))
@@ -342,6 +344,28 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: 'admin/performer',
+        element: withSuspense(
+          withCrashBoundary(
+            'Performer',
+            <RequireHost>
+              <PerformerView />
+            </RequireHost>,
+          ),
+        ),
+      },
+      {
+        path: 'admin/performer/settings',
+        element: withSuspense(
+          withCrashBoundary(
+            'Performer',
+            <RequireHost>
+              <PerformerSettingsPage />
+            </RequireHost>,
+          ),
+        ),
+      },
+      {
         path: 'admin/gig-settings',
         element: withSuspense(
           withCrashBoundary(
@@ -436,4 +460,3 @@ const router = createBrowserRouter([
 ])
 
 export default router
-

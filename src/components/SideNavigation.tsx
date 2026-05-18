@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, ListMusic, MessageSquareMore, PlusCircle, Settings, Sliders, Tv } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, ListMusic, MessageSquareMore, Mic2, PlusCircle, Settings, Sliders, Tv } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 
@@ -99,6 +99,25 @@ const NAV_ITEMS: NavEntry[] = [
     to: '/mirror',
     icon: Tv,
     match: (path) => path.startsWith('/mirror'),
+  },
+  {
+    label: 'Performer',
+    icon: Mic2,
+    groupMatch: (path) => path.startsWith('/admin/performer'),
+    children: [
+      {
+        label: 'Live Dashboard',
+        to: '/admin/performer',
+        icon: Mic2,
+        match: (path) => path === '/admin/performer',
+      },
+      {
+        label: 'Performer Settings',
+        to: '/admin/performer/settings',
+        icon: Settings,
+        match: (path) => path.startsWith('/admin/performer/settings'),
+      },
+    ],
   },
   {
     label: 'Settings',
