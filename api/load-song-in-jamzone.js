@@ -3,6 +3,7 @@ const JAMZONE_BASE_URLS = (process.env.JAMZONE_API_BASE_URLS?.split(',') ?? [])
   .filter(Boolean)
 
 if (JAMZONE_BASE_URLS.length === 0) {
+  // Default fallback endpoints; override via JAMZONE_API_BASE_URLS when JamZone API hosts differ.
   JAMZONE_BASE_URLS.push('https://api.jamzone.com/v1', 'https://api.jamzone.com')
 }
 

@@ -29,6 +29,21 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function readVotesCount(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.reduce((total, item) => {
+      if (!item || typeof item !== 'object') {
+        return total + 1
+      }
+
+      const weight = toNumber((item as { weight?: unknown }).weight, 1)
+      return total + Math.max(1, weight)
+    }, 0)
+  }
+
+  return toNumber(value)
+}
+
 function normalizeStatus(value: unknown): 'queued' | 'playing' | 'played' | 'skipped' {
   const normalized = String(value ?? '').toLowerCase()
 
@@ -93,7 +108,7 @@ function normalizeQueueSong(item: unknown, index: number): PerformerQueueSong | 
   }
 
   const votesSource = source.votes ?? source.vote_count ?? source.votes_count ?? source.upvotes
-  const votes = Array.isArray(votesSource) ? votesSource.length : toNumber(votesSource)
+  const votes = readVotesCount(votesSource)
   const status = normalizeStatus(source.status ?? source.state)
   const position = toNumber(source.position ?? source.rank ?? source.index, index + 1)
 

@@ -118,6 +118,9 @@ export default function PerformerSettingsPage() {
             {saveNotice}
           </p>
         ) : null}
+        <p className="md:col-span-2 text-xs text-amber-200/90">
+          Security note: API keys are stored only in this browser profile for convenience. Use dedicated low-scope keys and clear them after gigs on shared devices.
+        </p>
       </form>
 
       <SetlistManager songs={setlistSongs} onChange={handleSetlistChange} />

@@ -3,6 +3,7 @@ const HUMAN_JUKEBOX_BASE_URLS = (process.env.HUMAN_JUKEBOX_API_ORIGINS?.split(',
   .filter(Boolean)
 
 if (HUMAN_JUKEBOX_BASE_URLS.length === 0) {
+  // Official production origins used by The Human Jukebox web app.
   HUMAN_JUKEBOX_BASE_URLS.push('https://www.the-human-jukebox.org', 'https://the-human-jukebox.org')
 }
 

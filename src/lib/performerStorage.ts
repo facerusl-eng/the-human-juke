@@ -38,7 +38,7 @@ function createStableSongId(title: string, artist: string, jamzoneSongId: string
     hash = Math.imul(hash, 16777619)
   }
 
-  return `setlist-${(hash >>> 0).toString(16)}`
+  return `setlist-${(hash >>> 0).toString(16)}-${normalized.length.toString(36)}`
 }
 
 function obfuscateSensitiveValue(value: string, userId: string | null | undefined) {
