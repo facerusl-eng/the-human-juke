@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { AudienceLocale } from '../../lib/audienceIdentity'
 import AddToCalendarButton from '../AddToCalendarButton'
 
@@ -17,19 +17,19 @@ type AudienceUpcomingEvent = {
 
 const NO_GIG_MESSAGES: Record<AudienceLocale, string[]> = {
   en: [
-    'No live show right now - but something awesome is coming soon!',
+    'No live show right now, but something awesome is coming soon.',
     'Grab a drink, stretch your vocal cords, and check out what\'s coming up.',
-    'The stage is quiet... for now. Upcoming events below!',
+    'The stage is quiet for now. Upcoming events are listed below.',
   ],
   da: [
-    'No live show right now - but something awesome is coming soon!',
+    'Ingen live-koncert lige nu, men noget fantastisk er på vej.',
     'Snup en drink, varm stemmebåndene op, og se hvad der kommer.',
-    'Scenen er stille... lige nu. Kommende events er herunder!',
+    'Scenen er stille lige nu. Kommende events er listet herunder.',
   ],
   is: [
-    'No live show right now - but something awesome is coming soon!',
-    'Gribbu drykk, hitaudu upp roddina og skodadu hvad er framundan.',
-    'Svidid er hljott... i bili. Komandi vidburdir eru her fyrir nedan!',
+    'Engin live-syning i gangi nuna, en eitthvad geggjad er a leidinni.',
+    'Griptu drykk, hitadu upp roddina og skodadu hvad er fram undan.',
+    'Svidid er rolegt i bili. Komandi vidburdir eru listadir her fyrir nedan.',
   ],
 }
 
@@ -47,10 +47,10 @@ const COUNTDOWN_SUPPORT_QUOTES: Record<AudienceLocale, string[]> = {
     'Nedtællingen kører. Glimmeret er på vej.',
   ],
   is: [
-    'Thu mættir snemma. Hetjur gera thad.',
-    'Upphitun: brostu, drekktu vatn og vertu cool.',
+    'Thu maettir snemma. Hetjur gera thad.',
+    'Upphitun: brostu, drekktu vatn og vertu svalur.',
     'Svidid er ad hita upp. Stemningin lika.',
-    'Nidurteljari i gangi. Showid er ad maeta.',
+    'Nidurteljari i gangi. Showid er ad byrja.',
   ],
 }
 
@@ -105,6 +105,26 @@ function formatCountdownStartLabel(gigDate: string | null, gigStartTime: string 
     hour: 'numeric',
     minute: '2-digit',
   }).format(countdownStartDate)
+}
+
+function formatCountdownStartLabelFromTargetMs(targetMs: number | null | undefined, locale: AudienceLocale): string | null {
+  if (!Number.isFinite(targetMs)) {
+    return null
+  }
+
+  const targetDate = new Date(targetMs as number)
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return null
+  }
+
+  return new Intl.DateTimeFormat(toIntlLocale(locale), {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(targetDate)
 }
 
 function formatUpcomingEventDate(gigDate: string | null, gigStartTime: string | null, locale: AudienceLocale) {
@@ -249,6 +269,8 @@ function resolveUpcomingEventCoverUrl(event: AudienceUpcomingEvent): string {
 function AudienceNoGigState({
   upcomingEvents,
   countdownFallbackEvent = null,
+  countdownTargetMsFromLink = null,
+  countdownTargetEventId = null,
   nowOffsetMs = 0,
   loadingUpcomingEvents = false,
   upcomingEventsNotice = null,
@@ -258,6 +280,8 @@ function AudienceNoGigState({
 }: {
   upcomingEvents: AudienceUpcomingEvent[]
   countdownFallbackEvent?: AudienceUpcomingEvent | null
+  countdownTargetMsFromLink?: number | null
+  countdownTargetEventId?: string | null
   nowOffsetMs?: number
   loadingUpcomingEvents?: boolean
   upcomingEventsNotice?: string | null
@@ -268,15 +292,88 @@ function AudienceNoGigState({
   const [showHowJukeboxWorks, setShowHowJukeboxWorks] = useState(false)
   const [showHowKaraokeWorks, setShowHowKaraokeWorks] = useState(false)
   const [countdownQuoteIndex, setCountdownQuoteIndex] = useState(0)
-  const countdownCandidates = countdownFallbackEvent
-    && !upcomingEvents.some((eventRow) => eventRow.id === countdownFallbackEvent.id)
-    ? [countdownFallbackEvent, ...upcomingEvents]
-    : upcomingEvents
-  const countdown = useCountdownToEvent(countdownCandidates, nowOffsetMs)
-  const countdownEventId = countdown?.event.id ?? null
-  const countdownStartLabel = countdown
-    ? formatCountdownStartLabel(countdown.event.gigDate, countdown.event.gigStartTime, locale)
+  const [linkCountdownNowMs, setLinkCountdownNowMs] = useState(() => Date.now() + nowOffsetMs)
+  const countdownFallbackEventName = locale === 'da'
+    ? 'Næste live-show'
+    : locale === 'is'
+    ? 'Naesta live-show'
+    : 'Next Live Show'
+  const linkFallbackEvent = useMemo(() => {
+    if (!Number.isFinite(countdownTargetMsFromLink) || (countdownTargetMsFromLink as number) <= 0) {
+      return null
+    }
+
+    const countdownTargetDate = new Date(countdownTargetMsFromLink as number)
+
+    if (Number.isNaN(countdownTargetDate.getTime())) {
+      return null
+    }
+
+    const year = String(countdownTargetDate.getFullYear())
+    const month = String(countdownTargetDate.getMonth() + 1).padStart(2, '0')
+    const day = String(countdownTargetDate.getDate()).padStart(2, '0')
+    const hours = String(countdownTargetDate.getHours()).padStart(2, '0')
+    const minutes = String(countdownTargetDate.getMinutes()).padStart(2, '0')
+
+    return {
+      id: countdownTargetEventId?.trim() || `countdown-link-${year}${month}${day}${hours}${minutes}`,
+      name: countdownFallbackEventName,
+      venue: null,
+      gigDate: `${year}-${month}-${day}`,
+      gigStartTime: `${hours}:${minutes}`,
+      gigEndTime: null,
+      coverImageUrl: null,
+      eventType: 'halli-live' as const,
+      eventTheme: 'human-jukebox' as const,
+      karafunUrl: null,
+    }
+  }, [countdownFallbackEventName, countdownTargetEventId, countdownTargetMsFromLink])
+  const immediateFallbackEvent = upcomingEvents.length === 0
+    ? (linkFallbackEvent ?? countdownFallbackEvent)
     : null
+  const visibleUpcomingEvents = immediateFallbackEvent ? [immediateFallbackEvent] : upcomingEvents
+  const countdownCandidates = immediateFallbackEvent
+    && !upcomingEvents.some((eventRow) => eventRow.id === immediateFallbackEvent.id)
+    ? [immediateFallbackEvent, ...upcomingEvents]
+    : upcomingEvents
+  const countdownFromEvents = useCountdownToEvent(countdownCandidates, nowOffsetMs)
+  const linkCountdownRemainingMs = countdownTargetMsFromLink === null
+    ? null
+    : countdownTargetMsFromLink - linkCountdownNowMs
+  const countdown = linkCountdownRemainingMs !== null && linkCountdownRemainingMs > 0
+    ? {
+        event: linkFallbackEvent ?? countdownFromEvents?.event ?? immediateFallbackEvent,
+        remainingMs: linkCountdownRemainingMs,
+      }
+    : countdownFromEvents
+  const countdownEvent = countdown?.event ?? null
+  const countdownEventId = countdownEvent?.id ?? null
+  const countdownStartLabel = linkCountdownRemainingMs !== null && linkCountdownRemainingMs > 0
+    ? formatCountdownStartLabelFromTargetMs(countdownTargetMsFromLink, locale)
+    : countdownEvent
+    ? formatCountdownStartLabel(countdownEvent.gigDate, countdownEvent.gigStartTime, locale)
+    : null
+
+  useEffect(() => {
+    if (countdownTargetMsFromLink === null) {
+      return
+    }
+
+    const syncLinkNow = () => {
+      setLinkCountdownNowMs(Date.now() + nowOffsetMs)
+    }
+
+    syncLinkNow()
+    const timerId = window.setInterval(syncLinkNow, 1000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [countdownTargetMsFromLink, nowOffsetMs])
+
+  useEffect(() => {
+    setLinkCountdownNowMs(Date.now() + nowOffsetMs)
+  }, [nowOffsetMs])
 
   useEffect(() => {
     if (!countdownEventId) {
@@ -299,22 +396,22 @@ function AudienceNoGigState({
   const copy = locale === 'da'
     ? {
         eyebrow: 'Publikumsapp',
-        title: 'No live show right now',
+        title: 'Ingen live-koncert lige nu',
         home: 'Tilbage til start',
         loading: 'Indlæser kommende events...',
-        upcomingEvents: 'Kommende Events',
+        upcomingEvents: 'Kommende events',
         upcomingCount: 'kommende',
         venueFallback: 'Sted annonceres senere',
         openEvent: 'Åbn eventside',
-        karaokeBadge: 'Karaoke Event',
-        halliBadge: 'Halli Playing Music',
-        openKarafun: 'Åbn KaraFun playliste',
+        karaokeBadge: 'Karaoke-event',
+        halliBadge: 'Live-musik',
+        openKarafun: 'Åbn KaraFun-playliste',
         addToCalendar: 'Tilføj til kalender',
         confirmAddToCalendar: 'Er du sikker på, at du vil tilføje "{event}" til din kalender?',
         countdownLabel: 'Næste show starter om',
-        countdownSupportLabel: 'Hold ud - vi varmer op bag tæppet.',
+        countdownSupportLabel: 'Hold ud - vi varmer op bag scenen.',
         countdownScheduledLabel: 'Planlagt start',
-        countdownScheduledFallback: 'Snart',
+        countdownScheduledFallback: 'Lige om lidt',
         countdownFor: 'til',
         howItWorks: 'Sådan virker Human Jukebox',
         hideHowItWorks: 'Skjul guide',
@@ -339,22 +436,22 @@ function AudienceNoGigState({
     : locale === 'is'
     ? {
         eyebrow: 'Ahorfenda app',
-        title: 'No live show right now',
-      home: 'Aftur Heim',
-        loading: 'Hle dur komandi vidburdi...',
+        title: 'Engin live-syning i gangi nuna',
+        home: 'Aftur heim',
+        loading: 'Hled komandi vidburdi...',
         upcomingEvents: 'Komandi vidburdir',
         upcomingCount: 'komandi',
         venueFallback: 'Stadur kemur sidar',
         openEvent: 'Opna vidburdasidu',
         karaokeBadge: 'Karaoke vidburdur',
-        halliBadge: 'Halli Playing Music',
+        halliBadge: 'Live tonlist',
         openKarafun: 'Opna KaraFun lista',
         addToCalendar: 'Bæta við dagatal',
         confirmAddToCalendar: 'Ertu viss um að þú viljir bæta "{event}" við dagatalið?',
         countdownLabel: 'Naesta show hefst eftir',
-        countdownSupportLabel: 'Haldu ut - við erum ad hita upp bak vid tjoldin.',
+        countdownSupportLabel: 'Haldu ut - vid erum ad hita upp bak vid tjoldin.',
         countdownScheduledLabel: 'Aetlud byrjun',
-        countdownScheduledFallback: 'Mjog snart',
+        countdownScheduledFallback: 'Alveg ad byrja',
         countdownFor: 'fyrir',
         howItWorks: 'Svona virkar Human Jukebox',
         hideHowItWorks: 'Fela leidbeiningar',
@@ -386,12 +483,12 @@ function AudienceNoGigState({
         venueFallback: 'Venue to be announced',
         openEvent: 'Open event page',
         karaokeBadge: 'Karaoke Event',
-        halliBadge: 'Halli Playing Music',
+      halliBadge: 'Live Music',
         openKarafun: 'Open KaraFun playlist',
         addToCalendar: 'Add to Calendar',
         confirmAddToCalendar: 'Are you sure you want to add "{event}" to your calendar?',
         countdownLabel: 'Next show starts in',
-        countdownSupportLabel: 'Hold tight - we are warming up backstage.',
+      countdownSupportLabel: 'Hold tight - we\'re warming up backstage.',
         countdownScheduledLabel: 'Scheduled start',
         countdownScheduledFallback: 'Very soon',
         countdownFor: 'for',
@@ -431,7 +528,10 @@ function AudienceNoGigState({
             <p className="audience-no-gig-countdown-label">{copy.countdownLabel}</p>
             <p className="audience-no-gig-countdown-value">{formatCountdownLabel(countdown.remainingMs)}</p>
             <p className="audience-no-gig-countdown-meta">{copy.countdownScheduledLabel}: {countdownStartLabel ?? copy.countdownScheduledFallback}</p>
-            <p className="audience-no-gig-countdown-event">{countdown.event.name}{countdown.event.venue ? ` · ${countdown.event.venue}` : ''}</p>
+            <p className="audience-no-gig-countdown-event">
+              {countdown.event?.name?.trim() || countdownFallbackEventName}
+              {countdown.event?.venue?.trim() ? ` · ${countdown.event.venue}` : ''}
+            </p>
             <p className="audience-no-gig-countdown-support">{copy.countdownSupportLabel}</p>
             <p className="audience-no-gig-countdown-quote" aria-live="polite">{activeCountdownQuote}</p>
           </div>
@@ -508,14 +608,14 @@ function AudienceNoGigState({
           <p className="subcopy" role="status" aria-live="polite">{upcomingEventsNotice}</p>
         ) : null}
 
-        {upcomingEvents.length > 0 ? (
+        {visibleUpcomingEvents.length > 0 ? (
           <section className="audience-no-gig-events" aria-label="Upcoming events">
             <div className="panel-head audience-no-gig-events-head">
               <h2>{copy.upcomingEvents}</h2>
-              <span className="meta-badge">{upcomingEvents.length} {copy.upcomingCount}</span>
+              <span className="meta-badge">{visibleUpcomingEvents.length} {copy.upcomingCount}</span>
             </div>
             <div className="audience-no-gig-event-list">
-              {upcomingEvents.map((upcomingEvent) => {
+              {visibleUpcomingEvents.map((upcomingEvent) => {
                 const dateLabel = formatUpcomingEventDate(upcomingEvent.gigDate, upcomingEvent.gigStartTime, locale)
                 const timeRangeLabel = formatUpcomingEventTimeRange(upcomingEvent.gigStartTime, upcomingEvent.gigEndTime, locale)
                 const eventHref = getEventHref ? getEventHref(upcomingEvent.id) : null

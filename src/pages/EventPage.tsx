@@ -2743,7 +2743,7 @@ function EventPage() {
     navigate('/audience', { replace: true })
   }, [navigate, signOut])
 
-  if (loading && hasRequestedEventParam && !event && upcomingEvents.length === 0) {
+  if (loading && hasRequestedEventParam && !event && upcomingEvents.length === 0 && requestedCountdownTargetMs === null) {
     return (
       <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
         <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
@@ -2767,7 +2767,7 @@ function EventPage() {
   }
 
   if (!event) {
-    if (hasRequestedEventParam && (loading || authLoading)) {
+    if (hasRequestedEventParam && (loading || authLoading) && requestedCountdownTargetMs === null) {
       return (
         <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
           <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
@@ -2789,6 +2789,8 @@ function EventPage() {
       <AudienceNoGigState
         upcomingEvents={upcomingEvents}
         countdownFallbackEvent={countdownFallbackEvent}
+        countdownTargetMsFromLink={requestedCountdownTargetMs}
+        countdownTargetEventId={requestedEventId}
         nowOffsetMs={audienceClockOffsetMs}
         loadingUpcomingEvents={upcomingEventsLoading}
         upcomingEventsNotice={upcomingEventsNotice ?? authError}
