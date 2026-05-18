@@ -62,6 +62,7 @@ const CHOSEN_BY_ACCENT_CLASSES = [
   'mirror-picker-accent-7',
   'mirror-picker-accent-8',
 ]
+const HOST_PICKED_BY_FALLBACK = 'Picked by The Hoast'
 
 const SPOTLIGHT_DURATION_MS = 10000
 const SPOTLIGHT_POLL_INTERVAL_MS = 6000
@@ -1647,9 +1648,17 @@ function MirrorPageContent() {
     return CHOSEN_BY_ACCENT_CLASSES[phraseIndex % CHOSEN_BY_ACCENT_CLASSES.length]
   }
 
+  const isHostPick = (song: QueueSong | null | undefined) => {
+    if (!song?.creatorId || !event?.hostId) {
+      return false
+    }
+
+    return song.creatorId === event.hostId
+  }
+
   const activeSongChosenByLine = activeSong?.createdByName
     ? (getChosenByLine(activeSong.id, activeSong.createdByName) ?? `Picked by ${activeSong.createdByName}`)
-    : null
+    : (isHostPick(activeSong) ? HOST_PICKED_BY_FALLBACK : null)
   const activeSongChosenByAccentClass = activeSong?.id
     ? getChosenByAccentClass(activeSong.id)
     : CHOSEN_BY_ACCENT_CLASSES[0]
@@ -3952,7 +3961,7 @@ function MirrorPageContent() {
                         const queueChosenByLine = song.createdByName
                           ? (getChosenByLine(song.id, song.createdByName) ?? `Picked by ${song.createdByName}`)
                           : null
-                        const queuePickedByText = queueChosenByLine ?? 'Picked by audience'
+                        const queuePickedByText = queueChosenByLine ?? (isHostPick(song) ? HOST_PICKED_BY_FALLBACK : 'Picked by audience')
                         const queueChosenByAccentClass = getChosenByAccentClass(song.id)
                         const queuePickerClassName = `mirror-queue-picker mirror-queue-artist-picker${queueChosenByLine ? ` ${queueChosenByAccentClass}` : ''}`
 
