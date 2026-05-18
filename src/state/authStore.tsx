@@ -676,7 +676,7 @@ function AuthProvider({ children }: PropsWithChildren) {
               }
             }
 
-            throw new Error(mapHostSignInError(error))
+            throw new Error(mapHostSignInError(error), { cause: error })
           }
 
           if (signInResult.error) {
