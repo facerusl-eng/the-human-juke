@@ -11,6 +11,7 @@ type SongVoteCardProps = {
   isVoting?: boolean
   disabled: boolean
   myName?: string
+  isOwnRequest?: boolean
   hostId?: string | null
   onVote: (songId: string) => Promise<void>
   normalizeCoverUrl: (coverUrl: string | null | undefined) => string | null
@@ -25,11 +26,16 @@ function SongVoteCard({
   isVoting = false,
   disabled,
   myName,
+  isOwnRequest,
   hostId,
   onVote,
   normalizeCoverUrl,
 }: SongVoteCardProps) {
-  const isOwnRequest = Boolean(myName && song.createdByName && song.createdByName === myName)
+  const normalizedMyName = myName?.trim().toLowerCase() || ''
+  const normalizedCreatorName = song.createdByName?.trim().toLowerCase() || ''
+  const resolvedOwnRequest = typeof isOwnRequest === 'boolean'
+    ? isOwnRequest
+    : Boolean(normalizedMyName && normalizedCreatorName && normalizedMyName === normalizedCreatorName)
   const isHostPick = Boolean(hostId && song.creatorId && song.creatorId === hostId)
   const chosenByLabel = isHostPick
     ? 'Picked by host'
@@ -50,7 +56,7 @@ function SongVoteCard({
   const [showInfo, setShowInfo] = useState(false)
 
   return (
-    <li className={`audience-song-card queue-slide-in ${moveTick > 0 ? 'song-card-move' : ''}${isOwnRequest ? ' audience-song-card-own' : ''}`}>
+    <li className={`audience-song-card queue-slide-in ${moveTick > 0 ? 'song-card-move' : ''}${resolvedOwnRequest ? ' audience-song-card-own' : ''}`}>
       {showInfo && (
         <div
           className="song-info-overlay"
@@ -90,7 +96,7 @@ function SongVoteCard({
         <span className="queue-rank-chip" aria-label={`Rank ${rank}`}>
           #{rank}
         </span>
-        {isOwnRequest ? <span className="audience-song-own-badge">⭐ Yours</span> : null}
+        {resolvedOwnRequest ? <span className="audience-song-own-badge">⭐ Yours</span> : null}
         <div className="queue-song-main audience-song-main">
           {song.cover_url ? (
             <img

@@ -1284,6 +1284,9 @@ function EventPage() {
       .map((song, songIndex) => ({ song, queuePosition: songIndex + 1 }))
       .filter(({ song }) => (song.createdByName ?? '').trim().toLowerCase() === normalizedAudienceName)
   }, [normalizedAudienceName, upNext])
+  const myQueuedSongIds = useMemo(() => {
+    return new Set(myQueuedRequests.map(({ song }) => song.id))
+  }, [myQueuedRequests])
   const isBetweenSongs = playbackState?.isStarted === false
   const normalizedBetweenSongQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
     ? Math.abs(Math.trunc(playbackState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
@@ -3307,6 +3310,7 @@ function EventPage() {
                 disabled={!roomOpen || song.voting_locked || Boolean(votingSongIds[song.id])}
                 isVoting={Boolean(votingSongIds[song.id])}
                 myName={audienceName || undefined}
+                isOwnRequest={myQueuedSongIds.has(song.id)}
                 hostId={event?.hostId}
                 onVote={handleVoteSong}
               />

@@ -3065,6 +3065,44 @@
   font-size: 0.92rem;
 }
 
+.audience-song-card-own {
+  border-color: rgba(16, 185, 129, 0.56);
+  background: linear-gradient(140deg, rgba(16, 185, 129, 0.08), rgba(59, 130, 246, 0.06));
+  box-shadow:
+    0 0 0 1px rgba(16, 185, 129, 0.22),
+    0 12px 22px rgba(16, 185, 129, 0.12);
+}
+
+.audience-song-own-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.52rem;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.audience-shell-modern .audience-song-card.audience-song-card-own {
+  border-color: rgba(52, 211, 153, 0.6);
+  background: linear-gradient(145deg, rgba(15, 62, 58, 0.58), rgba(21, 45, 82, 0.64));
+  box-shadow:
+    inset 0 0 0 1px rgba(52, 211, 153, 0.2),
+    0 12px 24px rgba(6, 18, 37, 0.42);
+}
+
+.audience-shell-modern .audience-song-own-badge {
+  border-color: rgba(110, 231, 183, 0.62);
+  background: rgba(16, 185, 129, 0.28);
+  color: #d1fae5;
+}
+
 .song-card-move {
   animation: song-card-move 420ms ease;
 }
@@ -6210,6 +6248,27 @@
   margin-top: 0.15rem;
 }
 
+.gig-brb-input-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.gig-brb-input-head .gig-switcher-label {
+  margin: 0;
+}
+
+.gig-brb-roll-button {
+  min-height: 2rem;
+  padding: 0.32rem 0.72rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
 .gig-countdown-datetime-row {
   padding-left: 0.5rem;
 }
@@ -6226,6 +6285,8 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 0;
+  background: transparent !important;
+  border-color: rgba(93, 215, 255, 0.18);
 }
 
 .gig-venue-logo-preview-stage {
@@ -6233,7 +6294,7 @@
   height: 11rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(93, 215, 255, 0.28);
-  background: linear-gradient(180deg, rgba(10, 18, 38, 0.82), rgba(9, 16, 34, 0.66));
+  background: rgba(13, 17, 54, 0.6);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -6255,7 +6316,7 @@
   height: 6.2rem;
   border-radius: 0.65rem;
   border: 1px dashed rgba(93, 215, 255, 0.45);
-  background: rgba(9, 16, 34, 0.72);
+  background: rgba(13, 17, 54, 0.6);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -6361,6 +6422,45 @@
 
 .gig-venue-logo-crop-controls input[type='range'] {
   width: 100%;
+}
+
+.gig-venue-logo-size-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.gig-venue-logo-size-preset {
+  min-height: 2rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(136, 192, 255, 0.3);
+  background: rgba(9, 17, 36, 0.62);
+  color: #dbe7ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.gig-venue-logo-size-preset:hover,
+.gig-venue-logo-size-preset:focus-visible {
+  border-color: rgba(122, 214, 255, 0.62);
+  background: rgba(12, 24, 50, 0.84);
+  box-shadow: 0 0 0 1px rgba(122, 214, 255, 0.24);
+  outline: none;
+}
+
+.gig-venue-logo-size-preset.is-selected {
+  border-color: rgba(93, 215, 255, 0.78);
+  background: rgba(15, 32, 62, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(93, 215, 255, 0.4);
+}
+
+.gig-venue-logo-size-hint {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: rgba(214, 232, 255, 0.84);
 }
 
 .gig-countdown-requirements {
@@ -11573,17 +11673,21 @@
   background:
     linear-gradient(150deg, rgba(8, 15, 34, 0.66) 0%, rgba(10, 19, 40, 0.76) 100%),
     url('/images/Human%20Jukebox%20Mirror%20background.png') center center / cover no-repeat;
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(16rem, 24rem);
   align-items: center;
   justify-content: center;
-  gap: clamp(1.1rem, 3vw, 3rem);
-  padding: clamp(1rem, 2.5vw, 2.2rem);
+  column-gap: clamp(1.2rem, 3.6vw, 3.4rem);
+  row-gap: 1rem;
+  padding: clamp(1.1rem, 2.6vw, 2.4rem) clamp(1rem, 3vw, 3rem);
   z-index: 8000;
 }
 
 .mirror-brb-copy {
-  max-width: min(56vw, 52rem);
+  max-width: min(58vw, 54rem);
+  justify-self: start;
+  display: grid;
+  gap: 0.72rem;
 }
 
 .mirror-brb-icon {
@@ -11601,23 +11705,30 @@
 }
 
 .mirror-brb-message {
-  font-size: 1.5rem;
-  color: #94a3b8;
+  font-size: clamp(1.18rem, 1.95vw, 1.7rem);
+  color: #d6e4f5;
   margin: 0;
+  line-height: 1.34;
+  max-width: 48ch;
 }
 
 .mirror-brb-qr-panel {
-  width: min(28vw, 24rem);
+  width: min(24vw, 22rem);
   min-width: 12.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.95rem;
+  gap: 0.5rem;
+  padding: 1.05rem;
   border-radius: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.36);
+  background:
+    linear-gradient(170deg, rgba(15, 23, 42, 0.86), rgba(9, 15, 30, 0.9));
+  box-shadow:
+    0 18px 36px rgba(2, 6, 23, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   text-decoration: none;
+  justify-self: end;
 }
 
 .mirror-brb-qr-image {
@@ -11648,29 +11759,41 @@
 }
 
 .mirror-brb-qr-flash-line {
-  margin: 0.2rem 0 0;
+  margin: 0.15rem 0 0;
   width: 100%;
-  min-height: 1.2em;
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: #fcd34d;
+  min-height: 1.35em;
+  font-size: clamp(1.05rem, 1.5vw, 1.36rem);
+  font-weight: 900;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.98);
   text-align: center;
-  animation: mirror-qr-flash-pulse 5s ease-in-out infinite;
+  line-height: 1.15;
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.8),
+    0 0 16px rgba(255, 255, 255, 0.58),
+    0 0 24px rgba(93, 215, 255, 0.45),
+    0 0 32px rgba(93, 215, 255, 0.28),
+    0 2px 4px rgba(0, 0, 0, 0.56);
+  animation: mirror-countdown-flash-text 2.6s ease-in-out infinite;
 }
 
 @media (max-width: 900px) {
   .mirror-brb-overlay {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    align-content: center;
   }
 
   .mirror-brb-copy {
     max-width: min(92vw, 38rem);
     text-align: center;
+    justify-self: center;
   }
 
   .mirror-brb-qr-panel {
-    width: min(70vw, 20rem);
+    width: min(76vw, 21rem);
+    justify-self: center;
   }
 }
 

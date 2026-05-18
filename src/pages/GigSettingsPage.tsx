@@ -159,6 +159,16 @@ const VENUE_LOGO_APPEARANCE_OPTIONS: Array<{
   },
 ]
 
+const VENUE_LOGO_SIZE_PRESETS: Array<{
+  label: string
+  scale: number
+}> = [
+  { label: 'Small', scale: 80 },
+  { label: 'Medium', scale: 100 },
+  { label: 'Large', scale: 130 },
+  { label: 'Hero', scale: 165 },
+]
+
 type MirrorVenueLogoLayoutPreviewMessage = {
   eventId: string
   venueLogoScale: number
@@ -2496,7 +2506,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               }}
               disabled={busy || processingVenueLogo}
             />
-            <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name. Background cleanup is automatic for most solid-color logo backgrounds. Supports common image formats up to 10 MB.</p>
+            <p className="field-hint">Display your venue's logo at the top of the mirror screen alongside the event name. Background cleanup is automatic for most solid-color logo backgrounds. After upload, use Size presets + crop sliders and Appearance options below. Supports common image formats up to 10 MB.</p>
             {state.venueLogoUrl ? (
               <div className="photo-preview gig-venue-logo-crop-shell" ref={venueLogoCropShellRef}>
                 <div className="gig-venue-logo-preview-stage" aria-label="Venue logo full preview">
@@ -2527,6 +2537,27 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                       updateState({ venueLogoScale: Number.parseInt(e.target.value, 10) || 100 })
                     }}
                   />
+                  <div className="gig-venue-logo-size-presets" role="group" aria-label="Logo size presets">
+                    {VENUE_LOGO_SIZE_PRESETS.map((preset) => {
+                      const isSelected = Math.abs(state.venueLogoScale - preset.scale) <= 2
+
+                      return (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          className={`gig-venue-logo-size-preset${isSelected ? ' is-selected' : ''}`}
+                          aria-pressed={isSelected}
+                          onClick={() => {
+                            pushUndoState()
+                            updateState({ venueLogoScale: preset.scale })
+                          }}
+                        >
+                          {preset.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="gig-venue-logo-size-hint">Quick size choices for imported logos.</p>
 
                   <label htmlFor="gig-venue-logo-offset-x">Crop left/right: {state.venueLogoOffsetX}%</label>
                   <input

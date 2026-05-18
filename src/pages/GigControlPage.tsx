@@ -40,6 +40,14 @@ const INTRO_AUDIO_LOCK_TTL_MS = 90_000
 const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
 const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
+const BRB_MESSAGE_DICE_OPTIONS = [
+  'Quick break in progress. Keep your requests coming and we will be right back.',
+  'Bar check and sound check in one mission. Stay fabulous, we are back shortly.',
+  'Intermission mode: refilling pints and rebooting dance energy. Back in a minute.',
+  'Tiny backstage reset. Queue your songs and hold onto that groove.',
+  'We are stretching, hydrating, and pretending to be professionals. Right back.',
+  'Break time. Scan the QR, claim your anthem, and we will return very soon.',
+]
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
 type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
@@ -261,6 +269,13 @@ function getEmergencyOverlayMessage(preset: EmergencyOverlayPreset) {
   }
 
   return 'Last song coming up soon. Get your final request in now!'
+}
+
+function pickRandomBreakMessage(previousMessage: string | null | undefined) {
+  const normalizedPrevious = previousMessage?.trim().toLowerCase() || ''
+  const candidates = BRB_MESSAGE_DICE_OPTIONS.filter((message) => message.trim().toLowerCase() !== normalizedPrevious)
+  const pool = candidates.length > 0 ? candidates : BRB_MESSAGE_DICE_OPTIONS
+  return pool[Math.floor(Math.random() * pool.length)] ?? DEFAULT_BRB_MESSAGE
 }
 
 type MirrorSyncHealthBadgeProps = {
@@ -1388,6 +1403,15 @@ function GigControlPage() {
   const toggleBrbState = useCallback(async () => {
     const nextBrb = !isBrbActive
     await setMirrorOverlayMessage(nextBrb ? (brbCustomMessage.trim() || DEFAULT_BRB_MESSAGE) : null)
+  }, [brbCustomMessage, isBrbActive, setMirrorOverlayMessage])
+
+  const rollBreakMessage = useCallback(async () => {
+    const nextMessage = pickRandomBreakMessage(brbCustomMessage)
+    setBrbCustomMessage(nextMessage)
+
+    if (isBrbActive) {
+      await setMirrorOverlayMessage(nextMessage)
+    }
   }, [brbCustomMessage, isBrbActive, setMirrorOverlayMessage])
 
   const triggerEmergencyOverlay = useCallback(async (preset: EmergencyOverlayPreset) => {
@@ -2623,7 +2647,19 @@ function GigControlPage() {
           </div>
           <ActionButtonGroup actions={headerActions} layoutClassName="gig-control-actions gig-control-primary-actions" />
           <div className="gig-brb-input-block">
-            <label htmlFor="gig-brb-message" className="gig-switcher-label">BRB message (shown on mirror while paused)</label>
+            <div className="gig-brb-input-head">
+              <label htmlFor="gig-brb-message" className="gig-switcher-label">BRB message (shown on mirror while paused)</label>
+              <button
+                type="button"
+                className="ghost-button gig-brb-roll-button"
+                onClick={() => {
+                  void rollBreakMessage()
+                }}
+                disabled={mirrorOverlayUpdateBusy}
+              >
+                🎲 Roll Message
+              </button>
+            </div>
             <input
               id="gig-brb-message"
               className="gig-switcher-select"
@@ -2633,6 +2669,7 @@ function GigControlPage() {
               }}
               placeholder={DEFAULT_BRB_MESSAGE}
             />
+            <p className="field-hint">Tip: click Roll Message for a random break line before you go on break.</p>
           </div>
         </article>
 
