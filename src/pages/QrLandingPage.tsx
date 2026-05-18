@@ -130,12 +130,13 @@ function formatCountdownLabel(remainingMs: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function resolveLoungeDestination(
+function resolveAudienceDestination(
   eventId: string | null,
   isTestPreviewMode: boolean,
   locale: AudienceLocale,
   countdownTargetMs: number | null,
   audienceLinkVersion: string | null,
+  clockOffsetMs: number,
 ) {
   const params = new URLSearchParams()
 
@@ -155,10 +156,14 @@ function resolveLoungeDestination(
     params.set('v', audienceLinkVersion)
   }
 
+  if (Number.isFinite(clockOffsetMs)) {
+    params.set('co', String(Math.round(clockOffsetMs)))
+  }
+
   params.set('locale', locale)
 
   const queryString = params.toString()
-  return queryString ? `/lounge-link?${queryString}` : '/lounge-link'
+  return queryString ? `/audience?${queryString}` : '/audience'
 }
 
 function QrLandingPage() {
@@ -174,6 +179,10 @@ function QrLandingPage() {
   const [syncStatusReason, setSyncStatusReason] = useState<SyncStatusReason | null>(null)
   const didAutoNavigateRef = useRef(false)
   const locale = useMemo(() => resolveAudienceLocale(search), [search])
+
+  useEffect(() => {
+    void import('./EventPage')
+  }, [])
 
   const copy = useMemo(() => {
     if (locale === 'da') {
@@ -245,9 +254,16 @@ function QrLandingPage() {
     return version || null
   }, [search])
 
-  const loungeDestination = useMemo(
-    () => resolveLoungeDestination(eventId, isTestPreviewMode, locale, countdownTargetMsFromLink, audienceLinkVersion),
-    [audienceLinkVersion, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale],
+  const audienceDestination = useMemo(
+    () => resolveAudienceDestination(
+      eventId,
+      isTestPreviewMode,
+      locale,
+      countdownTargetMsFromLink,
+      audienceLinkVersion,
+      clockOffsetMs,
+    ),
+    [audienceLinkVersion, clockOffsetMs, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale],
   )
   const countdownRemainingMs = eventStartMs === null ? null : eventStartMs - nowMs
   const waitingForLive = Boolean(eventId) && !eventRoomOpen
@@ -407,8 +423,8 @@ function QrLandingPage() {
     }
 
     didAutoNavigateRef.current = true
-    navigate(loungeDestination, { replace: true })
-  }, [eventId, eventRoomOpen, loungeDestination, navigate])
+    navigate(audienceDestination, { replace: true })
+  }, [audienceDestination, eventId, eventRoomOpen, navigate])
 
   return (
     <section className="qr-landing-shell" aria-label="QR code landing page">
@@ -418,7 +434,7 @@ function QrLandingPage() {
           className={`qr-landing-button${shouldDisableLoungeButton ? ' qr-landing-button-disabled' : ''}`}
           aria-label={copy.ariaGoToAudienceLounge}
           onClick={() => {
-            navigate(loungeDestination)
+            navigate(audienceDestination)
           }}
           disabled={shouldDisableLoungeButton}
         >

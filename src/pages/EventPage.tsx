@@ -102,6 +102,28 @@ function resolveCountdownTargetMsFromSearch(search: string): number | null {
   return parsedValue
 }
 
+function resolveClockOffsetMsFromSearch(search: string): number | null {
+  const params = new URLSearchParams(search)
+  const rawValue = params.get('co')?.trim() || params.get('clockOffsetMs')?.trim() || ''
+
+  if (!rawValue) {
+    return null
+  }
+
+  const parsedValue = Number(rawValue)
+
+  if (!Number.isFinite(parsedValue)) {
+    return null
+  }
+
+  // Reject clearly malformed offsets while allowing realistic skew corrections.
+  if (Math.abs(parsedValue) > 86_400_000) {
+    return null
+  }
+
+  return Math.round(parsedValue)
+}
+
 async function fetchServerClockOffsetMs(): Promise<number | null> {
   if (typeof window === 'undefined') {
     return null
@@ -1033,6 +1055,7 @@ function normalizeExternalLink(url: string | null | undefined) {
 function EventPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const requestedClockOffsetMs = useMemo(() => resolveClockOffsetMsFromSearch(location.search), [location.search])
   const { authError, loading: authLoading, user, signOut } = useAuthStore()
   const {
     event,
@@ -1070,7 +1093,7 @@ function EventPage() {
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(true)
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
-  const [audienceClockOffsetMs, setAudienceClockOffsetMs] = useState(0)
+  const [audienceClockOffsetMs, setAudienceClockOffsetMs] = useState(() => requestedClockOffsetMs ?? 0)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
   const upcomingCoverFetchInFlightRef = useRef<Set<string>>(new Set())
   const upcomingCoverFetchRetryAfterRef = useRef<Map<string, number>>(new Map())
@@ -1081,7 +1104,7 @@ function EventPage() {
   const upcomingNextRefreshAtRef = useRef(0)
   const upcomingFailureCountRef = useRef(0)
   const upcomingBaseFetchHealthyRef = useRef(false)
-  const audienceClockOffsetRef = useRef(0)
+  const audienceClockOffsetRef = useRef(requestedClockOffsetMs ?? 0)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -1096,6 +1119,15 @@ function EventPage() {
   useEffect(() => {
     audienceClockOffsetRef.current = audienceClockOffsetMs
   }, [audienceClockOffsetMs])
+
+  useEffect(() => {
+    if (requestedClockOffsetMs === null) {
+      return
+    }
+
+    audienceClockOffsetRef.current = requestedClockOffsetMs
+    setAudienceClockOffsetMs(requestedClockOffsetMs)
+  }, [requestedClockOffsetMs])
 
   useEffect(() => {
     let isCurrent = true
