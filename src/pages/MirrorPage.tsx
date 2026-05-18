@@ -1098,6 +1098,43 @@ function getMirrorCountdownTarget(gigDate: string | null | undefined, gigStartTi
   return scheduledStart
 }
 
+async function fetchServerClockOffsetMs(): Promise<number | null> {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const requestStartedAt = Date.now()
+
+  try {
+    const response = await fetch(`/api/keepwarm?clock-sync=${Date.now()}`, {
+      method: 'GET',
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const requestEndedAt = Date.now()
+    const serverDateHeader = response.headers.get('date')
+
+    if (!serverDateHeader) {
+      return null
+    }
+
+    const serverNowMs = Date.parse(serverDateHeader)
+
+    if (!Number.isFinite(serverNowMs)) {
+      return null
+    }
+
+    const estimatedClientNowMs = Math.round((requestStartedAt + requestEndedAt) / 2)
+    return serverNowMs - estimatedClientNowMs
+  } catch {
+    return null
+  }
+}
+
 function formatMirrorCountdownLabel(remainingMs: number) {
   const safeRemainingMs = Math.max(0, remainingMs)
   const totalSeconds = Math.floor(safeRemainingMs / 1000)
@@ -1225,6 +1262,7 @@ function MirrorPageContent() {
   const [audienceLocale, setAudienceLocale] = useState<AudienceLocale>(() => readCommittedAudienceLocale())
   const [isMirrorNetworkAllowed, setIsMirrorNetworkAllowed] = useState(false)
   const [hasCheckedMirrorNetworkAccess, setHasCheckedMirrorNetworkAccess] = useState(false)
+  const [mirrorClockOffsetMs, setMirrorClockOffsetMs] = useState(0)
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const [forceQuoteMode, setForceQuoteMode] = useState(false)
@@ -1242,6 +1280,7 @@ function MirrorPageContent() {
   const spotlightQueueRef = useRef<SpotlightQueueItem[]>([])
   const spotlightBusyRef = useRef(false)
   const seenSpotlightPostIdsRef = useRef<Set<string>>(new Set())
+  const mirrorClockOffsetRef = useRef(0)
   const mirrorShellRef = useRef<HTMLDivElement | null>(null)
   const venueLogoImageRef = useRef<HTMLImageElement | null>(null)
   const autoFullscreenAttemptedRef = useRef(false)
@@ -1262,6 +1301,38 @@ function MirrorPageContent() {
   const funFactsCacheRef = useRef<FunFactsCache>({})
   const funFactsInFlightRef = useRef<Partial<Record<string, Promise<string[]>>>>({})
   const mirrorLayoutStateRef = useRef(mirrorLayoutState)
+  const getMirrorNowMs = useCallback(() => Date.now() + mirrorClockOffsetRef.current, [])
+
+  useEffect(() => {
+    mirrorClockOffsetRef.current = mirrorClockOffsetMs
+  }, [mirrorClockOffsetMs])
+
+  useEffect(() => {
+    let isCurrent = true
+
+    const syncClockOffset = async () => {
+      const nextOffsetMs = await fetchServerClockOffsetMs()
+
+      if (!isCurrent || nextOffsetMs === null) {
+        return
+      }
+
+      mirrorClockOffsetRef.current = nextOffsetMs
+      setMirrorClockOffsetMs(nextOffsetMs)
+      setCountdownNow(Date.now() + nextOffsetMs)
+    }
+
+    void syncClockOffset()
+
+    const timerId = window.setInterval(() => {
+      void syncClockOffset()
+    }, 120_000)
+
+    return () => {
+      isCurrent = false
+      window.clearInterval(timerId)
+    }
+  }, [])
 
   const setMirrorWarningMessage = (message: string) => {
     if (demoMode) return  // suppress all warnings in demo — reconnects are expected and not real
@@ -2465,16 +2536,16 @@ function MirrorPageContent() {
       return
     }
 
-    setCountdownNow(Date.now())
+    setCountdownNow(getMirrorNowMs())
 
     const timerId = window.setInterval(() => {
-      setCountdownNow(Date.now())
+      setCountdownNow(getMirrorNowMs())
     }, 1000)
 
     return () => {
       window.clearInterval(timerId)
     }
-  }, [countdownTarget, isLive, layoutEditMode])
+  }, [countdownTarget, isLive, layoutEditMode, getMirrorNowMs])
 
   useEffect(() => {
     const onRuntimeError = (event: ErrorEvent) => {
