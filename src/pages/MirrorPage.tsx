@@ -1214,7 +1214,7 @@ function MirrorPageContent() {
   const [breakTransitionMessage, setBreakTransitionMessage] = useState<string | null>(null)
   const [breakTransitionTone, setBreakTransitionTone] = useState<'on-break' | 'back-live'>('on-break')
   const [mirrorWarning, setMirrorWarning] = useState<string | null>(null)
-  const [autoLiveLockDebugText, setAutoLiveLockDebugText] = useState<string | null>(null)
+  const [, setAutoLiveLockDebugText] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
     () => new URLSearchParams(window.location.search).get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) === '1',
@@ -1511,11 +1511,7 @@ function MirrorPageContent() {
   const countdownQrDestinationLabel = useCustomCountdownQr
     ? customCountdownQrLink
     : (legacyCountdownQrLink || audienceUrl)
-  const breakQrDestinationLabel = useCustomBreakQr
-    ? customBreakQrLink
-    : countdownQrDestinationLabel
   const countdownQrText = configuredCountdownQrText || countdownQrDestinationLabel
-  const breakQrText = configuredCountdownQrText || breakQrDestinationLabel
   
   const qrFlashLines = useMemo(() => {
     const baseLines = [...QR_FLASH_BASE_LINES]
@@ -3540,8 +3536,8 @@ function MirrorPageContent() {
             </p>
           </div>
 
-          {event?.venueLogoUrl ? (
-            <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
+          <div className="mirror-venue-logo-slot" aria-label="Venue logo slot">
+            {event?.venueLogoUrl ? (
               <p className="mirror-venue-logo" aria-label="Venue logo">
                 <img
                   ref={venueLogoImageRef}
@@ -3550,8 +3546,13 @@ function MirrorPageContent() {
                   className="mirror-venue-logo-image"
                 />
               </p>
-            </div>
-          ) : null}
+            ) : (
+              <p className="mirror-venue-logo-placeholder" aria-label="Venue logo placeholder">
+                <span className="mirror-venue-logo-placeholder-title">Your Logo</span>
+                <span className="mirror-venue-logo-placeholder-copy">Designed to sit here</span>
+              </p>
+            )}
+          </div>
 
           <div className="mirror-header-live-stack">
             <span className={`mirror-status ${event?.roomOpen ? 'mirror-open live-pulse' : 'mirror-paused'}`.trim()}>
@@ -3559,9 +3560,6 @@ function MirrorPageContent() {
             </span>
             {!hideControlsForAudience ? (
               <p className="mirror-edge-cast-hint" role="note">Edge cast: open browser menu (three dots) and choose Cast media to device.</p>
-            ) : null}
-            {shouldShowHostDebugHints && autoLiveLockDebugText ? (
-              <p className="mirror-warning" role="status">{autoLiveLockDebugText}</p>
             ) : null}
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
@@ -4008,7 +4006,7 @@ function MirrorPageContent() {
           <div className="mirror-brb-qr-panel">
             <img src={breakQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
             <p className="mirror-brb-qr-label">Scan for the pints. Log in for the tunes.</p>
-              {showCountdownQrLink ? <p className="mirror-brb-qr-url">{breakQrText}</p> : null}
+              {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </div>
         </div>

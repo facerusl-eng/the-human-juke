@@ -369,10 +369,14 @@
   transform: translateX(-50%);
   width: clamp(170px, 18vw, 268px);
   height: clamp(70px, 7.8vw, 108px);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  padding: 0.28rem;
+  border-radius: 14px;
+  border: 1px solid rgba(93, 215, 255, 0.34);
+  background:
+    linear-gradient(145deg, rgba(9, 17, 36, 0.78) 0%, rgba(12, 23, 48, 0.82) 100%);
+  box-shadow:
+    0 10px 24px rgba(3, 8, 22, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
   z-index: 2;
 }
 
@@ -417,7 +421,7 @@
   font-weight: 800;
 }
 
-/* ── Scrolling Banner / Ticker ── */
+/* ÔöÇÔöÇ Scrolling Banner / Ticker ÔöÇÔöÇ */
 .mirror-banner-editor {
   display: flex;
   flex-direction: column;
@@ -1241,7 +1245,7 @@
   }
 }
 
-/* ── TOP section ─────────────────────────────────────────────────────────── */
+/* ÔöÇÔöÇ TOP section ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
 
 .mirror-pre-show-top {
   display: grid;
@@ -1279,7 +1283,7 @@
   margin-top: 0.5rem;
 }
 
-/* ── MIDDLE section — two columns ────────────────────────────────────────── */
+/* ÔöÇÔöÇ MIDDLE section ÔÇö two columns ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
 
 .mirror-pre-show-middle {
   display: grid;
@@ -1346,7 +1350,7 @@
   position: relative;
 }
 
-/* ── QR image ─────────────────────────────────────────────────────────────── */
+/* ÔöÇÔöÇ QR image ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
 
 .mirror-qr-image {
   width: clamp(122px, min(20vw, 18dvh), 300px);
@@ -1445,7 +1449,7 @@
   justify-content: center;
 }
 
-/* ── Countdown flash block: dedicated flashing text beneath QR ────────────── */
+/* ÔöÇÔöÇ Countdown flash block: dedicated flashing text beneath QR ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
 .mirror-countdown-flash-block {
   width: 100%;
   max-width: 100vw;
@@ -1457,8 +1461,8 @@
   background: linear-gradient(180deg, rgba(93, 215, 255, 0.08), rgba(93, 215, 255, 0.04));
   border-top: 1px solid rgba(93, 215, 255, 0.15);
   border-bottom: 1px solid rgba(93, 215, 255, 0.1);
-  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   overflow: hidden;
 }
 
@@ -1510,7 +1514,7 @@
   }
 }
 
-/* ── How it works ─────────────────────────────────────────────────────────── */
+/* ÔöÇÔöÇ How it works ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
 
 .mirror-how-it-works {
   display: grid;
@@ -1649,7 +1653,7 @@
   }
 }
 
-/* ── BOTTOM section — reserved ────────────────────────────────────────────── */
+/* ÔöÇÔöÇ BOTTOM section ÔÇö reserved ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
 
 .mirror-pre-show-bottom {
   min-height: 0.5rem;
@@ -3770,71 +3774,4 @@
 
 .mirror-debug-badge p {
   margin: 0;
-}
-
-/* Live layout stability: prevent top media from collapsing queue/feed area. */
-.mirror-shell-hide-controls .mirror-kiosk-columns {
-  grid-template-rows: minmax(0, 0.36fr) minmax(0, 0.64fr);
-}
-
-.mirror-shell-hide-controls .mirror-kiosk-right {
-  min-height: 0;
-  overflow: hidden;
-}
-
-.mirror-shell-hide-controls .mirror-now-playing {
-  min-height: 0;
-  overflow: hidden;
-}
-
-.mirror-shell-hide-controls .mirror-now-playing-band-label {
-  grid-column: 1 / -1;
-  grid-row: 1;
-}
-
-.mirror-shell-hide-controls .mirror-now-playing-track {
-  grid-column: 1;
-  grid-row: 2;
-  min-height: 0;
-  overflow: hidden;
-  align-content: center;
-}
-
-.mirror-shell-hide-controls .mirror-now-playing-qr-panel {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  min-height: 0;
-  align-self: stretch;
-}
-
-.mirror-shell-hide-controls .mirror-now-playing-artwork-slot {
-  min-height: 0;
-}
-
-.mirror-shell-hide-controls .mirror-now-playing-cover,
-.mirror-shell-hide-controls .mirror-now-playing-karaoke-mark {
-  width: clamp(106px, 9.8vw, 172px);
-  min-width: clamp(106px, 9.8vw, 172px);
-  min-height: clamp(106px, 9.8vw, 172px);
-}
-
-.mirror-shell-hide-controls .mirror-live-feed-frame,
-.mirror-shell-hide-controls .mirror-song-queue-frame {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
-  overflow: hidden;
-}
-
-.mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue {
-  display: grid;
-  grid-template-rows: none !important;
-  grid-auto-rows: minmax(0, auto);
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue > .mirror-queue-item:nth-child(n + 6) {
-  display: flex;
 }
