@@ -84,6 +84,10 @@ function CreateGigPage() {
   const [showInAudienceNoGig, setShowInAudienceNoGig] = useState(true)
   const [isTestGig, setIsTestGig] = useState(false)
   const [autoLiveEnabled, setAutoLiveEnabled] = useState(false)
+  const [mirrorCountdownQrCustomEnabled, setMirrorCountdownQrCustomEnabled] = useState(false)
+  const [mirrorCountdownQrCustomUrl, setMirrorCountdownQrCustomUrl] = useState('')
+  const [mirrorBreakQrEnabled, setMirrorBreakQrEnabled] = useState(false)
+  const [mirrorBreakQrCustomUrl, setMirrorBreakQrCustomUrl] = useState('')
   const [introAudioUrl, setIntroAudioUrl] = useState<string | null>(null)
   const [introAudioName, setIntroAudioName] = useState('')
   const [selectedIntroAudioPath, setSelectedIntroAudioPath] = useState<string>('')
@@ -367,6 +371,10 @@ function CreateGigPage() {
       audienceVotingEnabled?: boolean
       autoLiveEnabled?: boolean
       introAudioUrl?: string | null
+      mirrorCountdownQrCustomEnabled?: boolean
+      mirrorCountdownQrCustomUrl?: string | null
+      mirrorBreakQrEnabled?: boolean
+      mirrorBreakQrCustomUrl?: string | null
       selectedPlaylistIds?: string[]
     },
   ) => {
@@ -473,6 +481,10 @@ function CreateGigPage() {
       artistName: eventType === 'build-self' ? (artistName.trim() || undefined) : undefined,
       audienceVotingEnabled: eventType === 'build-self' ? audienceVotingEnabled : undefined,
       autoLiveEnabled,
+      mirrorCountdownQrCustomEnabled,
+      mirrorCountdownQrCustomUrl: mirrorCountdownQrCustomUrl.trim() || null,
+      mirrorBreakQrEnabled,
+      mirrorBreakQrCustomUrl: mirrorBreakQrCustomUrl.trim() || null,
       introAudioUrl,
       selectedPlaylistIds: [...new Set([selectedPrimaryPlaylistId, selectedKaraokePlaylistId].filter((playlistId): playlistId is string => Boolean(playlistId)))],
       isTestGig,
@@ -1019,6 +1031,52 @@ function CreateGigPage() {
           </label>
           {autoLiveEnabled ? (
             <p className="field-hint">The gig will activate automatically when the scheduled start time is reached — as long as the host dashboard is open in a browser.</p>
+          ) : null}
+
+          <label className="checkbox-row create-gig-checkbox-row" htmlFor="mirror-countdown-qr-enabled">
+            <input
+              id="mirror-countdown-qr-enabled"
+              type="checkbox"
+              checked={mirrorCountdownQrCustomEnabled}
+              onChange={(e) => setMirrorCountdownQrCustomEnabled(e.target.checked)}
+            />
+            <span>Enable custom QR link on Countdown screen</span>
+          </label>
+          {mirrorCountdownQrCustomEnabled ? (
+            <div className="field-row">
+              <label htmlFor="mirror-countdown-qr-url">Countdown screen QR link</label>
+              <input
+                id="mirror-countdown-qr-url"
+                type="url"
+                value={mirrorCountdownQrCustomUrl}
+                onChange={(e) => setMirrorCountdownQrCustomUrl(e.target.value)}
+                placeholder="https://example.com/countdown"
+              />
+              <p className="field-hint">Shown as QR destination while countdown is active.</p>
+            </div>
+          ) : null}
+
+          <label className="checkbox-row create-gig-checkbox-row" htmlFor="mirror-break-qr-enabled">
+            <input
+              id="mirror-break-qr-enabled"
+              type="checkbox"
+              checked={mirrorBreakQrEnabled}
+              onChange={(e) => setMirrorBreakQrEnabled(e.target.checked)}
+            />
+            <span>Enable custom QR link on Break screen</span>
+          </label>
+          {mirrorBreakQrEnabled ? (
+            <div className="field-row">
+              <label htmlFor="mirror-break-qr-url">Break screen QR link</label>
+              <input
+                id="mirror-break-qr-url"
+                type="url"
+                value={mirrorBreakQrCustomUrl}
+                onChange={(e) => setMirrorBreakQrCustomUrl(e.target.value)}
+                placeholder="https://example.com/break"
+              />
+              <p className="field-hint">Shown as QR destination during BRB / break mode.</p>
+            </div>
           ) : null}
 
           <div className="field-row create-gig-intro-panel">

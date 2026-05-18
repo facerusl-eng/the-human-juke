@@ -166,6 +166,10 @@ type CreateEventOptions = {
   audienceIcelandicEnabled?: boolean
   autoLiveEnabled?: boolean
   introAudioUrl?: string | null
+  mirrorCountdownQrCustomEnabled?: boolean
+  mirrorCountdownQrCustomUrl?: string | null
+  mirrorBreakQrEnabled?: boolean
+  mirrorBreakQrCustomUrl?: string | null
   selectedPlaylistIds?: string[]
   isTestGig?: boolean
 }
@@ -4260,13 +4264,13 @@ function QueueProvider({ children }: PropsWithChildren) {
           mirrorCountdownEnabled: true,
           mirrorCountdownShowQrLink: true,
           mirrorCountdownQrLink: null,
-          mirrorCountdownQrCustomEnabled: false,
-          mirrorCountdownQrCustomUrl: null,
+          mirrorCountdownQrCustomEnabled: options?.mirrorCountdownQrCustomEnabled ?? false,
+          mirrorCountdownQrCustomUrl: options?.mirrorCountdownQrCustomUrl ?? null,
           mirrorCountdownQrText: null,
           mirrorCountdownQrFlashEnabled: true,
           mirrorCountdownQrFlashVenue: null,
-          mirrorBreakQrEnabled: false,
-          mirrorBreakQrCustomUrl: null,
+          mirrorBreakQrEnabled: options?.mirrorBreakQrEnabled ?? false,
+          mirrorBreakQrCustomUrl: options?.mirrorBreakQrCustomUrl ?? null,
           mirrorBannerEnabled: true,
           mirrorBannerText: null,
           allowDuplicateRequests: true,
@@ -4347,6 +4351,10 @@ function QueueProvider({ children }: PropsWithChildren) {
             || options?.audienceVotingEnabled === false
             || options?.autoLiveEnabled
             || options?.introAudioUrl
+            || options?.mirrorCountdownQrCustomEnabled
+            || options?.mirrorCountdownQrCustomUrl
+            || options?.mirrorBreakQrEnabled
+            || options?.mirrorBreakQrCustomUrl
           ) {
             void supabase
               .from('events')
@@ -4359,6 +4367,10 @@ function QueueProvider({ children }: PropsWithChildren) {
                 audience_voting_enabled: options?.audienceVotingEnabled ?? true,
                 auto_live_enabled: options?.autoLiveEnabled ?? false,
                 intro_audio_url: options?.introAudioUrl ?? null,
+                mirror_countdown_qr_custom_enabled: options?.mirrorCountdownQrCustomEnabled ?? false,
+                mirror_countdown_qr_custom_url: options?.mirrorCountdownQrCustomUrl ?? null,
+                mirror_break_qr_enabled: options?.mirrorBreakQrEnabled ?? false,
+                mirror_break_qr_custom_url: options?.mirrorBreakQrCustomUrl ?? null,
               })
               .eq('id', createdGigId)
               .then(({ error }) => {
@@ -4461,6 +4473,10 @@ function QueueProvider({ children }: PropsWithChildren) {
           event_artist_name: options?.artistName ?? null,
           auto_live_enabled: options?.autoLiveEnabled ?? false,
           intro_audio_url: options?.introAudioUrl ?? null,
+          mirror_countdown_qr_custom_enabled: options?.mirrorCountdownQrCustomEnabled ?? false,
+          mirror_countdown_qr_custom_url: options?.mirrorCountdownQrCustomUrl ?? null,
+          mirror_break_qr_enabled: options?.mirrorBreakQrEnabled ?? false,
+          mirror_break_qr_custom_url: options?.mirrorBreakQrCustomUrl ?? null,
         }
 
         let newEvent: { id: string } | null = null
@@ -4488,6 +4504,10 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.intro_audio_url
             delete fallbackPayload.event_artist_name
             delete fallbackPayload.event_theme
+            delete fallbackPayload.mirror_countdown_qr_custom_enabled
+            delete fallbackPayload.mirror_countdown_qr_custom_url
+            delete fallbackPayload.mirror_break_qr_enabled
+            delete fallbackPayload.mirror_break_qr_custom_url
           }
           const { data: insertedWithoutCover, error: fallbackInsertError } = await withTimeout(
             withAuthLockRetry(() =>
