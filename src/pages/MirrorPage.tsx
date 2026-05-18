@@ -85,8 +85,8 @@ const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_MAX_AGE_MS = 30_000
 const MIRROR_LAYOUT_STATE_PROFILE_COLUMN = 'default_mirror_layout_state'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
-const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
-const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
+const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
+const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
 const QR_FLASH_ROTATE_INTERVAL_MS = 5000
 const QR_FLASH_BASE_LINES = [
   'Thirsty?',

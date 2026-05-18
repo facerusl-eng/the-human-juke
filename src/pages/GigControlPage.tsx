@@ -37,16 +37,16 @@ const ROOM_STATE_ENSURE_RETRY_DELAY_MS = 650
 const AUTO_LIVE_RETRY_DELAY_MS = 15_000
 const INTRO_AUDIO_LOCK_STORAGE_KEY = 'human-jukebox-intro-audio-play-lock'
 const INTRO_AUDIO_LOCK_TTL_MS = 90_000
-const DEFAULT_BRB_MESSAGE = 'Briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Remain splendid.'
+const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_ON_MESSAGE = 'Intermission declared. Keep calm, polish your pint, and pretend this is all deliberate.'
-const BREAK_TRANSITION_BACK_MESSAGE = 'We have returned from the interval, mostly intact and vaguely professional.'
+const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
 const BRB_MESSAGE_DICE_OPTIONS = [
-  'Quick break in progress. Keep your requests coming and we will be right back.',
-  'Bar check and sound check in one mission. Stay fabulous, we are back shortly.',
-  'Intermission mode: refilling pints and rebooting dance energy. Back in a minute.',
-  'Tiny backstage reset. Queue your songs and hold onto that groove.',
-  'We are stretching, hydrating, and pretending to be professionals. Right back.',
-  'Break time. Scan the QR, claim your anthem, and we will return very soon.',
+  'Quick break in progress. Keep your requests coming and I will be right back.',
+  'Bar check and sound check in one mission. Stay fabulous, I am back shortly.',
+  'Intermission mode: I am refilling my pint and rebooting my dance energy. Back in a minute.',
+  'Tiny backstage reset. Queue your songs and I will return before the next dramatic chorus.',
+  'I am stretching, hydrating, and pretending to be professional. Right back.',
+  'Break time. Scan the QR, claim your anthem, and I will be back before your crisps get lonely.',
 ]
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
