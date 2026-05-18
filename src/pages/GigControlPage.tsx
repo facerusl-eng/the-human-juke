@@ -214,6 +214,43 @@ function resolveGigStartAt(gigDate: string | null | undefined, gigStartTime: str
   return Number.isNaN(startAt.getTime()) ? null : startAt
 }
 
+async function fetchServerClockOffsetMs(): Promise<number | null> {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const requestStartedAt = Date.now()
+
+  try {
+    const response = await fetch(`/api/keepwarm?clock-sync=${Date.now()}`, {
+      method: 'GET',
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const requestEndedAt = Date.now()
+    const serverDateHeader = response.headers.get('date')
+
+    if (!serverDateHeader) {
+      return null
+    }
+
+    const serverNowMs = Date.parse(serverDateHeader)
+
+    if (!Number.isFinite(serverNowMs)) {
+      return null
+    }
+
+    const estimatedClientNowMs = Math.round((requestStartedAt + requestEndedAt) / 2)
+    return serverNowMs - estimatedClientNowMs
+  } catch {
+    return null
+  }
+}
+
 function getEmergencyOverlayMessage(preset: EmergencyOverlayPreset) {
   if (preset === 'tech-issue') {
     return 'Technical issue on stage. We will be back in about 2 minutes. Thank you for your patience.'
@@ -362,6 +399,7 @@ function GigControlPage() {
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
   const [autoLiveLastError, setAutoLiveLastError] = useState<string | null>(null)
   const [autoLiveLockBadgeText, setAutoLiveLockBadgeText] = useState<string | null>(null)
+  const [hostClockOffsetMs, setHostClockOffsetMs] = useState(0)
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
@@ -397,12 +435,45 @@ function GigControlPage() {
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveNextRetryAtRef = useRef(0)
   const autoLiveInFlightRef = useRef(false)
+  const hostClockOffsetRef = useRef(0)
   const introAudioLockOwnerRef = useRef<string | null>(null)
   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
   const eventRef = useRef(event)
+    const getHostNowMs = useCallback(() => Date.now() + hostClockOffsetRef.current, [])
+
+    useEffect(() => {
+      hostClockOffsetRef.current = hostClockOffsetMs
+    }, [hostClockOffsetMs])
+
+    useEffect(() => {
+      let isCurrent = true
+
+      const syncClockOffset = async () => {
+        const nextOffsetMs = await fetchServerClockOffsetMs()
+
+        if (!isCurrent || nextOffsetMs === null) {
+          return
+        }
+
+        hostClockOffsetRef.current = nextOffsetMs
+        setHostClockOffsetMs(nextOffsetMs)
+      }
+
+      void syncClockOffset()
+
+      const timerId = window.setInterval(() => {
+        void syncClockOffset()
+      }, 120_000)
+
+      return () => {
+        isCurrent = false
+        window.clearInterval(timerId)
+      }
+    }, [])
+
   // Tracks event IDs whose intro audio has already played this page session.
   // Prevents the intro from replaying if the host pauses and re-opens the room.
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
@@ -427,7 +498,7 @@ function GigControlPage() {
   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
   const nowPlayingRequesters = parseRequesterNames(nowPlaying?.createdByName)
   const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
-  const isBeforeScheduledStart = Boolean(!event?.roomOpen && gigStartAt && gigStartAt.getTime() > Date.now())
+  const isBeforeScheduledStart = Boolean(!event?.roomOpen && gigStartAt && gigStartAt.getTime() > getHostNowMs())
   const mirrorStateLabel = isBrbActive
     ? 'Mirror showing BRB screen'
     : event?.roomOpen
@@ -1647,7 +1718,7 @@ function GigControlPage() {
     }
 
     const startAt = resolveGigStartAt(event.gigDate, event.gigStartTime)
-    if (!startAt || startAt.getTime() > Date.now()) {
+    if (!startAt || startAt.getTime() > getHostNowMs()) {
       return
     }
 
@@ -1655,7 +1726,7 @@ function GigControlPage() {
     autoLiveAttemptedEventIdRef.current = scheduleKey
     autoLiveNextRetryAtRef.current = 0
     setAutoLiveLastError(null)
-  }, [event?.id, event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen])
+  }, [event?.id, event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen, getHostNowMs])
 
   useEffect(() => {
     const runAutoLiveCountdownCheck = async () => {
@@ -1663,12 +1734,14 @@ function GigControlPage() {
         return
       }
 
-      if (autoLiveNextRetryAtRef.current > Date.now()) {
+      const nowMs = getHostNowMs()
+
+      if (autoLiveNextRetryAtRef.current > nowMs) {
         return
       }
 
       const startAt = resolveGigStartAt(event.gigDate, event.gigStartTime)
-      if (!startAt || startAt.getTime() > Date.now()) {
+      if (!startAt || startAt.getTime() > nowMs) {
         return
       }
 
@@ -1717,7 +1790,7 @@ function GigControlPage() {
 
         setPreflightStatusText('Auto Live triggered from scheduled countdown.')
       } catch (error) {
-        autoLiveNextRetryAtRef.current = Date.now() + AUTO_LIVE_RETRY_DELAY_MS
+        autoLiveNextRetryAtRef.current = getHostNowMs() + AUTO_LIVE_RETRY_DELAY_MS
         const message = error instanceof Error ? error.message : 'Auto Live failed when countdown ended. Please use Go Live manually.'
         setAutoLiveLastError(message)
         setErrorText(message)
@@ -1754,6 +1827,7 @@ function GigControlPage() {
     event?.gigStartTime,
     event?.introAudioUrl,
     ensureRoomOpenState,
+    getHostNowMs,
     isNowPlayingStarted,
     nowPlaying?.cover_url,
     nowPlaying?.id,
@@ -1805,15 +1879,16 @@ function GigControlPage() {
     }
 
     const tick = () => {
-      const diffMs = startAt.getTime() - Date.now()
+      const nowMs = getHostNowMs()
+      const diffMs = startAt.getTime() - nowMs
       if (diffMs <= 0) {
         if (autoLiveInFlightRef.current) {
           setAutoLiveCountdown('Auto Live triggering...')
           return
         }
 
-        if (autoLiveNextRetryAtRef.current > Date.now()) {
-          const retryInSeconds = Math.max(1, Math.ceil((autoLiveNextRetryAtRef.current - Date.now()) / 1000))
+        if (autoLiveNextRetryAtRef.current > nowMs) {
+          const retryInSeconds = Math.max(1, Math.ceil((autoLiveNextRetryAtRef.current - nowMs) / 1000))
           setAutoLiveCountdown(`Auto Live retry in ${retryInSeconds}s`)
           return
         }
@@ -1833,7 +1908,7 @@ function GigControlPage() {
     tick()
     const timerId = window.setInterval(tick, 1000)
     return () => window.clearInterval(timerId)
-  }, [event?.id, event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen])
+  }, [event?.id, event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen, getHostNowMs])
 
   useEffect(() => {
     const activeEventId = event?.id

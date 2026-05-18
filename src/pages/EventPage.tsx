@@ -931,8 +931,8 @@ async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
   }
 }
 
-async function fetchCountdownFallbackEventFromApi(): Promise<AudienceUpcomingEvent | null> {
-  const todayIso = new Date().toISOString().slice(0, 10)
+async function fetchCountdownFallbackEventFromApi(nowMs = Date.now()): Promise<AudienceUpcomingEvent | null> {
+  const todayIso = new Date(nowMs).toISOString().slice(0, 10)
   const { data, error } = await supabase
     .from('events')
     .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, event_theme, karafun_url, cover_image_url')
@@ -946,7 +946,6 @@ async function fetchCountdownFallbackEventFromApi(): Promise<AudienceUpcomingEve
     throw error
   }
 
-  const now = Date.now()
   const mappedEvents = mapUpcomingEvents((data ?? []) as Array<Record<string, unknown>>)
   const nextEvent = mappedEvents
     .map((eventRow) => ({
@@ -954,7 +953,7 @@ async function fetchCountdownFallbackEventFromApi(): Promise<AudienceUpcomingEve
       startsAtMs: parseEventStartMs(eventRow.gigDate, eventRow.gigStartTime),
     }))
     .filter((candidate): candidate is { eventRow: AudienceUpcomingEvent; startsAtMs: number } => (
-      candidate.startsAtMs !== null && candidate.startsAtMs > now
+      candidate.startsAtMs !== null && candidate.startsAtMs > nowMs
     ))
     .sort((a, b) => a.startsAtMs - b.startsAtMs)[0]
 
@@ -2098,7 +2097,7 @@ function EventPage() {
       }
 
       try {
-        const fallbackEvent = await fetchCountdownFallbackEventFromApi()
+        const fallbackEvent = await fetchCountdownFallbackEventFromApi(nowMs)
 
         if (!isCurrent) {
           return
