@@ -848,7 +848,7 @@ function AuthProvider({ children }: PropsWithChildren) {
         await applySessionState(null)
       },
     }),
-    [user, session, profile, loading, authError, refreshProfile, applySessionState],
+    [user, session, profile, loading, authError, refreshProfile, applySessionState, syncAllowedHostRole],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

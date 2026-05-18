@@ -223,7 +223,7 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
         ),
       )
     })
-  }, [])
+  }, [initialDemoSongs])
 
   useEffect(() => {
     void batchFetchDemoArtwork(performedSongs).then((artworkMap) => {

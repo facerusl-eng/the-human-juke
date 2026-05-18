@@ -570,7 +570,7 @@ function MirrorLayoutEditorPage() {
     }
 
     startInteraction(panelId, 'drag', pointerEvent)
-  }, [layoutState])
+  }, [startInteraction])
 
   const layoutStyles = useMemo(() => (
     (Object.entries(layoutState) as Array<[MirrorLayoutPanelId, MirrorLayoutRect]>)
@@ -1620,7 +1620,7 @@ function MirrorPageContent() {
         bannerSaveDebounceTimerRef.current = null
       }
     }
-  }, [bannerText, shouldShowEditorControls, demoMode, event?.id, event?.mirrorBannerText])
+  }, [bannerText, shouldShowEditorControls, event?.id, event?.mirrorBannerText])
 
   useEffect(() => {
     let isCurrent = true
@@ -1649,7 +1649,7 @@ function MirrorPageContent() {
       window.removeEventListener('online', onOnlineOrFocus)
       window.removeEventListener('focus', onOnlineOrFocus)
     }
-  }, [])
+  }, [layoutEditMode])
 
   const countdownCopy = audienceLocale === 'da'
     ? {
@@ -1923,7 +1923,7 @@ function MirrorPageContent() {
         breakTransitionTimerRef.current = null
       }
     }
-  }, [])
+  }, [layoutEditMode])
 
   useEffect(() => {
     if (layoutEditMode) {
@@ -1938,7 +1938,7 @@ function MirrorPageContent() {
     if (!event.autoLiveEnabled || event.roomOpen) {
       autoLiveAttemptedEventIdRef.current = null
     }
-  }, [event?.id, event?.autoLiveEnabled, event?.roomOpen])
+  }, [event?.id, event?.autoLiveEnabled, event?.roomOpen, layoutEditMode])
 
   useEffect(() => {
     const runMirrorAutoLive = async () => {
@@ -2013,7 +2013,7 @@ function MirrorPageContent() {
       window.removeEventListener('fullscreenchange', syncFullscreenState)
       window.removeEventListener('webkitfullscreenchange', syncFullscreenState)
     }
-  }, [])
+  }, [layoutEditMode])
 
   useEffect(() => {
     if (layoutEditMode) {
@@ -2037,7 +2037,7 @@ function MirrorPageContent() {
       .catch(() => {
         // Browser blocked auto-fullscreen — prompt overlay stays visible so user can click.
       })
-  }, [])
+  }, [layoutEditMode])
 
   useEffect(() => {
     if (layoutEditMode) {

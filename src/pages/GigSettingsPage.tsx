@@ -703,7 +703,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     return () => {
       isCurrent = false
     }
-  }, [event.id, user?.id])
+  }, [event.id, user?.id, state.introAudioUrl])
   const otherAudienceFallbackGigCount = hostEvents.filter(
     (hostEvent) => hostEvent.id !== event.id && hostEvent.showInAudienceNoGig,
   ).length

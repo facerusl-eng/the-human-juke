@@ -2324,7 +2324,7 @@ function EventPage() {
         window.clearTimeout(pollTimerId)
       }
     }
-  }, [event, authLoading, user, setUpcomingNoticeDebounced])
+  }, [event, authLoading, user, setUpcomingNoticeDebounced, getAudienceNowMs])
 
   // Update OG meta tags for social media sharing
   useEffect(() => {
