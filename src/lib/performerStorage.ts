@@ -3,6 +3,8 @@ import { DEFAULT_PERFORMER_SETTINGS, type PerformerSettings, type SetlistSong } 
 const SETTINGS_STORAGE_KEY = 'human-jukebox-performer-settings-v1'
 const SETLIST_STORAGE_KEY = 'human-jukebox-performer-setlist-v1'
 const OBFUSCATION_PREFIX = 'obf:v1:'
+const FNV1A_OFFSET_BASIS = 2166136261
+const FNV1A_PRIME = 16777619
 
 function scopedStorageKey(baseKey: string, userId: string | null | undefined) {
   const scope = userId?.trim() || 'anonymous'
@@ -31,11 +33,11 @@ function clampAutoRefreshInterval(value: number) {
 
 function createStableSongId(title: string, artist: string, jamzoneSongId: string) {
   const normalized = `${title.toLowerCase()}::${artist.toLowerCase()}::${jamzoneSongId.toLowerCase()}`
-  let hash = 2166136261
+  let hash = FNV1A_OFFSET_BASIS
 
   for (let index = 0; index < normalized.length; index += 1) {
     hash ^= normalized.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
+    hash = Math.imul(hash, FNV1A_PRIME)
   }
 
   return `setlist-${(hash >>> 0).toString(16)}-${normalized.length.toString(36)}`

@@ -1,5 +1,12 @@
 import type { PerformerQueueSong, SetlistMatch, SetlistSong } from './performerTypes'
 
+const SUBSTRING_MATCH_BOOST = 0.92
+const TITLE_WEIGHT = 0.7
+const ARTIST_WEIGHT = 0.3
+const MATCH_CONFIDENCE_THRESHOLD = 0.72
+const MATCH_TITLE_HIGH_THRESHOLD = 0.88
+const MATCH_ARTIST_MIN_THRESHOLD = 0.45
+
 function normalizeForMatch(value: string) {
   return value
     .toLowerCase()
@@ -50,7 +57,7 @@ function inclusionBoost(left: string, right: string) {
   }
 
   if (normalizedLeft.includes(normalizedRight) || normalizedRight.includes(normalizedLeft)) {
-    return 0.92
+    return SUBSTRING_MATCH_BOOST
   }
 
   return 0
@@ -66,9 +73,10 @@ export function findBestSetlistMatch(queueSong: PerformerQueueSong, setlistSongs
   for (const setlistSong of setlistSongs) {
     const titleScore = fieldScore(queueSong.title, setlistSong.title)
     const artistScore = fieldScore(queueSong.artist, setlistSong.artist)
-    const confidence = Number((titleScore * 0.7 + artistScore * 0.3).toFixed(3))
+    const confidence = Number((titleScore * TITLE_WEIGHT + artistScore * ARTIST_WEIGHT).toFixed(3))
 
-    const passesThreshold = confidence >= 0.72 || (titleScore >= 0.88 && artistScore >= 0.45)
+    const passesThreshold = confidence >= MATCH_CONFIDENCE_THRESHOLD
+      || (titleScore >= MATCH_TITLE_HIGH_THRESHOLD && artistScore >= MATCH_ARTIST_MIN_THRESHOLD)
 
     if (!passesThreshold) {
       continue

@@ -1,10 +1,10 @@
-const JAMZONE_BASE_URLS = (process.env.JAMZONE_API_BASE_URLS?.split(',') ?? [])
+const JAMZONE_API_BASE_URLS = (process.env.JAMZONE_API_BASE_URLS?.split(',') ?? [])
   .map((origin) => origin.trim())
   .filter(Boolean)
 
-if (JAMZONE_BASE_URLS.length === 0) {
+if (JAMZONE_API_BASE_URLS.length === 0) {
   // Default fallback endpoints; override via JAMZONE_API_BASE_URLS when JamZone API hosts differ.
-  JAMZONE_BASE_URLS.push('https://api.jamzone.com/v1', 'https://api.jamzone.com')
+  JAMZONE_API_BASE_URLS.push('https://api.jamzone.com/v1', 'https://api.jamzone.com')
 }
 
 function parseJsonBody(reqBody) {
@@ -87,7 +87,7 @@ export default async function handler(req, res) {
 
   const failures = []
 
-  for (const baseUrl of JAMZONE_BASE_URLS) {
+  for (const baseUrl of JAMZONE_API_BASE_URLS) {
     for (const target of loadTargets(baseUrl, playlistId, songId)) {
       try {
         const response = await fetch(target.url, {

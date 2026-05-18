@@ -58,10 +58,10 @@ export default function PerformerView() {
   }, [refreshQueue])
 
   useEffect(() => {
-    const intervalMs = Math.max(5, settings.auto_refresh_interval) * 1000
+    const intervalSeconds = Math.max(5, settings.auto_refresh_interval)
     const timerId = window.setInterval(() => {
       void refreshQueue()
-    }, intervalMs)
+    }, intervalSeconds * 1000)
 
     return () => {
       window.clearInterval(timerId)
