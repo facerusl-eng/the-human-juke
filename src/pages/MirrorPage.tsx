@@ -84,9 +84,7 @@ const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY = 'human-jukebox-mirror-venue
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_MAX_AGE_MS = 30_000
 const MIRROR_LAYOUT_STATE_PROFILE_COLUMN = 'default_mirror_layout_state'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
-const MIRROR_BREAK_TRANSITION_NOTICE_MS = 4200
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
-const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
 const QR_FLASH_ROTATE_INTERVAL_MS = 5000
 const QR_FLASH_BASE_LINES = [
   'Thirsty?',
@@ -1227,8 +1225,6 @@ function MirrorPageContent() {
   const [flashActive, setFlashActive] = useState(false)
   const [queuedSpotlightCount, setQueuedSpotlightCount] = useState(0)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
-  const [breakTransitionMessage, setBreakTransitionMessage] = useState<string | null>(null)
-  const [breakTransitionTone, setBreakTransitionTone] = useState<'on-break' | 'back-live'>('on-break')
   const [mirrorWarning, setMirrorWarning] = useState<string | null>(null)
   const [, setAutoLiveLockDebugText] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -1290,8 +1286,6 @@ function MirrorPageContent() {
   const shutterFallbackPulseTimerRef = useRef<number | null>(null)
   const mirrorWarningClearTimerRef = useRef<number | null>(null)
   const mirrorWarningLastShownAtRef = useRef<number>(0)
-  const previousBrbActiveRef = useRef<boolean | null>(null)
-  const breakTransitionTimerRef = useRef<number | null>(null)
   const bannerSaveDebounceTimerRef = useRef<number | null>(null)
   const spotlightQueueRef = useRef<SpotlightQueueItem[]>([])
   const spotlightBusyRef = useRef(false)
@@ -1985,49 +1979,6 @@ function MirrorPageContent() {
       return { ...currentUrls, [coverUrl]: true }
     })
   }
-
-  useEffect(() => {
-    const nextBrbActive = Boolean(playbackState?.brbActive)
-    const previousBrbActive = previousBrbActiveRef.current
-
-    if (previousBrbActive === null) {
-      previousBrbActiveRef.current = nextBrbActive
-      return
-    }
-
-    if (previousBrbActive === nextBrbActive) {
-      return
-    }
-
-    if (breakTransitionTimerRef.current !== null) {
-      window.clearTimeout(breakTransitionTimerRef.current)
-      breakTransitionTimerRef.current = null
-    }
-
-    if (nextBrbActive) {
-      setBreakTransitionTone('on-break')
-      setBreakTransitionMessage(playbackState?.brbMessage?.trim() || DEFAULT_BRB_MESSAGE)
-    } else {
-      setBreakTransitionTone('back-live')
-      setBreakTransitionMessage(BREAK_TRANSITION_BACK_MESSAGE)
-    }
-
-    breakTransitionTimerRef.current = window.setTimeout(() => {
-      setBreakTransitionMessage(null)
-      breakTransitionTimerRef.current = null
-    }, MIRROR_BREAK_TRANSITION_NOTICE_MS)
-
-    previousBrbActiveRef.current = nextBrbActive
-  }, [playbackState?.brbActive, playbackState?.brbMessage])
-
-  useEffect(() => {
-    return () => {
-      if (breakTransitionTimerRef.current !== null) {
-        window.clearTimeout(breakTransitionTimerRef.current)
-        breakTransitionTimerRef.current = null
-      }
-    }
-  }, [layoutEditMode])
 
   useEffect(() => {
     if (layoutEditMode) {
@@ -4026,12 +3977,6 @@ function MirrorPageContent() {
               {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </div>
-        </div>
-      ) : null}
-
-      {breakTransitionMessage ? (
-        <div className={`mirror-break-transition-toast is-${breakTransitionTone}`} aria-live="polite" role="status">
-          <p>{breakTransitionMessage}</p>
         </div>
       ) : null}
 
