@@ -470,6 +470,10 @@ function installGlobalRuntimeHooks() {
     return
   }
 
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault()
+  })
+
   window.addEventListener('error', (event) => {
     if (recoverFromChunkLoadFailure(event.error ?? event.message, 'global-error-chunk-load')) {
       return

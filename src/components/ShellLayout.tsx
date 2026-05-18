@@ -5,7 +5,6 @@ import { useQueueStore } from '../state/queueStore'
 import { demoMode } from '../demo/demoMode'
 import { DemoBanner } from '../demo/DemoBanner'
 import SideNavigation from './SideNavigation'
-import DesktopInstallPrompt from './DesktopInstallPrompt'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const DESKTOP_SIDEBAR_COLLAPSED_STORAGE_KEY = 'human-jukebox-desktop-sidebar-collapsed'
@@ -306,8 +305,6 @@ function ShellLayout() {
             {user || loading ? 'Admin' : 'Admin Login'}
           </button>
         ) : null}
-
-        <DesktopInstallPrompt />
       </div>
     </main>
   )
