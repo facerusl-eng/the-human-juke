@@ -51,14 +51,13 @@
 
 /* ─── Shell & Stage ──────────────────────────────────────────── */
 .audience-karafun {
-  background: linear-gradient(160deg, #06040f 0%, #0b0717 55%, #140a23 100%);
+  background: linear-gradient(160deg, rgba(6, 4, 15, 0.7) 0%, rgba(11, 7, 23, 0.72) 55%, rgba(20, 10, 35, 0.74) 100%);
   min-height: 100dvh;
 }
 
 .audience-karafun.audience-theme-no-gig-blend {
   background:
-    linear-gradient(140deg, rgba(7, 11, 24, 0.56), rgba(8, 14, 30, 0.68)),
-    url('/images/Human%20Jukebox%20Mirror%20background.png') center / cover no-repeat;
+    linear-gradient(140deg, rgba(7, 11, 24, 0.5), rgba(8, 14, 30, 0.6));
 }
 
 .audience-karafun.audience-theme-no-gig-blend .queue-panel,
@@ -68,10 +67,12 @@
   background:
     radial-gradient(circle at 10% 12%, rgba(0, 200, 255, 0.09), transparent 38%),
     radial-gradient(circle at 88% 80%, rgba(162, 89, 255, 0.12), transparent 36%),
-    rgba(10, 16, 34, 0.86);
+    rgba(10, 16, 34, 0.68);
   box-shadow:
     0 0 0 1px rgba(120, 164, 255, 0.12) inset,
     0 16px 34px rgba(4, 8, 24, 0.52);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .audience-karafun.audience-theme-no-gig-blend .secondary-button {
@@ -163,12 +164,14 @@
 
 /* ─── Start Actions Panel ────────────────────────────────────── */
 .audience-karafun .audience-start-actions-panel {
-  background: var(--kf-card);
+  background: linear-gradient(150deg, rgba(16, 11, 33, 0.72), rgba(20, 13, 38, 0.64));
   border: 1px solid var(--kf-border);
   border-radius: 18px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
   padding: 1.25rem 1.1rem;
   margin: 0 1rem;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .audience-karafun .audience-request-head h2 {
@@ -265,7 +268,7 @@
 
 /* How it works */
 .audience-karafun .audience-how-it-works {
-  background: rgba(162, 89, 255, 0.06);
+  background: rgba(162, 89, 255, 0.12);
   border: 1px solid var(--kf-border);
   border-radius: 12px;
   padding: 1rem 1.1rem;

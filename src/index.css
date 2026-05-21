@@ -26,6 +26,7 @@
   --stage-glow-pink: rgba(255, 79, 154, 0.22);
   --stage-glow-blue: rgba(0, 194, 255, 0.2);
   --stage-glow-purple: rgba(162, 89, 255, 0.2);
+  --global-stage-image: url('/images/Human%20Jukebox%20Mirror%20background.png');
 
   /* Spacing + radius scale */
   --space-1: 0.375rem;
@@ -108,9 +109,11 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   background:
+    linear-gradient(160deg, rgba(5, 4, 11, 0.72) 0%, rgba(11, 9, 24, 0.72) 52%, rgba(7, 5, 15, 0.76) 100%),
     radial-gradient(circle at 12% 8%, var(--stage-glow-pink) 0%, transparent 36%),
     radial-gradient(circle at 86% 14%, var(--stage-glow-blue) 0%, transparent 35%),
     radial-gradient(circle at 54% 112%, var(--stage-glow-purple) 0%, transparent 40%),
+    var(--global-stage-image) center / cover fixed no-repeat,
     linear-gradient(160deg, #05040b 0%, #0b0918 52%, #07050f 100%);
 }
 
