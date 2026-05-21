@@ -999,6 +999,7 @@ function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlay
     && left.currentSongCoverUrl === right.currentSongCoverUrl
     && left.isStarted === right.isStarted
     && left.quoteIndex === right.quoteIndex
+    && (left.countdownTargetMs ?? null) === (right.countdownTargetMs ?? null)
     && left.brbActive === right.brbActive
     && left.brbMessage === right.brbMessage
 }
@@ -1825,10 +1826,19 @@ function MirrorPageContent() {
         scheduledStart: 'Scheduled Start',
         scheduledPrefix: 'Scheduled start:',
       }
-  const countdownTarget = useMemo(
+  const fallbackCountdownTarget = useMemo(
     () => getMirrorCountdownTarget(event?.gigDate ?? null, event?.gigStartTime ?? null),
     [event?.gigDate, event?.gigStartTime],
   )
+  const mirroredCountdownTarget = useMemo(() => {
+    const targetMs = playbackState?.countdownTargetMs
+    if (typeof targetMs !== 'number' || !Number.isFinite(targetMs)) {
+      return null
+    }
+
+    return new Date(targetMs)
+  }, [playbackState?.countdownTargetMs])
+  const countdownTarget = mirroredCountdownTarget ?? fallbackCountdownTarget
   const countdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : null
   const countdownDisplayRemainingMs = countdownRemainingMs === null
     ? null
@@ -2224,6 +2234,7 @@ function MirrorPageContent() {
             currentSongCoverUrl: nowPlaying.cover_url ?? null,
             isStarted: true,
             quoteIndex: quoteIndexRef.current,
+            countdownTargetMs: countdownTarget?.getTime() ?? null,
           })
         }
 
@@ -2999,6 +3010,7 @@ function MirrorPageContent() {
               current_song_cover_url?: string | null
               is_started?: boolean | null
               quote_index?: number | null
+              countdown_target_ms?: number | string | null
               brb_active?: boolean | null
               brb_message?: string | null
             } | null
@@ -3018,6 +3030,9 @@ function MirrorPageContent() {
                 quoteIndex: Number.isFinite(nextRow.quote_index)
                   ? (nextRow.quote_index as number)
                   : 0,
+                countdownTargetMs: Number.isFinite(nextRow.countdown_target_ms)
+                  ? Math.round(nextRow.countdown_target_ms as number)
+                  : null,
                 brbActive: nextRow.brb_active ?? false,
                 brbMessage: nextRow.brb_message ?? null,
               }

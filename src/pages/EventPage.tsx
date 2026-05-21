@@ -835,6 +835,7 @@ function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlay
     && left.currentSongCoverUrl === right.currentSongCoverUrl
     && left.isStarted === right.isStarted
     && left.quoteIndex === right.quoteIndex
+    && (left.countdownTargetMs ?? null) === (right.countdownTargetMs ?? null)
     && (left.brbActive ?? false) === (right.brbActive ?? false)
     && (left.brbMessage ?? null) === (right.brbMessage ?? null)
 }
@@ -1284,6 +1285,13 @@ function EventPage() {
     || requestedTestMode === 'yes'
     || requestedTestMode === 'on'
   const requestedCountdownTargetMs = useMemo(() => resolveCountdownTargetMsFromSearch(location.search), [location.search])
+  const mirroredCountdownTargetMs = useMemo(() => {
+    const candidateTarget = playbackState?.countdownTargetMs
+    return typeof candidateTarget === 'number' && Number.isFinite(candidateTarget)
+      ? candidateTarget
+      : null
+  }, [playbackState?.countdownTargetMs])
+  const effectiveCountdownTargetMs = requestedCountdownTargetMs ?? mirroredCountdownTargetMs
   const hasRequestedEventParam = Boolean(requestedEventId)
   const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => getAudienceNowMs())
   const waitingRoomStartMs = useMemo(() => {
@@ -1291,8 +1299,8 @@ function EventPage() {
       return null
     }
 
-    if (requestedCountdownTargetMs !== null) {
-      return requestedCountdownTargetMs
+    if (effectiveCountdownTargetMs !== null) {
+      return effectiveCountdownTargetMs
     }
 
     if (!event?.id) {
@@ -1300,7 +1308,7 @@ function EventPage() {
     }
 
     return parseEventStartMs(event.gigDate, event.gigStartTime)
-  }, [event?.gigDate, event?.gigStartTime, event?.id, requestedCountdownTargetMs, roomOpen])
+  }, [effectiveCountdownTargetMs, event?.gigDate, event?.gigStartTime, event?.id, roomOpen])
   const waitingRoomCountdownLabel = useMemo(() => {
     if (waitingRoomStartMs === null) {
       return null
@@ -2764,6 +2772,7 @@ function EventPage() {
             current_song_cover_url?: string | null
             is_started?: boolean | null
             quote_index?: number | null
+            countdown_target_ms?: number | string | null
             brb_active?: boolean | null
             brb_message?: string | null
             updated_at?: string | null
@@ -2784,6 +2793,9 @@ function EventPage() {
               quoteIndex: Number.isFinite(nextRow.quote_index)
                 ? (nextRow.quote_index as number)
                 : 0,
+              countdownTargetMs: Number.isFinite(nextRow.countdown_target_ms)
+                ? Math.round(nextRow.countdown_target_ms as number)
+                : null,
               brbActive: Boolean(nextRow.brb_active),
               brbMessage: typeof nextRow.brb_message === 'string' ? nextRow.brb_message : null,
             }
@@ -3009,7 +3021,7 @@ function EventPage() {
       <AudienceNoGigState
         upcomingEvents={upcomingEvents}
         countdownFallbackEvent={countdownFallbackEvent}
-        countdownTargetMsFromLink={requestedCountdownTargetMs}
+        countdownTargetMsFromLink={effectiveCountdownTargetMs}
         countdownTargetEventId={requestedEventId}
         nowOffsetMs={audienceClockOffsetMs}
         loadingUpcomingEvents={upcomingEventsLoading}
@@ -3026,7 +3038,7 @@ function EventPage() {
       <AudienceNoGigState
         upcomingEvents={noGigStyledUpcomingEvents}
         countdownFallbackEvent={countdownFallbackEvent}
-        countdownTargetMsFromLink={requestedCountdownTargetMs}
+        countdownTargetMsFromLink={effectiveCountdownTargetMs}
         countdownTargetEventId={requestedEventId}
         nowOffsetMs={audienceClockOffsetMs}
         loadingUpcomingEvents={upcomingEventsLoading}

@@ -554,6 +554,10 @@ function GigControlPage() {
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
 
   const nowPlaying = songs[0]
+  const mirroredCountdownTargetMs = useMemo(() => {
+    const target = resolveGigStartAt(event?.gigDate, event?.gigStartTime)
+    return target ? target.getTime() : null
+  }, [event?.gigDate, event?.gigStartTime])
   const nowPlayingSetlistBucket = useMemo(() => {
     if (!nowPlaying?.title) {
       return 'A-E'
@@ -1524,6 +1528,7 @@ function GigControlPage() {
         currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
         isStarted: isNowPlayingStarted,
         quoteIndex: quoteIndexRef.current,
+        countdownTargetMs: mirroredCountdownTargetMs,
         brbActive: nextBrbActive,
         brbMessage: resolvedMessage,
       })
@@ -1554,6 +1559,7 @@ function GigControlPage() {
     isBrbActive,
     isFinalSongSoonActive,
     isNowPlayingStarted,
+    mirroredCountdownTargetMs,
     nowPlaying?.id,
     resolveCoverUrlForSong,
     showMirrorPreviewTransition,
@@ -1970,6 +1976,7 @@ function GigControlPage() {
             currentSongCoverUrl: nowPlaying.cover_url ?? null,
             isStarted: true,
             quoteIndex: quoteIndexRef.current,
+            countdownTargetMs: startAt.getTime(),
           })
           setIsNowPlayingStarted(true)
           sendSpotifyTransportCommand('pause')
@@ -2133,6 +2140,7 @@ function GigControlPage() {
             currentSongCoverUrl: null,
             isStarted: false,
             quoteIndex: sharedPlaybackState?.quoteIndex ?? quoteIndexRef.current,
+            countdownTargetMs: mirroredCountdownTargetMs,
           })
           return
         }
@@ -2164,6 +2172,7 @@ function GigControlPage() {
           currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying.id),
           isStarted: false,
           quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: mirroredCountdownTargetMs,
         })
 
         previousSongIdRef.current = nowPlaying.id
@@ -2180,7 +2189,7 @@ function GigControlPage() {
     return () => {
       isCurrent = false
     }
-  }, [event?.id, nowPlaying?.id, resolveCoverUrlForSong])
+  }, [event?.id, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong])
 
   const setQuoteIndex = (nextQuoteIndex: number) => {
     quoteIndexRef.current = nextQuoteIndex
@@ -2242,12 +2251,13 @@ function GigControlPage() {
         currentSongCoverUrl: resolveCoverUrlForSong(targetSongId),
         isStarted: nextStarted,
         quoteIndex: quoteIndexRef.current,
+        countdownTargetMs: mirroredCountdownTargetMs,
       })
     } catch (error) {
       console.warn('GigControlPage: playback sync write failed', error)
       // Do not block local playback controls if cross-screen sync is temporarily unavailable.
     }
-  }, [event, nowPlaying?.id, resolveCoverUrlForSong])
+  }, [event, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong])
 
   const beginBetweenSongsTransition = useCallback(async () => {
     const previousQuoteIndex = quoteIndexRef.current

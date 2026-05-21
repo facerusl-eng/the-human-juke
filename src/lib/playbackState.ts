@@ -76,6 +76,7 @@ export type SharedPlaybackState = {
   currentSongCoverUrl: string | null
   isStarted: boolean
   quoteIndex: number
+  countdownTargetMs?: number | null
   brbActive?: boolean
   brbMessage?: string | null
 }
@@ -143,6 +144,39 @@ function isMissingPlaybackBrbColumnsError(error: unknown) {
   return text.includes('brb_active') || text.includes('brb_message')
 }
 
+function isMissingPlaybackCountdownColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return text.includes('countdown_target_ms')
+}
+
+function normalizeCountdownTargetMs(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.round(value)
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const parsedValue = Number(value)
+    if (Number.isFinite(parsedValue)) {
+      return Math.round(parsedValue)
+    }
+  }
+
+  return null
+}
+
 function readLastBroadcastPlaybackState(eventId: string): SharedPlaybackState | null {
   const cachedMessage = readFromLocalStorage<{ eventId?: string; state?: SharedPlaybackState } | null>(
     PLAYBACK_STATE_STORAGE_KEY,
@@ -182,6 +216,7 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
   }
 
   try {
+    const selectWithCountdownAndBrb = 'current_song_id, current_song_cover_url, is_started, quote_index, countdown_target_ms, brb_active, brb_message'
     const selectWithBrb = 'current_song_id, current_song_cover_url, is_started, quote_index, brb_active, brb_message'
     const selectLegacy = 'current_song_id, current_song_cover_url, is_started, quote_index'
 
@@ -190,12 +225,23 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
 
     const initialRead = await supabase
       .from('playback_state')
-      .select(selectWithBrb)
+      .select(selectWithCountdownAndBrb)
       .eq('event_id', eventId)
       .single()
 
     data = (initialRead.data as Record<string, unknown> | null) ?? null
     error = initialRead.error as { code?: string; message?: string } | null
+
+    if (error && isMissingPlaybackCountdownColumnError(error)) {
+      const withoutCountdownRead = await supabase
+        .from('playback_state')
+        .select(selectWithBrb)
+        .eq('event_id', eventId)
+        .single()
+
+      data = (withoutCountdownRead.data as Record<string, unknown> | null) ?? null
+      error = withoutCountdownRead.error as { code?: string; message?: string } | null
+    }
 
     if (error && isMissingPlaybackBrbColumnsError(error)) {
       const legacyRead = await supabase
@@ -228,6 +274,7 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
       current_song_cover_url?: string | null
       is_started?: boolean | null
       quote_index?: number | null
+      countdown_target_ms?: number | string | null
       brb_active?: boolean | null
       brb_message?: string | null
     }
@@ -238,6 +285,7 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
       currentSongCoverUrl: row.current_song_cover_url ?? null,
       isStarted: row.is_started ?? false,
       quoteIndex: normalizedQuoteIndex,
+      countdownTargetMs: normalizeCountdownTargetMs(row.countdown_target_ms),
       brbActive: row.brb_active ?? false,
       brbMessage: row.brb_message ?? null,
     }
@@ -273,6 +321,7 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
       currentSongCoverUrl: state.currentSongCoverUrl,
       isStarted: state.isStarted,
       quoteIndex: normalizedQuoteIndex,
+      countdownTargetMs: normalizeCountdownTargetMs(state.countdownTargetMs),
       brbActive: normalizedBrbActive,
       brbMessage: normalizedBrbMessage,
     }
@@ -294,6 +343,7 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
       current_song_cover_url: normalizedState.currentSongCoverUrl,
       is_started: normalizedState.isStarted,
       quote_index: normalizedQuoteIndex,
+      countdown_target_ms: normalizedState.countdownTargetMs,
       brb_active: normalizedState.brbActive ?? false,
       brb_message: normalizedState.brbMessage ?? null,
       updated_at: new Date().toISOString(),
@@ -303,7 +353,7 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
       .from('playback_state')
       .upsert(withBrbPayload, { onConflict: 'event_id' })
 
-    if (error && isMissingPlaybackBrbColumnsError(error)) {
+    if (error && (isMissingPlaybackBrbColumnsError(error) || isMissingPlaybackCountdownColumnError(error))) {
       const { error: legacyWriteError } = await supabase
         .from('playback_state')
         .upsert({
