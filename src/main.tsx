@@ -2,7 +2,8 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { Analytics } from '@vercel/analytics/react'
 import './index.css'
-import router from './App.tsx'
+import './App.css'
+import App, { router } from './App.tsx'
 import { logCrashTelemetry } from './lib/crashTelemetry'
 import { AppUpdateNotification } from './components/AppUpdateNotification'
 
@@ -595,7 +596,7 @@ if (!rootElement) {
 } else {
   createRoot(rootElement).render(
     <>
-      <RouterProvider router={router} />
+      <App />
       {shouldRenderAnalytics() ? <Analytics /> : null}
       <AppUpdateNotification />
     </>,

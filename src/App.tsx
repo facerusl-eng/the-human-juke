@@ -1,5 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import './App.css'
+
+// GLOBAL ROOT TEST BANNER
+import React from 'react';
 import './setlist-library.css'
 import './gig-settings.css'
 import './admin-settings.css'
@@ -242,6 +245,24 @@ function withCrashBoundary(areaLabel: string, element: React.ReactNode) {
   return <AppCrashBoundary areaLabel={areaLabel}>{element}</AppCrashBoundary>
 }
 
+const TestBanner = () => (
+  <div style={{
+    background: '#ff4f9a',
+    color: '#fff',
+    fontWeight: 'bold',
+    padding: '10px',
+    textAlign: 'center',
+    fontSize: '1.2rem',
+    zIndex: 9999,
+    position: 'sticky',
+    top: 0,
+    letterSpacing: '0.08em',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+  }}>
+    GLOBAL ROOT TEST: If you see this banner, the pipeline is working!
+  </div>
+);
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -435,5 +456,17 @@ const router = createBrowserRouter([
   },
 ])
 
-export default router
+// Patch the main App shell to include the test banner
+import { RouterProvider } from 'react-router-dom';
 
+const App = () => (
+  <>
+    <TestBanner />
+    <RouterProvider router={router} />
+  </>
+);
+
+export { router };
+export default App;
+
+// TEST: Global root workflow
