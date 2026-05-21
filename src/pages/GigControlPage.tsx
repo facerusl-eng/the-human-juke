@@ -265,6 +265,54 @@ async function fetchServerClockOffsetMs(): Promise<number | null> {
   }
 }
 
+const SHARED_CLOCK_OFFSET_CACHE_KEY = 'human-jukebox-clock-offset-cache-v1'
+const SHARED_CLOCK_OFFSET_CACHE_MAX_AGE_MS = 1000 * 60 * 15
+
+function readSharedClockOffsetCache(): number | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(SHARED_CLOCK_OFFSET_CACHE_KEY)
+
+    if (!rawCache) {
+      return null
+    }
+
+    const parsedCache = JSON.parse(rawCache) as { updatedAt?: unknown; offsetMs?: unknown }
+    const updatedAt = typeof parsedCache?.updatedAt === 'number' ? parsedCache.updatedAt : 0
+    const offsetMs = typeof parsedCache?.offsetMs === 'number' ? parsedCache.offsetMs : null
+
+    if (offsetMs === null || !Number.isFinite(offsetMs)) {
+      return null
+    }
+
+    if (!updatedAt || Date.now() - updatedAt > SHARED_CLOCK_OFFSET_CACHE_MAX_AGE_MS) {
+      return null
+    }
+
+    return Math.round(offsetMs)
+  } catch {
+    return null
+  }
+}
+
+function saveSharedClockOffsetCache(offsetMs: number) {
+  if (typeof window === 'undefined' || !Number.isFinite(offsetMs)) {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(SHARED_CLOCK_OFFSET_CACHE_KEY, JSON.stringify({
+      updatedAt: Date.now(),
+      offsetMs: Math.round(offsetMs),
+    }))
+  } catch {
+    // Ignore localStorage write failures.
+  }
+}
+
 function getEmergencyOverlayMessage(preset: EmergencyOverlayPreset) {
   if (preset === 'tech-issue') {
     return 'Technical issue on stage. We will be back in about 2 minutes. Thank you for your patience.'
@@ -422,7 +470,7 @@ function GigControlPage() {
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
   const [autoLiveLastError, setAutoLiveLastError] = useState<string | null>(null)
   const [autoLiveLockBadgeText, setAutoLiveLockBadgeText] = useState<string | null>(null)
-  const [hostClockOffsetMs, setHostClockOffsetMs] = useState(0)
+  const [hostClockOffsetMs, setHostClockOffsetMs] = useState(() => readSharedClockOffsetCache() ?? 0)
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
@@ -469,6 +517,10 @@ function GigControlPage() {
 
     useEffect(() => {
       hostClockOffsetRef.current = hostClockOffsetMs
+    }, [hostClockOffsetMs])
+
+    useEffect(() => {
+      saveSharedClockOffsetCache(hostClockOffsetMs)
     }, [hostClockOffsetMs])
 
     useEffect(() => {

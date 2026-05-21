@@ -291,9 +291,9 @@ function isAuthSessionError(error: unknown) {
     || text.includes('auth session missing')
 }
 
-async function fetchUpcomingEventRows(timeoutMs = 12000) {
+async function fetchUpcomingEventRows(timeoutMs = 12000, nowMs = Date.now()) {
   const abortController = new AbortController()
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = new Date(nowMs).toISOString().slice(0, 10)
   let didTimeout = false
   const timeoutId = window.setTimeout(() => {
     didTimeout = true
@@ -441,6 +441,9 @@ const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim(
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 const UPCOMING_EVENTS_CACHE_KEY = 'human-jukebox-upcoming-events-cache-v1'
 const UPCOMING_EVENTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5
+const AUDIENCE_CLOCK_OFFSET_CACHE_KEY = 'human-jukebox-clock-offset-cache-v1'
+const AUDIENCE_CLOCK_OFFSET_CACHE_MAX_AGE_MS = 1000 * 60 * 15
+const AUDIENCE_CLOCK_OFFSET_REFRESH_INTERVAL_MS = 60000
 const UPCOMING_FALLBACK_TIMEOUT_MS = 8000
 const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 12000
 const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
@@ -799,6 +802,51 @@ function saveUpcomingEventsCache(events: AudienceUpcomingEvent[]) {
   }
 }
 
+function readAudienceClockOffsetCache(): number | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(AUDIENCE_CLOCK_OFFSET_CACHE_KEY)
+
+    if (!rawCache) {
+      return null
+    }
+
+    const parsedCache = JSON.parse(rawCache) as { updatedAt?: unknown; offsetMs?: unknown }
+    const updatedAt = typeof parsedCache?.updatedAt === 'number' ? parsedCache.updatedAt : 0
+    const offsetMs = typeof parsedCache?.offsetMs === 'number' ? parsedCache.offsetMs : null
+
+    if (offsetMs === null || !Number.isFinite(offsetMs)) {
+      return null
+    }
+
+    if (!updatedAt || Date.now() - updatedAt > AUDIENCE_CLOCK_OFFSET_CACHE_MAX_AGE_MS) {
+      return null
+    }
+
+    return Math.round(offsetMs)
+  } catch {
+    return null
+  }
+}
+
+function saveAudienceClockOffsetCache(offsetMs: number) {
+  if (typeof window === 'undefined' || !Number.isFinite(offsetMs)) {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(AUDIENCE_CLOCK_OFFSET_CACHE_KEY, JSON.stringify({
+      updatedAt: Date.now(),
+      offsetMs: Math.round(offsetMs),
+    }))
+  } catch {
+    // Ignore localStorage write failures.
+  }
+}
+
 function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
   let timeoutId: number | null = null
 
@@ -988,9 +1036,9 @@ function getUpcomingRetryDelayMs(failureCount: number): number {
   return clampedDelay + jitter
 }
 
-async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
+async function fetchUpcomingEventsFromApi(nowMs = Date.now()): Promise<AudienceUpcomingEvent[]> {
   try {
-    const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
+    const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS, nowMs)
     return mapUpcomingEvents(eventRows)
   } catch (error) {
     const isTimeoutError =
@@ -1001,7 +1049,7 @@ async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
       throw error
     }
 
-    const retryRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_RETRY_TIMEOUT_MS)
+    const retryRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_RETRY_TIMEOUT_MS, nowMs)
     return mapUpcomingEvents(retryRows)
   }
 }
@@ -1123,14 +1171,15 @@ function EventPage() {
   const [currentSongFactIndex, setCurrentSongFactIndex] = useState(0)
   const tipThankYouTimerRef = useRef<number | null>(null)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
-  const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>(() => readUpcomingEventsCache())
+  const initialUpcomingEvents = useMemo(() => readUpcomingEventsCache({ allowStale: true }), [])
+  const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>(() => initialUpcomingEvents)
   const [countdownFallbackEvent, setCountdownFallbackEvent] = useState<AudienceUpcomingEvent | null>(null)
-  const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(() => readUpcomingEventsCache().length === 0)
+  const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(() => initialUpcomingEvents.length === 0)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(true)
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
-  const [audienceClockOffsetMs, setAudienceClockOffsetMs] = useState(() => requestedClockOffsetMs ?? 0)
+  const [audienceClockOffsetMs, setAudienceClockOffsetMs] = useState(() => requestedClockOffsetMs ?? readAudienceClockOffsetCache() ?? 0)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
   const upcomingCoverFetchInFlightRef = useRef<Set<string>>(new Set())
   const upcomingCoverFetchRetryAfterRef = useRef<Map<string, number>>(new Map())
@@ -1155,6 +1204,10 @@ function EventPage() {
 
   useEffect(() => {
     audienceClockOffsetRef.current = audienceClockOffsetMs
+  }, [audienceClockOffsetMs])
+
+  useEffect(() => {
+    saveAudienceClockOffsetCache(audienceClockOffsetMs)
   }, [audienceClockOffsetMs])
 
   useEffect(() => {
@@ -1184,7 +1237,7 @@ function EventPage() {
 
     const timerId = window.setInterval(() => {
       void syncClockOffset()
-    }, 120_000)
+    }, AUDIENCE_CLOCK_OFFSET_REFRESH_INTERVAL_MS)
 
     return () => {
       isCurrent = false
@@ -2368,7 +2421,7 @@ function EventPage() {
     }
 
     const loadUpcomingEvents = async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
-      const now = Date.now()
+      const now = getAudienceNowMs()
 
       if (upcomingLoadInFlightRef.current) {
         return
@@ -2385,7 +2438,7 @@ function EventPage() {
       }
 
       try {
-        const mappedEvents = await fetchUpcomingEventsFromApi()
+        const mappedEvents = await fetchUpcomingEventsFromApi(now)
 
         if (!isCurrent) {
           return
@@ -2415,7 +2468,7 @@ function EventPage() {
                   throw signInError
                 }
 
-                const refreshedEvents = await fetchUpcomingEventsFromApi()
+                const refreshedEvents = await fetchUpcomingEventsFromApi(getAudienceNowMs())
 
                 if (!isCurrent) {
                   return
@@ -2462,7 +2515,7 @@ function EventPage() {
               throw signInError
             }
 
-            const mappedEvents = await fetchUpcomingEventsFromApi()
+            const mappedEvents = await fetchUpcomingEventsFromApi(getAudienceNowMs())
 
             if (isCurrent) {
               setUpcomingEvents(mappedEvents)
