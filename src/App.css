@@ -2657,9 +2657,9 @@ body:has(.audience-no-gig-shell) {
 
 
 .audience-no-gig-event-art {
-  width: 6.25rem;
-  height: 4.25rem;
-  aspect-ratio: 20 / 13;
+  width: 4.5rem;
+  height: 3.2rem;
+  aspect-ratio: 16 / 11;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4116,8 +4116,8 @@ body:has(.audience-no-gig-shell) {
   }
 
   .audience-no-gig-event-art {
-    width: 5rem;
-    height: 3.4rem;
+    width: 4.5rem;
+    height: 3.2rem;
     aspect-ratio: 16 / 11;
     display: flex;
     align-items: center;
