@@ -14199,24 +14199,9 @@ body {
   background-color: transparent;
 }
 
-.topbar,
-.app-shell-rail > .topbar,
-.site-nav-collapsible,
-.mobile-bottom-nav,
 .admin-hub-card,
 .admin-hub-card-mobile,
 .gig-management-entry,
-.gig-control-header,
-.gig-control-qr-card,
-.gig-mirror-preview-card,
-.gig-performer-cockpit,
-.gig-now-playing .now-playing-card,
-.gig-queue-panel,
-.gig-performed-panel,
-.gig-manual-add-panel,
-.gig-settings-shell .gig-settings-hero,
-.gig-settings-shell .gig-settings-form,
-.gig-settings-shell .gig-settings-sidecar,
 .audience-entry-card,
 .audience-shell .queue-panel,
 .audience-shell .now-playing-card,
@@ -14226,9 +14211,7 @@ body {
 .audience-shell-modern .audience-request-panel,
 .audience-shell-modern .link-panel,
 .audience-no-gig-events .audience-no-gig-event-card,
-.home-shell .home-queue-panel,
-.feed-page-shell .live-feed-panel,
-.feed-page-shell .live-feed-panel-page {
+.home-shell .home-queue-panel {
   background: var(--glass-panel-bg);
   border-color: var(--glass-panel-border);
   box-shadow: var(--glass-panel-shadow);
@@ -14237,24 +14220,9 @@ body {
 }
 
 @media (max-width: 1024px) {
-  .topbar,
-  .app-shell-rail > .topbar,
-  .site-nav-collapsible,
-  .mobile-bottom-nav,
   .admin-hub-card,
   .admin-hub-card-mobile,
   .gig-management-entry,
-  .gig-control-header,
-  .gig-control-qr-card,
-  .gig-mirror-preview-card,
-  .gig-performer-cockpit,
-  .gig-now-playing .now-playing-card,
-  .gig-queue-panel,
-  .gig-performed-panel,
-  .gig-manual-add-panel,
-  .gig-settings-shell .gig-settings-hero,
-  .gig-settings-shell .gig-settings-form,
-  .gig-settings-shell .gig-settings-sidecar,
   .audience-entry-card,
   .audience-shell .queue-panel,
   .audience-shell .now-playing-card,
@@ -14264,9 +14232,7 @@ body {
   .audience-shell-modern .audience-request-panel,
   .audience-shell-modern .link-panel,
   .audience-no-gig-events .audience-no-gig-event-card,
-  .home-shell .home-queue-panel,
-  .feed-page-shell .live-feed-panel,
-  .feed-page-shell .live-feed-panel-page {
+  .home-shell .home-queue-panel {
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
   }
