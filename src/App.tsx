@@ -7,7 +7,7 @@ import './components/ui/ui.css'
 import './styles/mirror.css'
 import './styles/qr-landing.css'
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { Navigate, createBrowserRouter, isRouteErrorResponse, useNavigate, useRouteError, useParams } from 'react-router-dom'
+import { Navigate, createBrowserRouter, isRouteErrorResponse, useRouteError, useParams } from 'react-router-dom'
 import AppCrashBoundary from './components/AppCrashBoundary'
 import RequireHost from './components/RequireHost'
 import ShellLayout from './components/ShellLayout'
@@ -175,7 +175,6 @@ function RouteLoading() {
 }
 
 function RouteErrorFallback() {
-  const navigate = useNavigate()
   const routeError = useRouteError()
   const fallbackMessage = isRouteErrorResponse(routeError)
     ? routeError.statusText || 'This page could not be loaded.'
