@@ -1612,6 +1612,27 @@ function EventPage() {
   const waitingRoomHasEnded = waitingRoomRemainingMs !== null && waitingRoomRemainingMs <= -15_000
   const waitingRoomStartsAtLabel = formatAudienceAbsoluteStartLabel(waitingRoomStartMs, audienceLocale)
   const shouldPrioritizeAbsoluteStart = waitingRoomRemainingMs !== null && waitingRoomRemainingMs > 36 * 60 * 60 * 1000
+  const currentEventAsUpcoming = event ? {
+    id: event.id,
+    name: event.name,
+    venue: event.venue,
+    gigDate: event.gigDate,
+    gigStartTime: event.gigStartTime,
+    gigEndTime: event.gigEndTime,
+    coverImageUrl: event.coverImageUrl,
+    eventType: event.eventType === 'karaoke' ? 'karaoke' as const : 'halli-live' as const,
+    eventTheme: event.eventTheme === 'karaoke'
+      ? 'karaoke' as const
+      : event.eventTheme === 'harald-live'
+      ? 'harald-live' as const
+      : 'human-jukebox' as const,
+    karafunUrl: event.karafunUrl ?? null,
+  } : null
+  const noGigStyledUpcomingEvents = currentEventAsUpcoming
+    ? (upcomingEvents.some((upcomingEvent) => upcomingEvent.id === currentEventAsUpcoming.id)
+      ? upcomingEvents
+      : [currentEventAsUpcoming, ...upcomingEvents])
+    : upcomingEvents
   const waitingRoomTitle = waitingRoomHasEnded ? copy.waitingEndedTitle : copy.waitingTitle
   const waitingRoomCopy = waitingRoomHasEnded ? copy.waitingEndedCopy : copy.waitingCopy
   const waitingRoomStatusLabel = waitingRoomHasEnded
@@ -2951,6 +2972,23 @@ function EventPage() {
     return (
       <AudienceNoGigState
         upcomingEvents={upcomingEvents}
+        countdownFallbackEvent={countdownFallbackEvent}
+        countdownTargetMsFromLink={requestedCountdownTargetMs}
+        countdownTargetEventId={requestedEventId}
+        nowOffsetMs={audienceClockOffsetMs}
+        loadingUpcomingEvents={upcomingEventsLoading}
+        upcomingEventsNotice={upcomingEventsNotice ?? authError}
+        getEventHref={(eventId) => `/audience?event=${encodeURIComponent(eventId)}&v=${audienceLinkVersionRef.current}`}
+        locale={audienceLocale}
+        socialLinks={socialLinks}
+      />
+    )
+  }
+
+  if (!roomOpen && !isTestGigView) {
+    return (
+      <AudienceNoGigState
+        upcomingEvents={noGigStyledUpcomingEvents}
         countdownFallbackEvent={countdownFallbackEvent}
         countdownTargetMsFromLink={requestedCountdownTargetMs}
         countdownTargetEventId={requestedEventId}
