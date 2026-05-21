@@ -14145,3 +14145,35 @@ body {
     font-size: clamp(1.26rem, 5.2vw, 1.56rem);
   }
 }
+
+/* Audience upcoming cards: lock to gigs-page image layout (left square cover). */
+.audience-no-gig-events .audience-no-gig-event-card {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: start !important;
+  gap: 0.9rem !important;
+}
+
+.audience-no-gig-events .audience-no-gig-event-art {
+  display: flex !important;
+  width: 7.5rem !important;
+  height: 7.5rem !important;
+  min-width: 7.5rem !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+}
+
+.audience-no-gig-events .audience-no-gig-event-art img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+@media (max-width: 560px) {
+  .audience-no-gig-events .audience-no-gig-event-card {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+  }
+}
