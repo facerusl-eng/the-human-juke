@@ -104,6 +104,7 @@ function formatCountdownStartLabel(gigDate: string | null, gigStartTime: string 
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: false,
   }).format(countdownStartDate)
 }
 
@@ -124,6 +125,7 @@ function formatCountdownStartLabelFromTargetMs(targetMs: number | null | undefin
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: false,
   }).format(targetDate)
 }
 

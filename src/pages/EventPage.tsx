@@ -205,6 +205,7 @@ function formatAudienceAbsoluteStartLabel(targetMs: number | null, locale: Audie
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: false,
   }).format(targetDate)
 }
 

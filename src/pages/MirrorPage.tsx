@@ -1185,6 +1185,7 @@ function formatMirrorCountdownStartTime(date: Date, locale: AudienceLocale) {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: false,
   }).format(date)
 }
 
