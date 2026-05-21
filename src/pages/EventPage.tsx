@@ -996,6 +996,30 @@ function getUpcomingRetryDelayMs(failureCount: number): number {
 }
 
 async function fetchUpcomingEventsFromApi(nowMs = Date.now()): Promise<AudienceUpcomingEvent[]> {
+  const todayIso = new Date(nowMs).toISOString().slice(0, 10)
+
+  try {
+    const response = await withPromiseTimeout(
+      fetch(`/api/upcoming-events?today=${encodeURIComponent(todayIso)}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        cache: 'no-store',
+      }),
+      2500,
+      'EventPage: upcoming events edge API timed out',
+    )
+
+    if (response.ok) {
+      const payload = await response.json().catch(() => null) as { rows?: unknown }
+      const rows = Array.isArray(payload?.rows) ? payload.rows as Array<Record<string, unknown>> : []
+      return mapUpcomingEvents(rows)
+    }
+  } catch {
+    // Fall through to direct Supabase fallback.
+  }
+
   try {
     const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS, nowMs)
     return mapUpcomingEvents(eventRows)
