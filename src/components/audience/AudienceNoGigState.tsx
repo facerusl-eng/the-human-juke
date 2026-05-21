@@ -251,17 +251,8 @@ function isKnownPlaylistCover(url: string): boolean {
 }
 
 function resolveUpcomingEventCoverUrl(event: AudienceUpcomingEvent): string {
-  const fallbackCoverUrl = getUpcomingEventFallbackCoverUrl(event)
-
-  if (!event.coverImageUrl) {
-    return fallbackCoverUrl
-  }
-
-  if (isKnownPlaylistCover(event.coverImageUrl)) {
-    return fallbackCoverUrl
-  }
-
-  return event.coverImageUrl
+  void event
+  return '/images/Human%20jukebox%20Live%20playlist.png'
 }
 
 
