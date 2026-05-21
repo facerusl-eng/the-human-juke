@@ -20,6 +20,11 @@
   padding: clamp(0.8rem, 1.5vw, 1.4rem) clamp(0.8rem, 1.5vw, 1.6rem);
 }
 
+.app-main-content > * {
+  width: min(100%, 1180px);
+  margin-inline: auto;
+}
+
 .app-main-content-focus {
   gap: 0.5rem;
   padding: 0.42rem 0.52rem;
@@ -28,6 +33,12 @@
   background:
     linear-gradient(160deg, rgba(8, 12, 30, 0.84), rgba(10, 16, 34, 0.88)),
     url(/images/Human%20Jukebox%20Mirror%20background.png) center / cover no-repeat;
+}
+
+.app-main-content-focus > * {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
 }
 
 .app-main-content-mobile-pad {
@@ -103,7 +114,6 @@
     align-items: center;
     gap: 0.6rem;
     padding: 0.55rem 0.65rem;
-  /* removed extra closing brace */
 
   .topbar .brand {
     margin: 0;
