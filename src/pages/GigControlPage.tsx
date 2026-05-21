@@ -22,6 +22,24 @@ import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
+import {
+  INTRO_AUDIO_LOCK_STORAGE_KEY,
+  INTRO_AUDIO_LOCK_TTL_MS,
+  SPOTIFY_ACCESS_TOKEN_STORAGE_KEY,
+  SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY,
+  GIG_CONTROL_AUTO_REDIRECT_SECONDS,
+  GIG_CONTROL_LOADING_RECOVERY_MS,
+  GIG_CONTROL_NOW_PLAYING_STORAGE_KEY,
+  GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS,
+  ROOM_STATE_ENSURE_MAX_ATTEMPTS,
+  ROOM_STATE_ENSURE_RETRY_DELAY_MS,
+  MIRROR_PREVIEW_TRANSITION_MS,
+  SPACEBAR_ACTION_COOLDOWN_MS,
+  MIRROR_LAUNCH_STATUS_DURATION_MS,
+  AUTO_LIVE_RETRY_DELAY_MS,
+  BACKGROUND_SYNC_TAG,
+} from '../lib/constants'
+// ...existing code...
 // ...existing code...
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
@@ -33,6 +51,8 @@ const BRB_MESSAGE_DICE_OPTIONS = [
   'I am stretching, hydrating, and pretending to be professional. Right back.',
   'Break time. Scan the QR, claim your anthem, and I will be back before your crisps get lonely.',
 ]
+
+// ...existing code...
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle' | 'next' | 'previous'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
 type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
@@ -1222,7 +1242,7 @@ function GigControlPage() {
       setPreflightStatusText(`Preflight passed at ${new Date().toLocaleTimeString()}.`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Preflight failed.'
-      const issueCode = classifyPreflightIssue(error)
+      const issueCode = classifyPreflightIssue()
 
       setPreflightStatusText(`${message} Auto-fix is checking what it can repair...`)
 
