@@ -1604,7 +1604,7 @@ function MirrorPageContent() {
     const nowMs = getMirrorNowMs()
 
     const candidates = hostEvents
-      .filter((hostEvent) => hostEvent.showInAudienceNoGig && hostEvent.id !== eventId)
+      .filter((hostEvent) => hostEvent.id !== eventId)
       .map((hostEvent) => ({
         id: hostEvent.id,
         name: hostEvent.name,
@@ -1964,7 +1964,6 @@ function MirrorPageContent() {
           .from('events')
           .select('id, name, venue, gig_date, gig_start_time, show_in_audience_no_gig')
           .eq('host_id', event.hostId)
-          .eq('show_in_audience_no_gig', true)
           .order('gig_date', { ascending: true, nullsFirst: false })
           .order('gig_start_time', { ascending: true, nullsFirst: false })
           .limit(12)
