@@ -1,0 +1,52 @@
+<svg width="980" height="240" viewBox="0 0 980 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="logo-title logo-desc">
+  <title id="logo-title">The Human Jukebox logo</title>
+  <desc id="logo-desc">A neon-style logo with a guitar pick and microphone icon beside the text The Human Jukebox.</desc>
+
+  <defs>
+    <linearGradient id="bgGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5DD7FF" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#FF7EAF" stop-opacity="0.3"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="45%" stop-color="#D8ECFF"/>
+      <stop offset="100%" stop-color="#8FD9FF"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.365 0 0 0 0 0.843 0 0 0 0 1 0 0 0 0.45 0"/>
+    </filter>
+    <filter id="textShadow" x="-20%" y="-40%" width="140%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#5DD7FF" flood-opacity="0.4"/>
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#090C22" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <rect x="20" y="20" width="940" height="200" rx="36" fill="url(#bgGlow)"/>
+
+  <!-- Guitar pick icon -->
+  <g transform="translate(56 42)">
+    <path d="M80 8C118 8 152 40 152 78C152 126 104 168 80 188C56 168 8 126 8 78C8 40 42 8 80 8Z" fill="#0C1734" stroke="#5DD7FF" stroke-width="5"/>
+    <path d="M66 44C52 55 46 76 52 95C58 114 75 126 94 124" stroke="#8FD9FF" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="88" cy="72" r="7" fill="#FF7EAF"/>
+    <circle cx="103" cy="60" r="5" fill="#5DD7FF"/>
+    <circle cx="113" cy="48" r="4" fill="#5DD7FF"/>
+  </g>
+
+  <!-- Text -->
+  <g filter="url(#textShadow)">
+    <text x="245" y="104" font-size="42" font-family="Trebuchet MS, Segoe UI, sans-serif" letter-spacing="3" fill="#B6DCFF">THE</text>
+    <text x="245" y="166" font-size="82" font-weight="700" font-family="Trebuchet MS, Segoe UI, sans-serif" letter-spacing="1.5" fill="url(#textGrad)">HUMAN JUKEBOX</text>
+  </g>
+
+  <!-- Microphone icon -->
+  <g transform="translate(865 58)">
+    <g filter="url(#softGlow)">
+      <rect x="0" y="0" width="72" height="72" rx="30" fill="#5DD7FF" fill-opacity="0.2"/>
+    </g>
+    <rect x="24" y="8" width="24" height="34" rx="12" fill="#DFF6FF" stroke="#5DD7FF" stroke-width="3"/>
+    <path d="M20 32C20 46 32 58 36 58C40 58 52 46 52 32" stroke="#8FD9FF" stroke-width="4" stroke-linecap="round"/>
+    <path d="M36 58V72" stroke="#DFF6FF" stroke-width="4" stroke-linecap="round"/>
+    <rect x="26" y="72" width="20" height="7" rx="3.5" fill="#FF7EAF"/>
+  </g>
+</svg>

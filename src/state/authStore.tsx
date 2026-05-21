@@ -1,0 +1,867 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import type { PropsWithChildren } from 'react'
+import type { Session, User } from '@supabase/supabase-js'
+import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
+import { supabase } from '../lib/supabase'
+
+const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
+const IS_DEV_ENV = import.meta.env.DEV
+const AUTH_REQUEST_TIMEOUT_MS = 20_000
+const AUTH_TRANSIENT_RETRY_COUNT = 2
+const AUTH_PROFILE_REQUEST_TIMEOUT_MS = 20_000
+const AUTH_PROFILE_RETRY_COUNT = 3
+const AUTH_HOST_SIGN_IN_TIMEOUT_MS = 25_000
+const AUTH_HOST_SIGN_IN_RETRY_COUNT = 2
+const AUTH_TRANSIENT_WARN_THROTTLE_MS = 60_000
+const AUTH_SESSION_STORAGE_KEY = 'human-jukebox-auth-session-snapshot'
+const AUTH_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000
+const AUTH_AUDIENCE_RETRY_BASE_DELAY_MS = 3_000
+const AUTH_AUDIENCE_RETRY_MAX_DELAY_MS = 60_000
+const AUTH_AUDIENCE_RATE_LIMIT_DELAY_MS = 90_000
+
+type PersistedAuthSession = {
+  userId: string
+  email: string | null
+  isHost: boolean
+  activeEventId: string | null
+  updatedAt: number
+}
+
+function isAdminRoutePath() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.pathname.startsWith('/admin')
+}
+
+function shouldAutoCreateAudienceSession() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  if (isAdminRoutePath()) {
+    return false
+  }
+
+  const { pathname } = window.location
+  if (pathname.startsWith('/audience')) {
+    const params = new URLSearchParams(window.location.search)
+    const hasRequestedEventParam = Boolean(params.get('event') || params.get('eventId'))
+
+    // Keep no-gig screen functional even when anonymous auth is rate-limited.
+    // We only auto-create audience sessions when a concrete event is requested.
+    if (!hasRequestedEventParam && pathname === '/audience') {
+      return false
+    }
+  }
+
+  return pathname.startsWith('/audience')
+    || pathname.startsWith('/feed')
+    || pathname.startsWith('/a/')
+}
+
+type Role = 'guest' | 'host'
+
+type Profile = {
+  role: Role
+  active_event_id: string | null
+  theme_preset?: string | null
+  accent_color?: string | null
+}
+
+type AuthContextValue = {
+  user: User | null
+  session: Session | null
+  profile: Profile | null
+  isHost: boolean
+  loading: boolean
+  authError: string | null
+  signInHost: (email: string, password: string) => Promise<void>
+  isPasskeySupported: boolean
+  signInHostWithPasskey: () => Promise<void>
+  registerHostPasskey: (friendlyName?: string) => Promise<void>
+  refreshProfile: () => Promise<void>
+  signOut: () => Promise<void>
+}
+
+export const AuthContext = createContext<AuthContextValue | null>(null)
+
+function isAllowedHostEmail(email: string | null | undefined) {
+  if (!ALLOWED_HOST_EMAIL || !email) {
+    return false
+  }
+
+  return email.trim().toLowerCase() === ALLOWED_HOST_EMAIL
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: number | null = null
+
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(message))
+    }, timeoutMs)
+  })
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId)
+    }
+  }) as Promise<T>
+}
+
+function getErrorText(error: unknown) {
+  if (!error) {
+    return ''
+  }
+
+  if (error instanceof Error) {
+    return error.message.toLowerCase()
+  }
+
+  return String(error).toLowerCase()
+}
+
+function isTransientAuthError(error: unknown) {
+  const text = getErrorText(error)
+
+  return text.includes('network')
+    || text.includes('fetch')
+    || text.includes('timeout')
+    || text.includes('temporar')
+    || text.includes('rate limit')
+    || text.includes('503')
+    || text.includes('504')
+}
+
+function isRateLimitedAuthError(error: unknown) {
+  const text = getErrorText(error)
+  return text.includes('rate limit') || text.includes('429')
+}
+
+function isAuthServiceUnavailableError(error: unknown) {
+  const text = getErrorText(error)
+
+  return text.includes('504')
+    || text.includes('503')
+    || text.includes('500')
+    || text.includes('context deadline exceeded')
+    || text.includes('database error')
+    || text.includes('failed to fetch')
+}
+
+function mapHostSignInError(error: unknown) {
+  const text = getErrorText(error)
+
+  if (text.includes('invalid login credentials')) {
+    return 'Invalid email or password.'
+  }
+
+  if (text.includes('email not confirmed')) {
+    return 'Email not confirmed. Open your inbox and click the confirmation link.'
+  }
+
+  if (isRateLimitedAuthError(error)) {
+    return 'Too many sign-in attempts. Please wait 1 minute and try again.'
+  }
+
+  if (isAuthServiceUnavailableError(error)) {
+    return 'Auth service is temporarily unavailable. Please retry in a minute.'
+  }
+
+  if (isTransientAuthError(error)) {
+    return 'Sign-in is taking too long or network is unstable. Please try again.'
+  }
+
+  return error instanceof Error ? error.message : 'Admin sign-in failed.'
+}
+
+function mapPasskeyError(error: unknown, fallbackMessage: string) {
+  const text = getErrorText(error)
+
+  if (text.includes('not supported') || text.includes('webauthn')) {
+    return 'Face ID passkeys are not supported on this device/browser yet.'
+  }
+
+  if (text.includes('not found') || text.includes('no verified passkey')) {
+    return 'No Face ID passkey is registered for this account on this device.'
+  }
+
+  if (text.includes('abort') || text.includes('cancel')) {
+    return 'Face ID request was cancelled.'
+  }
+
+  return error instanceof Error ? error.message : fallbackMessage
+}
+
+function supportsWebAuthn() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return typeof window.PublicKeyCredential !== 'undefined'
+}
+
+async function retryTransientAuthOperation<T>(operation: () => Promise<T>, attempts = AUTH_TRANSIENT_RETRY_COUNT) {
+  let lastError: unknown = null
+
+  for (let attemptIndex = 0; attemptIndex < attempts; attemptIndex += 1) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error
+
+      const isFinalAttempt = attemptIndex === attempts - 1
+
+      if (isRateLimitedAuthError(error)) {
+        throw error
+      }
+
+      if (!isTransientAuthError(error) || isFinalAttempt) {
+        throw error
+      }
+
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 350 * (attemptIndex + 1))
+      })
+    }
+  }
+
+  throw lastError
+}
+
+async function getProfile(userId: string): Promise<Profile> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role, active_event_id, theme_preset, accent_color')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  if (data) {
+    return data as Profile
+  }
+
+  // Bootstrap missing profile rows so auth can recover instead of stalling.
+  const { data: insertedProfile, error: insertError } = await supabase
+    .from('profiles')
+    .insert({
+      user_id: userId,
+      role: 'guest',
+      active_event_id: null,
+    })
+    .select('role, active_event_id, theme_preset, accent_color')
+    .single()
+
+  if (insertError) {
+    if (insertError.code === '42501') {
+      return {
+        role: 'guest' as const,
+        active_event_id: null,
+      }
+    }
+
+    if (insertError.code === '23505') {
+      const { data: retriedProfile, error: retryError } = await supabase
+        .from('profiles')
+        .select('role, active_event_id, theme_preset, accent_color')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (retryError) {
+        throw retryError
+      }
+
+      if (retriedProfile) {
+        return retriedProfile as Profile
+      }
+    }
+
+    throw insertError
+  }
+
+  return insertedProfile as Profile
+}
+
+function AuthProvider({ children }: PropsWithChildren) {
+  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const isHostSignInInProgressRef = useRef(false)
+  const transientProfileWarnAtRef = useRef(0)
+
+  useEffect(() => {
+    const snapshot = readFromLocalStorage<PersistedAuthSession | null>(AUTH_SESSION_STORAGE_KEY, null)
+
+    if (!snapshot) {
+      return
+    }
+
+    const snapshotAge = Date.now() - (snapshot.updatedAt ?? 0)
+    if (!Number.isFinite(snapshotAge) || snapshotAge > AUTH_SESSION_MAX_AGE_MS) {
+      return
+    }
+
+    if (!snapshot.userId) {
+      return
+    }
+
+    if (isAdminRoutePath() && !snapshot.isHost) {
+      return
+    }
+
+    setUser((currentUser) => {
+      if (currentUser?.id) {
+        return currentUser
+      }
+
+      return {
+        id: snapshot.userId,
+        email: snapshot.email,
+      } as User
+    })
+
+    setProfile((currentProfile) => {
+      if (currentProfile) {
+        return currentProfile
+      }
+
+      return {
+        role: snapshot.isHost ? 'host' : 'guest',
+        active_event_id: snapshot.activeEventId,
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!user?.id) {
+      try {
+        window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY)
+      } catch {
+        // Ignore localStorage cleanup failures.
+      }
+      return
+    }
+
+    saveToLocalStorage(AUTH_SESSION_STORAGE_KEY, {
+      userId: user.id,
+      email: user.email ?? null,
+      isHost: profile?.role === 'host',
+      activeEventId: profile?.active_event_id ?? null,
+      updatedAt: Date.now(),
+    } satisfies PersistedAuthSession)
+  }, [profile?.active_event_id, profile?.role, user?.email, user?.id])
+
+  const syncAllowedHostRole = useCallback(
+    async (currentUser: User, currentProfile: Profile | null) => {
+      if (currentProfile?.role === 'host') {
+        return currentProfile
+      }
+
+      const shouldPromoteHost = isAllowedHostEmail(currentUser.email)
+        || (IS_DEV_ENV && !ALLOWED_HOST_EMAIL)
+
+      if (!shouldPromoteHost) {
+        return currentProfile
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ role: 'host' })
+        .eq('user_id', currentUser.id)
+
+      if (updateError) {
+        throw updateError
+      }
+
+      return getProfile(currentUser.id)
+    },
+    [],
+  )
+
+  const refreshProfile = useCallback(async () => {
+    if (!user) {
+      setProfile(null)
+      return
+    }
+
+    const nextProfile = await retryTransientAuthOperation(
+      () => withTimeout(getProfile(user.id), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Profile loading timed out.'),
+      AUTH_PROFILE_RETRY_COUNT,
+    )
+    setProfile(nextProfile)
+  }, [user])
+
+  const applySessionState = useCallback(
+    (nextSession: Session | null) => {
+      setSession(nextSession)
+      setUser(nextSession?.user ?? null)
+
+      if (nextSession?.user) {
+        setAuthError(null)
+      }
+
+      if (nextSession?.user) {
+        setLoading(false)
+
+        // Do not block auth transitions on profile reads; these can hang on flaky networks.
+        void (async () => {
+          try {
+            const loadedProfile = await retryTransientAuthOperation(
+              () => withTimeout(
+                getProfile(nextSession.user.id),
+                AUTH_PROFILE_REQUEST_TIMEOUT_MS,
+                'Profile loading timed out.',
+              ),
+              AUTH_PROFILE_RETRY_COUNT,
+            )
+            const nextProfile = await retryTransientAuthOperation(
+              () => withTimeout(
+                syncAllowedHostRole(nextSession.user, loadedProfile),
+                AUTH_PROFILE_REQUEST_TIMEOUT_MS,
+                'Host role sync timed out.',
+              ),
+              AUTH_PROFILE_RETRY_COUNT,
+            )
+            setProfile(nextProfile)
+          } catch (error) {
+            if (isTransientAuthError(error)) {
+              const now = Date.now()
+
+              if (now - transientProfileWarnAtRef.current >= AUTH_TRANSIENT_WARN_THROTTLE_MS) {
+                console.warn('authStore: failed to refresh profile for active session', error)
+                transientProfileWarnAtRef.current = now
+              }
+            } else {
+              console.warn('authStore: failed to refresh profile for active session', error)
+            }
+            // Keep the current profile when profile reload fails.
+          }
+        })()
+      } else {
+        setProfile(null)
+        setAuthError(null)
+        setLoading(false)
+      }
+    },
+    [syncAllowedHostRole],
+  )
+
+  const ensureAudienceSession = useCallback(async () => {
+    const { data, error } = await retryTransientAuthOperation(() => withTimeout(
+      supabase.auth.signInAnonymously(),
+      AUTH_REQUEST_TIMEOUT_MS,
+      'Audience sign-in timed out. Retrying...',
+    ))
+
+    if (error) {
+      if (error.message.toLowerCase().includes('anonymous sign-ins are disabled')) {
+        throw new Error('Audience guest sign-in is disabled in Supabase. Enable Authentication > Providers > Anonymous to let phones join live.')
+      }
+
+      throw error
+    }
+
+    return data.session ?? null
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadingFallback = window.setTimeout(() => {
+      if (isMounted) {
+        setLoading(false)
+      }
+    }, 4000)
+
+    void supabase.auth
+      .getSession()
+      .then(async ({ data, error }) => {
+        if (!isMounted) {
+          return
+        }
+
+        if (error) {
+          console.warn('authStore: getSession failed', error)
+          if (isTransientAuthError(error) || isAuthServiceUnavailableError(error)) {
+            setAuthError('Auth service is temporarily unavailable. Some admin features may be unavailable.')
+          }
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+          return
+        }
+
+        const currentSession = data.session ?? null
+
+        if (currentSession) {
+          await applySessionState(currentSession)
+          return
+        }
+
+        if (!shouldAutoCreateAudienceSession()) {
+          await applySessionState(null)
+          return
+        }
+
+        try {
+          const guestSession = await ensureAudienceSession()
+          await applySessionState(guestSession)
+        } catch (error) {
+          console.warn('authStore: failed to create initial audience session', error)
+          setAuthError(error instanceof Error ? error.message : 'Audience sign-in is currently unavailable.')
+          await applySessionState(null)
+        }
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return
+        }
+
+        console.warn('authStore: unexpected getSession exception', error)
+        if (isTransientAuthError(error) || isAuthServiceUnavailableError(error)) {
+          setAuthError('Auth service is temporarily unavailable. Some admin features may be unavailable.')
+        }
+
+        setSession(null)
+        setUser(null)
+        setProfile(null)
+        setLoading(false)
+      })
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (!isMounted) {
+        return
+      }
+
+      if (nextSession) {
+        await applySessionState(nextSession)
+        return
+      }
+
+      if (isHostSignInInProgressRef.current) {
+        return
+      }
+
+      if (!shouldAutoCreateAudienceSession()) {
+        await applySessionState(null)
+        return
+      }
+
+      try {
+        const guestSession = await ensureAudienceSession()
+        await applySessionState(guestSession)
+      } catch (error) {
+        console.warn('authStore: failed to restore audience session after auth change', error)
+        setAuthError(error instanceof Error ? error.message : 'Audience sign-in is currently unavailable.')
+        await applySessionState(null)
+      }
+    })
+
+    return () => {
+      isMounted = false
+      window.clearTimeout(loadingFallback)
+      authListener.subscription.unsubscribe()
+    }
+  }, [applySessionState, ensureAudienceSession])
+
+  useEffect(() => {
+    if (session || user || isHostSignInInProgressRef.current || !shouldAutoCreateAudienceSession()) {
+      return
+    }
+
+    let isCancelled = false
+    let retryTimerId: number | null = null
+    let retryAttempt = 0
+
+    const retryEnsureAudienceSession = async () => {
+      if (isCancelled) {
+        return
+      }
+
+      if (isHostSignInInProgressRef.current) {
+        return
+      }
+
+      try {
+        const guestSession = await ensureAudienceSession()
+
+        if (!isCancelled) {
+          await applySessionState(guestSession)
+        }
+      } catch (error) {
+        console.warn('authStore: retrying audience session after failure', error)
+        if (!isCancelled) {
+          setAuthError(error instanceof Error ? error.message : 'Audience sign-in is currently unavailable.')
+        }
+
+        if (!isCancelled) {
+          const retryDelayMs = isRateLimitedAuthError(error)
+            ? AUTH_AUDIENCE_RATE_LIMIT_DELAY_MS
+            : Math.min(AUTH_AUDIENCE_RETRY_BASE_DELAY_MS * (2 ** retryAttempt), AUTH_AUDIENCE_RETRY_MAX_DELAY_MS)
+
+          retryAttempt += 1
+
+          retryTimerId = window.setTimeout(() => {
+            void retryEnsureAudienceSession()
+          }, retryDelayMs)
+        }
+      }
+    }
+
+    retryTimerId = window.setTimeout(() => {
+      void retryEnsureAudienceSession()
+    }, 1200)
+
+    return () => {
+      isCancelled = true
+
+      if (retryTimerId !== null) {
+        window.clearTimeout(retryTimerId)
+      }
+    }
+  }, [session, user, ensureAudienceSession, applySessionState])
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      session,
+      profile,
+      isHost: profile?.role === 'host',
+      loading,
+      authError,
+      isPasskeySupported: supportsWebAuthn(),
+      signInHost: async (email: string, password: string) => {
+        const normalizedEmail = email.trim().toLowerCase()
+
+        isHostSignInInProgressRef.current = true
+
+        try {
+          let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>
+
+          try {
+            signInResult = await retryTransientAuthOperation(
+              () => withTimeout(
+                supabase.auth.signInWithPassword({
+                  email: normalizedEmail,
+                  password,
+                }),
+                AUTH_HOST_SIGN_IN_TIMEOUT_MS,
+                'Admin sign-in timed out. Please try again.',
+              ),
+              AUTH_HOST_SIGN_IN_RETRY_COUNT,
+            )
+          } catch (error) {
+            if (isTransientAuthError(error)) {
+              try {
+                const { data: sessionData } = await withTimeout(
+                  supabase.auth.getSession(),
+                  AUTH_REQUEST_TIMEOUT_MS,
+                  'Session recovery timed out.',
+                )
+
+                if (sessionData.session) {
+                  await applySessionState(sessionData.session)
+                  return
+                }
+              } catch (sessionError) {
+                console.warn('authStore: session recovery failed after transient host sign-in error', sessionError)
+              }
+            }
+
+            throw new Error(mapHostSignInError(error), { cause: error })
+          }
+
+          if (signInResult.error) {
+            throw new Error(mapHostSignInError(signInResult.error))
+          }
+
+          const returnedSession = signInResult.data.session
+
+          if (returnedSession) {
+            await applySessionState(returnedSession)
+          } else {
+            const { data: sessionData } = await withTimeout(
+              supabase.auth.getSession(),
+              AUTH_REQUEST_TIMEOUT_MS,
+              'Session sync timed out.',
+            )
+            await applySessionState(sessionData.session ?? null)
+          }
+
+          const refreshedSession = await withTimeout(
+            supabase.auth.getSession(),
+            AUTH_REQUEST_TIMEOUT_MS,
+            'Session sync timed out.',
+          )
+          const refreshedUser = refreshedSession.data.session?.user ?? null
+
+          if (refreshedUser) {
+            try {
+              const refreshedProfile = await retryTransientAuthOperation(
+                () => withTimeout(getProfile(refreshedUser.id), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Profile loading timed out.'),
+                AUTH_PROFILE_RETRY_COUNT,
+              )
+              const syncedProfile = await retryTransientAuthOperation(
+                () => withTimeout(syncAllowedHostRole(refreshedUser, refreshedProfile), AUTH_PROFILE_REQUEST_TIMEOUT_MS, 'Host role sync timed out.'),
+                AUTH_PROFILE_RETRY_COUNT,
+              )
+              setProfile(syncedProfile)
+
+              if (syncedProfile?.role !== 'host') {
+                throw new Error(
+                  ALLOWED_HOST_EMAIL
+                    ? `Signed in, but this account is not a host. Use ${ALLOWED_HOST_EMAIL} or grant host role in profiles.`
+                    : 'Signed in, but this account is not a host. Set VITE_ALLOWED_HOST_EMAIL in .env or grant host role in profiles.',
+                )
+              }
+            } catch (profileSyncError) {
+              const allowEmailFallback = isAllowedHostEmail(refreshedUser.email)
+                || (IS_DEV_ENV && !ALLOWED_HOST_EMAIL)
+
+              if (allowEmailFallback && isTransientAuthError(profileSyncError)) {
+                setProfile((currentProfile) => {
+                  if (currentProfile?.role === 'host') {
+                    return currentProfile
+                  }
+
+                  return {
+                    role: 'host',
+                    active_event_id: currentProfile?.active_event_id ?? null,
+                    theme_preset: currentProfile?.theme_preset ?? null,
+                    accent_color: currentProfile?.accent_color ?? null,
+                  }
+                })
+
+                void refreshProfile().catch((refreshError) => {
+                  console.warn('authStore: deferred host profile refresh failed after sign-in fallback', refreshError)
+                })
+
+                return
+              }
+
+              throw profileSyncError
+            }
+          }
+        } finally {
+          isHostSignInInProgressRef.current = false
+        }
+      },
+      signInHostWithPasskey: async () => {
+        if (!supportsWebAuthn()) {
+          throw new Error('Face ID passkeys are not supported on this device/browser yet.')
+        }
+
+        isHostSignInInProgressRef.current = true
+
+        try {
+          const { data: factorsData, error: factorsError } = await withTimeout(
+            supabase.auth.mfa.listFactors(),
+            AUTH_REQUEST_TIMEOUT_MS,
+            'Face ID setup timed out while loading factors.',
+          )
+
+          if (factorsError) {
+            throw factorsError
+          }
+
+          const passkeyFactor = (factorsData?.all ?? []).find((factor) => (
+            factor.factor_type === 'webauthn' && factor.status === 'verified'
+          ))
+
+          if (!passkeyFactor) {
+            throw new Error('No verified passkey found for this account.')
+          }
+
+          const { error: authErrorResult } = await withTimeout(
+            supabase.auth.mfa.webauthn.authenticate({
+              factorId: passkeyFactor.id,
+            }),
+            AUTH_HOST_SIGN_IN_TIMEOUT_MS,
+            'Face ID sign-in timed out. Please try again.',
+          )
+
+          if (authErrorResult) {
+            throw authErrorResult
+          }
+
+          const { data: sessionData } = await withTimeout(
+            supabase.auth.getSession(),
+            AUTH_REQUEST_TIMEOUT_MS,
+            'Session sync timed out after Face ID sign-in.',
+          )
+
+          await applySessionState(sessionData.session ?? null)
+        } catch (error) {
+          throw new Error(mapPasskeyError(error, 'Face ID sign-in failed.'), { cause: error })
+        } finally {
+          isHostSignInInProgressRef.current = false
+        }
+      },
+      registerHostPasskey: async (friendlyName = 'iPhone Face ID') => {
+        if (!supportsWebAuthn()) {
+          throw new Error('Face ID passkeys are not supported on this device/browser yet.')
+        }
+
+        isHostSignInInProgressRef.current = true
+
+        try {
+          const { error } = await withTimeout(
+            supabase.auth.mfa.webauthn.register({
+              friendlyName,
+            }),
+            AUTH_HOST_SIGN_IN_TIMEOUT_MS,
+            'Face ID setup timed out. Please try again.',
+          )
+
+          if (error) {
+            throw error
+          }
+
+          const { data: sessionData } = await withTimeout(
+            supabase.auth.getSession(),
+            AUTH_REQUEST_TIMEOUT_MS,
+            'Session sync timed out after Face ID setup.',
+          )
+
+          await applySessionState(sessionData.session ?? null)
+        } catch (error) {
+          throw new Error(mapPasskeyError(error, 'Face ID setup failed.'), { cause: error })
+        } finally {
+          isHostSignInInProgressRef.current = false
+        }
+      },
+      refreshProfile,
+      signOut: async () => {
+        const { error } = await supabase.auth.signOut()
+        if (error) {
+          throw error
+        }
+
+        await applySessionState(null)
+      },
+    }),
+    [user, session, profile, loading, authError, refreshProfile, applySessionState, syncAllowedHostRole],
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+function useAuthStore() {
+  const contextValue = useContext(AuthContext)
+
+  if (!contextValue) {
+    throw new Error('useAuthStore must be used within an AuthProvider')
+  }
+
+  return contextValue
+}
+
+export { AuthProvider, useAuthStore }

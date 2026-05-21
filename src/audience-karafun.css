@@ -1,0 +1,1752 @@
+/* ═══════════════════════════════════════════════════════════════
+   KaraFun-inspired Audience Theme
+   Scoped under .audience-karafun — no impact on host/admin views.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Design Tokens ──────────────────────────────────────────── */
+.audience-karafun {
+  --kf-purple:        #a259ff;
+  --kf-blue:          #00c8ff;
+  --kf-pink:          #ff3f93;
+  --kf-black:         #0a0a0a;
+  --kf-dark:          #0b0717;
+  --kf-card:          #151027;
+  --kf-card-hover:    #1d1533;
+  --kf-border:        rgba(162, 89, 255, 0.22);
+  --kf-border-bright: rgba(162, 89, 255, 0.50);
+  --kf-text:          #f0f0ff;
+  --kf-text-sub:      rgba(220, 220, 255, 0.70);
+}
+
+/* ─── Keyframe Animations ────────────────────────────────────── */
+@keyframes kf-now-playing-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 32px rgba(162, 89, 255, 0.15),
+      0 8px 32px rgba(0, 0, 0, 0.50);
+  }
+  50% {
+    box-shadow:
+      0 0 52px rgba(162, 89, 255, 0.35),
+      0 0 18px rgba(0, 194, 255, 0.18),
+      0 8px 40px rgba(0, 0, 0, 0.55);
+  }
+}
+
+@keyframes kf-slide-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes kf-vote-pop {
+  0%   { transform: scale(1); color: var(--kf-text-sub); }
+  45%  { transform: scale(1.25); color: var(--kf-pink); }
+  100% { transform: scale(1); color: var(--kf-text-sub); }
+}
+
+@keyframes kf-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Shell & Stage ──────────────────────────────────────────── */
+.audience-karafun {
+  background: linear-gradient(160deg, #06040f 0%, #0b0717 55%, #140a23 100%);
+  min-height: 100dvh;
+}
+
+.audience-karafun .audience-stage {
+  max-width: 500px;
+  width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+  padding-bottom: 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ─── Fixed Header ───────────────────────────────────────────── */
+.audience-karafun .audience-fixed-header {
+  background: linear-gradient(
+    135deg,
+    rgba(162, 89, 255, 0.20) 0%,
+    rgba(0, 194, 255, 0.10) 100%
+  );
+  border-bottom: 1px solid var(--kf-border);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.audience-karafun .audience-fixed-kicker {
+  color: var(--kf-blue);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.70rem;
+}
+
+.audience-karafun .audience-fixed-header h1 {
+  color: var(--kf-text);
+  font-size: clamp(1.05rem, 4.5vw, 1.5rem);
+  font-weight: 900;
+  text-shadow: 0 0 22px rgba(162, 89, 255, 0.50);
+  line-height: 1.2;
+}
+
+.audience-karafun .audience-fixed-subtitle {
+  color: var(--kf-text-sub);
+  font-size: 0.82rem;
+}
+
+/* ─── Connection Banner (minimal) ────────────────────────────── */
+.audience-karafun .audience-connection-banner {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0.2rem 1rem !important;
+  margin: 0 !important;
+}
+
+/* ─── Meta Badges ────────────────────────────────────────────── */
+.audience-karafun .meta-badge {
+  background: rgba(162, 89, 255, 0.14);
+  border: 1px solid rgba(162, 89, 255, 0.30);
+  color: var(--kf-purple);
+  border-radius: 999px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.65rem;
+}
+
+.audience-karafun .connection-online {
+  background: rgba(0, 194, 100, 0.10) !important;
+  border-color: rgba(0, 194, 100, 0.28) !important;
+  color: #00c870 !important;
+}
+
+.audience-karafun .connection-offline {
+  background: rgba(255, 79, 154, 0.10) !important;
+  border-color: rgba(255, 79, 154, 0.28) !important;
+  color: var(--kf-pink) !important;
+}
+
+/* ─── Start Actions Panel ────────────────────────────────────── */
+.audience-karafun .audience-start-actions-panel {
+  background: var(--kf-card);
+  border: 1px solid var(--kf-border);
+  border-radius: 18px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  padding: 1.25rem 1.1rem;
+  margin: 0 1rem;
+}
+
+.audience-karafun .audience-request-head h2 {
+  color: var(--kf-text);
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.audience-karafun .audience-request-eyebrow {
+  color: var(--kf-blue);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.70rem;
+}
+
+/* Action grid */
+.audience-karafun .audience-start-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* Request Song — full-width hero CTA */
+.audience-karafun .audience-start-actions .primary-button {
+  grid-column: span 2;
+  background: linear-gradient(135deg, var(--kf-purple) 0%, var(--kf-blue) 100%);
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  font-weight: 900;
+  font-size: 1rem;
+  padding: 1rem 1.25rem;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 0 20px rgba(162, 89, 255, 0.40),
+    0 4px 14px rgba(0, 0, 0, 0.40);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.audience-karafun .audience-start-actions .primary-button:hover,
+.audience-karafun .audience-start-actions .primary-button:active {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 0 32px rgba(162, 89, 255, 0.60),
+    0 6px 18px rgba(0, 0, 0, 0.40);
+}
+
+/* Secondary action buttons — 2-column grid */
+.audience-karafun .audience-start-actions .secondary-button {
+  background: rgba(162, 89, 255, 0.08);
+  border: 1px solid var(--kf-border);
+  border-radius: 12px;
+  color: var(--kf-text);
+  font-weight: 700;
+  font-size: 0.84rem;
+  padding: 0.8rem 0.5rem;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.audience-karafun .audience-start-actions .secondary-button:hover:not(:disabled),
+.audience-karafun .audience-start-actions .secondary-button:active:not(:disabled) {
+  transform: translateY(-2px);
+  background: rgba(162, 89, 255, 0.16);
+  border-color: var(--kf-border-bright);
+}
+
+.audience-karafun .audience-start-actions .secondary-button:disabled {
+  opacity: 0.35;
+}
+
+/* Custom event button */
+.audience-karafun .audience-start-actions .audience-custom-button {
+  background: linear-gradient(135deg, var(--kf-pink) 0%, var(--kf-purple) 100%);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 0.8rem 0.5rem;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+  box-shadow: 0 0 16px rgba(255, 79, 154, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.audience-karafun .audience-start-actions .audience-custom-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 26px rgba(255, 79, 154, 0.45);
+}
+
+/* How it works */
+.audience-karafun .audience-how-it-works {
+  background: rgba(162, 89, 255, 0.06);
+  border: 1px solid var(--kf-border);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-top: 0.9rem;
+}
+
+.audience-karafun .audience-how-it-works-title {
+  color: var(--kf-purple);
+  font-weight: 800;
+  font-size: 0.88rem;
+  margin-bottom: 0.5rem;
+}
+
+.audience-karafun .audience-how-it-works-list {
+  padding-left: 1.25rem;
+}
+
+.audience-karafun .audience-how-it-works-list li {
+  color: var(--kf-text-sub);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+/* Request instructions */
+.audience-karafun .audience-request-note {
+  color: var(--kf-text-sub);
+  font-size: 0.82rem;
+  font-style: italic;
+  margin-top: 0.5rem;
+}
+
+/* Policy badges */
+.audience-karafun .audience-policy-badge {
+  background: rgba(0, 194, 255, 0.10);
+  border-color: rgba(0, 194, 255, 0.25);
+  color: var(--kf-blue);
+}
+
+/* ─── Now Playing Card ───────────────────────────────────────── */
+.audience-karafun .now-playing-card {
+  background: linear-gradient(160deg, #1a0f2e 0%, #0e1930 100%);
+  border: 1px solid rgba(162, 89, 255, 0.32);
+  border-radius: 22px;
+  padding: 1.6rem 1.4rem;
+  margin: 0 1rem;
+  position: relative;
+  overflow: hidden;
+  animation: kf-now-playing-pulse 3.5s ease-in-out infinite;
+}
+
+/* ambient glow layer */
+.audience-karafun .now-playing-card::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background:
+    radial-gradient(circle at 28% 38%, rgba(162, 89, 255, 0.09) 0%, transparent 58%),
+    radial-gradient(circle at 72% 62%, rgba(0, 194, 255, 0.07) 0%, transparent 58%);
+  pointer-events: none;
+}
+
+.audience-karafun .now-playing-card .eyebrow {
+  color: var(--kf-blue);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0.35rem;
+}
+
+.audience-karafun .now-playing-card h2 {
+  color: var(--kf-text);
+  font-size: clamp(1.4rem, 6vw, 2.1rem);
+  font-weight: 900;
+  line-height: 1.15;
+  text-shadow: 0 0 24px rgba(162, 89, 255, 0.45);
+  margin: 0 0 0.2rem;
+}
+
+.audience-karafun .now-playing-artist {
+  color: var(--kf-text-sub);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Artwork */
+.audience-karafun .now-playing-artwork-slot .song-cover-large {
+  width: 148px;
+  height: 148px;
+  border-radius: 14px;
+  box-shadow:
+    0 4px 28px rgba(0, 0, 0, 0.65),
+    0 0 16px rgba(162, 89, 255, 0.22);
+}
+
+.audience-karafun .now-playing-cover-fallback {
+  background: linear-gradient(135deg, #1a0f2e, #0e1930);
+  border: 1px solid var(--kf-border);
+  font-size: 3.2rem;
+  color: var(--kf-purple);
+  width: 148px;
+  height: 148px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 24px rgba(162, 89, 255, 0.18);
+}
+
+/* Fun fact */
+.audience-karafun .now-playing-fact-box {
+  background: rgba(162, 89, 255, 0.08);
+  border: 1px solid var(--kf-border);
+  border-radius: 10px;
+  padding: 0.6rem 0.85rem;
+  margin-top: 0.9rem;
+}
+
+.audience-karafun .now-playing-fact {
+  color: var(--kf-text-sub);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  margin: 0;
+  font-style: italic;
+}
+
+/* Between songs */
+.audience-karafun .now-playing-between-songs {
+  padding: 1rem 0;
+}
+
+.audience-karafun .between-songs-quote {
+  color: var(--kf-text-sub);
+  font-style: italic;
+  text-align: center;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.audience-karafun .audience-encore-thanks-panel {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 79, 154, 0.16) 0%, transparent 42%),
+    radial-gradient(circle at 84% 76%, rgba(0, 194, 255, 0.12) 0%, transparent 44%),
+    linear-gradient(140deg, rgba(28, 14, 40, 0.95) 0%, rgba(16, 17, 40, 0.92) 100%);
+  border: 1px solid rgba(255, 79, 154, 0.35);
+}
+
+.audience-karafun .audience-encore-thanks-eyebrow {
+  margin: 0;
+  color: var(--kf-pink);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.audience-karafun .audience-encore-thanks-panel h2 {
+  margin: 0.4rem 0 0;
+  color: var(--kf-text);
+  font-size: clamp(1.2rem, 4.2vw, 1.8rem);
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.audience-karafun .audience-encore-thanks-copy {
+  margin: 0.5rem 0 0;
+  color: var(--kf-text-sub);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+/* Queued position banner */
+.audience-karafun .audience-queued-banner {
+  background: linear-gradient(
+    135deg,
+    rgba(162, 89, 255, 0.18),
+    rgba(0, 194, 255, 0.10)
+  );
+  border: 1px solid rgba(162, 89, 255, 0.38);
+  border-radius: 12px;
+  color: var(--kf-text);
+  font-weight: 700;
+}
+
+.audience-karafun .audience-queued-banner-text {
+  color: var(--kf-text);
+}
+
+.audience-karafun .audience-queued-banner-dismiss {
+  color: var(--kf-text-sub);
+}
+
+/* ─── Queue Panels (Live Queue, Played, Links) ───────────────── */
+.audience-karafun .queue-panel {
+  background: var(--kf-card);
+  border: 1px solid var(--kf-border);
+  border-radius: 18px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.32);
+  padding: 1.25rem 1.1rem;
+  margin: 0 1rem;
+}
+
+.audience-karafun .queue-panel .panel-head h2 {
+  color: var(--kf-text);
+  font-size: 1rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.25;
+}
+
+/* ─── Song Vote Cards ────────────────────────────────────────── */
+.audience-karafun .audience-song-card {
+  /* Reset .queue-list li flex layout — cards must be grid to stack
+     card-head / progress / actions vertically. */
+  display: grid;
+  gap: 0.6rem;
+  align-items: normal;
+  justify-content: normal;
+  background: rgba(22, 22, 50, 0.72);
+  border: 1px solid var(--kf-border);
+  border-radius: 13px;
+  padding: 0.85rem 0.9rem;
+  animation: kf-slide-in 0.28s ease both;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.audience-karafun .audience-song-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(162, 89, 255, 0.45);
+  box-shadow: 0 4px 18px rgba(162, 89, 255, 0.12);
+}
+
+/* Vote progress bar */
+.audience-karafun .vote-heat-track {
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(162, 89, 255, 0.12);
+  border: none;
+  width: 100%;
+  margin: 6px 0;
+}
+
+.audience-karafun .vote-heat-track::-webkit-progress-bar {
+  background: rgba(162, 89, 255, 0.12);
+  border-radius: 999px;
+}
+
+.audience-karafun .vote-heat-track::-webkit-progress-value {
+  background: linear-gradient(90deg, var(--kf-purple), var(--kf-pink));
+  border-radius: 999px;
+}
+
+.audience-karafun .vote-heat-track::-moz-progress-bar {
+  background: linear-gradient(90deg, var(--kf-purple), var(--kf-pink));
+  border-radius: 999px;
+}
+
+/* Vote button */
+.audience-karafun .audience-vote-button {
+  background: linear-gradient(135deg, var(--kf-pink) 0%, #b82068 100%);
+  border: none;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 900;
+  font-size: 0.82rem;
+  padding: 0.5rem 1.35rem;
+  box-shadow: 0 0 14px rgba(255, 79, 154, 0.38);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.audience-karafun .audience-vote-button:hover:not(:disabled),
+.audience-karafun .audience-vote-button:active:not(:disabled) {
+  transform: scale(1.07);
+  box-shadow: 0 0 24px rgba(255, 79, 154, 0.58);
+}
+
+.audience-karafun .audience-vote-button:disabled {
+  opacity: 0.38;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Votes count */
+.audience-karafun .votes {
+  color: var(--kf-text-sub);
+  font-size: 0.80rem;
+  font-weight: 600;
+}
+
+.audience-karafun .votes-pulse {
+  animation: kf-vote-pop 0.42s ease both;
+}
+
+/* Rank chip */
+.audience-karafun .queue-rank-chip {
+  background: linear-gradient(135deg, var(--kf-purple), var(--kf-blue));
+  color: #fff;
+  font-weight: 900;
+  font-size: 0.72rem;
+  border-radius: 999px;
+  min-width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(162, 89, 255, 0.38);
+  padding: 0 6px;
+}
+
+/* Song titles & artists in vote cards */
+.audience-karafun .audience-song-card .song {
+  color: var(--kf-text);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.audience-karafun .audience-song-card .artist {
+  color: var(--kf-text-sub);
+  font-size: 0.83rem;
+}
+
+.audience-karafun .audience-song-chosen-by {
+  color: rgba(162, 89, 255, 0.7);
+  font-size: 0.75rem;
+}
+
+/* Info trigger */
+.audience-karafun .song-info-trigger {
+  color: rgba(162, 89, 255, 0.55);
+  transition: color 0.15s ease;
+}
+
+.audience-karafun .song-info-trigger:hover {
+  color: var(--kf-purple);
+}
+
+/* ─── Played Songs Panel ─────────────────────────────────────── */
+.audience-karafun .audience-song-row {
+  border-bottom: 1px solid rgba(162, 89, 255, 0.08);
+  padding: 0.5rem 0;
+}
+
+.audience-karafun .audience-song-row .song {
+  color: var(--kf-text);
+  font-weight: 600;
+}
+
+.audience-karafun .audience-song-row .artist {
+  color: var(--kf-text-sub);
+  font-size: 0.82rem;
+}
+
+/* ─── Social / Tip Links Panel ───────────────────────────────── */
+.audience-karafun .link-chip {
+  background: rgba(0, 194, 255, 0.09);
+  border: 1px solid rgba(0, 194, 255, 0.24);
+  color: var(--kf-blue);
+  border-radius: 999px;
+  padding: 0.38rem 1rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+  display: inline-block;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.audience-karafun .link-chip:hover {
+  background: rgba(0, 194, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.audience-karafun .tip-jar-link {
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--kf-text);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem;
+  transition: transform 0.18s ease;
+}
+
+.audience-karafun .tip-jar-link:hover {
+  transform: translateY(-3px);
+  box-shadow: none;
+}
+
+/* SVG jar inherits the base .tip-jar-glass filter glow */
+.audience-karafun .tip-jar-glass {
+  width: clamp(7.4rem, 26vw, 9.7rem);
+  display: block;
+  position: relative;
+  filter:
+    drop-shadow(0 0 14px rgba(46, 197, 255, 0.7))
+    drop-shadow(0 0 28px rgba(255, 79, 154, 0.35));
+}
+
+.audience-karafun .tip-jar-ribbon {
+  width: 100%;
+  display: block;
+  text-align: center;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1.5px solid rgba(46, 197, 255, 0.45);
+  background: linear-gradient(
+    135deg,
+    rgba(46, 197, 255, 0.12) 0%,
+    rgba(162, 89, 255, 0.12) 50%,
+    rgba(255, 79, 154, 0.12) 100%
+  );
+  color: #ffffff;
+  font-size: clamp(0.84rem, 2.6vw, 0.96rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 0 12px rgba(93, 215, 255, 0.7),
+    0 1px 3px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 0 14px rgba(46, 197, 255, 0.18),
+    0 0 8px rgba(255, 79, 154, 0.12);
+}
+
+.audience-karafun .tip-jar-provider {
+  color: rgba(93, 215, 255, 0.7);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.audience-karafun .tip-chip {
+  background: rgba(255, 79, 154, 0.10);
+  border-color: rgba(255, 79, 154, 0.25);
+  color: var(--kf-pink);
+}
+
+.audience-karafun .tip-thankyou-overlay {
+  background: linear-gradient(
+    135deg,
+    rgba(162, 89, 255, 0.20),
+    rgba(255, 79, 154, 0.18)
+  );
+  border: 1px solid rgba(255, 79, 154, 0.35);
+  border-radius: 14px;
+}
+
+.audience-karafun .tip-thankyou-message {
+  color: var(--kf-pink);
+  font-weight: 800;
+}
+
+/* ─── Song Info Modal ────────────────────────────────────────── */
+.audience-karafun .song-info-overlay {
+  background: rgba(0, 0, 0, 0.82);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.audience-karafun .song-info-sheet {
+  background: linear-gradient(160deg, #1a0f2e, #0e1130);
+  border: 1px solid rgba(162, 89, 255, 0.32);
+  border-radius: 22px;
+  box-shadow:
+    0 0 50px rgba(162, 89, 255, 0.22),
+    0 8px 32px rgba(0, 0, 0, 0.65);
+}
+
+.audience-karafun .song-info-title {
+  color: var(--kf-text);
+  font-weight: 900;
+}
+
+.audience-karafun .song-info-artist {
+  color: var(--kf-text-sub);
+}
+
+.audience-karafun .song-info-badge-karaoke {
+  background: rgba(162, 89, 255, 0.14);
+  border-color: rgba(162, 89, 255, 0.35);
+  color: var(--kf-purple);
+}
+
+.audience-karafun .song-info-badge-explicit {
+  background: rgba(255, 79, 154, 0.10);
+  border-color: rgba(255, 79, 154, 0.30);
+  color: var(--kf-pink);
+}
+
+.audience-karafun .song-info-close {
+  background: linear-gradient(135deg, var(--kf-purple), var(--kf-blue));
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 0 14px rgba(162, 89, 255, 0.30);
+  transition: transform 0.15s ease;
+}
+
+.audience-karafun .song-info-close:hover {
+  transform: scale(1.04);
+}
+
+/* ─── Empty state text in queue lists ───────────────────────── */
+.audience-karafun .queue-list .subcopy {
+  color: rgba(200, 200, 255, 0.38);
+  font-style: italic;
+  text-align: center;
+  padding: 1rem 0;
+  list-style: none;
+}
+
+/* ─── Subcopy & Error ────────────────────────────────────────── */
+.audience-karafun .subcopy {
+  color: var(--kf-text-sub);
+}
+
+.audience-karafun .error-text {
+  color: #ff7eb3;
+}
+
+/* ─── Entry / Waiting / Loading Screens ─────────────────────── */
+.audience-karafun .audience-entry-shell {
+  background: linear-gradient(160deg, #080818, #0d0d22);
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.audience-entry-shell.audience-no-gig-shell.audience-karafun {
+  background:
+    linear-gradient(140deg, rgba(7, 11, 24, 0.56), rgba(8, 14, 30, 0.68)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center / cover no-repeat;
+}
+
+.audience-karafun .audience-entry-card {
+  background: var(--kf-card);
+  border: 1px solid var(--kf-border);
+  border-radius: 22px;
+  box-shadow:
+    0 0 52px rgba(162, 89, 255, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.55);
+  padding: 2rem 1.6rem;
+  max-width: 430px;
+  width: calc(100% - 2rem);
+  color: var(--kf-text);
+  animation: kf-fade-in 0.4s ease both;
+}
+
+.audience-karafun .audience-entry-card h1 {
+  color: var(--kf-text);
+  text-shadow: 0 0 22px rgba(162, 89, 255, 0.40);
+}
+
+.audience-karafun .audience-entry-eyebrow {
+  color: var(--kf-blue);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.70rem;
+}
+
+.audience-karafun .audience-entry-copy {
+  color: var(--kf-text-sub);
+}
+
+/* Name input */
+.audience-karafun .audience-entry-form input[type="text"],
+.audience-karafun .audience-entry-form input:not([type]) {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--kf-border);
+  border-radius: 11px;
+  color: var(--kf-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.audience-karafun .audience-entry-form input:focus {
+  border-color: var(--kf-purple);
+  box-shadow: 0 0 0 3px rgba(162, 89, 255, 0.18);
+  outline: none;
+}
+
+.audience-karafun .audience-entry-label {
+  color: var(--kf-text-sub);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Language picker */
+.audience-karafun .audience-language-option {
+  background: rgba(162, 89, 255, 0.06);
+  border: 1px solid var(--kf-border);
+  border-radius: 11px;
+  color: var(--kf-text);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.audience-karafun .audience-language-option-en::before {
+  opacity: 0.55;
+  background-image: url('https://flagcdn.com/w320/gb.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.audience-karafun .audience-language-option-da::before {
+  opacity: 0.55;
+  background-image: url('https://flagcdn.com/w320/dk.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.audience-karafun .audience-language-option-is::before {
+  opacity: 0.55;
+  background-image: url('https://flagcdn.com/w320/is.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.audience-karafun .audience-language-option-text {
+  color: #ffffff;
+}
+
+.audience-karafun .audience-language-option-active {
+  border-color: var(--kf-purple) !important;
+  background: rgba(162, 89, 255, 0.16) !important;
+  box-shadow: 0 0 10px rgba(162, 89, 255, 0.28);
+}
+
+/* Entry form submit */
+.audience-karafun .audience-entry-form .primary-button {
+  background: linear-gradient(135deg, var(--kf-purple), var(--kf-blue));
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 0 22px rgba(162, 89, 255, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.audience-karafun .audience-entry-form .primary-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 32px rgba(162, 89, 255, 0.52);
+}
+
+/* Waiting badge */
+.audience-karafun .audience-soon-badge {
+  background: rgba(0, 194, 255, 0.12);
+  border-color: rgba(0, 194, 255, 0.28);
+  color: var(--kf-blue);
+  font-size: 0.82rem;
+}
+
+.audience-karafun .audience-going-live-banner {
+  background: rgba(255, 93, 176, 0.18);
+  border-color: rgba(255, 93, 176, 0.36);
+  color: #ffd6ec;
+  font-size: 0.84rem;
+  animation: audience-going-live-pulse 800ms ease-in-out infinite;
+}
+
+@keyframes audience-going-live-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 93, 176, 0);
+  }
+
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0.65rem rgba(255, 93, 176, 0.32);
+  }
+}
+
+/* Loading skeleton shimmer in kf dark bg */
+.audience-karafun .loading-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(162, 89, 255, 0.07) 0%,
+    rgba(162, 89, 255, 0.16) 50%,
+    rgba(162, 89, 255, 0.07) 100%
+  );
+  background-size: 200% 100%;
+  animation: kf-skeleton-shimmer 1.6s infinite;
+  border-radius: 8px;
+}
+
+@keyframes kf-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Live Feed Panel (audience + feed page) ─────────────────── */
+
+/* Page shell: dark background with subtle neon radial */
+.audience-karafun.feed-page-shell,
+.audience-karafun .feed-page-shell {
+  background: linear-gradient(160deg, #07091a, #0b0c20);
+  min-height: 100dvh;
+  padding: 1rem 1rem 3rem;
+  gap: 1rem;
+}
+
+.audience-karafun .feed-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Feed panel card */
+.audience-karafun .live-feed-panel {
+  border: 1px solid rgba(93, 215, 255, 0.28);
+  border-radius: 22px;
+  padding: clamp(16px, 4vw, 28px);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(162, 89, 255, 0.14) 0%, transparent 32%),
+    radial-gradient(circle at 92% 92%, rgba(93, 215, 255, 0.10) 0%, transparent 28%),
+    linear-gradient(160deg, rgba(11, 16, 38, 0.97) 0%, rgba(8, 10, 26, 0.99) 100%);
+  box-shadow:
+    0 0 40px rgba(93, 215, 255, 0.07),
+    0 18px 36px rgba(4, 6, 20, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Feed head layout */
+.audience-karafun .live-feed-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.audience-karafun .live-feed-panel h2 {
+  background: linear-gradient(90deg, #5DD7FF, #FF7EAF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  font-weight: 900;
+}
+
+.audience-karafun .live-feed-panel .eyebrow {
+  color: rgba(93, 215, 255, 0.7);
+}
+
+/* Live badge neon override */
+.audience-karafun .live-feed-live-badge {
+  color: #5DD7FF;
+  border-color: rgba(93, 215, 255, 0.65);
+  background:
+    linear-gradient(120deg, rgba(93, 215, 255, 0.2) 0%, rgba(162, 89, 255, 0.16) 100%),
+    rgba(6, 9, 24, 0.78);
+}
+
+/* Open Feed link */
+.audience-karafun .live-feed-link {
+  color: #5DD7FF;
+  border-color: rgba(93, 215, 255, 0.4);
+  background: rgba(8, 12, 30, 0.6);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* Inputs + textarea */
+.audience-karafun .live-feed-panel textarea,
+.audience-karafun .live-feed-panel input {
+  background: rgba(6, 9, 22, 0.86);
+  border-color: rgba(93, 215, 255, 0.32);
+  color: #f0f0ff;
+  border-radius: 12px;
+}
+
+.audience-karafun .live-feed-panel textarea::placeholder,
+.audience-karafun .live-feed-panel input::placeholder {
+  color: rgba(176, 196, 255, 0.48);
+}
+
+.audience-karafun .live-feed-panel textarea:focus,
+.audience-karafun .live-feed-panel input:focus {
+  border-color: rgba(93, 215, 255, 0.65);
+  box-shadow: 0 0 0 3px rgba(93, 215, 255, 0.12);
+  outline: none;
+}
+
+/* Emoji chips */
+.audience-karafun .live-feed-emoji-chip.ui-icon-button {
+  background: rgba(162, 89, 255, 0.08);
+  border-color: rgba(162, 89, 255, 0.28);
+  border-radius: 12px;
+  font-size: 1.05rem;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.audience-karafun .live-feed-emoji-chip.ui-icon-button:hover {
+  background: rgba(93, 215, 255, 0.14);
+  border-color: rgba(93, 215, 255, 0.5);
+  transform: scale(1.15);
+}
+
+/* Post to Feed button */
+.audience-karafun .live-feed-actions .primary-button {
+  background: linear-gradient(135deg, #a259ff, #5DD7FF);
+  border: none;
+  color: #fff;
+  font-weight: 800;
+  border-radius: 12px;
+  box-shadow: 0 0 16px rgba(93, 215, 255, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.audience-karafun .live-feed-actions .primary-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 26px rgba(93, 215, 255, 0.4);
+}
+
+/* Helper text */
+.audience-karafun .live-feed-helper-text,
+.audience-karafun .live-feed-image-name {
+  color: rgba(176, 196, 255, 0.55);
+}
+
+/* Post cards — neon chat bubbles */
+.audience-karafun .live-feed-list {
+  display: grid;
+  gap: 12px;
+  max-height: 740px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.audience-karafun .live-feed-list::-webkit-scrollbar {
+  width: 9px;
+}
+
+.audience-karafun .live-feed-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.audience-karafun .live-feed-list::-webkit-scrollbar-thumb {
+  background: rgba(93, 215, 255, 0.25);
+  border-radius: 999px;
+}
+
+.audience-karafun .live-feed-post {
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(93, 215, 255, 0.24);
+  background:
+    radial-gradient(circle at 10% 10%, rgba(93, 215, 255, 0.15) 0%, transparent 34%),
+    linear-gradient(
+      135deg,
+      rgba(162, 89, 255, 0.16) 0%,
+      rgba(93, 215, 255, 0.11) 100%
+    );
+  box-shadow:
+    0 0 20px rgba(93, 215, 255, 0.08),
+    0 10px 20px rgba(4, 6, 20, 0.4);
+  max-width: 88%;
+  margin-right: auto;
+  position: relative;
+  /* Left accent stripe */
+  border-left: 3px solid;
+  border-image: linear-gradient(180deg, #a259ff, #5DD7FF) 1;
+}
+
+/* Alternate cards — pink accent */
+.audience-karafun .live-feed-post:nth-child(odd) {
+  border-image: linear-gradient(180deg, #5DD7FF, #FF7EAF) 1;
+}
+
+.audience-karafun .live-feed-post-head strong {
+  color: #8cdfff;
+  font-weight: 800;
+}
+
+.audience-karafun .live-feed-post-avatar {
+  border-color: rgba(93, 215, 255, 0.52);
+  background: linear-gradient(145deg, rgba(93, 215, 255, 0.34), rgba(162, 89, 255, 0.34));
+  color: #f6fbff;
+}
+
+.audience-karafun .live-feed-post-time {
+  color: rgba(176, 196, 255, 0.6);
+}
+
+.audience-karafun .live-feed-post-kind {
+  border-color: rgba(93, 215, 255, 0.4);
+  background: rgba(7, 12, 30, 0.7);
+  color: #caefff;
+}
+
+.audience-karafun .live-feed-post-message {
+  color: #e8e8ff;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+/* Polaroid photo cards */
+.audience-karafun .live-feed-post-polaroid {
+  background: linear-gradient(180deg, rgba(248, 244, 255, 0.97) 0%, rgba(240, 236, 255, 0.95) 100%);
+  border-left: 3px solid rgba(162, 89, 255, 0.35);
+  border-image: none;
+  box-shadow:
+    0 0 18px rgba(162, 89, 255, 0.14),
+    0 8px 24px rgba(4, 6, 20, 0.45);
+}
+
+.audience-karafun .live-feed-post-polaroid .live-feed-post-head strong {
+  color: #6030cc;
+  -webkit-text-fill-color: #6030cc;
+  background: none;
+}
+
+.audience-karafun .live-feed-post-polaroid .live-feed-post-message {
+  color: #2a1a44;
+}
+
+/* Empty state */
+.audience-karafun .live-feed-list > .subcopy {
+  color: rgba(162, 89, 255, 0.5);
+  text-align: center;
+  padding: 1.5rem 0;
+  font-style: italic;
+}
+
+/* Feed page shell dark background to cover the outer shell */
+.audience-karafun.feed-page-shell {
+  background: linear-gradient(160deg, #07091a, #0b0c20);
+}
+
+/* ─── Desktop / Laptop Overrides ─────────────────────────────── */
+@media (min-width: 900px) {
+  .audience-karafun .audience-stage {
+    max-width: none;
+    margin: 0;
+    width: 100%;
+    padding-bottom: 2rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1.34fr) minmax(300px, 0.66fr);
+    gap: 14px;
+    grid-auto-rows: min-content;
+    align-content: start;
+  }
+
+  .audience-karafun .audience-fixed-header {
+    border-radius: 14px;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid rgba(120, 164, 255, 0.3);
+    box-shadow: 0 8px 20px rgba(2, 8, 24, 0.34);
+  }
+
+  .audience-karafun .audience-fixed-header h1 {
+    font-size: clamp(1.14rem, 1.6vw, 1.55rem);
+    letter-spacing: 0.01em;
+  }
+
+  .audience-karafun .audience-fixed-header,
+  .audience-karafun .audience-connection-banner {
+    grid-column: 1 / -1;
+  }
+
+  .audience-karafun .audience-now-playing-panel {
+    grid-column: 1;
+    grid-row: 3;
+    position: static;
+    top: auto;
+    align-self: start;
+  }
+
+  .audience-karafun .audience-start-actions-panel {
+    grid-column: 2;
+    grid-row: 3;
+    align-self: start;
+  }
+
+  .audience-karafun .audience-live-queue-panel {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .audience-karafun .audience-played-queue-panel {
+    grid-column: 1;
+    grid-row: 5;
+  }
+
+  .audience-karafun .audience-links-panel,
+  .audience-karafun .audience-request-panel {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .audience-karafun .audience-now-playing-panel,
+  .audience-karafun .audience-start-actions-panel,
+  .audience-karafun .audience-live-queue-panel,
+  .audience-karafun .audience-played-queue-panel,
+  .audience-karafun .audience-links-panel,
+  .audience-karafun .audience-request-panel {
+    margin: 0;
+    align-self: start;
+  }
+
+  .audience-karafun .audience-start-actions-panel,
+  .audience-karafun .now-playing-card,
+  .audience-karafun .queue-panel {
+    margin: 0;
+    border-radius: 14px;
+    border-color: rgba(120, 164, 255, 0.24);
+    box-shadow: 0 8px 20px rgba(2, 8, 24, 0.3);
+  }
+
+  .audience-karafun .audience-connection-banner {
+    padding: 0.45rem 0.7rem !important;
+    border: 1px solid rgba(96, 215, 255, 0.24) !important;
+    border-radius: 999px;
+    background: rgba(7, 14, 34, 0.65) !important;
+    width: fit-content;
+  }
+
+  .audience-karafun .audience-start-actions-panel {
+    padding: 0.9rem;
+  }
+
+  .audience-karafun .now-playing-card {
+    padding: 0.95rem;
+    animation: none;
+  }
+
+  .audience-karafun .now-playing-card h2 {
+    font-size: clamp(1.55rem, 2.2vw, 2.25rem);
+    line-height: 1.08;
+  }
+
+  .audience-karafun .now-playing-artwork-slot .song-cover-large,
+  .audience-karafun .now-playing-cover-fallback {
+    width: 132px;
+    height: 132px;
+  }
+
+  .audience-karafun .queue-panel {
+    padding: 0.85rem;
+  }
+
+  .audience-karafun .queue-panel .panel-head {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid rgba(120, 164, 255, 0.18);
+  }
+
+  .audience-karafun .queue-panel .panel-head h2 {
+    font-size: 1.02rem;
+  }
+
+  .audience-karafun .queue-list {
+    gap: 0.42rem;
+  }
+
+  .audience-karafun .audience-live-queue-panel .queue-list,
+  .audience-karafun .audience-played-queue-panel .queue-list {
+    max-height: none;
+    overflow: auto;
+    padding-right: 0.2rem;
+  }
+
+  .audience-karafun .audience-links-panel .link-list,
+  .audience-karafun .audience-links-panel .tip-jar-secondary {
+    max-height: none;
+    overflow: auto;
+    padding-right: 0.2rem;
+  }
+
+  .audience-karafun .audience-links-panel .tip-jar-showcase {
+    gap: 0.5rem;
+  }
+
+  .audience-karafun .audience-links-panel .tip-jar-glass {
+    width: clamp(4.8rem, 7vw, 6.4rem);
+  }
+
+  .audience-karafun .audience-links-panel .tip-jar-ribbon {
+    font-size: 0.72rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  .audience-karafun .audience-links-panel .tip-jar-provider {
+    font-size: 0.72rem;
+  }
+
+  .audience-karafun .audience-song-card,
+  .audience-karafun .audience-song-row {
+    border-radius: 10px;
+    border-color: rgba(120, 164, 255, 0.26);
+    background: rgba(12, 20, 42, 0.92);
+  }
+
+  .audience-karafun .audience-song-card {
+    padding: 0.72rem 0.78rem;
+    gap: 0.48rem;
+  }
+
+  .audience-karafun .audience-song-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(142, 179, 255, 0.4);
+    box-shadow: 0 4px 14px rgba(93, 154, 255, 0.14);
+  }
+
+  .audience-karafun .audience-vote-button {
+    border-radius: 10px;
+    font-size: 0.8rem;
+    padding: 0.45rem 1rem;
+    box-shadow: 0 0 12px rgba(255, 79, 154, 0.24);
+  }
+
+  .audience-karafun .audience-start-actions .secondary-button,
+  .audience-karafun .audience-start-actions .audience-custom-button {
+    border-radius: 10px;
+  }
+
+  .audience-karafun .audience-start-actions {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  }
+
+  .audience-karafun .audience-start-actions .primary-button {
+    grid-column: span 2;
+    font-size: 0.95rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .audience-karafun .audience-start-actions .secondary-button,
+  .audience-karafun .audience-start-actions .audience-custom-button {
+    font-size: 0.82rem;
+    min-height: 2.65rem;
+  }
+
+  .audience-karafun .audience-entry-shell {
+    align-items: flex-start;
+    padding-top: 0.8rem;
+  }
+
+  .audience-karafun .audience-entry-card {
+    max-width: none;
+    width: min(1520px, calc(100% - 2rem));
+    padding: 1.35rem;
+    border-radius: 16px;
+  }
+
+  .audience-karafun .audience-no-gig-card {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: min-content;
+    align-items: start;
+    gap: 0.95rem;
+  }
+
+  .audience-karafun .audience-no-gig-motion,
+  .audience-karafun .audience-entry-eyebrow,
+  .audience-karafun .audience-no-gig-card > h1,
+  .audience-karafun .audience-no-gig-countdown,
+  .audience-karafun .audience-no-gig-copy,
+  .audience-karafun .audience-no-gig-guide-actions {
+    grid-column: 1 / 6;
+  }
+
+  .audience-karafun .audience-no-gig-how-it-works {
+    grid-column: 6 / -1;
+    min-height: 100%;
+    border-radius: 14px;
+  }
+
+  .audience-karafun .audience-no-gig-events,
+  .audience-karafun .audience-no-gig-card > .meta-badge,
+  .audience-karafun .audience-no-gig-card > .subcopy[role='status'] {
+    grid-column: 1 / -1;
+  }
+
+  .audience-karafun .audience-no-gig-event-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+
+  .audience-karafun .audience-no-gig-event-card {
+    align-items: start;
+    height: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(120, 164, 255, 0.24);
+    background: rgba(12, 20, 42, 0.84);
+  }
+
+  .audience-karafun .audience-no-gig-event-body {
+    align-content: start;
+  }
+
+  .audience-karafun.feed-page-shell,
+  .audience-karafun .feed-page-shell {
+    padding: 0.8rem 0.8rem 1rem;
+    min-height: calc(100dvh - 132px);
+    overflow: hidden;
+  }
+
+  .audience-karafun .live-feed-panel {
+    padding: 0.9rem;
+    max-height: calc(100dvh - 208px);
+    overflow: hidden;
+  }
+
+  .audience-karafun .live-feed-list {
+    max-height: min(48vh, 460px);
+  }
+
+  .audience-karafun .live-feed-post {
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 1360px) {
+  .audience-karafun .audience-stage {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .audience-karafun .audience-start-actions-panel {
+    grid-column: 1 / -1;
+  }
+
+  /* 3-column layout on wide screens: now-playing | queue | played+links */
+  .audience-karafun .audience-now-playing-panel {
+    grid-column: 1 / 4;
+    position: static;
+  }
+
+  .audience-karafun .audience-live-queue-panel {
+    grid-column: 4 / 9;
+  }
+
+  .audience-karafun .audience-played-queue-panel {
+    grid-column: 9 / -1;
+  }
+
+  .audience-karafun .audience-links-panel,
+  .audience-karafun .audience-request-panel {
+    grid-column: 9 / -1;
+  }
+
+  .audience-karafun .audience-no-gig-event-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .audience-karafun .audience-start-actions {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
+/* ── Add to Calendar button ─────────────────────────────────── */
+.add-to-calendar-success {
+  opacity: 0.75;
+  pointer-events: none;
+  cursor: default;
+}
+
+/* ── Vote heat bar (#2) ─────────────────────────────────────── */
+.audience-karafun .vote-heat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audience-karafun .vote-heat-icon {
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ── Own-request highlight (#6 / #8) ───────────────────────── */
+.audience-karafun .audience-song-card-own {
+  border-color: rgba(103, 232, 249, 0.6);
+  background: rgba(103, 232, 249, 0.04);
+}
+
+.audience-karafun .audience-song-own-badge {
+  font-size: 0.7rem;
+  color: #67e8f9;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Karaoke card tint (#5) ────────────────────────────────── */
+.audience-karafun .audience-song-list-card-karaoke {
+  background: rgba(255, 79, 154, 0.07);
+  border-color: rgba(255, 79, 154, 0.25);
+}
+
+/* ── Sign-out confirm state (#13) ──────────────────────────── */
+.audience-karafun .audience-signout-confirm {
+  color: var(--kf-pink) !important;
+  border-color: var(--kf-pink) !important;
+}
+
+/* ── Cancel queued request (#12) ───────────────────────────── */
+.audience-karafun .audience-queued-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.audience-karafun .audience-queued-banner-cancel {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 79, 154, 0.5);
+  color: var(--kf-pink);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.audience-karafun .audience-queued-banner-cancel:hover {
+  background: rgba(255, 79, 154, 0.12);
+}
+
+.audience-karafun .audience-queued-banner-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Language toggle in live view (#9) ─────────────────────── */
+.audience-karafun .audience-language-inline {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.audience-karafun .audience-language-inline-btn {
+  padding: 0.15rem 0.25rem;
+  border-radius: 4px;
+  border: 1px solid var(--kf-border);
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.audience-karafun .audience-language-inline-btn:hover {
+  opacity: 0.85;
+}
+
+.audience-karafun .audience-language-inline-btn-active {
+  opacity: 1;
+  border-color: var(--kf-purple);
+  box-shadow: 0 0 0 1px var(--kf-purple);
+}
+
+/* ── Waiting room event info teaser (#4) ───────────────────── */
+.audience-karafun .audience-waiting-event-info {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--kf-border);
+  text-align: center;
+}
+
+.audience-karafun .audience-waiting-event-name {
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.audience-karafun .audience-waiting-event-subtitle {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin: 0.25rem 0 0;
+}
+
+/* ── Audience Compact Text Mode ─────────────────────────────── */
+.audience-karafun .audience-stage {
+  gap: 12px;
+}
+
+.audience-karafun .subcopy,
+.audience-karafun .audience-entry-copy,
+.audience-karafun .audience-request-note,
+.audience-karafun .audience-no-gig-copy .subcopy,
+.audience-karafun .audience-no-gig-event-meta,
+.audience-karafun .live-feed-post-message {
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.audience-karafun .audience-fixed-header h1 {
+  font-size: clamp(0.98rem, 4.1vw, 1.34rem);
+}
+
+.audience-karafun .audience-entry-card h1 {
+  font-size: clamp(1.2rem, 5.2vw, 1.7rem);
+  line-height: 1.14;
+}
+
+.audience-karafun .now-playing-card h2 {
+  font-size: clamp(1.18rem, 5vw, 1.72rem);
+  line-height: 1.1;
+}
+
+.audience-karafun .now-playing-artist {
+  font-size: 0.9rem;
+}
+
+.audience-karafun .queue-panel .panel-head h2,
+.audience-karafun .live-feed-panel h2 {
+  font-size: 0.9rem;
+}
+
+.audience-karafun .audience-song-card .song,
+.audience-karafun .audience-song-row .song,
+.audience-karafun .audience-no-gig-event-title {
+  font-size: 0.9rem;
+  line-height: 1.28;
+}
+
+.audience-karafun .audience-song-card .artist,
+.audience-karafun .audience-song-row .artist,
+.audience-karafun .audience-song-chosen-by,
+.audience-karafun .votes,
+.audience-karafun .link-chip,
+.audience-karafun .tip-jar-provider {
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.audience-karafun .meta-badge,
+.audience-karafun .audience-soon-badge,
+.audience-karafun .audience-going-live-banner {
+  font-size: 0.72rem;
+}
+
+.audience-karafun .audience-entry-card,
+.audience-karafun .audience-start-actions-panel,
+.audience-karafun .now-playing-card,
+.audience-karafun .queue-panel,
+.audience-karafun .live-feed-panel {
+  padding: 1rem 0.9rem;
+}
+
+.audience-karafun .audience-no-gig-countdown-value {
+  font-size: clamp(1.6rem, 8.2vw, 2.35rem);
+}
+
+@media (max-width: 480px) {
+  .audience-karafun .audience-entry-card,
+  .audience-karafun .audience-start-actions-panel,
+  .audience-karafun .now-playing-card,
+  .audience-karafun .queue-panel,
+  .audience-karafun .live-feed-panel {
+    padding: 0.86rem 0.78rem;
+    border-radius: 14px;
+  }
+
+  .audience-karafun .audience-fixed-header h1 {
+    font-size: clamp(0.92rem, 3.9vw, 1.2rem);
+  }
+
+  .audience-karafun .audience-entry-card h1 {
+    font-size: clamp(1.08rem, 5vw, 1.44rem);
+  }
+
+  .audience-karafun .now-playing-card h2 {
+    font-size: clamp(1.06rem, 4.8vw, 1.48rem);
+  }
+
+  .audience-karafun .subcopy,
+  .audience-karafun .audience-entry-copy,
+  .audience-karafun .audience-request-note,
+  .audience-karafun .audience-no-gig-copy .subcopy,
+  .audience-karafun .audience-no-gig-event-meta,
+  .audience-karafun .live-feed-post-message {
+    font-size: 0.79rem;
+    line-height: 1.34;
+  }
+
+  .audience-karafun .queue-panel .panel-head h2,
+  .audience-karafun .live-feed-panel h2 {
+    font-size: 0.84rem;
+  }
+
+  .audience-karafun .audience-song-card .song,
+  .audience-karafun .audience-song-row .song,
+  .audience-karafun .audience-no-gig-event-title {
+    font-size: 0.86rem;
+  }
+
+  .audience-karafun .audience-song-card .artist,
+  .audience-karafun .audience-song-row .artist,
+  .audience-karafun .audience-song-chosen-by,
+  .audience-karafun .votes,
+  .audience-karafun .link-chip,
+  .audience-karafun .tip-jar-provider,
+  .audience-karafun .meta-badge,
+  .audience-karafun .audience-soon-badge,
+  .audience-karafun .audience-going-live-banner {
+    font-size: 0.71rem;
+  }
+
+  .audience-karafun .audience-no-gig-countdown-value {
+    font-size: clamp(1.42rem, 7.4vw, 2.05rem);
+  }
+}

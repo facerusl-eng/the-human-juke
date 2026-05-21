@@ -1,0 +1,171 @@
+.ap-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, rgba(15, 10, 30, 0.96), rgba(10, 8, 22, 0.97));
+  border: 1px solid rgba(162, 89, 255, 0.3);
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 16px rgba(162, 89, 255, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ap-label {
+  margin: 0 0 0.2rem;
+  font-size: 0.8rem;
+  color: rgba(223, 248, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ap-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ── Play / Pause ── */
+.ap-play-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 194, 255, 0.5);
+  background: linear-gradient(135deg, rgba(0, 194, 255, 0.18), rgba(162, 89, 255, 0.18));
+  color: #dff8ff;
+  cursor: pointer;
+  transition: background 160ms, box-shadow 160ms, transform 100ms;
+  padding: 0;
+}
+.ap-play-btn svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+.ap-play-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 194, 255, 0.32), rgba(162, 89, 255, 0.28));
+  box-shadow: 0 0 12px rgba(0, 194, 255, 0.4);
+}
+.ap-play-btn:active {
+  transform: scale(0.93);
+}
+
+/* ── Seek area ── */
+.ap-seek-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ap-progress-wrap {
+  position: relative;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: visible;
+}
+
+.ap-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--ap-progress, 0%);
+  background: linear-gradient(90deg, #00c2ff, #a259ff);
+  border-radius: 999px;
+  pointer-events: none;
+  transition: width 100ms linear;
+}
+
+.ap-seek-input {
+  position: absolute;
+  inset: 50% 0 auto 0;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 16px;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+.ap-progress-wrap:hover .ap-progress-fill {
+  box-shadow: 0 0 8px rgba(0, 194, 255, 0.6);
+}
+
+.ap-time {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: rgba(223, 248, 255, 0.55);
+  letter-spacing: 0.03em;
+  padding: 0 1px;
+}
+
+/* ── Volume group ── */
+.ap-vol-group {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ap-mute-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  border: 1px solid rgba(162, 89, 255, 0.3);
+  background: transparent;
+  color: rgba(223, 248, 255, 0.65);
+  cursor: pointer;
+  transition: color 140ms, border-color 140ms;
+  padding: 0;
+}
+.ap-mute-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+.ap-mute-btn:hover {
+  color: #dff8ff;
+  border-color: rgba(162, 89, 255, 0.65);
+}
+
+.ap-vol-wrap {
+  position: relative;
+  width: 70px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+.ap-vol-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--ap-vol, 100%);
+  background: linear-gradient(90deg, #a259ff, #ff4f9a);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.ap-vol-input {
+  position: absolute;
+  inset: 50% 0 auto 0;
+  transform: translateY(-50%);
+  width: 100%;
+  height: 16px;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 420px) {
+  .ap-vol-wrap {
+    width: 50px;
+  }
+}

@@ -1,0 +1,126 @@
+/* QR Landing Page Styles */
+
+.qr-landing-shell {
+  width: 100vw;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(10, 20, 45, 0.95), rgba(15, 30, 60, 0.95));
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  position: relative;
+}
+
+.qr-landing-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-landing-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.qr-landing-empty-state {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.qr-landing-empty-state p {
+  color: #ffffff;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  font-weight: 500;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.qr-landing-button-overlay {
+  position: fixed;
+  top: clamp(1rem, 3vh, 1.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.qr-landing-button {
+  display: inline-block;
+  padding: clamp(0.6rem, 1.2vw, 0.9rem) clamp(1.2rem, 2.4vw, 1.8rem);
+  min-width: 160px;
+  border: 2px solid rgba(93, 215, 255, 0.8);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(93, 215, 255, 0.2), rgba(93, 215, 255, 0.1));
+  color: #ffffff;
+  font-size: clamp(0.9rem, 1.2vw, 1.1rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-align: center;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 0 20px rgba(93, 215, 255, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.qr-landing-button:hover {
+  border-color: rgba(93, 215, 255, 1);
+  background: linear-gradient(135deg, rgba(93, 215, 255, 0.35), rgba(93, 215, 255, 0.2));
+  transform: scale(1.08);
+  box-shadow:
+    0 0 30px rgba(93, 215, 255, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+.qr-landing-button:active {
+  transform: scale(0.98);
+}
+
+.qr-landing-button-disabled {
+  opacity: 0.9;
+  cursor: wait;
+}
+
+.qr-landing-button-disabled:hover {
+  transform: none;
+  border-color: rgba(93, 215, 255, 0.8);
+  background: linear-gradient(135deg, rgba(93, 215, 255, 0.2), rgba(93, 215, 255, 0.1));
+  box-shadow:
+    0 0 20px rgba(93, 215, 255, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.qr-landing-status {
+  margin: 0.55rem 0 0;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* Mobile optimizations */
+@media (max-height: 600px) {
+  .qr-landing-button-overlay {
+    bottom: clamp(0.5rem, 2vh, 1rem);
+  }
+
+  .qr-landing-button {
+    min-width: 140px;
+    padding: clamp(0.5rem, 0.8vw, 0.75rem) clamp(0.9rem, 1.8vw, 1.3rem);
+  }
+}
