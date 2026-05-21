@@ -4172,6 +4172,17 @@ body:has(.audience-no-gig-shell) {
   border: 1px solid rgba(162, 89, 255, 0.24);
 }
 
+.gig-management-image img,
+.gig-playlist-thumbnail {
+  max-width: 120px;
+  max-height: 120px;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
 .gig-playlist-thumbnail {
   width: 100%;
   height: 100%;
