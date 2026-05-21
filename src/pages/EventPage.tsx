@@ -176,6 +176,38 @@ function formatCompactCountdownLabel(remainingMs: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function toAudienceIntlLocale(locale: AudienceLocale) {
+  if (locale === 'da') {
+    return 'da-DK'
+  }
+
+  if (locale === 'is') {
+    return 'is-IS'
+  }
+
+  return 'en-US'
+}
+
+function formatAudienceAbsoluteStartLabel(targetMs: number | null, locale: AudienceLocale): string | null {
+  if (!Number.isFinite(targetMs)) {
+    return null
+  }
+
+  const targetDate = new Date(targetMs as number)
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return null
+  }
+
+  return new Intl.DateTimeFormat(toAudienceIntlLocale(locale), {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(targetDate)
+}
+
 function hasFutureCountdownTarget(events: AudienceUpcomingEvent[], nowMs = Date.now()): boolean {
 
   return events.some((eventRow) => {
@@ -1348,16 +1380,18 @@ function EventPage() {
         joining: 'Går ind...',
         welcome: 'Velkommen! 🎤',
         waitingGreeting: 'Hej',
-        waitingTitle: 'Velkommen til showet, skønne mennesker!',
-        waitingCopy: 'Find jer til rette, se selvsikre ud, og giv den kunstneriske ledelse skylden for alt kaos.',
+        waitingTitle: 'Velkommen til publikumsloungen',
+        waitingCopy: 'Du er klar til næste show. Hold denne side åben, så går vi live herfra.',
         waitingEndedTitle: 'Aftenens gig er afsluttet.',
         waitingEndedCopy: 'Tak for i aften. Hold øje med de næste gigs her i appen.',
         encoreThanksEyebrow: 'Tak for i aften',
         encoreThanksTitle: 'Ekstranummeret er færdigt.',
         encoreThanksBody: 'Tak fordi I dukkede op og gjorde aftenen helt speciel. Håber vi ses til næste gig.',
         startingSoon: 'Event starter snart',
+        startsAt: 'Planlagt start',
         gigEnded: 'Gig er afsluttet',
         goingLiveNow: 'Går live nu...',
+        viewMirror: 'Se Mirror-skærm',
         viewUpcoming: 'Se alle kommende events',
         audienceLive: 'Publikum Live',
         audienceHome: 'Publikumsforside',
@@ -1402,16 +1436,18 @@ function EventPage() {
         joining: 'Fer inn...',
         welcome: 'Velkomin! 🎤',
         waitingGreeting: 'Halló',
-        waitingTitle: 'Velkomin í sýninguna, frábæru gestir!',
-        waitingCopy: 'Komdu þér fyrir, vertu svalur, og kenndu liststjórninni um allt kaos.',
+        waitingTitle: 'Velkomin i ahorfendastofuna',
+        waitingCopy: 'Thu ert tilbúin(n) fyrir naesta vidburd. Haltu sidunni opinni og vid foru live her.',
         waitingEndedTitle: 'Tónleikunum er lokið.',
         waitingEndedCopy: 'Takk fyrir kvöldið. Skoðaðu næstu viðburði hér í appinu.',
         encoreThanksEyebrow: 'Takk fyrir kvöldið',
         encoreThanksTitle: 'Aukalagið er buið.',
         encoreThanksBody: 'Takk fyrir að mæta og gera kvöldið sérstakt. Vona að við sjáumst aftur á næsta viðburði.',
         startingSoon: 'Viðburður hefst bráðum',
+        startsAt: 'Aetlud byrjun',
         gigEnded: 'Viðburði lokið',
         goingLiveNow: 'Fer i loftid nu...',
+        viewMirror: 'Opna Mirror skja',
         viewUpcoming: 'Sjá alla komandi viðburði',
         audienceLive: 'Beint frá viðburði',
         audienceHome: 'Áhorfenda Forsíða',
@@ -1455,16 +1491,18 @@ function EventPage() {
         joining: 'Joining...',
         welcome: 'Welcome! 🎤',
         waitingGreeting: 'Hi',
-        waitingTitle: 'Welcome to the show, you lovely lot!',
-        waitingCopy: 'Settle in, look confident, and blame any chaos on artistic direction.',
+        waitingTitle: 'Welcome to the audience lounge',
+        waitingCopy: 'You are ready for the next show. Keep this page open and we will go live here.',
         waitingEndedTitle: 'Tonight\'s gig has ended.',
         waitingEndedCopy: 'Thanks for joining. Check upcoming gigs in the audience app.',
         encoreThanksEyebrow: 'Thanks for tonight',
         encoreThanksTitle: 'The extra number is finished.',
         encoreThanksBody: 'Thank you for showing up and making the night special. Hope to see you again at the next gig.',
         startingSoon: 'Event starting soon',
+        startsAt: 'Scheduled start',
         gigEnded: 'Gig ended',
         goingLiveNow: 'Going live now...',
+        viewMirror: 'View Mirror screen',
         viewUpcoming: 'View all upcoming gigs',
         audienceLive: 'Audience Live',
         audienceHome: 'Audience Home',
@@ -1567,10 +1605,14 @@ function EventPage() {
     && !displaySong
 
   const waitingRoomHasEnded = waitingRoomRemainingMs !== null && waitingRoomRemainingMs <= -15_000
+  const waitingRoomStartsAtLabel = formatAudienceAbsoluteStartLabel(waitingRoomStartMs, audienceLocale)
+  const shouldPrioritizeAbsoluteStart = waitingRoomRemainingMs !== null && waitingRoomRemainingMs > 36 * 60 * 60 * 1000
   const waitingRoomTitle = waitingRoomHasEnded ? copy.waitingEndedTitle : copy.waitingTitle
   const waitingRoomCopy = waitingRoomHasEnded ? copy.waitingEndedCopy : copy.waitingCopy
   const waitingRoomStatusLabel = waitingRoomHasEnded
     ? copy.gigEnded
+    : shouldPrioritizeAbsoluteStart && waitingRoomStartsAtLabel
+    ? `${copy.startsAt} · ${waitingRoomStartsAtLabel}`
     : waitingRoomCountdownLabel
     ? `${copy.startingSoon} · ${waitingRoomCountdownLabel}`
     : copy.startingSoon
@@ -3019,8 +3061,8 @@ function EventPage() {
 
   if (!roomOpen) {
     return (
-      <section className="audience-entry-shell audience-karafun" aria-label="Audience waiting room">
-        <article className="queue-panel audience-entry-card">
+      <section className="audience-entry-shell audience-karafun audience-waiting-shell" aria-label="Audience waiting room">
+        <article className="queue-panel audience-entry-card audience-waiting-card">
           <p className="eyebrow audience-entry-eyebrow">{audienceName ? `${copy.waitingGreeting} ${audienceName}` : copy.entryEyebrow}</p>
           <h1>{waitingRoomTitle}</h1>
           <p className="subcopy audience-entry-copy">{waitingRoomCopy}</p>
@@ -3028,6 +3070,9 @@ function EventPage() {
           <p className="meta-badge audience-soon-badge">
             {waitingRoomStatusLabel}
           </p>
+          {!waitingRoomHasEnded && waitingRoomStartsAtLabel ? (
+            <p className="subcopy audience-waiting-start-label">{copy.startsAt}: {waitingRoomStartsAtLabel}</p>
+          ) : null}
           {showGoingLiveNowBanner && !waitingRoomHasEnded ? (
             <p className="meta-badge audience-going-live-banner" aria-live="assertive">{copy.goingLiveNow}</p>
           ) : null}
@@ -3043,7 +3088,7 @@ function EventPage() {
             </a>
           ) : null}
           {socialLinks.length > 0 ? (
-            <div className="audience-social-links-inline">
+            <div className="audience-social-links-inline audience-waiting-secondary-actions">
               {socialLinks.map((link) => (
                 <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="secondary-button">
                   {link.label}
@@ -3051,27 +3096,36 @@ function EventPage() {
               ))}
             </div>
           ) : null}
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              const mirrorUrl = event?.id
-                ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
-                : '/mirror?launchFullscreen=1'
-              window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
-            }}
-          >
-            📺 View Mirror Screen
-          </button>
-          {hasRequestedEventParam ? (
+          <div className="audience-waiting-primary-actions">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => {
+                const mirrorUrl = event?.id
+                  ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
+                  : '/mirror?launchFullscreen=1'
+                window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
+              }}
+            >
+              📺 {copy.viewMirror}
+            </button>
+            {hasRequestedEventParam ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => navigate('/audience')}
+              >
+                {copy.viewUpcoming}
+              </button>
+            ) : null}
             <button
               type="button"
               className="secondary-button"
-              onClick={() => navigate('/audience')}
+              onClick={() => navigate('/')}
             >
-              {copy.viewUpcoming}
+              🏠 {copy.backToHome}
             </button>
-          ) : null}
+          </div>
           {demoBackToHomeButton}
         </article>
       </section>

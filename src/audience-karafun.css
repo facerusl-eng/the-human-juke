@@ -810,6 +810,32 @@
 .audience-karafun .audience-entry-copy {
   color: var(--kf-text-sub);
 }
+.audience-karafun.audience-waiting-shell {
+  align-items: center;
+}
+.audience-karafun .audience-waiting-card {
+  max-width: 760px;
+  width: min(92vw, 760px);
+  display: grid;
+  gap: 0.85rem;
+  text-align: center;
+}
+.audience-karafun .audience-waiting-start-label {
+  margin: -0.25rem 0 0;
+  color: rgba(223, 234, 255, 0.82);
+}
+.audience-karafun .audience-waiting-primary-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.audience-karafun .audience-waiting-primary-actions .primary-button,
+.audience-karafun .audience-waiting-primary-actions .secondary-button {
+  width: 100%;
+}
+.audience-karafun .audience-waiting-secondary-actions {
+  justify-content: center;
+}
 
 /* Name input */
 .audience-karafun .audience-entry-form input[type="text"],
@@ -1387,6 +1413,9 @@
     padding: 1.35rem;
     border-radius: 16px;
   }
+  .audience-karafun .audience-waiting-card {
+    width: min(900px, calc(100% - 1.2rem));
+  }
 
   .audience-karafun .audience-no-gig-card {
     grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -1692,6 +1721,13 @@
 }
 
 @media (max-width: 480px) {
+  .audience-karafun .audience-waiting-card {
+    width: calc(100% - 1rem);
+    gap: 0.7rem;
+  }
+  .audience-karafun .audience-waiting-primary-actions {
+    grid-template-columns: 1fr;
+  }
   .audience-karafun .audience-entry-card,
   .audience-karafun .audience-start-actions-panel,
   .audience-karafun .now-playing-card,
