@@ -1242,6 +1242,11 @@ function EventPage() {
   const roomOpen = event?.roomOpen ?? false
   const eventSearchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
   const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
+  const requestedTestMode = (eventSearchParams.get('test') ?? '').trim().toLowerCase()
+  const isTestGigView = requestedTestMode === '1'
+    || requestedTestMode === 'true'
+    || requestedTestMode === 'yes'
+    || requestedTestMode === 'on'
   const requestedCountdownTargetMs = useMemo(() => resolveCountdownTargetMsFromSearch(location.search), [location.search])
   const hasRequestedEventParam = Boolean(requestedEventId)
   const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => getAudienceNowMs())
@@ -3061,7 +3066,10 @@ function EventPage() {
 
   if (!roomOpen) {
     return (
-      <section className="audience-entry-shell audience-karafun audience-waiting-shell" aria-label="Audience waiting room">
+      <section
+        className={`audience-entry-shell audience-karafun audience-waiting-shell${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
+        aria-label="Audience waiting room"
+      >
         <article className="queue-panel audience-entry-card audience-waiting-card">
           <p className="eyebrow audience-entry-eyebrow">{audienceName ? `${copy.waitingGreeting} ${audienceName}` : copy.entryEyebrow}</p>
           <h1>{waitingRoomTitle}</h1>
@@ -3188,7 +3196,10 @@ function EventPage() {
   }
 
   return (
-    <section className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun${isKaraokeEvent ? ' audience-shell-karaoke' : ''}`} aria-label="Audience app">
+    <section
+      className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun${isKaraokeEvent ? ' audience-shell-karaoke' : ''}${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
+      aria-label="Audience app"
+    >
       <section className="audience-stage">
         <AudienceFixedHeader
           eventName={isBuildSelfEvent && event?.artistName ? `${event.artistName} — ${event.name ?? copy.audienceLive}` : (event?.name ?? copy.audienceLive)}

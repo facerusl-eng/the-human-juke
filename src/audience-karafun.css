@@ -55,6 +55,35 @@
   min-height: 100dvh;
 }
 
+.audience-karafun.audience-theme-no-gig-blend {
+  background:
+    linear-gradient(140deg, rgba(7, 11, 24, 0.56), rgba(8, 14, 30, 0.68)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center / cover no-repeat;
+}
+
+.audience-karafun.audience-theme-no-gig-blend .queue-panel,
+.audience-karafun.audience-theme-no-gig-blend .now-playing-card,
+.audience-karafun.audience-theme-no-gig-blend .audience-start-actions-panel {
+  border-color: rgba(126, 176, 255, 0.24);
+  background:
+    radial-gradient(circle at 10% 12%, rgba(0, 200, 255, 0.09), transparent 38%),
+    radial-gradient(circle at 88% 80%, rgba(162, 89, 255, 0.12), transparent 36%),
+    rgba(10, 16, 34, 0.86);
+  box-shadow:
+    0 0 0 1px rgba(120, 164, 255, 0.12) inset,
+    0 16px 34px rgba(4, 8, 24, 0.52);
+}
+
+.audience-karafun.audience-theme-no-gig-blend .secondary-button {
+  border-color: rgba(126, 176, 255, 0.34);
+  background: rgba(9, 18, 40, 0.78);
+}
+
+.audience-karafun.audience-theme-no-gig-blend .secondary-button:hover {
+  border-color: rgba(151, 193, 255, 0.52);
+  background: rgba(13, 24, 52, 0.9);
+}
+
 .audience-karafun .audience-stage {
   max-width: 500px;
   width: 100%;
