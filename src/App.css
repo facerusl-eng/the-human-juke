@@ -4214,33 +4214,8 @@ body:has(.audience-no-gig-shell) {
   gap: 0.55rem;
 }
 
-@media (min-width: 761px) and (max-width: 1500px) {
-  .gig-management-entry {
-    display: grid;
-    grid-template-columns: 120px minmax(0, 1fr);
-    grid-template-areas:
-      'image main'
-      'actions actions';
-  }
 
-  .gig-management-image {
-    grid-area: image;
-  }
-
-  .gig-management-main {
-    grid-area: main;
-  }
-
-  .gig-management-actions {
-    grid-area: actions;
-    justify-content: flex-start;
-    align-items: stretch;
-  }
-
-  .gig-management-actions > * {
-    flex: 1 1 180px;
-  }
-}
+/* Remove grid override for gig-management-entry to keep flex layout always */
 
 .admin-hub-grid {
   display: grid;
