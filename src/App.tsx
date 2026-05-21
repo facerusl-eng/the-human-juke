@@ -193,35 +193,7 @@ function RouteErrorFallback() {
     })
   }, [fallbackMessage, routeError])
 
-  return (
-    <section className="app-shell" aria-label="Page error">
-      <section className="queue-panel">
-        <p className="eyebrow">Temporary issue</p>
-        <h1>We hit a loading error</h1>
-        <p className="subcopy">{fallbackMessage}</p>
-        <div className="hero-actions no-margin-bottom">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              navigate('/', { replace: true })
-            }}
-          >
-            Go Home
-          </button>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => {
-              navigate(0)
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      </section>
-    </section>
-  )
+    return <div>Error: {fallbackMessage}</div>
 }
 
 function AudienceShortcutRedirect() {
