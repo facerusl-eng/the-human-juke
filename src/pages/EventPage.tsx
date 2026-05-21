@@ -307,7 +307,6 @@ async function fetchUpcomingEventRows(timeoutMs = 12000, nowMs = Date.now()) {
       .from('events')
       .select(baseSelect)
       .abortSignal(abortController.signal)
-      .eq('show_in_audience_no_gig', true)
       .or(`gig_date.gte.${todayIso},gig_date.is.null`)
       .order('gig_date', { ascending: true, nullsFirst: false })
       .order('gig_start_time', { ascending: true, nullsFirst: false })
@@ -326,31 +325,7 @@ async function fetchUpcomingEventRows(timeoutMs = 12000, nowMs = Date.now()) {
       throw error
     }
 
-    const mappedData = ((data ?? []) as Array<Record<string, unknown>>).map((eventData) => ({
-      ...eventData,
-      cover_image_url: null,
-      event_theme: null,
-    }))
-
-    if (mappedData.length > 0) {
-      return mappedData
-    }
-
-    const { data: futureData, error: futureError } = await supabase
-      .from('events')
-      .select(baseSelect)
-      .abortSignal(abortController.signal)
-      .or(`gig_date.gte.${todayIso},gig_date.is.null`)
-      .order('gig_date', { ascending: true, nullsFirst: false })
-      .order('gig_start_time', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true })
-      .limit(50)
-
-    if (futureError) {
-      throw futureError
-    }
-
-    return ((futureData ?? []) as Array<Record<string, unknown>>).map((eventData) => ({
+    return ((data ?? []) as Array<Record<string, unknown>>).map((eventData) => ({
       ...eventData,
       cover_image_url: null,
       event_theme: null,

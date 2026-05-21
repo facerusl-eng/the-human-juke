@@ -22,23 +22,19 @@ function normalizeTodayIso(rawToday) {
   return new Date().toISOString().slice(0, 10)
 }
 
-function buildEventsUrl(supabaseUrl, selectColumns, todayIso, onlyNoGigRows) {
+function buildEventsUrl(supabaseUrl, selectColumns, todayIso) {
   const url = new URL('/rest/v1/events', supabaseUrl)
   url.searchParams.set('select', selectColumns)
   url.searchParams.set('or', `(gig_date.gte.${todayIso},gig_date.is.null)`)
   url.searchParams.set('order', 'gig_date.asc.nullslast,gig_start_time.asc.nullslast,created_at.asc')
   url.searchParams.set('limit', '50')
 
-  if (onlyNoGigRows) {
-    url.searchParams.set('show_in_audience_no_gig', 'eq.true')
-  }
-
   return url.toString()
 }
 
-async function fetchEventRows({ supabaseUrl, publishableKey, todayIso, onlyNoGigRows }) {
+async function fetchEventRows({ supabaseUrl, publishableKey, todayIso }) {
   const selectColumns = 'id,name,venue,gig_date,gig_start_time,gig_end_time,event_type,karafun_url'
-  const requestUrl = buildEventsUrl(supabaseUrl, selectColumns, todayIso, onlyNoGigRows)
+  const requestUrl = buildEventsUrl(supabaseUrl, selectColumns, todayIso)
 
   const response = await fetch(requestUrl, {
     method: 'GET',
@@ -83,21 +79,11 @@ export default async function handler(req, res) {
   const todayIso = normalizeTodayIso(req.query?.today)
 
   try {
-    const featuredRows = await fetchEventRows({
+    const rows = await fetchEventRows({
       supabaseUrl,
       publishableKey,
       todayIso,
-      onlyNoGigRows: true,
     })
-
-    const rows = featuredRows.length > 0
-      ? featuredRows
-      : await fetchEventRows({
-        supabaseUrl,
-        publishableKey,
-        todayIso,
-        onlyNoGigRows: false,
-      })
 
     const mappedRows = rows.map((eventRow) => ({
       ...eventRow,
