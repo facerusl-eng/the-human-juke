@@ -17,15 +17,13 @@
   gap: 1rem;
   background: linear-gradient(
     135deg,
-    rgba(93, 215, 255, 0.12) 0%,
-    rgba(255, 71, 71, 0.08) 100%
+    rgba(93, 215, 255, 0.08) 0%,
+    rgba(255, 71, 71, 0.04) 100%
   );
-  border: 1px solid rgba(130, 188, 255, 0.26);
+  border: 1px solid rgba(93, 215, 255, 0.15);
   border-radius: 16px;
   padding: 1.5rem;
   grid-template-columns: 1fr;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
 }
 
 .admin-settings-header h1,
@@ -49,12 +47,10 @@
   gap: 1rem;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(150deg, rgba(9, 14, 34, 0.62), rgba(14, 21, 42, 0.56));
-  border: 1px solid rgba(130, 188, 255, 0.24);
+  background: rgba(13, 17, 54, 0.4);
+  border: 1px solid rgba(93, 215, 255, 0.12);
   border-radius: 12px;
   padding: 0.75rem 1rem;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
 }
 
 .toolbar-actions {
@@ -142,18 +138,16 @@
 /* ─────────────────────────────────────────────────────────────────────────── */
 
 .collapsible-section {
-  border: 1px solid rgba(130, 188, 255, 0.24);
+  border: 1px solid rgba(93, 215, 255, 0.15);
   border-radius: 12px;
-  background: linear-gradient(155deg, rgba(9, 15, 36, 0.62), rgba(13, 20, 40, 0.56));
+  background: rgba(13, 17, 54, 0.4);
   overflow: hidden;
   transition: border-color 200ms ease, background-color 200ms ease;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
 }
 
 .collapsible-section:hover {
-  border-color: rgba(130, 188, 255, 0.34);
-  background: linear-gradient(155deg, rgba(11, 17, 39, 0.7), rgba(16, 24, 46, 0.64));
+  border-color: rgba(93, 215, 255, 0.25);
+  background: rgba(13, 17, 54, 0.5);
 }
 
 .section-header {
