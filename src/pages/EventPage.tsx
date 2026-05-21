@@ -301,9 +301,11 @@ async function fetchUpcomingEventRows(timeoutMs = 12000, nowMs = Date.now()) {
   }, timeoutMs)
 
   try {
+    const baseSelect = 'id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url'
+
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, event_theme, karafun_url, cover_image_url')
+      .select(baseSelect)
       .abortSignal(abortController.signal)
       .eq('show_in_audience_no_gig', true)
       .or(`gig_date.gte.${todayIso},gig_date.is.null`)
@@ -320,62 +322,15 @@ async function fetchUpcomingEventRows(timeoutMs = 12000, nowMs = Date.now()) {
       throw new Error('EventPage: upcoming events fallback timed out (db)')
     }
 
-    if (error && (isMissingCoverImageColumnError(error) || isMissingEventThemeColumnError(error))) {
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('events')
-        .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
-        .abortSignal(abortController.signal)
-        .eq('show_in_audience_no_gig', true)
-        .or(`gig_date.gte.${todayIso},gig_date.is.null`)
-        .order('gig_date', { ascending: true, nullsFirst: false })
-        .order('gig_start_time', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true })
-        .limit(50)
-
-      if (didTimeout) {
-        throw new Error('EventPage: upcoming events fallback timed out')
-      }
-
-      if (fallbackError) {
-        throw fallbackError
-      }
-
-      const mappedFallbackData = (fallbackData ?? []).map((eventData) => ({
-        ...(eventData as Record<string, unknown>),
-        cover_image_url: null,
-        event_theme: null,
-      }))
-
-      if (mappedFallbackData.length > 0) {
-        return mappedFallbackData
-      }
-
-      const { data: futureFallbackData, error: futureFallbackError } = await supabase
-        .from('events')
-        .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
-        .abortSignal(abortController.signal)
-        .or(`gig_date.gte.${todayIso},gig_date.is.null`)
-        .order('gig_date', { ascending: true, nullsFirst: false })
-        .order('gig_start_time', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true })
-        .limit(50)
-
-      if (futureFallbackError) {
-        throw futureFallbackError
-      }
-
-      return (futureFallbackData ?? []).map((eventData) => ({
-        ...(eventData as Record<string, unknown>),
-        cover_image_url: null,
-        event_theme: null,
-      }))
-    }
-
     if (error) {
       throw error
     }
 
-    const mappedData = (data ?? []) as Array<Record<string, unknown>>
+    const mappedData = ((data ?? []) as Array<Record<string, unknown>>).map((eventData) => ({
+      ...eventData,
+      cover_image_url: null,
+      event_theme: null,
+    }))
 
     if (mappedData.length > 0) {
       return mappedData
@@ -383,7 +338,7 @@ async function fetchUpcomingEventRows(timeoutMs = 12000, nowMs = Date.now()) {
 
     const { data: futureData, error: futureError } = await supabase
       .from('events')
-      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, event_theme, karafun_url, cover_image_url')
+      .select(baseSelect)
       .abortSignal(abortController.signal)
       .or(`gig_date.gte.${todayIso},gig_date.is.null`)
       .order('gig_date', { ascending: true, nullsFirst: false })
@@ -395,7 +350,11 @@ async function fetchUpcomingEventRows(timeoutMs = 12000, nowMs = Date.now()) {
       throw futureError
     }
 
-    return (futureData ?? []) as Array<Record<string, unknown>>
+    return ((futureData ?? []) as Array<Record<string, unknown>>).map((eventData) => ({
+      ...eventData,
+      cover_image_url: null,
+      event_theme: null,
+    }))
   } finally {
     window.clearTimeout(timeoutId)
   }
@@ -444,8 +403,8 @@ const UPCOMING_EVENTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5
 const AUDIENCE_CLOCK_OFFSET_CACHE_KEY = 'human-jukebox-clock-offset-cache-v1'
 const AUDIENCE_CLOCK_OFFSET_CACHE_MAX_AGE_MS = 1000 * 60 * 15
 const AUDIENCE_CLOCK_OFFSET_REFRESH_INTERVAL_MS = 60000
-const UPCOMING_FALLBACK_TIMEOUT_MS = 8000
-const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 12000
+const UPCOMING_FALLBACK_TIMEOUT_MS = 3500
+const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 4500
 const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
 const UPCOMING_COVER_FETCH_TIMEOUT_MS = 12000
 const UPCOMING_COVER_FETCH_MAX_EVENTS = 10
