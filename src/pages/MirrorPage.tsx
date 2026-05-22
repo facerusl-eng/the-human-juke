@@ -19,6 +19,7 @@ import { useQueueStore, type QueueSong, type VenueLogoAppearance } from '../stat
 import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
+import { INTRO_AUDIO_PLAYBACK_VOLUME } from '../lib/constants'
 import { demoMode, homeMirrorPreviewMode } from '../demo/demoMode'
 import { DEMO_NOW_PLAYING_FACTS } from '../demo/demoNowPlaying'
 
@@ -247,7 +248,7 @@ function releaseIntroAudioPlayLockForEvent(eventId: string, ownerId: string) {
 async function playIntroAudioForMirrorAutoLive(introAudioUrl: string) {
   const introAudio = new Audio(introAudioUrl)
   introAudio.muted = false
-  introAudio.volume = 1
+  introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
   introAudio.currentTime = 0
   introAudio.preload = 'auto'
   await introAudio.play()

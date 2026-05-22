@@ -25,6 +25,7 @@ import { useQueueStore } from '../state/queueStore'
 import {
   INTRO_AUDIO_LOCK_STORAGE_KEY,
   INTRO_AUDIO_LOCK_TTL_MS,
+  INTRO_AUDIO_PLAYBACK_VOLUME,
   SPOTIFY_ACCESS_TOKEN_STORAGE_KEY,
   SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY,
   GIG_CONTROL_AUTO_REDIRECT_SECONDS,
@@ -953,7 +954,7 @@ function GigControlPage() {
 
     const introAudio = primedAudioElement ?? new Audio(introAudioUrl)
     introAudio.muted = false
-    introAudio.volume = 1
+    introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
     introAudio.currentTime = 0
     introAudio.preload = 'auto'
 
@@ -2173,6 +2174,11 @@ function GigControlPage() {
     const initializePlaybackState = async () => {
       try {
         const sharedPlaybackState = await readSharedPlaybackState(activeEventId)
+        const preservedCountdownTargetMs = sharedPlaybackState?.countdownTargetMs ?? mirroredCountdownTargetMs
+        const preservedBrbActive = Boolean(sharedPlaybackState?.brbActive)
+        const preservedBrbMessage = typeof sharedPlaybackState?.brbMessage === 'string'
+          ? sharedPlaybackState.brbMessage
+          : null
 
         if (!isCurrent) return
 
@@ -2192,7 +2198,9 @@ function GigControlPage() {
             currentSongCoverUrl: null,
             isStarted: false,
             quoteIndex: sharedPlaybackState?.quoteIndex ?? quoteIndexRef.current,
-            countdownTargetMs: mirroredCountdownTargetMs,
+            countdownTargetMs: preservedCountdownTargetMs,
+            brbActive: preservedBrbActive,
+            brbMessage: preservedBrbMessage,
           })
           return
         }
@@ -2224,7 +2232,9 @@ function GigControlPage() {
           currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying.id),
           isStarted: false,
           quoteIndex: quoteIndexRef.current,
-          countdownTargetMs: mirroredCountdownTargetMs,
+          countdownTargetMs: preservedCountdownTargetMs,
+          brbActive: preservedBrbActive,
+          brbMessage: preservedBrbMessage,
         })
 
         previousSongIdRef.current = nowPlaying.id

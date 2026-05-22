@@ -324,8 +324,9 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
       normalizedBrbMessage = previousState?.brbMessage ?? null
     }
 
-    if (!normalizedBrbActive && !isLastSongSoonOverlayMessage(normalizedBrbMessage)) {
-      normalizedBrbMessage = null
+    if (typeof normalizedBrbMessage === 'string') {
+      const trimmedBrbMessage = normalizedBrbMessage.trim()
+      normalizedBrbMessage = trimmedBrbMessage.length > 0 ? trimmedBrbMessage : null
     }
 
     const normalizedState: SharedPlaybackState = {
