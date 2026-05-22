@@ -7,6 +7,7 @@ type StudioTrack = {
   name: string
   file: File
   objectUrl: string
+  cacheKey: string
   durationSec: number
   volume: number
   pan: number
@@ -67,7 +68,32 @@ type PersistedProject = {
   limiterEnabled: boolean
   limiterPreset: LimiterPresetId
   limiterCeilingDb: number
+  loopSectionId: string | null
+  midiMappings: MidiMappings
   tracks: PersistedTrack[]
+}
+
+type MidiMappings = {
+  playPause: number
+  stop: number
+  prevSection: number
+  nextSection: number
+}
+
+type CachedTrackMeta = {
+  key: string
+  name: string
+  type: string
+  size: number
+  lastModified: number
+  cachedAt: number
+}
+
+type RecordingClip = {
+  id: string
+  name: string
+  createdAt: number
+  objectUrl: string
 }
 
 type LimiterPresetId = 'transparent' | 'liveSafe' | 'hardClamp'
@@ -150,8 +176,37 @@ const OUTPUT_ROUTE_PRESETS: Record<OutputRoutePresetId, OutputRoutePreset> = {
   },
 }
 
+const AUDIO_CACHE_DB = 'hj_next_audio_cache_v1'
+const AUDIO_CACHE_STORE = 'audio_files'
+const DEFAULT_MIDI_MAPPINGS: MidiMappings = {
+  playPause: 60,
+  stop: 61,
+  prevSection: 62,
+  nextSection: 63,
+}
+
 function dbToGain(db: number) {
   return Math.pow(10, db / 20)
+}
+
+async function openAudioCacheDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(AUDIO_CACHE_DB, 1)
+
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(AUDIO_CACHE_STORE)) {
+        db.createObjectStore(AUDIO_CACHE_STORE, { keyPath: 'key' })
+      }
+    }
+
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error ?? new Error('Could not open cache database'))
+  })
+}
+
+function fileToCacheKey(file: File) {
+  return `${file.name}:${file.size}:${file.lastModified}`
 }
 
 function formatClock(seconds: number) {
@@ -508,8 +563,13 @@ function SongStudioPage() {
   const masterInputGainRef = useRef<GainNode | null>(null)
   const limiterNodeRef = useRef<DynamicsCompressorNode | null>(null)
   const masterOutputGainRef = useRef<GainNode | null>(null)
+  const recordDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null)
   const buffersRef = useRef<Map<string, AudioBuffer>>(new Map())
   const sourceNodesRef = useRef<NodeBundle[]>([])
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordingChunksRef = useRef<Blob[]>([])
+  const recordingUrlsRef = useRef<string[]>([])
+  const midiAccessRef = useRef<MIDIAccess | null>(null)
   const rafRef = useRef<number | null>(null)
   const clickTimerRef = useRef<number | null>(null)
   const nextClickTimeRef = useRef(0)
@@ -533,6 +593,7 @@ function SongStudioPage() {
   const [limiterEnabled, setLimiterEnabled] = useState(initialSnapshot?.limiterEnabled ?? true)
   const [limiterPreset, setLimiterPreset] = useState<LimiterPresetId>(initialSnapshot?.limiterPreset ?? 'liveSafe')
   const [limiterCeilingDb, setLimiterCeilingDb] = useState(initialSnapshot?.limiterCeilingDb ?? -1)
+  const [loopSectionId, setLoopSectionId] = useState<string | null>(initialSnapshot?.loopSectionId ?? null)
   const [syncOffsetSec, setSyncOffsetSec] = useState(initialSnapshot?.syncOffsetSec ?? 0)
   const [clickTrackEnabled, setClickTrackEnabled] = useState(true)
   const [clickTrackBpm, setClickTrackBpm] = useState(120)
@@ -542,6 +603,12 @@ function SongStudioPage() {
   const [preCountBeatsRemaining, setPreCountBeatsRemaining] = useState<number | null>(null)
   const [extractionSourceTrackId, setExtractionSourceTrackId] = useState<string | null>(null)
   const [performerMonitorEnabled, setPerformerMonitorEnabled] = useState(false)
+  const [midiMappings, setMidiMappings] = useState<MidiMappings>(initialSnapshot?.midiMappings ?? DEFAULT_MIDI_MAPPINGS)
+  const [midiConnected, setMidiConnected] = useState(false)
+  const [midiStatusText, setMidiStatusText] = useState('MIDI not connected.')
+  const [cachedTracks, setCachedTracks] = useState<CachedTrackMeta[]>([])
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordings, setRecordings] = useState<RecordingClip[]>([])
 
   const leadTrack = tracks[0] ?? null
   const extractionSourceTrack = tracks.find((track) => track.id === extractionSourceTrackId) ?? leadTrack
@@ -571,6 +638,7 @@ function SongStudioPage() {
   const nextMonitorSection = activeMonitorSectionIndex >= 0
     ? monitorSections[activeMonitorSectionIndex + 1] ?? null
     : monitorSections[1] ?? null
+  const loopSection = monitorSections.find((section) => section.id === loopSectionId) ?? null
 
   const activeSectionProgress = activeMonitorSection
     ? Math.min(
@@ -614,6 +682,37 @@ function SongStudioPage() {
 
   const remainingSongClock = formatClock(Math.max(0, totalDurationSec - syncedTime))
 
+  const healthChecks = useMemo(() => {
+    const entries = [
+      { id: 'audio', label: 'Audio engine ready', pass: Boolean(audioContextRef.current) },
+      { id: 'track', label: 'Track loaded', pass: tracks.length > 0 },
+      { id: 'chart', label: 'Lyric/chord chart', pass: chartLines.length > 0 },
+      { id: 'sections', label: 'Section markers', pass: monitorSections.length > 1 },
+      { id: 'offline', label: 'Offline cache', pass: cachedTracks.length > 0 },
+      { id: 'midi', label: 'MIDI control', pass: midiConnected },
+      { id: 'record', label: 'Recording ready', pass: typeof window !== 'undefined' && 'MediaRecorder' in window },
+    ]
+
+    const passed = entries.filter((entry) => entry.pass).length
+    return {
+      entries,
+      passed,
+      total: entries.length,
+      summary: `${passed}/${entries.length} checks passed`,
+    }
+  }, [cachedTracks.length, chartLines.length, midiConnected, monitorSections.length, tracks.length])
+
+  useEffect(() => {
+    if (!loopSectionId) {
+      return
+    }
+
+    const exists = monitorSections.some((section) => section.id === loopSectionId)
+    if (!exists) {
+      setLoopSectionId(null)
+    }
+  }, [loopSectionId, monitorSections])
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return
@@ -639,6 +738,8 @@ function SongStudioPage() {
       limiterEnabled,
       limiterPreset,
       limiterCeilingDb,
+      loopSectionId,
+      midiMappings,
       tracks: persistedTracks,
     }
 
@@ -649,8 +750,10 @@ function SongStudioPage() {
     limiterCeilingDb,
     limiterEnabled,
     limiterPreset,
+    loopSectionId,
     masterRoutePreset,
     masterVolume,
+    midiMappings,
     syncOffsetSec,
     tracks,
     transposeSemitones,
@@ -665,6 +768,7 @@ function SongStudioPage() {
       ...track,
       file: new File([], `${track.name} (metadata only)`),
       objectUrl: '',
+      cacheKey: '',
     }))
 
     setTracks(restoredTracks)
@@ -751,6 +855,71 @@ function SongStudioPage() {
     }
   }, [currentTimeSec, isPlaying])
 
+  useEffect(() => {
+    void refreshCachedTracks()
+  }, [])
+
+  useEffect(() => {
+    const access = midiAccessRef.current
+    if (!access) {
+      return
+    }
+
+    const handleMidiMessage = (event: MIDIMessageEvent) => {
+      const data = event.data
+      if (!data || data.length < 3) {
+        return
+      }
+
+      const status = data[0]
+      const note = data[1]
+      const velocity = data[2]
+      if ((status & 0xf0) !== 0x90 || velocity === 0) {
+        return
+      }
+
+      if (note === midiMappings.playPause) {
+        if (isPlaying) {
+          onPausePlayback()
+        } else {
+          void startPlayback()
+        }
+      }
+
+      if (note === midiMappings.stop) {
+        onSeek(0)
+      }
+
+      if (note === midiMappings.prevSection) {
+        onSeek(Math.max(0, (activeMonitorSection?.startSec ?? 0) - 0.01))
+      }
+
+      if (note === midiMappings.nextSection) {
+        onSeek(nextMonitorSection?.startSec ?? 0)
+      }
+    }
+
+    access.inputs.forEach((input) => {
+      input.onmidimessage = handleMidiMessage
+    })
+
+    access.onstatechange = () => {
+      const connected = Array.from(access.inputs.values()).some((input) => input.state === 'connected')
+      setMidiConnected(connected)
+
+      access.inputs.forEach((input) => {
+        input.onmidimessage = handleMidiMessage
+      })
+    }
+
+    return () => {
+      access.inputs.forEach((input) => {
+        input.onmidimessage = null
+      })
+      access.onstatechange = null
+    }
+  }, [activeMonitorSection?.startSec, isPlaying, midiMappings, nextMonitorSection?.startSec])
+
   const stopPlayback = () => {
     sourceNodesRef.current.forEach((bundle) => {
       try {
@@ -782,8 +951,16 @@ function SongStudioPage() {
   }
 
   useEffect(() => {
+    recordingUrlsRef.current = recordings.map((clip) => clip.objectUrl)
+  }, [recordings])
+
+  useEffect(() => {
     return () => {
       stopPlayback()
+
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop()
+      }
 
       if (audioContextRef.current) {
         void audioContextRef.current.close()
@@ -791,6 +968,10 @@ function SongStudioPage() {
 
       tracks.forEach((track) => {
         URL.revokeObjectURL(track.objectUrl)
+      })
+
+      recordingUrlsRef.current.forEach((url) => {
+        URL.revokeObjectURL(url)
       })
     }
   }, [])
@@ -801,14 +982,17 @@ function SongStudioPage() {
       const masterInput = context.createGain()
       const limiter = context.createDynamicsCompressor()
       const masterOutput = context.createGain()
+      const recordDestination = context.createMediaStreamDestination()
 
       masterInput.connect(limiter)
       limiter.connect(masterOutput)
       masterOutput.connect(context.destination)
+      masterOutput.connect(recordDestination)
 
       masterInputGainRef.current = masterInput
       limiterNodeRef.current = limiter
       masterOutputGainRef.current = masterOutput
+      recordDestinationRef.current = recordDestination
       audioContextRef.current = context
     }
 
@@ -834,15 +1018,59 @@ function SongStudioPage() {
     return audioContextRef.current
   }
 
-  const onAddTrackFiles = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) {
+  const refreshCachedTracks = async () => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
       return
     }
 
-    const acceptedFiles = Array.from(fileList).filter((file) => /audio\/(mpeg|wav|x-wav|mp3|aac|ogg)/i.test(file.type) || /\.(mp3|wav|aac|m4a|ogg)$/i.test(file.name))
+    try {
+      const db = await openAudioCacheDb()
+      const transaction = db.transaction(AUDIO_CACHE_STORE, 'readonly')
+      const store = transaction.objectStore(AUDIO_CACHE_STORE)
+      const request = store.getAll()
 
+      const rows = await new Promise<CachedTrackMeta[]>((resolve, reject) => {
+        request.onsuccess = () => resolve((request.result as CachedTrackMeta[]) ?? [])
+        request.onerror = () => reject(request.error)
+      })
+
+      setCachedTracks(rows.sort((a, b) => b.cachedAt - a.cachedAt))
+    } catch {
+      setCachedTracks([])
+    }
+  }
+
+  const cacheTrackFile = async (file: File) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      return
+    }
+
+    try {
+      const db = await openAudioCacheDb()
+      const transaction = db.transaction(AUDIO_CACHE_STORE, 'readwrite')
+      const store = transaction.objectStore(AUDIO_CACHE_STORE)
+      store.put({
+        key: fileToCacheKey(file),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        lastModified: file.lastModified,
+        cachedAt: Date.now(),
+        blob: file,
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => reject(transaction.error)
+        transaction.onabort = () => reject(transaction.error)
+      })
+    } catch {
+      // Ignore cache write failures.
+    }
+  }
+
+  const addTracksFromFiles = async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) {
-      setStatusText('Only audio files (WAV/MP3/AAC/OGG) are supported.')
       return
     }
 
@@ -861,12 +1089,15 @@ function SongStudioPage() {
         name: file.name,
         file,
         objectUrl,
+        cacheKey: fileToCacheKey(file),
         durationSec: buffer.duration,
         volume: 0.9,
         pan: 0,
         muted: false,
         solo: false,
       })
+
+      void cacheTrackFile(file)
     }
 
     setTracks((current) => {
@@ -876,7 +1107,123 @@ function SongStudioPage() {
       }
       return merged
     })
+
+    await refreshCachedTracks()
     setStatusText(`${nextTracks.length} track(s) loaded. Run auto-generate to build lyric/chord sync.`)
+  }
+
+  const restoreCachedTracks = async () => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      setStatusText('Offline cache is not supported in this browser.')
+      return
+    }
+
+    try {
+      const db = await openAudioCacheDb()
+      const transaction = db.transaction(AUDIO_CACHE_STORE, 'readonly')
+      const store = transaction.objectStore(AUDIO_CACHE_STORE)
+      const request = store.getAll()
+
+      const rows = await new Promise<Array<CachedTrackMeta & { blob: Blob }>>((resolve, reject) => {
+        request.onsuccess = () => resolve((request.result as Array<CachedTrackMeta & { blob: Blob }>) ?? [])
+        request.onerror = () => reject(request.error)
+      })
+
+      const files = rows.map((row) => new File([row.blob], row.name, { type: row.type, lastModified: row.lastModified }))
+      if (files.length === 0) {
+        setStatusText('No cached tracks found yet.')
+        return
+      }
+
+      await addTracksFromFiles(files)
+      setStatusText(`Restored ${files.length} cached track(s) for offline mode.`)
+    } catch {
+      setStatusText('Could not restore cached tracks.')
+    }
+  }
+
+  const connectMidi = async () => {
+    if (typeof navigator === 'undefined' || !('requestMIDIAccess' in navigator)) {
+      setMidiStatusText('MIDI is not supported on this device/browser.')
+      return
+    }
+
+    try {
+      const access = await (navigator as Navigator & { requestMIDIAccess: () => Promise<MIDIAccess> }).requestMIDIAccess()
+      midiAccessRef.current = access
+      setMidiConnected(access.inputs.size > 0)
+      setMidiStatusText(access.inputs.size > 0 ? 'MIDI connected.' : 'MIDI granted. Connect a controller to receive events.')
+    } catch {
+      setMidiConnected(false)
+      setMidiStatusText('Could not connect MIDI controller.')
+    }
+  }
+
+  const startRecording = async () => {
+    if (typeof window === 'undefined' || !('MediaRecorder' in window)) {
+      setStatusText('Recording is not supported in this browser.')
+      return
+    }
+
+    const context = ensureAudioContext()
+    await context.resume()
+
+    const destination = recordDestinationRef.current
+    if (!destination) {
+      setStatusText('Recording bus is not available.')
+      return
+    }
+
+    const recorder = new MediaRecorder(destination.stream)
+    recordingChunksRef.current = []
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordingChunksRef.current.push(event.data)
+      }
+    }
+
+    recorder.onstop = () => {
+      const mimeType = recordingChunksRef.current[0]?.type || 'audio/webm'
+      const clipBlob = new Blob(recordingChunksRef.current, { type: mimeType })
+      const objectUrl = URL.createObjectURL(clipBlob)
+      setRecordings((current) => [{
+        id: createId('rec'),
+        name: `Recording ${new Date().toLocaleTimeString()}`,
+        createdAt: Date.now(),
+        objectUrl,
+      }, ...current])
+      setIsRecording(false)
+      setStatusText('Recording saved.')
+    }
+
+    recorder.start()
+    mediaRecorderRef.current = recorder
+    setIsRecording(true)
+    setStatusText('Recording started.')
+  }
+
+  const stopRecording = () => {
+    const recorder = mediaRecorderRef.current
+    if (!recorder || recorder.state === 'inactive') {
+      return
+    }
+
+    recorder.stop()
+  }
+
+  const onAddTrackFiles = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) {
+      return
+    }
+
+    const acceptedFiles = Array.from(fileList).filter((file) => /audio\/(mpeg|wav|x-wav|mp3|aac|ogg)/i.test(file.type) || /\.(mp3|wav|aac|m4a|ogg)$/i.test(file.name))
+
+    if (acceptedFiles.length === 0) {
+      setStatusText('Only audio files (WAV/MP3/AAC/OGG) are supported.')
+      return
+    }
+
+    await addTracksFromFiles(acceptedFiles)
   }
 
   const onGenerateChart = async () => {
@@ -920,6 +1267,14 @@ function SongStudioPage() {
     }
 
     const nextTime = Math.min(totalDurationSec || elapsed + playOffsetRef.current, playOffsetRef.current + elapsed)
+
+    if (loopSection && isPlaying && nextTime >= loopSection.endSec) {
+      playOffsetRef.current = loopSection.startSec
+      setCurrentTimeSec(loopSection.startSec)
+      void startPlayback()
+      return
+    }
+
     setCurrentTimeSec(nextTime)
 
     if (totalDurationSec > 0 && nextTime >= totalDurationSec) {
@@ -1075,6 +1430,10 @@ function SongStudioPage() {
 
       return current.filter((track) => track.id !== trackId)
     })
+
+    if (extractionSourceTrackId === trackId) {
+      setExtractionSourceTrackId(null)
+    }
   }
 
   const exportChart = () => {
@@ -1087,6 +1446,8 @@ function SongStudioPage() {
       limiterEnabled,
       limiterPreset,
       limiterCeilingDb,
+      loopSectionId,
+      midiMappings,
       exportedAt: new Date().toISOString(),
     }
 
@@ -1128,6 +1489,16 @@ function SongStudioPage() {
           : 'liveSafe',
       )
       setLimiterCeilingDb(typeof parsed.limiterCeilingDb === 'number' ? parsed.limiterCeilingDb : -1)
+      setLoopSectionId(typeof parsed.loopSectionId === 'string' || parsed.loopSectionId === null ? parsed.loopSectionId : null)
+      if (parsed.midiMappings && typeof parsed.midiMappings === 'object') {
+        const incoming = parsed.midiMappings as Partial<MidiMappings>
+        setMidiMappings({
+          playPause: typeof incoming.playPause === 'number' ? incoming.playPause : DEFAULT_MIDI_MAPPINGS.playPause,
+          stop: typeof incoming.stop === 'number' ? incoming.stop : DEFAULT_MIDI_MAPPINGS.stop,
+          prevSection: typeof incoming.prevSection === 'number' ? incoming.prevSection : DEFAULT_MIDI_MAPPINGS.prevSection,
+          nextSection: typeof incoming.nextSection === 'number' ? incoming.nextSection : DEFAULT_MIDI_MAPPINGS.nextSection,
+        })
+      }
       setStatusText('Chart imported successfully.')
     } catch {
       setStatusText('Could not import chart file.')
@@ -1223,6 +1594,7 @@ function SongStudioPage() {
             }}
           />
           <button type="button" onClick={() => void onGenerateChart()}>Auto-Generate Lyrics + Chords</button>
+          <button type="button" onClick={() => void restoreCachedTracks()}>Restore Offline Tracks</button>
           {isGenerating ? <p className="studio-status">Extracting lyrics and chart...</p> : null}
           <button type="button" onClick={() => setEditMode((current) => !current)}>{editMode ? 'Exit Edit Mode' : 'Edit Sync'}</button>
           <button type="button" onClick={exportChart}>Export Chart</button>
@@ -1254,6 +1626,7 @@ function SongStudioPage() {
         <p className="studio-status">
           Tip: choose the cleanest full-song audio file as extraction source for best lyrics/chord accuracy.
         </p>
+        <p className="studio-status">Offline cache: {cachedTracks.length} track(s) available.</p>
 
         <div className="studio-manual-lyrics">
           <label htmlFor="manual-lyrics-input">Add Lyrics (manual fallback)</label>
@@ -1339,6 +1712,20 @@ function SongStudioPage() {
             Click on
             <input type="checkbox" checked={clickTrackEnabled} onChange={(event) => setClickTrackEnabled(event.target.checked)} />
           </label>
+          <label>
+            Loop section
+            <select value={loopSectionId ?? ''} onChange={(event) => setLoopSectionId(event.target.value || null)}>
+              <option value="">Off</option>
+              {monitorSections.map((section) => (
+                <option key={section.id} value={section.id}>{section.label}</option>
+              ))}
+            </select>
+          </label>
+          <button type="button" onClick={() => onSeek(Math.max(0, (activeMonitorSection?.startSec ?? 0) - 0.01))}>Prev Section</button>
+          <button type="button" onClick={() => onSeek(nextMonitorSection?.startSec ?? 0)}>Next Section</button>
+          <button type="button" onClick={() => void connectMidi()}>{midiConnected ? 'MIDI Connected' : 'Connect MIDI'}</button>
+          <button type="button" onClick={() => void startRecording()} disabled={isRecording}>Record</button>
+          <button type="button" onClick={stopRecording} disabled={!isRecording}>Stop Rec</button>
           <button type="button" onClick={() => setPerformerMonitorEnabled((current) => !current)}>
             {performerMonitorEnabled ? 'Hide Performer Monitor' : 'Performer Monitor'}
           </button>
@@ -1357,7 +1744,83 @@ function SongStudioPage() {
         {preCountBeatsRemaining !== null ? (
           <p className="studio-status">Count-in: {preCountBeatsRemaining + 1} beat(s) remaining</p>
         ) : null}
+        <p className="studio-status">MIDI: {midiStatusText}</p>
+        {loopSection ? <p className="studio-status">Loop active: {loopSection.label}</p> : null}
+        {isRecording ? <p className="studio-status">Recording in progress...</p> : null}
       </article>
+
+      <article className="studio-panel">
+        <p className="panel-label">Pre-Gig Health Check</p>
+        <p className="studio-status">{healthChecks.summary}</p>
+        <div className="studio-health-grid" role="list" aria-label="Pre gig health checks">
+          {healthChecks.entries.map((entry) => (
+            <p key={entry.id} role="listitem" className={entry.pass ? 'studio-health-ok' : 'studio-health-warn'}>
+              {entry.pass ? 'PASS' : 'CHECK'} {entry.label}
+            </p>
+          ))}
+        </div>
+      </article>
+
+      <article className="studio-panel">
+        <p className="panel-label">MIDI Foot Mapping</p>
+        <div className="studio-midi-grid">
+          <label>
+            Play/Pause note
+            <input
+              type="number"
+              min={0}
+              max={127}
+              value={midiMappings.playPause}
+              onChange={(event) => setMidiMappings((current) => ({ ...current, playPause: Number(event.target.value) || 0 }))}
+            />
+          </label>
+          <label>
+            Stop note
+            <input
+              type="number"
+              min={0}
+              max={127}
+              value={midiMappings.stop}
+              onChange={(event) => setMidiMappings((current) => ({ ...current, stop: Number(event.target.value) || 0 }))}
+            />
+          </label>
+          <label>
+            Prev section note
+            <input
+              type="number"
+              min={0}
+              max={127}
+              value={midiMappings.prevSection}
+              onChange={(event) => setMidiMappings((current) => ({ ...current, prevSection: Number(event.target.value) || 0 }))}
+            />
+          </label>
+          <label>
+            Next section note
+            <input
+              type="number"
+              min={0}
+              max={127}
+              value={midiMappings.nextSection}
+              onChange={(event) => setMidiMappings((current) => ({ ...current, nextSection: Number(event.target.value) || 0 }))}
+            />
+          </label>
+        </div>
+      </article>
+
+      {recordings.length > 0 ? (
+        <article className="studio-panel">
+          <p className="panel-label">Recordings</p>
+          <div className="studio-recording-list" role="list" aria-label="Recordings">
+            {recordings.map((clip) => (
+              <div key={clip.id} className="studio-recording-row" role="listitem">
+                <p>{clip.name}</p>
+                <audio controls src={clip.objectUrl} />
+                <a href={clip.objectUrl} download={`${clip.name}.webm`}>Download</a>
+              </div>
+            ))}
+          </div>
+        </article>
+      ) : null}
 
       {performerMonitorEnabled ? (
         <article className="studio-panel performer-monitor" aria-label="Performer monitor">

@@ -1111,6 +1111,83 @@
   padding: 0 0.35rem;
 }
 
+.studio-health-grid,
+.studio-midi-grid,
+.studio-recording-list {
+  display: grid;
+  gap: 0.52rem;
+}
+
+.studio-health-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.studio-health-grid p {
+  margin: 0;
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.studio-health-ok {
+  border: 1px solid rgba(0, 194, 255, 0.45);
+  background: rgba(0, 194, 255, 0.12);
+  color: #dff8ff;
+}
+
+.studio-health-warn {
+  border: 1px solid rgba(255, 193, 79, 0.42);
+  background: rgba(255, 193, 79, 0.12);
+  color: #ffdca8;
+}
+
+.studio-midi-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.studio-midi-grid label {
+  display: grid;
+  gap: 0.2rem;
+  color: #b5b2de;
+  font-size: 0.78rem;
+}
+
+.studio-midi-grid input {
+  min-height: 2.2rem;
+  border-radius: 10px;
+  border: 1px solid rgba(162, 89, 255, 0.34);
+  background: rgba(9, 8, 20, 0.86);
+  color: #edf3ff;
+  padding: 0 0.45rem;
+}
+
+.studio-recording-row {
+  border-radius: 12px;
+  border: 1px solid rgba(162, 89, 255, 0.3);
+  background: rgba(9, 10, 26, 0.86);
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.38rem;
+}
+
+.studio-recording-row p {
+  margin: 0;
+  color: #edf3ff;
+  font-size: 0.85rem;
+}
+
+.studio-recording-row audio {
+  width: 100%;
+}
+
+.studio-recording-row a {
+  color: #9ddfff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .performer-monitor {
   gap: 0.9rem;
   padding: 0.8rem;
@@ -1380,6 +1457,11 @@
   }
 
   .performer-monitor-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-health-grid,
+  .studio-midi-grid {
     grid-template-columns: 1fr;
   }
 }
