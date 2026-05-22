@@ -159,10 +159,18 @@ function CreateGigPage() {
       }
     }
 
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setEventTypePickerOpen(false)
+      }
+    }
+
     document.addEventListener('mousedown', handleOutsidePointer)
+    document.addEventListener('keydown', handleEscapeKey)
 
     return () => {
       document.removeEventListener('mousedown', handleOutsidePointer)
+      document.removeEventListener('keydown', handleEscapeKey)
     }
   }, [eventTypePickerOpen])
 
@@ -952,6 +960,12 @@ function CreateGigPage() {
                 aria-haspopup="listbox"
                 aria-expanded={eventTypePickerOpen}
                 onClick={() => setEventTypePickerOpen((isOpen) => !isOpen)}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setEventTypePickerOpen(true)
+                  }
+                }}
               >
                 {EVENT_TYPE_OPTIONS.find((option) => option.value === eventType)?.label ?? 'Choose event type'}
               </button>
