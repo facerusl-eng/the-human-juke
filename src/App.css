@@ -3925,6 +3925,16 @@ body:has(.audience-no-gig-shell) {
   gap: 0.78rem;
 }
 
+.create-gig-form > .create-gig-checkbox-row {
+  width: 100%;
+  justify-self: stretch;
+  margin-top: 0;
+}
+
+.create-gig-form > .create-gig-checkbox-row + .create-gig-checkbox-row {
+  margin-top: 0.3rem;
+}
+
 .create-gig-form .field-row {
   gap: 0.32rem;
 }
@@ -4153,6 +4163,8 @@ body:has(.audience-no-gig-shell) {
 }
 
 .create-gig-intro-panel {
+  width: 100%;
+  justify-self: stretch;
   padding: 1rem;
   border: 1px solid rgba(93, 215, 255, 0.24);
   border-radius: 14px;
