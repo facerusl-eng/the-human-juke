@@ -77,7 +77,7 @@ function CreateGigPage() {
   const [gigStartTime, setGigStartTime] = useState('')
   const [gigEndTime, setGigEndTime] = useState('')
   const [description, setDescription] = useState('')
-  const [eventType, setEventType] = useState<EventType>('harald-live')
+  const [eventType, setEventType] = useState<EventType>('halli-live')
   const [karafunUrl, setKarafunUrl] = useState('')
   const [artistName, setArtistName] = useState('')
   const [audienceVotingEnabled, setAudienceVotingEnabled] = useState(true)
