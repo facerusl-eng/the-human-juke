@@ -707,6 +707,10 @@ function SongStudioPage() {
   const [cachedTracks, setCachedTracks] = useState<CachedTrackMeta[]>([])
   const [isRecording, setIsRecording] = useState(false)
   const [recordings, setRecordings] = useState<RecordingClip[]>([])
+  const [x18BridgeUrl, setX18BridgeUrl] = useState('http://127.0.0.1:4318')
+  const [x18Host, setX18Host] = useState('192.168.1.100')
+  const [x18Port, setX18Port] = useState(10024)
+  const [isApplyingX18Routing, setIsApplyingX18Routing] = useState(false)
 
   const songTrack = tracks.find((track) => track.role === 'song') ?? null
   const stemTracks = tracks.filter((track) => track.role === 'stem')
@@ -1417,6 +1421,50 @@ function SongStudioPage() {
     }
 
     recorder.stop()
+  }
+
+  const applyX18RoutingSnapshot = async () => {
+    const routedStems = stemTracks.filter((track) => typeof track.channel === 'number')
+    if (routedStems.length === 0) {
+      setStatusText('Add stem tracks and assign channels before sending to X18.')
+      return
+    }
+
+    setIsApplyingX18Routing(true)
+    try {
+      const response = await fetch(`${x18BridgeUrl.replace(/\/$/, '')}/x18/apply-routing`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          host: x18Host,
+          port: x18Port,
+          master: {
+            volume: masterVolume,
+          },
+          channels: routedStems.map((track) => ({
+            channel: track.channel,
+            name: track.name,
+            volume: track.volume,
+            pan: track.pan,
+            muted: track.muted,
+          })),
+        }),
+      })
+
+      const payload = (await response.json()) as { ok?: boolean; message?: string; applied?: number }
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || 'Bridge rejected routing request')
+      }
+
+      setStatusText(`Sent ${payload.applied ?? routedStems.length} routed stem(s) to X18 via bridge.`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not reach X18 bridge service.'
+      setStatusText(message)
+    } finally {
+      setIsApplyingX18Routing(false)
+    }
   }
 
   const onAddSongFile = async (fileList: FileList | null) => {
@@ -2163,6 +2211,32 @@ function SongStudioPage() {
 
       <article className="studio-panel">
         <p className="panel-label">Stem Mixer (X18 Routing)</p>
+        <div className="studio-midi-grid">
+          <label>
+            Bridge URL
+            <input value={x18BridgeUrl} onChange={(event) => setX18BridgeUrl(event.target.value)} />
+          </label>
+          <label>
+            X18 Host/IP
+            <input value={x18Host} onChange={(event) => setX18Host(event.target.value)} />
+          </label>
+          <label>
+            X18 OSC Port
+            <input
+              type="number"
+              min={1}
+              max={65535}
+              value={x18Port}
+              onChange={(event) => setX18Port(Number(event.target.value) || 10024)}
+            />
+          </label>
+          <label>
+            Apply Routing
+            <button type="button" onClick={() => void applyX18RoutingSnapshot()} disabled={isApplyingX18Routing}>
+              {isApplyingX18Routing ? 'Sending...' : 'Send To X18 Bridge'}
+            </button>
+          </label>
+        </div>
         <div className="studio-track-list" role="list" aria-label="Audio tracks">
           {stemTracks.map((track) => (
             <div key={track.id} className="studio-track-row" role="listitem">
@@ -2194,6 +2268,7 @@ function SongStudioPage() {
           {stemTracks.length === 0 ? <p className="studio-status">No stem tracks loaded yet.</p> : null}
         </div>
         <p className="studio-status">Master output is controlled in transport and sent as the +1 master path.</p>
+        <p className="studio-status">Use channel assignments CH 1-10 for stems, then push routing to your X18 bridge.</p>
       </article>
 
       {editMode ? (
