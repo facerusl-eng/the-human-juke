@@ -107,6 +107,7 @@ const HOME_UI_COPY = {
     venueIdPlaceholder: 'Venue ID (optional)',
     venueIdAria: 'Venue ID optional',
     dateAria: 'Date',
+    openCalendar: 'Open calendar',
     gigTypeAria: 'Gig type',
     gigTypeAfternoon: 'afternoon',
     gigTypeEvening: 'evening',
@@ -155,6 +156,7 @@ const HOME_UI_COPY = {
     venueIdPlaceholder: 'Spillested-ID (valgfrit)',
     venueIdAria: 'Spillested-ID valgfrit',
     dateAria: 'Dato',
+    openCalendar: 'Åbn kalender',
     gigTypeAria: 'Type af gig',
     gigTypeAfternoon: 'eftermiddag',
     gigTypeEvening: 'aften',
@@ -230,6 +232,7 @@ function resolveSignupErrorMessage(body: unknown, status: number, lang: HomeLang
 function HomePage() {
   const navigate = useNavigate()
   const bookingFormRef = useRef<HTMLFormElement | null>(null)
+  const bookingDateInputRef = useRef<HTMLInputElement | null>(null)
   const mirrorPreviewViewportRef = useRef<HTMLDivElement | null>(null)
   const [signupEmail, setSignupEmail] = useState('')
   const [signupError, setSignupError] = useState<string | null>(null)
@@ -566,13 +569,27 @@ function HomePage() {
                   value={bookingVenueId}
                   onChange={(event) => setBookingVenueId(event.target.value)}
                 />
-                <input
-                  type="date"
-                  aria-label={homeUiCopy.dateAria}
-                  value={bookingDate}
-                  onChange={(event) => setBookingDate(event.target.value)}
-                  required
-                />
+                <div className="lp-booking-date-row">
+                  <input
+                    ref={bookingDateInputRef}
+                    type="date"
+                    aria-label={homeUiCopy.dateAria}
+                    value={bookingDate}
+                    onChange={(event) => setBookingDate(event.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="lp-booking-date-picker-button"
+                    onClick={() => {
+                      const dateInput = bookingDateInputRef.current
+                      dateInput?.showPicker?.()
+                      dateInput?.focus()
+                    }}
+                  >
+                    {homeUiCopy.openCalendar}
+                  </button>
+                </div>
                 <select aria-label={homeUiCopy.gigTypeAria} value={bookingGigType} onChange={(event) => setBookingGigType(event.target.value as GigType)}>
                   <option value="afternoon">{homeUiCopy.gigTypeAfternoon}</option>
                   <option value="evening">{homeUiCopy.gigTypeEvening}</option>
