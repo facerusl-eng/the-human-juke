@@ -3920,6 +3920,26 @@ body:has(.audience-no-gig-shell) {
   max-width: 480px;
 }
 
+.create-gig-shell .create-gig-themed-select {
+  border-color: rgba(93, 215, 255, 0.48);
+  background:
+    linear-gradient(145deg, rgba(12, 18, 38, 0.98) 0%, rgba(22, 30, 58, 0.96) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(93, 215, 255, 0.08);
+}
+
+.create-gig-shell .create-gig-themed-select:hover:not(:disabled) {
+  border-color: rgba(93, 215, 255, 0.68);
+}
+
+.create-gig-shell .create-gig-themed-select:focus-visible {
+  border-color: rgba(93, 215, 255, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 3px rgba(93, 215, 255, 0.2);
+}
+
 .active-gig-notice {
   margin-bottom: 1.2rem;
   padding: 0.75rem 1rem;

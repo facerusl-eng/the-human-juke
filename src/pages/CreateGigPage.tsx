@@ -913,6 +913,7 @@ function CreateGigPage() {
           <div className="field-row">
             <label htmlFor="event-type">Choose event type</label>
             <select
+              className="create-gig-themed-select"
               id="event-type"
               value={eventType}
               onChange={(e) => setEventType(e.target.value as EventType)}
@@ -926,6 +927,7 @@ function CreateGigPage() {
           <div className="field-row">
             <label htmlFor="gig-primary-setlist">Choose setlist (optional)</label>
             <select
+              className="create-gig-themed-select"
               id="gig-primary-setlist"
               value={selectedPrimaryPlaylistId}
               onChange={(e) => setSelectedPrimaryPlaylistId(e.target.value)}
@@ -949,6 +951,7 @@ function CreateGigPage() {
           <div className="field-row">
             <label htmlFor="gig-karaoke-setlist">Choose karaoke setlist (optional)</label>
             <select
+              className="create-gig-themed-select"
               id="gig-karaoke-setlist"
               value={selectedKaraokePlaylistId}
               onChange={(e) => setSelectedKaraokePlaylistId(e.target.value)}
@@ -1123,6 +1126,7 @@ function CreateGigPage() {
 
             <label htmlFor="saved-intro-audio">Saved intro MP3 library</label>
             <select
+              className="create-gig-themed-select"
               id="saved-intro-audio"
               value={selectedIntroAudioPath}
               onChange={(e) => onSelectSavedIntroAudio(e.target.value)}
