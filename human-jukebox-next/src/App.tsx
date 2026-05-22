@@ -1,121 +1,96 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const capabilityCards = [
+    {
+      title: 'Live Ops Console',
+      copy: 'One-screen control for go-live, break, recovery, and emergency fallback with large stage-safe actions.',
+      tone: 'capability-card-ops',
+    },
+    {
+      title: 'Audience Conversion Engine',
+      copy: 'QR landing optimized for first-time guests with zero-confusion join flow and faster song request activation.',
+      tone: 'capability-card-convert',
+    },
+    {
+      title: 'Mirror Broadcast Pro',
+      copy: 'Distance-readable layouts and scan-safe QR presets tuned for venue displays from 3 to 6 meters.',
+      tone: 'capability-card-mirror',
+    },
+  ]
+
+  const sprintItems = [
+    {
+      label: 'Sprint 1',
+      title: 'Core Surface Upgrade',
+      detail: 'Rebuild gig control shell, modern audience onboarding, and resilient pre-show countdown states.',
+    },
+    {
+      label: 'Sprint 2',
+      title: 'Reliability + Recovery',
+      detail: 'Realtime drift guards, offline fallback UX, and one-tap session recovery for host devices.',
+    },
+    {
+      label: 'Sprint 3',
+      title: 'Growth + Analytics',
+      detail: 'Scan-to-join funnel telemetry, request completion metrics, and retention loops for repeat audiences.',
+    },
+  ]
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app-shell-next">
+      <header className="hero-next" aria-label="Next-gen Human Jukebox">
+        <p className="hero-kicker">Human Jukebox Next</p>
+        <h1>Build The Stage OS, Not Just The Song Queue</h1>
+        <p className="hero-subcopy">
+          A separate, clean-slate app focused on performance reliability, rapid host control,
+          and audience experiences that convert in seconds.
+        </p>
+        <div className="hero-cta-row">
+          <button type="button" className="primary-cta">Start Sprint 1</button>
+          <button type="button" className="ghost-cta">Open Product Brief</button>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
+        <div className="hero-metrics" role="list" aria-label="Readiness metrics">
+          <article role="listitem" className="metric-card">
+            <p className="metric-value">99.95%</p>
+            <p className="metric-label">Target show uptime</p>
+          </article>
+          <article role="listitem" className="metric-card">
+            <p className="metric-value">&lt; 2 taps</p>
+            <p className="metric-label">Audience join path</p>
+          </article>
+          <article role="listitem" className="metric-card">
+            <p className="metric-value">4-6m</p>
+            <p className="metric-label">Reliable QR scan distance</p>
+          </article>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+      </header>
+
+      <section className="capabilities-grid" aria-label="Core capability pillars">
+        {capabilityCards.map((card) => (
+          <article key={card.title} className={`capability-card ${card.tone}`}>
+            <h2>{card.title}</h2>
+            <p>{card.copy}</p>
+          </article>
+        ))}
       </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <section className="sprint-track" aria-label="Delivery roadmap">
+        <div className="section-head">
+          <p className="section-kicker">Delivery Plan</p>
+          <h2>Three Sprints To A Production-Ready Stage Platform</h2>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+        <div className="sprint-list" role="list">
+          {sprintItems.map((item) => (
+            <article key={item.label} className="sprint-item" role="listitem">
+              <p className="sprint-label">{item.label}</p>
+              <h3>{item.title}</h3>
+              <p>{item.detail}</p>
+            </article>
+          ))}
         </div>
       </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    </div>
   )
 }
 
