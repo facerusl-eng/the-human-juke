@@ -63,7 +63,30 @@ type PersistedProject = {
   capo: number
   syncOffsetSec: number
   masterVolume: number
+  masterRoutePreset: OutputRoutePresetId
+  limiterEnabled: boolean
+  limiterPreset: LimiterPresetId
+  limiterCeilingDb: number
   tracks: PersistedTrack[]
+}
+
+type LimiterPresetId = 'transparent' | 'liveSafe' | 'hardClamp'
+
+type LimiterPreset = {
+  label: string
+  threshold: number
+  knee: number
+  ratio: number
+  attack: number
+  release: number
+}
+
+type OutputRoutePresetId = 'frontPA' | 'monitorMono' | 'streamFeed'
+
+type OutputRoutePreset = {
+  label: string
+  trimDb: number
+  forceMono: boolean
 }
 
 const SHARP_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -73,6 +96,55 @@ const FLAT_TO_SHARP: Record<string, string> = {
   Gb: 'F#',
   Ab: 'G#',
   Bb: 'A#',
+}
+
+const LIMITER_PRESETS: Record<LimiterPresetId, LimiterPreset> = {
+  transparent: {
+    label: 'Transparent guard',
+    threshold: -2,
+    knee: 1,
+    ratio: 12,
+    attack: 0.003,
+    release: 0.09,
+  },
+  liveSafe: {
+    label: 'Live safe',
+    threshold: -6,
+    knee: 3,
+    ratio: 20,
+    attack: 0.002,
+    release: 0.12,
+  },
+  hardClamp: {
+    label: 'Hard clamp',
+    threshold: -10,
+    knee: 0,
+    ratio: 30,
+    attack: 0.001,
+    release: 0.18,
+  },
+}
+
+const OUTPUT_ROUTE_PRESETS: Record<OutputRoutePresetId, OutputRoutePreset> = {
+  frontPA: {
+    label: 'Front PA (stereo)',
+    trimDb: 0,
+    forceMono: false,
+  },
+  monitorMono: {
+    label: 'Stage monitor (mono)',
+    trimDb: -3,
+    forceMono: true,
+  },
+  streamFeed: {
+    label: 'Broadcast/stream feed',
+    trimDb: -6,
+    forceMono: false,
+  },
+}
+
+function dbToGain(db: number) {
+  return Math.pow(10, db / 20)
 }
 
 function createId(prefix: string) {
@@ -386,6 +458,9 @@ async function requestAutoChart(primaryTrack: StudioTrack | null): Promise<Gener
 
 function SongStudioPage() {
   const audioContextRef = useRef<AudioContext | null>(null)
+  const masterInputGainRef = useRef<GainNode | null>(null)
+  const limiterNodeRef = useRef<DynamicsCompressorNode | null>(null)
+  const masterOutputGainRef = useRef<GainNode | null>(null)
   const buffersRef = useRef<Map<string, AudioBuffer>>(new Map())
   const sourceNodesRef = useRef<NodeBundle[]>([])
   const rafRef = useRef<number | null>(null)
@@ -407,6 +482,10 @@ function SongStudioPage() {
   const [transposeSemitones, setTransposeSemitones] = useState(initialSnapshot?.transposeSemitones ?? 0)
   const [capo, setCapo] = useState(initialSnapshot?.capo ?? 0)
   const [masterVolume, setMasterVolume] = useState(initialSnapshot?.masterVolume ?? 1)
+  const [masterRoutePreset, setMasterRoutePreset] = useState<OutputRoutePresetId>(initialSnapshot?.masterRoutePreset ?? 'frontPA')
+  const [limiterEnabled, setLimiterEnabled] = useState(initialSnapshot?.limiterEnabled ?? true)
+  const [limiterPreset, setLimiterPreset] = useState<LimiterPresetId>(initialSnapshot?.limiterPreset ?? 'liveSafe')
+  const [limiterCeilingDb, setLimiterCeilingDb] = useState(initialSnapshot?.limiterCeilingDb ?? -1)
   const [syncOffsetSec, setSyncOffsetSec] = useState(initialSnapshot?.syncOffsetSec ?? 0)
   const [clickTrackEnabled, setClickTrackEnabled] = useState(true)
   const [clickTrackBpm, setClickTrackBpm] = useState(120)
@@ -465,11 +544,26 @@ function SongStudioPage() {
       capo,
       syncOffsetSec,
       masterVolume,
+      masterRoutePreset,
+      limiterEnabled,
+      limiterPreset,
+      limiterCeilingDb,
       tracks: persistedTracks,
     }
 
     window.localStorage.setItem(STUDIO_PROJECT_KEY, JSON.stringify(snapshot))
-  }, [capo, chartLines, masterVolume, syncOffsetSec, tracks, transposeSemitones])
+  }, [
+    capo,
+    chartLines,
+    limiterCeilingDb,
+    limiterEnabled,
+    limiterPreset,
+    masterRoutePreset,
+    masterVolume,
+    syncOffsetSec,
+    tracks,
+    transposeSemitones,
+  ])
 
   useEffect(() => {
     if (tracks.length > 0 || !initialSnapshot?.tracks?.length) {
@@ -491,6 +585,7 @@ function SongStudioPage() {
       return
     }
 
+    const routePreset = OUTPUT_ROUTE_PRESETS[masterRoutePreset]
     const hasSolo = tracks.some((track) => track.solo)
 
     sourceNodesRef.current.forEach((bundle) => {
@@ -502,9 +597,35 @@ function SongStudioPage() {
 
       const trackAudible = hasSolo ? track.solo : !track.muted
       bundle.gain.gain.value = trackAudible ? track.volume * masterVolume : 0
-      bundle.panner.pan.value = track.pan
+      bundle.panner.pan.value = routePreset.forceMono ? 0 : track.pan
     })
-  }, [isPlaying, masterVolume, tracks])
+  }, [isPlaying, masterRoutePreset, masterVolume, tracks])
+
+  useEffect(() => {
+    const limiterNode = limiterNodeRef.current
+    if (!limiterNode) {
+      return
+    }
+
+    const preset = LIMITER_PRESETS[limiterPreset]
+    limiterNode.threshold.value = preset.threshold
+    limiterNode.knee.value = preset.knee
+    limiterNode.ratio.value = limiterEnabled ? preset.ratio : 1
+    limiterNode.attack.value = preset.attack
+    limiterNode.release.value = preset.release
+  }, [limiterEnabled, limiterPreset])
+
+  useEffect(() => {
+    const outputNode = masterOutputGainRef.current
+    if (!outputNode) {
+      return
+    }
+
+    const routePreset = OUTPUT_ROUTE_PRESETS[masterRoutePreset]
+    const routeGain = dbToGain(routePreset.trimDb)
+    const ceilingGain = dbToGain(Math.min(0, limiterCeilingDb))
+    outputNode.gain.value = masterVolume * routeGain * ceilingGain
+  }, [limiterCeilingDb, masterRoutePreset, masterVolume])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -585,7 +706,38 @@ function SongStudioPage() {
 
   const ensureAudioContext = () => {
     if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext()
+      const context = new AudioContext()
+      const masterInput = context.createGain()
+      const limiter = context.createDynamicsCompressor()
+      const masterOutput = context.createGain()
+
+      masterInput.connect(limiter)
+      limiter.connect(masterOutput)
+      masterOutput.connect(context.destination)
+
+      masterInputGainRef.current = masterInput
+      limiterNodeRef.current = limiter
+      masterOutputGainRef.current = masterOutput
+      audioContextRef.current = context
+    }
+
+    const limiterNode = limiterNodeRef.current
+    const outputNode = masterOutputGainRef.current
+    const limiterSettings = LIMITER_PRESETS[limiterPreset]
+    const routePreset = OUTPUT_ROUTE_PRESETS[masterRoutePreset]
+
+    if (limiterNode) {
+      limiterNode.threshold.value = limiterSettings.threshold
+      limiterNode.knee.value = limiterSettings.knee
+      limiterNode.ratio.value = limiterEnabled ? limiterSettings.ratio : 1
+      limiterNode.attack.value = limiterSettings.attack
+      limiterNode.release.value = limiterSettings.release
+    }
+
+    if (outputNode) {
+      const routeGain = dbToGain(routePreset.trimDb)
+      const ceilingGain = dbToGain(Math.min(0, limiterCeilingDb))
+      outputNode.gain.value = masterVolume * routeGain * ceilingGain
     }
 
     return audioContextRef.current
@@ -686,6 +838,7 @@ function SongStudioPage() {
   const scheduleClick = (context: AudioContext, atSec: number, isDownbeat: boolean) => {
     const osc = context.createOscillator()
     const gain = context.createGain()
+    const masterInput = masterInputGainRef.current
 
     osc.type = 'square'
     osc.frequency.value = isDownbeat ? 1800 : 1100
@@ -694,7 +847,11 @@ function SongStudioPage() {
     gain.gain.exponentialRampToValueAtTime(0.0001, atSec + 0.055)
 
     osc.connect(gain)
-    gain.connect(context.destination)
+    if (masterInput) {
+      gain.connect(masterInput)
+    } else {
+      gain.connect(context.destination)
+    }
     osc.start(atSec)
     osc.stop(atSec + 0.065)
   }
@@ -747,6 +904,8 @@ function SongStudioPage() {
     const shouldUsePreIntro = clickTrackEnabled && clickTrackPreIntroBars > 0 && playOffsetRef.current <= 0.001
     const preRollBeats = shouldUsePreIntro ? clickTrackPreIntroBars * Math.max(1, clickTrackBeatsPerBar) : 0
     const preRollDelaySec = shouldUsePreIntro ? preRollBeats * (60 / Math.max(30, clickTrackBpm)) : 0
+    const routePreset = OUTPUT_ROUTE_PRESETS[masterRoutePreset]
+    const masterInput = masterInputGainRef.current
 
     const hasSolo = tracks.some((track) => track.solo)
 
@@ -763,11 +922,15 @@ function SongStudioPage() {
 
       const trackAudible = hasSolo ? track.solo : !track.muted
       gain.gain.value = trackAudible ? track.volume * masterVolume : 0
-      panner.pan.value = track.pan
+      panner.pan.value = routePreset.forceMono ? 0 : track.pan
 
       source.connect(gain)
       gain.connect(panner)
-      panner.connect(context.destination)
+      if (masterInput) {
+        panner.connect(masterInput)
+      } else {
+        panner.connect(context.destination)
+      }
 
       source.start(context.currentTime + preRollDelaySec, playOffsetRef.current)
 
@@ -781,6 +944,8 @@ function SongStudioPage() {
 
     if (shouldUsePreIntro) {
       setStatusText(`Pre-intro count: ${clickTrackPreIntroBars} bar(s). Playback starts after count-in.`)
+    } else {
+      setStatusText(`Playback routed to ${routePreset.label}.`)
     }
   }
 
@@ -821,6 +986,10 @@ function SongStudioPage() {
       transposeSemitones,
       capo,
       syncOffsetSec,
+      masterRoutePreset,
+      limiterEnabled,
+      limiterPreset,
+      limiterCeilingDb,
       exportedAt: new Date().toISOString(),
     }
 
@@ -850,6 +1019,18 @@ function SongStudioPage() {
       setTransposeSemitones(typeof parsed.transposeSemitones === 'number' ? parsed.transposeSemitones : 0)
       setCapo(typeof parsed.capo === 'number' ? parsed.capo : 0)
       setSyncOffsetSec(typeof parsed.syncOffsetSec === 'number' ? parsed.syncOffsetSec : 0)
+      setMasterRoutePreset(
+        parsed.masterRoutePreset === 'frontPA' || parsed.masterRoutePreset === 'monitorMono' || parsed.masterRoutePreset === 'streamFeed'
+          ? parsed.masterRoutePreset
+          : 'frontPA',
+      )
+      setLimiterEnabled(typeof parsed.limiterEnabled === 'boolean' ? parsed.limiterEnabled : true)
+      setLimiterPreset(
+        parsed.limiterPreset === 'transparent' || parsed.limiterPreset === 'liveSafe' || parsed.limiterPreset === 'hardClamp'
+          ? parsed.limiterPreset
+          : 'liveSafe',
+      )
+      setLimiterCeilingDb(typeof parsed.limiterCeilingDb === 'number' ? parsed.limiterCeilingDb : -1)
       setStatusText('Chart imported successfully.')
     } catch {
       setStatusText('Could not import chart file.')
@@ -993,6 +1174,37 @@ function SongStudioPage() {
           <label>
             Master
             <input type="range" min={0} max={1} step={0.01} value={masterVolume} onChange={(event) => setMasterVolume(Number(event.target.value))} />
+          </label>
+          <label>
+            Route out
+            <select value={masterRoutePreset} onChange={(event) => setMasterRoutePreset(event.target.value as OutputRoutePresetId)}>
+              {Object.entries(OUTPUT_ROUTE_PRESETS).map(([key, preset]) => (
+                <option key={key} value={key}>{preset.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Limiter on
+            <input type="checkbox" checked={limiterEnabled} onChange={(event) => setLimiterEnabled(event.target.checked)} />
+          </label>
+          <label>
+            Limiter preset
+            <select value={limiterPreset} onChange={(event) => setLimiterPreset(event.target.value as LimiterPresetId)}>
+              {Object.entries(LIMITER_PRESETS).map(([key, preset]) => (
+                <option key={key} value={key}>{preset.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Ceiling (dB)
+            <input
+              type="number"
+              min={-12}
+              max={0}
+              step={0.5}
+              value={limiterCeilingDb}
+              onChange={(event) => setLimiterCeilingDb(Number(event.target.value) || -1)}
+            />
           </label>
           <label>
             Click BPM
