@@ -897,6 +897,29 @@
   font-size: 0.86rem;
 }
 
+.studio-manual-lyrics {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.studio-manual-lyrics label {
+  color: #b5b2de;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.studio-manual-lyrics textarea {
+  width: 100%;
+  min-height: 130px;
+  border-radius: 10px;
+  border: 1px solid rgba(162, 89, 255, 0.34);
+  background: rgba(9, 8, 20, 0.86);
+  color: #edf3ff;
+  padding: 0.55rem 0.65rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
 .studio-transport {
   gap: 0.6rem;
 }
@@ -923,6 +946,12 @@
   background: rgba(9, 8, 20, 0.86);
   color: #edf3ff;
   padding: 0 0.45rem;
+}
+
+.studio-transport-row input[type='checkbox'] {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: #00c2ff;
 }
 
 .studio-seek {

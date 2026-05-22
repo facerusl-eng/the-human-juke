@@ -153,6 +153,159 @@ function buildFallbackChart(durationSec: number): GeneratedChart {
   }
 }
 
+function splitLyricsIntoLines(rawLyrics: string) {
+  const cleaned = rawLyrics
+    .replace(/\r/g, '\n')
+    .replace(/\t/g, ' ')
+    .replace(/\u0000/g, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (cleaned.length > 0) {
+    return cleaned
+  }
+
+  return rawLyrics
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function buildChartFromLyrics(rawLyrics: string, durationSec: number): GeneratedChart {
+  const lyricLines = splitLyricsIntoLines(rawLyrics)
+
+  if (lyricLines.length === 0) {
+    return buildFallbackChart(durationSec)
+  }
+
+  const safeDuration = Math.max(30, Math.floor(durationSec) || lyricLines.length * 6)
+  const lineDuration = Math.max(2.5, safeDuration / lyricLines.length)
+
+  const lines = lyricLines.map((lineText, lineIndex) => {
+    const startSec = Number((lineIndex * lineDuration).toFixed(2))
+    const endSec = Number((startSec + lineDuration).toFixed(2))
+    const wordsRaw = lineText.split(/\s+/).filter(Boolean)
+    const words = wordsRaw.map((word, wordIndex) => {
+      const wordStart = startSec + (wordIndex / wordsRaw.length) * lineDuration
+      const nextStart = startSec + ((wordIndex + 1) / wordsRaw.length) * lineDuration
+
+      return {
+        id: createId('word'),
+        text: word,
+        startSec: Number(wordStart.toFixed(2)),
+        endSec: Number(Math.max(wordStart + 0.18, nextStart - 0.04).toFixed(2)),
+      }
+    })
+
+    const chordPool = ['C', 'Am', 'F', 'G', 'Dm', 'Em']
+    const chords: ChordSync[] = [0, 2.2, 4.2, 6.1]
+      .filter((offset) => offset < lineDuration)
+      .map((offset, idx) => ({
+        id: createId('chord'),
+        symbol: chordPool[(lineIndex + idx) % chordPool.length],
+        timeSec: Number((startSec + offset).toFixed(2)),
+      }))
+
+    return {
+      id: createId('line'),
+      startSec,
+      endSec,
+      words,
+      chords,
+    }
+  })
+
+  return {
+    lines,
+    statusMessage: `Auto lyrics extracted (${lyricLines.length} lines). Review sync and chords in Edit Mode.`,
+  }
+}
+
+function readSynchsafeInt(bytes: Uint8Array, start: number) {
+  return ((bytes[start] & 0x7f) << 21)
+    | ((bytes[start + 1] & 0x7f) << 14)
+    | ((bytes[start + 2] & 0x7f) << 7)
+    | (bytes[start + 3] & 0x7f)
+}
+
+function decodeId3Text(data: Uint8Array) {
+  if (data.length === 0) {
+    return ''
+  }
+
+  const encoding = data[0]
+  const body = data.slice(1)
+
+  if (encoding === 1 || encoding === 2) {
+    const view = new DataView(body.buffer, body.byteOffset, body.byteLength)
+    const codePoints: number[] = []
+
+    for (let i = 0; i + 1 < view.byteLength; i += 2) {
+      const value = view.getUint16(i, false)
+      if (value === 0) {
+        continue
+      }
+      codePoints.push(value)
+    }
+
+    return String.fromCharCode(...codePoints)
+  }
+
+  return new TextDecoder('latin1').decode(body)
+}
+
+async function extractEmbeddedLyrics(file: File): Promise<string | null> {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+
+  if (bytes.length < 10 || bytes[0] !== 0x49 || bytes[1] !== 0x44 || bytes[2] !== 0x33) {
+    return null
+  }
+
+  const tagSize = readSynchsafeInt(bytes, 6)
+  let cursor = 10
+  const end = Math.min(bytes.length, 10 + tagSize)
+
+  while (cursor + 10 <= end) {
+    const frameId = String.fromCharCode(bytes[cursor], bytes[cursor + 1], bytes[cursor + 2], bytes[cursor + 3])
+
+    if (!/^[A-Z0-9]{4}$/.test(frameId)) {
+      break
+    }
+
+    const frameSize = (bytes[cursor + 4] << 24)
+      | (bytes[cursor + 5] << 16)
+      | (bytes[cursor + 6] << 8)
+      | bytes[cursor + 7]
+
+    if (!Number.isFinite(frameSize) || frameSize <= 0) {
+      break
+    }
+
+    const payloadStart = cursor + 10
+    const payloadEnd = payloadStart + frameSize
+
+    if (payloadEnd > end) {
+      break
+    }
+
+    if (frameId === 'USLT' || frameId === 'SYLT') {
+      const payload = bytes.slice(payloadStart, payloadEnd)
+      const text = decodeId3Text(payload)
+      const cleaned = text.replace(/[\u0000\u0001]+/g, ' ').trim()
+
+      if (cleaned.length > 0) {
+        return cleaned
+      }
+    }
+
+    cursor = payloadEnd
+  }
+
+  return null
+}
+
 async function decodeAudioDuration(audioContext: AudioContext, file: File) {
   const bytes = await file.arrayBuffer()
   return audioContext.decodeAudioData(bytes.slice(0))
@@ -214,6 +367,20 @@ async function requestAutoChart(primaryTrack: StudioTrack | null): Promise<Gener
     // Ignore network failure and fallback.
   }
 
+  try {
+    const embeddedLyrics = await extractEmbeddedLyrics(primaryTrack.file)
+
+    if (embeddedLyrics) {
+      const chart = buildChartFromLyrics(embeddedLyrics, primaryTrack.durationSec)
+      return {
+        ...chart,
+        statusMessage: 'Auto lyrics extracted from embedded song metadata. Refine timings in Edit Mode if needed.',
+      }
+    }
+  } catch {
+    // Ignore metadata parse failures and continue.
+  }
+
   return buildFallbackChart(primaryTrack.durationSec)
 }
 
@@ -222,6 +389,9 @@ function SongStudioPage() {
   const buffersRef = useRef<Map<string, AudioBuffer>>(new Map())
   const sourceNodesRef = useRef<NodeBundle[]>([])
   const rafRef = useRef<number | null>(null)
+  const clickTimerRef = useRef<number | null>(null)
+  const nextClickTimeRef = useRef(0)
+  const clickBeatIndexRef = useRef(0)
   const playStartedAtRef = useRef(0)
   const playOffsetRef = useRef(0)
 
@@ -231,11 +401,19 @@ function SongStudioPage() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTimeSec, setCurrentTimeSec] = useState(0)
   const [statusText, setStatusText] = useState('Upload a lead track and optional stems to start.')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [manualLyricsInput, setManualLyricsInput] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [transposeSemitones, setTransposeSemitones] = useState(initialSnapshot?.transposeSemitones ?? 0)
   const [capo, setCapo] = useState(initialSnapshot?.capo ?? 0)
   const [masterVolume, setMasterVolume] = useState(initialSnapshot?.masterVolume ?? 1)
   const [syncOffsetSec, setSyncOffsetSec] = useState(initialSnapshot?.syncOffsetSec ?? 0)
+  const [clickTrackEnabled, setClickTrackEnabled] = useState(true)
+  const [clickTrackBpm, setClickTrackBpm] = useState(120)
+  const [clickTrackBeatsPerBar, setClickTrackBeatsPerBar] = useState(4)
+  const [clickTrackPreIntroBars, setClickTrackPreIntroBars] = useState(1)
+  const [clickTrackVolume, setClickTrackVolume] = useState(0.45)
+  const [preCountBeatsRemaining, setPreCountBeatsRemaining] = useState<number | null>(null)
 
   const leadTrack = tracks[0] ?? null
   const totalDurationSec = leadTrack?.durationSec ?? 0
@@ -381,6 +559,13 @@ function SongStudioPage() {
       rafRef.current = null
     }
 
+    if (clickTimerRef.current !== null) {
+      window.clearInterval(clickTimerRef.current)
+      clickTimerRef.current = null
+    }
+
+    setPreCountBeatsRemaining(null)
+
     setIsPlaying(false)
   }
 
@@ -446,10 +631,28 @@ function SongStudioPage() {
   }
 
   const onGenerateChart = async () => {
-    const chart = await requestAutoChart(leadTrack)
+    setIsGenerating(true)
+
+    try {
+      const chart = await requestAutoChart(leadTrack)
+      setChartLines(chart.lines)
+      setCurrentTimeSec(0)
+      setStatusText(chart.statusMessage)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const onApplyManualLyrics = () => {
+    if (!leadTrack) {
+      setStatusText('Upload a lead track first, then add manual lyrics.')
+      return
+    }
+
+    const chart = buildChartFromLyrics(manualLyricsInput, leadTrack.durationSec)
     setChartLines(chart.lines)
     setCurrentTimeSec(0)
-    setStatusText(chart.statusMessage)
+    setStatusText('Manual lyrics added. Use Edit Mode to polish exact sync and chord placement.')
   }
 
   const syncTick = () => {
@@ -460,6 +663,13 @@ function SongStudioPage() {
     }
 
     const elapsed = context.currentTime - playStartedAtRef.current
+
+    if (elapsed < 0) {
+      setCurrentTimeSec(playOffsetRef.current)
+      rafRef.current = window.requestAnimationFrame(syncTick)
+      return
+    }
+
     const nextTime = Math.min(totalDurationSec || elapsed + playOffsetRef.current, playOffsetRef.current + elapsed)
     setCurrentTimeSec(nextTime)
 
@@ -473,6 +683,56 @@ function SongStudioPage() {
     rafRef.current = window.requestAnimationFrame(syncTick)
   }
 
+  const scheduleClick = (context: AudioContext, atSec: number, isDownbeat: boolean) => {
+    const osc = context.createOscillator()
+    const gain = context.createGain()
+
+    osc.type = 'square'
+    osc.frequency.value = isDownbeat ? 1800 : 1100
+    gain.gain.setValueAtTime(0.0001, atSec)
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, clickTrackVolume), atSec + 0.002)
+    gain.gain.exponentialRampToValueAtTime(0.0001, atSec + 0.055)
+
+    osc.connect(gain)
+    gain.connect(context.destination)
+    osc.start(atSec)
+    osc.stop(atSec + 0.065)
+  }
+
+  const startClickScheduler = (context: AudioContext, preRollBeats: number) => {
+    if (!clickTrackEnabled) {
+      return
+    }
+
+    const beatDurationSec = 60 / Math.max(30, clickTrackBpm)
+    nextClickTimeRef.current = context.currentTime
+    clickBeatIndexRef.current = 0
+
+    const lookAheadSec = 0.1
+    const intervalMs = 25
+
+    const tick = () => {
+      while (nextClickTimeRef.current < context.currentTime + lookAheadSec) {
+        const beatIndex = clickBeatIndexRef.current
+        const isDownbeat = beatIndex % Math.max(1, clickTrackBeatsPerBar) === 0
+        scheduleClick(context, nextClickTimeRef.current, isDownbeat)
+
+        if (preRollBeats > 0 && beatIndex < preRollBeats) {
+          const remaining = preRollBeats - beatIndex - 1
+          setPreCountBeatsRemaining(remaining)
+        } else {
+          setPreCountBeatsRemaining(null)
+        }
+
+        clickBeatIndexRef.current += 1
+        nextClickTimeRef.current += beatDurationSec
+      }
+    }
+
+    tick()
+    clickTimerRef.current = window.setInterval(tick, intervalMs)
+  }
+
   const startPlayback = async () => {
     if (tracks.length === 0) {
       setStatusText('Upload at least one audio file first.')
@@ -483,6 +743,10 @@ function SongStudioPage() {
     await context.resume()
 
     stopPlayback()
+
+    const shouldUsePreIntro = clickTrackEnabled && clickTrackPreIntroBars > 0 && playOffsetRef.current <= 0.001
+    const preRollBeats = shouldUsePreIntro ? clickTrackPreIntroBars * Math.max(1, clickTrackBeatsPerBar) : 0
+    const preRollDelaySec = shouldUsePreIntro ? preRollBeats * (60 / Math.max(30, clickTrackBpm)) : 0
 
     const hasSolo = tracks.some((track) => track.solo)
 
@@ -505,14 +769,19 @@ function SongStudioPage() {
       gain.connect(panner)
       panner.connect(context.destination)
 
-      source.start(0, playOffsetRef.current)
+      source.start(context.currentTime + preRollDelaySec, playOffsetRef.current)
 
       return [{ trackId: track.id, source, gain, panner }]
     })
 
-    playStartedAtRef.current = context.currentTime
+    playStartedAtRef.current = context.currentTime + preRollDelaySec
+    startClickScheduler(context, preRollBeats)
     setIsPlaying(true)
     rafRef.current = window.requestAnimationFrame(syncTick)
+
+    if (shouldUsePreIntro) {
+      setStatusText(`Pre-intro count: ${clickTrackPreIntroBars} bar(s). Playback starts after count-in.`)
+    }
   }
 
   const removeTrack = (trackId: string) => {
@@ -676,6 +945,7 @@ function SongStudioPage() {
             }}
           />
           <button type="button" onClick={() => void onGenerateChart()}>Auto-Generate Lyrics + Chords</button>
+          {isGenerating ? <p className="studio-status">Extracting lyrics and chart...</p> : null}
           <button type="button" onClick={() => setEditMode((current) => !current)}>{editMode ? 'Exit Edit Mode' : 'Edit Sync'}</button>
           <button type="button" onClick={exportChart}>Export Chart</button>
           <label className="studio-upload-btn" htmlFor="studio-chart-import">Import Chart JSON</label>
@@ -690,6 +960,17 @@ function SongStudioPage() {
           />
         </div>
         <p className="studio-status">{statusText}</p>
+
+        <div className="studio-manual-lyrics">
+          <label htmlFor="manual-lyrics-input">Add Lyrics (manual fallback)</label>
+          <textarea
+            id="manual-lyrics-input"
+            value={manualLyricsInput}
+            onChange={(event) => setManualLyricsInput(event.target.value)}
+            placeholder="Paste lyrics here (one line per phrase)."
+          />
+          <button type="button" onClick={onApplyManualLyrics}>Apply Manual Lyrics</button>
+        </div>
       </article>
 
       <article className="studio-panel studio-transport">
@@ -713,6 +994,26 @@ function SongStudioPage() {
             Master
             <input type="range" min={0} max={1} step={0.01} value={masterVolume} onChange={(event) => setMasterVolume(Number(event.target.value))} />
           </label>
+          <label>
+            Click BPM
+            <input type="number" min={40} max={240} value={clickTrackBpm} onChange={(event) => setClickTrackBpm(Number(event.target.value) || 120)} />
+          </label>
+          <label>
+            Beats/bar
+            <input type="number" min={1} max={12} value={clickTrackBeatsPerBar} onChange={(event) => setClickTrackBeatsPerBar(Number(event.target.value) || 4)} />
+          </label>
+          <label>
+            Pre-intro bars
+            <input type="number" min={0} max={8} value={clickTrackPreIntroBars} onChange={(event) => setClickTrackPreIntroBars(Number(event.target.value) || 0)} />
+          </label>
+          <label>
+            Click vol
+            <input type="range" min={0} max={1} step={0.01} value={clickTrackVolume} onChange={(event) => setClickTrackVolume(Number(event.target.value))} />
+          </label>
+          <label>
+            Click on
+            <input type="checkbox" checked={clickTrackEnabled} onChange={(event) => setClickTrackEnabled(event.target.checked)} />
+          </label>
         </div>
         <label className="studio-seek">
           <span>{currentTimeSec.toFixed(2)}s / {totalDurationSec.toFixed(2)}s</span>
@@ -725,6 +1026,9 @@ function SongStudioPage() {
             onChange={(event) => onSeek(Number(event.target.value))}
           />
         </label>
+        {preCountBeatsRemaining !== null ? (
+          <p className="studio-status">Count-in: {preCountBeatsRemaining + 1} beat(s) remaining</p>
+        ) : null}
       </article>
 
       <article className="studio-panel studio-karaoke">
