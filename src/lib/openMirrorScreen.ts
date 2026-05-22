@@ -12,10 +12,19 @@ export function openMirrorScreen(): OpenMirrorScreenResult {
   mirrorUrl.searchParams.set('cast', '1')
   mirrorUrl.searchParams.delete('windowed')
 
-  window.location.assign(mirrorUrl.toString())
+  const mirrorTab = window.open(mirrorUrl.toString(), '_blank', 'noopener,noreferrer')
+
+  if (mirrorTab) {
+    mirrorTab.focus()
+    return {
+      navigatedInCurrentWindow: false,
+      openedInPopupWindow: false,
+      openedInNewTabWindow: true,
+    }
+  }
 
   return {
-    navigatedInCurrentWindow: true,
+    navigatedInCurrentWindow: false,
     openedInPopupWindow: false,
     openedInNewTabWindow: false,
   }

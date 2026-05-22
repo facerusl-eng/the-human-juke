@@ -2479,13 +2479,15 @@ function GigControlPage() {
   }, [])
 
   const openMirrorFromGigControl = useCallback(() => {
-    openMirrorScreen()
+    const { openedInNewTabWindow } = openMirrorScreen()
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
     }
 
-    const statusMessage = 'Opening Mirror in this tab...'
+    const statusMessage = openedInNewTabWindow
+      ? 'Mirror opened in a new tab. Gig Control stays open here.'
+      : 'Browser blocked opening Mirror. Allow popups/tabs for this site and try again.'
 
     setMirrorLaunchStatusText(statusMessage)
     mirrorLaunchStatusTimerRef.current = window.setTimeout(() => {
