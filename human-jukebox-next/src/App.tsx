@@ -5,6 +5,7 @@ import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router-do
 import LibraryPage from './pages/LibraryPage'
 import SetlistsPage from './pages/SetlistsPage'
 import LiveConsolePage from './pages/LiveConsolePage'
+import StageModePage from './pages/StageModePage'
 
 const DATA_PROVIDER = (import.meta.env.VITE_APP_DATA_PROVIDER ?? 'mock').toLowerCase()
 
@@ -102,6 +103,7 @@ function App() {
             <NavLink to="/" end>Overview</NavLink>
             <NavLink to="/library">Library</NavLink>
             <NavLink to="/setlists">Setlists</NavLink>
+            <NavLink to="/stage-mode">Stage Mode</NavLink>
             <NavLink to="/live-console">Live Console</NavLink>
           </div>
         </nav>
@@ -110,6 +112,7 @@ function App() {
           <Route path="/" element={<OverviewPage capabilityCards={capabilityCards} sprintItems={sprintItems} />} />
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/setlists" element={<SetlistsPage />} />
+          <Route path="/stage-mode" element={<StageModePage />} />
           <Route path="/live-console" element={<LiveConsolePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

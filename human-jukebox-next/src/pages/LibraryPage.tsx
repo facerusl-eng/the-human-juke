@@ -4,6 +4,7 @@ import { useAppData } from '../state/AppDataContext'
 function LibraryPage() {
   const [selectedTag, setSelectedTag] = useState('Trending')
   const { data, isLoading, errorMessage, refresh } = useAppData()
+  const tags = ['Trending', 'Original', 'Warm-up', 'Peak Hour', 'Encore']
 
   const songs = data?.songs ?? []
   const filteredSongs = useMemo(() => {
@@ -16,12 +17,12 @@ function LibraryPage() {
         <p className="section-kicker">Library</p>
         <h2>Search, score, and stage songs fast</h2>
         <p>
-          Curated for live performance with speed-first metadata so hosts can pick the right next track in seconds.
+          Your original catalog, performance-scored with key, BPM, and cue metadata so you can move fast on stage.
         </p>
       </header>
 
       <div className="library-toolbar">
-        {['Trending', 'Warm-up', 'Peak Hour', 'Encore'].map((tag) => (
+        {tags.map((tag) => (
           <button
             key={tag}
             type="button"

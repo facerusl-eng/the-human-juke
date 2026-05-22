@@ -364,6 +364,102 @@
   font-size: 0.82rem;
 }
 
+.stage-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.stage-panel {
+  border-radius: 14px;
+  border: 1px solid rgba(17, 70, 69, 0.2);
+  background: #ffffff;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.stage-meta-row {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  color: #315357;
+  font-size: 0.84rem;
+}
+
+.stage-transport-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.stage-stat-label {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #2f6260;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stage-stat-value {
+  margin: 0.1rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: #0f3c3c;
+}
+
+.cue-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #245558;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.lyrics-preview {
+  margin: 0;
+  border-radius: 10px;
+  border: 1px dashed rgba(17, 70, 69, 0.25);
+  background: rgba(240, 248, 246, 0.9);
+  padding: 0.55rem 0.65rem;
+  font-size: 0.84rem;
+  color: #2d575a;
+}
+
+.stage-order-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.26rem;
+}
+
+.stage-order-list li {
+  color: #35595c;
+}
+
+.stage-order-active {
+  color: #0f6a67 !important;
+  font-weight: 700;
+}
+
+.stage-panel-note {
+  grid-column: span 2;
+}
+
+.stage-panel-note textarea {
+  width: 100%;
+  min-height: 120px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 70, 69, 0.2);
+  padding: 0.6rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: #1b474a;
+  background: rgba(255, 255, 255, 0.94);
+  resize: vertical;
+}
+
 .surface-card {
   border-radius: 22px;
   border: 1px solid rgba(23, 66, 66, 0.18);
@@ -568,8 +664,14 @@
   .sprint-list,
   .diagnostics-grid,
   .setlist-grid,
+  .stage-layout,
+  .stage-transport-row,
   .console-grid {
     grid-template-columns: 1fr;
+  }
+
+  .stage-panel-note {
+    grid-column: span 1;
   }
 
   .song-row {

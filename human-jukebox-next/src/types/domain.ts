@@ -7,6 +7,13 @@ export type SongItem = {
   length: string
   energy: SongEnergy
   tags: string[]
+  originalKey?: string
+  defaultPerformanceKey?: string
+  bpm?: number
+  capo?: number
+  lyricsExcerpt?: string
+  cues?: string[]
+  isOriginal?: boolean
 }
 
 export type SetBlock = {
@@ -15,6 +22,7 @@ export type SetBlock = {
   songs: number
   vibe: string
   duration: string
+  songIds?: string[]
 }
 
 export type LiveShowState = 'pre_show' | 'live' | 'break'
