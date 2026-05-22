@@ -1591,6 +1591,7 @@ function MirrorPageContent() {
     const trimmedCustomUrl = customUrl?.trim()
     if (trimmedCustomUrl) {
       queryParams.set('url', trimmedCustomUrl)
+      queryParams.set('visual', '1')
     }
 
     return `${appOrigin}/qr-landing?${queryParams.toString()}`
@@ -1599,8 +1600,8 @@ function MirrorPageContent() {
   const countdownQrDestination = buildCountdownLandingUrl(legacyCountdownQrLink || null)
   
   // Custom QR code logic for countdown and break screens
-  const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && customCountdownQrLink.length > 0 && eventId !== null
-  const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && customBreakQrLink.length > 0 && eventId !== null
+  const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && customCountdownQrLink.length > 0
+  const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && customBreakQrLink.length > 0
 
   const countdownQrCodeUrl = useCustomCountdownQr
     ? buildCountdownLandingUrl(customCountdownQrLink)
