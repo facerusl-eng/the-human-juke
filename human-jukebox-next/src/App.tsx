@@ -6,6 +6,7 @@ import LibraryPage from './pages/LibraryPage'
 import SetlistsPage from './pages/SetlistsPage'
 import LiveConsolePage from './pages/LiveConsolePage'
 import StageModePage from './pages/StageModePage'
+import SongStudioPage from './pages/SongStudioPage'
 
 const DATA_PROVIDER = (import.meta.env.VITE_APP_DATA_PROVIDER ?? 'mock').toLowerCase()
 
@@ -104,6 +105,7 @@ function App() {
             <NavLink to="/library">Library</NavLink>
             <NavLink to="/setlists">Setlists</NavLink>
             <NavLink to="/stage-mode">Stage Mode</NavLink>
+            <NavLink to="/song-studio">Song Studio</NavLink>
             <NavLink to="/live-console">Live Console</NavLink>
           </div>
         </nav>
@@ -113,6 +115,7 @@ function App() {
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/setlists" element={<SetlistsPage />} />
           <Route path="/stage-mode" element={<StageModePage />} />
+          <Route path="/song-studio" element={<SongStudioPage />} />
           <Route path="/live-console" element={<LiveConsolePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
