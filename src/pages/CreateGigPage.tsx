@@ -103,6 +103,8 @@ function CreateGigPage() {
   const [selectedPrimaryPlaylistId, setSelectedPrimaryPlaylistId] = useState('')
   const [selectedKaraokePlaylistId, setSelectedKaraokePlaylistId] = useState('')
   const isMountedRef = useRef(true)
+  const gigDateInputRef = useRef<HTMLInputElement | null>(null)
+  const repeatDateInputRef = useRef<HTMLInputElement | null>(null)
   const pendingTimerIdsRef = useRef<number[]>([])
 
   const clearTrackedTimeout = useCallback((timerId: number) => {
@@ -741,27 +743,53 @@ function CreateGigPage() {
 
               <div className="field-row">
                 <label htmlFor="gig-date">Date</label>
-                <input
-                  id="gig-date"
-                  type="date"
-                  value={gigDate}
-                  onChange={(e) => {
-                    const nextMainDate = e.target.value
-                    setGigDate(nextMainDate)
-                    setAdditionalGigDates((currentDates) => currentDates.filter((date) => date !== nextMainDate))
-                  }}
-                />
+                <div className="create-gig-time-row">
+                  <input
+                    ref={gigDateInputRef}
+                    id="gig-date"
+                    type="date"
+                    value={gigDate}
+                    onChange={(e) => {
+                      const nextMainDate = e.target.value
+                      setGigDate(nextMainDate)
+                      setAdditionalGigDates((currentDates) => currentDates.filter((date) => date !== nextMainDate))
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      const dateInput = gigDateInputRef.current
+                      dateInput?.showPicker?.()
+                      dateInput?.focus()
+                    }}
+                  >
+                    Open calendar
+                  </button>
+                </div>
               </div>
 
               <div className="field-row">
                 <label htmlFor="gig-repeat-date">Add repeat dates (optional)</label>
                 <div className="create-gig-time-row">
                   <input
+                    ref={repeatDateInputRef}
                     id="gig-repeat-date"
                     type="date"
                     value={repeatDateInput}
                     onChange={(e) => setRepeatDateInput(e.target.value)}
                   />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      const dateInput = repeatDateInputRef.current
+                      dateInput?.showPicker?.()
+                      dateInput?.focus()
+                    }}
+                  >
+                    Open calendar
+                  </button>
                   <button
                     type="button"
                     className="secondary-button"
