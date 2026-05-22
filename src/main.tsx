@@ -25,6 +25,14 @@ function isLocalPreviewHost() {
   return host === 'localhost' || host === '127.0.0.1'
 }
 
+function isAdminRoute() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.pathname.startsWith('/admin')
+}
+
 function shouldRenderAnalytics() {
   if (!import.meta.env.PROD || typeof window === 'undefined') {
     return false
@@ -290,6 +298,22 @@ async function cleanupLegacyServiceWorkers() {
 
 async function registerProductionServiceWorker() {
   if (!import.meta.env.PROD || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return
+  }
+
+  if (isAdminRoute()) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(registrations.map((registration) => registration.unregister().catch(() => false)))
+
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys()
+        await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)))
+      }
+    } catch {
+      // Ignore cleanup errors; admin pages continue without service worker caching.
+    }
+
     return
   }
 
