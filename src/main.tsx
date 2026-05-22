@@ -301,6 +301,22 @@ async function registerProductionServiceWorker() {
     return
   }
 
+  // Disable SW caching globally for now to avoid stale app-shell rollouts.
+  // This keeps admin and audience updates in sync with latest deploys.
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    await Promise.all(registrations.map((registration) => registration.unregister().catch(() => false)))
+
+    if ('caches' in window) {
+      const cacheKeys = await caches.keys()
+      await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)))
+    }
+  } catch {
+    // Ignore cleanup errors; app continues without service worker support.
+  }
+
+  return
+
   if (isAdminRoute()) {
     try {
       const registrations = await navigator.serviceWorker.getRegistrations()
