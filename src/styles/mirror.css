@@ -1216,6 +1216,12 @@
   overflow: hidden;
 }
 
+.mirror-pre-show.mirror-pre-show-has-countdown {
+  background:
+    radial-gradient(circle at 16% 20%, rgba(93, 215, 255, 0.06) 0%, transparent 32%),
+    linear-gradient(145deg, rgba(8, 17, 38, 0.3) 0%, rgba(11, 27, 44, 0.26) 100%);
+}
+
 .mirror-final-countdown-overlay {
   position: fixed;
   inset: 0;
