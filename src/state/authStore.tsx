@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { PropsWithChildren } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
-import { supabase } from '../lib/supabase'
+import { clearSupabaseAuthStorage, supabase } from '../lib/supabase'
 
 const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
 const IS_DEV_ENV = import.meta.env.DEV
@@ -149,6 +149,13 @@ function isAuthServiceUnavailableError(error: unknown) {
     || text.includes('context deadline exceeded')
     || text.includes('database error')
     || text.includes('failed to fetch')
+}
+
+function isInvalidStoredRefreshTokenError(error: unknown) {
+  const text = getErrorText(error)
+
+  return text.includes('invalid refresh token')
+    || text.includes('refresh token not found')
 }
 
 function mapHostSignInError(error: unknown) {
@@ -471,6 +478,29 @@ function AuthProvider({ children }: PropsWithChildren) {
     return data.session ?? null
   }, [])
 
+  const recoverFromInvalidStoredSession = useCallback(async () => {
+    console.warn('authStore: clearing invalid persisted Supabase auth session')
+    clearSupabaseAuthStorage()
+    setSession(null)
+    setUser(null)
+    setProfile(null)
+
+    if (!shouldAutoCreateAudienceSession()) {
+      setAuthError(null)
+      setLoading(false)
+      return
+    }
+
+    try {
+      const guestSession = await ensureAudienceSession()
+      await applySessionState(guestSession)
+    } catch (recoveryError) {
+      console.warn('authStore: failed to recover session after clearing invalid token', recoveryError)
+      setAuthError(recoveryError instanceof Error ? recoveryError.message : 'Audience sign-in is currently unavailable.')
+      await applySessionState(null)
+    }
+  }, [applySessionState, ensureAudienceSession])
+
   useEffect(() => {
     let isMounted = true
 
@@ -489,6 +519,12 @@ function AuthProvider({ children }: PropsWithChildren) {
 
         if (error) {
           console.warn('authStore: getSession failed', error)
+
+          if (isInvalidStoredRefreshTokenError(error)) {
+            await recoverFromInvalidStoredSession()
+            return
+          }
+
           if (isTransientAuthError(error) || isAuthServiceUnavailableError(error)) {
             setAuthError('Auth service is temporarily unavailable. Some admin features may be unavailable.')
           }
@@ -526,6 +562,12 @@ function AuthProvider({ children }: PropsWithChildren) {
         }
 
         console.warn('authStore: unexpected getSession exception', error)
+
+        if (isInvalidStoredRefreshTokenError(error)) {
+          void recoverFromInvalidStoredSession()
+          return
+        }
+
         if (isTransientAuthError(error) || isAuthServiceUnavailableError(error)) {
           setAuthError('Auth service is temporarily unavailable. Some admin features may be unavailable.')
         }
@@ -570,7 +612,7 @@ function AuthProvider({ children }: PropsWithChildren) {
       window.clearTimeout(loadingFallback)
       authListener.subscription.unsubscribe()
     }
-  }, [applySessionState, ensureAudienceSession])
+  }, [applySessionState, ensureAudienceSession, recoverFromInvalidStoredSession])
 
   useEffect(() => {
     if (session || user || isHostSignInInProgressRef.current || !shouldAutoCreateAudienceSession()) {

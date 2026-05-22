@@ -16,6 +16,8 @@ import {
 } from '../lib/audienceIdentity'
 import {
   BETWEEN_SONG_QUOTES,
+  getCountdownTargetRemainingMs,
+  isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
   PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
@@ -176,6 +178,39 @@ function formatCompactCountdownLabel(remainingMs: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+function toAudienceIntlLocale(locale: AudienceLocale) {
+  if (locale === 'da') {
+    return 'da-DK'
+  }
+
+  if (locale === 'is') {
+    return 'is-IS'
+  }
+
+  return 'en-US'
+}
+
+function formatAudienceAbsoluteStartLabel(targetMs: number | null, locale: AudienceLocale): string | null {
+  if (!Number.isFinite(targetMs)) {
+    return null
+  }
+
+  const targetDate = new Date(targetMs as number)
+
+  if (Number.isNaN(targetDate.getTime())) {
+    return null
+  }
+
+  return new Intl.DateTimeFormat(toAudienceIntlLocale(locale), {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: false,
+  }).format(targetDate)
+}
+
 function hasFutureCountdownTarget(events: AudienceUpcomingEvent[], nowMs = Date.now()): boolean {
 
   return events.some((eventRow) => {
@@ -259,9 +294,9 @@ function isAuthSessionError(error: unknown) {
     || text.includes('auth session missing')
 }
 
-async function fetchUpcomingEventRows(timeoutMs = 12000) {
+async function fetchUpcomingEventRows(timeoutMs = 12000, nowMs = Date.now()) {
   const abortController = new AbortController()
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = new Date(nowMs).toISOString().slice(0, 10)
   let didTimeout = false
   const timeoutId = window.setTimeout(() => {
     didTimeout = true
@@ -269,11 +304,12 @@ async function fetchUpcomingEventRows(timeoutMs = 12000) {
   }, timeoutMs)
 
   try {
+    const baseSelect = 'id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url'
+
     const { data, error } = await supabase
       .from('events')
-      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, event_theme, karafun_url, cover_image_url')
+      .select(baseSelect)
       .abortSignal(abortController.signal)
-      .eq('show_in_audience_no_gig', true)
       .or(`gig_date.gte.${todayIso},gig_date.is.null`)
       .order('gig_date', { ascending: true, nullsFirst: false })
       .order('gig_start_time', { ascending: true, nullsFirst: false })
@@ -288,82 +324,15 @@ async function fetchUpcomingEventRows(timeoutMs = 12000) {
       throw new Error('EventPage: upcoming events fallback timed out (db)')
     }
 
-    if (error && (isMissingCoverImageColumnError(error) || isMissingEventThemeColumnError(error))) {
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('events')
-        .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
-        .abortSignal(abortController.signal)
-        .eq('show_in_audience_no_gig', true)
-        .or(`gig_date.gte.${todayIso},gig_date.is.null`)
-        .order('gig_date', { ascending: true, nullsFirst: false })
-        .order('gig_start_time', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true })
-        .limit(50)
-
-      if (didTimeout) {
-        throw new Error('EventPage: upcoming events fallback timed out')
-      }
-
-      if (fallbackError) {
-        throw fallbackError
-      }
-
-      const mappedFallbackData = (fallbackData ?? []).map((eventData) => ({
-        ...(eventData as Record<string, unknown>),
-        cover_image_url: null,
-        event_theme: null,
-      }))
-
-      if (mappedFallbackData.length > 0) {
-        return mappedFallbackData
-      }
-
-      const { data: futureFallbackData, error: futureFallbackError } = await supabase
-        .from('events')
-        .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, karafun_url')
-        .abortSignal(abortController.signal)
-        .or(`gig_date.gte.${todayIso},gig_date.is.null`)
-        .order('gig_date', { ascending: true, nullsFirst: false })
-        .order('gig_start_time', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true })
-        .limit(50)
-
-      if (futureFallbackError) {
-        throw futureFallbackError
-      }
-
-      return (futureFallbackData ?? []).map((eventData) => ({
-        ...(eventData as Record<string, unknown>),
-        cover_image_url: null,
-        event_theme: null,
-      }))
-    }
-
     if (error) {
       throw error
     }
 
-    const mappedData = (data ?? []) as Array<Record<string, unknown>>
-
-    if (mappedData.length > 0) {
-      return mappedData
-    }
-
-    const { data: futureData, error: futureError } = await supabase
-      .from('events')
-      .select('id, name, venue, gig_date, gig_start_time, gig_end_time, event_type, event_theme, karafun_url, cover_image_url')
-      .abortSignal(abortController.signal)
-      .or(`gig_date.gte.${todayIso},gig_date.is.null`)
-      .order('gig_date', { ascending: true, nullsFirst: false })
-      .order('gig_start_time', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true })
-      .limit(50)
-
-    if (futureError) {
-      throw futureError
-    }
-
-    return (futureData ?? []) as Array<Record<string, unknown>>
+    return ((data ?? []) as Array<Record<string, unknown>>).map((eventData) => ({
+      ...eventData,
+      cover_image_url: null,
+      event_theme: null,
+    }))
   } finally {
     window.clearTimeout(timeoutId)
   }
@@ -409,8 +378,11 @@ const AUDIENCE_CACHE_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim(
 const EXPECTED_API_FALLBACK_ERROR_PREFIX = 'Expected API fallback:'
 const UPCOMING_EVENTS_CACHE_KEY = 'human-jukebox-upcoming-events-cache-v1'
 const UPCOMING_EVENTS_CACHE_MAX_AGE_MS = 1000 * 60 * 5
-const UPCOMING_FALLBACK_TIMEOUT_MS = 8000
-const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 12000
+const AUDIENCE_CLOCK_OFFSET_CACHE_KEY = 'human-jukebox-clock-offset-cache-v1'
+const AUDIENCE_CLOCK_OFFSET_CACHE_MAX_AGE_MS = 1000 * 60 * 15
+const AUDIENCE_CLOCK_OFFSET_REFRESH_INTERVAL_MS = 60000
+const UPCOMING_FALLBACK_TIMEOUT_MS = 3500
+const UPCOMING_FALLBACK_RETRY_TIMEOUT_MS = 4500
 const UPCOMING_AUTH_RETRY_TIMEOUT_MS = 3500
 const UPCOMING_COVER_FETCH_TIMEOUT_MS = 12000
 const UPCOMING_COVER_FETCH_MAX_EVENTS = 10
@@ -767,6 +739,51 @@ function saveUpcomingEventsCache(events: AudienceUpcomingEvent[]) {
   }
 }
 
+function readAudienceClockOffsetCache(): number | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(AUDIENCE_CLOCK_OFFSET_CACHE_KEY)
+
+    if (!rawCache) {
+      return null
+    }
+
+    const parsedCache = JSON.parse(rawCache) as { updatedAt?: unknown; offsetMs?: unknown }
+    const updatedAt = typeof parsedCache?.updatedAt === 'number' ? parsedCache.updatedAt : 0
+    const offsetMs = typeof parsedCache?.offsetMs === 'number' ? parsedCache.offsetMs : null
+
+    if (offsetMs === null || !Number.isFinite(offsetMs)) {
+      return null
+    }
+
+    if (!updatedAt || Date.now() - updatedAt > AUDIENCE_CLOCK_OFFSET_CACHE_MAX_AGE_MS) {
+      return null
+    }
+
+    return Math.round(offsetMs)
+  } catch {
+    return null
+  }
+}
+
+function saveAudienceClockOffsetCache(offsetMs: number) {
+  if (typeof window === 'undefined' || !Number.isFinite(offsetMs)) {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(AUDIENCE_CLOCK_OFFSET_CACHE_KEY, JSON.stringify({
+      updatedAt: Date.now(),
+      offsetMs: Math.round(offsetMs),
+    }))
+  } catch {
+    // Ignore localStorage write failures.
+  }
+}
+
 function withPromiseTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
   let timeoutId: number | null = null
 
@@ -796,6 +813,7 @@ function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlay
     && left.currentSongCoverUrl === right.currentSongCoverUrl
     && left.isStarted === right.isStarted
     && left.quoteIndex === right.quoteIndex
+    && (left.countdownTargetMs ?? null) === (right.countdownTargetMs ?? null)
     && (left.brbActive ?? false) === (right.brbActive ?? false)
     && (left.brbMessage ?? null) === (right.brbMessage ?? null)
 }
@@ -956,9 +974,33 @@ function getUpcomingRetryDelayMs(failureCount: number): number {
   return clampedDelay + jitter
 }
 
-async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
+async function fetchUpcomingEventsFromApi(nowMs = Date.now()): Promise<AudienceUpcomingEvent[]> {
+  const todayIso = new Date(nowMs).toISOString().slice(0, 10)
+
   try {
-    const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS)
+    const response = await withPromiseTimeout(
+      fetch(`/api/upcoming-events?today=${encodeURIComponent(todayIso)}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        cache: 'no-store',
+      }),
+      2500,
+      'EventPage: upcoming events edge API timed out',
+    )
+
+    if (response.ok) {
+      const payload = await response.json().catch(() => null) as { rows?: unknown }
+      const rows = Array.isArray(payload?.rows) ? payload.rows as Array<Record<string, unknown>> : []
+      return mapUpcomingEvents(rows)
+    }
+  } catch {
+    // Fall through to direct Supabase fallback.
+  }
+
+  try {
+    const eventRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_TIMEOUT_MS, nowMs)
     return mapUpcomingEvents(eventRows)
   } catch (error) {
     const isTimeoutError =
@@ -969,7 +1011,7 @@ async function fetchUpcomingEventsFromApi(): Promise<AudienceUpcomingEvent[]> {
       throw error
     }
 
-    const retryRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_RETRY_TIMEOUT_MS)
+    const retryRows = await fetchUpcomingEventRows(UPCOMING_FALLBACK_RETRY_TIMEOUT_MS, nowMs)
     return mapUpcomingEvents(retryRows)
   }
 }
@@ -1091,14 +1133,15 @@ function EventPage() {
   const [currentSongFactIndex, setCurrentSongFactIndex] = useState(0)
   const tipThankYouTimerRef = useRef<number | null>(null)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
-  const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>(() => readUpcomingEventsCache())
+  const initialUpcomingEvents = useMemo(() => readUpcomingEventsCache({ allowStale: true }), [])
+  const [upcomingEvents, setUpcomingEvents] = useState<AudienceUpcomingEvent[]>(() => initialUpcomingEvents)
   const [countdownFallbackEvent, setCountdownFallbackEvent] = useState<AudienceUpcomingEvent | null>(null)
-  const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(() => readUpcomingEventsCache().length === 0)
+  const [upcomingEventsLoading, setUpcomingEventsLoading] = useState(() => initialUpcomingEvents.length === 0)
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(true)
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
-  const [audienceClockOffsetMs, setAudienceClockOffsetMs] = useState(() => requestedClockOffsetMs ?? 0)
+  const [audienceClockOffsetMs, setAudienceClockOffsetMs] = useState(() => requestedClockOffsetMs ?? readAudienceClockOffsetCache() ?? 0)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
   const upcomingCoverFetchInFlightRef = useRef<Set<string>>(new Set())
   const upcomingCoverFetchRetryAfterRef = useRef<Map<string, number>>(new Map())
@@ -1123,6 +1166,10 @@ function EventPage() {
 
   useEffect(() => {
     audienceClockOffsetRef.current = audienceClockOffsetMs
+  }, [audienceClockOffsetMs])
+
+  useEffect(() => {
+    saveAudienceClockOffsetCache(audienceClockOffsetMs)
   }, [audienceClockOffsetMs])
 
   useEffect(() => {
@@ -1152,7 +1199,7 @@ function EventPage() {
 
     const timerId = window.setInterval(() => {
       void syncClockOffset()
-    }, 120_000)
+    }, AUDIENCE_CLOCK_OFFSET_REFRESH_INTERVAL_MS)
 
     return () => {
       isCurrent = false
@@ -1210,7 +1257,20 @@ function EventPage() {
   const roomOpen = event?.roomOpen ?? false
   const eventSearchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
   const requestedEventId = eventSearchParams.get('event') ?? eventSearchParams.get('eventId')
+  const requestedTestMode = (eventSearchParams.get('test') ?? '').trim().toLowerCase()
+  const isTestGigView = requestedTestMode === '1'
+    || requestedTestMode === 'true'
+    || requestedTestMode === 'yes'
+    || requestedTestMode === 'on'
   const requestedCountdownTargetMs = useMemo(() => resolveCountdownTargetMsFromSearch(location.search), [location.search])
+  const mirroredCountdownTargetMs = useMemo(() => {
+    const candidateTarget = playbackState?.countdownTargetMs
+    return isCountdownTargetActive(candidateTarget, getAudienceNowMs())
+      ? candidateTarget
+      : null
+  }, [getAudienceNowMs, playbackState?.countdownTargetMs])
+  // Prefer mirrored host state when available so audience/mirror countdowns stay aligned.
+  const effectiveCountdownTargetMs = mirroredCountdownTargetMs ?? requestedCountdownTargetMs
   const hasRequestedEventParam = Boolean(requestedEventId)
   const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => getAudienceNowMs())
   const waitingRoomStartMs = useMemo(() => {
@@ -1218,8 +1278,8 @@ function EventPage() {
       return null
     }
 
-    if (requestedCountdownTargetMs !== null) {
-      return requestedCountdownTargetMs
+    if (effectiveCountdownTargetMs !== null) {
+      return effectiveCountdownTargetMs
     }
 
     if (!event?.id) {
@@ -1227,23 +1287,29 @@ function EventPage() {
     }
 
     return parseEventStartMs(event.gigDate, event.gigStartTime)
-  }, [event?.gigDate, event?.gigStartTime, event?.id, requestedCountdownTargetMs, roomOpen])
+  }, [effectiveCountdownTargetMs, event?.gigDate, event?.gigStartTime, event?.id, roomOpen])
+  const normalizedWaitingRoomStartMs = waitingRoomStartMs ?? null
   const waitingRoomCountdownLabel = useMemo(() => {
-    if (waitingRoomStartMs === null) {
+    if (normalizedWaitingRoomStartMs === null) {
       return null
     }
 
-    const remainingMs = waitingRoomStartMs - waitingRoomNowMs
-    if (remainingMs <= 0) {
-      return '00:00:00'
+    const remainingMs = getCountdownTargetRemainingMs(normalizedWaitingRoomStartMs, waitingRoomNowMs)
+    if (remainingMs === null) {
+      return null
     }
 
     return formatCompactCountdownLabel(remainingMs)
-  }, [waitingRoomNowMs, waitingRoomStartMs])
-  const waitingRoomRemainingMs = waitingRoomStartMs === null ? null : waitingRoomStartMs - waitingRoomNowMs
+  }, [normalizedWaitingRoomStartMs, waitingRoomNowMs])
+  const waitingRoomRemainingMs = normalizedWaitingRoomStartMs === null ? null : normalizedWaitingRoomStartMs - waitingRoomNowMs
   const showGoingLiveNowBanner = waitingRoomRemainingMs !== null
     && waitingRoomRemainingMs <= 10_000
     && waitingRoomRemainingMs > -15_000
+  const waitingRoomFinalCountdownSeconds = waitingRoomRemainingMs !== null
+    && waitingRoomRemainingMs > 0
+    && waitingRoomRemainingMs <= 10_000
+    ? Math.ceil(waitingRoomRemainingMs / 1000)
+    : null
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
   const activeRequestCap = event?.maxActiveRequestsPerUser ?? null
   const queueSizeCap = event?.maxQueueSize ?? null
@@ -1294,11 +1360,14 @@ function EventPage() {
   }, [myQueuedRequests])
   const isBetweenSongs = playbackState?.isStarted === false
   const isLastSongSoonMode = isLastSongSoonOverlayMessage(playbackState?.brbMessage)
+  const openingWelcomeMessage = isBetweenSongs && !isLastSongSoonMode
+    ? (playbackState?.brbMessage?.trim() || null)
+    : null
   const normalizedBetweenSongQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
     ? Math.abs(Math.trunc(playbackState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
     : 0
   const betweenSongQuote = isBetweenSongs
-    ? (BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex] ?? BETWEEN_SONG_QUOTES[0])
+    ? (openingWelcomeMessage ?? BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex] ?? BETWEEN_SONG_QUOTES[0])
     : null
   const connectionBadgeLabel = visibleConnectionStatus === 'connected'
     ? 'Connected'
@@ -1348,16 +1417,18 @@ function EventPage() {
         joining: 'Går ind...',
         welcome: 'Velkommen! 🎤',
         waitingGreeting: 'Hej',
-        waitingTitle: 'Velkommen til showet, skønne mennesker!',
-        waitingCopy: 'Find jer til rette, se selvsikre ud, og giv den kunstneriske ledelse skylden for alt kaos.',
+        waitingTitle: 'Velkommen til The Human Jukebox',
+        waitingCopy: 'Showet starter snart. Hold denne side åben, så går vi live med det samme.',
         waitingEndedTitle: 'Aftenens gig er afsluttet.',
         waitingEndedCopy: 'Tak for i aften. Hold øje med de næste gigs her i appen.',
         encoreThanksEyebrow: 'Tak for i aften',
         encoreThanksTitle: 'Ekstranummeret er færdigt.',
         encoreThanksBody: 'Tak fordi I dukkede op og gjorde aftenen helt speciel. Håber vi ses til næste gig.',
         startingSoon: 'Event starter snart',
+        startsAt: 'Planlagt start',
         gigEnded: 'Gig er afsluttet',
         goingLiveNow: 'Går live nu...',
+        viewMirror: 'Se Mirror-skærm',
         viewUpcoming: 'Se alle kommende events',
         audienceLive: 'Publikum Live',
         audienceHome: 'Publikumsforside',
@@ -1402,16 +1473,18 @@ function EventPage() {
         joining: 'Fer inn...',
         welcome: 'Velkomin! 🎤',
         waitingGreeting: 'Halló',
-        waitingTitle: 'Velkomin í sýninguna, frábæru gestir!',
-        waitingCopy: 'Komdu þér fyrir, vertu svalur, og kenndu liststjórninni um allt kaos.',
+        waitingTitle: 'Velkomin í The Human Jukebox',
+        waitingCopy: 'Sýningin byrjar bráðum. Hafðu þessa síðu opna svo þú ferð beint í live.',
         waitingEndedTitle: 'Tónleikunum er lokið.',
         waitingEndedCopy: 'Takk fyrir kvöldið. Skoðaðu næstu viðburði hér í appinu.',
         encoreThanksEyebrow: 'Takk fyrir kvöldið',
         encoreThanksTitle: 'Aukalagið er buið.',
         encoreThanksBody: 'Takk fyrir að mæta og gera kvöldið sérstakt. Vona að við sjáumst aftur á næsta viðburði.',
         startingSoon: 'Viðburður hefst bráðum',
+        startsAt: 'Aetlud byrjun',
         gigEnded: 'Viðburði lokið',
         goingLiveNow: 'Fer i loftid nu...',
+        viewMirror: 'Opna Mirror skja',
         viewUpcoming: 'Sjá alla komandi viðburði',
         audienceLive: 'Beint frá viðburði',
         audienceHome: 'Áhorfenda Forsíða',
@@ -1455,16 +1528,18 @@ function EventPage() {
         joining: 'Joining...',
         welcome: 'Welcome! 🎤',
         waitingGreeting: 'Hi',
-        waitingTitle: 'Welcome to the show, you lovely lot!',
-        waitingCopy: 'Settle in, look confident, and blame any chaos on artistic direction.',
+        waitingTitle: 'Welcome to The Human Jukebox',
+        waitingCopy: 'Showtime is almost here. Keep this page open and you will switch to live automatically.',
         waitingEndedTitle: 'Tonight\'s gig has ended.',
         waitingEndedCopy: 'Thanks for joining. Check upcoming gigs in the audience app.',
         encoreThanksEyebrow: 'Thanks for tonight',
         encoreThanksTitle: 'The extra number is finished.',
         encoreThanksBody: 'Thank you for showing up and making the night special. Hope to see you again at the next gig.',
         startingSoon: 'Event starting soon',
+        startsAt: 'Scheduled start',
         gigEnded: 'Gig ended',
         goingLiveNow: 'Going live now...',
+        viewMirror: 'View Mirror screen',
         viewUpcoming: 'View all upcoming gigs',
         audienceLive: 'Audience Live',
         audienceHome: 'Audience Home',
@@ -1567,10 +1642,35 @@ function EventPage() {
     && !displaySong
 
   const waitingRoomHasEnded = waitingRoomRemainingMs !== null && waitingRoomRemainingMs <= -15_000
+  const waitingRoomStartsAtLabel = formatAudienceAbsoluteStartLabel(normalizedWaitingRoomStartMs, audienceLocale)
+  const shouldPrioritizeAbsoluteStart = waitingRoomRemainingMs !== null && waitingRoomRemainingMs > 36 * 60 * 60 * 1000
+  const currentEventAsUpcoming = event ? {
+    id: event.id,
+    name: event.name,
+    venue: event.venue,
+    gigDate: event.gigDate,
+    gigStartTime: event.gigStartTime,
+    gigEndTime: event.gigEndTime,
+    coverImageUrl: event.coverImageUrl,
+    eventType: event.eventType === 'karaoke' ? 'karaoke' as const : 'halli-live' as const,
+    eventTheme: event.eventTheme === 'karaoke'
+      ? 'karaoke' as const
+      : event.eventTheme === 'harald-live'
+      ? 'harald-live' as const
+      : 'human-jukebox' as const,
+    karafunUrl: event.karafunUrl ?? null,
+  } : null
+  const noGigStyledUpcomingEvents = currentEventAsUpcoming
+    ? (upcomingEvents.some((upcomingEvent) => upcomingEvent.id === currentEventAsUpcoming.id)
+      ? upcomingEvents
+      : [currentEventAsUpcoming, ...upcomingEvents])
+    : upcomingEvents
   const waitingRoomTitle = waitingRoomHasEnded ? copy.waitingEndedTitle : copy.waitingTitle
   const waitingRoomCopy = waitingRoomHasEnded ? copy.waitingEndedCopy : copy.waitingCopy
   const waitingRoomStatusLabel = waitingRoomHasEnded
     ? copy.gigEnded
+    : shouldPrioritizeAbsoluteStart && waitingRoomStartsAtLabel
+    ? `${copy.startsAt} · ${waitingRoomStartsAtLabel}`
     : waitingRoomCountdownLabel
     ? `${copy.startingSoon} · ${waitingRoomCountdownLabel}`
     : copy.startingSoon
@@ -2300,7 +2400,7 @@ function EventPage() {
     }
 
     const loadUpcomingEvents = async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
-      const now = Date.now()
+      const now = getAudienceNowMs()
 
       if (upcomingLoadInFlightRef.current) {
         return
@@ -2317,7 +2417,7 @@ function EventPage() {
       }
 
       try {
-        const mappedEvents = await fetchUpcomingEventsFromApi()
+        const mappedEvents = await fetchUpcomingEventsFromApi(now)
 
         if (!isCurrent) {
           return
@@ -2347,7 +2447,7 @@ function EventPage() {
                   throw signInError
                 }
 
-                const refreshedEvents = await fetchUpcomingEventsFromApi()
+                const refreshedEvents = await fetchUpcomingEventsFromApi(getAudienceNowMs())
 
                 if (!isCurrent) {
                   return
@@ -2394,7 +2494,7 @@ function EventPage() {
               throw signInError
             }
 
-            const mappedEvents = await fetchUpcomingEventsFromApi()
+            const mappedEvents = await fetchUpcomingEventsFromApi(getAudienceNowMs())
 
             if (isCurrent) {
               setUpcomingEvents(mappedEvents)
@@ -2660,6 +2760,7 @@ function EventPage() {
             current_song_cover_url?: string | null
             is_started?: boolean | null
             quote_index?: number | null
+            countdown_target_ms?: number | string | null
             brb_active?: boolean | null
             brb_message?: string | null
             updated_at?: string | null
@@ -2680,6 +2781,9 @@ function EventPage() {
               quoteIndex: Number.isFinite(nextRow.quote_index)
                 ? (nextRow.quote_index as number)
                 : 0,
+              countdownTargetMs: Number.isFinite(nextRow.countdown_target_ms)
+                ? Math.round(nextRow.countdown_target_ms as number)
+                : null,
               brbActive: Boolean(nextRow.brb_active),
               brbMessage: typeof nextRow.brb_message === 'string' ? nextRow.brb_message : null,
             }
@@ -2905,7 +3009,24 @@ function EventPage() {
       <AudienceNoGigState
         upcomingEvents={upcomingEvents}
         countdownFallbackEvent={countdownFallbackEvent}
-        countdownTargetMsFromLink={requestedCountdownTargetMs}
+        countdownTargetMsFromLink={effectiveCountdownTargetMs}
+        countdownTargetEventId={requestedEventId}
+        nowOffsetMs={audienceClockOffsetMs}
+        loadingUpcomingEvents={upcomingEventsLoading}
+        upcomingEventsNotice={upcomingEventsNotice ?? authError}
+        getEventHref={(eventId) => `/audience?event=${encodeURIComponent(eventId)}&v=${audienceLinkVersionRef.current}`}
+        locale={audienceLocale}
+        socialLinks={socialLinks}
+      />
+    )
+  }
+
+  if (!roomOpen && !isTestGigView && !hasRequestedEventParam) {
+    return (
+      <AudienceNoGigState
+        upcomingEvents={noGigStyledUpcomingEvents}
+        countdownFallbackEvent={countdownFallbackEvent}
+        countdownTargetMsFromLink={effectiveCountdownTargetMs}
         countdownTargetEventId={requestedEventId}
         nowOffsetMs={audienceClockOffsetMs}
         loadingUpcomingEvents={upcomingEventsLoading}
@@ -3019,8 +3140,16 @@ function EventPage() {
 
   if (!roomOpen) {
     return (
-      <section className="audience-entry-shell audience-karafun" aria-label="Audience waiting room">
-        <article className="queue-panel audience-entry-card">
+      <section
+        className={`audience-entry-shell audience-karafun audience-waiting-shell${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
+        aria-label="Audience waiting room"
+      >
+        <article className="queue-panel audience-entry-card audience-waiting-card">
+          {waitingRoomFinalCountdownSeconds !== null ? (
+            <div className="audience-final-countdown-overlay" aria-live="assertive" aria-label="Final countdown">
+              <p className="audience-final-countdown-number">{waitingRoomFinalCountdownSeconds}</p>
+            </div>
+          ) : null}
           <p className="eyebrow audience-entry-eyebrow">{audienceName ? `${copy.waitingGreeting} ${audienceName}` : copy.entryEyebrow}</p>
           <h1>{waitingRoomTitle}</h1>
           <p className="subcopy audience-entry-copy">{waitingRoomCopy}</p>
@@ -3028,6 +3157,9 @@ function EventPage() {
           <p className="meta-badge audience-soon-badge">
             {waitingRoomStatusLabel}
           </p>
+          {!waitingRoomHasEnded && waitingRoomStartsAtLabel ? (
+            <p className="subcopy audience-waiting-start-label">{copy.startsAt}: {waitingRoomStartsAtLabel}</p>
+          ) : null}
           {showGoingLiveNowBanner && !waitingRoomHasEnded ? (
             <p className="meta-badge audience-going-live-banner" aria-live="assertive">{copy.goingLiveNow}</p>
           ) : null}
@@ -3043,7 +3175,7 @@ function EventPage() {
             </a>
           ) : null}
           {socialLinks.length > 0 ? (
-            <div className="audience-social-links-inline">
+            <div className="audience-social-links-inline audience-waiting-secondary-actions">
               {socialLinks.map((link) => (
                 <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="secondary-button">
                   {link.label}
@@ -3051,27 +3183,36 @@ function EventPage() {
               ))}
             </div>
           ) : null}
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              const mirrorUrl = event?.id
-                ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
-                : '/mirror?launchFullscreen=1'
-              window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
-            }}
-          >
-            📺 View Mirror Screen
-          </button>
-          {hasRequestedEventParam ? (
+          <div className="audience-waiting-primary-actions">
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => {
+                const mirrorUrl = event?.id
+                  ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
+                  : '/mirror?launchFullscreen=1'
+                window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
+              }}
+            >
+              📺 {copy.viewMirror}
+            </button>
+            {hasRequestedEventParam ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => navigate('/audience')}
+              >
+                {copy.viewUpcoming}
+              </button>
+            ) : null}
             <button
               type="button"
               className="secondary-button"
-              onClick={() => navigate('/audience')}
+              onClick={() => navigate('/')}
             >
-              {copy.viewUpcoming}
+              🏠 {copy.backToHome}
             </button>
-          ) : null}
+          </div>
           {demoBackToHomeButton}
         </article>
       </section>
@@ -3134,7 +3275,10 @@ function EventPage() {
   }
 
   return (
-    <section className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun${isKaraokeEvent ? ' audience-shell-karaoke' : ''}`} aria-label="Audience app">
+    <section
+      className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun${isKaraokeEvent ? ' audience-shell-karaoke' : ''}${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
+      aria-label="Audience app"
+    >
       <section className="audience-stage">
         <AudienceFixedHeader
           eventName={isBuildSelfEvent && event?.artistName ? `${event.artistName} — ${event.name ?? copy.audienceLive}` : (event?.name ?? copy.audienceLive)}

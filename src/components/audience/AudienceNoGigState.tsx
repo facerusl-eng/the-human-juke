@@ -104,6 +104,7 @@ function formatCountdownStartLabel(gigDate: string | null, gigStartTime: string 
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: false,
   }).format(countdownStartDate)
 }
 
@@ -124,6 +125,7 @@ function formatCountdownStartLabelFromTargetMs(targetMs: number | null | undefin
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: false,
   }).format(targetDate)
 }
 
@@ -251,17 +253,8 @@ function isKnownPlaylistCover(url: string): boolean {
 }
 
 function resolveUpcomingEventCoverUrl(event: AudienceUpcomingEvent): string {
-  const fallbackCoverUrl = getUpcomingEventFallbackCoverUrl(event)
-
-  if (!event.coverImageUrl) {
-    return fallbackCoverUrl
-  }
-
-  if (isKnownPlaylistCover(event.coverImageUrl)) {
-    return fallbackCoverUrl
-  }
-
-  return event.coverImageUrl
+  void event
+  return '/images/Human%20jukebox%20Live%20playlist.png'
 }
 
 

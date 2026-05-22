@@ -15,4 +15,7 @@ export const MIRROR_LAUNCH_STATUS_DURATION_MS = 3000;
 export const AUTO_LIVE_RETRY_DELAY_MS = 5000;
 export const BACKGROUND_SYNC_TAG = 'human-jukebox-background-sync';
 export const SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY = 'human-jukebox-spotify-auto-transport';
+export const SPOTIFY_TOGGLE_BASE_VOLUME = 0.8;
+export const INTRO_AUDIO_SPOTIFY_VOLUME_MULTIPLIER = 1.2;
+export const INTRO_AUDIO_PLAYBACK_VOLUME = Math.min(1, SPOTIFY_TOGGLE_BASE_VOLUME * INTRO_AUDIO_SPOTIFY_VOLUME_MULTIPLIER);
 

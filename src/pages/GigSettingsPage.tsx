@@ -1936,8 +1936,8 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 updateState({ eventType: e.target.value as 'halli-live' | 'harald-live' | 'karaoke' | 'build-self' })
               }}
             >
-              <option value="harald-live">Harald Live</option>
               <option value="halli-live">The Human Jukebox</option>
+              <option value="harald-live">Harald Live</option>
               <option value="karaoke">Karaoke Event</option>
               <option value="build-self">Build Self Gig</option>
             </select>

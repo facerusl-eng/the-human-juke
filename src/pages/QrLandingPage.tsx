@@ -417,7 +417,8 @@ function QrLandingPage() {
         }
 
         if (!data) {
-          setSyncStatusReason('notFound')
+          const shouldKeepSyncing = isTestPreviewMode || countdownTargetMsFromLink !== null
+          setSyncStatusReason(shouldKeepSyncing ? 'reconnecting' : 'notFound')
           setEventStartMs(countdownTargetMsFromLink)
           setEventRoomOpen(false)
           return
@@ -453,7 +454,20 @@ function QrLandingPage() {
         window.clearInterval(timerId)
       }
     }
-  }, [countdownTargetMsFromLink, eventId])
+  }, [countdownTargetMsFromLink, eventId, isTestPreviewMode])
+
+  useEffect(() => {
+    if (!eventId || eventRoomOpen || didAutoNavigateRef.current) {
+      return
+    }
+
+    if (countdownRemainingMs === null || countdownRemainingMs > 0) {
+      return
+    }
+
+    didAutoNavigateRef.current = true
+    navigate(audienceDestination, { replace: true })
+  }, [audienceDestination, countdownRemainingMs, eventId, eventRoomOpen, navigate])
 
   useEffect(() => {
     if (!eventId || !eventRoomOpen || didAutoNavigateRef.current) {

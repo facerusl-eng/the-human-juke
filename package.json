@@ -13,6 +13,10 @@
     "test:responsive": "node scripts/responsive-smoke.mjs",
     "send:updates": "node scripts/send-updates-broadcast.mjs",
     "loadtest:audience": "node scripts/loadtest-audience-join.mjs",
+    "rollback:known-good": "node scripts/rollback-known-good.mjs",
+    "rollback:2d": "node scripts/rollback-known-good.mjs stable-2d --apply",
+    "rollback:auto": "node scripts/rollback-known-good.mjs --older-than-hours",
+    "rollback:24h": "node scripts/rollback-known-good.mjs --older-than-hours 24 --apply",
     "mixer:preset:backing": "node scripts/apply-backing-preset.mjs",
     "mixer:mute": "node scripts/mixer-mute-hotkeys.mjs",
     "ci:verify": "npm run lint && npm run build"

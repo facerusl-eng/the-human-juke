@@ -25,6 +25,7 @@ import { useQueueStore } from '../state/queueStore'
 import {
   INTRO_AUDIO_LOCK_STORAGE_KEY,
   INTRO_AUDIO_LOCK_TTL_MS,
+  INTRO_AUDIO_PLAYBACK_VOLUME,
   SPOTIFY_ACCESS_TOKEN_STORAGE_KEY,
   SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY,
   GIG_CONTROL_AUTO_REDIRECT_SECONDS,
@@ -40,9 +41,9 @@ import {
   BACKGROUND_SYNC_TAG,
 } from '../lib/constants'
 // ...existing code...
-// ...existing code...
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
+const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const BRB_MESSAGE_DICE_OPTIONS = [
   'Quick break in progress. Keep your requests coming and I will be right back.',
   'Bar check and sound check in one mission. Stay fabulous, I am back shortly.',
@@ -51,8 +52,6 @@ const BRB_MESSAGE_DICE_OPTIONS = [
   'I am stretching, hydrating, and pretending to be professional. Right back.',
   'Break time. Scan the QR, claim your anthem, and I will be back before your crisps get lonely.',
 ]
-
-// ...existing code...
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle' | 'next' | 'previous'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
 type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
@@ -217,7 +216,7 @@ function getSetlistBucketLabel(songTitle: string) {
   return 'U-Z'
 }
 
-function classifyPreflightIssue(): PreflightIssueCode {
+function classifyPreflightIssue(_error?: unknown): PreflightIssueCode {
   return 'unknown'
 }
 
@@ -265,6 +264,54 @@ async function fetchServerClockOffsetMs(): Promise<number | null> {
     return serverNowMs - estimatedClientNowMs
   } catch {
     return null
+  }
+}
+
+const SHARED_CLOCK_OFFSET_CACHE_KEY = 'human-jukebox-clock-offset-cache-v1'
+const SHARED_CLOCK_OFFSET_CACHE_MAX_AGE_MS = 1000 * 60 * 15
+
+function readSharedClockOffsetCache(): number | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(SHARED_CLOCK_OFFSET_CACHE_KEY)
+
+    if (!rawCache) {
+      return null
+    }
+
+    const parsedCache = JSON.parse(rawCache) as { updatedAt?: unknown; offsetMs?: unknown }
+    const updatedAt = typeof parsedCache?.updatedAt === 'number' ? parsedCache.updatedAt : 0
+    const offsetMs = typeof parsedCache?.offsetMs === 'number' ? parsedCache.offsetMs : null
+
+    if (offsetMs === null || !Number.isFinite(offsetMs)) {
+      return null
+    }
+
+    if (!updatedAt || Date.now() - updatedAt > SHARED_CLOCK_OFFSET_CACHE_MAX_AGE_MS) {
+      return null
+    }
+
+    return Math.round(offsetMs)
+  } catch {
+    return null
+  }
+}
+
+function saveSharedClockOffsetCache(offsetMs: number) {
+  if (typeof window === 'undefined' || !Number.isFinite(offsetMs)) {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(SHARED_CLOCK_OFFSET_CACHE_KEY, JSON.stringify({
+      updatedAt: Date.now(),
+      offsetMs: Math.round(offsetMs),
+    }))
+  } catch {
+    // Ignore localStorage write failures.
   }
 }
 
@@ -425,10 +472,11 @@ function GigControlPage() {
   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
   const [autoLiveLastError, setAutoLiveLastError] = useState<string | null>(null)
   const [autoLiveLockBadgeText, setAutoLiveLockBadgeText] = useState<string | null>(null)
-  const [hostClockOffsetMs, setHostClockOffsetMs] = useState(0)
+  const [hostClockOffsetMs, setHostClockOffsetMs] = useState(() => readSharedClockOffsetCache() ?? 0)
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
+  const [qrTargetGigId, setQrTargetGigId] = useState<string | null>(null)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -475,6 +523,10 @@ function GigControlPage() {
     }, [hostClockOffsetMs])
 
     useEffect(() => {
+      saveSharedClockOffsetCache(hostClockOffsetMs)
+    }, [hostClockOffsetMs])
+
+    useEffect(() => {
       let isCurrent = true
 
       const syncClockOffset = async () => {
@@ -505,6 +557,10 @@ function GigControlPage() {
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
 
   const nowPlaying = songs[0]
+  const mirroredCountdownTargetMs = useMemo(() => {
+    const target = resolveGigStartAt(event?.gigDate, event?.gigStartTime)
+    return target ? target.getTime() : null
+  }, [event?.gigDate, event?.gigStartTime])
   const nowPlayingSetlistBucket = useMemo(() => {
     if (!nowPlaying?.title) {
       return 'A-E'
@@ -570,6 +626,9 @@ function GigControlPage() {
     : 'Queue Paused'
   const activeHostEvent = hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null
   const isCurrentTestGig = activeHostEvent?.isTestGig ?? event?.isTestGig ?? false
+  const qrTargetHostEvent = hostEvents.find((hostEvent) => hostEvent.id === qrTargetGigId) ?? null
+  const qrTargetEventId = qrTargetHostEvent?.id ?? event?.id
+  const isQrTargetTestGig = qrTargetHostEvent?.isTestGig ?? (qrTargetEventId === event?.id ? isCurrentTestGig : false)
   const queuedLibrarySongIds = useMemo(() => (
     new Set(
       songs
@@ -577,10 +636,10 @@ function GigControlPage() {
         .filter((songId): songId is string => Boolean(songId)),
     )
   ), [songs])
-  const joinUrl = isCurrentTestGig
-    ? getAudienceUrl(event?.id, { compact: false, mode: 'test' })
-    : getAudienceUrl(event?.id, { compact: true })
-  const testJoinUrl = getAudienceUrl(event?.id, { compact: false, mode: 'test' })
+  const joinUrl = isQrTargetTestGig
+    ? getAudienceUrl(qrTargetEventId, { compact: false, mode: 'test' })
+    : getAudienceUrl(qrTargetEventId, { compact: true })
+  const testJoinUrl = getAudienceUrl(qrTargetEventId, { compact: false, mode: 'test' })
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
@@ -617,6 +676,24 @@ function GigControlPage() {
     const isCriticalError = /(failed|offline|timeout|degraded|reconnect|unavailable|issue|error|health guard|blocked)/i.test(normalizedError)
     return isCriticalError ? errorText : null
   }, [errorText, isFocusedGigControlWindow])
+
+  useEffect(() => {
+    if (!event?.id) {
+      return
+    }
+
+    setQrTargetGigId((currentTargetGigId) => {
+      if (currentTargetGigId && hostEvents.some((hostEvent) => hostEvent.id === currentTargetGigId)) {
+        return currentTargetGigId
+      }
+
+      if (hostEvents.some((hostEvent) => hostEvent.id === event.id)) {
+        return event.id
+      }
+
+      return hostEvents[0]?.id ?? event.id
+    })
+  }, [event?.id, hostEvents])
 
   useEffect(() => {
     if (!isFocusedGigControlWindow || !shouldAutoEnterFullscreenInFocusWindow) {
@@ -877,7 +954,7 @@ function GigControlPage() {
 
     const introAudio = primedAudioElement ?? new Audio(introAudioUrl)
     introAudio.muted = false
-    introAudio.volume = 1
+    introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
     introAudio.currentTime = 0
     introAudio.preload = 'auto'
 
@@ -885,15 +962,19 @@ function GigControlPage() {
     sendSpotifyTransportCommand('pause')
     void sendSpotifyWebApiTransportCommand('pause')
 
-    try {
-      await introAudio.play()
-    } catch (error) {
+    let restoredSpotify = false
+
+    const restoreSpotifyPlayback = () => {
+      if (restoredSpotify) {
+        return
+      }
+
+      restoredSpotify = true
       sendSpotifyTransportCommand('play')
       void sendSpotifyWebApiTransportCommand('play')
-      throw error
     }
 
-    await new Promise<void>((resolve) => {
+    const completionPromise = new Promise<void>((resolve) => {
       const cleanup = () => {
         introAudio.removeEventListener('ended', onEnded)
         introAudio.removeEventListener('error', onError)
@@ -901,21 +982,28 @@ function GigControlPage() {
 
       const onEnded = () => {
         cleanup()
-        sendSpotifyTransportCommand('play')
-        void sendSpotifyWebApiTransportCommand('play')
+        restoreSpotifyPlayback()
         resolve()
       }
 
       const onError = () => {
         cleanup()
-        sendSpotifyTransportCommand('play')
-        void sendSpotifyWebApiTransportCommand('play')
+        restoreSpotifyPlayback()
         resolve()
       }
 
       introAudio.addEventListener('ended', onEnded, { once: true })
       introAudio.addEventListener('error', onError, { once: true })
     })
+
+    try {
+      await introAudio.play()
+    } catch (error) {
+      restoreSpotifyPlayback()
+      throw error
+    }
+
+    await completionPromise
   }, [sendSpotifyTransportCommand])
 
   useEffect(() => {
@@ -1242,7 +1330,7 @@ function GigControlPage() {
       setPreflightStatusText(`Preflight passed at ${new Date().toLocaleTimeString()}.`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Preflight failed.'
-      const issueCode = classifyPreflightIssue()
+      const issueCode = classifyPreflightIssue(error)
 
       setPreflightStatusText(`${message} Auto-fix is checking what it can repair...`)
 
@@ -1386,6 +1474,18 @@ function GigControlPage() {
           primedElement,
         )
       }
+
+      await writeSharedPlaybackState(latestEvent.id, {
+        currentSongId: nowPlaying?.id ?? null,
+        currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
+        isStarted: false,
+        quoteIndex: quoteIndexRef.current,
+        countdownTargetMs: mirroredCountdownTargetMs,
+        brbActive: false,
+        brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+      })
+
+      setIsNowPlayingStarted(false)
     } catch (error) {
       setErrorText(
         error instanceof Error
@@ -1395,7 +1495,15 @@ function GigControlPage() {
           : 'Could not end gig. Please try again.',
       )
     }
-  }, [ensureRoomOpenState, playIntroAudioOnceSafely, primeIntroAudioPlayback, runGoLivePreflight])
+  }, [
+    ensureRoomOpenState,
+    mirroredCountdownTargetMs,
+    nowPlaying?.id,
+    playIntroAudioOnceSafely,
+    primeIntroAudioPlayback,
+    resolveCoverUrlForSong,
+    runGoLivePreflight,
+  ])
 
   const runEndGigDecision = useCallback(async (decision: 'keep-offline' | 'delete') => {
     const targetEvent = endGigPromptEvent ?? eventRef.current
@@ -1475,6 +1583,7 @@ function GigControlPage() {
         currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
         isStarted: isNowPlayingStarted,
         quoteIndex: quoteIndexRef.current,
+        countdownTargetMs: mirroredCountdownTargetMs,
         brbActive: nextBrbActive,
         brbMessage: resolvedMessage,
       })
@@ -1505,6 +1614,7 @@ function GigControlPage() {
     isBrbActive,
     isFinalSongSoonActive,
     isNowPlayingStarted,
+    mirroredCountdownTargetMs,
     nowPlaying?.id,
     resolveCoverUrlForSong,
     showMirrorPreviewTransition,
@@ -1915,16 +2025,17 @@ function GigControlPage() {
           )
         }
 
-        if (nowPlaying?.id && !isNowPlayingStarted) {
-          await writeSharedPlaybackState(event.id, {
-            currentSongId: nowPlaying.id,
-            currentSongCoverUrl: nowPlaying.cover_url ?? null,
-            isStarted: true,
-            quoteIndex: quoteIndexRef.current,
-          })
-          setIsNowPlayingStarted(true)
-          sendSpotifyTransportCommand('pause')
-        }
+        await writeSharedPlaybackState(event.id, {
+          currentSongId: nowPlaying?.id ?? null,
+          currentSongCoverUrl: nowPlaying?.cover_url ?? null,
+          isStarted: false,
+          quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: startAt.getTime(),
+          brbActive: false,
+          brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+        })
+
+        setIsNowPlayingStarted(false)
 
         setPreflightStatusText('Auto Live triggered from scheduled countdown.')
       } catch (error) {
@@ -1966,12 +2077,10 @@ function GigControlPage() {
     event?.introAudioUrl,
     ensureRoomOpenState,
     getHostNowMs,
-    isNowPlayingStarted,
     nowPlaying?.cover_url,
     nowPlaying?.id,
     playIntroAudioOnceSafely,
     runGoLivePreflight,
-    sendSpotifyTransportCommand,
   ])
 
   // Subscribe to audience presence channel to count active audience members
@@ -2065,6 +2174,11 @@ function GigControlPage() {
     const initializePlaybackState = async () => {
       try {
         const sharedPlaybackState = await readSharedPlaybackState(activeEventId)
+        const preservedCountdownTargetMs = sharedPlaybackState?.countdownTargetMs ?? mirroredCountdownTargetMs
+        const preservedBrbActive = Boolean(sharedPlaybackState?.brbActive)
+        const preservedBrbMessage = typeof sharedPlaybackState?.brbMessage === 'string'
+          ? sharedPlaybackState.brbMessage
+          : null
 
         if (!isCurrent) return
 
@@ -2084,6 +2198,9 @@ function GigControlPage() {
             currentSongCoverUrl: null,
             isStarted: false,
             quoteIndex: sharedPlaybackState?.quoteIndex ?? quoteIndexRef.current,
+            countdownTargetMs: preservedCountdownTargetMs,
+            brbActive: preservedBrbActive,
+            brbMessage: preservedBrbMessage,
           })
           return
         }
@@ -2115,6 +2232,9 @@ function GigControlPage() {
           currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying.id),
           isStarted: false,
           quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: preservedCountdownTargetMs,
+          brbActive: preservedBrbActive,
+          brbMessage: preservedBrbMessage,
         })
 
         previousSongIdRef.current = nowPlaying.id
@@ -2131,7 +2251,7 @@ function GigControlPage() {
     return () => {
       isCurrent = false
     }
-  }, [event?.id, nowPlaying?.id, resolveCoverUrlForSong])
+  }, [event?.id, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong])
 
   const setQuoteIndex = (nextQuoteIndex: number) => {
     quoteIndexRef.current = nextQuoteIndex
@@ -2193,12 +2313,13 @@ function GigControlPage() {
         currentSongCoverUrl: resolveCoverUrlForSong(targetSongId),
         isStarted: nextStarted,
         quoteIndex: quoteIndexRef.current,
+        countdownTargetMs: mirroredCountdownTargetMs,
       })
     } catch (error) {
       console.warn('GigControlPage: playback sync write failed', error)
       // Do not block local playback controls if cross-screen sync is temporarily unavailable.
     }
-  }, [event, nowPlaying?.id, resolveCoverUrlForSong])
+  }, [event, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong])
 
   const beginBetweenSongsTransition = useCallback(async () => {
     const previousQuoteIndex = quoteIndexRef.current
@@ -3083,24 +3204,44 @@ function GigControlPage() {
 
         {!isFocusedGigControlWindow ? (
           <article className="qr-card gig-control-qr-card" aria-label="Audience join tools">
-            <p className="gig-control-card-label">{isCurrentTestGig ? 'Test Audience QR' : 'Audience Join QR'}</p>
+            <p className="gig-control-card-label">{isQrTargetTestGig ? 'Test Audience QR' : 'Audience Join QR'}</p>
+            {hostEvents.length > 1 ? (
+              <div className="gig-switcher">
+                <label htmlFor="qr-gig-switcher" className="gig-switcher-label">QR target gig</label>
+                <select
+                  id="qr-gig-switcher"
+                  className="gig-switcher-select"
+                  value={qrTargetEventId ?? ''}
+                  onChange={(changeEvent) => {
+                    setQrTargetGigId(changeEvent.target.value)
+                  }}
+                >
+                  {hostEvents.map((hostEvent) => (
+                    <option key={hostEvent.id} value={hostEvent.id}>
+                      {hostEvent.isTestGig ? '[TEST] ' : ''}
+                      {hostEvent.name}{hostEvent.venue ? ` - ${hostEvent.venue}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             <div className="gig-control-qr-frame">
-              <img src={qrUrl} alt={isCurrentTestGig ? 'QR code for test audience page' : 'QR code for audience join page'} className="qr-image" />
+              <img src={qrUrl} alt={isQrTargetTestGig ? 'QR code for test audience page' : 'QR code for audience join page'} className="qr-image" />
             </div>
             <p className="subcopy">
-              {isCurrentTestGig
+              {isQrTargetTestGig
                 ? 'Private test mode: use this Test Audience page while signed in as host.'
                 : 'Show this on your mirror screen so guests can scan and join.'}
             </p>
             <button
               type="button"
               className="secondary-button"
-              title={isCurrentTestGig ? 'Copy the test audience link for host preview' : 'Copy the audience join link to share with your guests'}
+              title={isQrTargetTestGig ? 'Copy the test audience link for host preview' : 'Copy the audience join link to share with your guests'}
               onClick={async () => {
                 await copyJoinUrl()
               }}
             >
-              {copiedAudienceLink ? 'Copied!' : isCurrentTestGig ? 'Copy Test Audience Link' : 'Copy Audience Link'}
+              {copiedAudienceLink ? 'Copied!' : isQrTargetTestGig ? 'Copy Test Audience Link' : 'Copy Audience Link'}
             </button>
             <button
               type="button"
@@ -3112,7 +3253,7 @@ function GigControlPage() {
             >
               Open Test Audience Page
             </button>
-            {!isCurrentTestGig ? (
+            {!isQrTargetTestGig ? (
               <button
                 type="button"
                 className="ghost-button"

@@ -55,6 +55,35 @@
   min-height: 100dvh;
 }
 
+.audience-karafun.audience-theme-no-gig-blend {
+  background:
+    linear-gradient(140deg, rgba(7, 11, 24, 0.56), rgba(8, 14, 30, 0.68)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center / cover no-repeat;
+}
+
+.audience-karafun.audience-theme-no-gig-blend .queue-panel,
+.audience-karafun.audience-theme-no-gig-blend .now-playing-card,
+.audience-karafun.audience-theme-no-gig-blend .audience-start-actions-panel {
+  border-color: rgba(126, 176, 255, 0.24);
+  background:
+    radial-gradient(circle at 10% 12%, rgba(0, 200, 255, 0.09), transparent 38%),
+    radial-gradient(circle at 88% 80%, rgba(162, 89, 255, 0.12), transparent 36%),
+    rgba(10, 16, 34, 0.86);
+  box-shadow:
+    0 0 0 1px rgba(120, 164, 255, 0.12) inset,
+    0 16px 34px rgba(4, 8, 24, 0.52);
+}
+
+.audience-karafun.audience-theme-no-gig-blend .secondary-button {
+  border-color: rgba(126, 176, 255, 0.34);
+  background: rgba(9, 18, 40, 0.78);
+}
+
+.audience-karafun.audience-theme-no-gig-blend .secondary-button:hover {
+  border-color: rgba(151, 193, 255, 0.52);
+  background: rgba(13, 24, 52, 0.9);
+}
+
 .audience-karafun .audience-stage {
   max-width: 500px;
   width: 100%;
@@ -810,6 +839,60 @@
 .audience-karafun .audience-entry-copy {
   color: var(--kf-text-sub);
 }
+.audience-karafun.audience-waiting-shell {
+  align-items: center;
+}
+.audience-karafun .audience-waiting-card {
+  max-width: 760px;
+  width: min(92vw, 760px);
+  display: grid;
+  gap: 0.85rem;
+  text-align: center;
+}
+.audience-karafun .audience-final-countdown-overlay {
+  margin: 0.15rem auto 0.4rem;
+  width: min(84vw, 260px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 146, 208, 0.78), rgba(162, 89, 255, 0.78) 55%, rgba(18, 10, 30, 0.92) 100%);
+  border: 2px solid rgba(255, 196, 232, 0.82);
+  box-shadow:
+    0 0 42px rgba(255, 93, 176, 0.62),
+    0 0 20px rgba(162, 89, 255, 0.55),
+    inset 0 0 24px rgba(255, 255, 255, 0.12);
+  animation: audience-final-countdown-pulse 720ms ease-in-out infinite;
+}
+
+.audience-karafun .audience-final-countdown-number {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(4.8rem, 18vw, 8.2rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 0 26px rgba(255, 255, 255, 0.56),
+    0 0 46px rgba(255, 93, 176, 0.68);
+}
+.audience-karafun .audience-waiting-start-label {
+  margin: -0.25rem 0 0;
+  color: rgba(223, 234, 255, 0.82);
+}
+.audience-karafun .audience-waiting-primary-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.audience-karafun .audience-waiting-primary-actions .primary-button,
+.audience-karafun .audience-waiting-primary-actions .secondary-button {
+  width: 100%;
+}
+.audience-karafun .audience-waiting-secondary-actions {
+  justify-content: center;
+}
 
 /* Name input */
 .audience-karafun .audience-entry-form input[type="text"],
@@ -913,6 +996,19 @@
   50% {
     transform: scale(1.02);
     box-shadow: 0 0 0.65rem rgba(255, 93, 176, 0.32);
+  }
+}
+
+@keyframes audience-final-countdown-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+    filter: saturate(1.2);
   }
 }
 
@@ -1387,6 +1483,9 @@
     padding: 1.35rem;
     border-radius: 16px;
   }
+  .audience-karafun .audience-waiting-card {
+    width: min(900px, calc(100% - 1.2rem));
+  }
 
   .audience-karafun .audience-no-gig-card {
     grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -1692,6 +1791,13 @@
 }
 
 @media (max-width: 480px) {
+  .audience-karafun .audience-waiting-card {
+    width: calc(100% - 1rem);
+    gap: 0.7rem;
+  }
+  .audience-karafun .audience-waiting-primary-actions {
+    grid-template-columns: 1fr;
+  }
   .audience-karafun .audience-entry-card,
   .audience-karafun .audience-start-actions-panel,
   .audience-karafun .now-playing-card,

@@ -22,6 +22,12 @@ type IntroAudioLibraryItem = {
   createdAt: string | null
 }
 
+const EVENT_TYPE_OPTIONS: Array<{ value: EventType; label: string }> = [
+  { value: 'halli-live', label: 'The Human Jukebox' },
+  { value: 'karaoke', label: 'Karaoke' },
+  { value: 'harald-live', label: 'Harald spiller' },
+]
+
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
 
@@ -77,7 +83,7 @@ function CreateGigPage() {
   const [gigStartTime, setGigStartTime] = useState('')
   const [gigEndTime, setGigEndTime] = useState('')
   const [description, setDescription] = useState('')
-  const [eventType, setEventType] = useState<EventType>('harald-live')
+  const [eventType, setEventType] = useState<EventType>('halli-live')
   const [karafunUrl, setKarafunUrl] = useState('')
   const [artistName, setArtistName] = useState('')
   const [audienceVotingEnabled, setAudienceVotingEnabled] = useState(true)
@@ -102,7 +108,11 @@ function CreateGigPage() {
   const [loadingPlaylists, setLoadingPlaylists] = useState(false)
   const [selectedPrimaryPlaylistId, setSelectedPrimaryPlaylistId] = useState('')
   const [selectedKaraokePlaylistId, setSelectedKaraokePlaylistId] = useState('')
+  const [eventTypePickerOpen, setEventTypePickerOpen] = useState(false)
   const isMountedRef = useRef(true)
+  const gigDateInputRef = useRef<HTMLInputElement | null>(null)
+  const repeatDateInputRef = useRef<HTMLInputElement | null>(null)
+  const eventTypePickerRef = useRef<HTMLDivElement | null>(null)
   const pendingTimerIdsRef = useRef<number[]>([])
 
   const clearTrackedTimeout = useCallback((timerId: number) => {
@@ -131,6 +141,38 @@ function CreateGigPage() {
       pendingTimerIdsRef.current = []
     }
   }, [])
+
+  useEffect(() => {
+    if (!eventTypePickerOpen) {
+      return
+    }
+
+    const handleOutsidePointer = (event: MouseEvent) => {
+      const pickerRoot = eventTypePickerRef.current
+      if (!pickerRoot) {
+        return
+      }
+
+      const targetNode = event.target
+      if (targetNode instanceof Node && !pickerRoot.contains(targetNode)) {
+        setEventTypePickerOpen(false)
+      }
+    }
+
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setEventTypePickerOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsidePointer)
+    document.addEventListener('keydown', handleEscapeKey)
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsidePointer)
+      document.removeEventListener('keydown', handleEscapeKey)
+    }
+  }, [eventTypePickerOpen])
 
   useEffect(() => {
     if (!user?.id || !isHost) {
@@ -741,27 +783,53 @@ function CreateGigPage() {
 
               <div className="field-row">
                 <label htmlFor="gig-date">Date</label>
-                <input
-                  id="gig-date"
-                  type="date"
-                  value={gigDate}
-                  onChange={(e) => {
-                    const nextMainDate = e.target.value
-                    setGigDate(nextMainDate)
-                    setAdditionalGigDates((currentDates) => currentDates.filter((date) => date !== nextMainDate))
-                  }}
-                />
+                <div className="create-gig-time-row">
+                  <input
+                    ref={gigDateInputRef}
+                    id="gig-date"
+                    type="date"
+                    value={gigDate}
+                    onChange={(e) => {
+                      const nextMainDate = e.target.value
+                      setGigDate(nextMainDate)
+                      setAdditionalGigDates((currentDates) => currentDates.filter((date) => date !== nextMainDate))
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      const dateInput = gigDateInputRef.current
+                      dateInput?.showPicker?.()
+                      dateInput?.focus()
+                    }}
+                  >
+                    Open calendar
+                  </button>
+                </div>
               </div>
 
               <div className="field-row">
                 <label htmlFor="gig-repeat-date">Add repeat dates (optional)</label>
                 <div className="create-gig-time-row">
                   <input
+                    ref={repeatDateInputRef}
                     id="gig-repeat-date"
                     type="date"
                     value={repeatDateInput}
                     onChange={(e) => setRepeatDateInput(e.target.value)}
                   />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => {
+                      const dateInput = repeatDateInputRef.current
+                      dateInput?.showPicker?.()
+                      dateInput?.focus()
+                    }}
+                  >
+                    Open calendar
+                  </button>
                   <button
                     type="button"
                     className="secondary-button"
@@ -884,20 +952,48 @@ function CreateGigPage() {
           </div>
           <div className="field-row">
             <label htmlFor="event-type">Choose event type</label>
-            <select
-              id="event-type"
-              value={eventType}
-              onChange={(e) => setEventType(e.target.value as EventType)}
-            >
-              <option value="halli-live">The Human Jukebox</option>
-              <option value="harald-live">Harald Live</option>
-              <option value="karaoke">Karaoke Event</option>
-              <option value="build-self">Build Self Gig</option>
-            </select>
+            <div className="create-gig-event-type-picker" ref={eventTypePickerRef}>
+              <button
+                id="event-type"
+                type="button"
+                className="create-gig-event-type-trigger"
+                aria-haspopup="listbox"
+                aria-expanded={eventTypePickerOpen}
+                onClick={() => setEventTypePickerOpen((isOpen) => !isOpen)}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setEventTypePickerOpen(true)
+                  }
+                }}
+              >
+                {EVENT_TYPE_OPTIONS.find((option) => option.value === eventType)?.label ?? 'Choose event type'}
+              </button>
+              {eventTypePickerOpen ? (
+                <div className="create-gig-event-type-menu" role="listbox" aria-labelledby="event-type">
+                  {EVENT_TYPE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="option"
+                      aria-selected={eventType === option.value}
+                      className={`create-gig-event-type-option${eventType === option.value ? ' is-selected' : ''}`}
+                      onClick={() => {
+                        setEventType(option.value)
+                        setEventTypePickerOpen(false)
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
           <div className="field-row">
             <label htmlFor="gig-primary-setlist">Choose setlist (optional)</label>
             <select
+              className="create-gig-themed-select"
               id="gig-primary-setlist"
               value={selectedPrimaryPlaylistId}
               onChange={(e) => setSelectedPrimaryPlaylistId(e.target.value)}
@@ -921,6 +1017,7 @@ function CreateGigPage() {
           <div className="field-row">
             <label htmlFor="gig-karaoke-setlist">Choose karaoke setlist (optional)</label>
             <select
+              className="create-gig-themed-select"
               id="gig-karaoke-setlist"
               value={selectedKaraokePlaylistId}
               onChange={(e) => setSelectedKaraokePlaylistId(e.target.value)}
@@ -1095,6 +1192,7 @@ function CreateGigPage() {
 
             <label htmlFor="saved-intro-audio">Saved intro MP3 library</label>
             <select
+              className="create-gig-themed-select"
               id="saved-intro-audio"
               value={selectedIntroAudioPath}
               onChange={(e) => onSelectSavedIntroAudio(e.target.value)}

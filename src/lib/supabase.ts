@@ -4,6 +4,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 const supabaseKey = supabaseAnonKey ?? supabasePublishableKey
+export const SUPABASE_AUTH_STORAGE_KEY = 'human-jukebox-org-auth-token'
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
@@ -53,9 +54,14 @@ const safeStorage = {
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    storageKey: 'human-jukebox-org-auth-token',
+    storageKey: SUPABASE_AUTH_STORAGE_KEY,
     storage: safeStorage,
     // In this desktop/webview environment, browser LockManager can deadlock or steal locks.
     lock: async (_name, _timeout, acquire) => await acquire(),
   },
 })
+
+export function clearSupabaseAuthStorage() {
+  safeStorage.removeItem(SUPABASE_AUTH_STORAGE_KEY)
+  safeStorage.removeItem(`${SUPABASE_AUTH_STORAGE_KEY}-code-verifier`)
+}

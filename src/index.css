@@ -129,6 +129,58 @@ body {
   min-height: 100vh;
 }
 
+#app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay, 9999);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(74, 214, 255, 0.22) 0%, transparent 38%),
+    radial-gradient(circle at 85% 12%, rgba(255, 79, 152, 0.2) 0%, transparent 36%),
+    linear-gradient(160deg, #080b1f 0%, #0d1534 55%, #11122b 100%);
+  opacity: 1;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+#app-splash.splash-hidden {
+  opacity: 0;
+}
+
+#app-splash img {
+  width: 120px;
+  height: 120px;
+  border-radius: 24px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 24px rgba(74, 214, 255, 0.45)) drop-shadow(0 0 48px rgba(255, 79, 152, 0.3));
+  animation: splash-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes splash-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+#app-splash p {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(157, 176, 222, 0.7);
+}
+
 h1,
 h2,
 p {

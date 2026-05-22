@@ -7,6 +7,7 @@ import {
   PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
   PLAYBACK_STATE_STORAGE_KEY,
+  isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
   readSharedPlaybackState,
   writeSharedPlaybackState,
@@ -18,6 +19,7 @@ import { useQueueStore, type QueueSong, type VenueLogoAppearance } from '../stat
 import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
+import { INTRO_AUDIO_PLAYBACK_VOLUME } from '../lib/constants'
 import { demoMode, homeMirrorPreviewMode } from '../demo/demoMode'
 import { DEMO_NOW_PLAYING_FACTS } from '../demo/demoNowPlaying'
 
@@ -64,6 +66,7 @@ const CHOSEN_BY_ACCENT_CLASSES = [
   'mirror-picker-accent-8',
 ]
 const HOST_PICKED_BY_FALLBACK = 'Picked by The Hoast'
+const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 
 const SPOTLIGHT_DURATION_MS = 10000
 const SPOTLIGHT_POLL_INTERVAL_MS = 6000
@@ -179,6 +182,76 @@ function readIntroAudioPlayLockForEvent(eventId: string | null): IntroAudioPlayL
   } catch {
     return null
   }
+}
+
+function acquireIntroAudioPlayLockForEvent(eventId: string): string | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const now = Date.now()
+  const ownerId = `${eventId}:${now}:${Math.random().toString(36).slice(2)}`
+
+  try {
+    const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+
+    if (existingRaw) {
+      const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
+      const sameEvent = existingLock.eventId === eventId
+      const stillValid = typeof existingLock.expiresAt === 'number' && existingLock.expiresAt > now
+
+      if (sameEvent && stillValid) {
+        return null
+      }
+    }
+
+    const nextLock: IntroAudioPlayLock = {
+      eventId,
+      ownerId,
+      expiresAt: now + 20_000,
+    }
+
+    window.localStorage.setItem(INTRO_AUDIO_LOCK_STORAGE_KEY, JSON.stringify(nextLock))
+
+    const confirmationRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+    if (!confirmationRaw) {
+      return null
+    }
+
+    const confirmation = JSON.parse(confirmationRaw) as Partial<IntroAudioPlayLock>
+    return confirmation.ownerId === ownerId && confirmation.eventId === eventId ? ownerId : null
+  } catch {
+    return ownerId
+  }
+}
+
+function releaseIntroAudioPlayLockForEvent(eventId: string, ownerId: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+    if (!existingRaw) {
+      return
+    }
+
+    const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
+    if (existingLock.eventId === eventId && existingLock.ownerId === ownerId) {
+      window.localStorage.removeItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+    }
+  } catch {
+    // Best-effort lock release only.
+  }
+}
+
+async function playIntroAudioForMirrorAutoLive(introAudioUrl: string) {
+  const introAudio = new Audio(introAudioUrl)
+  introAudio.muted = false
+  introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
+  introAudio.currentTime = 0
+  introAudio.preload = 'auto'
+  await introAudio.play()
 }
 
 function parseVenueLogoLayoutPreviewMessage(raw: unknown): MirrorVenueLogoLayoutPreviewMessage | null {
@@ -999,6 +1072,7 @@ function isSamePlaybackState(left: SharedPlaybackState | null, right: SharedPlay
     && left.currentSongCoverUrl === right.currentSongCoverUrl
     && left.isStarted === right.isStarted
     && left.quoteIndex === right.quoteIndex
+    && (left.countdownTargetMs ?? null) === (right.countdownTargetMs ?? null)
     && left.brbActive === right.brbActive
     && left.brbMessage === right.brbMessage
 }
@@ -1184,6 +1258,7 @@ function formatMirrorCountdownStartTime(date: Date, locale: AudienceLocale) {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    hour12: false,
   }).format(date)
 }
 
@@ -1517,6 +1592,7 @@ function MirrorPageContent() {
     const trimmedCustomUrl = customUrl?.trim()
     if (trimmedCustomUrl) {
       queryParams.set('url', trimmedCustomUrl)
+      queryParams.set('visual', '1')
     }
 
     return `${appOrigin}/qr-landing?${queryParams.toString()}`
@@ -1525,8 +1601,8 @@ function MirrorPageContent() {
   const countdownQrDestination = buildCountdownLandingUrl(legacyCountdownQrLink || null)
   
   // Custom QR code logic for countdown and break screens
-  const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && customCountdownQrLink.length > 0 && eventId !== null
-  const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && customBreakQrLink.length > 0 && eventId !== null
+  const useCustomCountdownQr = (event?.mirrorCountdownQrCustomEnabled ?? false) && customCountdownQrLink.length > 0
+  const useCustomBreakQr = (event?.mirrorBreakQrEnabled ?? false) && customBreakQrLink.length > 0
 
   const countdownQrCodeUrl = useCustomCountdownQr
     ? buildCountdownLandingUrl(customCountdownQrLink)
@@ -1602,7 +1678,7 @@ function MirrorPageContent() {
     const nowMs = getMirrorNowMs()
 
     const candidates = hostEvents
-      .filter((hostEvent) => hostEvent.showInAudienceNoGig && hostEvent.id !== eventId)
+      .filter((hostEvent) => hostEvent.id !== eventId)
       .map((hostEvent) => ({
         id: hostEvent.id,
         name: hostEvent.name,
@@ -1635,8 +1711,12 @@ function MirrorPageContent() {
   const normalizedBetweenSongQuoteIndex = Number.isFinite(betweenSongQuoteIndex)
     ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length
     : 0
+  const openingWelcomeMessage = isBetweenSongs && !isLastSongSoonOverlayMessage(playbackState?.brbMessage)
+    ? (playbackState?.brbMessage?.trim() || null)
+    : null
   const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
     ?? 'Remain calm. The next song is loading.'
+  const displayedBetweenSongMessage = openingWelcomeMessage ?? currentBetweenSongQuote
   const currentSongFact = funFacts.length > 0
     ? funFacts[currentFactIndex % funFacts.length]
     : 'No fun facts available for this song yet.'
@@ -1717,6 +1797,47 @@ function MirrorPageContent() {
   const shouldShowEditorControls = isHost && !isEmbeddedPreview && layoutEditMode
   const shouldShowAdminElements = isHost && !isEmbeddedPreview && layoutEditMode
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
+
+  const launchCastToScreen = useCallback(async () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const castUrl = new URL(window.location.href)
+    castUrl.searchParams.set(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM, '1')
+    castUrl.searchParams.set('cast', '1')
+    castUrl.searchParams.delete(MIRROR_LAYOUT_EDIT_QUERY_PARAM)
+
+    const castUrlText = castUrl.toString()
+    const userAgent = window.navigator.userAgent
+    const isEdgeBrowser = /Edg\//.test(userAgent)
+    const isChromiumBrowser = /Chrome|Chromium/.test(userAgent) || isEdgeBrowser
+
+    const castTab = window.open(castUrlText, '_blank', 'noopener,noreferrer')
+
+    if (!castTab) {
+      setMirrorWarningMessage('Cast window was blocked. Allow pop-ups, then in Edge open menu > Cast media to device.')
+      return
+    }
+
+    castTab.focus()
+
+    if (isEdgeBrowser) {
+      setMirrorWarningMessage('Edge cast tab opened. In Edge: menu (three dots) > Cast media to device > Sources > Cast tab.')
+    } else if (isChromiumBrowser) {
+      setMirrorWarningMessage('Cast tab opened. In browser: menu > Cast... > Sources > Cast tab.')
+    } else {
+      setMirrorWarningMessage('Cast tab opened. For reliable casting, open this tab in Edge and use menu > Cast media to device.')
+    }
+
+    if (!getActiveFullscreenElement()) {
+      try {
+        await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+      } catch {
+        // Fullscreen can be blocked by browser policy. Cast flow can continue.
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const eventBannerText = event?.mirrorBannerText
@@ -1825,15 +1946,24 @@ function MirrorPageContent() {
         scheduledStart: 'Scheduled Start',
         scheduledPrefix: 'Scheduled start:',
       }
-  const countdownTarget = useMemo(
+  const fallbackCountdownTarget = useMemo(
     () => getMirrorCountdownTarget(event?.gigDate ?? null, event?.gigStartTime ?? null),
     [event?.gigDate, event?.gigStartTime],
   )
+  const mirroredCountdownTarget = useMemo(() => {
+    const targetMs = playbackState?.countdownTargetMs
+    if (!isCountdownTargetActive(targetMs, getMirrorNowMs())) {
+      return null
+    }
+
+    return new Date(targetMs as number)
+  }, [getMirrorNowMs, playbackState?.countdownTargetMs])
+  const countdownTarget = mirroredCountdownTarget ?? fallbackCountdownTarget
   const countdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : null
   const countdownDisplayRemainingMs = countdownRemainingMs === null
     ? null
     : Math.max(0, countdownRemainingMs)
-  const showCountdown = !isLive && Boolean(countdownTarget)
+  const showCountdown = !isLive && Boolean(countdownTarget) && countdownRemainingMs !== null && countdownRemainingMs > 0
   const showCountdownQrLink = event?.mirrorCountdownShowQrLink ?? true
   const countdownLabel = showCountdown && countdownDisplayRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownDisplayRemainingMs)
@@ -1953,7 +2083,6 @@ function MirrorPageContent() {
           .from('events')
           .select('id, name, venue, gig_date, gig_start_time, show_in_audience_no_gig')
           .eq('host_id', event.hostId)
-          .eq('show_in_audience_no_gig', true)
           .order('gig_date', { ascending: true, nullsFirst: false })
           .order('gig_start_time', { ascending: true, nullsFirst: false })
           .limit(12)
@@ -2218,14 +2347,27 @@ function MirrorPageContent() {
       try {
         await setRoomOpen(true)
 
-        if (nowPlaying?.id) {
-          await writeSharedPlaybackState(event.id, {
-            currentSongId: nowPlaying.id,
-            currentSongCoverUrl: nowPlaying.cover_url ?? null,
-            isStarted: true,
-            quoteIndex: quoteIndexRef.current,
-          })
+        if (event.introAudioUrl) {
+          const introLockOwner = acquireIntroAudioPlayLockForEvent(event.id)
+
+          if (introLockOwner) {
+            try {
+              await playIntroAudioForMirrorAutoLive(event.introAudioUrl)
+            } finally {
+              releaseIntroAudioPlayLockForEvent(event.id, introLockOwner)
+            }
+          }
         }
+
+        await writeSharedPlaybackState(event.id, {
+          currentSongId: nowPlaying?.id ?? null,
+          currentSongCoverUrl: nowPlaying?.cover_url ?? null,
+          isStarted: false,
+          quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: countdownTarget?.getTime() ?? null,
+          brbActive: false,
+          brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+        })
 
         setMirrorWarningMessage('Auto Live started from scheduled countdown.')
       } catch {
@@ -2686,6 +2828,12 @@ function MirrorPageContent() {
         return
       }
 
+      if (keyEvent.key.toLowerCase() === 'c' && !keyEvent.altKey && !keyEvent.ctrlKey && !keyEvent.metaKey) {
+        keyEvent.preventDefault()
+        void launchCastToScreen()
+        return
+      }
+
       if (keyEvent.code !== 'Space') {
         return
       }
@@ -2716,7 +2864,7 @@ function MirrorPageContent() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [layoutEditMode])
+  }, [launchCastToScreen, layoutEditMode])
 
   useEffect(() => {
     if (!isHost || isEmbeddedPreview) {
@@ -2999,6 +3147,7 @@ function MirrorPageContent() {
               current_song_cover_url?: string | null
               is_started?: boolean | null
               quote_index?: number | null
+              countdown_target_ms?: number | string | null
               brb_active?: boolean | null
               brb_message?: string | null
             } | null
@@ -3018,6 +3167,9 @@ function MirrorPageContent() {
                 quoteIndex: Number.isFinite(nextRow.quote_index)
                   ? (nextRow.quote_index as number)
                   : 0,
+                countdownTargetMs: Number.isFinite(nextRow.countdown_target_ms)
+                  ? Math.round(nextRow.countdown_target_ms as number)
+                  : null,
                 brbActive: nextRow.brb_active ?? false,
                 brbMessage: nextRow.brb_message ?? null,
               }
@@ -3730,7 +3882,7 @@ function MirrorPageContent() {
 
           <div className="mirror-header-live-stack">
             {!hideControlsForAudience ? (
-              <p className="mirror-edge-cast-hint" role="note">Edge cast: open browser menu (three dots) and choose Cast media to device.</p>
+              <p className="mirror-edge-cast-hint" role="note">Edge cast tip: menu (three dots), then Cast media to device, then Sources, then Cast tab.</p>
             ) : null}
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
@@ -3762,6 +3914,18 @@ function MirrorPageContent() {
             >
               <span className="mirror-control-button-icon" aria-hidden="true">FS</span>
               {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            </button>
+            <button
+              type="button"
+              className="mirror-contrast-button"
+              aria-label="Cast mirror using Edge"
+              title="Cast using Edge"
+              onClick={() => {
+                void launchCastToScreen()
+              }}
+            >
+              <span className="mirror-control-button-icon" aria-hidden="true">CS</span>
+              Edge Cast
             </button>
             <button
               type="button"
@@ -3806,7 +3970,7 @@ function MirrorPageContent() {
               Venue: {venueMode === 'club' ? 'Club' : venueMode === 'festival' ? 'Festival' : 'Lounge'}
             </button>
             <p className="mirror-control-shortcuts" aria-live="polite">
-              Shortcuts: <strong>E</strong> edit mode, <strong>F</strong> fullscreen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
+              Shortcuts: <strong>E</strong> edit mode, <strong>F</strong> fullscreen, <strong>C</strong> Edge cast, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
             </p>
             <div className="mirror-banner-editor">
               <label className="mirror-banner-label" htmlFor="mirror-banner-input">📢 Scrolling Banner</label>
@@ -3878,8 +4042,8 @@ function MirrorPageContent() {
 
             {/* ── TOP: headline + status ── */}
             <div className="mirror-pre-show-top">
-              <h1 className="mirror-pre-show-title">Welcome to the show,<br />legends and troublemakers!</h1>
-              <p className="mirror-pre-show-subtitle">Make yourselves comfy — tonight runs on requests, applause, and questionable decisions.</p>
+              <h1 className="mirror-pre-show-title">Welcome to The Human Jukebox</h1>
+              <p className="mirror-pre-show-subtitle">Get ready to sing, request your favorites, and shape tonight's setlist together.</p>
               {showCountdown ? (
                 <div className="mirror-countdown-card" aria-label="Countdown to show start">
                   <p className="mirror-countdown-label">{countdownCopy.startingIn}</p>
@@ -3964,7 +4128,7 @@ function MirrorPageContent() {
                 {isQuoteModeActive ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
-                      <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
+                      <p className="mirror-between-song-quote">{displayedBetweenSongMessage}</p>
                       {!activeSong ? <p className="mirror-song-waiting-note">Waiting for next song...</p> : null}
                     </div>
                   </div>
