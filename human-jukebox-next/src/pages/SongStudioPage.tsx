@@ -74,6 +74,7 @@ type PersistedProject = {
   limiterCeilingDb: number
   loopSectionId: string | null
   midiMappings: MidiMappings
+  x18SavedSongPresets: Record<string, SavedSongX18Preset>
   tracks: PersistedTrack[]
 }
 
@@ -101,6 +102,23 @@ type RecordingClip = {
 }
 
 type X18PresetId = 'vocalFocus' | 'backingWide' | 'liveSafe'
+
+type SavedSongX18Preset = {
+  songName: string
+  bridgeUrl: string
+  host: string
+  port: number
+  presetId: X18PresetId
+  autoPush: boolean
+  masterVolume: number
+  stems: Array<{
+    name: string
+    channel: number | null
+    volume: number
+    pan: number
+    muted: boolean
+  }>
+}
 
 type TempoEstimate = {
   bpm: number
@@ -731,12 +749,17 @@ function SongStudioPage() {
   const [isTestingX18Connection, setIsTestingX18Connection] = useState(false)
   const [isApplyingX18Preset, setIsApplyingX18Preset] = useState(false)
   const [x18PresetId, setX18PresetId] = useState<X18PresetId>('liveSafe')
+  const [x18AutoPushEnabled, setX18AutoPushEnabled] = useState(false)
+  const [x18SavedSongPresets, setX18SavedSongPresets] = useState<Record<string, SavedSongX18Preset>>(initialSnapshot?.x18SavedSongPresets ?? {})
+
+  const lastAutoPushedSongRef = useRef<string | null>(null)
 
   const songTrack = tracks.find((track) => track.role === 'song') ?? null
   const stemTracks = tracks.filter((track) => track.role === 'stem')
   const playbackTracks = tracks
   const extractionSourceTrack = tracks.find((track) => track.id === extractionSourceTrackId) ?? songTrack
   const totalDurationSec = songTrack?.durationSec ?? 0
+  const currentSongPreset = songTrack ? x18SavedSongPresets[songTrack.name] ?? null : null
 
   const currentLineIndex = useMemo(() => {
     if (chartLines.length === 0) {
@@ -871,6 +894,7 @@ function SongStudioPage() {
       limiterCeilingDb,
       loopSectionId,
       midiMappings,
+      x18SavedSongPresets,
       tracks: persistedTracks,
     }
 
@@ -888,7 +912,31 @@ function SongStudioPage() {
     syncOffsetSec,
     tracks,
     transposeSemitones,
+    x18SavedSongPresets,
   ])
+
+  useEffect(() => {
+    setX18AutoPushEnabled(currentSongPreset?.autoPush ?? false)
+  }, [currentSongPreset])
+
+  useEffect(() => {
+    if (!songTrack || !currentSongPreset?.autoPush) {
+      return
+    }
+
+    if (lastAutoPushedSongRef.current === songTrack.name) {
+      return
+    }
+
+    lastAutoPushedSongRef.current = songTrack.name
+    void pushSavedPresetToBridge(currentSongPreset)
+      .then(() => {
+        setStatusText(`Auto-pushed X18 preset for ${songTrack.name}.`)
+      })
+      .catch((error) => {
+        setStatusText(error instanceof Error ? error.message : 'Could not auto-push X18 preset.')
+      })
+  }, [currentSongPreset, songTrack])
 
   useEffect(() => {
     if (tracks.length > 0 || !initialSnapshot?.tracks?.length) {
@@ -1484,6 +1532,162 @@ function SongStudioPage() {
       setStatusText(message)
     } finally {
       setIsApplyingX18Routing(false)
+    }
+  }
+
+  const pushSavedPresetToBridge = async (preset: SavedSongX18Preset) => {
+    await fetch(`${preset.bridgeUrl.replace(/\/$/, '')}/x18/apply-preset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        host: preset.host,
+        port: preset.port,
+        presetId: preset.presetId,
+      }),
+    })
+
+    await fetch(`${preset.bridgeUrl.replace(/\/$/, '')}/x18/apply-routing`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        host: preset.host,
+        port: preset.port,
+        master: {
+          volume: preset.masterVolume,
+        },
+        channels: preset.stems
+          .filter((stem) => typeof stem.channel === 'number')
+          .map((stem) => ({
+            channel: stem.channel,
+            name: stem.name,
+            volume: stem.volume,
+            pan: stem.pan,
+            muted: stem.muted,
+          })),
+      }),
+    })
+  }
+
+  const saveCurrentSongX18Preset = () => {
+    if (!songTrack) {
+      setStatusText('Load a song first, then save its X18 preset.')
+      return
+    }
+
+    const preset: SavedSongX18Preset = {
+      songName: songTrack.name,
+      bridgeUrl: x18BridgeUrl,
+      host: x18Host,
+      port: x18Port,
+      presetId: x18PresetId,
+      autoPush: x18AutoPushEnabled,
+      masterVolume,
+      stems: stemTracks.map((track) => ({
+        name: track.name,
+        channel: track.channel,
+        volume: track.volume,
+        pan: track.pan,
+        muted: track.muted,
+      })),
+    }
+
+    setX18SavedSongPresets((current) => ({
+      ...current,
+      [songTrack.name]: preset,
+    }))
+    setStatusText(`Saved X18 preset for ${songTrack.name}.`)
+  }
+
+  const recallCurrentSongX18Preset = async () => {
+    if (!songTrack) {
+      setStatusText('Load a song first, then recall its X18 preset.')
+      return
+    }
+
+    const preset = x18SavedSongPresets[songTrack.name]
+    if (!preset) {
+      setStatusText(`No saved X18 preset for ${songTrack.name}.`)
+      return
+    }
+
+    setX18BridgeUrl(preset.bridgeUrl)
+    setX18Host(preset.host)
+    setX18Port(preset.port)
+    setX18PresetId(preset.presetId)
+    setX18AutoPushEnabled(preset.autoPush)
+    setMasterVolume(preset.masterVolume)
+    setTracks((current) => current.map((track) => {
+      if (track.role !== 'stem') {
+        return track
+      }
+
+      const savedStem = preset.stems.find((stem) => stem.name === track.name)
+      if (!savedStem) {
+        return track
+      }
+
+      return {
+        ...track,
+        channel: savedStem.channel,
+        volume: savedStem.volume,
+        pan: savedStem.pan,
+        muted: savedStem.muted,
+      }
+    }))
+
+    try {
+      await pushSavedPresetToBridge(preset)
+      setStatusText(`Recalled and pushed X18 preset for ${songTrack.name}.`)
+    } catch (error) {
+      setStatusText(error instanceof Error ? error.message : 'Could not push recalled X18 preset.')
+    }
+  }
+
+  const panicMuteAllX18 = async () => {
+    try {
+      const response = await fetch(`${x18BridgeUrl.replace(/\/$/, '')}/x18/panic`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          host: x18Host,
+          port: x18Port,
+        }),
+      })
+      const payload = (await response.json()) as { ok?: boolean; message?: string }
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || 'Panic mute failed')
+      }
+      setStatusText(payload.message || 'Panic mute sent to X18.')
+    } catch (error) {
+      setStatusText(error instanceof Error ? error.message : 'Could not send panic mute.')
+    }
+  }
+
+  const resetX18Scene = async () => {
+    try {
+      const response = await fetch(`${x18BridgeUrl.replace(/\/$/, '')}/x18/reset-scene`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          host: x18Host,
+          port: x18Port,
+        }),
+      })
+      const payload = (await response.json()) as { ok?: boolean; message?: string }
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || 'Reset scene failed')
+      }
+      setStatusText(payload.message || 'Reset scene sent to X18.')
+    } catch (error) {
+      setStatusText(error instanceof Error ? error.message : 'Could not reset X18 scene.')
     }
   }
 
@@ -2331,6 +2535,25 @@ function SongStudioPage() {
               {isApplyingX18Preset ? 'Pushing...' : 'Push Preset Scene'}
             </button>
           </label>
+          <label>
+            Save Song Preset
+            <button type="button" onClick={saveCurrentSongX18Preset} disabled={!songTrack}>Save Current Song</button>
+          </label>
+          <label>
+            Recall Song Preset
+            <button type="button" onClick={() => void recallCurrentSongX18Preset()} disabled={!songTrack}>Recall For Song</button>
+          </label>
+          <label>
+            Auto-push on song load
+            <input type="checkbox" checked={x18AutoPushEnabled} onChange={(event) => setX18AutoPushEnabled(event.target.checked)} />
+          </label>
+          <label>
+            Panic / Reset
+            <div className="studio-x18-safety-row">
+              <button type="button" onClick={() => void panicMuteAllX18()}>Panic Mute All</button>
+              <button type="button" onClick={() => void resetX18Scene()}>Reset Scene</button>
+            </div>
+          </label>
         </div>
         <div className="studio-track-list" role="list" aria-label="Audio tracks">
           {stemTracks.map((track) => (
@@ -2364,6 +2587,7 @@ function SongStudioPage() {
         </div>
         <p className="studio-status">Master output is controlled in transport and sent as the +1 master path.</p>
         <p className="studio-status">Preset: {X18_PRESETS[x18PresetId].description}</p>
+        <p className="studio-status">Saved song preset: {currentSongPreset ? 'available' : 'not saved yet'}.</p>
         <p className="studio-status">Use channel assignments CH 1-10 for stems, then push routing to your X18 bridge.</p>
       </article>
 

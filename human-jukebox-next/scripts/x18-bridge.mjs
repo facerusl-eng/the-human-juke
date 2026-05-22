@@ -113,6 +113,26 @@ function buildPresetMessages(presetId) {
   ]
 }
 
+function buildPanicMuteMessages() {
+  const messages = [buildOscPacket('/lr/mix/fader', [{ type: 'f', value: 0 }])]
+  for (let index = 1; index <= 10; index += 1) {
+    const channelAddress = `/ch/${String(index).padStart(2, '0')}`
+    messages.push(buildOscPacket(`${channelAddress}/mix/on`, [{ type: 'i', value: 0 }]))
+  }
+  return messages
+}
+
+function buildResetSceneMessages() {
+  const messages = [buildOscPacket('/lr/mix/fader', [{ type: 'f', value: 0.68 }])]
+  for (let index = 1; index <= 10; index += 1) {
+    const channelAddress = `/ch/${String(index).padStart(2, '0')}`
+    messages.push(buildOscPacket(`${channelAddress}/mix/on`, [{ type: 'i', value: 1 }]))
+    messages.push(buildOscPacket(`${channelAddress}/mix/fader`, [{ type: 'f', value: 0.5 }]))
+    messages.push(buildOscPacket(`${channelAddress}/mix/pan`, [{ type: 'f', value: 0.5 }]))
+  }
+  return messages
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = ''
@@ -222,6 +242,34 @@ const server = createServer(async (req, res) => {
       json(res, 200, { ok: true, message: `Preset ${presetId} pushed to X18.` })
     } catch (error) {
       json(res, 500, { ok: false, message: error instanceof Error ? error.message : 'Preset push failed' })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && req.url === '/x18/panic') {
+    try {
+      const payload = await readBody(req)
+      const host = typeof payload.host === 'string' && payload.host.trim() ? payload.host.trim() : '127.0.0.1'
+      const port = Number(payload.port) || 10024
+
+      await sendOscMessages(host, port, buildPanicMuteMessages())
+      json(res, 200, { ok: true, message: 'Panic mute sent to X18.' })
+    } catch (error) {
+      json(res, 500, { ok: false, message: error instanceof Error ? error.message : 'Panic mute failed' })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && req.url === '/x18/reset-scene') {
+    try {
+      const payload = await readBody(req)
+      const host = typeof payload.host === 'string' && payload.host.trim() ? payload.host.trim() : '127.0.0.1'
+      const port = Number(payload.port) || 10024
+
+      await sendOscMessages(host, port, buildResetSceneMessages())
+      json(res, 200, { ok: true, message: 'Reset scene sent to X18.' })
+    } catch (error) {
+      json(res, 500, { ok: false, message: error instanceof Error ? error.message : 'Reset scene failed' })
     }
     return
   }

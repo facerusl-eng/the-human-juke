@@ -1188,6 +1188,16 @@
   text-decoration: none;
 }
 
+.studio-x18-safety-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.studio-x18-safety-row button {
+  min-height: 2.35rem;
+}
+
 .performer-monitor {
   gap: 0.9rem;
   padding: 0.8rem;
