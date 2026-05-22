@@ -22,6 +22,13 @@ type IntroAudioLibraryItem = {
   createdAt: string | null
 }
 
+const EVENT_TYPE_OPTIONS: Array<{ value: EventType; label: string }> = [
+  { value: 'halli-live', label: 'The Human Jukebox' },
+  { value: 'harald-live', label: 'Harald Live' },
+  { value: 'karaoke', label: 'Karaoke Event' },
+  { value: 'build-self', label: 'Build Self Gig' },
+]
+
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const MAX_GIG_INTRO_AUDIO_BYTES = 12 * 1024 * 1024
 
@@ -102,9 +109,11 @@ function CreateGigPage() {
   const [loadingPlaylists, setLoadingPlaylists] = useState(false)
   const [selectedPrimaryPlaylistId, setSelectedPrimaryPlaylistId] = useState('')
   const [selectedKaraokePlaylistId, setSelectedKaraokePlaylistId] = useState('')
+  const [eventTypePickerOpen, setEventTypePickerOpen] = useState(false)
   const isMountedRef = useRef(true)
   const gigDateInputRef = useRef<HTMLInputElement | null>(null)
   const repeatDateInputRef = useRef<HTMLInputElement | null>(null)
+  const eventTypePickerRef = useRef<HTMLDivElement | null>(null)
   const pendingTimerIdsRef = useRef<number[]>([])
 
   const clearTrackedTimeout = useCallback((timerId: number) => {
@@ -133,6 +142,30 @@ function CreateGigPage() {
       pendingTimerIdsRef.current = []
     }
   }, [])
+
+  useEffect(() => {
+    if (!eventTypePickerOpen) {
+      return
+    }
+
+    const handleOutsidePointer = (event: MouseEvent) => {
+      const pickerRoot = eventTypePickerRef.current
+      if (!pickerRoot) {
+        return
+      }
+
+      const targetNode = event.target
+      if (targetNode instanceof Node && !pickerRoot.contains(targetNode)) {
+        setEventTypePickerOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsidePointer)
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsidePointer)
+    }
+  }, [eventTypePickerOpen])
 
   useEffect(() => {
     if (!user?.id || !isHost) {
@@ -912,17 +945,37 @@ function CreateGigPage() {
           </div>
           <div className="field-row">
             <label htmlFor="event-type">Choose event type</label>
-            <select
-              className="create-gig-themed-select"
-              id="event-type"
-              value={eventType}
-              onChange={(e) => setEventType(e.target.value as EventType)}
-            >
-              <option value="halli-live">The Human Jukebox</option>
-              <option value="harald-live">Harald Live</option>
-              <option value="karaoke">Karaoke Event</option>
-              <option value="build-self">Build Self Gig</option>
-            </select>
+            <div className="create-gig-event-type-picker" ref={eventTypePickerRef}>
+              <button
+                id="event-type"
+                type="button"
+                className="create-gig-event-type-trigger"
+                aria-haspopup="listbox"
+                aria-expanded={eventTypePickerOpen}
+                onClick={() => setEventTypePickerOpen((isOpen) => !isOpen)}
+              >
+                {EVENT_TYPE_OPTIONS.find((option) => option.value === eventType)?.label ?? 'Choose event type'}
+              </button>
+              {eventTypePickerOpen ? (
+                <div className="create-gig-event-type-menu" role="listbox" aria-labelledby="event-type">
+                  {EVENT_TYPE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="option"
+                      aria-selected={eventType === option.value}
+                      className={`create-gig-event-type-option${eventType === option.value ? ' is-selected' : ''}`}
+                      onClick={() => {
+                        setEventType(option.value)
+                        setEventTypePickerOpen(false)
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
           <div className="field-row">
             <label htmlFor="gig-primary-setlist">Choose setlist (optional)</label>
