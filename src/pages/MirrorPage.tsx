@@ -4359,9 +4359,16 @@ function MirrorPageContent() {
             <p className="mirror-brb-message">{playbackState.brbMessage?.trim() || DEFAULT_BRB_MESSAGE}</p>
           </div>
           <div className="mirror-brb-qr-panel">
-            <img src={breakQrUrl} alt="QR code for the audience request page" className="mirror-brb-qr-image" />
-            <p className="mirror-brb-qr-label">Scan for the pints. Log in for the tunes.</p>
-              {showCountdownQrLink ? <p className="mirror-brb-qr-url">{countdownQrText}</p> : null}
+            <a
+              href={breakQrCodeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mirror-qr-open-button"
+            >
+              Check out the bar
+            </a>
+            <p className="mirror-brb-qr-label">Open this link on your phone.</p>
+            <p className="mirror-brb-qr-url">{breakQrCodeUrl}</p>
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </div>
         </div>

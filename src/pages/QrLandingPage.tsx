@@ -211,6 +211,7 @@ function QrLandingPage() {
     if (locale === 'da') {
       return {
         buttonGoToLounge: 'Join the Lounge',
+        buttonCheckOutBar: 'Check out the bar',
         buttonSyncingStatus: 'Synkroniserer live-status...',
         buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
         buttonOpenLoungeNow: 'Join the Lounge',
@@ -226,6 +227,7 @@ function QrLandingPage() {
     if (locale === 'is') {
       return {
         buttonGoToLounge: 'Join the Lounge',
+        buttonCheckOutBar: 'Check out the bar',
         buttonSyncingStatus: 'Samstilli live-stodu...',
         buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
         buttonOpenLoungeNow: 'Join the Lounge',
@@ -240,6 +242,7 @@ function QrLandingPage() {
 
     return {
       buttonGoToLounge: 'Join the Lounge',
+      buttonCheckOutBar: 'Check out the bar',
       buttonSyncingStatus: 'Syncing live status...',
       buttonSyncingCountdownPrefix: 'Syncing countdown',
       buttonOpenLoungeNow: 'Join the Lounge',
@@ -305,6 +308,7 @@ function QrLandingPage() {
     : null
   const loungeButtonText = copy.buttonGoToLounge
   const shouldDisableLoungeButton = false
+  const hasBarLink = Boolean(customUrl && shouldShowVisualContent)
 
   useEffect(() => {
     clockOffsetRef.current = clockOffsetMs
@@ -478,6 +482,16 @@ function QrLandingPage() {
   return (
     <section className="qr-landing-shell" aria-label="Audience lounge landing page">
       <div className="qr-landing-button-overlay">
+        {hasBarLink ? (
+          <a
+            href={customUrl as string}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="qr-landing-button qr-landing-button-link"
+          >
+            {copy.buttonCheckOutBar}
+          </a>
+        ) : null}
         <button
           type="button"
           className={`qr-landing-button${shouldDisableLoungeButton ? ' qr-landing-button-disabled' : ''}`}

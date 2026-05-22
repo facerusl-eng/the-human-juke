@@ -51,6 +51,10 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .qr-landing-button {
@@ -84,6 +88,22 @@
   box-shadow:
     0 0 30px rgba(93, 215, 255, 0.5),
     inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+.qr-landing-button-link {
+  border-color: rgba(255, 176, 0, 0.86);
+  background: linear-gradient(135deg, rgba(255, 176, 0, 0.28), rgba(255, 138, 0, 0.2));
+  box-shadow:
+    0 0 24px rgba(255, 176, 0, 0.38),
+    inset 0 1px 1px rgba(255, 255, 255, 0.24);
+}
+
+.qr-landing-button-link:hover {
+  border-color: rgba(255, 196, 64, 1);
+  background: linear-gradient(135deg, rgba(255, 186, 20, 0.4), rgba(255, 150, 0, 0.3));
+  box-shadow:
+    0 0 30px rgba(255, 176, 0, 0.56),
+    inset 0 1px 1px rgba(255, 255, 255, 0.28);
 }
 
 .qr-landing-button:active {

@@ -1361,9 +1361,11 @@ function EventPage() {
   }, [myQueuedRequests])
   const isBetweenSongs = playbackState?.isStarted === false
   const isLastSongSoonMode = isLastSongSoonOverlayMessage(playbackState?.brbMessage)
+  const isAudienceBreakMode = Boolean(playbackState?.brbActive) && !isLastSongSoonMode
   const openingWelcomeMessage = isBetweenSongs && !isLastSongSoonMode
     ? (playbackState?.brbMessage?.trim() || null)
     : null
+  const audienceBreakMessage = playbackState?.brbMessage?.trim() || null
   const normalizedBetweenSongQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
     ? Math.abs(Math.trunc(playbackState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
     : 0
@@ -1422,6 +1424,8 @@ function EventPage() {
         waitingCopy: 'Showet starter snart. Hold denne side åben, så går vi live med det samme.',
         waitingEndedTitle: 'Aftenens gig er afsluttet.',
         waitingEndedCopy: 'Tak for i aften. Hold øje med de næste gigs her i appen.',
+        onBreakTitle: 'On Break',
+        onBreakCopy: 'Vi er lige på en kort pause. Tjek baren og hold appen åben - vi er snart tilbage.',
         encoreThanksEyebrow: 'Tak for i aften',
         encoreThanksTitle: 'Ekstranummeret er færdigt.',
         encoreThanksBody: 'Tak fordi I dukkede op og gjorde aftenen helt speciel. Håber vi ses til næste gig.',
@@ -1478,6 +1482,8 @@ function EventPage() {
         waitingCopy: 'Sýningin byrjar bráðum. Hafðu þessa síðu opna svo þú ferð beint í live.',
         waitingEndedTitle: 'Tónleikunum er lokið.',
         waitingEndedCopy: 'Takk fyrir kvöldið. Skoðaðu næstu viðburði hér í appinu.',
+        onBreakTitle: 'On Break',
+        onBreakCopy: 'Vid erum i stuttri pusu. Kikktu a barinn og haltu appinu opnu - vid komum strax aftur.',
         encoreThanksEyebrow: 'Takk fyrir kvöldið',
         encoreThanksTitle: 'Aukalagið er buið.',
         encoreThanksBody: 'Takk fyrir að mæta og gera kvöldið sérstakt. Vona að við sjáumst aftur á næsta viðburði.',
@@ -1533,6 +1539,8 @@ function EventPage() {
         waitingCopy: 'Showtime is almost here. Keep this page open and you will switch to live automatically.',
         waitingEndedTitle: 'Tonight\'s gig has ended.',
         waitingEndedCopy: 'Thanks for joining. Check upcoming gigs in the audience app.',
+        onBreakTitle: 'On Break',
+        onBreakCopy: 'We are on a short break. Check out the bar and keep the app open - we will be right back.',
         encoreThanksEyebrow: 'Thanks for tonight',
         encoreThanksTitle: 'The extra number is finished.',
         encoreThanksBody: 'Thank you for showing up and making the night special. Hope to see you again at the next gig.',
@@ -3447,6 +3455,14 @@ function EventPage() {
             </div>
           ) : null}
         </section>
+
+        {isAudienceBreakMode ? (
+          <section className="queue-panel" aria-live="polite" role="status">
+            <p className="eyebrow">🍺 {copy.onBreakTitle}</p>
+            <h2>{copy.onBreakTitle}</h2>
+            <p className="subcopy no-margin">{audienceBreakMessage ?? copy.onBreakCopy}</p>
+          </section>
+        ) : null}
 
         {showAudienceEncoreThankYou ? (
           <section className="queue-panel audience-encore-thanks-panel" aria-live="polite" role="status">
