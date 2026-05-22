@@ -1190,8 +1190,25 @@ function SongStudioPage() {
       return merged
     })
 
+    let beatDetectionMessage = ''
+    const autoTrack = nextTracks[0]
+    if (autoTrack) {
+      const buffer = buffersRef.current.get(autoTrack.id)
+      if (buffer) {
+        setIsDetectingBeat(true)
+        const result = estimateTempoFromBuffer(buffer)
+        if (result) {
+          setClickTrackBpm(result.bpm)
+          beatDetectionMessage = result.confidence < 0.12
+            ? ` Auto-beat estimated ${result.bpm} BPM (low confidence).`
+            : ` Auto-beat detected ${result.bpm} BPM.`
+        }
+        setIsDetectingBeat(false)
+      }
+    }
+
     await refreshCachedTracks()
-    setStatusText(`${nextTracks.length} track(s) loaded. Run auto-generate to build lyric/chord sync.`)
+    setStatusText(`${nextTracks.length} track(s) loaded. Run auto-generate to build lyric/chord sync.${beatDetectionMessage}`)
   }
 
   const restoreCachedTracks = async () => {
