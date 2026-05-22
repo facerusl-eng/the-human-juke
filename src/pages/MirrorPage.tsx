@@ -1016,6 +1016,12 @@ type FullscreenElement = HTMLElement & {
   webkitRequestFullScreen?: () => Promise<void> | void
 }
 
+type CastWindow = Window & {
+  PresentationRequest?: new (urls: string | string[]) => {
+    start: () => Promise<unknown>
+  }
+}
+
 function getActiveFullscreenElement() {
   const fullscreenDocument = document as FullscreenDocument
   return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? null
@@ -1720,6 +1726,49 @@ function MirrorPageContent() {
   const shouldShowEditorControls = isHost && !isEmbeddedPreview && layoutEditMode
   const shouldShowAdminElements = isHost && !isEmbeddedPreview && layoutEditMode
   const isMirrorBannerEnabled = bannerEnabledOverride ?? (event?.mirrorBannerEnabled ?? true)
+
+  const launchCastToScreen = useCallback(async () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const castUrl = new URL(window.location.href)
+    castUrl.searchParams.set(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM, '1')
+    castUrl.searchParams.set('cast', '1')
+    castUrl.searchParams.delete(MIRROR_LAYOUT_EDIT_QUERY_PARAM)
+
+    const castUrlText = castUrl.toString()
+    const castWindow = window as CastWindow
+
+    if (typeof castWindow.PresentationRequest === 'function') {
+      try {
+        const request = new castWindow.PresentationRequest([castUrlText])
+        await request.start()
+        setMirrorWarningMessage('Casting started on the connected display.')
+        return
+      } catch (error) {
+        console.warn('MirrorPage: Presentation API cast failed, falling back to browser cast flow', error)
+      }
+    }
+
+    const castTab = window.open(castUrlText, '_blank', 'noopener,noreferrer')
+
+    if (!castTab) {
+      setMirrorWarningMessage('Cast window was blocked. Allow pop-ups, then use browser menu > Cast media to device.')
+      return
+    }
+
+    castTab.focus()
+    setMirrorWarningMessage('Cast tab opened. In browser menu, choose Cast media to device.')
+
+    if (!getActiveFullscreenElement()) {
+      try {
+        await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+      } catch {
+        // Fullscreen can be blocked by browser policy. Cast flow can continue.
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const eventBannerText = event?.mirrorBannerText
@@ -2698,6 +2747,12 @@ function MirrorPageContent() {
         return
       }
 
+      if (keyEvent.key.toLowerCase() === 'c' && !keyEvent.altKey && !keyEvent.ctrlKey && !keyEvent.metaKey) {
+        keyEvent.preventDefault()
+        void launchCastToScreen()
+        return
+      }
+
       if (keyEvent.code !== 'Space') {
         return
       }
@@ -2728,7 +2783,7 @@ function MirrorPageContent() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [layoutEditMode])
+  }, [launchCastToScreen, layoutEditMode])
 
   useEffect(() => {
     if (!isHost || isEmbeddedPreview) {
@@ -3781,6 +3836,18 @@ function MirrorPageContent() {
             </button>
             <button
               type="button"
+              className="mirror-contrast-button"
+              aria-label="Cast mirror to screen"
+              title="Cast to screen"
+              onClick={() => {
+                void launchCastToScreen()
+              }}
+            >
+              <span className="mirror-control-button-icon" aria-hidden="true">CS</span>
+              Cast Screen
+            </button>
+            <button
+              type="button"
               className={`mirror-contrast-button ${highContrastMode ? 'mirror-control-button-active' : ''}`.trim()}
               aria-label="Toggle high contrast mode"
               title="High contrast"
@@ -3822,7 +3889,7 @@ function MirrorPageContent() {
               Venue: {venueMode === 'club' ? 'Club' : venueMode === 'festival' ? 'Festival' : 'Lounge'}
             </button>
             <p className="mirror-control-shortcuts" aria-live="polite">
-              Shortcuts: <strong>E</strong> edit mode, <strong>F</strong> fullscreen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
+              Shortcuts: <strong>E</strong> edit mode, <strong>F</strong> fullscreen, <strong>C</strong> cast screen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
             </p>
             <div className="mirror-banner-editor">
               <label className="mirror-banner-label" htmlFor="mirror-banner-input">📢 Scrolling Banner</label>
