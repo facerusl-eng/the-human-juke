@@ -44,32 +44,44 @@ VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
 Optional table name overrides:
 
 ```env
-VITE_SUPABASE_SONGS_TABLE=songs
-VITE_SUPABASE_SET_BLOCKS_TABLE=set_blocks
-VITE_SUPABASE_LIVE_CONSOLE_TABLE=live_console_snapshots
+VITE_SUPABASE_LIBRARY_SONGS_TABLE=library_songs
+VITE_SUPABASE_PLAYLISTS_TABLE=playlists
+VITE_SUPABASE_PLAYLIST_SONGS_TABLE=playlist_songs
+VITE_SUPABASE_EVENTS_TABLE=events
+VITE_SUPABASE_PLAYBACK_STATE_TABLE=playback_state
 ```
 
 ## Expected Supabase Tables
 
 When using `supabase` mode, the adapter expects:
 
-### songs
+### library_songs
 - `id` text/uuid
 - `title` text
 - `artist` text
-- `length` text
-- `energy` text (`Low`, `Medium`, `High`)
-- `tags` text[]
+- `is_explicit` boolean
+- `created_at` timestamp
 
-### set_blocks
+### playlists
 - `id` text/uuid
 - `name` text
-- `songs` int
-- `vibe` text
-- `duration` text
+- `description` text
+- `playlist_type` text
 
-### live_console_snapshots
-- `state` text (`pre_show`, `live`, `break`)
-- `next_transition_in` text
-- `sync_latency_ms` int
-- `created_at` timestamp (used for latest snapshot ordering)
+### playlist_songs
+- `playlist_id` uuid
+- `song_id` uuid
+
+### events
+- `id` uuid
+- `is_active` boolean
+- `room_open` boolean
+- `gig_date` date
+- `gig_start_time` time
+
+### playback_state
+- `event_id` uuid
+- `brb_active` boolean
+- `countdown_target_ms` bigint
+
+Note: The adapter maps these schema fields into the app's internal model and applies safe defaults for any missing optional values.
