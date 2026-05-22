@@ -1,8 +1,60 @@
 import './App.css'
+import { createClient } from '@supabase/supabase-js'
+import { useEffect, useMemo, useState } from 'react'
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import LibraryPage from './pages/LibraryPage'
 import SetlistsPage from './pages/SetlistsPage'
 import LiveConsolePage from './pages/LiveConsolePage'
+
+const DATA_PROVIDER = (import.meta.env.VITE_APP_DATA_PROVIDER ?? 'mock').toLowerCase()
+
+const DIAGNOSTIC_TABLES = [
+  {
+    id: 'library_songs',
+    label: 'Library Songs',
+    tableName: import.meta.env.VITE_SUPABASE_LIBRARY_SONGS_TABLE || 'library_songs',
+  },
+  {
+    id: 'playlists',
+    label: 'Playlists',
+    tableName: import.meta.env.VITE_SUPABASE_PLAYLISTS_TABLE || 'playlists',
+  },
+  {
+    id: 'playlist_songs',
+    label: 'Playlist Songs',
+    tableName: import.meta.env.VITE_SUPABASE_PLAYLIST_SONGS_TABLE || 'playlist_songs',
+  },
+  {
+    id: 'events',
+    label: 'Events',
+    tableName: import.meta.env.VITE_SUPABASE_EVENTS_TABLE || 'events',
+  },
+  {
+    id: 'playback_state',
+    label: 'Playback State',
+    tableName: import.meta.env.VITE_SUPABASE_PLAYBACK_STATE_TABLE || 'playback_state',
+  },
+] as const
+
+type DiagnosticStatus = 'idle' | 'checking' | 'ok' | 'error' | 'skipped'
+
+type TableDiagnostic = {
+  id: string
+  label: string
+  tableName: string
+  status: DiagnosticStatus
+  detail: string
+}
+
+function createIdleDiagnostics(): TableDiagnostic[] {
+  return DIAGNOSTIC_TABLES.map((item) => ({
+    id: item.id,
+    label: item.label,
+    tableName: item.tableName,
+    status: 'idle',
+    detail: 'Not checked yet',
+  }))
+}
 
 function App() {
   const capabilityCards = [
@@ -84,6 +136,79 @@ type OverviewPageProps = {
 }
 
 function OverviewPage({ capabilityCards, sprintItems }: OverviewPageProps) {
+  const [tableDiagnostics, setTableDiagnostics] = useState<TableDiagnostic[]>(createIdleDiagnostics)
+  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null)
+
+  const providerLabel = useMemo(() => DATA_PROVIDER, [])
+
+  const runDiagnostics = async () => {
+    if (DATA_PROVIDER !== 'supabase') {
+      setTableDiagnostics(
+        DIAGNOSTIC_TABLES.map((item) => ({
+          id: item.id,
+          label: item.label,
+          tableName: item.tableName,
+          status: 'skipped',
+          detail: 'Skipped in mock mode',
+        })),
+      )
+      setLastCheckedAt(new Date().toLocaleTimeString())
+      return
+    }
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim()
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      setTableDiagnostics(
+        DIAGNOSTIC_TABLES.map((item) => ({
+          id: item.id,
+          label: item.label,
+          tableName: item.tableName,
+          status: 'error',
+          detail: 'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY',
+        })),
+      )
+      setLastCheckedAt(new Date().toLocaleTimeString())
+      return
+    }
+
+    setTableDiagnostics((previous) => previous.map((item) => ({ ...item, status: 'checking', detail: 'Checking...' })))
+
+    const client = createClient(supabaseUrl, supabaseAnonKey)
+
+    const results = await Promise.all(
+      DIAGNOSTIC_TABLES.map(async (item) => {
+        const query = await client.from(item.tableName).select('*', { head: true, count: 'exact' }).limit(1)
+
+        if (query.error) {
+          return {
+            id: item.id,
+            label: item.label,
+            tableName: item.tableName,
+            status: 'error' as const,
+            detail: query.error.message,
+          }
+        }
+
+        return {
+          id: item.id,
+          label: item.label,
+          tableName: item.tableName,
+          status: 'ok' as const,
+          detail: `Query OK${typeof query.count === 'number' ? ` (${query.count} rows)` : ''}`,
+        }
+      }),
+    )
+
+    setTableDiagnostics(results)
+    setLastCheckedAt(new Date().toLocaleTimeString())
+  }
+
+  useEffect(() => {
+    void runDiagnostics()
+  }, [])
+
   return (
     <>
       <header className="hero-next" aria-label="Next-gen Human Jukebox">
@@ -135,6 +260,36 @@ function OverviewPage({ capabilityCards, sprintItems }: OverviewPageProps) {
               <p>{item.detail}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="diagnostics-surface" aria-label="Data diagnostics">
+        <div className="section-head diagnostics-head">
+          <p className="section-kicker">Connection Diagnostics</p>
+          <h2>Provider + Table Health</h2>
+          <p className="diagnostics-subcopy">
+            Active provider: <span className="provider-pill">{providerLabel}</span>
+          </p>
+        </div>
+
+        <div className="diagnostics-grid" role="list" aria-label="Supabase table diagnostics">
+          {tableDiagnostics.map((item) => (
+            <article key={item.id} className="diagnostics-item" role="listitem">
+              <div className="diagnostics-item-head">
+                <h3>{item.label}</h3>
+                <p className={`status-pill status-${item.status}`}>{item.status}</p>
+              </div>
+              <p className="diagnostics-table">{item.tableName}</p>
+              <p className="diagnostics-detail">{item.detail}</p>
+            </article>
+          ))}
+        </div>
+
+        <div className="diagnostics-footer">
+          <button type="button" className="ghost-cta" onClick={() => void runDiagnostics()}>
+            Re-run checks
+          </button>
+          <p>{lastCheckedAt ? `Last checked: ${lastCheckedAt}` : 'Not checked yet'}</p>
         </div>
       </section>
     </>
