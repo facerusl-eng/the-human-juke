@@ -16,6 +16,8 @@ import {
 } from '../lib/audienceIdentity'
 import {
   BETWEEN_SONG_QUOTES,
+  getCountdownTargetRemainingMs,
+  isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
   PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
@@ -1263,10 +1265,10 @@ function EventPage() {
   const requestedCountdownTargetMs = useMemo(() => resolveCountdownTargetMsFromSearch(location.search), [location.search])
   const mirroredCountdownTargetMs = useMemo(() => {
     const candidateTarget = playbackState?.countdownTargetMs
-    return typeof candidateTarget === 'number' && Number.isFinite(candidateTarget)
+    return isCountdownTargetActive(candidateTarget, getAudienceNowMs())
       ? candidateTarget
       : null
-  }, [playbackState?.countdownTargetMs])
+  }, [getAudienceNowMs, playbackState?.countdownTargetMs])
   const effectiveCountdownTargetMs = requestedCountdownTargetMs ?? mirroredCountdownTargetMs
   const hasRequestedEventParam = Boolean(requestedEventId)
   const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => getAudienceNowMs())
@@ -1285,19 +1287,20 @@ function EventPage() {
 
     return parseEventStartMs(event.gigDate, event.gigStartTime)
   }, [effectiveCountdownTargetMs, event?.gigDate, event?.gigStartTime, event?.id, roomOpen])
+  const normalizedWaitingRoomStartMs = waitingRoomStartMs ?? null
   const waitingRoomCountdownLabel = useMemo(() => {
-    if (waitingRoomStartMs === null) {
+    if (normalizedWaitingRoomStartMs === null) {
       return null
     }
 
-    const remainingMs = waitingRoomStartMs - waitingRoomNowMs
-    if (remainingMs <= 0) {
+    const remainingMs = getCountdownTargetRemainingMs(normalizedWaitingRoomStartMs, waitingRoomNowMs)
+    if (remainingMs === null) {
       return null
     }
 
     return formatCompactCountdownLabel(remainingMs)
-  }, [waitingRoomNowMs, waitingRoomStartMs])
-  const waitingRoomRemainingMs = waitingRoomStartMs === null ? null : waitingRoomStartMs - waitingRoomNowMs
+  }, [normalizedWaitingRoomStartMs, waitingRoomNowMs])
+  const waitingRoomRemainingMs = normalizedWaitingRoomStartMs === null ? null : normalizedWaitingRoomStartMs - waitingRoomNowMs
   const showGoingLiveNowBanner = waitingRoomRemainingMs !== null
     && waitingRoomRemainingMs <= 10_000
     && waitingRoomRemainingMs > -15_000
@@ -1630,7 +1633,7 @@ function EventPage() {
     && !displaySong
 
   const waitingRoomHasEnded = waitingRoomRemainingMs !== null && waitingRoomRemainingMs <= -15_000
-  const waitingRoomStartsAtLabel = formatAudienceAbsoluteStartLabel(waitingRoomStartMs, audienceLocale)
+  const waitingRoomStartsAtLabel = formatAudienceAbsoluteStartLabel(normalizedWaitingRoomStartMs, audienceLocale)
   const shouldPrioritizeAbsoluteStart = waitingRoomRemainingMs !== null && waitingRoomRemainingMs > 36 * 60 * 60 * 1000
   const currentEventAsUpcoming = event ? {
     id: event.id,

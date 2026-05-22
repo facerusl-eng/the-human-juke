@@ -7,6 +7,7 @@ import {
   PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
   PLAYBACK_STATE_STORAGE_KEY,
+  isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
   readSharedPlaybackState,
   writeSharedPlaybackState,
@@ -1833,12 +1834,12 @@ function MirrorPageContent() {
   )
   const mirroredCountdownTarget = useMemo(() => {
     const targetMs = playbackState?.countdownTargetMs
-    if (typeof targetMs !== 'number' || !Number.isFinite(targetMs)) {
+    if (!isCountdownTargetActive(targetMs, getMirrorNowMs())) {
       return null
     }
 
-    return new Date(targetMs)
-  }, [playbackState?.countdownTargetMs])
+    return new Date(targetMs as number)
+  }, [getMirrorNowMs, playbackState?.countdownTargetMs])
   const countdownTarget = mirroredCountdownTarget ?? fallbackCountdownTarget
   const countdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : null
   const countdownDisplayRemainingMs = countdownRemainingMs === null

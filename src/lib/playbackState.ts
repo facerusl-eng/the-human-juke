@@ -120,6 +120,18 @@ export function isLastSongSoonPlaybackState(state: SharedPlaybackState | null | 
   return isLastSongSoonOverlayMessage(state?.brbMessage)
 }
 
+export function isCountdownTargetActive(targetMs: number | null | undefined, nowMs = Date.now()) {
+  return typeof targetMs === 'number' && Number.isFinite(targetMs) && targetMs > nowMs
+}
+
+export function getCountdownTargetRemainingMs(targetMs: number | null | undefined, nowMs = Date.now()) {
+  if (!isCountdownTargetActive(targetMs, nowMs)) {
+    return null
+  }
+
+  return (targetMs as number) - nowMs
+}
+
 type SharedPlaybackStateMessage = {
   eventId: string
   state: SharedPlaybackState
