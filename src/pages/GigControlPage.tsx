@@ -2479,15 +2479,13 @@ function GigControlPage() {
   }, [])
 
   const openMirrorFromGigControl = useCallback(() => {
-    const { openedInNewTabWindow } = openMirrorScreen()
+    openMirrorScreen()
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
     }
 
-    const statusMessage = openedInNewTabWindow
-      ? 'Mirror opened in a new browser tab. In Edge, use the three-dot menu and select Cast media to device.'
-      : 'Browser blocked opening Mirror. Allow new tabs for this site and try again.'
+    const statusMessage = 'Opening Mirror in this tab...'
 
     setMirrorLaunchStatusText(statusMessage)
     mirrorLaunchStatusTimerRef.current = window.setTimeout(() => {
@@ -2505,16 +2503,9 @@ function GigControlPage() {
       searchParams.set('event', event.id)
     }
 
-    const focusedWindow = window.open(`/admin/gig-control?${searchParams.toString()}`, '_blank', 'noopener,noreferrer')
-
-    if (!focusedWindow) {
-      setErrorText('Browser blocked opening Focus Gig Control. Allow popups for this site and try again.')
-      return
-    }
-
-    focusedWindow.focus()
+    navigate(`/admin/gig-control?${searchParams.toString()}`)
     setErrorText(null)
-  }, [event?.id])
+  }, [event?.id, navigate])
 
   const handleGoBackToGigControl = useCallback(() => {
     navigate('/admin/gig-control')

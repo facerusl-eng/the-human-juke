@@ -3190,7 +3190,7 @@ function EventPage() {
                 const mirrorUrl = event?.id
                   ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
                   : '/mirror?launchFullscreen=1'
-                window.open(mirrorUrl, '_blank', 'noopener,noreferrer')
+                window.location.assign(mirrorUrl)
               }}
             >
               📺 {copy.viewMirror}

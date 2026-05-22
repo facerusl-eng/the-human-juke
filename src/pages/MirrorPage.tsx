@@ -2348,18 +2348,6 @@ function MirrorPageContent() {
       try {
         await setRoomOpen(true)
 
-        if (event.introAudioUrl) {
-          const introLockOwner = acquireIntroAudioPlayLockForEvent(event.id)
-
-          if (introLockOwner) {
-            try {
-              await playIntroAudioForMirrorAutoLive(event.introAudioUrl)
-            } finally {
-              releaseIntroAudioPlayLockForEvent(event.id, introLockOwner)
-            }
-          }
-        }
-
         await writeSharedPlaybackState(event.id, {
           currentSongId: nowPlaying?.id ?? null,
           currentSongCoverUrl: nowPlaying?.cover_url ?? null,
