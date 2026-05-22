@@ -626,9 +626,9 @@ function GigControlPage() {
     : 'Queue Paused'
   const activeHostEvent = hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null
   const isCurrentTestGig = activeHostEvent?.isTestGig ?? event?.isTestGig ?? false
-  const qrTargetHostEvent = hostEvents.find((hostEvent) => hostEvent.id === qrTargetGigId) ?? null
-  const qrTargetEventId = qrTargetHostEvent?.id ?? event?.id
-  const isQrTargetTestGig = qrTargetHostEvent?.isTestGig ?? (qrTargetEventId === event?.id ? isCurrentTestGig : false)
+  const qrTargetHostEvent = activeHostEvent
+  const qrTargetEventId = event?.id
+  const isQrTargetTestGig = isCurrentTestGig
   const queuedLibrarySongIds = useMemo(() => (
     new Set(
       songs
@@ -636,10 +636,16 @@ function GigControlPage() {
         .filter((songId): songId is string => Boolean(songId)),
     )
   ), [songs])
-  const joinUrl = isQrTargetTestGig
-    ? getAudienceUrl(qrTargetEventId, { compact: false, mode: 'test' })
-    : getAudienceUrl(qrTargetEventId, { compact: true })
-  const testJoinUrl = getAudienceUrl(qrTargetEventId, { compact: false, mode: 'test' })
+  const joinUrl = getAudienceUrl(qrTargetEventId, {
+    compact: true,
+    includeVersion: true,
+    mode: isQrTargetTestGig ? 'test' : 'public',
+  })
+  const testJoinUrl = getAudienceUrl(qrTargetEventId, {
+    compact: true,
+    includeVersion: true,
+    mode: 'test',
+  })
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
@@ -3187,24 +3193,7 @@ function GigControlPage() {
           <article className="qr-card gig-control-qr-card" aria-label="Audience join tools">
             <p className="gig-control-card-label">{isQrTargetTestGig ? 'Test Audience QR' : 'Audience Join QR'}</p>
             {hostEvents.length > 1 ? (
-              <div className="gig-switcher">
-                <label htmlFor="qr-gig-switcher" className="gig-switcher-label">QR target gig</label>
-                <select
-                  id="qr-gig-switcher"
-                  className="gig-switcher-select"
-                  value={qrTargetEventId ?? ''}
-                  onChange={(changeEvent) => {
-                    setQrTargetGigId(changeEvent.target.value)
-                  }}
-                >
-                  {hostEvents.map((hostEvent) => (
-                    <option key={hostEvent.id} value={hostEvent.id}>
-                      {hostEvent.isTestGig ? '[TEST] ' : ''}
-                      {hostEvent.name}{hostEvent.venue ? ` - ${hostEvent.venue}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <p className="subcopy">QR target follows the active mirror gig automatically.</p>
             ) : null}
             <div className="gig-control-qr-frame">
               <img src={qrUrl} alt={isQrTargetTestGig ? 'QR code for test audience page' : 'QR code for audience join page'} className="qr-image" />
