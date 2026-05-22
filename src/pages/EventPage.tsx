@@ -1360,11 +1360,14 @@ function EventPage() {
   }, [myQueuedRequests])
   const isBetweenSongs = playbackState?.isStarted === false
   const isLastSongSoonMode = isLastSongSoonOverlayMessage(playbackState?.brbMessage)
+  const openingWelcomeMessage = isBetweenSongs && !isLastSongSoonMode
+    ? (playbackState?.brbMessage?.trim() || null)
+    : null
   const normalizedBetweenSongQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
     ? Math.abs(Math.trunc(playbackState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
     : 0
   const betweenSongQuote = isBetweenSongs
-    ? (BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex] ?? BETWEEN_SONG_QUOTES[0])
+    ? (openingWelcomeMessage ?? BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex] ?? BETWEEN_SONG_QUOTES[0])
     : null
   const connectionBadgeLabel = visibleConnectionStatus === 'connected'
     ? 'Connected'
@@ -3018,7 +3021,7 @@ function EventPage() {
     )
   }
 
-  if (!roomOpen && !isTestGigView) {
+  if (!roomOpen && !isTestGigView && !hasRequestedEventParam) {
     return (
       <AudienceNoGigState
         upcomingEvents={noGigStyledUpcomingEvents}

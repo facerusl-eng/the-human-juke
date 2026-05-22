@@ -65,6 +65,7 @@ const CHOSEN_BY_ACCENT_CLASSES = [
   'mirror-picker-accent-8',
 ]
 const HOST_PICKED_BY_FALLBACK = 'Picked by The Hoast'
+const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 
 const SPOTLIGHT_DURATION_MS = 10000
 const SPOTLIGHT_POLL_INTERVAL_MS = 6000
@@ -1708,8 +1709,12 @@ function MirrorPageContent() {
   const normalizedBetweenSongQuoteIndex = Number.isFinite(betweenSongQuoteIndex)
     ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length
     : 0
+  const openingWelcomeMessage = isBetweenSongs && !isLastSongSoonOverlayMessage(playbackState?.brbMessage)
+    ? (playbackState?.brbMessage?.trim() || null)
+    : null
   const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
     ?? 'Remain calm. The next song is loading.'
+  const displayedBetweenSongMessage = openingWelcomeMessage ?? currentBetweenSongQuote
   const currentSongFact = funFacts.length > 0
     ? funFacts[currentFactIndex % funFacts.length]
     : 'No fun facts available for this song yet.'
@@ -2352,15 +2357,15 @@ function MirrorPageContent() {
           }
         }
 
-        if (nowPlaying?.id) {
-          await writeSharedPlaybackState(event.id, {
-            currentSongId: nowPlaying.id,
-            currentSongCoverUrl: nowPlaying.cover_url ?? null,
-            isStarted: true,
-            quoteIndex: quoteIndexRef.current,
-            countdownTargetMs: countdownTarget?.getTime() ?? null,
-          })
-        }
+        await writeSharedPlaybackState(event.id, {
+          currentSongId: nowPlaying?.id ?? null,
+          currentSongCoverUrl: nowPlaying?.cover_url ?? null,
+          isStarted: false,
+          quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: countdownTarget?.getTime() ?? null,
+          brbActive: false,
+          brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+        })
 
         setMirrorWarningMessage('Auto Live started from scheduled countdown.')
       } catch {
@@ -4121,7 +4126,7 @@ function MirrorPageContent() {
                 {isQuoteModeActive ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
-                      <p className="mirror-between-song-quote">{currentBetweenSongQuote}</p>
+                      <p className="mirror-between-song-quote">{displayedBetweenSongMessage}</p>
                       {!activeSong ? <p className="mirror-song-waiting-note">Waiting for next song...</p> : null}
                     </div>
                   </div>

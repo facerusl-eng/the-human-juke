@@ -42,6 +42,7 @@ import {
 // ...existing code...
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
+const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const BRB_MESSAGE_DICE_OPTIONS = [
   'Quick break in progress. Keep your requests coming and I will be right back.',
   'Bar check and sound check in one mission. Stay fabulous, I am back shortly.',
@@ -1472,6 +1473,18 @@ function GigControlPage() {
           primedElement,
         )
       }
+
+      await writeSharedPlaybackState(latestEvent.id, {
+        currentSongId: nowPlaying?.id ?? null,
+        currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
+        isStarted: false,
+        quoteIndex: quoteIndexRef.current,
+        countdownTargetMs: mirroredCountdownTargetMs,
+        brbActive: false,
+        brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+      })
+
+      setIsNowPlayingStarted(false)
     } catch (error) {
       setErrorText(
         error instanceof Error
@@ -1481,7 +1494,15 @@ function GigControlPage() {
           : 'Could not end gig. Please try again.',
       )
     }
-  }, [ensureRoomOpenState, playIntroAudioOnceSafely, primeIntroAudioPlayback, runGoLivePreflight])
+  }, [
+    ensureRoomOpenState,
+    mirroredCountdownTargetMs,
+    nowPlaying?.id,
+    playIntroAudioOnceSafely,
+    primeIntroAudioPlayback,
+    resolveCoverUrlForSong,
+    runGoLivePreflight,
+  ])
 
   const runEndGigDecision = useCallback(async (decision: 'keep-offline' | 'delete') => {
     const targetEvent = endGigPromptEvent ?? eventRef.current
@@ -2003,17 +2024,17 @@ function GigControlPage() {
           )
         }
 
-        if (nowPlaying?.id && !isNowPlayingStarted) {
-          await writeSharedPlaybackState(event.id, {
-            currentSongId: nowPlaying.id,
-            currentSongCoverUrl: nowPlaying.cover_url ?? null,
-            isStarted: true,
-            quoteIndex: quoteIndexRef.current,
-            countdownTargetMs: startAt.getTime(),
-          })
-          setIsNowPlayingStarted(true)
-          sendSpotifyTransportCommand('pause')
-        }
+        await writeSharedPlaybackState(event.id, {
+          currentSongId: nowPlaying?.id ?? null,
+          currentSongCoverUrl: nowPlaying?.cover_url ?? null,
+          isStarted: false,
+          quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: startAt.getTime(),
+          brbActive: false,
+          brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+        })
+
+        setIsNowPlayingStarted(false)
 
         setPreflightStatusText('Auto Live triggered from scheduled countdown.')
       } catch (error) {
@@ -2055,12 +2076,10 @@ function GigControlPage() {
     event?.introAudioUrl,
     ensureRoomOpenState,
     getHostNowMs,
-    isNowPlayingStarted,
     nowPlaying?.cover_url,
     nowPlaying?.id,
     playIntroAudioOnceSafely,
     runGoLivePreflight,
-    sendSpotifyTransportCommand,
   ])
 
   // Subscribe to audience presence channel to count active audience members
