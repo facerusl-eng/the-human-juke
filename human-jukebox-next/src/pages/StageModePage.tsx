@@ -167,6 +167,26 @@ function StageModePage() {
           />
         </article>
       </div>
+
+      <footer className="stage-perform-bar" aria-label="Performance quick controls">
+        <button
+          type="button"
+          disabled={!hasSongs || songIndex === 0}
+          onClick={() => setSongIndex((i) => Math.max(0, i - 1))}
+        >
+          Previous Song
+        </button>
+        <p>
+          {hasSongs ? `Song ${songIndex + 1} of ${orderedSongs.length}` : 'No songs loaded'}
+        </p>
+        <button
+          type="button"
+          disabled={!hasSongs || songIndex >= orderedSongs.length - 1}
+          onClick={() => setSongIndex((i) => Math.min(orderedSongs.length - 1, i + 1))}
+        >
+          Next Song
+        </button>
+      </footer>
     </section>
   )
 }
