@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+const STUDIO_PROJECT_KEY = 'hj-next-song-studio-project-v1'
+
 type StudioTrack = {
   id: string
   name: string
@@ -39,9 +41,29 @@ type GeneratedChart = {
 }
 
 type NodeBundle = {
+  trackId: string
   source: AudioBufferSourceNode
   gain: GainNode
   panner: StereoPannerNode
+}
+
+type PersistedTrack = {
+  id: string
+  name: string
+  durationSec: number
+  volume: number
+  pan: number
+  muted: boolean
+  solo: boolean
+}
+
+type PersistedProject = {
+  chartLines: LyricLine[]
+  transposeSemitones: number
+  capo: number
+  syncOffsetSec: number
+  masterVolume: number
+  tracks: PersistedTrack[]
 }
 
 const SHARP_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -133,8 +155,31 @@ function buildFallbackChart(durationSec: number): GeneratedChart {
 
 async function decodeAudioDuration(audioContext: AudioContext, file: File) {
   const bytes = await file.arrayBuffer()
-  const buffer = await audioContext.decodeAudioData(bytes.slice(0))
-  return buffer.duration
+  return audioContext.decodeAudioData(bytes.slice(0))
+}
+
+function readProjectSnapshot(): PersistedProject | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STUDIO_PROJECT_KEY)
+
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as PersistedProject
+
+    if (!Array.isArray(parsed.chartLines) || !Array.isArray(parsed.tracks)) {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
 }
 
 async function requestAutoChart(primaryTrack: StudioTrack | null): Promise<GeneratedChart> {
@@ -180,14 +225,17 @@ function SongStudioPage() {
   const playStartedAtRef = useRef(0)
   const playOffsetRef = useRef(0)
 
+  const initialSnapshot = useMemo(() => readProjectSnapshot(), [])
   const [tracks, setTracks] = useState<StudioTrack[]>([])
-  const [chartLines, setChartLines] = useState<LyricLine[]>([])
+  const [chartLines, setChartLines] = useState<LyricLine[]>(initialSnapshot?.chartLines ?? [])
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTimeSec, setCurrentTimeSec] = useState(0)
   const [statusText, setStatusText] = useState('Upload a lead track and optional stems to start.')
   const [editMode, setEditMode] = useState(false)
-  const [transposeSemitones, setTransposeSemitones] = useState(0)
-  const [capo, setCapo] = useState(0)
+  const [transposeSemitones, setTransposeSemitones] = useState(initialSnapshot?.transposeSemitones ?? 0)
+  const [capo, setCapo] = useState(initialSnapshot?.capo ?? 0)
+  const [masterVolume, setMasterVolume] = useState(initialSnapshot?.masterVolume ?? 1)
+  const [syncOffsetSec, setSyncOffsetSec] = useState(initialSnapshot?.syncOffsetSec ?? 0)
 
   const leadTrack = tracks[0] ?? null
   const totalDurationSec = leadTrack?.durationSec ?? 0
@@ -204,6 +252,7 @@ function SongStudioPage() {
   const nextLine = currentLineIndex >= 0 ? chartLines[currentLineIndex + 1] ?? null : chartLines[0] ?? null
 
   const displayedTranspose = transposeSemitones - capo
+  const syncedTime = Math.max(0, currentTimeSec + syncOffsetSec)
 
   const visibleChords = useMemo(() => {
     if (!currentLine) {
@@ -213,9 +262,104 @@ function SongStudioPage() {
     return currentLine.chords.map((chord) => ({
       ...chord,
       symbol: transposeChord(chord.symbol, displayedTranspose),
-      isActive: currentTimeSec >= chord.timeSec && currentTimeSec < chord.timeSec + 1.2,
+      isActive: syncedTime >= chord.timeSec && syncedTime < chord.timeSec + 1.2,
     }))
-  }, [currentLine, currentTimeSec, displayedTranspose])
+  }, [currentLine, syncedTime, displayedTranspose])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const persistedTracks: PersistedTrack[] = tracks.map((track) => ({
+      id: track.id,
+      name: track.name,
+      durationSec: track.durationSec,
+      volume: track.volume,
+      pan: track.pan,
+      muted: track.muted,
+      solo: track.solo,
+    }))
+
+    const snapshot: PersistedProject = {
+      chartLines,
+      transposeSemitones,
+      capo,
+      syncOffsetSec,
+      masterVolume,
+      tracks: persistedTracks,
+    }
+
+    window.localStorage.setItem(STUDIO_PROJECT_KEY, JSON.stringify(snapshot))
+  }, [capo, chartLines, masterVolume, syncOffsetSec, tracks, transposeSemitones])
+
+  useEffect(() => {
+    if (tracks.length > 0 || !initialSnapshot?.tracks?.length) {
+      return
+    }
+
+    const restoredTracks: StudioTrack[] = initialSnapshot.tracks.map((track) => ({
+      ...track,
+      file: new File([], `${track.name} (metadata only)`),
+      objectUrl: '',
+    }))
+
+    setTracks(restoredTracks)
+    setStatusText('Project metadata restored. Re-upload audio files to play stems.')
+  }, [initialSnapshot?.tracks, tracks.length])
+
+  useEffect(() => {
+    if (!isPlaying || sourceNodesRef.current.length === 0) {
+      return
+    }
+
+    const hasSolo = tracks.some((track) => track.solo)
+
+    sourceNodesRef.current.forEach((bundle) => {
+      const track = tracks.find((entry) => entry.id === bundle.trackId)
+
+      if (!track) {
+        return
+      }
+
+      const trackAudible = hasSolo ? track.solo : !track.muted
+      bundle.gain.gain.value = trackAudible ? track.volume * masterVolume : 0
+      bundle.panner.pan.value = track.pan
+    })
+  }, [isPlaying, masterVolume, tracks])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.target as HTMLElement | null)?.tagName === 'INPUT' || (event.target as HTMLElement | null)?.tagName === 'TEXTAREA') {
+        return
+      }
+
+      if (event.code === 'Space') {
+        event.preventDefault()
+        if (isPlaying) {
+          onPausePlayback()
+        } else {
+          void startPlayback()
+        }
+      }
+
+      if (event.code === 'ArrowRight') {
+        event.preventDefault()
+        onSeek(currentTimeSec + 2)
+      }
+
+      if (event.code === 'ArrowLeft') {
+        event.preventDefault()
+        onSeek(currentTimeSec - 2)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [currentTimeSec, isPlaying])
 
   const stopPlayback = () => {
     sourceNodesRef.current.forEach((bundle) => {
@@ -278,18 +422,18 @@ function SongStudioPage() {
     const nextTracks: StudioTrack[] = []
 
     for (const file of acceptedFiles) {
-      const durationSec = await decodeAudioDuration(context, file)
+      const buffer = await decodeAudioDuration(context, file)
       const objectUrl = URL.createObjectURL(file)
       const id = createId('track')
 
-      buffersRef.current.set(id, await context.decodeAudioData((await file.arrayBuffer()).slice(0)))
+      buffersRef.current.set(id, buffer)
 
       nextTracks.push({
         id,
         name: file.name,
         file,
         objectUrl,
-        durationSec,
+        durationSec: buffer.duration,
         volume: 0.9,
         pan: 0,
         muted: false,
@@ -354,7 +498,7 @@ function SongStudioPage() {
       const panner = context.createStereoPanner()
 
       const trackAudible = hasSolo ? track.solo : !track.muted
-      gain.gain.value = trackAudible ? track.volume : 0
+      gain.gain.value = trackAudible ? track.volume * masterVolume : 0
       panner.pan.value = track.pan
 
       source.connect(gain)
@@ -363,12 +507,84 @@ function SongStudioPage() {
 
       source.start(0, playOffsetRef.current)
 
-      return [{ source, gain, panner }]
+      return [{ trackId: track.id, source, gain, panner }]
     })
 
     playStartedAtRef.current = context.currentTime
     setIsPlaying(true)
     rafRef.current = window.requestAnimationFrame(syncTick)
+  }
+
+  const removeTrack = (trackId: string) => {
+    sourceNodesRef.current = sourceNodesRef.current.filter((bundle) => {
+      if (bundle.trackId !== trackId) {
+        return true
+      }
+
+      try {
+        bundle.source.stop()
+      } catch {
+        // Ignore race when node already stopped.
+      }
+
+      bundle.source.disconnect()
+      bundle.gain.disconnect()
+      bundle.panner.disconnect()
+      return false
+    })
+
+    setTracks((current) => {
+      const target = current.find((track) => track.id === trackId)
+
+      if (target?.objectUrl) {
+        URL.revokeObjectURL(target.objectUrl)
+      }
+
+      buffersRef.current.delete(trackId)
+
+      return current.filter((track) => track.id !== trackId)
+    })
+  }
+
+  const exportChart = () => {
+    const payload = {
+      chartLines,
+      transposeSemitones,
+      capo,
+      syncOffsetSec,
+      exportedAt: new Date().toISOString(),
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `song-studio-chart-${Date.now()}.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importChart = async (file: File | null) => {
+    if (!file) {
+      return
+    }
+
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text) as Partial<PersistedProject>
+
+      if (!Array.isArray(parsed.chartLines)) {
+        throw new Error('Invalid chart file')
+      }
+
+      setChartLines(parsed.chartLines)
+      setTransposeSemitones(typeof parsed.transposeSemitones === 'number' ? parsed.transposeSemitones : 0)
+      setCapo(typeof parsed.capo === 'number' ? parsed.capo : 0)
+      setSyncOffsetSec(typeof parsed.syncOffsetSec === 'number' ? parsed.syncOffsetSec : 0)
+      setStatusText('Chart imported successfully.')
+    } catch {
+      setStatusText('Could not import chart file.')
+    }
   }
 
   const onPausePlayback = () => {
@@ -461,6 +677,17 @@ function SongStudioPage() {
           />
           <button type="button" onClick={() => void onGenerateChart()}>Auto-Generate Lyrics + Chords</button>
           <button type="button" onClick={() => setEditMode((current) => !current)}>{editMode ? 'Exit Edit Mode' : 'Edit Sync'}</button>
+          <button type="button" onClick={exportChart}>Export Chart</button>
+          <label className="studio-upload-btn" htmlFor="studio-chart-import">Import Chart JSON</label>
+          <input
+            id="studio-chart-import"
+            type="file"
+            accept="application/json,.json"
+            onChange={(event) => {
+              void importChart(event.target.files?.[0] ?? null)
+              event.currentTarget.value = ''
+            }}
+          />
         </div>
         <p className="studio-status">{statusText}</p>
       </article>
@@ -477,6 +704,14 @@ function SongStudioPage() {
           <label>
             Transpose
             <input type="number" min={-6} max={6} value={transposeSemitones} onChange={(event) => setTransposeSemitones(Number(event.target.value) || 0)} />
+          </label>
+          <label>
+            Sync offset (sec)
+            <input type="number" min={-2} max={2} step={0.01} value={syncOffsetSec} onChange={(event) => setSyncOffsetSec(Number(event.target.value) || 0)} />
+          </label>
+          <label>
+            Master
+            <input type="range" min={0} max={1} step={0.01} value={masterVolume} onChange={(event) => setMasterVolume(Number(event.target.value))} />
           </label>
         </div>
         <label className="studio-seek">
@@ -502,7 +737,7 @@ function SongStudioPage() {
 
         <div className="studio-current-line" aria-label="Current lyric line">
           {(currentLine?.words ?? []).map((word) => {
-            const active = currentTimeSec >= word.startSec && currentTimeSec < word.endSec
+            const active = syncedTime >= word.startSec && syncedTime < word.endSec
             return (
               <span key={word.id} className={active ? 'studio-word-active' : ''}>{word.text}</span>
             )
@@ -534,6 +769,7 @@ function SongStudioPage() {
               </label>
               <button type="button" onClick={() => updateTrack(track.id, { muted: !track.muted })}>{track.muted ? 'Unmute' : 'Mute'}</button>
               <button type="button" onClick={() => updateTrack(track.id, { solo: !track.solo })}>{track.solo ? 'Unsolo' : 'Solo'}</button>
+              <button type="button" onClick={() => removeTrack(track.id)}>Remove</button>
             </div>
           ))}
           {tracks.length === 0 ? <p className="studio-status">No tracks loaded yet.</p> : null}
