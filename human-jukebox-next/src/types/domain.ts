@@ -1,4 +1,6 @@
 export type SongEnergy = 'Low' | 'Medium' | 'High'
+export type SongDifficulty = 'Easy' | 'Medium' | 'Demanding'
+export type SongReadiness = 'Ready' | 'Needs Review' | 'Needs Chart'
 
 export type SongItem = {
   id: string
@@ -11,6 +13,12 @@ export type SongItem = {
   defaultPerformanceKey?: string
   bpm?: number
   capo?: number
+  difficulty?: SongDifficulty
+  readiness?: SongReadiness
+  setNote?: string
+  introCountBars?: number
+  defaultRoutePreset?: string
+  x18SceneName?: string
   lyricsExcerpt?: string
   cues?: string[]
   isOriginal?: boolean

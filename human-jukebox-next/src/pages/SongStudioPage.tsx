@@ -73,6 +73,9 @@ type PersistedProject = {
   limiterPreset: LimiterPresetId
   limiterCeilingDb: number
   loopSectionId: string | null
+  resumeSectionId: string | null
+  performerLayoutPreset: PerformerLayoutPresetId
+  quantizeSectionJumps: boolean
   midiMappings: MidiMappings
   x18SavedSongPresets: Record<string, SavedSongX18Preset>
   tracks: PersistedTrack[]
@@ -144,6 +147,16 @@ type OutputRoutePreset = {
   forceMono: boolean
 }
 
+type PerformerLayoutPresetId = 'singer' | 'guitar' | 'drummer' | 'fullBand'
+
+type PerformerLayoutPreset = {
+  label: string
+  summary: string
+  showClickPanel: boolean
+  showNextLyrics: boolean
+  showCueStrip: boolean
+}
+
 type MonitorSection = {
   id: string
   label: string
@@ -202,6 +215,37 @@ const OUTPUT_ROUTE_PRESETS: Record<OutputRoutePresetId, OutputRoutePreset> = {
     label: 'Broadcast/stream feed',
     trimDb: -6,
     forceMono: false,
+  },
+}
+
+const PERFORMER_LAYOUT_PRESETS: Record<PerformerLayoutPresetId, PerformerLayoutPreset> = {
+  singer: {
+    label: 'Singer',
+    summary: 'Largest lyric focus with a calm next-section preview.',
+    showClickPanel: false,
+    showNextLyrics: true,
+    showCueStrip: true,
+  },
+  guitar: {
+    label: 'Guitar',
+    summary: 'Balanced chord lead, lyric support, and faster section access.',
+    showClickPanel: false,
+    showNextLyrics: true,
+    showCueStrip: true,
+  },
+  drummer: {
+    label: 'Drummer',
+    summary: 'Click/BPM confidence first with section and downbeat visibility.',
+    showClickPanel: true,
+    showNextLyrics: false,
+    showCueStrip: true,
+  },
+  fullBand: {
+    label: 'Full Band',
+    summary: 'Next lyrics, cue rail, and transport-safe control strip together.',
+    showClickPanel: true,
+    showNextLyrics: true,
+    showCueStrip: true,
   },
 }
 
@@ -383,6 +427,14 @@ function buildMonitorSections(chartLines: LyricLine[], durationSec: number): Mon
 
 function createId(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+function sectionText(line: LyricLine | null) {
+  if (!line) {
+    return ''
+  }
+
+  return line.words.map((word) => word.text).join(' ').trim()
 }
 
 function normalizeNote(note: string) {
@@ -704,10 +756,12 @@ function SongStudioPage() {
   const midiAccessRef = useRef<MIDIAccess | null>(null)
   const rafRef = useRef<number | null>(null)
   const clickTimerRef = useRef<number | null>(null)
+  const clickPreviewTimerRef = useRef<number | null>(null)
   const nextClickTimeRef = useRef(0)
   const clickBeatIndexRef = useRef(0)
   const playStartedAtRef = useRef(0)
   const playOffsetRef = useRef(0)
+  const pendingJumpRef = useRef<{ targetSec: number; triggerSec: number; label: string } | null>(null)
 
   const initialSnapshot = useMemo(() => readProjectSnapshot(), [])
   const [tracks, setTracks] = useState<StudioTrack[]>([])
@@ -726,7 +780,10 @@ function SongStudioPage() {
   const [limiterPreset, setLimiterPreset] = useState<LimiterPresetId>(initialSnapshot?.limiterPreset ?? 'liveSafe')
   const [limiterCeilingDb, setLimiterCeilingDb] = useState(initialSnapshot?.limiterCeilingDb ?? -1)
   const [loopSectionId, setLoopSectionId] = useState<string | null>(initialSnapshot?.loopSectionId ?? null)
+  const [resumeSectionId, setResumeSectionId] = useState<string | null>(initialSnapshot?.resumeSectionId ?? null)
   const [syncOffsetSec, setSyncOffsetSec] = useState(initialSnapshot?.syncOffsetSec ?? 0)
+  const [performerLayoutPreset, setPerformerLayoutPreset] = useState<PerformerLayoutPresetId>(initialSnapshot?.performerLayoutPreset ?? 'singer')
+  const [quantizeSectionJumps, setQuantizeSectionJumps] = useState(initialSnapshot?.quantizeSectionJumps ?? true)
   const [clickTrackEnabled, setClickTrackEnabled] = useState(true)
   const [clickTrackBpm, setClickTrackBpm] = useState(120)
   const [clickTrackBeatsPerBar, setClickTrackBeatsPerBar] = useState(4)
@@ -751,6 +808,7 @@ function SongStudioPage() {
   const [x18PresetId, setX18PresetId] = useState<X18PresetId>('liveSafe')
   const [x18AutoPushEnabled, setX18AutoPushEnabled] = useState(false)
   const [x18SavedSongPresets, setX18SavedSongPresets] = useState<Record<string, SavedSongX18Preset>>(initialSnapshot?.x18SavedSongPresets ?? {})
+  const [pendingJumpLabel, setPendingJumpLabel] = useState<string | null>(null)
 
   const lastAutoPushedSongRef = useRef<string | null>(null)
 
@@ -771,6 +829,7 @@ function SongStudioPage() {
 
   const currentLine = currentLineIndex >= 0 ? chartLines[currentLineIndex] : null
   const nextLine = currentLineIndex >= 0 ? chartLines[currentLineIndex + 1] ?? null : chartLines[0] ?? null
+  const performerLayout = PERFORMER_LAYOUT_PRESETS[performerLayoutPreset]
 
   const displayedTranspose = transposeSemitones - capo
   const syncedTime = Math.max(0, currentTimeSec + syncOffsetSec)
@@ -827,6 +886,33 @@ function SongStudioPage() {
     return transposeChord(chord.symbol, displayedTranspose)
   }, [displayedTranspose, nextLine])
 
+  const currentLyricText = useMemo(() => sectionText(currentLine), [currentLine])
+  const nextLyricText = useMemo(() => sectionText(nextLine), [nextLine])
+  const activeCueStrip = useMemo(() => {
+    const cues = [] as string[]
+
+    if (activeMonitorSection?.label) {
+      cues.push(`Now: ${activeMonitorSection.label}`)
+    }
+
+    if (nextMonitorSection?.label) {
+      cues.push(`Next: ${nextMonitorSection.label}`)
+    }
+
+    if (loopSection?.label) {
+      cues.push(`Loop: ${loopSection.label}`)
+    }
+
+    if (resumeSectionId) {
+      const resumeSection = monitorSections.find((section) => section.id === resumeSectionId)
+      if (resumeSection) {
+        cues.push(`Resume: ${resumeSection.label}`)
+      }
+    }
+
+    return cues
+  }, [activeMonitorSection?.label, loopSection?.label, monitorSections, nextMonitorSection?.label, resumeSectionId])
+
   const remainingSongClock = formatClock(Math.max(0, totalDurationSec - syncedTime))
 
   const healthChecks = useMemo(() => {
@@ -866,6 +952,17 @@ function SongStudioPage() {
   }, [loopSectionId, monitorSections])
 
   useEffect(() => {
+    if (!resumeSectionId) {
+      return
+    }
+
+    const exists = monitorSections.some((section) => section.id === resumeSectionId)
+    if (!exists) {
+      setResumeSectionId(null)
+    }
+  }, [monitorSections, resumeSectionId])
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
@@ -893,6 +990,9 @@ function SongStudioPage() {
       limiterPreset,
       limiterCeilingDb,
       loopSectionId,
+      resumeSectionId,
+      performerLayoutPreset,
+      quantizeSectionJumps,
       midiMappings,
       x18SavedSongPresets,
       tracks: persistedTracks,
@@ -909,6 +1009,9 @@ function SongStudioPage() {
     masterRoutePreset,
     masterVolume,
     midiMappings,
+    performerLayoutPreset,
+    quantizeSectionJumps,
+    resumeSectionId,
     syncOffsetSec,
     tracks,
     transposeSemitones,
@@ -1145,6 +1248,10 @@ function SongStudioPage() {
 
       if (audioContextRef.current) {
         void audioContextRef.current.close()
+      }
+
+      if (clickPreviewTimerRef.current !== null) {
+        window.clearInterval(clickPreviewTimerRef.current)
       }
 
       tracks.forEach((track) => {
@@ -1448,6 +1555,50 @@ function SongStudioPage() {
     mediaRecorderRef.current = recorder
     setIsRecording(true)
     setStatusText('Recording started.')
+  }
+
+  const previewOutputTone = async () => {
+    const context = ensureAudioContext()
+    await context.resume()
+    const now = context.currentTime + 0.02
+    scheduleClick(context, now, true)
+    scheduleClick(context, now + 0.28, false)
+    setStatusText(`Sent output cue tone to ${OUTPUT_ROUTE_PRESETS[masterRoutePreset].label}.`)
+  }
+
+  const previewCountIn = async () => {
+    const context = ensureAudioContext()
+    await context.resume()
+
+    if (clickPreviewTimerRef.current !== null) {
+      window.clearInterval(clickPreviewTimerRef.current)
+      clickPreviewTimerRef.current = null
+    }
+
+    const beatCount = Math.max(1, clickTrackPreIntroBars * Math.max(1, clickTrackBeatsPerBar) || clickTrackBeatsPerBar)
+    const beatDurationSec = 60 / Math.max(30, clickTrackBpm)
+
+    for (let index = 0; index < beatCount; index += 1) {
+      scheduleClick(context, context.currentTime + 0.05 + index * beatDurationSec, index % Math.max(1, clickTrackBeatsPerBar) === 0)
+    }
+
+    let remaining = beatCount - 1
+    setPreCountBeatsRemaining(remaining)
+    clickPreviewTimerRef.current = window.setInterval(() => {
+      remaining -= 1
+      if (remaining < 0) {
+        setPreCountBeatsRemaining(null)
+        if (clickPreviewTimerRef.current !== null) {
+          window.clearInterval(clickPreviewTimerRef.current)
+          clickPreviewTimerRef.current = null
+        }
+        return
+      }
+
+      setPreCountBeatsRemaining(remaining)
+    }, beatDurationSec * 1000)
+
+    setStatusText(`Previewing ${beatCount}-beat count-in at ${clickTrackBpm} BPM.`)
   }
 
   const detectBeatFromSong = async () => {
@@ -1826,6 +1977,14 @@ function SongStudioPage() {
 
     const nextTime = Math.min(totalDurationSec || elapsed + playOffsetRef.current, playOffsetRef.current + elapsed)
 
+    const pendingJump = pendingJumpRef.current
+    if (pendingJump && nextTime >= pendingJump.triggerSec) {
+      pendingJumpRef.current = null
+      setPendingJumpLabel(null)
+      onSeek(pendingJump.targetSec)
+      return
+    }
+
     if (loopSection && isPlaying && nextTime >= loopSection.endSec) {
       playOffsetRef.current = loopSection.startSec
       setCurrentTimeSec(loopSection.startSec)
@@ -2048,6 +2207,16 @@ function SongStudioPage() {
       )
       setLimiterCeilingDb(typeof parsed.limiterCeilingDb === 'number' ? parsed.limiterCeilingDb : -1)
       setLoopSectionId(typeof parsed.loopSectionId === 'string' || parsed.loopSectionId === null ? parsed.loopSectionId : null)
+      setResumeSectionId(typeof parsed.resumeSectionId === 'string' || parsed.resumeSectionId === null ? parsed.resumeSectionId : null)
+      setPerformerLayoutPreset(
+        parsed.performerLayoutPreset === 'singer'
+          || parsed.performerLayoutPreset === 'guitar'
+          || parsed.performerLayoutPreset === 'drummer'
+          || parsed.performerLayoutPreset === 'fullBand'
+          ? parsed.performerLayoutPreset
+          : 'singer',
+      )
+      setQuantizeSectionJumps(typeof parsed.quantizeSectionJumps === 'boolean' ? parsed.quantizeSectionJumps : true)
       if (parsed.midiMappings && typeof parsed.midiMappings === 'object') {
         const incoming = parsed.midiMappings as Partial<MidiMappings>
         setMidiMappings({
@@ -2078,10 +2247,35 @@ function SongStudioPage() {
     const bounded = Math.max(0, Math.min(totalDurationSec || 0, nextTimeSec))
     setCurrentTimeSec(bounded)
     playOffsetRef.current = bounded
+    pendingJumpRef.current = null
+    setPendingJumpLabel(null)
 
     if (isPlaying) {
       void startPlayback()
     }
+  }
+
+  const requestSectionJump = (targetSec: number, label: string) => {
+    if (!isPlaying || !quantizeSectionJumps) {
+      onSeek(targetSec)
+      return
+    }
+
+    const barDurationSec = (60 / Math.max(30, clickTrackBpm)) * Math.max(1, clickTrackBeatsPerBar)
+    const triggerSec = Math.ceil((currentTimeSec + 0.001) / barDurationSec) * barDurationSec
+    pendingJumpRef.current = { targetSec, triggerSec, label }
+    setPendingJumpLabel(`${label} at next bar`)
+    setStatusText(`Section jump armed for ${label}. It will fire on the next bar.`)
+  }
+
+  const jumpToResumeSection = () => {
+    const section = monitorSections.find((entry) => entry.id === resumeSectionId)
+    if (!section) {
+      setStatusText('Choose a resume section first.')
+      return
+    }
+
+    requestSectionJump(section.startSec, section.label)
   }
 
   const updateTrack = (trackId: string, update: Partial<StudioTrack>) => {
@@ -2284,11 +2478,27 @@ function SongStudioPage() {
               ))}
             </select>
           </label>
-          <button type="button" onClick={() => onSeek(Math.max(0, (activeMonitorSection?.startSec ?? 0) - 0.01))}>Prev Section</button>
-          <button type="button" onClick={() => onSeek(nextMonitorSection?.startSec ?? 0)}>Next Section</button>
+          <label>
+            Resume section
+            <select value={resumeSectionId ?? ''} onChange={(event) => setResumeSectionId(event.target.value || null)}>
+              <option value="">Current downbeat</option>
+              {monitorSections.map((section) => (
+                <option key={section.id} value={section.id}>{section.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Quantize jumps
+            <input type="checkbox" checked={quantizeSectionJumps} onChange={(event) => setQuantizeSectionJumps(event.target.checked)} />
+          </label>
+          <button type="button" onClick={() => requestSectionJump(Math.max(0, (activeMonitorSection?.startSec ?? 0) - 0.01), activeMonitorSection?.label ?? 'Current section')}>Prev Section</button>
+          <button type="button" onClick={() => requestSectionJump(nextMonitorSection?.startSec ?? 0, nextMonitorSection?.label ?? 'Next section')}>Next Section</button>
+          <button type="button" onClick={jumpToResumeSection}>Resume Target</button>
           <button type="button" onClick={() => void connectMidi()}>{midiConnected ? 'MIDI Connected' : 'Connect MIDI'}</button>
           <button type="button" onClick={() => void startRecording()} disabled={isRecording}>Record</button>
           <button type="button" onClick={stopRecording} disabled={!isRecording}>Stop Rec</button>
+          <button type="button" onClick={() => void previewOutputTone()}>Test Output Tone</button>
+          <button type="button" onClick={() => void previewCountIn()}>Preview Count-in</button>
           <button type="button" onClick={() => setPerformerMonitorEnabled((current) => !current)}>
             {performerMonitorEnabled ? 'Hide Performer Monitor' : 'Performer Monitor'}
           </button>
@@ -2309,7 +2519,29 @@ function SongStudioPage() {
         ) : null}
         <p className="studio-status">MIDI: {midiStatusText}</p>
         {loopSection ? <p className="studio-status">Loop active: {loopSection.label}</p> : null}
+        {pendingJumpLabel ? <p className="studio-status">Queued jump: {pendingJumpLabel}</p> : null}
         {isRecording ? <p className="studio-status">Recording in progress...</p> : null}
+      </article>
+
+      <article className="studio-panel studio-performance-preset-panel">
+        <p className="panel-label">Pro Performer Layouts</p>
+        <div className="studio-layout-preset-row" role="list" aria-label="Performer layouts">
+          {Object.entries(PERFORMER_LAYOUT_PRESETS).map(([key, preset]) => (
+            <button
+              key={key}
+              type="button"
+              role="listitem"
+              className={performerLayoutPreset === key ? 'studio-layout-preset studio-layout-preset-active' : 'studio-layout-preset'}
+              onClick={() => setPerformerLayoutPreset(key as PerformerLayoutPresetId)}
+            >
+              <strong>{preset.label}</strong>
+              <span>{preset.summary}</span>
+            </button>
+          ))}
+        </div>
+        <p className="studio-status">
+          Active layout: {performerLayout.label}. Use it to keep the stage view clean while preserving routing and safety tools underneath.
+        </p>
       </article>
 
       <article className="studio-panel">
@@ -2388,8 +2620,36 @@ function SongStudioPage() {
       {performerMonitorEnabled ? (
         <article className="studio-panel performer-monitor" aria-label="Performer monitor">
           <div className="performer-monitor-head">
-            <p>{songTrack?.name ?? 'No song loaded'}</p>
-            <p>{totalDurationSec > 0 ? `-${remainingSongClock}` : '--:--'}</p>
+            <div>
+              <p>{songTrack?.name ?? 'No song loaded'}</p>
+              <small>{performerLayout.label} layout</small>
+            </div>
+            <div className="performer-monitor-head-meta">
+              <p>{totalDurationSec > 0 ? `-${remainingSongClock}` : '--:--'}</p>
+              <span>{OUTPUT_ROUTE_PRESETS[masterRoutePreset].label}</span>
+            </div>
+          </div>
+
+          <div className="performer-hero-grid">
+            <div className="performer-hero-main">
+              <span className="performer-hero-label">Current chord</span>
+              <p>{currentChordHighlight}</p>
+              <small>{activeMonitorSection?.label ?? 'Current section'}</small>
+            </div>
+            <div className="performer-hero-side">
+              <div>
+                <span>Next chord</span>
+                <p>{nextChordHighlight}</p>
+              </div>
+              <div>
+                <span>BPM</span>
+                <p>{clickTrackBpm}</p>
+              </div>
+              <div>
+                <span>Key view</span>
+                <p>{displayedTranspose >= 0 ? `+${displayedTranspose}` : displayedTranspose}</p>
+              </div>
+            </div>
           </div>
 
           <div className="performer-monitor-sections" role="tablist" aria-label="Song sections">
@@ -2402,7 +2662,7 @@ function SongStudioPage() {
                   role="tab"
                   aria-selected={isActive}
                   className={isActive ? 'monitor-section-tab monitor-section-active' : 'monitor-section-tab'}
-                  onClick={() => onSeek(section.startSec)}
+                  onClick={() => requestSectionJump(section.startSec, section.label)}
                 >
                   <span>{section.label}</span>
                   {isActive ? (
@@ -2412,6 +2672,14 @@ function SongStudioPage() {
               )
             })}
           </div>
+
+          {performerLayout.showCueStrip ? (
+            <div className="performer-cue-strip" role="list" aria-label="Performer cues">
+              {activeCueStrip.map((cue) => (
+                <p key={cue} role="listitem">{cue}</p>
+              ))}
+            </div>
+          ) : null}
 
           <div className="performer-wave-grid">
             <div className="performer-wave-lane performer-wave-lane-active">
@@ -2424,6 +2692,25 @@ function SongStudioPage() {
               <div className="performer-wave-track" aria-hidden="true" />
               <small>{nextMonitorSection?.label ?? 'Next'}</small>
             </div>
+          </div>
+
+          <div className="performer-lyrics-grid">
+            <div className="performer-lyric-card performer-lyric-card-current">
+              <span>Current lyric</span>
+              <p>{currentLyricText || 'Current lyric line will appear during playback.'}</p>
+            </div>
+            {performerLayout.showNextLyrics ? (
+              <div className="performer-lyric-card">
+                <span>Next lyric</span>
+                <p>{nextLyricText || 'Next lyric preview stays here.'}</p>
+              </div>
+            ) : null}
+            {performerLayout.showClickPanel ? (
+              <div className="performer-lyric-card performer-lyric-card-click">
+                <span>Count + click</span>
+                <p>{clickTrackEnabled ? `${clickTrackBeatsPerBar}/4, ${clickTrackPreIntroBars} bar intro` : 'Click off'}</p>
+              </div>
+            ) : null}
           </div>
 
           <div className="performer-monitor-controls">
@@ -2441,12 +2728,12 @@ function SongStudioPage() {
               <div>
                 <button
                   type="button"
-                  onClick={() => onSeek(Math.max(0, (activeMonitorSection?.startSec ?? 0) - 0.01))}
+                  onClick={() => requestSectionJump(Math.max(0, (activeMonitorSection?.startSec ?? 0) - 0.01), activeMonitorSection?.label ?? 'Current section')}
                 >
                   Back
                 </button>
                 <p>{activeMonitorSection?.label ?? '--'}</p>
-                <button type="button" onClick={() => onSeek(nextMonitorSection?.startSec ?? 0)}>Next</button>
+                <button type="button" onClick={() => requestSectionJump(nextMonitorSection?.startSec ?? 0, nextMonitorSection?.label ?? 'Next section')}>Next</button>
               </div>
             </div>
 
@@ -2456,6 +2743,15 @@ function SongStudioPage() {
                 <button type="button" onClick={() => setClickTrackBpm((value) => Math.max(40, value - 1))}>-</button>
                 <p>{clickTrackBpm}</p>
                 <button type="button" onClick={() => setClickTrackBpm((value) => Math.min(240, value + 1))}>+</button>
+              </div>
+            </div>
+
+            <div>
+              <span>Safe</span>
+              <div>
+                <button type="button" onClick={jumpToResumeSection}>Resume</button>
+                <p>{pendingJumpLabel ?? (resumeSectionId ? 'Target armed' : 'Ready')}</p>
+                <button type="button" onClick={() => void previewOutputTone()}>Test</button>
               </div>
             </div>
           </div>
