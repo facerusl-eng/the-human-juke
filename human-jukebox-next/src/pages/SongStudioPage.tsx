@@ -8,6 +8,8 @@ type StudioTrack = {
   file: File
   objectUrl: string
   cacheKey: string
+  role: 'song' | 'stem'
+  channel: number | null
   durationSec: number
   volume: number
   pan: number
@@ -51,6 +53,8 @@ type NodeBundle = {
 type PersistedTrack = {
   id: string
   name: string
+  role: 'song' | 'stem'
+  channel: number | null
   durationSec: number
   volume: number
   pan: number
@@ -183,6 +187,7 @@ const OUTPUT_ROUTE_PRESETS: Record<OutputRoutePresetId, OutputRoutePreset> = {
 
 const AUDIO_CACHE_DB = 'hj_next_audio_cache_v1'
 const AUDIO_CACHE_STORE = 'audio_files'
+const MAX_STEM_CHANNELS = 10
 const DEFAULT_MIDI_MAPPINGS: MidiMappings = {
   playPause: 60,
   stop: 61,
@@ -212,6 +217,17 @@ async function openAudioCacheDb(): Promise<IDBDatabase> {
 
 function fileToCacheKey(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`
+}
+
+function nextAvailableStemChannel(tracks: StudioTrack[]) {
+  const used = new Set(tracks.filter((track) => track.role === 'stem' && track.channel !== null).map((track) => track.channel))
+  for (let channel = 1; channel <= MAX_STEM_CHANNELS; channel += 1) {
+    if (!used.has(channel)) {
+      return channel
+    }
+  }
+
+  return null
 }
 
 function estimateTempoFromBuffer(buffer: AudioBuffer): TempoEstimate | null {
@@ -692,9 +708,11 @@ function SongStudioPage() {
   const [isRecording, setIsRecording] = useState(false)
   const [recordings, setRecordings] = useState<RecordingClip[]>([])
 
-  const leadTrack = tracks[0] ?? null
-  const extractionSourceTrack = tracks.find((track) => track.id === extractionSourceTrackId) ?? leadTrack
-  const totalDurationSec = leadTrack?.durationSec ?? 0
+  const songTrack = tracks.find((track) => track.role === 'song') ?? null
+  const stemTracks = tracks.filter((track) => track.role === 'stem')
+  const playbackTracks = tracks
+  const extractionSourceTrack = tracks.find((track) => track.id === extractionSourceTrackId) ?? songTrack
+  const totalDurationSec = songTrack?.durationSec ?? 0
 
   const currentLineIndex = useMemo(() => {
     if (chartLines.length === 0) {
@@ -767,10 +785,15 @@ function SongStudioPage() {
   const healthChecks = useMemo(() => {
     const entries = [
       { id: 'audio', label: 'Audio engine ready', pass: Boolean(audioContextRef.current) },
-      { id: 'track', label: 'Track loaded', pass: tracks.length > 0 },
+      { id: 'track', label: 'Song loaded for extraction', pass: Boolean(songTrack) },
       { id: 'chart', label: 'Lyric/chord chart', pass: chartLines.length > 0 },
       { id: 'sections', label: 'Section markers', pass: monitorSections.length > 1 },
       { id: 'offline', label: 'Offline cache', pass: cachedTracks.length > 0 },
+      {
+        id: 'x18',
+        label: `X18 stem channels (max ${MAX_STEM_CHANNELS})`,
+        pass: stemTracks.length <= MAX_STEM_CHANNELS,
+      },
       { id: 'midi', label: 'MIDI control', pass: midiConnected },
       { id: 'record', label: 'Recording ready', pass: typeof window !== 'undefined' && 'MediaRecorder' in window },
     ]
@@ -782,7 +805,7 @@ function SongStudioPage() {
       total: entries.length,
       summary: `${passed}/${entries.length} checks passed`,
     }
-  }, [cachedTracks.length, chartLines.length, midiConnected, monitorSections.length, tracks.length])
+  }, [cachedTracks.length, chartLines.length, midiConnected, monitorSections.length, songTrack, stemTracks.length])
 
   useEffect(() => {
     if (!loopSectionId) {
@@ -803,6 +826,8 @@ function SongStudioPage() {
     const persistedTracks: PersistedTrack[] = tracks.map((track) => ({
       id: track.id,
       name: track.name,
+      role: track.role,
+      channel: track.channel,
       durationSec: track.durationSec,
       volume: track.volume,
       pan: track.pan,
@@ -848,6 +873,8 @@ function SongStudioPage() {
 
     const restoredTracks: StudioTrack[] = initialSnapshot.tracks.map((track) => ({
       ...track,
+      role: track.role === 'song' ? 'song' : 'stem',
+      channel: typeof track.channel === 'number' ? track.channel : null,
       file: new File([], `${track.name} (metadata only)`),
       objectUrl: '',
       cacheKey: '',
@@ -1151,18 +1178,36 @@ function SongStudioPage() {
     }
   }
 
-  const addTracksFromFiles = async (acceptedFiles: File[]) => {
+  const addTracksFromFiles = async (acceptedFiles: File[], role: 'song' | 'stem') => {
     if (acceptedFiles.length === 0) {
       return
     }
 
+    if (role === 'stem') {
+      const availableSlots = Math.max(0, MAX_STEM_CHANNELS - stemTracks.length)
+      if (availableSlots <= 0) {
+        setStatusText(`Mixer supports up to ${MAX_STEM_CHANNELS} stem channels plus master.`)
+        return
+      }
+
+      if (acceptedFiles.length > availableSlots) {
+        acceptedFiles = acceptedFiles.slice(0, availableSlots)
+      }
+    }
+
     const context = ensureAudioContext()
     const nextTracks: StudioTrack[] = []
+    let workingTracks = tracks
 
     for (const file of acceptedFiles) {
       const buffer = await decodeAudioDuration(context, file)
       const objectUrl = URL.createObjectURL(file)
       const id = createId('track')
+      const channel = role === 'stem' ? nextAvailableStemChannel([...workingTracks, ...nextTracks]) : null
+
+      if (role === 'stem' && channel === null) {
+        break
+      }
 
       buffersRef.current.set(id, buffer)
 
@@ -1172,6 +1217,8 @@ function SongStudioPage() {
         file,
         objectUrl,
         cacheKey: fileToCacheKey(file),
+        role,
+        channel,
         durationSec: buffer.duration,
         volume: 0.9,
         pan: 0,
@@ -1183,15 +1230,31 @@ function SongStudioPage() {
     }
 
     setTracks((current) => {
-      const merged = [...current, ...nextTracks]
-      if (!extractionSourceTrackId && nextTracks.length > 0) {
-        setExtractionSourceTrackId(nextTracks[0].id)
+      if (role === 'song') {
+        const existingSong = current.find((track) => track.role === 'song')
+        if (existingSong?.objectUrl) {
+          URL.revokeObjectURL(existingSong.objectUrl)
+        }
+        if (existingSong) {
+          buffersRef.current.delete(existingSong.id)
+        }
+
+        const withoutSong = current.filter((track) => track.role !== 'song')
+        const replacementSong = nextTracks[0]
+        if (replacementSong) {
+          setExtractionSourceTrackId(replacementSong.id)
+          return [replacementSong, ...withoutSong]
+        }
+
+        return withoutSong
       }
+
+      const merged = [...current, ...nextTracks]
       return merged
     })
 
     let beatDetectionMessage = ''
-    const autoTrack = nextTracks[0]
+    const autoTrack = role === 'song' ? nextTracks[0] : null
     if (autoTrack) {
       const buffer = buffersRef.current.get(autoTrack.id)
       if (buffer) {
@@ -1208,7 +1271,11 @@ function SongStudioPage() {
     }
 
     await refreshCachedTracks()
-    setStatusText(`${nextTracks.length} track(s) loaded. Run auto-generate to build lyric/chord sync.${beatDetectionMessage}`)
+    if (role === 'song') {
+      setStatusText(`Song loaded for lyric/chord extraction.${beatDetectionMessage}`)
+    } else {
+      setStatusText(`${nextTracks.length} stem track(s) added to mixer (${Math.min(MAX_STEM_CHANNELS, stemTracks.length + nextTracks.length)}/${MAX_STEM_CHANNELS}).`)
+    }
   }
 
   const restoreCachedTracks = async () => {
@@ -1234,7 +1301,17 @@ function SongStudioPage() {
         return
       }
 
-      await addTracksFromFiles(files)
+      const songFiles = songTrack ? [] : files.slice(0, 1)
+      const stemFiles = songTrack ? files : files.slice(1)
+
+      if (songFiles.length > 0) {
+        await addTracksFromFiles(songFiles, 'song')
+      }
+
+      if (stemFiles.length > 0) {
+        await addTracksFromFiles(stemFiles, 'stem')
+      }
+
       setStatusText(`Restored ${files.length} cached track(s) for offline mode.`)
     } catch {
       setStatusText('Could not restore cached tracks.')
@@ -1302,7 +1379,7 @@ function SongStudioPage() {
   }
 
   const detectBeatFromSong = async () => {
-    const track = extractionSourceTrack ?? leadTrack
+    const track = extractionSourceTrack ?? songTrack
     if (!track) {
       setStatusText('Load a song first, then detect beat.')
       return
@@ -1342,19 +1419,42 @@ function SongStudioPage() {
     recorder.stop()
   }
 
-  const onAddTrackFiles = async (fileList: FileList | null) => {
+  const onAddSongFile = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) {
       return
     }
 
-    const acceptedFiles = Array.from(fileList).filter((file) => /audio\/(mpeg|wav|x-wav|mp3|aac|ogg)/i.test(file.type) || /\.(mp3|wav|aac|m4a|ogg)$/i.test(file.name))
+    const acceptedFiles = Array.from(fileList)
+      .filter((file) => /audio\/(mpeg|wav|x-wav|mp3|aac|ogg)/i.test(file.type) || /\.(mp3|wav|aac|m4a|ogg)$/i.test(file.name))
+      .slice(0, 1)
 
     if (acceptedFiles.length === 0) {
       setStatusText('Only audio files (WAV/MP3/AAC/OGG) are supported.')
       return
     }
 
-    await addTracksFromFiles(acceptedFiles)
+    await addTracksFromFiles(acceptedFiles, 'song')
+  }
+
+  const onAddStemFiles = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) {
+      return
+    }
+
+    if (!songTrack) {
+      setStatusText('Upload a song first for extraction, then add mixer stems.')
+      return
+    }
+
+    const acceptedFiles = Array.from(fileList)
+      .filter((file) => /audio\/(mpeg|wav|x-wav|mp3|aac|ogg)/i.test(file.type) || /\.(mp3|wav|aac|m4a|ogg)$/i.test(file.name))
+
+    if (acceptedFiles.length === 0) {
+      setStatusText('Only audio files (WAV/MP3/AAC/OGG) are supported.')
+      return
+    }
+
+    await addTracksFromFiles(acceptedFiles, 'stem')
   }
 
   const onGenerateChart = async () => {
@@ -1474,8 +1574,8 @@ function SongStudioPage() {
   }
 
   const startPlayback = async () => {
-    if (tracks.length === 0) {
-      setStatusText('Upload at least one audio file first.')
+    if (!songTrack) {
+      setStatusText('Upload a song first, then run playback.')
       return
     }
 
@@ -1490,9 +1590,9 @@ function SongStudioPage() {
     const routePreset = OUTPUT_ROUTE_PRESETS[masterRoutePreset]
     const masterInput = masterInputGainRef.current
 
-    const hasSolo = tracks.some((track) => track.solo)
+    const hasSolo = playbackTracks.some((track) => track.solo)
 
-    sourceNodesRef.current = tracks.flatMap((track) => {
+    sourceNodesRef.current = playbackTracks.flatMap((track) => {
       const buffer = buffersRef.current.get(track.id)
       if (!buffer) {
         return []
@@ -1713,14 +1813,24 @@ function SongStudioPage() {
 
       <article className="studio-panel">
         <div className="studio-upload-row">
-          <label className="studio-upload-btn" htmlFor="studio-audio-upload">Upload Song/Stems</label>
+          <label className="studio-upload-btn" htmlFor="studio-song-upload">1) Upload Song For Extraction</label>
           <input
-            id="studio-audio-upload"
+            id="studio-song-upload"
+            type="file"
+            accept="audio/*,.mp3,.wav,.aac,.m4a,.ogg"
+            onChange={(event) => {
+              void onAddSongFile(event.target.files)
+              event.currentTarget.value = ''
+            }}
+          />
+          <label className="studio-upload-btn" htmlFor="studio-stem-upload">2) Add Stems To Mixer (max 10)</label>
+          <input
+            id="studio-stem-upload"
             type="file"
             accept="audio/*,.mp3,.wav,.aac,.m4a,.ogg"
             multiple
             onChange={(event) => {
-              void onAddTrackFiles(event.target.files)
+              void onAddStemFiles(event.target.files)
               event.currentTarget.value = ''
             }}
           />
@@ -1744,20 +1854,12 @@ function SongStudioPage() {
 
         <label>
           Extraction source track
-          <select
-            value={extractionSourceTrack?.id ?? ''}
-            onChange={(event) => setExtractionSourceTrackId(event.target.value || null)}
-          >
-            {tracks.map((track) => (
-              <option key={track.id} value={track.id}>{track.name}</option>
-            ))}
-            {tracks.length === 0 ? <option value="">No track loaded</option> : null}
-          </select>
+          <input type="text" value={songTrack?.name ?? 'No song loaded yet'} readOnly />
         </label>
         <p className="studio-status">
-          Tip: choose the cleanest full-song audio file as extraction source for best lyrics/chord accuracy.
+          Workflow: upload one clean song first, extract lyrics/chords, then add up to 10 stem channels for X18 routing.
         </p>
-        <p className="studio-status">Offline cache: {cachedTracks.length} track(s) available.</p>
+        <p className="studio-status">Offline cache: {cachedTracks.length} track(s) available. Stems: {stemTracks.length}/{MAX_STEM_CHANNELS} + master.</p>
 
         <div className="studio-manual-lyrics">
           <label htmlFor="manual-lyrics-input">Add Lyrics (manual fallback)</label>
@@ -1959,7 +2061,7 @@ function SongStudioPage() {
       {performerMonitorEnabled ? (
         <article className="studio-panel performer-monitor" aria-label="Performer monitor">
           <div className="performer-monitor-head">
-            <p>{leadTrack?.name ?? 'No song loaded'}</p>
+            <p>{songTrack?.name ?? 'No song loaded'}</p>
             <p>{totalDurationSec > 0 ? `-${remainingSongClock}` : '--:--'}</p>
           </div>
 
@@ -2060,11 +2162,11 @@ function SongStudioPage() {
       </article>
 
       <article className="studio-panel">
-        <p className="panel-label">Stem Mixer</p>
+        <p className="panel-label">Stem Mixer (X18 Routing)</p>
         <div className="studio-track-list" role="list" aria-label="Audio tracks">
-          {tracks.map((track) => (
+          {stemTracks.map((track) => (
             <div key={track.id} className="studio-track-row" role="listitem">
-              <p>{track.name}</p>
+              <p>{track.name} · CH {track.channel ?? '-'}</p>
               <label>
                 Vol
                 <input type="range" min={0} max={1} step={0.01} value={track.volume} onChange={(event) => updateTrack(track.id, { volume: Number(event.target.value) })} />
@@ -2073,13 +2175,25 @@ function SongStudioPage() {
                 Pan
                 <input type="range" min={-1} max={1} step={0.01} value={track.pan} onChange={(event) => updateTrack(track.id, { pan: Number(event.target.value) })} />
               </label>
+              <label>
+                X18 channel
+                <select
+                  value={track.channel ?? ''}
+                  onChange={(event) => updateTrack(track.id, { channel: Number(event.target.value) || null })}
+                >
+                  {Array.from({ length: MAX_STEM_CHANNELS }, (_, index) => index + 1).map((channel) => (
+                    <option key={channel} value={channel}>CH {channel}</option>
+                  ))}
+                </select>
+              </label>
               <button type="button" onClick={() => updateTrack(track.id, { muted: !track.muted })}>{track.muted ? 'Unmute' : 'Mute'}</button>
               <button type="button" onClick={() => updateTrack(track.id, { solo: !track.solo })}>{track.solo ? 'Unsolo' : 'Solo'}</button>
               <button type="button" onClick={() => removeTrack(track.id)}>Remove</button>
             </div>
           ))}
-          {tracks.length === 0 ? <p className="studio-status">No tracks loaded yet.</p> : null}
+          {stemTracks.length === 0 ? <p className="studio-status">No stem tracks loaded yet.</p> : null}
         </div>
+        <p className="studio-status">Master output is controlled in transport and sent as the +1 master path.</p>
       </article>
 
       {editMode ? (
