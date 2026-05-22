@@ -174,7 +174,7 @@ function isMissingPlaybackCountdownColumnError(error: unknown) {
   return text.includes('countdown_target_ms')
 }
 
-function normalizeCountdownTargetMs(value: unknown): number | null {
+export function normalizeCountdownTargetMs(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.round(value)
   }

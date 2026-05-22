@@ -890,8 +890,11 @@ function GigControlPage() {
     }
   }, [draggedSongId, event, isNowPlayingStarted, performedSongs, reorderSong, songActionBusyId, songs, upNext])
 
-  const sendSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
-    if (!spotifyAutoTransportEnabled) {
+  const sendSpotifyTransportCommand = useCallback((
+    mode: SpotifyTransportMode,
+    options?: { force?: boolean },
+  ) => {
+    if (!options?.force && !spotifyAutoTransportEnabled) {
       return
     }
 
@@ -958,21 +961,9 @@ function GigControlPage() {
     introAudio.currentTime = 0
     introAudio.preload = 'auto'
 
-    // Duck Spotify while the intro stinger runs, then restore when it ends.
-    sendSpotifyTransportCommand('pause')
+    // Duck Spotify while the intro stinger runs. Keep it paused afterwards.
+    sendSpotifyTransportCommand('pause', { force: true })
     void sendSpotifyWebApiTransportCommand('pause')
-
-    let restoredSpotify = false
-
-    const restoreSpotifyPlayback = () => {
-      if (restoredSpotify) {
-        return
-      }
-
-      restoredSpotify = true
-      sendSpotifyTransportCommand('play')
-      void sendSpotifyWebApiTransportCommand('play')
-    }
 
     const completionPromise = new Promise<void>((resolve) => {
       const cleanup = () => {
@@ -982,13 +973,11 @@ function GigControlPage() {
 
       const onEnded = () => {
         cleanup()
-        restoreSpotifyPlayback()
         resolve()
       }
 
       const onError = () => {
         cleanup()
-        restoreSpotifyPlayback()
         resolve()
       }
 
@@ -999,7 +988,6 @@ function GigControlPage() {
     try {
       await introAudio.play()
     } catch (error) {
-      restoreSpotifyPlayback()
       throw error
     }
 
@@ -1470,7 +1458,7 @@ function GigControlPage() {
         await playIntroAudioOnceSafely(
           latestEvent.id,
           latestEvent.introAudioUrl,
-          'Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport was restored.',
+          'Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
           primedElement,
         )
       }
@@ -2021,7 +2009,7 @@ function GigControlPage() {
           await playIntroAudioOnceSafely(
             latestEvent.id,
             latestEvent.introAudioUrl,
-            'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport was restored.',
+            'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
           )
         }
 

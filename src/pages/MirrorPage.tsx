@@ -9,6 +9,7 @@ import {
   PLAYBACK_STATE_STORAGE_KEY,
   isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
+  normalizeCountdownTargetMs,
   readSharedPlaybackState,
   writeSharedPlaybackState,
   type SharedPlaybackState,
@@ -3167,9 +3168,7 @@ function MirrorPageContent() {
                 quoteIndex: Number.isFinite(nextRow.quote_index)
                   ? (nextRow.quote_index as number)
                   : 0,
-                countdownTargetMs: Number.isFinite(nextRow.countdown_target_ms)
-                  ? Math.round(nextRow.countdown_target_ms as number)
-                  : null,
+                countdownTargetMs: normalizeCountdownTargetMs(nextRow.countdown_target_ms),
                 brbActive: nextRow.brb_active ?? false,
                 brbMessage: nextRow.brb_message ?? null,
               }

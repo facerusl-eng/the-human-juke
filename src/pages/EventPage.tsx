@@ -19,6 +19,7 @@ import {
   getCountdownTargetRemainingMs,
   isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
+  normalizeCountdownTargetMs,
   PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
   PLAYBACK_STATE_STORAGE_KEY,
@@ -2781,9 +2782,7 @@ function EventPage() {
               quoteIndex: Number.isFinite(nextRow.quote_index)
                 ? (nextRow.quote_index as number)
                 : 0,
-              countdownTargetMs: Number.isFinite(nextRow.countdown_target_ms)
-                ? Math.round(nextRow.countdown_target_ms as number)
-                : null,
+              countdownTargetMs: normalizeCountdownTargetMs(nextRow.countdown_target_ms),
               brbActive: Boolean(nextRow.brb_active),
               brbMessage: typeof nextRow.brb_message === 'string' ? nextRow.brb_message : null,
             }
