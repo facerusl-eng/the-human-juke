@@ -89,6 +89,13 @@ type OutputRoutePreset = {
   forceMono: boolean
 }
 
+type MonitorSection = {
+  id: string
+  label: string
+  startSec: number
+  endSec: number
+}
+
 const SHARP_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const FLAT_TO_SHARP: Record<string, string> = {
   Db: 'C#',
@@ -145,6 +152,46 @@ const OUTPUT_ROUTE_PRESETS: Record<OutputRoutePresetId, OutputRoutePreset> = {
 
 function dbToGain(db: number) {
   return Math.pow(10, db / 20)
+}
+
+function formatClock(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds))
+  const mm = Math.floor(total / 60)
+  const ss = total % 60
+  return `${mm.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`
+}
+
+function buildMonitorSections(chartLines: LyricLine[], durationSec: number): MonitorSection[] {
+  const sectionNames = ['Intro', 'Verse', 'Pre', 'Chorus', 'Bridge', 'Solo', 'Outro']
+
+  if (chartLines.length > 0) {
+    const chunkSize = Math.max(1, Math.floor(chartLines.length / 6) || 1)
+    const sections: MonitorSection[] = []
+
+    for (let index = 0; index < chartLines.length; index += chunkSize) {
+      const startLine = chartLines[index]
+      const endLine = chartLines[Math.min(chartLines.length - 1, index + chunkSize - 1)]
+      sections.push({
+        id: `section_${index}`,
+        label: sectionNames[sections.length % sectionNames.length],
+        startSec: startLine.startSec,
+        endSec: Math.max(startLine.startSec + 1, endLine.endSec),
+      })
+    }
+
+    return sections
+  }
+
+  const safeDuration = Math.max(30, Math.floor(durationSec) || 120)
+  const sectionCount = 6
+  const sectionLength = safeDuration / sectionCount
+
+  return Array.from({ length: sectionCount }, (_, index) => ({
+    id: `section_fallback_${index}`,
+    label: sectionNames[index % sectionNames.length],
+    startSec: Number((index * sectionLength).toFixed(2)),
+    endSec: Number(((index + 1) * sectionLength).toFixed(2)),
+  }))
 }
 
 function createId(prefix: string) {
@@ -493,6 +540,7 @@ function SongStudioPage() {
   const [clickTrackPreIntroBars, setClickTrackPreIntroBars] = useState(1)
   const [clickTrackVolume, setClickTrackVolume] = useState(0.45)
   const [preCountBeatsRemaining, setPreCountBeatsRemaining] = useState<number | null>(null)
+  const [performerMonitorEnabled, setPerformerMonitorEnabled] = useState(false)
 
   const leadTrack = tracks[0] ?? null
   const totalDurationSec = leadTrack?.durationSec ?? 0
@@ -510,6 +558,27 @@ function SongStudioPage() {
 
   const displayedTranspose = transposeSemitones - capo
   const syncedTime = Math.max(0, currentTimeSec + syncOffsetSec)
+  const monitorSections = useMemo(() => buildMonitorSections(chartLines, totalDurationSec), [chartLines, totalDurationSec])
+
+  const activeMonitorSectionIndex = useMemo(
+    () => monitorSections.findIndex((section) => syncedTime >= section.startSec && syncedTime < section.endSec),
+    [monitorSections, syncedTime],
+  )
+
+  const activeMonitorSection = activeMonitorSectionIndex >= 0 ? monitorSections[activeMonitorSectionIndex] : monitorSections[0] ?? null
+  const nextMonitorSection = activeMonitorSectionIndex >= 0
+    ? monitorSections[activeMonitorSectionIndex + 1] ?? null
+    : monitorSections[1] ?? null
+
+  const activeSectionProgress = activeMonitorSection
+    ? Math.min(
+      1,
+      Math.max(
+        0,
+        (syncedTime - activeMonitorSection.startSec) / Math.max(0.01, activeMonitorSection.endSec - activeMonitorSection.startSec),
+      ),
+    )
+    : 0
 
   const visibleChords = useMemo(() => {
     if (!currentLine) {
@@ -522,6 +591,26 @@ function SongStudioPage() {
       isActive: syncedTime >= chord.timeSec && syncedTime < chord.timeSec + 1.2,
     }))
   }, [currentLine, syncedTime, displayedTranspose])
+
+  const currentChordHighlight = useMemo(() => {
+    const active = visibleChords.find((chord) => chord.isActive)
+    if (active) {
+      return active.symbol
+    }
+
+    return visibleChords[0]?.symbol ?? '--'
+  }, [visibleChords])
+
+  const nextChordHighlight = useMemo(() => {
+    const chord = nextLine?.chords?.[0]
+    if (!chord) {
+      return '--'
+    }
+
+    return transposeChord(chord.symbol, displayedTranspose)
+  }, [displayedTranspose, nextLine])
+
+  const remainingSongClock = formatClock(Math.max(0, totalDurationSec - syncedTime))
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1226,6 +1315,9 @@ function SongStudioPage() {
             Click on
             <input type="checkbox" checked={clickTrackEnabled} onChange={(event) => setClickTrackEnabled(event.target.checked)} />
           </label>
+          <button type="button" onClick={() => setPerformerMonitorEnabled((current) => !current)}>
+            {performerMonitorEnabled ? 'Hide Performer Monitor' : 'Performer Monitor'}
+          </button>
         </div>
         <label className="studio-seek">
           <span>{currentTimeSec.toFixed(2)}s / {totalDurationSec.toFixed(2)}s</span>
@@ -1242,6 +1334,83 @@ function SongStudioPage() {
           <p className="studio-status">Count-in: {preCountBeatsRemaining + 1} beat(s) remaining</p>
         ) : null}
       </article>
+
+      {performerMonitorEnabled ? (
+        <article className="studio-panel performer-monitor" aria-label="Performer monitor">
+          <div className="performer-monitor-head">
+            <p>{leadTrack?.name ?? 'No song loaded'}</p>
+            <p>{totalDurationSec > 0 ? `-${remainingSongClock}` : '--:--'}</p>
+          </div>
+
+          <div className="performer-monitor-sections" role="tablist" aria-label="Song sections">
+            {monitorSections.map((section, index) => {
+              const isActive = index === activeMonitorSectionIndex
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={isActive ? 'monitor-section-tab monitor-section-active' : 'monitor-section-tab'}
+                  onClick={() => onSeek(section.startSec)}
+                >
+                  <span>{section.label}</span>
+                  {isActive ? (
+                    <span className="monitor-section-progress" style={{ width: `${Math.round(activeSectionProgress * 100)}%` }} />
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="performer-wave-grid">
+            <div className="performer-wave-lane performer-wave-lane-active">
+              <p>{currentChordHighlight}</p>
+              <div className="performer-wave-track" aria-hidden="true" />
+              <small>{activeMonitorSection?.label ?? 'Current'}</small>
+            </div>
+            <div className="performer-wave-lane">
+              <p>{nextChordHighlight}</p>
+              <div className="performer-wave-track" aria-hidden="true" />
+              <small>{nextMonitorSection?.label ?? 'Next'}</small>
+            </div>
+          </div>
+
+          <div className="performer-monitor-controls">
+            <div>
+              <span>Key</span>
+              <div>
+                <button type="button" onClick={() => setTransposeSemitones((value) => value - 1)}>-</button>
+                <p>{currentChordHighlight}</p>
+                <button type="button" onClick={() => setTransposeSemitones((value) => value + 1)}>+</button>
+              </div>
+            </div>
+
+            <div>
+              <span>Section</span>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => onSeek(Math.max(0, (activeMonitorSection?.startSec ?? 0) - 0.01))}
+                >
+                  Back
+                </button>
+                <p>{activeMonitorSection?.label ?? '--'}</p>
+                <button type="button" onClick={() => onSeek(nextMonitorSection?.startSec ?? 0)}>Next</button>
+              </div>
+            </div>
+
+            <div>
+              <span>BPM</span>
+              <div>
+                <button type="button" onClick={() => setClickTrackBpm((value) => Math.max(40, value - 1))}>-</button>
+                <p>{clickTrackBpm}</p>
+                <button type="button" onClick={() => setClickTrackBpm((value) => Math.min(240, value + 1))}>+</button>
+              </div>
+            </div>
+          </div>
+        </article>
+      ) : null}
 
       <article className="studio-panel studio-karaoke">
         <p className="panel-label">Live Lyric + Chord View</p>

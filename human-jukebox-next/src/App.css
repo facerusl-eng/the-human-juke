@@ -1093,6 +1093,168 @@
   padding: 0 0.35rem;
 }
 
+.performer-monitor {
+  gap: 0.9rem;
+  padding: 0.8rem;
+  background:
+    radial-gradient(circle at 10% 18%, rgba(0, 194, 255, 0.18) 0%, transparent 38%),
+    radial-gradient(circle at 85% 8%, rgba(118, 84, 255, 0.28) 0%, transparent 42%),
+    linear-gradient(170deg, rgba(14, 14, 42, 0.98), rgba(7, 8, 20, 0.98));
+}
+
+.performer-monitor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.performer-monitor-head p {
+  margin: 0;
+  color: #f3f7ff;
+  font-size: clamp(0.82rem, 1.7vw, 1rem);
+  font-weight: 700;
+}
+
+.performer-monitor-sections {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.monitor-section-tab {
+  min-height: 2.55rem;
+  min-width: 5.7rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 194, 255, 0.35);
+  background: rgba(12, 16, 44, 0.88);
+  color: #c9d5f3;
+  font-size: 0.8rem;
+  font-weight: 700;
+  position: relative;
+  padding: 0.3rem 0.55rem;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.monitor-section-active {
+  color: #fefeff;
+  border-color: rgba(112, 212, 255, 0.76);
+  background: linear-gradient(135deg, rgba(52, 167, 255, 0.78), rgba(42, 102, 255, 0.82));
+}
+
+.monitor-section-progress {
+  position: absolute;
+  left: 0;
+  right: auto;
+  bottom: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(254, 255, 255, 0.95);
+}
+
+.performer-wave-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+}
+
+.performer-wave-lane {
+  border-radius: 14px;
+  border: 1px solid rgba(101, 117, 255, 0.34);
+  background: rgba(9, 10, 28, 0.86);
+  padding: 0.62rem;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.performer-wave-lane p {
+  margin: 0;
+  color: #eaf1ff;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 4.2vw, 2rem);
+}
+
+.performer-wave-lane small {
+  color: #95acd4;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.performer-wave-lane-active {
+  border-color: rgba(124, 206, 255, 0.68);
+  box-shadow: 0 0 0 1px rgba(124, 206, 255, 0.3);
+}
+
+.performer-wave-track {
+  height: 50px;
+  border-radius: 10px;
+  border: 1px solid rgba(95, 113, 206, 0.3);
+  background:
+    linear-gradient(90deg, rgba(178, 196, 255, 0.06), rgba(178, 196, 255, 0.13), rgba(178, 196, 255, 0.06)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(246, 248, 255, 0.72) 0,
+      rgba(246, 248, 255, 0.72) 2px,
+      transparent 2px,
+      transparent 46px
+    ),
+    linear-gradient(180deg, rgba(12, 22, 52, 0.78), rgba(9, 14, 40, 0.86));
+  background-size: 100% 100%, 100% 50%, 100% 100%;
+  background-position: center, center, center;
+}
+
+.performer-monitor-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.performer-monitor-controls > div {
+  border-radius: 12px;
+  border: 1px solid rgba(106, 115, 233, 0.38);
+  background: rgba(8, 11, 29, 0.9);
+  padding: 0.45rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.performer-monitor-controls span {
+  color: #8ca5d9;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.performer-monitor-controls > div > div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.performer-monitor-controls p {
+  margin: 0;
+  text-align: center;
+  color: #f3f7ff;
+  font-weight: 800;
+  font-size: clamp(0.88rem, 2.2vw, 1.12rem);
+}
+
+.performer-monitor-controls button {
+  min-height: 2.35rem;
+  min-width: 2.35rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 194, 255, 0.52);
+  background: linear-gradient(140deg, rgba(12, 10, 28, 0.92), rgba(18, 14, 38, 0.94));
+  color: #dff8ff;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 @media (hover: none) and (pointer: coarse) {
   .library-toolbar button,
   .action-row button,
@@ -1197,6 +1359,10 @@
 
   .stage-performance-toggle {
     min-height: 3.15rem;
+  }
+
+  .performer-monitor-controls {
+    grid-template-columns: 1fr;
   }
 }
 
