@@ -24,9 +24,8 @@ type IntroAudioLibraryItem = {
 
 const EVENT_TYPE_OPTIONS: Array<{ value: EventType; label: string }> = [
   { value: 'halli-live', label: 'The Human Jukebox' },
-  { value: 'harald-live', label: 'Harald Live' },
-  { value: 'karaoke', label: 'Karaoke Event' },
-  { value: 'build-self', label: 'Build Self Gig' },
+  { value: 'karaoke', label: 'Karaoke' },
+  { value: 'harald-live', label: 'Harald spiller' },
 ]
 
 const MAX_GIG_COVER_IMAGE_BYTES = 3 * 1024 * 1024
