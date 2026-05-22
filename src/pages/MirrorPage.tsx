@@ -1016,12 +1016,6 @@ type FullscreenElement = HTMLElement & {
   webkitRequestFullScreen?: () => Promise<void> | void
 }
 
-type CastWindow = Window & {
-  PresentationRequest?: new (urls: string | string[]) => {
-    start: () => Promise<unknown>
-  }
-}
-
 function getActiveFullscreenElement() {
   const fullscreenDocument = document as FullscreenDocument
   return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? null
@@ -1738,18 +1732,8 @@ function MirrorPageContent() {
     castUrl.searchParams.delete(MIRROR_LAYOUT_EDIT_QUERY_PARAM)
 
     const castUrlText = castUrl.toString()
-    const castWindow = window as CastWindow
-
-    if (typeof castWindow.PresentationRequest === 'function') {
-      try {
-        const request = new castWindow.PresentationRequest([castUrlText])
-        await request.start()
-        setMirrorWarningMessage('Casting started on the connected display.')
-        return
-      } catch (error) {
-        console.warn('MirrorPage: Presentation API cast failed, falling back to browser cast flow', error)
-      }
-    }
+    const userAgent = window.navigator.userAgent
+    const isChromiumBrowser = /Chrome|Chromium|Edg\//.test(userAgent)
 
     const castTab = window.open(castUrlText, '_blank', 'noopener,noreferrer')
 
@@ -1759,7 +1743,12 @@ function MirrorPageContent() {
     }
 
     castTab.focus()
-    setMirrorWarningMessage('Cast tab opened. In browser menu, choose Cast media to device.')
+
+    if (isChromiumBrowser) {
+      setMirrorWarningMessage('Cast tab opened. Use browser menu > Cast... > Sources > Cast tab to find Chromecast.')
+    } else {
+      setMirrorWarningMessage('Cast tab opened. For Chromecast discovery, open this tab in Chrome or Edge and use menu > Cast...')
+    }
 
     if (!getActiveFullscreenElement()) {
       try {
@@ -3801,7 +3790,7 @@ function MirrorPageContent() {
 
           <div className="mirror-header-live-stack">
             {!hideControlsForAudience ? (
-              <p className="mirror-edge-cast-hint" role="note">Edge cast: open browser menu (three dots) and choose Cast media to device.</p>
+              <p className="mirror-edge-cast-hint" role="note">Chromecast tip: browser menu (three dots), then Cast..., then Sources, then Cast tab.</p>
             ) : null}
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
