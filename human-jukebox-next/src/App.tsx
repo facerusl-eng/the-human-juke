@@ -1,4 +1,8 @@
 import './App.css'
+import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import LibraryPage from './pages/LibraryPage'
+import SetlistsPage from './pages/SetlistsPage'
+import LiveConsolePage from './pages/LiveConsolePage'
 
 function App() {
   const capabilityCards = [
@@ -38,7 +42,50 @@ function App() {
   ]
 
   return (
-    <div className="app-shell-next">
+    <BrowserRouter>
+      <div className="app-shell-next">
+        <nav className="top-nav" aria-label="Primary">
+          <p className="brand-mark">HJ Next</p>
+          <div className="nav-links">
+            <NavLink to="/" end>Overview</NavLink>
+            <NavLink to="/library">Library</NavLink>
+            <NavLink to="/setlists">Setlists</NavLink>
+            <NavLink to="/live-console">Live Console</NavLink>
+          </div>
+        </nav>
+
+        <Routes>
+          <Route path="/" element={<OverviewPage capabilityCards={capabilityCards} sprintItems={sprintItems} />} />
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/setlists" element={<SetlistsPage />} />
+          <Route path="/live-console" element={<LiveConsolePage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
+  )
+}
+
+type CapabilityCard = {
+  title: string
+  copy: string
+  tone: string
+}
+
+type SprintItem = {
+  label: string
+  title: string
+  detail: string
+}
+
+type OverviewPageProps = {
+  capabilityCards: CapabilityCard[]
+  sprintItems: SprintItem[]
+}
+
+function OverviewPage({ capabilityCards, sprintItems }: OverviewPageProps) {
+  return (
+    <>
       <header className="hero-next" aria-label="Next-gen Human Jukebox">
         <p className="hero-kicker">Human Jukebox Next</p>
         <h1>Build The Stage OS, Not Just The Song Queue</h1>
@@ -90,7 +137,7 @@ function App() {
           ))}
         </div>
       </section>
-    </div>
+    </>
   )
 }
 
