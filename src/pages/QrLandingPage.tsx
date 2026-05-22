@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { AUDIENCE_LOCALE_STORAGE_KEY, normalizeAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
+import { readSharedPlaybackState } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 
 const LIVE_SYNC_POLL_INTERVAL_MS = 4000
@@ -209,10 +210,10 @@ function QrLandingPage() {
   const copy = useMemo(() => {
     if (locale === 'da') {
       return {
-        buttonGoToLounge: 'Gå til Lounge',
+        buttonGoToLounge: 'Join the Lounge',
         buttonSyncingStatus: 'Synkroniserer live-status...',
         buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
-        buttonOpenLoungeNow: 'Åbn lounge nu',
+        buttonOpenLoungeNow: 'Join the Lounge',
         statusGoingLiveIn: 'Går live om',
         statusCountdownComplete: 'Nedtælling færdig. Venter på at værten går live...',
         statusNotFound: 'Event blev ikke fundet. Tryk for at åbne lounge.',
@@ -224,10 +225,10 @@ function QrLandingPage() {
 
     if (locale === 'is') {
       return {
-        buttonGoToLounge: 'Fara i Lounge',
+        buttonGoToLounge: 'Join the Lounge',
         buttonSyncingStatus: 'Samstilli live-stodu...',
         buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
-        buttonOpenLoungeNow: 'Opna lounge nuna',
+        buttonOpenLoungeNow: 'Join the Lounge',
         statusGoingLiveIn: 'Fer i loftid eftir',
         statusCountdownComplete: 'Nidurteljari lokid. Bid eftir ad host fari i live ham...',
         statusNotFound: 'Vidburdur fannst ekki. Smelltu til ad opna lounge.',
@@ -238,10 +239,10 @@ function QrLandingPage() {
     }
 
     return {
-      buttonGoToLounge: 'Go to Lounge',
+      buttonGoToLounge: 'Join the Lounge',
       buttonSyncingStatus: 'Syncing live status...',
       buttonSyncingCountdownPrefix: 'Syncing countdown',
-      buttonOpenLoungeNow: 'Open Lounge Now',
+      buttonOpenLoungeNow: 'Join the Lounge',
       statusGoingLiveIn: 'Going live in',
       statusCountdownComplete: 'Countdown complete. Waiting for host to start live mode...',
       statusNotFound: 'Could not find this event. Tap to open lounge.',
@@ -302,14 +303,8 @@ function QrLandingPage() {
     : syncStatusReason === 'reconnecting'
     ? copy.statusReconnecting
     : null
-  const loungeButtonText = isCountdownActive
-    ? `${copy.buttonSyncingCountdownPrefix} ${countdownText}`
-    : waitingForLive
-    ? syncStatusReason
-      ? copy.buttonOpenLoungeNow
-      : copy.buttonSyncingStatus
-    : copy.buttonGoToLounge
-  const shouldDisableLoungeButton = waitingForLive && syncStatusReason === null
+  const loungeButtonText = copy.buttonGoToLounge
+  const shouldDisableLoungeButton = false
 
   useEffect(() => {
     clockOffsetRef.current = clockOffsetMs
@@ -425,7 +420,9 @@ function QrLandingPage() {
         }
 
         const startMs = parseEventStartMs(data.gig_date as string | null, data.gig_start_time as string | null)
-        setEventStartMs(countdownTargetMsFromLink ?? startMs)
+        const mirroredPlaybackState = await readSharedPlaybackState(eventId)
+        const mirroredCountdownTargetMs = mirroredPlaybackState?.countdownTargetMs ?? null
+        setEventStartMs(countdownTargetMsFromLink ?? mirroredCountdownTargetMs ?? startMs)
         setEventRoomOpen(Boolean(data.room_open))
         setSyncStatusReason(null)
       } catch {
