@@ -96,6 +96,11 @@ type RecordingClip = {
   objectUrl: string
 }
 
+type TempoEstimate = {
+  bpm: number
+  confidence: number
+}
+
 type LimiterPresetId = 'transparent' | 'liveSafe' | 'hardClamp'
 
 type LimiterPreset = {
@@ -207,6 +212,82 @@ async function openAudioCacheDb(): Promise<IDBDatabase> {
 
 function fileToCacheKey(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`
+}
+
+function estimateTempoFromBuffer(buffer: AudioBuffer): TempoEstimate | null {
+  const channelData = buffer.getChannelData(0)
+  if (!channelData || channelData.length < 2048) {
+    return null
+  }
+
+  const sampleRate = buffer.sampleRate
+  const targetSeconds = Math.min(120, buffer.duration)
+  const targetLength = Math.max(1, Math.floor(targetSeconds * sampleRate))
+  const slice = channelData.subarray(0, Math.min(channelData.length, targetLength))
+
+  const windowSize = 1024
+  const hopSize = 512
+  const envelope: number[] = []
+
+  for (let index = 0; index + windowSize < slice.length; index += hopSize) {
+    let sum = 0
+    for (let j = 0; j < windowSize; j += 1) {
+      const value = slice[index + j]
+      sum += value * value
+    }
+    envelope.push(Math.sqrt(sum / windowSize))
+  }
+
+  if (envelope.length < 64) {
+    return null
+  }
+
+  const mean = envelope.reduce((acc, value) => acc + value, 0) / envelope.length
+  const centered = envelope.map((value) => value - mean)
+  const energy = centered.reduce((acc, value) => acc + value * value, 0)
+  if (energy <= 0.00001) {
+    return null
+  }
+
+  const envRate = sampleRate / hopSize
+  const minBpm = 60
+  const maxBpm = 200
+  const minLag = Math.floor((60 * envRate) / maxBpm)
+  const maxLag = Math.floor((60 * envRate) / minBpm)
+
+  let bestLag = 0
+  let bestCorr = -Infinity
+
+  for (let lag = minLag; lag <= maxLag; lag += 1) {
+    let corr = 0
+    for (let i = 0; i + lag < centered.length; i += 1) {
+      corr += centered[i] * centered[i + lag]
+    }
+
+    if (corr > bestCorr) {
+      bestCorr = corr
+      bestLag = lag
+    }
+  }
+
+  if (bestLag <= 0) {
+    return null
+  }
+
+  let bpm = (60 * envRate) / bestLag
+  while (bpm < 75) {
+    bpm *= 2
+  }
+  while (bpm > 180) {
+    bpm /= 2
+  }
+
+  const confidence = Math.max(0, Math.min(1, bestCorr / energy))
+
+  return {
+    bpm: Math.round(bpm),
+    confidence,
+  }
 }
 
 function formatClock(seconds: number) {
@@ -600,6 +681,7 @@ function SongStudioPage() {
   const [clickTrackBeatsPerBar, setClickTrackBeatsPerBar] = useState(4)
   const [clickTrackPreIntroBars, setClickTrackPreIntroBars] = useState(1)
   const [clickTrackVolume, setClickTrackVolume] = useState(0.45)
+  const [isDetectingBeat, setIsDetectingBeat] = useState(false)
   const [preCountBeatsRemaining, setPreCountBeatsRemaining] = useState<number | null>(null)
   const [extractionSourceTrackId, setExtractionSourceTrackId] = useState<string | null>(null)
   const [performerMonitorEnabled, setPerformerMonitorEnabled] = useState(false)
@@ -1202,6 +1284,38 @@ function SongStudioPage() {
     setStatusText('Recording started.')
   }
 
+  const detectBeatFromSong = async () => {
+    const track = extractionSourceTrack ?? leadTrack
+    if (!track) {
+      setStatusText('Load a song first, then detect beat.')
+      return
+    }
+
+    const buffer = buffersRef.current.get(track.id)
+    if (!buffer) {
+      setStatusText('Audio buffer unavailable. Re-upload track and try again.')
+      return
+    }
+
+    setIsDetectingBeat(true)
+    try {
+      const result = estimateTempoFromBuffer(buffer)
+      if (!result) {
+        setStatusText('Could not confidently detect beat. Set BPM manually.')
+        return
+      }
+
+      setClickTrackBpm(result.bpm)
+      if (result.confidence < 0.12) {
+        setStatusText(`Estimated BPM ${result.bpm} (low confidence). Please verify by ear.`)
+      } else {
+        setStatusText(`Detected BPM ${result.bpm}. Click track updated.`)
+      }
+    } finally {
+      setIsDetectingBeat(false)
+    }
+  }
+
   const stopRecording = () => {
     const recorder = mediaRecorderRef.current
     if (!recorder || recorder.state === 'inactive') {
@@ -1696,6 +1810,9 @@ function SongStudioPage() {
             Click BPM
             <input type="number" min={40} max={240} value={clickTrackBpm} onChange={(event) => setClickTrackBpm(Number(event.target.value) || 120)} />
           </label>
+          <button type="button" onClick={() => void detectBeatFromSong()} disabled={isDetectingBeat}>
+            {isDetectingBeat ? 'Detecting Beat...' : 'Detect Beat From Song'}
+          </button>
           <label>
             Beats/bar
             <input type="number" min={1} max={12} value={clickTrackBeatsPerBar} onChange={(event) => setClickTrackBeatsPerBar(Number(event.target.value) || 4)} />
