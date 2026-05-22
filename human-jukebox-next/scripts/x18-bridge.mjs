@@ -85,6 +85,34 @@ function sendOscMessages(host, port, messages) {
   })
 }
 
+function buildPresetMessages(presetId) {
+  if (presetId === 'vocalFocus') {
+    return [
+      buildOscPacket('/lr/mix/fader', [{ type: 'f', value: 0.72 }]),
+      buildOscPacket('/ch/01/mix/fader', [{ type: 'f', value: 0.55 }]),
+      buildOscPacket('/ch/02/mix/fader', [{ type: 'f', value: 0.48 }]),
+      buildOscPacket('/ch/03/mix/fader', [{ type: 'f', value: 0.44 }]),
+    ]
+  }
+
+  if (presetId === 'backingWide') {
+    return [
+      buildOscPacket('/lr/mix/fader', [{ type: 'f', value: 0.78 }]),
+      buildOscPacket('/ch/01/mix/pan', [{ type: 'f', value: 0.18 }]),
+      buildOscPacket('/ch/02/mix/pan', [{ type: 'f', value: 0.82 }]),
+      buildOscPacket('/ch/03/mix/pan', [{ type: 'f', value: 0.3 }]),
+      buildOscPacket('/ch/04/mix/pan', [{ type: 'f', value: 0.7 }]),
+    ]
+  }
+
+  return [
+    buildOscPacket('/lr/mix/fader', [{ type: 'f', value: 0.68 }]),
+    buildOscPacket('/ch/01/mix/fader', [{ type: 'f', value: 0.5 }]),
+    buildOscPacket('/ch/02/mix/fader', [{ type: 'f', value: 0.5 }]),
+    buildOscPacket('/ch/03/mix/fader', [{ type: 'f', value: 0.45 }]),
+  ]
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = ''
@@ -164,6 +192,36 @@ const server = createServer(async (req, res) => {
       json(res, 200, { ok: true, applied: channels.length, sent: messages.length })
     } catch (error) {
       json(res, 500, { ok: false, message: error instanceof Error ? error.message : 'Unexpected bridge error' })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && req.url === '/x18/test-connection') {
+    try {
+      const payload = await readBody(req)
+      const host = typeof payload.host === 'string' && payload.host.trim() ? payload.host.trim() : '127.0.0.1'
+      const port = Number(payload.port) || 10024
+
+      await sendOscMessages(host, port, [buildOscPacket('/xinfo')])
+      json(res, 200, { ok: true, message: `Connection probe sent to X18 at ${host}:${port}.` })
+    } catch (error) {
+      json(res, 500, { ok: false, message: error instanceof Error ? error.message : 'Connection test failed' })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && req.url === '/x18/apply-preset') {
+    try {
+      const payload = await readBody(req)
+      const host = typeof payload.host === 'string' && payload.host.trim() ? payload.host.trim() : '127.0.0.1'
+      const port = Number(payload.port) || 10024
+      const presetId = typeof payload.presetId === 'string' ? payload.presetId : 'liveSafe'
+      const messages = buildPresetMessages(presetId)
+
+      await sendOscMessages(host, port, messages)
+      json(res, 200, { ok: true, message: `Preset ${presetId} pushed to X18.` })
+    } catch (error) {
+      json(res, 500, { ok: false, message: error instanceof Error ? error.message : 'Preset push failed' })
     }
     return
   }

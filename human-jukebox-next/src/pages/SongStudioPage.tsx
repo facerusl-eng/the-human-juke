@@ -100,6 +100,8 @@ type RecordingClip = {
   objectUrl: string
 }
 
+type X18PresetId = 'vocalFocus' | 'backingWide' | 'liveSafe'
+
 type TempoEstimate = {
   bpm: number
   confidence: number
@@ -193,6 +195,21 @@ const DEFAULT_MIDI_MAPPINGS: MidiMappings = {
   stop: 61,
   prevSection: 62,
   nextSection: 63,
+}
+
+const X18_PRESETS: Record<X18PresetId, { label: string; description: string }> = {
+  vocalFocus: {
+    label: 'Vocal Focus',
+    description: 'Lower backing slightly and keep a conservative LR master.',
+  },
+  backingWide: {
+    label: 'Backing Wide',
+    description: 'Open up stem field and keep backing support prominent.',
+  },
+  liveSafe: {
+    label: 'Live Safe',
+    description: 'Safer master level and conservative routing for gigs.',
+  },
 }
 
 function dbToGain(db: number) {
@@ -711,6 +728,9 @@ function SongStudioPage() {
   const [x18Host, setX18Host] = useState('192.168.1.100')
   const [x18Port, setX18Port] = useState(10024)
   const [isApplyingX18Routing, setIsApplyingX18Routing] = useState(false)
+  const [isTestingX18Connection, setIsTestingX18Connection] = useState(false)
+  const [isApplyingX18Preset, setIsApplyingX18Preset] = useState(false)
+  const [x18PresetId, setX18PresetId] = useState<X18PresetId>('liveSafe')
 
   const songTrack = tracks.find((track) => track.role === 'song') ?? null
   const stemTracks = tracks.filter((track) => track.role === 'stem')
@@ -1464,6 +1484,61 @@ function SongStudioPage() {
       setStatusText(message)
     } finally {
       setIsApplyingX18Routing(false)
+    }
+  }
+
+  const testX18Connection = async () => {
+    setIsTestingX18Connection(true)
+    try {
+      const response = await fetch(`${x18BridgeUrl.replace(/\/$/, '')}/x18/test-connection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          host: x18Host,
+          port: x18Port,
+        }),
+      })
+
+      const payload = (await response.json()) as { ok?: boolean; message?: string }
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || 'X18 connection test failed')
+      }
+
+      setStatusText(payload.message || 'X18 connection probe sent successfully.')
+    } catch (error) {
+      setStatusText(error instanceof Error ? error.message : 'Could not test X18 connection.')
+    } finally {
+      setIsTestingX18Connection(false)
+    }
+  }
+
+  const applyX18Preset = async () => {
+    setIsApplyingX18Preset(true)
+    try {
+      const response = await fetch(`${x18BridgeUrl.replace(/\/$/, '')}/x18/apply-preset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          host: x18Host,
+          port: x18Port,
+          presetId: x18PresetId,
+        }),
+      })
+
+      const payload = (await response.json()) as { ok?: boolean; message?: string }
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || 'Preset push failed')
+      }
+
+      setStatusText(payload.message || `Applied X18 preset ${X18_PRESETS[x18PresetId].label}.`)
+    } catch (error) {
+      setStatusText(error instanceof Error ? error.message : 'Could not apply X18 preset.')
+    } finally {
+      setIsApplyingX18Preset(false)
     }
   }
 
@@ -2236,6 +2311,26 @@ function SongStudioPage() {
               {isApplyingX18Routing ? 'Sending...' : 'Send To X18 Bridge'}
             </button>
           </label>
+          <label>
+            Test Connection
+            <button type="button" onClick={() => void testX18Connection()} disabled={isTestingX18Connection}>
+              {isTestingX18Connection ? 'Testing...' : 'Test X18 Connection'}
+            </button>
+          </label>
+          <label>
+            Preset Scene
+            <select value={x18PresetId} onChange={(event) => setX18PresetId(event.target.value as X18PresetId)}>
+              {Object.entries(X18_PRESETS).map(([key, preset]) => (
+                <option key={key} value={key}>{preset.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Push Preset
+            <button type="button" onClick={() => void applyX18Preset()} disabled={isApplyingX18Preset}>
+              {isApplyingX18Preset ? 'Pushing...' : 'Push Preset Scene'}
+            </button>
+          </label>
         </div>
         <div className="studio-track-list" role="list" aria-label="Audio tracks">
           {stemTracks.map((track) => (
@@ -2268,6 +2363,7 @@ function SongStudioPage() {
           {stemTracks.length === 0 ? <p className="studio-status">No stem tracks loaded yet.</p> : null}
         </div>
         <p className="studio-status">Master output is controlled in transport and sent as the +1 master path.</p>
+        <p className="studio-status">Preset: {X18_PRESETS[x18PresetId].description}</p>
         <p className="studio-status">Use channel assignments CH 1-10 for stems, then push routing to your X18 bridge.</p>
       </article>
 
