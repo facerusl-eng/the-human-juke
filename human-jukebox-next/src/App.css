@@ -1,3 +1,78 @@
+.performer-karaoke-block {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 0.7rem;
+}
+
+.karaoke-line-block {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.karaoke-chord-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  justify-content: center;
+  font-size: clamp(1.1rem, 2.5vw, 1.45rem);
+  color: #a2e6ff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  min-height: 2.1rem;
+}
+
+.karaoke-chord {
+  min-width: 2.1rem;
+  text-align: center;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.karaoke-chord-active {
+  min-width: 2.1rem;
+  text-align: center;
+  color: #ff4f9a;
+  opacity: 1;
+  text-shadow: 0 0 12px #ff4f9a88;
+  border-bottom: 2px solid #ff4f9a;
+}
+
+.karaoke-word-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  justify-content: center;
+  font-size: clamp(1.3rem, 3vw, 2.1rem);
+  color: #f7f9ff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  min-height: 2.5rem;
+}
+
+.karaoke-word {
+  min-width: 2.1rem;
+  text-align: center;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.karaoke-word-active {
+  min-width: 2.1rem;
+  text-align: center;
+  color: #00c2ff;
+  opacity: 1;
+  text-shadow: 0 0 12px #00c2ff88;
+  border-bottom: 2px solid #00c2ff;
+}
+
+.karaoke-word-placeholder {
+  color: #8899c0;
+  font-size: 1.1rem;
+}
+
+.karaoke-next-line-block {
+  opacity: 0.7;
+}
 .app-shell-next {
   width: min(1120px, calc(100% - 2.4rem));
   margin: 2rem auto 3.2rem;

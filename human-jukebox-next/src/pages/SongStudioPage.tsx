@@ -2630,24 +2630,54 @@ function SongStudioPage() {
             </div>
           </div>
 
-          <div className="performer-hero-grid">
-            <div className="performer-hero-main">
-              <span className="performer-hero-label">Current chord</span>
-              <p>{currentChordHighlight}</p>
-              <small>{activeMonitorSection?.label ?? 'Current section'}</small>
+
+          {/* Karaoke-style lyric/chord display */}
+          <div className="performer-karaoke-block">
+            {/* Current line with chords above words */}
+            <div className="karaoke-line-block">
+              <div className="karaoke-chord-row">
+                {(currentLine?.words ?? []).map((word, idx) => {
+                  // Find chord at/just before this word
+                  const chord = currentLine?.chords?.find((c) => {
+                    const nextWord = currentLine.words[idx + 1]
+                    return c.timeSec >= word.startSec && (!nextWord || c.timeSec < nextWord.startSec)
+                  })
+                  const isActive = syncedTime >= word.startSec && syncedTime < word.endSec
+                  return (
+                    <span key={word.id} className={isActive ? 'karaoke-chord-active' : 'karaoke-chord'}>
+                      {chord ? transposeChord(chord.symbol, displayedTranspose) : '\u00A0'}
+                    </span>
+                  )
+                })}
+              </div>
+              <div className="karaoke-word-row">
+                {(currentLine?.words ?? []).map((word) => {
+                  const isActive = syncedTime >= word.startSec && syncedTime < word.endSec
+                  return (
+                    <span key={word.id} className={isActive ? 'karaoke-word-active' : 'karaoke-word'}>{word.text}</span>
+                  )
+                })}
+                {!currentLine ? <span className="karaoke-word-placeholder">Current line will appear during playback.</span> : null}
+              </div>
             </div>
-            <div className="performer-hero-side">
-              <div>
-                <span>Next chord</span>
-                <p>{nextChordHighlight}</p>
+            {/* Next line with chords above words */}
+            <div className="karaoke-line-block karaoke-next-line-block">
+              <div className="karaoke-chord-row">
+                {(nextLine?.words ?? []).map((word, idx) => {
+                  const chord = nextLine?.chords?.find((c) => {
+                    const nextWord = nextLine.words[idx + 1]
+                    return c.timeSec >= word.startSec && (!nextWord || c.timeSec < nextWord.startSec)
+                  })
+                  return (
+                    <span key={word.id} className="karaoke-chord">{chord ? transposeChord(chord.symbol, displayedTranspose) : '\u00A0'}</span>
+                  )
+                })}
               </div>
-              <div>
-                <span>BPM</span>
-                <p>{clickTrackBpm}</p>
-              </div>
-              <div>
-                <span>Key view</span>
-                <p>{displayedTranspose >= 0 ? `+${displayedTranspose}` : displayedTranspose}</p>
+              <div className="karaoke-word-row karaoke-next-word-row">
+                {(nextLine?.words ?? []).map((word) => (
+                  <span key={word.id} className="karaoke-word">{word.text}</span>
+                ))}
+                {!nextLine ? <span className="karaoke-word-placeholder">Next line preview appears here.</span> : null}
               </div>
             </div>
           </div>
