@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppData } from '../state/AppDataContext'
 
 const NOTE_STORAGE_KEY = 'hj-next-stage-note'
@@ -35,6 +35,8 @@ function readInitialNote() {
 
 function StageModePage() {
   const { data, isLoading, errorMessage, refresh } = useAppData()
+  const pageRootRef = useRef<HTMLElement | null>(null)
+  const wakeLockRef = useRef<{ release?: () => Promise<void> } | null>(null)
   const songs = data?.songs ?? []
   const orderedSet = data?.setBlocks?.find((setBlock) => (setBlock.songIds?.length ?? 0) > 0) ?? null
   const orderedSongs = useMemo(() => {
@@ -52,12 +54,105 @@ function StageModePage() {
   const [semitones, setSemitones] = useState(0)
   const [bpmDelta, setBpmDelta] = useState(0)
   const [stageNote, setStageNote] = useState(readInitialNote)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [wakeLockActive, setWakeLockActive] = useState(false)
+  const [performanceStatus, setPerformanceStatus] = useState<string | null>(null)
 
   const currentSong = orderedSongs[songIndex] ?? null
   const hasSongs = orderedSongs.length > 0
   const baseKey = currentSong?.defaultPerformanceKey ?? currentSong?.originalKey ?? 'C'
   const displayedKey = transposeKey(baseKey, semitones)
   const displayedBpm = Math.max(40, (currentSong?.bpm ?? 100) + bpmDelta)
+
+  useEffect(() => {
+    pageRootRef.current = document.querySelector('section[aria-label="Stage mode page"]')
+
+    const onFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (wakeLockRef.current?.release) {
+        void wakeLockRef.current.release()
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && wakeLockActive) {
+        void requestWakeLock()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [wakeLockActive])
+
+  const requestWakeLock = async () => {
+    if (!(navigator as Navigator & { wakeLock?: { request: (type: 'screen') => Promise<{ release?: () => Promise<void> }> } }).wakeLock) {
+      setPerformanceStatus('Screen wake lock is not supported on this browser.')
+      return
+    }
+
+    try {
+      const wakeLock = await (navigator as Navigator & { wakeLock: { request: (type: 'screen') => Promise<{ release?: () => Promise<void> }> } }).wakeLock.request('screen')
+      wakeLockRef.current = wakeLock
+      setWakeLockActive(true)
+      setPerformanceStatus((current) => current ?? 'Performance mode active. Screen sleep is disabled.')
+    } catch {
+      setWakeLockActive(false)
+      setPerformanceStatus('Could not enable keep-awake mode. Check browser permissions.')
+    }
+  }
+
+  const releaseWakeLock = async () => {
+    if (!wakeLockRef.current?.release) {
+      setWakeLockActive(false)
+      return
+    }
+
+    try {
+      await wakeLockRef.current.release()
+    } finally {
+      wakeLockRef.current = null
+      setWakeLockActive(false)
+    }
+  }
+
+  const togglePerformanceMode = async () => {
+    if (!isFullscreen) {
+      try {
+        if (pageRootRef.current?.requestFullscreen) {
+          await pageRootRef.current.requestFullscreen()
+        } else {
+          setPerformanceStatus('Fullscreen is not available on this browser. Keep-awake mode still works if supported.')
+        }
+      } catch {
+        setPerformanceStatus('Fullscreen request was blocked. Try tapping again.')
+      }
+
+      await requestWakeLock()
+      return
+    }
+
+    if (document.exitFullscreen) {
+      await document.exitFullscreen()
+    }
+    await releaseWakeLock()
+    setPerformanceStatus('Performance mode disabled.')
+  }
 
   return (
     <section className="surface-card page-shell" aria-label="Stage mode page">
@@ -186,6 +281,10 @@ function StageModePage() {
         >
           Next Song
         </button>
+        <button type="button" className="stage-performance-toggle" onClick={() => void togglePerformanceMode()}>
+          {isFullscreen || wakeLockActive ? 'Exit Performance Mode' : 'Enter Performance Mode'}
+        </button>
+        {performanceStatus ? <p className="stage-performance-status">{performanceStatus}</p> : null}
       </footer>
     </section>
   )

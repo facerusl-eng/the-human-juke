@@ -803,8 +803,8 @@
   border-radius: 14px;
   border: 1px solid rgba(0, 194, 255, 0.38);
   background: rgba(6, 10, 22, 0.88);
-  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   padding: 0.65rem;
 }
 
@@ -829,6 +829,25 @@
 
 .stage-perform-bar button:disabled {
   opacity: 0.52;
+}
+
+.stage-performance-toggle {
+  grid-column: 1 / -1;
+  min-height: 3.1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 119, 181, 0.62);
+  background: linear-gradient(120deg, #ff4f9a 0%, #a259ff 55%, #00c2ff 100%);
+  color: #f7fbff;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.stage-performance-status {
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: center;
+  color: #b5b2de;
+  font-size: 0.8rem;
 }
 
 @media (hover: none) and (pointer: coarse) {
@@ -857,8 +876,8 @@
     position: sticky;
     top: max(0.4rem, env(safe-area-inset-top));
     z-index: 10;
-    backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
   }
 
   .hero-next,
@@ -918,6 +937,10 @@
   .stage-perform-bar {
     grid-template-columns: 1fr;
     text-align: center;
+  }
+
+  .stage-performance-toggle {
+    min-height: 3.15rem;
   }
 }
 
