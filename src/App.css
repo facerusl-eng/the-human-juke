@@ -3940,6 +3940,12 @@ body:has(.audience-no-gig-shell) {
     0 0 0 3px rgba(93, 215, 255, 0.2);
 }
 
+.create-gig-shell .create-gig-themed-select option,
+.create-gig-shell .create-gig-themed-select optgroup {
+  color: #0b122b;
+  background: #f6fbff;
+}
+
 .active-gig-notice {
   margin-bottom: 1.2rem;
   padding: 0.75rem 1rem;
