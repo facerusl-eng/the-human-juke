@@ -1490,20 +1490,20 @@
 /* ÔöÇÔöÇ QR image ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
 
 .mirror-qr-image {
-  width: clamp(122px, min(20vw, 18dvh), 300px);
-  height: clamp(122px, min(20vw, 18dvh), 300px);
+  width: clamp(178px, min(26vw, 24dvh), 420px);
+  height: clamp(178px, min(26vw, 24dvh), 420px);
   border-radius: 14px;
   background: #ffffff;
-  padding: clamp(0.2rem, 0.46vw, 0.4rem);
+  padding: clamp(0.36rem, 0.62vw, 0.58rem);
   image-rendering: -webkit-optimize-contrast;
-  image-rendering: pixelated;
+  image-rendering: auto;
   box-sizing: border-box;
   object-fit: contain;
   display: block;
-  border: 1px solid rgba(255, 255, 255, 0.48);
+  border: 2px solid rgba(255, 255, 255, 0.78);
   box-shadow:
-    0 22px 40px rgba(4, 8, 22, 0.36),
-    0 0 28px rgba(93, 215, 255, 0.16);
+    0 26px 48px rgba(4, 8, 22, 0.42),
+    0 0 36px rgba(93, 215, 255, 0.2);
 }
 
 .mirror-brb-qr-image {
@@ -1744,8 +1744,8 @@
 }
 
 .mirror-pre-show-has-countdown .mirror-qr-image {
-  width: clamp(120px, min(19vw, 16.2dvh), 260px);
-  height: clamp(120px, min(19vw, 16.2dvh), 260px);
+  width: clamp(168px, min(24vw, 22dvh), 360px);
+  height: clamp(168px, min(24vw, 22dvh), 360px);
 }
 
 .mirror-pre-show-has-countdown .mirror-countdown-flash-block {
@@ -1793,8 +1793,8 @@
   }
 
   .mirror-pre-show-has-countdown .mirror-qr-image {
-    width: clamp(104px, min(15.2vw, 12.6dvh), 192px);
-    height: clamp(104px, min(15.2vw, 12.6dvh), 192px);
+    width: clamp(136px, min(18.2vw, 15.8dvh), 248px);
+    height: clamp(136px, min(18.2vw, 15.8dvh), 248px);
   }
 
   .mirror-pre-show-has-countdown .mirror-how-it-works p {

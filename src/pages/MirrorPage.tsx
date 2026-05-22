@@ -1646,9 +1646,9 @@ function MirrorPageContent() {
   const activeQrFlashText = showQrFlashText
     ? qrFlashLines[qrFlashTextIndex % qrFlashLines.length] ?? null
     : null
-  const audienceQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(audienceUrl)}`
-  const countdownQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(countdownQrCodeUrl)}`
-  const breakQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1400x1400&ecc=M&margin=8&data=${encodeURIComponent(breakQrCodeUrl)}`
+  const audienceQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=L&margin=16&data=${encodeURIComponent(audienceUrl)}`
+  const countdownQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=L&margin=16&data=${encodeURIComponent(countdownQrCodeUrl)}`
+  const breakQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=L&margin=16&data=${encodeURIComponent(breakQrCodeUrl)}`
   const playbackSong = playbackState?.currentSongId
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null

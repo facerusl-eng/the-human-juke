@@ -3151,9 +3151,10 @@ function EventPage() {
         className={`audience-entry-shell audience-karafun audience-waiting-shell${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
         aria-label="Audience waiting room"
       >
-        <article className="queue-panel audience-entry-card audience-waiting-card">
+        <article className={`queue-panel audience-entry-card audience-waiting-card${waitingRoomFinalCountdownSeconds !== null ? ' audience-waiting-card-final-countdown' : ''}`}>
           {waitingRoomFinalCountdownSeconds !== null ? (
             <div className="audience-final-countdown-overlay" aria-live="assertive" aria-label="Final countdown">
+              <p className="audience-final-countdown-label">{copy.goingLiveNow}</p>
               <p className="audience-final-countdown-number">{waitingRoomFinalCountdownSeconds}</p>
             </div>
           ) : null}
