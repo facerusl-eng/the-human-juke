@@ -188,6 +188,39 @@ function resolveAudienceDestination(
   return queryString ? `/audience?${queryString}` : '/audience'
 }
 
+function resolveBarDestination(customUrl: string | null, audienceDestination: string): string | null {
+  if (!customUrl) {
+    return null
+  }
+
+  try {
+    const targetUrl = new URL(customUrl)
+    const absoluteLoungeUrl = typeof window !== 'undefined'
+      ? new URL(audienceDestination, window.location.origin).toString()
+      : audienceDestination
+
+    if (!targetUrl.searchParams.has('returnUrl')) {
+      targetUrl.searchParams.set('returnUrl', absoluteLoungeUrl)
+    }
+
+    if (!targetUrl.searchParams.has('loungeUrl')) {
+      targetUrl.searchParams.set('loungeUrl', absoluteLoungeUrl)
+    }
+
+    if (!targetUrl.searchParams.has('backUrl')) {
+      targetUrl.searchParams.set('backUrl', absoluteLoungeUrl)
+    }
+
+    if (!targetUrl.searchParams.has('returnPath')) {
+      targetUrl.searchParams.set('returnPath', audienceDestination)
+    }
+
+    return targetUrl.toString()
+  } catch {
+    return customUrl
+  }
+}
+
 function QrLandingPage() {
   const navigate = useNavigate()
   const { search } = useLocation()
@@ -297,6 +330,10 @@ function QrLandingPage() {
     ),
     [audienceLinkVersion, clockOffsetMs, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale],
   )
+  const barDestination = useMemo(
+    () => resolveBarDestination(customUrl, audienceDestination),
+    [audienceDestination, customUrl],
+  )
   const countdownRemainingMs = eventStartMs === null ? null : eventStartMs - nowMs
   const waitingForLive = Boolean(eventId) && !eventRoomOpen
   const isCountdownActive = waitingForLive && countdownRemainingMs !== null && countdownRemainingMs > 0
@@ -308,7 +345,7 @@ function QrLandingPage() {
     : null
   const loungeButtonText = copy.buttonGoToLounge
   const shouldDisableLoungeButton = false
-  const hasBarLink = Boolean(customUrl && shouldShowVisualContent)
+  const hasBarLink = Boolean(barDestination && shouldShowVisualContent)
 
   useEffect(() => {
     clockOffsetRef.current = clockOffsetMs
@@ -484,9 +521,7 @@ function QrLandingPage() {
       <div className="qr-landing-button-overlay">
         {hasBarLink ? (
           <a
-            href={customUrl as string}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={barDestination as string}
             className="qr-landing-button qr-landing-button-link"
           >
             {copy.buttonCheckOutBar}
@@ -511,9 +546,9 @@ function QrLandingPage() {
       </div>
 
       <div className="qr-landing-container">
-        {customUrl && shouldShowVisualContent ? (
+        {barDestination && shouldShowVisualContent ? (
           <iframe
-            src={customUrl}
+            src={barDestination}
             className="qr-landing-iframe"
             title="Audience landing visual content"
             sandbox="allow-same-origin allow-forms allow-scripts allow-popups"
