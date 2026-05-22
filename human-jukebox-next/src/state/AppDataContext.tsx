@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { fetchAppDataset } from '../data/mockApi'
 import type { AppDataset } from '../types/domain'
+import type { AppDataClient } from '../data/AppDataClient'
+import { getAppDataClient } from '../data/getAppDataClient'
 
 type AppDataContextValue = {
   data: AppDataset | null
@@ -13,26 +14,28 @@ const AppDataContext = createContext<AppDataContextValue | null>(null)
 
 type AppDataProviderProps = {
   children: ReactNode
+  client?: AppDataClient
 }
 
-export function AppDataProvider({ children }: AppDataProviderProps) {
+export function AppDataProvider({ children, client }: AppDataProviderProps) {
   const [data, setData] = useState<AppDataset | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const resolvedClient = useMemo(() => client ?? getAppDataClient(), [client])
 
   const refresh = useCallback(async () => {
     setIsLoading(true)
     setErrorMessage(null)
 
     try {
-      const dataset = await fetchAppDataset()
+      const dataset = await resolvedClient.fetchDataset()
       setData(dataset)
     } catch {
       setErrorMessage('Could not load app dataset. Try again.')
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [resolvedClient])
 
   useEffect(() => {
     void refresh()
