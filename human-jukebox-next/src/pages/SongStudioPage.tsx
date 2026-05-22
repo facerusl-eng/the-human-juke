@@ -540,9 +540,11 @@ function SongStudioPage() {
   const [clickTrackPreIntroBars, setClickTrackPreIntroBars] = useState(1)
   const [clickTrackVolume, setClickTrackVolume] = useState(0.45)
   const [preCountBeatsRemaining, setPreCountBeatsRemaining] = useState<number | null>(null)
+  const [extractionSourceTrackId, setExtractionSourceTrackId] = useState<string | null>(null)
   const [performerMonitorEnabled, setPerformerMonitorEnabled] = useState(false)
 
   const leadTrack = tracks[0] ?? null
+  const extractionSourceTrack = tracks.find((track) => track.id === extractionSourceTrackId) ?? leadTrack
   const totalDurationSec = leadTrack?.durationSec ?? 0
 
   const currentLineIndex = useMemo(() => {
@@ -867,7 +869,13 @@ function SongStudioPage() {
       })
     }
 
-    setTracks((current) => [...current, ...nextTracks])
+    setTracks((current) => {
+      const merged = [...current, ...nextTracks]
+      if (!extractionSourceTrackId && nextTracks.length > 0) {
+        setExtractionSourceTrackId(nextTracks[0].id)
+      }
+      return merged
+    })
     setStatusText(`${nextTracks.length} track(s) loaded. Run auto-generate to build lyric/chord sync.`)
   }
 
@@ -875,7 +883,7 @@ function SongStudioPage() {
     setIsGenerating(true)
 
     try {
-      const chart = await requestAutoChart(leadTrack)
+      const chart = await requestAutoChart(extractionSourceTrack)
       setChartLines(chart.lines)
       setCurrentTimeSec(0)
       setStatusText(chart.statusMessage)
@@ -885,12 +893,12 @@ function SongStudioPage() {
   }
 
   const onApplyManualLyrics = () => {
-    if (!leadTrack) {
-      setStatusText('Upload a lead track first, then add manual lyrics.')
+    if (!extractionSourceTrack) {
+      setStatusText('Upload a song track first, then add manual lyrics.')
       return
     }
 
-    const chart = buildChartFromLyrics(manualLyricsInput, leadTrack.durationSec)
+    const chart = buildChartFromLyrics(manualLyricsInput, extractionSourceTrack.durationSec)
     setChartLines(chart.lines)
     setCurrentTimeSec(0)
     setStatusText('Manual lyrics added. Use Edit Mode to polish exact sync and chord placement.')
@@ -1195,15 +1203,15 @@ function SongStudioPage() {
     <section className="surface-card page-shell" aria-label="Song studio page">
       <header className="page-header">
         <p className="section-kicker">Song Studio</p>
-        <h2>Upload audio, auto-generate chart, and perform with synced lyrics/chords</h2>
+        <h2>Extract lyrics/chords from your song and perform with synced monitor controls</h2>
         <p>
-          WAV/MP3 import, two-line karaoke flow, sync editor, capo + transpose, and stem mixer for backing tracks.
+          Upload one clean song track for extraction, then optionally add stems for live mixing.
         </p>
       </header>
 
       <article className="studio-panel">
         <div className="studio-upload-row">
-          <label className="studio-upload-btn" htmlFor="studio-audio-upload">Upload Lead/Stem Tracks</label>
+          <label className="studio-upload-btn" htmlFor="studio-audio-upload">Upload Song/Stems</label>
           <input
             id="studio-audio-upload"
             type="file"
@@ -1230,6 +1238,22 @@ function SongStudioPage() {
           />
         </div>
         <p className="studio-status">{statusText}</p>
+
+        <label>
+          Extraction source track
+          <select
+            value={extractionSourceTrack?.id ?? ''}
+            onChange={(event) => setExtractionSourceTrackId(event.target.value || null)}
+          >
+            {tracks.map((track) => (
+              <option key={track.id} value={track.id}>{track.name}</option>
+            ))}
+            {tracks.length === 0 ? <option value="">No track loaded</option> : null}
+          </select>
+        </label>
+        <p className="studio-status">
+          Tip: choose the cleanest full-song audio file as extraction source for best lyrics/chord accuracy.
+        </p>
 
         <div className="studio-manual-lyrics">
           <label htmlFor="manual-lyrics-input">Add Lyrics (manual fallback)</label>

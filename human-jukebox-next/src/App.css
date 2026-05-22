@@ -902,6 +902,24 @@
   gap: 0.4rem;
 }
 
+.studio-panel > label {
+  display: grid;
+  gap: 0.2rem;
+  color: #b5b2de;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.studio-panel > label select,
+.studio-transport-row select {
+  min-height: 2.35rem;
+  border-radius: 10px;
+  border: 1px solid rgba(162, 89, 255, 0.34);
+  background: rgba(9, 8, 20, 0.86);
+  color: #edf3ff;
+  padding: 0 0.45rem;
+}
+
 .studio-manual-lyrics label {
   color: #b5b2de;
   font-size: 0.8rem;
