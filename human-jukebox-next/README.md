@@ -1,73 +1,75 @@
-# React + TypeScript + Vite
+# Human Jukebox Next
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Isolated next-generation frontend project. This app does not modify or run inside the existing `the-human-juke-main` app.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Build:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+## Data Provider Modes
+
+The app uses a pluggable data adapter architecture.
+
+- `mock` (default): local mock data
+- `supabase`: live data from Supabase tables
+
+Configuration is done through Vite env vars.
+
+1. Copy `.env.example` to `.env`
+2. Choose provider mode via `VITE_APP_DATA_PROVIDER`
+
+Example mock mode:
+
+```env
+VITE_APP_DATA_PROVIDER=mock
+```
+
+Example Supabase mode:
+
+```env
+VITE_APP_DATA_PROVIDER=supabase
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_ANON_KEY
+```
+
+Optional table name overrides:
+
+```env
+VITE_SUPABASE_SONGS_TABLE=songs
+VITE_SUPABASE_SET_BLOCKS_TABLE=set_blocks
+VITE_SUPABASE_LIVE_CONSOLE_TABLE=live_console_snapshots
+```
+
+## Expected Supabase Tables
+
+When using `supabase` mode, the adapter expects:
+
+### songs
+- `id` text/uuid
+- `title` text
+- `artist` text
+- `length` text
+- `energy` text (`Low`, `Medium`, `High`)
+- `tags` text[]
+
+### set_blocks
+- `id` text/uuid
+- `name` text
+- `songs` int
+- `vibe` text
+- `duration` text
+
+### live_console_snapshots
+- `state` text (`pre_show`, `live`, `break`)
+- `next_transition_in` text
+- `sync_latency_ms` int
+- `created_at` timestamp (used for latest snapshot ordering)
