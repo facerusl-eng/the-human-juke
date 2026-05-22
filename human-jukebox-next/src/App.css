@@ -812,3 +812,85 @@
     margin-top: 0.92rem;
   }
 }
+
+/* Final theme lock: keep human-jukebox-next on Human Jukebox neon-dark palette. */
+.app-shell-next .surface-card,
+.app-shell-next .stage-panel,
+.app-shell-next .setlist-card,
+.app-shell-next .song-row,
+.app-shell-next .console-panel,
+.app-shell-next .diagnostics-item,
+.app-shell-next .sprint-item,
+.app-shell-next .metric-card,
+.app-shell-next .capability-card,
+.app-shell-next .top-nav,
+.app-shell-next .hero-next,
+.app-shell-next .sprint-track,
+.app-shell-next .diagnostics-surface,
+.app-shell-next .page-state {
+  border-color: rgba(162, 89, 255, 0.34);
+  background:
+    radial-gradient(circle at 12% 12%, rgba(255, 79, 154, 0.1) 0%, transparent 42%),
+    radial-gradient(circle at 88% 18%, rgba(0, 194, 255, 0.1) 0%, transparent 40%),
+    linear-gradient(155deg, rgba(15, 10, 30, 0.96), rgba(10, 8, 20, 0.97));
+}
+
+.app-shell-next .hero-next h1,
+.app-shell-next .page-header h2,
+.app-shell-next .section-head h2,
+.app-shell-next .song-row h3,
+.app-shell-next .setlist-card h3,
+.app-shell-next .console-panel h3,
+.app-shell-next .stage-stat-value,
+.app-shell-next .diagnostics-item-head h3,
+.app-shell-next .metric-value,
+.app-shell-next .brand-mark {
+  color: #f7f9ff;
+}
+
+.app-shell-next .hero-subcopy,
+.app-shell-next .page-header p,
+.app-shell-next .section-kicker,
+.app-shell-next .song-row p,
+.app-shell-next .setlist-card p,
+.app-shell-next .setlist-vibe,
+.app-shell-next .panel-label,
+.app-shell-next .diagnostics-detail,
+.app-shell-next .diagnostics-footer p,
+.app-shell-next .stage-meta-row,
+.app-shell-next .stage-order-list li,
+.app-shell-next .lyrics-preview,
+.app-shell-next .song-pill {
+  color: #b5b2de;
+}
+
+.app-shell-next .library-toolbar button,
+.app-shell-next .setlist-card button,
+.app-shell-next .action-row button,
+.app-shell-next .ghost-cta,
+.app-shell-next .diagnostics-footer button {
+  color: #dff8ff;
+  border-color: rgba(0, 194, 255, 0.56);
+  background: linear-gradient(140deg, rgba(12, 10, 28, 0.92), rgba(18, 14, 38, 0.94));
+}
+
+.app-shell-next .library-toolbar .chip-active,
+.app-shell-next .nav-links a.active,
+.app-shell-next .primary-cta,
+.app-shell-next .action-row .btn-live,
+.app-shell-next .action-row .btn-break {
+  color: #f7fbff;
+  background: linear-gradient(120deg, #ff4f9a 0%, #a259ff 55%, #00c2ff 100%);
+  border-color: rgba(255, 119, 181, 0.62);
+}
+
+.app-shell-next .stage-panel-note textarea {
+  color: #edf3ff;
+  border-color: rgba(162, 89, 255, 0.34);
+  background: rgba(9, 8, 20, 0.86);
+}
+
+.app-shell-next .lyrics-preview {
+  border-color: rgba(0, 194, 255, 0.38);
+  background: rgba(9, 14, 30, 0.86);
+}
