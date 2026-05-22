@@ -182,6 +182,76 @@ function readIntroAudioPlayLockForEvent(eventId: string | null): IntroAudioPlayL
   }
 }
 
+function acquireIntroAudioPlayLockForEvent(eventId: string): string | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const now = Date.now()
+  const ownerId = `${eventId}:${now}:${Math.random().toString(36).slice(2)}`
+
+  try {
+    const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+
+    if (existingRaw) {
+      const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
+      const sameEvent = existingLock.eventId === eventId
+      const stillValid = typeof existingLock.expiresAt === 'number' && existingLock.expiresAt > now
+
+      if (sameEvent && stillValid) {
+        return null
+      }
+    }
+
+    const nextLock: IntroAudioPlayLock = {
+      eventId,
+      ownerId,
+      expiresAt: now + 20_000,
+    }
+
+    window.localStorage.setItem(INTRO_AUDIO_LOCK_STORAGE_KEY, JSON.stringify(nextLock))
+
+    const confirmationRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+    if (!confirmationRaw) {
+      return null
+    }
+
+    const confirmation = JSON.parse(confirmationRaw) as Partial<IntroAudioPlayLock>
+    return confirmation.ownerId === ownerId && confirmation.eventId === eventId ? ownerId : null
+  } catch {
+    return ownerId
+  }
+}
+
+function releaseIntroAudioPlayLockForEvent(eventId: string, ownerId: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+    if (!existingRaw) {
+      return
+    }
+
+    const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
+    if (existingLock.eventId === eventId && existingLock.ownerId === ownerId) {
+      window.localStorage.removeItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+    }
+  } catch {
+    // Best-effort lock release only.
+  }
+}
+
+async function playIntroAudioForMirrorAutoLive(introAudioUrl: string) {
+  const introAudio = new Audio(introAudioUrl)
+  introAudio.muted = false
+  introAudio.volume = 1
+  introAudio.currentTime = 0
+  introAudio.preload = 'auto'
+  await introAudio.play()
+}
+
 function parseVenueLogoLayoutPreviewMessage(raw: unknown): MirrorVenueLogoLayoutPreviewMessage | null {
   if (!raw || typeof raw !== 'object') {
     return null
@@ -2270,6 +2340,18 @@ function MirrorPageContent() {
       try {
         await setRoomOpen(true)
 
+        if (event.introAudioUrl) {
+          const introLockOwner = acquireIntroAudioPlayLockForEvent(event.id)
+
+          if (introLockOwner) {
+            try {
+              await playIntroAudioForMirrorAutoLive(event.introAudioUrl)
+            } finally {
+              releaseIntroAudioPlayLockForEvent(event.id, introLockOwner)
+            }
+          }
+        }
+
         if (nowPlaying?.id) {
           await writeSharedPlaybackState(event.id, {
             currentSongId: nowPlaying.id,
@@ -3953,8 +4035,8 @@ function MirrorPageContent() {
 
             {/* ── TOP: headline + status ── */}
             <div className="mirror-pre-show-top">
-              <h1 className="mirror-pre-show-title">Welcome to the show,<br />legends and troublemakers!</h1>
-              <p className="mirror-pre-show-subtitle">Make yourselves comfy — tonight runs on requests, applause, and questionable decisions.</p>
+              <h1 className="mirror-pre-show-title">Welcome to The Human Jukebox</h1>
+              <p className="mirror-pre-show-subtitle">Get ready to sing, request your favorites, and shape tonight's setlist together.</p>
               {showCountdown ? (
                 <div className="mirror-countdown-card" aria-label="Countdown to show start">
                   <p className="mirror-countdown-label">{countdownCopy.startingIn}</p>

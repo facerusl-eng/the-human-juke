@@ -1269,7 +1269,8 @@ function EventPage() {
       ? candidateTarget
       : null
   }, [getAudienceNowMs, playbackState?.countdownTargetMs])
-  const effectiveCountdownTargetMs = requestedCountdownTargetMs ?? mirroredCountdownTargetMs
+  // Prefer mirrored host state when available so audience/mirror countdowns stay aligned.
+  const effectiveCountdownTargetMs = mirroredCountdownTargetMs ?? requestedCountdownTargetMs
   const hasRequestedEventParam = Boolean(requestedEventId)
   const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => getAudienceNowMs())
   const waitingRoomStartMs = useMemo(() => {
@@ -1304,6 +1305,11 @@ function EventPage() {
   const showGoingLiveNowBanner = waitingRoomRemainingMs !== null
     && waitingRoomRemainingMs <= 10_000
     && waitingRoomRemainingMs > -15_000
+  const waitingRoomFinalCountdownSeconds = waitingRoomRemainingMs !== null
+    && waitingRoomRemainingMs > 0
+    && waitingRoomRemainingMs <= 10_000
+    ? Math.ceil(waitingRoomRemainingMs / 1000)
+    : null
   const duplicateRequestsBlocked = event ? !event.allowDuplicateRequests : false
   const activeRequestCap = event?.maxActiveRequestsPerUser ?? null
   const queueSizeCap = event?.maxQueueSize ?? null
@@ -1408,8 +1414,8 @@ function EventPage() {
         joining: 'Går ind...',
         welcome: 'Velkommen! 🎤',
         waitingGreeting: 'Hej',
-        waitingTitle: 'Velkommen til publikumsloungen',
-        waitingCopy: 'Du er klar til næste show. Hold denne side åben, så går vi live herfra.',
+        waitingTitle: 'Velkommen til The Human Jukebox',
+        waitingCopy: 'Showet starter snart. Hold denne side åben, så går vi live med det samme.',
         waitingEndedTitle: 'Aftenens gig er afsluttet.',
         waitingEndedCopy: 'Tak for i aften. Hold øje med de næste gigs her i appen.',
         encoreThanksEyebrow: 'Tak for i aften',
@@ -1464,8 +1470,8 @@ function EventPage() {
         joining: 'Fer inn...',
         welcome: 'Velkomin! 🎤',
         waitingGreeting: 'Halló',
-        waitingTitle: 'Velkomin i ahorfendastofuna',
-        waitingCopy: 'Thu ert tilbúin(n) fyrir naesta vidburd. Haltu sidunni opinni og vid foru live her.',
+        waitingTitle: 'Velkomin í The Human Jukebox',
+        waitingCopy: 'Sýningin byrjar bráðum. Hafðu þessa síðu opna svo þú ferð beint í live.',
         waitingEndedTitle: 'Tónleikunum er lokið.',
         waitingEndedCopy: 'Takk fyrir kvöldið. Skoðaðu næstu viðburði hér í appinu.',
         encoreThanksEyebrow: 'Takk fyrir kvöldið',
@@ -1519,8 +1525,8 @@ function EventPage() {
         joining: 'Joining...',
         welcome: 'Welcome! 🎤',
         waitingGreeting: 'Hi',
-        waitingTitle: 'Welcome to the audience lounge',
-        waitingCopy: 'You are ready for the next show. Keep this page open and we will go live here.',
+        waitingTitle: 'Welcome to The Human Jukebox',
+        waitingCopy: 'Showtime is almost here. Keep this page open and you will switch to live automatically.',
         waitingEndedTitle: 'Tonight\'s gig has ended.',
         waitingEndedCopy: 'Thanks for joining. Check upcoming gigs in the audience app.',
         encoreThanksEyebrow: 'Thanks for tonight',
@@ -3136,6 +3142,11 @@ function EventPage() {
         aria-label="Audience waiting room"
       >
         <article className="queue-panel audience-entry-card audience-waiting-card">
+          {waitingRoomFinalCountdownSeconds !== null ? (
+            <div className="audience-final-countdown-overlay" aria-live="assertive" aria-label="Final countdown">
+              <p className="audience-final-countdown-number">{waitingRoomFinalCountdownSeconds}</p>
+            </div>
+          ) : null}
           <p className="eyebrow audience-entry-eyebrow">{audienceName ? `${copy.waitingGreeting} ${audienceName}` : copy.entryEyebrow}</p>
           <h1>{waitingRoomTitle}</h1>
           <p className="subcopy audience-entry-copy">{waitingRoomCopy}</p>
