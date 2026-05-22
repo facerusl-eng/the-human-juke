@@ -1733,21 +1733,24 @@ function MirrorPageContent() {
 
     const castUrlText = castUrl.toString()
     const userAgent = window.navigator.userAgent
-    const isChromiumBrowser = /Chrome|Chromium|Edg\//.test(userAgent)
+    const isEdgeBrowser = /Edg\//.test(userAgent)
+    const isChromiumBrowser = /Chrome|Chromium/.test(userAgent) || isEdgeBrowser
 
     const castTab = window.open(castUrlText, '_blank', 'noopener,noreferrer')
 
     if (!castTab) {
-      setMirrorWarningMessage('Cast window was blocked. Allow pop-ups, then use browser menu > Cast media to device.')
+      setMirrorWarningMessage('Cast window was blocked. Allow pop-ups, then in Edge open menu > Cast media to device.')
       return
     }
 
     castTab.focus()
 
-    if (isChromiumBrowser) {
-      setMirrorWarningMessage('Cast tab opened. Use browser menu > Cast... > Sources > Cast tab to find Chromecast.')
+    if (isEdgeBrowser) {
+      setMirrorWarningMessage('Edge cast tab opened. In Edge: menu (three dots) > Cast media to device > Sources > Cast tab.')
+    } else if (isChromiumBrowser) {
+      setMirrorWarningMessage('Cast tab opened. In browser: menu > Cast... > Sources > Cast tab.')
     } else {
-      setMirrorWarningMessage('Cast tab opened. For Chromecast discovery, open this tab in Chrome or Edge and use menu > Cast...')
+      setMirrorWarningMessage('Cast tab opened. For reliable casting, open this tab in Edge and use menu > Cast media to device.')
     }
 
     if (!getActiveFullscreenElement()) {
@@ -3790,7 +3793,7 @@ function MirrorPageContent() {
 
           <div className="mirror-header-live-stack">
             {!hideControlsForAudience ? (
-              <p className="mirror-edge-cast-hint" role="note">Chromecast tip: browser menu (three dots), then Cast..., then Sources, then Cast tab.</p>
+              <p className="mirror-edge-cast-hint" role="note">Edge cast tip: menu (three dots), then Cast media to device, then Sources, then Cast tab.</p>
             ) : null}
             {mirrorWarning ? (
               <p className="mirror-warning" role="status">{mirrorWarning}</p>
@@ -3826,14 +3829,14 @@ function MirrorPageContent() {
             <button
               type="button"
               className="mirror-contrast-button"
-              aria-label="Cast mirror to screen"
-              title="Cast to screen"
+              aria-label="Cast mirror using Edge"
+              title="Cast using Edge"
               onClick={() => {
                 void launchCastToScreen()
               }}
             >
               <span className="mirror-control-button-icon" aria-hidden="true">CS</span>
-              Cast Screen
+              Edge Cast
             </button>
             <button
               type="button"
@@ -3878,7 +3881,7 @@ function MirrorPageContent() {
               Venue: {venueMode === 'club' ? 'Club' : venueMode === 'festival' ? 'Festival' : 'Lounge'}
             </button>
             <p className="mirror-control-shortcuts" aria-live="polite">
-              Shortcuts: <strong>E</strong> edit mode, <strong>F</strong> fullscreen, <strong>C</strong> cast screen, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
+              Shortcuts: <strong>E</strong> edit mode, <strong>F</strong> fullscreen, <strong>C</strong> Edge cast, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
             </p>
             <div className="mirror-banner-editor">
               <label className="mirror-banner-label" htmlFor="mirror-banner-input">📢 Scrolling Banner</label>
