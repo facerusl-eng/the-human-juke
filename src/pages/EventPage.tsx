@@ -1292,7 +1292,7 @@ function EventPage() {
 
     const remainingMs = waitingRoomStartMs - waitingRoomNowMs
     if (remainingMs <= 0) {
-      return '00:00:00'
+      return null
     }
 
     return formatCompactCountdownLabel(remainingMs)

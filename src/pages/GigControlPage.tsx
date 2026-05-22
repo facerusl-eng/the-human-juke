@@ -938,15 +938,19 @@ function GigControlPage() {
     sendSpotifyTransportCommand('pause')
     void sendSpotifyWebApiTransportCommand('pause')
 
-    try {
-      await introAudio.play()
-    } catch (error) {
+    let restoredSpotify = false
+
+    const restoreSpotifyPlayback = () => {
+      if (restoredSpotify) {
+        return
+      }
+
+      restoredSpotify = true
       sendSpotifyTransportCommand('play')
       void sendSpotifyWebApiTransportCommand('play')
-      throw error
     }
 
-    await new Promise<void>((resolve) => {
+    const completionPromise = new Promise<void>((resolve) => {
       const cleanup = () => {
         introAudio.removeEventListener('ended', onEnded)
         introAudio.removeEventListener('error', onError)
@@ -954,21 +958,28 @@ function GigControlPage() {
 
       const onEnded = () => {
         cleanup()
-        sendSpotifyTransportCommand('play')
-        void sendSpotifyWebApiTransportCommand('play')
+        restoreSpotifyPlayback()
         resolve()
       }
 
       const onError = () => {
         cleanup()
-        sendSpotifyTransportCommand('play')
-        void sendSpotifyWebApiTransportCommand('play')
+        restoreSpotifyPlayback()
         resolve()
       }
 
       introAudio.addEventListener('ended', onEnded, { once: true })
       introAudio.addEventListener('error', onError, { once: true })
     })
+
+    try {
+      await introAudio.play()
+    } catch (error) {
+      restoreSpotifyPlayback()
+      throw error
+    }
+
+    await completionPromise
   }, [sendSpotifyTransportCommand])
 
   useEffect(() => {

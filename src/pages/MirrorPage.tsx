@@ -1844,7 +1844,7 @@ function MirrorPageContent() {
   const countdownDisplayRemainingMs = countdownRemainingMs === null
     ? null
     : Math.max(0, countdownRemainingMs)
-  const showCountdown = !isLive && Boolean(countdownTarget)
+  const showCountdown = !isLive && Boolean(countdownTarget) && countdownRemainingMs !== null && countdownRemainingMs > 0
   const showCountdownQrLink = event?.mirrorCountdownShowQrLink ?? true
   const countdownLabel = showCountdown && countdownDisplayRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownDisplayRemainingMs)
