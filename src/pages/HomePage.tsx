@@ -90,9 +90,9 @@ const COPY = {
     ctaSub: 'Pubber, barer, restauranter, private fester og festivaler. En besked er nok - jeg klarer resten.',
     ctaBook: 'Book showet',
     ctaDemo: 'Prøv demo først',
-    signupLabel: 'Få ledige datoer på e-mail',
-    signupPlaceholder: 'dig@spillested.dk',
-    signupCta: 'Få opdateringer',
+    signupLabel: 'Få løbende besked om ledige datoer på e-mail fra værten',
+    signupPlaceholder: 'søren@værtshus.dk',
+    signupCta: 'Få løbende opdateringer',
   },
 }
 
