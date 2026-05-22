@@ -364,6 +364,135 @@
   font-size: 0.82rem;
 }
 
+/* Human Jukebox neon-dark palette overrides */
+.app-shell-next {
+  color: var(--ink, #edf3ff);
+}
+
+.top-nav,
+.hero-next,
+.surface-card,
+.sprint-track,
+.diagnostics-surface,
+.capability-card,
+.metric-card,
+.setlist-card,
+.console-panel,
+.song-row,
+.sprint-item,
+.diagnostics-item,
+.stage-panel,
+.page-state {
+  border-color: rgba(162, 89, 255, 0.34);
+  background:
+    radial-gradient(circle at 12% 12%, rgba(255, 79, 154, 0.09) 0%, transparent 42%),
+    radial-gradient(circle at 88% 18%, rgba(0, 194, 255, 0.09) 0%, transparent 40%),
+    linear-gradient(155deg, rgba(15, 10, 30, 0.96), rgba(10, 8, 20, 0.97));
+  box-shadow:
+    0 16px 34px rgba(2, 4, 10, 0.46),
+    0 0 22px rgba(162, 89, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.brand-mark,
+.hero-next h1,
+.metric-value,
+.section-head h2,
+.page-header h2,
+.capability-card h2,
+.sprint-item h3,
+.song-row h3,
+.setlist-card h3,
+.console-panel h3,
+.diagnostics-item-head h3,
+.stage-stat-value,
+.stage-order-active {
+  color: #f7f9ff;
+}
+
+.hero-subcopy,
+.metric-label,
+.section-kicker,
+.sprint-item p,
+.song-row p,
+.setlist-card p,
+.diagnostics-detail,
+.diagnostics-footer p,
+.page-header p,
+.stage-meta-row,
+.lyrics-preview,
+.stage-order-list li,
+.panel-label,
+.setlist-vibe,
+.song-pill {
+  color: #b5b2de;
+}
+
+.nav-links a {
+  color: #d7e4ff;
+  border-color: rgba(0, 194, 255, 0.34);
+  background: rgba(10, 13, 28, 0.52);
+}
+
+.nav-links a.active,
+.library-toolbar .chip-active,
+.action-row .btn-live {
+  color: #f7fbff;
+  background: linear-gradient(120deg, #ff4f9a 0%, #a259ff 55%, #00c2ff 100%);
+  border-color: rgba(255, 119, 181, 0.62);
+  box-shadow: 0 0 18px rgba(255, 79, 154, 0.24);
+}
+
+.primary-cta,
+.action-row .btn-break {
+  color: #f7fbff;
+  background: linear-gradient(120deg, #ff4f9a 0%, #a259ff 55%, #00c2ff 100%);
+  border-color: rgba(255, 119, 181, 0.62);
+  box-shadow: 0 14px 28px rgba(162, 89, 255, 0.24), 0 0 18px rgba(255, 79, 154, 0.28);
+}
+
+.ghost-cta,
+.library-toolbar button,
+.setlist-card button,
+.action-row button,
+.diagnostics-footer button {
+  color: #dff8ff;
+  border-color: rgba(0, 194, 255, 0.56);
+  background: linear-gradient(140deg, rgba(12, 10, 28, 0.92), rgba(18, 14, 38, 0.94));
+  box-shadow: 0 0 14px rgba(0, 194, 255, 0.16);
+}
+
+.provider-pill,
+.status-ok {
+  color: #e8fcff;
+  background: rgba(0, 194, 255, 0.2);
+  border: 1px solid rgba(0, 194, 255, 0.42);
+}
+
+.status-idle,
+.status-checking,
+.status-skipped {
+  color: #d2c9f1;
+  background: rgba(162, 89, 255, 0.16);
+}
+
+.status-error,
+.page-state-error {
+  color: #ffd6e9;
+  border-color: rgba(255, 79, 154, 0.44);
+  background: rgba(94, 17, 49, 0.45);
+}
+
+.stage-panel-note textarea {
+  color: #edf3ff;
+  border-color: rgba(162, 89, 255, 0.34);
+  background: rgba(9, 8, 20, 0.86);
+}
+
+.cue-list {
+  color: #dce6ff;
+}
+
 .stage-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

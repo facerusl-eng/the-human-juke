@@ -1,10 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Syne:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
 
 :root {
-  --font-body: 'Space Grotesk', 'Trebuchet MS', sans-serif;
-  --font-display: 'Syne', 'Avenir Next', sans-serif;
-  --text-body: #1d4549;
-  --bg-page: #f4f1e8;
+  --font-body: 'Inter', 'Segoe UI', sans-serif;
+  --font-display: 'Montserrat', 'Inter', sans-serif;
+  --text-body: #edf3ff;
+  --bg-page: #05040b;
+  --canvas: #05040b;
+  --canvas-alt: #0b0715;
+  --panel: #100a1d;
+  --panel-alt: #16102a;
+  --panel-border: rgba(162, 89, 255, 0.36);
+  --ink: #edf3ff;
+  --ink-soft: #b5b2de;
+  --ink-strong: #f7f9ff;
+  --neon-pink: #ff4f9a;
+  --neon-blue: #00c2ff;
+  --neon-purple: #a259ff;
 }
 
 * {
@@ -23,9 +34,10 @@ body {
   color: var(--text-body);
   line-height: 1.42;
   background:
-    radial-gradient(circle at 8% 5%, rgba(20, 133, 130, 0.16) 0%, transparent 30%),
-    radial-gradient(circle at 90% 4%, rgba(254, 174, 107, 0.18) 0%, transparent 32%),
-    linear-gradient(170deg, #f4f1e8 0%, #eef6ef 52%, #eceff9 100%);
+    radial-gradient(circle at 12% 8%, rgba(255, 79, 154, 0.22) 0%, transparent 36%),
+    radial-gradient(circle at 86% 14%, rgba(0, 194, 255, 0.2) 0%, transparent 35%),
+    radial-gradient(circle at 54% 112%, rgba(162, 89, 255, 0.2) 0%, transparent 40%),
+    linear-gradient(160deg, #05040b 0%, #0b0918 52%, #07050f 100%);
 }
 
 h1,
