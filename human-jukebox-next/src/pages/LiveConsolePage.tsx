@@ -1,4 +1,9 @@
+import { useAppData } from '../state/AppDataContext'
+
 function LiveConsolePage() {
+  const { data, isLoading, errorMessage, refresh } = useAppData()
+  const liveConsole = data?.liveConsole ?? null
+
   return (
     <section className="surface-card page-shell" aria-label="Live console page">
       <header className="page-header">
@@ -9,11 +14,19 @@ function LiveConsolePage() {
         </p>
       </header>
 
+      {isLoading ? <p className="page-state">Loading live console state...</p> : null}
+      {errorMessage ? (
+        <div className="page-state page-state-error" role="alert">
+          <p>{errorMessage}</p>
+          <button type="button" onClick={() => void refresh()}>Retry</button>
+        </div>
+      ) : null}
+
       <div className="console-grid">
         <article className="console-panel">
           <p className="panel-label">Show State</p>
-          <h3>Pre-show countdown active</h3>
-          <p>Next transition in 07:18</p>
+          <h3>{liveConsole ? `Current mode: ${liveConsole.state.replace('_', ' ')}` : 'No snapshot yet'}</h3>
+          <p>{liveConsole ? `Next transition in ${liveConsole.nextTransitionIn}` : 'Waiting for console snapshot...'}</p>
           <div className="action-row">
             <button type="button" className="btn-live">Go Live</button>
             <button type="button" className="btn-break">Break</button>
@@ -23,7 +36,7 @@ function LiveConsolePage() {
         <article className="console-panel">
           <p className="panel-label">Recovery</p>
           <h3>Connection drift guard</h3>
-          <p>All audience clients synced within 220ms.</p>
+          <p>{liveConsole ? `All audience clients synced within ${liveConsole.syncLatencyMs}ms.` : 'Sync metrics are initializing.'}</p>
           <div className="action-row">
             <button type="button">Resync mirror</button>
             <button type="button">Recover session</button>

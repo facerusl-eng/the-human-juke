@@ -1,18 +1,15 @@
-type SongItem = {
-  title: string
-  artist: string
-  length: string
-  energy: 'Low' | 'Medium' | 'High'
-}
-
-const songs: SongItem[] = [
-  { title: 'Midnight Satellites', artist: 'Electric Avenue', length: '03:48', energy: 'Medium' },
-  { title: 'City Lights, Loud Hearts', artist: 'Nova Hotel', length: '04:02', energy: 'High' },
-  { title: 'Golden Static', artist: 'Harborline', length: '03:31', energy: 'Low' },
-  { title: 'Heartbeat Parade', artist: 'Luna District', length: '03:59', energy: 'High' },
-]
+import { useMemo, useState } from 'react'
+import { useAppData } from '../state/AppDataContext'
 
 function LibraryPage() {
+  const [selectedTag, setSelectedTag] = useState('Trending')
+  const { data, isLoading, errorMessage, refresh } = useAppData()
+
+  const songs = data?.songs ?? []
+  const filteredSongs = useMemo(() => {
+    return songs.filter((song) => song.tags.includes(selectedTag))
+  }, [selectedTag, songs])
+
   return (
     <section className="surface-card page-shell" aria-label="Song library page">
       <header className="page-header">
@@ -24,15 +21,31 @@ function LibraryPage() {
       </header>
 
       <div className="library-toolbar">
-        <button type="button" className="chip-active">Trending</button>
-        <button type="button">Warm-up</button>
-        <button type="button">Peak Hour</button>
-        <button type="button">Encore</button>
+        {['Trending', 'Warm-up', 'Peak Hour', 'Encore'].map((tag) => (
+          <button
+            key={tag}
+            type="button"
+            className={selectedTag === tag ? 'chip-active' : ''}
+            onClick={() => {
+              setSelectedTag(tag)
+            }}
+          >
+            {tag}
+          </button>
+        ))}
       </div>
 
+      {isLoading ? <p className="page-state">Loading songs...</p> : null}
+      {errorMessage ? (
+        <div className="page-state page-state-error" role="alert">
+          <p>{errorMessage}</p>
+          <button type="button" onClick={() => void refresh()}>Retry</button>
+        </div>
+      ) : null}
+
       <div className="song-list" role="list" aria-label="Songs">
-        {songs.map((song) => (
-          <article key={`${song.title}-${song.artist}`} className="song-row" role="listitem">
+        {filteredSongs.map((song) => (
+          <article key={song.id} className="song-row" role="listitem">
             <div>
               <h3>{song.title}</h3>
               <p>{song.artist}</p>
@@ -41,6 +54,9 @@ function LibraryPage() {
             <p className="song-pill">{song.energy}</p>
           </article>
         ))}
+        {!isLoading && !errorMessage && filteredSongs.length === 0 ? (
+          <p className="page-state">No songs found for this category yet.</p>
+        ) : null}
       </div>
     </section>
   )
