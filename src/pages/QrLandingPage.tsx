@@ -243,6 +243,21 @@ function resolveAudienceDestination(
   return queryString ? `/audience?${queryString}` : '/audience'
 }
 
+function buildChoiceBridgeUrl(backPath: string, options: { to?: string | null; url?: string | null }) {
+  const params = new URLSearchParams()
+  params.set('back', backPath)
+
+  if (options.to) {
+    params.set('to', options.to)
+  }
+
+  if (options.url) {
+    params.set('url', options.url)
+  }
+
+  return `/lounge-link?${params.toString()}`
+}
+
 function QrLandingPage() {
   const { search } = useLocation()
   const countdownTargetMsFromLink = useMemo(() => resolveCountdownTargetMsFromSearch(search), [search])
@@ -296,6 +311,15 @@ function QrLandingPage() {
   const customDestination = customDestinationFromSearch ?? eventCustomDestination
   const hasCustomChoiceLink = Boolean(customDestination)
   const requiresEventCustomLookup = Boolean(eventId && qrChoiceContext && !customDestinationFromSearch)
+  const choiceBackPath = useMemo(() => `/qr-landing${search}`, [search])
+  const loungeChoiceBridgeUrl = useMemo(
+    () => (hasCustomChoiceLink ? buildChoiceBridgeUrl(choiceBackPath, { to: audienceDestination }) : null),
+    [audienceDestination, choiceBackPath, hasCustomChoiceLink],
+  )
+  const barChoiceBridgeUrl = useMemo(
+    () => (customDestination ? buildChoiceBridgeUrl(choiceBackPath, { url: customDestination }) : null),
+    [choiceBackPath, customDestination],
+  )
 
   useEffect(() => {
     void import('./EventPage')
@@ -631,22 +655,18 @@ function QrLandingPage() {
     <section className="qr-landing-shell" aria-label="Audience lounge landing page">
       <div className="qr-landing-button-overlay">
         <a
-          href={audienceDestination}
+          href={loungeChoiceBridgeUrl ?? audienceDestination}
           className={`qr-landing-button${shouldDisableLoungeButton ? ' qr-landing-button-disabled' : ''}`}
           aria-label={copy.ariaGoToAudienceLounge}
-          target={customDestination ? '_blank' : undefined}
-          rel={customDestination ? 'noopener noreferrer' : undefined}
           onClick={customDestination ? () => handleChoiceActionClick('lounge') : undefined}
         >
           {loungeButtonText}
         </a>
         {customDestination ? (
           <a
-            href={customDestination}
+            href={barChoiceBridgeUrl ?? customDestination}
             className="qr-landing-button qr-landing-button-link"
             aria-label={copy.ariaGoToChoiceLink}
-            target="_blank"
-            rel="noopener noreferrer"
             onClick={() => handleChoiceActionClick('bar')}
           >
             {linkButtonText}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 function normalizeExternalLink(value: string | null | undefined): string | null {
@@ -22,20 +22,17 @@ function normalizeExternalLink(value: string | null | undefined): string | null 
 function resolveSafeBackPath(search: string): string {
   const params = new URLSearchParams(search)
   const backPath = params.get('back')?.trim() ?? ''
-  const returnIndex = Math.floor(Math.random() * 10_000)
 
   if (backPath.startsWith('/') && !backPath.startsWith('//')) {
     try {
       const parsedBackUrl = new URL(backPath, window.location.origin)
-      parsedBackUrl.searchParams.set('rm', 'bar')
-      parsedBackUrl.searchParams.set('ri', String(returnIndex))
       return `${parsedBackUrl.pathname}${parsedBackUrl.search}`
     } catch {
-      return '/qr-landing?rm=bar&ri=0'
+      return '/qr-landing'
     }
   }
 
-  return `/qr-landing?rm=bar&ri=${returnIndex}`
+  return '/qr-landing'
 }
 
 function resolveLoungeDestination(search: string) {
@@ -89,37 +86,23 @@ function LoungeLinkPage() {
     return normalizeExternalLink(params.get('url'))
   }, [search])
   const backToWelcomePath = useMemo(() => resolveSafeBackPath(search), [search])
-
-  useEffect(() => {
-    if (customLink) {
-      return
-    }
-
-    const redirectTimer = window.setTimeout(() => {
-      navigate(destination, { replace: true })
-    }, 120)
-
-    return () => {
-      window.clearTimeout(redirectTimer)
-    }
-  }, [customLink, destination, navigate])
+  const destinationHref = customLink ?? destination
+  const openButtonLabel = customLink ? 'Open link in browser' : 'Open lounge'
 
   return (
     <section className="app-shell" aria-label="Opening lounge link">
       <section className="queue-panel">
-        <p className="eyebrow">Link Detour</p>
-        <h1>Choose your next glorious move</h1>
+        <p className="eyebrow">Quick Choice</p>
+        <h1>Pick your route</h1>
         <p className="subcopy">
-          You can open the provided link, then use the button below to return to the welcome screen where a brand-new bit of nonsense awaits.
+          Open your destination in a new tab, or jump straight back to the QR choice screen.
         </p>
         <div style={{ display: 'grid', gap: '0.8rem', marginTop: '1rem' }}>
-          {customLink ? (
-            <a href={customLink} target="_blank" rel="noopener noreferrer" className="qr-landing-button qr-landing-button-link">
-              Open provided link
-            </a>
-          ) : null}
+          <a href={destinationHref} target="_blank" rel="noopener noreferrer" className="qr-landing-button qr-landing-button-link">
+            {openButtonLabel}
+          </a>
           <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
-            Back to welcome
+            Go back to choices
           </button>
         </div>
       </section>
