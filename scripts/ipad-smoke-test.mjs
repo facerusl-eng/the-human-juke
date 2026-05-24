@@ -1,5 +1,12 @@
 import { chromium, devices } from 'playwright';
 
+const IGNORED_ABORT_HOSTS = ['wikipedia.org', 'mzstatic.com'];
+
+function isIgnorableRequestFailure(url, errorText) {
+  if (!errorText || !errorText.includes('ERR_ABORTED')) return false;
+  return IGNORED_ABORT_HOSTS.some((host) => url.includes(host));
+}
+
 const routes = [
   'https://the-human-jukebox.org/',
   'https://the-human-jukebox.org/audience',
@@ -18,8 +25,18 @@ for (const profile of profiles) {
   for (const url of routes) {
     const errors = [];
     const failed = [];
+    const ignoredFailed = [];
     pg.on('pageerror', (e) => errors.push(String(e?.message || e)));
-    pg.on('requestfailed', (r) => failed.push(`${r.url()} :: ${r.failure()?.errorText || 'unknown'}`));
+    pg.on('requestfailed', (r) => {
+      const reqUrl = r.url();
+      const errorText = r.failure()?.errorText || 'unknown';
+      const rendered = `${reqUrl} :: ${errorText}`;
+      if (isIgnorableRequestFailure(reqUrl, errorText)) {
+        ignoredFailed.push(rendered);
+        return;
+      }
+      failed.push(rendered);
+    });
 
     const response = await pg.goto(`${url}?ipad_smoke=1`, { waitUntil: 'networkidle', timeout: 45000 }).catch(() => null);
 
@@ -41,8 +58,10 @@ for (const profile of profiles) {
       ...probe,
       errorCount: errors.length,
       failCount: failed.length,
+      ignoredFailCount: ignoredFailed.length,
       firstError: errors[0] || null,
-      firstFail: failed[0] || null
+      firstFail: failed[0] || null,
+      firstIgnoredFail: ignoredFailed[0] || null
     });
 
     pg.removeAllListeners('pageerror');
@@ -64,6 +83,7 @@ for (const r of out) {
   const badge = issues.length === 0 ? '✅ PASS' : '❌ FAIL';
   console.log(`${badge}  [${r.profile}] ${r.url}`);
   console.log(`       width=${r.width}  mqWidth=${r.mqWidth}  touch=${r.mqTouchHybrid}  hoverNone=${r.mqHoverNone}  coarse=${r.mqPointerCoarse}`);
+  if (r.ignoredFailCount > 0) console.log(`       ignored=${r.ignoredFailCount} known third-party abort(s): ${r.firstIgnoredFail}`);
   if (issues.length > 0) console.log(`       ISSUES: ${issues.join(' | ')}`);
   console.log(`       text: "${r.text.slice(0, 80)}..."`);
 }
