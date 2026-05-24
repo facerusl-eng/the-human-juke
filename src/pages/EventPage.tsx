@@ -2981,7 +2981,7 @@ function EventPage() {
     navigate('/audience', { replace: true })
   }, [navigate, signOut])
 
-  if (loading && hasRequestedEventParam && !event && upcomingEvents.length === 0 && requestedCountdownTargetMs === null) {
+  if (hasRequestedEventParam && !event && (loading || upcomingEventsLoading) && requestedCountdownTargetMs === null) {
     return (
       <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
         <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
