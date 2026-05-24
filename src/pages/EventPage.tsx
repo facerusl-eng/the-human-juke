@@ -1551,7 +1551,7 @@ function EventPage() {
         waitingEndedTitle: 'Tonight\'s gig has ended.',
         waitingEndedCopy: 'Thanks for joining. Check upcoming gigs in the audience app.',
         onBreakTitle: 'On Break',
-        onBreakCopy: 'We are on a short break. Check out the bar and keep the app open - we will be right back.',
+        onBreakCopy: 'We are on a short break. Join the lounge and keep the app open - we will be right back.',
         encoreThanksEyebrow: 'Thanks for tonight',
         encoreThanksTitle: 'The extra number is finished.',
         encoreThanksBody: 'Thank you for showing up and making the night special. Hope to see you again at the next gig.',

@@ -4357,7 +4357,7 @@ function MirrorPageContent() {
               rel="noopener noreferrer"
               className="mirror-qr-open-button"
             >
-              Check out the bar
+              Join the lounge
             </a>
             <p className="mirror-brb-qr-label">Open this link on your phone.</p>
             <p className="mirror-brb-qr-url">{breakQrCodeUrl}</p>
