@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { AUDIENCE_LOCALE_STORAGE_KEY, normalizeAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { readSharedPlaybackState } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
@@ -188,41 +188,7 @@ function resolveAudienceDestination(
   return queryString ? `/audience?${queryString}` : '/audience'
 }
 
-function resolveBarDestination(customUrl: string | null, audienceDestination: string): string | null {
-  if (!customUrl) {
-    return null
-  }
-
-  try {
-    const targetUrl = new URL(customUrl)
-    const absoluteLoungeUrl = typeof window !== 'undefined'
-      ? new URL(audienceDestination, window.location.origin).toString()
-      : audienceDestination
-
-    if (!targetUrl.searchParams.has('returnUrl')) {
-      targetUrl.searchParams.set('returnUrl', absoluteLoungeUrl)
-    }
-
-    if (!targetUrl.searchParams.has('loungeUrl')) {
-      targetUrl.searchParams.set('loungeUrl', absoluteLoungeUrl)
-    }
-
-    if (!targetUrl.searchParams.has('backUrl')) {
-      targetUrl.searchParams.set('backUrl', absoluteLoungeUrl)
-    }
-
-    if (!targetUrl.searchParams.has('returnPath')) {
-      targetUrl.searchParams.set('returnPath', audienceDestination)
-    }
-
-    return targetUrl.toString()
-  } catch {
-    return customUrl
-  }
-}
-
 function QrLandingPage() {
-  const navigate = useNavigate()
   const { search } = useLocation()
   const countdownTargetMsFromLink = useMemo(() => resolveCountdownTargetMsFromSearch(search), [search])
   const clockOffsetMsFromLink = useMemo(() => resolveClockOffsetMsFromSearch(search), [search])
@@ -235,59 +201,20 @@ function QrLandingPage() {
   const [syncStatusReason, setSyncStatusReason] = useState<SyncStatusReason | null>(null)
   const didAutoNavigateRef = useRef(false)
   const locale = useMemo(() => resolveAudienceLocale(search), [search])
+  const customDestination = useMemo(() => {
+    const params = new URLSearchParams(search)
+    const url = params.get('url')?.trim()
 
-  useEffect(() => {
-    void import('./EventPage')
-  }, [])
-
-  const copy = useMemo(() => {
-    if (locale === 'da') {
-      return {
-        buttonGoToLounge: 'Join the Lounge',
-        buttonCheckOutBar: 'Check out the bar',
-        buttonSyncingStatus: 'Synkroniserer live-status...',
-        buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
-        buttonOpenLoungeNow: 'Join the Lounge',
-        statusGoingLiveIn: 'Går live om',
-        statusCountdownComplete: 'Nedtælling færdig. Venter på at værten går live...',
-        statusNotFound: 'Event blev ikke fundet. Tryk for at åbne lounge.',
-        statusReconnecting: 'Genopretter forbindelse til live-status...',
-        ariaGoToAudienceLounge: 'Gå til publikums-lounge',
-        emptyState: 'Velkommen! Tryk på knappen ovenfor for at gå i loungen.',
-      }
+    if (!url) {
+      return null
     }
 
-    if (locale === 'is') {
-      return {
-        buttonGoToLounge: 'Join the Lounge',
-        buttonCheckOutBar: 'Check out the bar',
-        buttonSyncingStatus: 'Samstilli live-stodu...',
-        buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
-        buttonOpenLoungeNow: 'Join the Lounge',
-        statusGoingLiveIn: 'Fer i loftid eftir',
-        statusCountdownComplete: 'Nidurteljari lokid. Bid eftir ad host fari i live ham...',
-        statusNotFound: 'Vidburdur fannst ekki. Smelltu til ad opna lounge.',
-        statusReconnecting: 'Endurtengi vid live-stodu...',
-        ariaGoToAudienceLounge: 'Fara i ahorfenda lounge',
-        emptyState: 'Velkomin! Smelltu a hnappinn ad ofan til ad fara i lounge.',
-      }
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url
     }
 
-    return {
-      buttonGoToLounge: 'Join the Lounge',
-      buttonCheckOutBar: 'Check out the bar',
-      buttonSyncingStatus: 'Syncing live status...',
-      buttonSyncingCountdownPrefix: 'Syncing countdown',
-      buttonOpenLoungeNow: 'Join the Lounge',
-      statusGoingLiveIn: 'Going live in',
-      statusCountdownComplete: 'Countdown complete. Waiting for host to start live mode...',
-      statusNotFound: 'Could not find this event. Tap to open lounge.',
-      statusReconnecting: 'Reconnecting to live status...',
-      ariaGoToAudienceLounge: 'Go to audience lounge',
-      emptyState: 'Welcome! Click the button above to join the lounge.',
-    }
-  }, [locale])
-
+    return null
+  }, [search])
   const eventId = useMemo(() => {
     const params = new URLSearchParams(search)
     const value = params.get('event')?.trim() || params.get('eventId')?.trim() || ''
@@ -297,28 +224,11 @@ function QrLandingPage() {
     const params = new URLSearchParams(search)
     return params.get('test') === '1'
   }, [search])
-
-  const customUrl = useMemo(() => {
-    const params = new URLSearchParams(search)
-    const url = params.get('url')?.trim()
-    if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
-      return url
-    }
-    return null
-  }, [search])
-
-  const shouldShowVisualContent = useMemo(() => {
-    const params = new URLSearchParams(search)
-    const rawValue = params.get('visual')?.trim().toLowerCase() || ''
-    return rawValue === '1' || rawValue === 'true' || rawValue === 'on'
-  }, [search])
-
   const audienceLinkVersion = useMemo(() => {
     const params = new URLSearchParams(search)
     const version = params.get('v')?.trim() || ''
     return version || null
   }, [search])
-
   const audienceDestination = useMemo(
     () => resolveAudienceDestination(
       eventId,
@@ -330,22 +240,77 @@ function QrLandingPage() {
     ),
     [audienceLinkVersion, clockOffsetMs, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale],
   )
-  const barDestination = useMemo(
-    () => resolveBarDestination(customUrl, audienceDestination),
-    [audienceDestination, customUrl],
-  )
+  const hasCustomChoiceLink = Boolean(customDestination)
+
+  useEffect(() => {
+    void import('./EventPage')
+  }, [])
+
+  const copy = useMemo(() => {
+    if (locale === 'da') {
+      return {
+        buttonGoToLounge: 'Join the Lounge',
+        buttonGoToLink: 'Check out the bar',
+        buttonSyncingStatus: 'Synkroniserer live-status...',
+        buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
+        statusGoingLiveIn: 'Går live om',
+        statusCountdownComplete: 'Nedtælling færdig. Venter på at værten går live...',
+        statusNotFound: 'Event blev ikke fundet. Tryk for at åbne lounge.',
+        statusReconnecting: 'Genopretter forbindelse til live-status...',
+        ariaGoToAudienceLounge: 'Gå til publikums-lounge',
+        ariaGoToChoiceLink: 'Åbn ekstra link',
+        emptyState: 'Velkommen! Tryk på knappen nedenfor for at gå i loungen.',
+        emptyStateChoice: 'Welcome to the show! Choose how you want to join.',
+      }
+    }
+
+    if (locale === 'is') {
+      return {
+        buttonGoToLounge: 'Join the Lounge',
+        buttonGoToLink: 'Check out the bar',
+        buttonSyncingStatus: 'Samstilli live-stodu...',
+        buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
+        statusGoingLiveIn: 'Fer i loftid eftir',
+        statusCountdownComplete: 'Nidurteljari lokid. Bid eftir ad host fari i live ham...',
+        statusNotFound: 'Vidburdur fannst ekki. Smelltu til ad opna lounge.',
+        statusReconnecting: 'Endurtengi vid live-stodu...',
+        ariaGoToAudienceLounge: 'Fara i ahorfenda lounge',
+        ariaGoToChoiceLink: 'Opna vidbotar-link',
+        emptyState: 'Velkomin! Smelltu a hnappinn ad neðan til ad fara i lounge.',
+        emptyStateChoice: 'Welcome to the show! Choose how you want to join.',
+      }
+    }
+
+    return {
+      buttonGoToLounge: 'Join the Lounge',
+      buttonGoToLink: 'Check out the bar',
+      buttonSyncingStatus: 'Syncing live status...',
+      buttonSyncingCountdownPrefix: 'Syncing countdown',
+      statusGoingLiveIn: 'Going live in',
+      statusCountdownComplete: 'Countdown complete. Waiting for host to start live mode...',
+      statusNotFound: 'Could not find this event. Tap to open lounge.',
+      statusReconnecting: 'Reconnecting to live status...',
+      ariaGoToAudienceLounge: 'Go to audience lounge',
+      ariaGoToChoiceLink: 'Open secondary venue link',
+      emptyState: 'Welcome! Click the button below to join the lounge.',
+      emptyStateChoice: 'Welcome to the show! Choose one of the options below.',
+    }
+  }, [locale])
   const countdownRemainingMs = eventStartMs === null ? null : eventStartMs - nowMs
   const waitingForLive = Boolean(eventId) && !eventRoomOpen
   const isCountdownActive = waitingForLive && countdownRemainingMs !== null && countdownRemainingMs > 0
   const countdownText = isCountdownActive ? formatCountdownLabel(countdownRemainingMs) : null
+  const finalCountdownSeconds = isCountdownActive && countdownRemainingMs !== null && countdownRemainingMs <= 10_000
+    ? Math.ceil(countdownRemainingMs / 1000)
+    : null
   const syncStatusText = syncStatusReason === 'notFound'
     ? copy.statusNotFound
     : syncStatusReason === 'reconnecting'
     ? copy.statusReconnecting
     : null
   const loungeButtonText = copy.buttonGoToLounge
+  const linkButtonText = copy.buttonGoToLink
   const shouldDisableLoungeButton = false
-  const hasBarLink = Boolean(barDestination && shouldShowVisualContent)
 
   useEffect(() => {
     clockOffsetRef.current = clockOffsetMs
@@ -495,7 +460,7 @@ function QrLandingPage() {
   }, [countdownTargetMsFromLink, eventId, isTestPreviewMode])
 
   useEffect(() => {
-    if (!eventId || eventRoomOpen || didAutoNavigateRef.current) {
+    if (!eventId || eventRoomOpen || didAutoNavigateRef.current || hasCustomChoiceLink) {
       return
     }
 
@@ -504,40 +469,37 @@ function QrLandingPage() {
     }
 
     didAutoNavigateRef.current = true
-    navigate(audienceDestination, { replace: true })
-  }, [audienceDestination, countdownRemainingMs, eventId, eventRoomOpen, navigate])
+    window.location.replace(audienceDestination)
+  }, [audienceDestination, countdownRemainingMs, eventId, eventRoomOpen, hasCustomChoiceLink])
 
   useEffect(() => {
-    if (!eventId || !eventRoomOpen || didAutoNavigateRef.current) {
+    if (!eventId || !eventRoomOpen || didAutoNavigateRef.current || hasCustomChoiceLink) {
       return
     }
 
     didAutoNavigateRef.current = true
-    navigate(audienceDestination, { replace: true })
-  }, [audienceDestination, eventId, eventRoomOpen, navigate])
+    window.location.replace(audienceDestination)
+  }, [audienceDestination, eventId, eventRoomOpen, hasCustomChoiceLink])
 
   return (
     <section className="qr-landing-shell" aria-label="Audience lounge landing page">
       <div className="qr-landing-button-overlay">
-        {hasBarLink ? (
-          <a
-            href={barDestination as string}
-            className="qr-landing-button qr-landing-button-link"
-          >
-            {copy.buttonCheckOutBar}
-          </a>
-        ) : null}
-        <button
-          type="button"
+        <a
+          href={audienceDestination}
           className={`qr-landing-button${shouldDisableLoungeButton ? ' qr-landing-button-disabled' : ''}`}
           aria-label={copy.ariaGoToAudienceLounge}
-          onClick={() => {
-            navigate(audienceDestination)
-          }}
-          disabled={shouldDisableLoungeButton}
         >
           {loungeButtonText}
-        </button>
+        </a>
+        {customDestination ? (
+          <a
+            href={customDestination}
+            className="qr-landing-button qr-landing-button-link"
+            aria-label={copy.ariaGoToChoiceLink}
+          >
+            {linkButtonText}
+          </a>
+        ) : null}
         {waitingForLive ? (
           <p className="qr-landing-status" role="status" aria-live="polite">
             {syncStatusText ?? (countdownText ? `${copy.statusGoingLiveIn} ${countdownText}` : copy.statusCountdownComplete)}
@@ -545,19 +507,20 @@ function QrLandingPage() {
         ) : null}
       </div>
 
+      {waitingForLive && finalCountdownSeconds !== null ? (
+        <div className="qr-landing-final-countdown" role="status" aria-live="assertive" aria-label={`${copy.statusGoingLiveIn} ${finalCountdownSeconds}`}>
+          <p className="qr-landing-final-countdown-label">{copy.statusGoingLiveIn}</p>
+          <p className="qr-landing-final-countdown-number">{finalCountdownSeconds}</p>
+          <p className="qr-landing-final-countdown-subtitle">
+            {syncStatusText ?? countdownText ?? copy.statusCountdownComplete}
+          </p>
+        </div>
+      ) : null}
+
       <div className="qr-landing-container">
-        {barDestination && shouldShowVisualContent ? (
-          <iframe
-            src={barDestination}
-            className="qr-landing-iframe"
-            title="Audience landing visual content"
-            sandbox="allow-same-origin allow-forms allow-scripts allow-popups"
-          />
-        ) : (
-          <div className="qr-landing-empty-state">
-            <p>{copy.emptyState}</p>
-          </div>
-        )}
+        <div className="qr-landing-empty-state">
+          <p>{customDestination ? copy.emptyStateChoice : copy.emptyState}</p>
+        </div>
       </div>
     </section>
   )
