@@ -216,7 +216,8 @@ function getSetlistBucketLabel(songTitle: string) {
   return 'U-Z'
 }
 
-function classifyPreflightIssue(_error?: unknown): PreflightIssueCode {
+function classifyPreflightIssue(error?: unknown): PreflightIssueCode {
+  void error
   return 'unknown'
 }
 
@@ -228,6 +229,27 @@ function resolveGigStartAt(gigDate: string | null | undefined, gigStartTime: str
   const normalizedTime = gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime
   const startAt = new Date(`${gigDate}T${normalizedTime}`)
   return Number.isNaN(startAt.getTime()) ? null : startAt
+}
+
+function formatGigSwitcherDate(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
+  const startAt = resolveGigStartAt(gigDate, gigStartTime)
+
+  if (!startAt) {
+    return gigDate ?? 'No date set'
+  }
+
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(startAt)
+
+  const timeLabel = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(startAt)
+
+  return `${dateLabel} at ${timeLabel}`
 }
 
 async function fetchServerClockOffsetMs(): Promise<number | null> {
@@ -476,7 +498,6 @@ function GigControlPage() {
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
-  const [qrTargetGigId, setQrTargetGigId] = useState<string | null>(null)
   const {
     copied: copiedAudienceLink,
     copyError,
@@ -626,7 +647,6 @@ function GigControlPage() {
     : 'Queue Paused'
   const activeHostEvent = hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null
   const isCurrentTestGig = activeHostEvent?.isTestGig ?? event?.isTestGig ?? false
-  const qrTargetHostEvent = activeHostEvent
   const qrTargetEventId = event?.id
   const isQrTargetTestGig = isCurrentTestGig
   const queuedLibrarySongIds = useMemo(() => (
@@ -682,24 +702,6 @@ function GigControlPage() {
     const isCriticalError = /(failed|offline|timeout|degraded|reconnect|unavailable|issue|error|health guard|blocked)/i.test(normalizedError)
     return isCriticalError ? errorText : null
   }, [errorText, isFocusedGigControlWindow])
-
-  useEffect(() => {
-    if (!event?.id) {
-      return
-    }
-
-    setQrTargetGigId((currentTargetGigId) => {
-      if (currentTargetGigId && hostEvents.some((hostEvent) => hostEvent.id === currentTargetGigId)) {
-        return currentTargetGigId
-      }
-
-      if (hostEvents.some((hostEvent) => hostEvent.id === event.id)) {
-        return event.id
-      }
-
-      return hostEvents[0]?.id ?? event.id
-    })
-  }, [event?.id, hostEvents])
 
   useEffect(() => {
     if (!isFocusedGigControlWindow || !shouldAutoEnterFullscreenInFocusWindow) {
@@ -991,11 +993,7 @@ function GigControlPage() {
       introAudio.addEventListener('error', onError, { once: true })
     })
 
-    try {
-      await introAudio.play()
-    } catch (error) {
-      throw error
-    }
+    await introAudio.play()
 
     await completionPromise
   }, [sendSpotifyTransportCommand])
@@ -2485,7 +2483,7 @@ function GigControlPage() {
   }, [])
 
   const openMirrorFromGigControl = useCallback(() => {
-    const { openedInNewTabWindow } = openMirrorScreen()
+    const { openedInNewTabWindow, navigatedInCurrentWindow } = openMirrorScreen({ eventId: event?.id ?? null })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
@@ -2493,14 +2491,16 @@ function GigControlPage() {
 
     const statusMessage = openedInNewTabWindow
       ? 'Mirror opened in a new tab. Gig Control stays open here.'
-      : 'Browser blocked opening Mirror. Allow popups/tabs for this site and try again.'
+      : navigatedInCurrentWindow
+      ? 'Popup was blocked, so Mirror opened in this same window.'
+      : 'Could not open Mirror. Please try again.'
 
     setMirrorLaunchStatusText(statusMessage)
     mirrorLaunchStatusTimerRef.current = window.setTimeout(() => {
       setMirrorLaunchStatusText(null)
       mirrorLaunchStatusTimerRef.current = null
     }, MIRROR_LAUNCH_STATUS_DURATION_MS)
-  }, [])
+  }, [event?.id])
 
   const openFocusedGigControlWindow = useCallback(() => {
     const searchParams = new URLSearchParams()
@@ -2907,7 +2907,7 @@ function GigControlPage() {
           </button>
           {!isFocusedGigControlWindow ? (
             <button type="button" className="ghost-button" onClick={openFocusedGigControlWindow}>
-              Open Fullscreen Control Board
+              Open Fullscreen Control Board (Same Window)
             </button>
           ) : null}
           <button type="button" className="ghost-button" onClick={() => navigate('/admin/gig-settings')}>
@@ -2939,9 +2939,12 @@ function GigControlPage() {
                   }}
                 >
                   {hostEvents.map((hostEvent) => (
-                    <option key={hostEvent.id} value={hostEvent.id}>
-                      {hostEvent.isTestGig ? '[TEST] ' : ''}
-                      {hostEvent.name}{hostEvent.venue ? ` - ${hostEvent.venue}` : ''}
+                    <option
+                      key={hostEvent.id}
+                      value={hostEvent.id}
+                      title={`${hostEvent.isTestGig ? '[TEST] ' : ''}${formatGigSwitcherDate(hostEvent.gigDate, hostEvent.gigStartTime)} - ${hostEvent.name}${hostEvent.venue ? ` - ${hostEvent.venue}` : ''}`}
+                    >
+                      {`${hostEvent.isTestGig ? '[TEST] ' : ''}${formatGigSwitcherDate(hostEvent.gigDate, hostEvent.gigStartTime)} · ${hostEvent.name}${hostEvent.venue ? ` · ${hostEvent.venue}` : ''}`}
                     </option>
                   ))}
                 </select>
