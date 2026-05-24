@@ -19,12 +19,6 @@ const FUNNY_BAR_MESSAGES = [
   'Very brave. Off to the bar with purpose, posture, and probably a queue. We shall hold the musical fort while you negotiate beverages and pretend this was all part of the master plan.',
 ]
 
-const FUNNY_RETURN_MESSAGES = [
-  'Back already? Outstanding efficiency. You explored the side quest, survived the social labyrinth, and returned just in time for the main event. The show approves this level of dramatic timing.',
-  'Welcome back, seasoned adventurer. Your detour report has been accepted without evidence, your legend has grown by at least 14%, and your reserved spot in the chaos remains gloriously intact.',
-  'Look who has returned from noble link diplomacy. Tea has been metaphorically poured, applause has been emotionally prepared, and your next excellent decision awaits right above this message.',
-]
-
 type ChoiceAction = 'lounge' | 'bar'
 
 type SyncStatusReason = 'notFound' | 'reconnecting'
@@ -61,30 +55,6 @@ function resolveQrChoiceContext(search: string): QrChoiceContext | null {
   }
 
   return null
-}
-
-function resolveBridgeReturnMessageIndex(search: string): number | null {
-  const params = new URLSearchParams(search)
-  const marker = params.get('rm')?.trim().toLowerCase() ?? ''
-
-  if (marker !== 'bar') {
-    return null
-  }
-
-  const index = Number(params.get('ri'))
-
-  if (!Number.isFinite(index) || index < 0) {
-    return 0
-  }
-
-  return Math.floor(index)
-}
-
-function buildCustomChoiceBridgeUrl(search: string, customDestination: string): string {
-  const params = new URLSearchParams()
-  params.set('url', customDestination)
-  params.set('back', `/qr-landing${search}`)
-  return `/lounge-link?${params.toString()}`
 }
 
 function resolveAudienceLocale(search: string): AudienceLocale {
@@ -319,11 +289,6 @@ function QrLandingPage() {
   const customDestination = customDestinationFromSearch ?? eventCustomDestination
   const hasCustomChoiceLink = Boolean(customDestination)
   const requiresEventCustomLookup = Boolean(eventId && qrChoiceContext && !customDestinationFromSearch)
-  const customChoiceBridgeUrl = useMemo(
-    () => (customDestination ? buildCustomChoiceBridgeUrl(search, customDestination) : null),
-    [customDestination, search],
-  )
-  const bridgeReturnMessageIndex = useMemo(() => resolveBridgeReturnMessageIndex(search), [search])
 
   useEffect(() => {
     void import('./EventPage')
@@ -584,24 +549,6 @@ function QrLandingPage() {
   }, [customDestinationFromSearch])
 
   useEffect(() => {
-    if (bridgeReturnMessageIndex === null) {
-      return
-    }
-
-    const message = FUNNY_RETURN_MESSAGES[bridgeReturnMessageIndex % FUNNY_RETURN_MESSAGES.length]
-    setActiveFunnyMessage(message ?? copy.emptyStateChoice)
-
-    if (funnyMessageTimerRef.current !== null) {
-      window.clearTimeout(funnyMessageTimerRef.current)
-    }
-
-    funnyMessageTimerRef.current = window.setTimeout(() => {
-      setActiveFunnyMessage(null)
-      funnyMessageTimerRef.current = null
-    }, LINK_FUNNY_TEXT_DURATION_MS)
-  }, [bridgeReturnMessageIndex, copy.emptyStateChoice])
-
-  useEffect(() => {
     if (!eventId || eventRoomOpen || didAutoNavigateRef.current || hasCustomChoiceLink) {
       return
     }
@@ -680,9 +627,11 @@ function QrLandingPage() {
         </a>
         {customDestination ? (
           <a
-            href={customChoiceBridgeUrl ?? customDestination}
+            href={customDestination}
             className="qr-landing-button qr-landing-button-link"
             aria-label={copy.ariaGoToChoiceLink}
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={() => handleChoiceActionClick('bar')}
           >
             {linkButtonText}
