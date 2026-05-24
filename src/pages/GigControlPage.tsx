@@ -684,6 +684,23 @@ function GigControlPage() {
     : isBeforeScheduledStart
     ? 'Queue Opens Soon'
     : 'Queue Paused'
+  const sortedHostEvents = useMemo(() => {
+    const toCreatedTimestamp = (createdAt: string) => {
+      const createdTimestamp = new Date(createdAt).getTime()
+      return Number.isNaN(createdTimestamp) ? 0 : createdTimestamp
+    }
+
+    return [...hostEvents].sort((leftGig, rightGig) => {
+      const leftStartAt = resolveGigStartAt(leftGig.gigDate, leftGig.gigStartTime)?.getTime() ?? Number.POSITIVE_INFINITY
+      const rightStartAt = resolveGigStartAt(rightGig.gigDate, rightGig.gigStartTime)?.getTime() ?? Number.POSITIVE_INFINITY
+
+      if (leftStartAt !== rightStartAt) {
+        return leftStartAt - rightStartAt
+      }
+
+      return toCreatedTimestamp(rightGig.createdAt) - toCreatedTimestamp(leftGig.createdAt)
+    })
+  }, [hostEvents])
   const activeHostEvent = hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null
   const isCurrentTestGig = activeHostEvent?.isTestGig ?? event?.isTestGig ?? false
   const qrTargetEventId = event?.id
@@ -2977,7 +2994,7 @@ function GigControlPage() {
                     await gigActions.switchActiveGig(nextGigId)
                   }}
                 >
-                  {hostEvents.map((hostEvent) => (
+                  {sortedHostEvents.map((hostEvent) => (
                     <option
                       key={hostEvent.id}
                       value={hostEvent.id}
