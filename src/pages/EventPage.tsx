@@ -3159,67 +3159,78 @@ function EventPage() {
   if (!roomOpen) {
     return (
       <section
-        className={`audience-entry-shell audience-karafun audience-waiting-shell${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
+        className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun audience-waiting-shell${isKaraokeEvent ? ' audience-shell-karaoke' : ''}${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
         aria-label="Audience waiting room"
       >
-        <article className={`queue-panel audience-entry-card audience-waiting-card${waitingRoomFinalCountdownSeconds !== null ? ' audience-waiting-card-final-countdown' : ''}`}>
-          {waitingRoomFinalCountdownSeconds !== null ? (
-            <div className="audience-final-countdown-overlay" aria-live="assertive" aria-label="Final countdown">
-              <p className="audience-final-countdown-label">{copy.goingLiveNow}</p>
-              <p className="audience-final-countdown-number">{waitingRoomFinalCountdownSeconds}</p>
-            </div>
-          ) : null}
-          <p className="eyebrow audience-entry-eyebrow">{audienceName ? `${copy.waitingGreeting} ${audienceName}` : copy.entryEyebrow}</p>
-          <h1>{waitingRoomTitle}</h1>
-          <p className="subcopy audience-entry-copy">{waitingRoomCopy}</p>
-          {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
-          <p className="meta-badge audience-soon-badge">
-            {waitingRoomStatusLabel}
-          </p>
-          {!waitingRoomHasEnded && waitingRoomStartsAtLabel ? (
-            <p className="subcopy audience-waiting-start-label">{copy.startsAt}: {waitingRoomStartsAtLabel}</p>
-          ) : null}
-          {showGoingLiveNowBanner && !waitingRoomHasEnded ? (
-            <p className="meta-badge audience-going-live-banner" aria-live="assertive">{copy.goingLiveNow}</p>
-          ) : null}
-          {event?.name ? (
-            <div className="audience-waiting-event-info">
-              <p className="audience-waiting-event-name">{event.name}</p>
-              {event.subtitle ? <p className="audience-waiting-event-subtitle">{event.subtitle}</p> : null}
-            </div>
-          ) : null}
-          <div className="audience-waiting-primary-actions">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => {
-                const mirrorUrl = event?.id
-                  ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
-                  : '/mirror?launchFullscreen=1'
-                window.location.assign(mirrorUrl)
-              }}
-            >
-              📺 {copy.viewMirror}
-            </button>
-            {hasRequestedEventParam ? (
+        <section className="audience-stage">
+          <AudienceFixedHeader
+            eventName={isBuildSelfEvent && event?.artistName ? `${event.artistName} — ${event.name ?? copy.audienceLive}` : (event?.name ?? copy.audienceLive)}
+            subtitle={event?.subtitle ?? null}
+            logoSrc="/the-human-jukebox-logo.svg"
+            locale={audienceLocale}
+            shareUrl={audienceShareUrl || null}
+            onSignOut={handleSignOut}
+          />
+
+          <article className={`queue-panel audience-entry-card audience-waiting-card${waitingRoomFinalCountdownSeconds !== null ? ' audience-waiting-card-final-countdown' : ''}`}>
+            {waitingRoomFinalCountdownSeconds !== null ? (
+              <div className="audience-final-countdown-overlay" aria-live="assertive" aria-label="Final countdown">
+                <p className="audience-final-countdown-label">{copy.goingLiveNow}</p>
+                <p className="audience-final-countdown-number">{waitingRoomFinalCountdownSeconds}</p>
+              </div>
+            ) : null}
+            <p className="eyebrow audience-entry-eyebrow">{audienceName ? `${copy.waitingGreeting} ${audienceName}` : copy.entryEyebrow}</p>
+            <h1>{waitingRoomTitle}</h1>
+            <p className="subcopy audience-entry-copy">{waitingRoomCopy}</p>
+            {authError ? <p className="error-text request-error-inline">{authError}</p> : null}
+            <p className="meta-badge audience-soon-badge">
+              {waitingRoomStatusLabel}
+            </p>
+            {!waitingRoomHasEnded && waitingRoomStartsAtLabel ? (
+              <p className="subcopy audience-waiting-start-label">{copy.startsAt}: {waitingRoomStartsAtLabel}</p>
+            ) : null}
+            {showGoingLiveNowBanner && !waitingRoomHasEnded ? (
+              <p className="meta-badge audience-going-live-banner" aria-live="assertive">{copy.goingLiveNow}</p>
+            ) : null}
+            {event?.name ? (
+              <div className="audience-waiting-event-info">
+                <p className="audience-waiting-event-name">{event.name}</p>
+                {event.subtitle ? <p className="audience-waiting-event-subtitle">{event.subtitle}</p> : null}
+              </div>
+            ) : null}
+            <div className="audience-waiting-primary-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  const mirrorUrl = event?.id
+                    ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
+                    : '/mirror?launchFullscreen=1'
+                  window.location.assign(mirrorUrl)
+                }}
+              >
+                📺 {copy.viewMirror}
+              </button>
+              {hasRequestedEventParam ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => navigate('/audience')}
+                >
+                  {copy.viewUpcoming}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="secondary-button"
-                onClick={() => navigate('/audience')}
+                onClick={() => navigate('/')}
               >
-                {copy.viewUpcoming}
+                🏠 {copy.backToHome}
               </button>
-            ) : null}
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => navigate('/')}
-            >
-              🏠 {copy.backToHome}
-            </button>
-          </div>
-          {demoBackToHomeButton}
-        </article>
+            </div>
+            {demoBackToHomeButton}
+          </article>
+        </section>
       </section>
     )
   }
