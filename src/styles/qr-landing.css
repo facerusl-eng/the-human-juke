@@ -178,6 +178,22 @@
     inset 0 1px 1px rgba(255, 255, 255, 0.28);
 }
 
+.qr-landing-button-back {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(180, 220, 255, 0.2));
+  box-shadow:
+    0 0 24px rgba(220, 236, 255, 0.42),
+    inset 0 1px 1px rgba(255, 255, 255, 0.28);
+}
+
+.qr-landing-button-back:hover {
+  border-color: rgba(255, 255, 255, 1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.32), rgba(196, 230, 255, 0.3));
+  box-shadow:
+    0 0 30px rgba(220, 236, 255, 0.58),
+    inset 0 1px 1px rgba(255, 255, 255, 0.34);
+}
+
 .qr-landing-button:active {
   transform: scale(0.98);
 }

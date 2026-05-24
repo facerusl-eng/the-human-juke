@@ -270,6 +270,7 @@ function QrLandingPage() {
       return {
         buttonGoToLounge: 'Join the Lounge',
         buttonGoToLink: 'Check out the bar',
+        buttonBackToWelcome: 'Tilbage til velkomst',
         buttonSyncingStatus: 'Synkroniserer live-status...',
         buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
         statusGoingLiveIn: 'Går live om',
@@ -287,6 +288,7 @@ function QrLandingPage() {
       return {
         buttonGoToLounge: 'Join the Lounge',
         buttonGoToLink: 'Check out the bar',
+        buttonBackToWelcome: 'Aftur i velkomid',
         buttonSyncingStatus: 'Samstilli live-stodu...',
         buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
         statusGoingLiveIn: 'Fer i loftid eftir',
@@ -303,6 +305,7 @@ function QrLandingPage() {
     return {
       buttonGoToLounge: 'Join the Lounge',
       buttonGoToLink: 'Check out the bar',
+      buttonBackToWelcome: 'Back to welcome',
       buttonSyncingStatus: 'Syncing live status...',
       buttonSyncingCountdownPrefix: 'Syncing countdown',
       statusGoingLiveIn: 'Going live in',
@@ -329,6 +332,7 @@ function QrLandingPage() {
     : null
   const loungeButtonText = copy.buttonGoToLounge
   const linkButtonText = copy.buttonGoToLink
+  const backToWelcomeButtonText = copy.buttonBackToWelcome
   const shouldDisableLoungeButton = false
   const choiceWelcomeText = activeFunnyMessage === null
     ? copy.emptyStateChoice
@@ -528,6 +532,15 @@ function QrLandingPage() {
     }, LINK_FUNNY_TEXT_DURATION_MS)
   }, [copy.emptyStateChoice])
 
+  const handleBackToWelcomeClick = useCallback(() => {
+    if (funnyMessageTimerRef.current !== null) {
+      window.clearTimeout(funnyMessageTimerRef.current)
+      funnyMessageTimerRef.current = null
+    }
+
+    setActiveFunnyMessage(null)
+  }, [])
+
   return (
     <section className="qr-landing-shell" aria-label="Audience lounge landing page">
       <div className="qr-landing-button-overlay">
@@ -552,6 +565,15 @@ function QrLandingPage() {
           >
             {linkButtonText}
           </a>
+        ) : null}
+        {customDestination && activeFunnyMessage !== null ? (
+          <button
+            type="button"
+            className="qr-landing-button qr-landing-button-back"
+            onClick={handleBackToWelcomeClick}
+          >
+            {backToWelcomeButtonText}
+          </button>
         ) : null}
         {waitingForLive ? (
           <p className="qr-landing-status" role="status" aria-live="polite">
