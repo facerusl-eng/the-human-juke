@@ -1,28 +1,14 @@
-  // After gig time change, broadcast update for all screens
-  useEffect(() => {
-    if (!event) return;
-    const channel = supabase.channel(`gig_time_broadcast:${event.id}`);
-    channel.on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'events',
-      filter: `id=eq.${event.id}`,
-    }, (payload) => {
-      // Force refresh state/countdown
-      window.location.reload();
-    }).subscribe();
-    return () => { channel.unsubscribe(); };
-  }, [event?.id]);
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import AddSongTabs from '../components/actions/AddSongTabs'
-import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
-import SpotifyPlayerWithSDK from '../components/SpotifyPlayerWithSDK.jsx'
-import { useClipboardCopy } from '../hooks/useClipboardCopy'
-import { useGigActions } from '../hooks/useGigActions'
-import { getAudienceUrl } from '../lib/audienceUrl'
-import { openMirrorScreen } from '../lib/openMirrorScreen'
-import { registerBackgroundSync } from '../lib/backgroundSync'
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import AddSongTabs from '../components/actions/AddSongTabs';
+import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup';
+import SpotifyPlayerWithSDK from '../components/SpotifyPlayerWithSDK.jsx';
+import { useClipboardCopy } from '../hooks/useClipboardCopy';
+import { useGigActions } from '../hooks/useGigActions';
+import { getAudienceUrl } from '../lib/audienceUrl';
+import { openMirrorScreen } from '../lib/openMirrorScreen';
+import { registerBackgroundSync } from '../lib/backgroundSync';
 import {
   captureQueueSnapshot,
   getLatestQueueSnapshot,
@@ -30,13 +16,16 @@ import {
   getQueueSnapshotsFromDatabase,
   restoreQueueSnapshotInDatabase,
   saveQueueSnapshotToDatabase,
-} from '../lib/queueSnapshots'
-import { BETWEEN_SONG_QUOTES, LAST_SONG_SOON_OVERLAY_MESSAGE, isLastSongSoonOverlayMessage, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
-
-import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
-import { supabase } from '../lib/supabase'
-import { useAuthStore } from '../state/authStore'
-import { useQueueStore } from '../state/queueStore'
+} from '../lib/queueSnapshots';
+import {
+  BETWEEN_SONG_QUOTES,
+  LAST_SONG_SOON_OVERLAY_MESSAGE,
+  isLastSongSoonOverlayMessage,
+  readSharedPlaybackState,
+  writeSharedPlaybackState,
+} from '../lib/playbackState';
+import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling';
+import { supabase } from '../lib/supabase';
 import {
   INTRO_AUDIO_LOCK_STORAGE_KEY,
   INTRO_AUDIO_LOCK_TTL_MS,
@@ -54,7 +43,9 @@ import {
   MIRROR_LAUNCH_STATUS_DURATION_MS,
   AUTO_LIVE_RETRY_DELAY_MS,
   BACKGROUND_SYNC_TAG,
-} from '../lib/constants'
+} from '../lib/constants';
+import { useAuthStore } from '../state/authStore';
+import { useQueueStore, type EventState } from '../state/queueStore';
 // ...existing code...
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
