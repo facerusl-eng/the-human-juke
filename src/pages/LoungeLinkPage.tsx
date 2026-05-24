@@ -116,11 +116,8 @@ function LoungeLinkPage() {
           <p className="eyebrow" style={{ margin: 0 }}>Bar choices</p>
           <div style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
             <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
-              Go back to choices
+              Back to welcome
             </button>
-            <a href={customLink} target="_blank" rel="noopener noreferrer" className="qr-landing-button qr-landing-button-link">
-              Open in browser
-            </a>
           </div>
         </section>
         <iframe
