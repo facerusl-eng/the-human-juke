@@ -5,6 +5,14 @@ import { readSharedPlaybackState } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 
 const LIVE_SYNC_POLL_INTERVAL_MS = 4000
+const LINK_FUNNY_TEXT_DURATION_MS = 9000
+
+const FUNNY_LINK_MESSAGES = [
+  'Bold choice. Off you pop - we kept your lounge spot warm.',
+  'Quick detour approved. We will pretend this was part of the plan.',
+  'Excellent scouting work. Return triumphant when ready.',
+  'A brief side quest! Mind the pints and report back.',
+]
 
 type SyncStatusReason = 'notFound' | 'reconnecting'
 
@@ -199,7 +207,10 @@ function QrLandingPage() {
   const getSyncedNowMs = useCallback(() => Date.now() + clockOffsetRef.current, [])
   const [nowMs, setNowMs] = useState(() => Date.now() + (clockOffsetMsFromLink ?? 0))
   const [syncStatusReason, setSyncStatusReason] = useState<SyncStatusReason | null>(null)
+  const [activeFunnyMessageIndex, setActiveFunnyMessageIndex] = useState<number | null>(null)
   const didAutoNavigateRef = useRef(false)
+  const funnyMessageTimerRef = useRef<number | null>(null)
+  const funnyMessageNextIndexRef = useRef(0)
   const locale = useMemo(() => resolveAudienceLocale(search), [search])
   const customDestination = useMemo(() => {
     const params = new URLSearchParams(search)
@@ -311,6 +322,9 @@ function QrLandingPage() {
   const loungeButtonText = copy.buttonGoToLounge
   const linkButtonText = copy.buttonGoToLink
   const shouldDisableLoungeButton = false
+  const choiceWelcomeText = activeFunnyMessageIndex === null
+    ? copy.emptyStateChoice
+    : FUNNY_LINK_MESSAGES[activeFunnyMessageIndex] ?? copy.emptyStateChoice
 
   useEffect(() => {
     clockOffsetRef.current = clockOffsetMs
@@ -481,6 +495,29 @@ function QrLandingPage() {
     window.location.replace(audienceDestination)
   }, [audienceDestination, eventId, eventRoomOpen, hasCustomChoiceLink])
 
+  useEffect(() => {
+    return () => {
+      if (funnyMessageTimerRef.current !== null) {
+        window.clearTimeout(funnyMessageTimerRef.current)
+      }
+    }
+  }, [])
+
+  const handleChoiceLinkClick = useCallback(() => {
+    const nextIndex = funnyMessageNextIndexRef.current % FUNNY_LINK_MESSAGES.length
+    funnyMessageNextIndexRef.current += 1
+    setActiveFunnyMessageIndex(nextIndex)
+
+    if (funnyMessageTimerRef.current !== null) {
+      window.clearTimeout(funnyMessageTimerRef.current)
+    }
+
+    funnyMessageTimerRef.current = window.setTimeout(() => {
+      setActiveFunnyMessageIndex(null)
+      funnyMessageTimerRef.current = null
+    }, LINK_FUNNY_TEXT_DURATION_MS)
+  }, [])
+
   return (
     <section className="qr-landing-shell" aria-label="Audience lounge landing page">
       <div className="qr-landing-button-overlay">
@@ -496,6 +533,9 @@ function QrLandingPage() {
             href={customDestination}
             className="qr-landing-button qr-landing-button-link"
             aria-label={copy.ariaGoToChoiceLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleChoiceLinkClick}
           >
             {linkButtonText}
           </a>
@@ -519,7 +559,7 @@ function QrLandingPage() {
 
       <div className="qr-landing-container">
         <div className={`qr-landing-empty-state${customDestination ? ' qr-landing-empty-state-choice' : ''}`}>
-          <p>{customDestination ? copy.emptyStateChoice : copy.emptyState}</p>
+          <p>{customDestination ? choiceWelcomeText : copy.emptyState}</p>
         </div>
       </div>
     </section>
