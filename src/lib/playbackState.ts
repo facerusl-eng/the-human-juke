@@ -70,6 +70,8 @@ const LEGACY_LAST_SONG_SOON_OVERLAY_MESSAGES = [
 ]
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const PLAYBACK_PERMISSION_WARNING_INTERVAL_MS = 30000
+const playbackPermissionWarningAtByEventId = new Map<string, number>()
 
 export type SharedPlaybackState = {
   currentSongId: string | null
@@ -132,6 +134,37 @@ export function getCountdownTargetRemainingMs(targetMs: number | null | undefine
   return (targetMs as number) - nowMs
 }
 
+function resolvePreferredCountdownTargetMs(
+  remoteTargetMs: number | null,
+  localFallbackTargetMs: number | null,
+  nowMs = Date.now(),
+) {
+  const remoteActive = isCountdownTargetActive(remoteTargetMs, nowMs)
+  const localActive = isCountdownTargetActive(localFallbackTargetMs, nowMs)
+
+  if (!remoteActive) {
+    return localActive ? localFallbackTargetMs : remoteTargetMs
+  }
+
+  if (!localActive) {
+    return remoteTargetMs
+  }
+
+  const remoteRemainingMs = getCountdownTargetRemainingMs(remoteTargetMs, nowMs)
+  const localRemainingMs = getCountdownTargetRemainingMs(localFallbackTargetMs, nowMs)
+
+  if (remoteRemainingMs === null || localRemainingMs === null) {
+    return remoteTargetMs
+  }
+
+  // If local fallback is meaningfully sooner, treat it as the active override.
+  if (localRemainingMs + 60_000 < remoteRemainingMs) {
+    return localFallbackTargetMs
+  }
+
+  return remoteTargetMs
+}
+
 type SharedPlaybackStateMessage = {
   eventId: string
   state: SharedPlaybackState
@@ -172,6 +205,33 @@ function isMissingPlaybackCountdownColumnError(error: unknown) {
     .join(' ')
 
   return text.includes('countdown_target_ms')
+}
+
+function isPlaybackPermissionError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+    status?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code.toUpperCase() : ''
+  const status = typeof normalizedError.status === 'number' ? normalizedError.status : null
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return code === '42501'
+    || code === 'PGRST301'
+    || status === 401
+    || status === 403
+    || text.includes('row-level security')
+    || text.includes('permission denied')
 }
 
 export function normalizeCountdownTargetMs(value: unknown): number | null {
@@ -267,18 +327,24 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
     }
 
     if (error) {
-      if (error.code !== 'PGRST116') {
-        console.warn('playbackState: read failed', {
-          eventId,
-          code: error.code,
-          message: error.message,
-        })
+      if (isPlaybackPermissionError(error)) {
+        return readLastBroadcastPlaybackState(eventId)
       }
+
+      if (error.code === 'PGRST116') {
+        return readLastBroadcastPlaybackState(eventId)
+      }
+
+      console.warn('playbackState: read failed', {
+        eventId,
+        code: error.code,
+        message: error.message,
+      })
       return null
     }
 
     if (!data) {
-      return null
+      return readLastBroadcastPlaybackState(eventId)
     }
 
     const row = data as {
@@ -291,13 +357,20 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
       brb_message?: string | null
     }
     const normalizedQuoteIndex = typeof row.quote_index === 'number' ? row.quote_index : 0
+    const rowCountdownTargetMs = normalizeCountdownTargetMs(row.countdown_target_ms)
+    const localFallbackState = readLastBroadcastPlaybackState(eventId)
+    const localFallbackCountdownTargetMs = normalizeCountdownTargetMs(localFallbackState?.countdownTargetMs)
+    const resolvedCountdownTargetMs = resolvePreferredCountdownTargetMs(
+      rowCountdownTargetMs,
+      localFallbackCountdownTargetMs,
+    )
 
     return {
       currentSongId: row.current_song_id ?? null,
       currentSongCoverUrl: row.current_song_cover_url ?? null,
       isStarted: row.is_started ?? false,
       quoteIndex: normalizedQuoteIndex,
-      countdownTargetMs: normalizeCountdownTargetMs(row.countdown_target_ms),
+      countdownTargetMs: resolvedCountdownTargetMs,
       brbActive: row.brb_active ?? false,
       brbMessage: row.brb_message ?? null,
     }
@@ -387,6 +460,23 @@ export async function writeSharedPlaybackState(eventId: string, state: SharedPla
     }
 
     if (error) {
+      if (isPlaybackPermissionError(error)) {
+        // Local event/storage/broadcast sync is already published above.
+        // Treat permission-denied remote writes as non-fatal for same-browser sync.
+        const nowMs = Date.now()
+        const lastWarningAt = playbackPermissionWarningAtByEventId.get(eventId) ?? 0
+
+        if (nowMs - lastWarningAt >= PLAYBACK_PERMISSION_WARNING_INTERVAL_MS) {
+          playbackPermissionWarningAtByEventId.set(eventId, nowMs)
+          console.warn('playbackState: remote write blocked, using local sync fallback', {
+            eventId,
+            code: (error as { code?: string }).code,
+          })
+        }
+
+        return true
+      }
+
       console.error('Failed to write playback state:', error)
       return false
     }

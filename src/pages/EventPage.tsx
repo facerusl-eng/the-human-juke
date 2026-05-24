@@ -229,46 +229,6 @@ function isFutureCountdownEvent(eventRow: AudienceUpcomingEvent | null | undefin
   return startsAtMs !== null && startsAtMs > nowMs
 }
 
-function isMissingCoverImageColumnError(error: unknown) {
-  if (!error || typeof error !== 'object') {
-    return false
-  }
-
-  const normalizedError = error as {
-    code?: unknown
-    message?: unknown
-    details?: unknown
-    hint?: unknown
-  }
-
-  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
-  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
-    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
-    .join(' ')
-
-  return (code === '42703' || code === 'PGRST204') && text.includes('cover_image_url')
-}
-
-function isMissingEventThemeColumnError(error: unknown) {
-  if (!error || typeof error !== 'object') {
-    return false
-  }
-
-  const normalizedError = error as {
-    code?: unknown
-    message?: unknown
-    details?: unknown
-    hint?: unknown
-  }
-
-  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
-  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
-    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
-    .join(' ')
-
-  return (code === '42703' || code === 'PGRST204') && text.includes('event_theme')
-}
-
 function isAuthSessionError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -371,6 +331,7 @@ const MAX_AUDIENCE_NAME_LENGTH = 40
 const UPCOMING_EVENTS_POLL_INTERVAL_MS = 15000
 const UPCOMING_EVENTS_DEGRADED_POLL_INTERVAL_MS = 60000
 const LIVE_GIG_POLL_INTERVAL_MS = 4000
+const LIVE_EVENT_RECONNECT_GRACE_MS = 20000
 const PLAYBACK_SYNC_POLL_INTERVAL_MS = 10000
 const PLAYBACK_NULL_SYNC_GRACE_MISSES = 3
 const PLAYBACK_STALE_UPDATE_TOLERANCE_MS = 2500
@@ -1141,6 +1102,7 @@ function EventPage() {
   const [upcomingEventsNotice, setUpcomingEventsNotice] = useState<string | null>(null)
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(true)
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
+  const [holdLiveUiDuringReconnect, setHoldLiveUiDuringReconnect] = useState(false)
   const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
   const [audienceClockOffsetMs, setAudienceClockOffsetMs] = useState(() => requestedClockOffsetMs ?? readAudienceClockOffsetCache() ?? 0)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
@@ -1154,6 +1116,8 @@ function EventPage() {
   const upcomingFailureCountRef = useRef(0)
   const upcomingBaseFetchHealthyRef = useRef(false)
   const audienceClockOffsetRef = useRef(requestedClockOffsetMs ?? 0)
+  const lastKnownLiveEventNameRef = useRef<string | null>(null)
+  const reconnectGraceTimerRef = useRef<number | null>(null)
 
   const previousVotesRef = useRef<Map<string, number>>(new Map())
   const previousSongRanksRef = useRef<Map<string, number>>(new Map())
@@ -1168,6 +1132,53 @@ function EventPage() {
   useEffect(() => {
     audienceClockOffsetRef.current = audienceClockOffsetMs
   }, [audienceClockOffsetMs])
+
+  useEffect(() => {
+    if (event?.roomOpen) {
+      lastKnownLiveEventNameRef.current = event.name?.trim() || null
+    }
+
+    if (event) {
+      setHoldLiveUiDuringReconnect(false)
+      if (reconnectGraceTimerRef.current !== null) {
+        window.clearTimeout(reconnectGraceTimerRef.current)
+        reconnectGraceTimerRef.current = null
+      }
+      return
+    }
+
+    const shouldHoldLiveUi = Boolean(lastKnownLiveEventNameRef.current)
+      && (audienceConnectionStatus === 'reconnecting' || audienceConnectionStatus === 'offline' || loading || authLoading)
+
+    if (!shouldHoldLiveUi) {
+      setHoldLiveUiDuringReconnect(false)
+      if (reconnectGraceTimerRef.current !== null) {
+        window.clearTimeout(reconnectGraceTimerRef.current)
+        reconnectGraceTimerRef.current = null
+      }
+      return
+    }
+
+    setHoldLiveUiDuringReconnect(true)
+
+    if (reconnectGraceTimerRef.current !== null) {
+      return
+    }
+
+    reconnectGraceTimerRef.current = window.setTimeout(() => {
+      reconnectGraceTimerRef.current = null
+      setHoldLiveUiDuringReconnect(false)
+    }, LIVE_EVENT_RECONNECT_GRACE_MS)
+  }, [audienceConnectionStatus, authLoading, event, loading])
+
+  useEffect(() => {
+    return () => {
+      if (reconnectGraceTimerRef.current !== null) {
+        window.clearTimeout(reconnectGraceTimerRef.current)
+        reconnectGraceTimerRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     saveAudienceClockOffsetCache(audienceClockOffsetMs)
@@ -2994,11 +3005,13 @@ function EventPage() {
   }
 
   if (!event) {
-    if (hasRequestedEventParam && (loading || authLoading) && requestedCountdownTargetMs === null) {
+    if (holdLiveUiDuringReconnect) {
       return (
-        <section className="page-logo-loader-shell" aria-label="Audience loading" role="status">
+        <section className="page-logo-loader-shell" aria-label="Audience reconnecting" role="status">
           <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="80" height="80" />
-          {requestedCountdownTargetMs !== null ? <p className="subcopy no-margin">{loadingCountdownLabel}</p> : null}
+          <p className="subcopy no-margin">
+            Reconnecting to live stage{lastKnownLiveEventNameRef.current ? ` (${lastKnownLiveEventNameRef.current})` : ''}...
+          </p>
           {audienceHomeButton}
         </section>
       )
@@ -3023,7 +3036,6 @@ function EventPage() {
         upcomingEventsNotice={upcomingEventsNotice ?? authError}
         getEventHref={(eventId) => `/audience?event=${encodeURIComponent(eventId)}&v=${audienceLinkVersionRef.current}`}
         locale={audienceLocale}
-        socialLinks={socialLinks}
       />
     )
   }
@@ -3040,7 +3052,6 @@ function EventPage() {
         upcomingEventsNotice={upcomingEventsNotice ?? authError}
         getEventHref={(eventId) => `/audience?event=${encodeURIComponent(eventId)}&v=${audienceLinkVersionRef.current}`}
         locale={audienceLocale}
-        socialLinks={socialLinks}
       />
     )
   }
@@ -3175,20 +3186,6 @@ function EventPage() {
             <div className="audience-waiting-event-info">
               <p className="audience-waiting-event-name">{event.name}</p>
               {event.subtitle ? <p className="audience-waiting-event-subtitle">{event.subtitle}</p> : null}
-            </div>
-          ) : null}
-          {allTipLinks.length > 0 ? (
-            <a href={allTipLinks[0].url} target="_blank" rel="noopener noreferrer" className="secondary-button">
-              💸 {allTipLinks[0].label}
-            </a>
-          ) : null}
-          {socialLinks.length > 0 ? (
-            <div className="audience-social-links-inline audience-waiting-secondary-actions">
-              {socialLinks.map((link) => (
-                <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="secondary-button">
-                  {link.label}
-                </a>
-              ))}
             </div>
           ) : null}
           <div className="audience-waiting-primary-actions">
