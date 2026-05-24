@@ -1527,8 +1527,8 @@
 /* ÔöÇÔöÇ QR image ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
 
 .mirror-qr-image {
-  width: clamp(210px, min(30vw, 28dvh), 460px);
-  height: clamp(210px, min(30vw, 28dvh), 460px);
+  width: clamp(280px, min(40vw, 36dvh), 620px);
+  height: clamp(280px, min(40vw, 36dvh), 620px);
   border-radius: 14px;
   background: #ffffff;
   padding: clamp(0.52rem, 0.82vw, 0.74rem);
@@ -1803,8 +1803,8 @@
 }
 
 .mirror-pre-show-has-countdown .mirror-qr-image {
-  width: clamp(168px, min(24vw, 22dvh), 360px);
-  height: clamp(168px, min(24vw, 22dvh), 360px);
+  width: clamp(250px, min(34vw, 31dvh), 520px);
+  height: clamp(250px, min(34vw, 31dvh), 520px);
 }
 
 .mirror-pre-show-has-countdown .mirror-countdown-flash-block {
@@ -1852,8 +1852,8 @@
   }
 
   .mirror-pre-show-has-countdown .mirror-qr-image {
-    width: clamp(136px, min(18.2vw, 15.8dvh), 248px);
-    height: clamp(136px, min(18.2vw, 15.8dvh), 248px);
+    width: clamp(220px, min(27vw, 24dvh), 420px);
+    height: clamp(220px, min(27vw, 24dvh), 420px);
   }
 
   .mirror-pre-show-has-countdown .mirror-how-it-works p {
@@ -3900,8 +3900,8 @@
 }
 
 .mirror-shell-hide-controls .mirror-qr-image {
-  width: clamp(220px, min(24vw, 28dvh), 360px);
-  height: clamp(220px, min(24vw, 28dvh), 360px);
+  width: clamp(260px, min(30vw, 34dvh), 480px);
+  height: clamp(260px, min(30vw, 34dvh), 480px);
 }
 
 /* Queue row structure: left picked-by, center karaoke/band, right song info. */

@@ -1596,7 +1596,7 @@ function MirrorPageContent() {
     liveMirrorEventSettings.gigDate ?? null,
     liveMirrorEventSettings.gigStartTime ?? null,
   )
-  const buildCountdownLandingUrl = (customUrl: string | null) => buildQrLandingUrl({
+  const buildCountdownLandingUrl = (customUrl: string | null, qrContext: 'countdown' | 'break' | null = null) => buildQrLandingUrl({
     origin: appOrigin,
     eventId,
     isTestGig: isTestGigAudienceMode,
@@ -1604,6 +1604,7 @@ function MirrorPageContent() {
     audienceLinkVersion: audienceUrlVersion,
     clockOffsetMs: mirrorClockOffsetMs,
     customUrl,
+    qrContext,
   })
   // Route old QR link field through landing page so "Go to Lounge" button appears automatically
   const countdownQrDestination = buildCountdownLandingUrl(legacyCountdownQrLink || null)
@@ -1613,11 +1614,11 @@ function MirrorPageContent() {
   const useCustomBreakQr = liveMirrorEventSettings.mirrorBreakQrEnabled && customBreakQrLink.length > 0
 
   const countdownQrCodeUrl = useCustomCountdownQr
-    ? buildCountdownLandingUrl(customCountdownQrLink)
+    ? buildCountdownLandingUrl(customCountdownQrLink, 'countdown')
     : countdownQrDestination
     
   const breakQrCodeUrl = useCustomBreakQr
-    ? buildCountdownLandingUrl(customBreakQrLink)
+    ? buildCountdownLandingUrl(customBreakQrLink, 'break')
     : countdownQrDestination
   const countdownQrDestinationLabel = useCustomCountdownQr
     ? customCountdownQrLink

@@ -19,9 +19,73 @@ const FUNNY_BAR_MESSAGES = [
   'Very brave. Off to the bar with purpose, posture, and probably a queue. We shall hold the musical fort while you negotiate beverages and pretend this was all part of the master plan.',
 ]
 
+const FUNNY_RETURN_MESSAGES = [
+  'Back already? Outstanding efficiency. You explored the side quest, survived the social labyrinth, and returned just in time for the main event. The show approves this level of dramatic timing.',
+  'Welcome back, seasoned adventurer. Your detour report has been accepted without evidence, your legend has grown by at least 14%, and your reserved spot in the chaos remains gloriously intact.',
+  'Look who has returned from noble link diplomacy. Tea has been metaphorically poured, applause has been emotionally prepared, and your next excellent decision awaits right above this message.',
+]
+
 type ChoiceAction = 'lounge' | 'bar'
 
 type SyncStatusReason = 'notFound' | 'reconnecting'
+type QrChoiceContext = 'countdown' | 'break'
+
+function normalizeCustomDestination(value: string | null | undefined): string | null {
+  const trimmedValue = value?.trim()
+
+  if (!trimmedValue) {
+    return null
+  }
+
+  if (trimmedValue.startsWith('http://') || trimmedValue.startsWith('https://')) {
+    return trimmedValue
+  }
+
+  if (/^[\w.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(trimmedValue)) {
+    return `https://${trimmedValue}`
+  }
+
+  return null
+}
+
+function resolveQrChoiceContext(search: string): QrChoiceContext | null {
+  const params = new URLSearchParams(search)
+  const rawContext = params.get('qc')?.trim().toLowerCase() ?? ''
+
+  if (rawContext === 'c' || rawContext === 'countdown') {
+    return 'countdown'
+  }
+
+  if (rawContext === 'b' || rawContext === 'break') {
+    return 'break'
+  }
+
+  return null
+}
+
+function resolveBridgeReturnMessageIndex(search: string): number | null {
+  const params = new URLSearchParams(search)
+  const marker = params.get('rm')?.trim().toLowerCase() ?? ''
+
+  if (marker !== 'bar') {
+    return null
+  }
+
+  const index = Number(params.get('ri'))
+
+  if (!Number.isFinite(index) || index < 0) {
+    return 0
+  }
+
+  return Math.floor(index)
+}
+
+function buildCustomChoiceBridgeUrl(search: string, customDestination: string): string {
+  const params = new URLSearchParams()
+  params.set('url', customDestination)
+  params.set('back', `/qr-landing${search}`)
+  return `/lounge-link?${params.toString()}`
+}
 
 function resolveAudienceLocale(search: string): AudienceLocale {
   const params = new URLSearchParams(search)
@@ -215,25 +279,17 @@ function QrLandingPage() {
   const [nowMs, setNowMs] = useState(() => Date.now() + (clockOffsetMsFromLink ?? 0))
   const [syncStatusReason, setSyncStatusReason] = useState<SyncStatusReason | null>(null)
   const [activeFunnyMessage, setActiveFunnyMessage] = useState<string | null>(null)
+  const [eventCustomDestination, setEventCustomDestination] = useState<string | null>(null)
   const didAutoNavigateRef = useRef(false)
   const funnyMessageTimerRef = useRef<number | null>(null)
   const loungeFunnyMessageNextIndexRef = useRef(0)
   const barFunnyMessageNextIndexRef = useRef(0)
   const locale = useMemo(() => resolveAudienceLocale(search), [search])
-  const customDestination = useMemo(() => {
+  const customDestinationFromSearch = useMemo(() => {
     const params = new URLSearchParams(search)
-    const url = params.get('url')?.trim()
-
-    if (!url) {
-      return null
-    }
-
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url
-    }
-
-    return null
+    return normalizeCustomDestination(params.get('url'))
   }, [search])
+  const qrChoiceContext = useMemo(() => resolveQrChoiceContext(search), [search])
   const eventId = useMemo(() => {
     const params = new URLSearchParams(search)
     const value = params.get('event')?.trim() || params.get('eventId')?.trim() || ''
@@ -259,7 +315,13 @@ function QrLandingPage() {
     ),
     [audienceLinkVersion, clockOffsetMs, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale],
   )
+  const customDestination = customDestinationFromSearch ?? eventCustomDestination
   const hasCustomChoiceLink = Boolean(customDestination)
+  const customChoiceBridgeUrl = useMemo(
+    () => (customDestination ? buildCustomChoiceBridgeUrl(search, customDestination) : null),
+    [customDestination, search],
+  )
+  const bridgeReturnMessageIndex = useMemo(() => resolveBridgeReturnMessageIndex(search), [search])
 
   useEffect(() => {
     void import('./EventPage')
@@ -406,6 +468,7 @@ function QrLandingPage() {
       setEventRoomOpen(false)
       setEventStartMs(null)
       setSyncStatusReason(null)
+      setEventCustomDestination(null)
       didAutoNavigateRef.current = false
       return
     }
@@ -431,7 +494,7 @@ function QrLandingPage() {
 
         const { data, error } = await supabase
           .from('events')
-          .select('room_open, gig_date, gig_start_time')
+          .select('room_open, gig_date, gig_start_time, mirror_countdown_qr_custom_url, mirror_break_qr_custom_url')
           .eq('id', eventId)
           .maybeSingle()
 
@@ -448,7 +511,22 @@ function QrLandingPage() {
           setSyncStatusReason(shouldKeepSyncing ? 'reconnecting' : 'notFound')
           setEventStartMs(countdownTargetMsFromLink)
           setEventRoomOpen(false)
+          setEventCustomDestination(null)
           return
+        }
+
+        if (qrChoiceContext && !customDestinationFromSearch) {
+          const rawDestination = qrChoiceContext === 'break'
+            ? (data as Record<string, unknown>).mirror_break_qr_custom_url
+            : (data as Record<string, unknown>).mirror_countdown_qr_custom_url
+
+          const normalizedDestination = typeof rawDestination === 'string'
+            ? normalizeCustomDestination(rawDestination)
+            : null
+
+          setEventCustomDestination(normalizedDestination)
+        } else if (!customDestinationFromSearch) {
+          setEventCustomDestination(null)
         }
 
         const startMs = parseEventStartMs(data.gig_date as string | null, data.gig_start_time as string | null)
@@ -484,6 +562,30 @@ function QrLandingPage() {
       }
     }
   }, [countdownTargetMsFromLink, eventId, isTestPreviewMode])
+
+  useEffect(() => {
+    if (customDestinationFromSearch) {
+      setEventCustomDestination(null)
+    }
+  }, [customDestinationFromSearch])
+
+  useEffect(() => {
+    if (bridgeReturnMessageIndex === null) {
+      return
+    }
+
+    const message = FUNNY_RETURN_MESSAGES[bridgeReturnMessageIndex % FUNNY_RETURN_MESSAGES.length]
+    setActiveFunnyMessage(message ?? copy.emptyStateChoice)
+
+    if (funnyMessageTimerRef.current !== null) {
+      window.clearTimeout(funnyMessageTimerRef.current)
+    }
+
+    funnyMessageTimerRef.current = window.setTimeout(() => {
+      setActiveFunnyMessage(null)
+      funnyMessageTimerRef.current = null
+    }, LINK_FUNNY_TEXT_DURATION_MS)
+  }, [bridgeReturnMessageIndex, copy.emptyStateChoice])
 
   useEffect(() => {
     if (!eventId || eventRoomOpen || didAutoNavigateRef.current || hasCustomChoiceLink) {
@@ -556,11 +658,9 @@ function QrLandingPage() {
         </a>
         {customDestination ? (
           <a
-            href={customDestination}
+            href={customChoiceBridgeUrl ?? customDestination}
             className="qr-landing-button qr-landing-button-link"
             aria-label={copy.ariaGoToChoiceLink}
-            target="_blank"
-            rel="noopener noreferrer"
             onClick={() => handleChoiceActionClick('bar')}
           >
             {linkButtonText}

@@ -6,6 +6,7 @@ type BuildQrLandingUrlOptions = {
   audienceLinkVersion?: string | null
   clockOffsetMs?: number | null
   customUrl?: string | null
+  qrContext?: 'countdown' | 'break' | null
 }
 
 function normalizeCustomUrl(value: string | null | undefined): string | null {
@@ -51,7 +52,14 @@ export function buildQrLandingUrl(options: BuildQrLandingUrlOptions): string {
 
   const normalizedCustomUrl = normalizeCustomUrl(options.customUrl)
   if (normalizedCustomUrl) {
-    queryParams.set('url', normalizedCustomUrl)
+    const hasEventScopedContext = Boolean(options.eventId && (options.qrContext === 'countdown' || options.qrContext === 'break'))
+
+    if (hasEventScopedContext) {
+      queryParams.set('qc', options.qrContext === 'break' ? 'b' : 'c')
+    } else {
+      queryParams.set('url', normalizedCustomUrl)
+    }
+
     queryParams.set('visual', '1')
   }
 
