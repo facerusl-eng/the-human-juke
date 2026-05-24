@@ -56,9 +56,11 @@ export function buildQrLandingUrl(options: BuildQrLandingUrlOptions): string {
 
     if (hasEventScopedContext) {
       queryParams.set('qc', options.qrContext === 'break' ? 'b' : 'c')
-    } else {
-      queryParams.set('url', normalizedCustomUrl)
     }
+
+    // Keep direct URL as a resilient fallback so choice mode works even if
+    // event sync is temporarily reconnecting on mobile clients.
+    queryParams.set('url', normalizedCustomUrl)
 
     queryParams.set('visual', '1')
   }
