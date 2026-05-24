@@ -6,7 +6,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(10, 20, 45, 0.95), rgba(15, 30, 60, 0.95));
+  background:
+    linear-gradient(135deg, rgba(8, 16, 38, 0.78), rgba(10, 20, 44, 0.82)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center center / cover no-repeat;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
   position: relative;
