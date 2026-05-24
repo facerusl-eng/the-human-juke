@@ -80,6 +80,11 @@ function resolveLoungeDestination(search: string) {
 function LoungeLinkPage() {
   const navigate = useNavigate()
   const { search } = useLocation()
+  const mode = useMemo(() => {
+    const params = new URLSearchParams(search)
+    const rawMode = params.get('mode')?.trim().toLowerCase()
+    return rawMode === 'bar' ? 'bar' : 'lounge'
+  }, [search])
   const destination = useMemo(() => resolveLoungeDestination(search), [search])
   const customLink = useMemo(() => {
     const params = new URLSearchParams(search)
@@ -87,13 +92,13 @@ function LoungeLinkPage() {
   }, [search])
   const backToWelcomePath = useMemo(() => resolveSafeBackPath(search), [search])
   const destinationHref = customLink ?? destination
-  const openButtonLabel = customLink ? 'Open link in browser' : 'Open lounge'
+  const openButtonLabel = mode === 'bar' ? 'Check out the bar' : 'Join the Lounge'
 
   return (
     <section className="app-shell" aria-label="Opening lounge link">
       <section className="queue-panel">
         <p className="eyebrow">Quick Choice</p>
-        <h1>Pick your route</h1>
+        <h1>{mode === 'bar' ? 'Bar route selected' : 'Lounge route selected'}</h1>
         <p className="subcopy">
           Open your destination in a new tab, or jump straight back to the QR choice screen.
         </p>

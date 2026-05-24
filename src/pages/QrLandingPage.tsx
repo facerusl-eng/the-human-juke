@@ -243,7 +243,7 @@ function resolveAudienceDestination(
   return queryString ? `/audience?${queryString}` : '/audience'
 }
 
-function buildChoiceBridgeUrl(backPath: string, options: { to?: string | null; url?: string | null }) {
+function buildChoiceBridgeUrl(backPath: string, options: { to?: string | null; url?: string | null; mode?: 'lounge' | 'bar' | null }) {
   const params = new URLSearchParams()
   params.set('back', backPath)
 
@@ -253,6 +253,10 @@ function buildChoiceBridgeUrl(backPath: string, options: { to?: string | null; u
 
   if (options.url) {
     params.set('url', options.url)
+  }
+
+  if (options.mode) {
+    params.set('mode', options.mode)
   }
 
   return `/lounge-link?${params.toString()}`
@@ -313,11 +317,11 @@ function QrLandingPage() {
   const requiresEventCustomLookup = Boolean(eventId && qrChoiceContext && !customDestinationFromSearch)
   const choiceBackPath = useMemo(() => `/qr-landing${search}`, [search])
   const loungeChoiceBridgeUrl = useMemo(
-    () => (hasCustomChoiceLink ? buildChoiceBridgeUrl(choiceBackPath, { to: audienceDestination }) : null),
+    () => (hasCustomChoiceLink ? buildChoiceBridgeUrl(choiceBackPath, { to: audienceDestination, mode: 'lounge' }) : null),
     [audienceDestination, choiceBackPath, hasCustomChoiceLink],
   )
   const barChoiceBridgeUrl = useMemo(
-    () => (customDestination ? buildChoiceBridgeUrl(choiceBackPath, { url: customDestination }) : null),
+    () => (customDestination ? buildChoiceBridgeUrl(choiceBackPath, { url: customDestination, mode: 'bar' }) : null),
     [choiceBackPath, customDestination],
   )
 
