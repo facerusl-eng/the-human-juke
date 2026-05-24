@@ -4,13 +4,21 @@ export type OpenMirrorScreenResult = {
   openedInNewTabWindow: boolean
 }
 
-export function openMirrorScreen(): OpenMirrorScreenResult {
+type OpenMirrorScreenOptions = {
+  eventId?: string | null
+}
+
+export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMirrorScreenResult {
   const mirrorUrl = new URL('/mirror', window.location.origin)
   mirrorUrl.searchParams.set('safeMargins', '1')
   mirrorUrl.searchParams.set('density', 'medium')
   mirrorUrl.searchParams.set('launchFullscreen', '1')
   mirrorUrl.searchParams.set('cast', '1')
   mirrorUrl.searchParams.delete('windowed')
+
+  if (options.eventId?.trim()) {
+    mirrorUrl.searchParams.set('event', options.eventId.trim())
+  }
 
   const mirrorTab = window.open(mirrorUrl.toString(), '_blank', 'noopener,noreferrer')
 
@@ -23,8 +31,10 @@ export function openMirrorScreen(): OpenMirrorScreenResult {
     }
   }
 
+  window.location.assign(mirrorUrl.toString())
+
   return {
-    navigatedInCurrentWindow: false,
+    navigatedInCurrentWindow: true,
     openedInPopupWindow: false,
     openedInNewTabWindow: false,
   }
