@@ -256,7 +256,7 @@ function AdminDashboardContent({
     navigate('/audience')
   }, [navigate])
   const openMirrorScreen = useCallback(() => {
-    openMirrorScreenWindow()
+    openMirrorScreenWindow({ preferEdgeOnWindows: true })
   }, [])
   const openSetlistLibrary = useCallback(() => {
     navigate('/admin/setlist-library')
