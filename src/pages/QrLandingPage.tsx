@@ -387,8 +387,6 @@ function QrLandingPage() {
     : null
   const syncStatusText = syncStatusReason === 'notFound'
     ? copy.statusNotFound
-    : syncStatusReason === 'reconnecting'
-    ? copy.statusReconnecting
     : null
   const loungeButtonText = copy.buttonGoToLounge
   const linkButtonText = copy.buttonGoToLink
