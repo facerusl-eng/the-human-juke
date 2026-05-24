@@ -851,11 +851,32 @@
 }
 
 .audience-shell-modern.audience-waiting-shell .audience-waiting-card {
-  border: 1px solid var(--aud-border);
-  background: var(--aud-surface);
+  border: 1px solid rgba(93, 215, 255, 0.34);
+  background:
+    radial-gradient(circle at 12% 10%, rgba(93, 215, 255, 0.14) 0%, transparent 34%),
+    linear-gradient(145deg, rgba(15, 20, 42, 0.94) 0%, rgba(23, 28, 58, 0.96) 100%);
   box-shadow:
-    0 18px 40px rgba(7, 10, 30, 0.42),
+    0 16px 36px rgba(8, 10, 36, 0.52),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.audience-shell-modern.audience-waiting-shell.audience-theme-no-gig-blend {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(93, 215, 255, 0.16) 0%, transparent 42%),
+    radial-gradient(circle at 88% 10%, rgba(255, 99, 132, 0.1) 0%, transparent 40%),
+    #0a1228;
+}
+
+.audience-shell-modern.audience-waiting-shell .audience-waiting-card h1,
+.audience-shell-modern.audience-waiting-shell .audience-entry-eyebrow,
+.audience-shell-modern.audience-waiting-shell .audience-waiting-event-name {
+  color: #f7fbff;
+}
+
+.audience-shell-modern.audience-waiting-shell .audience-entry-copy,
+.audience-shell-modern.audience-waiting-shell .audience-waiting-start-label,
+.audience-shell-modern.audience-waiting-shell .audience-waiting-event-subtitle {
+  color: #b8d2ff;
 }
 .audience-karafun .audience-waiting-card.audience-waiting-card-final-countdown {
   max-width: min(94vw, 920px);
@@ -920,20 +941,20 @@
 }
 
 .audience-shell-modern.audience-waiting-shell .audience-waiting-primary-actions .primary-button {
-  border-color: rgba(93, 215, 255, 0.54);
-  background: linear-gradient(135deg, rgba(74, 214, 255, 0.24) 0%, rgba(255, 79, 152, 0.2) 100%);
+  border-color: rgba(93, 215, 255, 0.5);
+  background: linear-gradient(135deg, rgba(69, 196, 255, 0.26) 0%, rgba(113, 166, 255, 0.24) 100%);
   color: #f7fbff;
 }
 
 .audience-shell-modern.audience-waiting-shell .audience-waiting-primary-actions .secondary-button {
-  border-color: rgba(93, 215, 255, 0.4);
-  background: rgba(8, 14, 34, 0.84);
+  border-color: rgba(93, 215, 255, 0.34);
+  background: rgba(8, 14, 34, 0.78);
   color: #f7fbff;
 }
 
 .audience-shell-modern.audience-waiting-shell .audience-waiting-primary-actions .secondary-button:hover {
-  border-color: rgba(93, 215, 255, 0.58);
-  background: rgba(12, 20, 44, 0.92);
+  border-color: rgba(148, 190, 255, 0.56);
+  background: rgba(12, 20, 44, 0.9);
 }
 .audience-karafun .audience-waiting-secondary-actions {
   justify-content: center;
@@ -1751,8 +1772,8 @@
 }
 
 .audience-shell-modern.audience-waiting-shell .audience-waiting-event-info {
-  border-color: rgba(93, 215, 255, 0.3);
-  background: rgba(12, 19, 44, 0.82);
+  border-color: rgba(93, 215, 255, 0.24);
+  background: rgba(8, 14, 34, 0.62);
 }
 
 .audience-karafun .audience-waiting-event-name {
