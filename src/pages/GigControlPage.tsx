@@ -2530,8 +2530,14 @@ function GigControlPage() {
 
       const target = event.target as HTMLElement | null
       const activeElement = document.activeElement as HTMLElement | null
-      const interactiveTarget = target?.closest('input, textarea, select, [contenteditable="true"], [role="textbox"], [aria-multiline="true"], [data-spacebar-ignore="true"]')
-      const isTypingTarget = Boolean(interactiveTarget || activeElement?.isContentEditable)
+      const interactiveSelector = 'input, textarea, select, [contenteditable], [role="textbox"], [aria-multiline="true"], [data-spacebar-ignore="true"]'
+      const interactiveTarget = target?.closest(interactiveSelector)
+      const interactiveActiveElement = activeElement?.closest(interactiveSelector)
+      const isTypingTarget = Boolean(
+        interactiveTarget
+        || interactiveActiveElement
+        || activeElement?.isContentEditable,
+      )
 
       if (isTypingTarget) {
         return
