@@ -7,12 +7,19 @@ import { supabase } from '../lib/supabase'
 const LIVE_SYNC_POLL_INTERVAL_MS = 4000
 const LINK_FUNNY_TEXT_DURATION_MS = 9000
 
-const FUNNY_LINK_MESSAGES = [
-  'Bold choice. Off you pop - we kept your lounge spot warm.',
-  'Quick detour approved. We will pretend this was part of the plan.',
-  'Excellent scouting work. Return triumphant when ready.',
-  'A brief side quest! Mind the pints and report back.',
+const FUNNY_LOUNGE_MESSAGES = [
+  'Splendid decision. The lounge is where legends are made, playlists are debated, and someone always claims they knew the chorus first. Drift back here anytime if you miss the dramatic lighting.',
+  'Right then, into the lounge you go. Keep your charm polished, your requests tasteful, and your dance moves legally distinct from chaos. We will still be here pretending to be very professional.',
+  'A classic move. You have chosen the lounge route: equal parts music, mischief, and mild emotional support from strangers who also love this song. Return for more nonsense whenever you like.',
 ]
+
+const FUNNY_BAR_MESSAGES = [
+  'Excellent scouting mission to the bar. Conduct your noble research with dignity, avoid tactical overconfidence, and report back with stories that improve slightly each time they are told.',
+  'Bold and thirsty. Take a graceful detour, inspect the local refreshments like a seasoned critic, and return when ready for more tunes, more chaos, and fewer responsible life choices.',
+  'Very brave. Off to the bar with purpose, posture, and probably a queue. We shall hold the musical fort while you negotiate beverages and pretend this was all part of the master plan.',
+]
+
+type ChoiceAction = 'lounge' | 'bar'
 
 type SyncStatusReason = 'notFound' | 'reconnecting'
 
@@ -207,10 +214,11 @@ function QrLandingPage() {
   const getSyncedNowMs = useCallback(() => Date.now() + clockOffsetRef.current, [])
   const [nowMs, setNowMs] = useState(() => Date.now() + (clockOffsetMsFromLink ?? 0))
   const [syncStatusReason, setSyncStatusReason] = useState<SyncStatusReason | null>(null)
-  const [activeFunnyMessageIndex, setActiveFunnyMessageIndex] = useState<number | null>(null)
+  const [activeFunnyMessage, setActiveFunnyMessage] = useState<string | null>(null)
   const didAutoNavigateRef = useRef(false)
   const funnyMessageTimerRef = useRef<number | null>(null)
-  const funnyMessageNextIndexRef = useRef(0)
+  const loungeFunnyMessageNextIndexRef = useRef(0)
+  const barFunnyMessageNextIndexRef = useRef(0)
   const locale = useMemo(() => resolveAudienceLocale(search), [search])
   const customDestination = useMemo(() => {
     const params = new URLSearchParams(search)
@@ -271,7 +279,7 @@ function QrLandingPage() {
         ariaGoToAudienceLounge: 'Gå til publikums-lounge',
         ariaGoToChoiceLink: 'Åbn ekstra link',
         emptyState: 'Velkommen! Tryk på knappen nedenfor for at gå i loungen.',
-        emptyStateChoice: 'Welcome to the show. Pick your route above, and mind the dramatic entrance.',
+        emptyStateChoice: 'Welcome to the show, you magnificent troublemaker. Pick your route above, make questionable but memorable decisions, and return here whenever you fancy another dramatic entrance.',
       }
     }
 
@@ -288,7 +296,7 @@ function QrLandingPage() {
         ariaGoToAudienceLounge: 'Fara i ahorfenda lounge',
         ariaGoToChoiceLink: 'Opna vidbotar-link',
         emptyState: 'Velkomin! Smelltu a hnappinn ad neðan til ad fara i lounge.',
-        emptyStateChoice: 'Welcome to the show. Pick your route above, and mind the dramatic entrance.',
+        emptyStateChoice: 'Welcome to the show, you magnificent troublemaker. Pick your route above, make questionable but memorable decisions, and return here whenever you fancy another dramatic entrance.',
       }
     }
 
@@ -304,7 +312,7 @@ function QrLandingPage() {
       ariaGoToAudienceLounge: 'Go to audience lounge',
       ariaGoToChoiceLink: 'Open secondary venue link',
       emptyState: 'Welcome! Click the button below to join the lounge.',
-      emptyStateChoice: 'Welcome to the show. Pick your route above: join the lounge or inspect the bar like a proper local.',
+      emptyStateChoice: 'Welcome to the show, you magnificent troublemaker. Pick your route above: lounge for glorious vibes, or bar for vital field research. Either way, return here when you crave more ceremony.',
     }
   }, [locale])
   const countdownRemainingMs = eventStartMs === null ? null : eventStartMs - nowMs
@@ -322,9 +330,9 @@ function QrLandingPage() {
   const loungeButtonText = copy.buttonGoToLounge
   const linkButtonText = copy.buttonGoToLink
   const shouldDisableLoungeButton = false
-  const choiceWelcomeText = activeFunnyMessageIndex === null
+  const choiceWelcomeText = activeFunnyMessage === null
     ? copy.emptyStateChoice
-    : FUNNY_LINK_MESSAGES[activeFunnyMessageIndex] ?? copy.emptyStateChoice
+    : activeFunnyMessage
 
   useEffect(() => {
     clockOffsetRef.current = clockOffsetMs
@@ -503,20 +511,22 @@ function QrLandingPage() {
     }
   }, [])
 
-  const handleChoiceLinkClick = useCallback(() => {
-    const nextIndex = funnyMessageNextIndexRef.current % FUNNY_LINK_MESSAGES.length
-    funnyMessageNextIndexRef.current += 1
-    setActiveFunnyMessageIndex(nextIndex)
+  const handleChoiceActionClick = useCallback((action: ChoiceAction) => {
+    const sourceMessages = action === 'lounge' ? FUNNY_LOUNGE_MESSAGES : FUNNY_BAR_MESSAGES
+    const sourceIndexRef = action === 'lounge' ? loungeFunnyMessageNextIndexRef : barFunnyMessageNextIndexRef
+    const nextIndex = sourceIndexRef.current % sourceMessages.length
+    sourceIndexRef.current += 1
+    setActiveFunnyMessage(sourceMessages[nextIndex] ?? copy.emptyStateChoice)
 
     if (funnyMessageTimerRef.current !== null) {
       window.clearTimeout(funnyMessageTimerRef.current)
     }
 
     funnyMessageTimerRef.current = window.setTimeout(() => {
-      setActiveFunnyMessageIndex(null)
+      setActiveFunnyMessage(null)
       funnyMessageTimerRef.current = null
     }, LINK_FUNNY_TEXT_DURATION_MS)
-  }, [])
+  }, [copy.emptyStateChoice])
 
   return (
     <section className="qr-landing-shell" aria-label="Audience lounge landing page">
@@ -525,6 +535,9 @@ function QrLandingPage() {
           href={audienceDestination}
           className={`qr-landing-button${shouldDisableLoungeButton ? ' qr-landing-button-disabled' : ''}`}
           aria-label={copy.ariaGoToAudienceLounge}
+          target={customDestination ? '_blank' : undefined}
+          rel={customDestination ? 'noopener noreferrer' : undefined}
+          onClick={customDestination ? () => handleChoiceActionClick('lounge') : undefined}
         >
           {loungeButtonText}
         </a>
@@ -535,7 +548,7 @@ function QrLandingPage() {
             aria-label={copy.ariaGoToChoiceLink}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={handleChoiceLinkClick}
+            onClick={() => handleChoiceActionClick('bar')}
           >
             {linkButtonText}
           </a>
