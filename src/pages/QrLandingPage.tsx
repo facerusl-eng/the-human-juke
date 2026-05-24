@@ -260,7 +260,7 @@ function QrLandingPage() {
         ariaGoToAudienceLounge: 'Gå til publikums-lounge',
         ariaGoToChoiceLink: 'Åbn ekstra link',
         emptyState: 'Velkommen! Tryk på knappen nedenfor for at gå i loungen.',
-        emptyStateChoice: 'Welcome to the show! Choose how you want to join.',
+        emptyStateChoice: 'Welcome to the show. Pick your route above, and mind the dramatic entrance.',
       }
     }
 
@@ -277,7 +277,7 @@ function QrLandingPage() {
         ariaGoToAudienceLounge: 'Fara i ahorfenda lounge',
         ariaGoToChoiceLink: 'Opna vidbotar-link',
         emptyState: 'Velkomin! Smelltu a hnappinn ad neðan til ad fara i lounge.',
-        emptyStateChoice: 'Welcome to the show! Choose how you want to join.',
+        emptyStateChoice: 'Welcome to the show. Pick your route above, and mind the dramatic entrance.',
       }
     }
 
@@ -293,7 +293,7 @@ function QrLandingPage() {
       ariaGoToAudienceLounge: 'Go to audience lounge',
       ariaGoToChoiceLink: 'Open secondary venue link',
       emptyState: 'Welcome! Click the button below to join the lounge.',
-      emptyStateChoice: 'Welcome to the show! Choose one of the options below.',
+      emptyStateChoice: 'Welcome to the show. Pick your route above: join the lounge or inspect the bar like a proper local.',
     }
   }, [locale])
   const countdownRemainingMs = eventStartMs === null ? null : eventStartMs - nowMs
@@ -518,7 +518,7 @@ function QrLandingPage() {
       ) : null}
 
       <div className="qr-landing-container">
-        <div className="qr-landing-empty-state">
+        <div className={`qr-landing-empty-state${customDestination ? ' qr-landing-empty-state-choice' : ''}`}>
           <p>{customDestination ? copy.emptyStateChoice : copy.emptyState}</p>
         </div>
       </div>
