@@ -19,6 +19,12 @@ const FUNNY_BAR_MESSAGES = [
   'Very brave. Off to the bar with purpose, posture, and probably a queue. We shall hold the musical fort while you negotiate beverages and pretend this was all part of the master plan.',
 ]
 
+const FUNNY_RETURN_MESSAGES = [
+  'Back already? Splendid timing. Your side quest has been logged, your legend has grown, and your seat in the nonsense remains fully reserved.',
+  'Welcome back, brave explorer. You inspected the outside world, found it acceptable, and returned to the superior chaos with remarkable professionalism.',
+  'And we have a triumphant return! The crowd imagines dramatic music, polite applause, and at least one person whispering, "absolute icon."',
+]
+
 type ChoiceAction = 'lounge' | 'bar'
 
 type SyncStatusReason = 'notFound' | 'reconnecting'
@@ -255,6 +261,7 @@ function QrLandingPage() {
   const funnyMessageTimerRef = useRef<number | null>(null)
   const loungeFunnyMessageNextIndexRef = useRef(0)
   const barFunnyMessageNextIndexRef = useRef(0)
+  const returnFunnyMessageNextIndexRef = useRef(0)
   const locale = useMemo(() => resolveAudienceLocale(search), [search])
   const customDestinationFromSearch = useMemo(() => {
     const params = new URLSearchParams(search)
@@ -604,13 +611,21 @@ function QrLandingPage() {
   }, [copy.emptyStateChoice])
 
   const handleBackToWelcomeClick = useCallback(() => {
+    const nextIndex = returnFunnyMessageNextIndexRef.current % FUNNY_RETURN_MESSAGES.length
+    returnFunnyMessageNextIndexRef.current += 1
+
     if (funnyMessageTimerRef.current !== null) {
       window.clearTimeout(funnyMessageTimerRef.current)
       funnyMessageTimerRef.current = null
     }
 
-    setActiveFunnyMessage(null)
-  }, [])
+    setActiveFunnyMessage(FUNNY_RETURN_MESSAGES[nextIndex] ?? copy.emptyStateChoice)
+
+    funnyMessageTimerRef.current = window.setTimeout(() => {
+      setActiveFunnyMessage(null)
+      funnyMessageTimerRef.current = null
+    }, LINK_FUNNY_TEXT_DURATION_MS)
+  }, [copy.emptyStateChoice])
 
   return (
     <section className="qr-landing-shell" aria-label="Audience lounge landing page">
@@ -637,7 +652,7 @@ function QrLandingPage() {
             {linkButtonText}
           </a>
         ) : null}
-        {customDestination && activeFunnyMessage !== null ? (
+        {customDestination ? (
           <button
             type="button"
             className="qr-landing-button qr-landing-button-back"
