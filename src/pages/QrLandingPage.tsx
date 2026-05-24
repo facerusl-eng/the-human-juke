@@ -280,6 +280,7 @@ function QrLandingPage() {
   const [syncStatusReason, setSyncStatusReason] = useState<SyncStatusReason | null>(null)
   const [activeFunnyMessage, setActiveFunnyMessage] = useState<string | null>(null)
   const [eventCustomDestination, setEventCustomDestination] = useState<string | null>(null)
+  const [customDestinationLookupComplete, setCustomDestinationLookupComplete] = useState(false)
   const didAutoNavigateRef = useRef(false)
   const funnyMessageTimerRef = useRef<number | null>(null)
   const loungeFunnyMessageNextIndexRef = useRef(0)
@@ -317,6 +318,7 @@ function QrLandingPage() {
   )
   const customDestination = customDestinationFromSearch ?? eventCustomDestination
   const hasCustomChoiceLink = Boolean(customDestination)
+  const requiresEventCustomLookup = Boolean(eventId && qrChoiceContext && !customDestinationFromSearch)
   const customChoiceBridgeUrl = useMemo(
     () => (customDestination ? buildCustomChoiceBridgeUrl(search, customDestination) : null),
     [customDestination, search],
@@ -331,7 +333,7 @@ function QrLandingPage() {
     if (locale === 'da') {
       return {
         buttonGoToLounge: 'Join the Lounge',
-        buttonGoToLink: 'Check out the bar',
+        buttonGoToLink: 'Open link in browser',
         buttonBackToWelcome: 'Tilbage til velkomst',
         buttonSyncingStatus: 'Synkroniserer live-status...',
         buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
@@ -349,7 +351,7 @@ function QrLandingPage() {
     if (locale === 'is') {
       return {
         buttonGoToLounge: 'Join the Lounge',
-        buttonGoToLink: 'Check out the bar',
+        buttonGoToLink: 'Open link in browser',
         buttonBackToWelcome: 'Aftur i velkomid',
         buttonSyncingStatus: 'Samstilli live-stodu...',
         buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
@@ -366,7 +368,7 @@ function QrLandingPage() {
 
     return {
       buttonGoToLounge: 'Join the Lounge',
-      buttonGoToLink: 'Check out the bar',
+      buttonGoToLink: 'Open link in browser',
       buttonBackToWelcome: 'Back to welcome',
       buttonSyncingStatus: 'Syncing live status...',
       buttonSyncingCountdownPrefix: 'Syncing countdown',
@@ -469,6 +471,7 @@ function QrLandingPage() {
       setEventStartMs(null)
       setSyncStatusReason(null)
       setEventCustomDestination(null)
+      setCustomDestinationLookupComplete(true)
       didAutoNavigateRef.current = false
       return
     }
@@ -478,6 +481,10 @@ function QrLandingPage() {
 
     const syncEventStatus = async () => {
       try {
+        if (requiresEventCustomLookup) {
+          setCustomDestinationLookupComplete(false)
+        }
+
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
         if (sessionError) {
@@ -512,6 +519,7 @@ function QrLandingPage() {
           setEventStartMs(countdownTargetMsFromLink)
           setEventRoomOpen(false)
           setEventCustomDestination(null)
+          setCustomDestinationLookupComplete(true)
           return
         }
 
@@ -525,8 +533,12 @@ function QrLandingPage() {
             : null
 
           setEventCustomDestination(normalizedDestination)
+          setCustomDestinationLookupComplete(true)
         } else if (!customDestinationFromSearch) {
           setEventCustomDestination(null)
+          setCustomDestinationLookupComplete(true)
+        } else {
+          setCustomDestinationLookupComplete(true)
         }
 
         const startMs = parseEventStartMs(data.gig_date as string | null, data.gig_start_time as string | null)
@@ -541,6 +553,7 @@ function QrLandingPage() {
         }
 
         setSyncStatusReason('reconnecting')
+        setCustomDestinationLookupComplete(true)
       }
     }
 
@@ -561,11 +574,12 @@ function QrLandingPage() {
         window.clearInterval(timerId)
       }
     }
-  }, [countdownTargetMsFromLink, eventId, isTestPreviewMode])
+  }, [countdownTargetMsFromLink, customDestinationFromSearch, eventId, isTestPreviewMode, qrChoiceContext, requiresEventCustomLookup])
 
   useEffect(() => {
     if (customDestinationFromSearch) {
       setEventCustomDestination(null)
+      setCustomDestinationLookupComplete(true)
     }
   }, [customDestinationFromSearch])
 
@@ -592,22 +606,30 @@ function QrLandingPage() {
       return
     }
 
+    if (requiresEventCustomLookup && !customDestinationLookupComplete) {
+      return
+    }
+
     if (countdownRemainingMs === null || countdownRemainingMs > 0) {
       return
     }
 
     didAutoNavigateRef.current = true
     window.location.replace(audienceDestination)
-  }, [audienceDestination, countdownRemainingMs, eventId, eventRoomOpen, hasCustomChoiceLink])
+  }, [audienceDestination, countdownRemainingMs, customDestinationLookupComplete, eventId, eventRoomOpen, hasCustomChoiceLink, requiresEventCustomLookup])
 
   useEffect(() => {
     if (!eventId || !eventRoomOpen || didAutoNavigateRef.current || hasCustomChoiceLink) {
       return
     }
 
+    if (requiresEventCustomLookup && !customDestinationLookupComplete) {
+      return
+    }
+
     didAutoNavigateRef.current = true
     window.location.replace(audienceDestination)
-  }, [audienceDestination, eventId, eventRoomOpen, hasCustomChoiceLink])
+  }, [audienceDestination, customDestinationLookupComplete, eventId, eventRoomOpen, hasCustomChoiceLink, requiresEventCustomLookup])
 
   useEffect(() => {
     return () => {
