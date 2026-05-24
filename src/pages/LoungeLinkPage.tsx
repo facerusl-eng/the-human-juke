@@ -97,6 +97,42 @@ function LoungeLinkPage() {
   const destinationHref = customLink ?? destination
   const openButtonLabel = mode === 'bar' ? 'Check out the bar' : 'Join the Lounge'
 
+  if (mode === 'bar' && customLink) {
+    return (
+      <section className="app-shell" aria-label="Bar link viewer" style={{ minHeight: '100dvh', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
+        <section
+          className="queue-panel"
+          style={{
+            margin: 0,
+            borderRadius: 0,
+            padding: '0.85rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.85rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <p className="eyebrow" style={{ margin: 0 }}>Bar choices</p>
+          <div style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
+            <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
+              Go back to choices
+            </button>
+            <a href={customLink} target="_blank" rel="noopener noreferrer" className="qr-landing-button qr-landing-button-link">
+              Open in browser
+            </a>
+          </div>
+        </section>
+        <iframe
+          src={customLink}
+          title="Bar choices"
+          style={{ width: '100%', height: '100%', border: 'none', background: '#060a1a' }}
+          referrerPolicy="no-referrer"
+        />
+      </section>
+    )
+  }
+
   return (
     <section className="app-shell" aria-label="Opening lounge link">
       <section className="queue-panel">
