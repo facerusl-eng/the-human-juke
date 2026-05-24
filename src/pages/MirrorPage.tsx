@@ -1,4 +1,40 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import isEqual from 'lodash.isequal'
+// Utility to shallow compare event time fields
+function isSameEventTime(a: { gigDate?: string | null, gigStartTime?: string | null }, b: { gigDate?: string | null, gigStartTime?: string | null }) {
+  return a.gigDate === b.gigDate && a.gigStartTime === b.gigStartTime;
+}
+  // --- Live event time sync for countdown ---
+  const [eventTime, setEventTime] = useState<{ gigDate?: string | null, gigStartTime?: string | null }>({ gigDate: event?.gigDate, gigStartTime: event?.gigStartTime })
+
+  // Keep eventTime in sync with event prop
+  useEffect(() => {
+    setEventTime({ gigDate: event?.gigDate, gigStartTime: event?.gigStartTime })
+  }, [event?.gigDate, event?.gigStartTime])
+
+  // Subscribe to gig time changes in Supabase
+  useEffect(() => {
+    if (!eventId) return;
+    let isCurrent = true;
+    const channel = supabase
+      .channel(`mirror_event_time:${eventId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'events',
+        filter: `id=eq.${eventId}`,
+      }, (payload) => {
+        if (!isCurrent) return;
+        const newDate = payload?.new?.gig_date ?? null;
+        const newTime = payload?.new?.gig_start_time ?? null;
+        setEventTime((prev) => isSameEventTime(prev, { gigDate: newDate, gigStartTime: newTime }) ? prev : { gigDate: newDate, gigStartTime: newTime });
+      })
+      .subscribe();
+    return () => {
+      isCurrent = false;
+      void channel.unsubscribe();
+    };
+  }, [eventId]);
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { getAudienceUrl } from '../lib/audienceUrl'
@@ -20,7 +56,7 @@ import { useQueueStore, type QueueSong, type VenueLogoAppearance } from '../stat
 import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
-import { INTRO_AUDIO_PLAYBACK_VOLUME } from '../lib/constants'
+import { buildQrLandingUrl } from '../lib/qrLandingUrl'
 import { demoMode, homeMirrorPreviewMode } from '../demo/demoMode'
 import { DEMO_NOW_PLAYING_FACTS } from '../demo/demoNowPlaying'
 
@@ -183,76 +219,6 @@ function readIntroAudioPlayLockForEvent(eventId: string | null): IntroAudioPlayL
   } catch {
     return null
   }
-}
-
-function acquireIntroAudioPlayLockForEvent(eventId: string): string | null {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  const now = Date.now()
-  const ownerId = `${eventId}:${now}:${Math.random().toString(36).slice(2)}`
-
-  try {
-    const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
-
-    if (existingRaw) {
-      const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
-      const sameEvent = existingLock.eventId === eventId
-      const stillValid = typeof existingLock.expiresAt === 'number' && existingLock.expiresAt > now
-
-      if (sameEvent && stillValid) {
-        return null
-      }
-    }
-
-    const nextLock: IntroAudioPlayLock = {
-      eventId,
-      ownerId,
-      expiresAt: now + 20_000,
-    }
-
-    window.localStorage.setItem(INTRO_AUDIO_LOCK_STORAGE_KEY, JSON.stringify(nextLock))
-
-    const confirmationRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
-    if (!confirmationRaw) {
-      return null
-    }
-
-    const confirmation = JSON.parse(confirmationRaw) as Partial<IntroAudioPlayLock>
-    return confirmation.ownerId === ownerId && confirmation.eventId === eventId ? ownerId : null
-  } catch {
-    return ownerId
-  }
-}
-
-function releaseIntroAudioPlayLockForEvent(eventId: string, ownerId: string) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
-    if (!existingRaw) {
-      return
-    }
-
-    const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
-    if (existingLock.eventId === eventId && existingLock.ownerId === ownerId) {
-      window.localStorage.removeItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
-    }
-  } catch {
-    // Best-effort lock release only.
-  }
-}
-
-async function playIntroAudioForMirrorAutoLive(introAudioUrl: string) {
-  const introAudio = new Audio(introAudioUrl)
-  introAudio.muted = false
-  introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
-  introAudio.currentTime = 0
-  introAudio.preload = 'auto'
-  await introAudio.play()
 }
 
 function parseVenueLogoLayoutPreviewMessage(raw: unknown): MirrorVenueLogoLayoutPreviewMessage | null {
@@ -1567,37 +1533,15 @@ function MirrorPageContent() {
   const customQrFlashVenueName = event?.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const linkCountdownTarget = getMirrorCountdownTarget(event?.gigDate ?? null, event?.gigStartTime ?? null)
-  const buildCountdownLandingUrl = (customUrl: string | null) => {
-    const queryParams = new URLSearchParams()
-
-    if (eventId) {
-      queryParams.set('event', eventId)
-    }
-
-    if (isTestGigAudienceMode) {
-      queryParams.set('test', '1')
-    }
-
-    if (linkCountdownTarget) {
-      queryParams.set('ct', String(linkCountdownTarget.getTime()))
-    }
-
-    if (audienceUrlVersion) {
-      queryParams.set('v', audienceUrlVersion)
-    }
-
-    if (Number.isFinite(mirrorClockOffsetMs)) {
-      queryParams.set('co', String(Math.round(mirrorClockOffsetMs)))
-    }
-
-    const trimmedCustomUrl = customUrl?.trim()
-    if (trimmedCustomUrl) {
-      queryParams.set('url', trimmedCustomUrl)
-      queryParams.set('visual', '1')
-    }
-
-    return `${appOrigin}/qr-landing?${queryParams.toString()}`
-  }
+  const buildCountdownLandingUrl = (customUrl: string | null) => buildQrLandingUrl({
+    origin: appOrigin,
+    eventId,
+    isTestGig: isTestGigAudienceMode,
+    countdownTargetMs: linkCountdownTarget?.getTime() ?? null,
+    audienceLinkVersion: audienceUrlVersion,
+    clockOffsetMs: mirrorClockOffsetMs,
+    customUrl,
+  })
   // Route old QR link field through landing page so "Go to Lounge" button appears automatically
   const countdownQrDestination = buildCountdownLandingUrl(legacyCountdownQrLink || null)
   
@@ -1648,7 +1592,6 @@ function MirrorPageContent() {
     : null
   const audienceQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=L&margin=16&data=${encodeURIComponent(audienceUrl)}`
   const countdownQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=L&margin=16&data=${encodeURIComponent(countdownQrCodeUrl)}`
-  const breakQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=L&margin=16&data=${encodeURIComponent(breakQrCodeUrl)}`
   const playbackSong = playbackState?.currentSongId
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
@@ -1811,19 +1754,32 @@ function MirrorPageContent() {
 
     const castUrlText = castUrl.toString()
     const userAgent = window.navigator.userAgent
+    const isWindows = /Windows NT/i.test(userAgent)
     const isEdgeBrowser = /Edg\//.test(userAgent)
     const isChromiumBrowser = /Chrome|Chromium/.test(userAgent) || isEdgeBrowser
+    let openedViaEdgeProtocol = false
 
-    const castTab = window.open(castUrlText, '_blank', 'noopener,noreferrer')
+    let castTab: Window | null = null
+
+    if (!isEdgeBrowser && isWindows) {
+      castTab = window.open(`microsoft-edge:${castUrlText}`, '_blank', 'noopener,noreferrer')
+      openedViaEdgeProtocol = Boolean(castTab)
+    }
 
     if (!castTab) {
-      setMirrorWarningMessage('Cast window was blocked. Allow pop-ups, then in Edge open menu > Cast media to device.')
+      castTab = window.open(castUrlText, '_blank', 'noopener,noreferrer')
+    }
+
+    if (!castTab) {
+      setMirrorWarningMessage('Cast launch was blocked. Allow pop-ups, then open Microsoft Edge and use menu > Cast media to device.')
       return
     }
 
     castTab.focus()
 
-    if (isEdgeBrowser) {
+    if (openedViaEdgeProtocol) {
+      setMirrorWarningMessage('Mirror opened in Microsoft Edge for casting. In Edge: menu (three dots) > Cast media to device > Sources > Cast tab.')
+    } else if (isEdgeBrowser) {
       setMirrorWarningMessage('Edge cast tab opened. In Edge: menu (three dots) > Cast media to device > Sources > Cast tab.')
     } else if (isChromiumBrowser) {
       setMirrorWarningMessage('Cast tab opened. In browser: menu > Cast... > Sources > Cast tab.')
@@ -1947,9 +1903,10 @@ function MirrorPageContent() {
         scheduledStart: 'Scheduled Start',
         scheduledPrefix: 'Scheduled start:',
       }
+  // Use live-updating eventTime for countdown
   const fallbackCountdownTarget = useMemo(
-    () => getMirrorCountdownTarget(event?.gigDate ?? null, event?.gigStartTime ?? null),
-    [event?.gigDate, event?.gigStartTime],
+    () => getMirrorCountdownTarget(eventTime.gigDate ?? null, eventTime.gigStartTime ?? null),
+    [eventTime.gigDate, eventTime.gigStartTime],
   )
   const mirroredCountdownTarget = useMemo(() => {
     const targetMs = playbackState?.countdownTargetMs
@@ -2404,68 +2361,34 @@ function MirrorPageContent() {
     }
   }, [layoutEditMode])
 
+
+  // Always show persistent fullscreen prompt if not fullscreen
   useEffect(() => {
-    if (layoutEditMode) {
-      return
-    }
-
-    if (autoFullscreenAttemptedRef.current) {
-      return
-    }
-
-    const searchParams = new URLSearchParams(window.location.search)
-
-    if (searchParams.get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) !== '1') {
-      return
-    }
-
-    autoFullscreenAttemptedRef.current = true
-
-    void requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
-      .then(() => { setShowFullscreenPrompt(false) })
-      .catch(() => {
-        // Browser blocked auto-fullscreen — prompt overlay stays visible so user can click.
-      })
-  }, [layoutEditMode])
-
-  useEffect(() => {
-    if (layoutEditMode || isFullscreen) {
-      return
-    }
-
-    const searchParams = new URLSearchParams(window.location.search)
-
-    if (searchParams.get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) !== '1') {
-      return
-    }
-
-    let didRun = false
-
-    const requestFromInteraction = () => {
-      if (didRun || getActiveFullscreenElement()) {
-        return
-      }
-
-      didRun = true
-
-      void requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
-        .then(() => {
-          setShowFullscreenPrompt(false)
-        })
-        .catch(() => {
-          didRun = false
-          setShowFullscreenPrompt(true)
-        })
-    }
-
-    window.addEventListener('pointerdown', requestFromInteraction, true)
-    window.addEventListener('keydown', requestFromInteraction, true)
-
+    if (layoutEditMode) return;
+    const checkFullscreen = () => {
+      setShowFullscreenPrompt(!getActiveFullscreenElement());
+    };
+    checkFullscreen();
+    document.addEventListener('fullscreenchange', checkFullscreen);
+    window.addEventListener('resize', checkFullscreen);
     return () => {
-      window.removeEventListener('pointerdown', requestFromInteraction, true)
-      window.removeEventListener('keydown', requestFromInteraction, true)
-    }
-  }, [isFullscreen, layoutEditMode])
+      document.removeEventListener('fullscreenchange', checkFullscreen);
+      window.removeEventListener('resize', checkFullscreen);
+    };
+  }, [layoutEditMode]);
+
+  const handleFullscreenPromptClick = useCallback(() => {
+    requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+      .then(() => setShowFullscreenPrompt(false))
+      .catch(() => setShowFullscreenPrompt(true));
+  }, []);
+
+  // In your render, show the prompt if showFullscreenPrompt is true:
+  // {showFullscreenPrompt && (
+  //   <div className="mirror-fullscreen-prompt" onClick={handleFullscreenPromptClick}>
+  //     Click here or press any key to enter fullscreen
+  //   </div>
+  // )}
 
   useEffect(() => {
     if (layoutEditMode) {
@@ -4023,7 +3946,11 @@ function MirrorPageContent() {
 
             {showFinalCountdownOverlay ? (
               <div className="mirror-final-countdown-overlay" aria-live="assertive" aria-label="Final countdown">
+                <p className="mirror-final-countdown-label">{countdownCopy.startingIn}</p>
                 <p className="mirror-final-countdown-number">{finalCountdownSeconds}</p>
+                <p className="mirror-final-countdown-subtitle">
+                  {countdownStartLabel ? `${countdownCopy.scheduledPrefix} ${countdownStartLabel}` : countdownCopy.scheduledStart}
+                </p>
               </div>
             ) : null}
 

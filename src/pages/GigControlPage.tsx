@@ -1,3 +1,18 @@
+  // After gig time change, broadcast update for all screens
+  useEffect(() => {
+    if (!event) return;
+    const channel = supabase.channel(`gig_time_broadcast:${event.id}`);
+    channel.on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'events',
+      filter: `id=eq.${event.id}`,
+    }, (payload) => {
+      // Force refresh state/countdown
+      window.location.reload();
+    }).subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [event?.id]);
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import AddSongTabs from '../components/actions/AddSongTabs'
@@ -506,7 +521,31 @@ function GigControlPage() {
   } = useClipboardCopy({ successDurationMs: 1400 })
   const gigActions = useGigActions({
     setActiveEvent,
-    toggleRoomOpen,
+    toggleRoomOpen: async () => {
+      try {
+        // If stopping gig, also disable autoLiveEnabled
+        if (event && event.roomOpen) {
+          await toggleRoomOpen();
+        } else if (event && !event.roomOpen) {
+          // Stopping gig: set roomOpen false and autoLiveEnabled false
+          await setRoomOpen(false);
+          await supabase
+            .from('events')
+            .update({ auto_live_enabled: false })
+            .eq('id', event.id);
+        }
+        setErrorText(null);
+      } catch (err) {
+        let msg = 'Failed to toggle room.';
+        if (err && typeof err === 'object' && 'message' in err) {
+          msg += ` ${(err as any).message}`;
+        }
+        setErrorText(msg);
+        // Log to console for debugging
+        // eslint-disable-next-line no-console
+        console.error('toggleRoomOpen error:', err);
+      }
+    },
     toggleExplicitFilter,
     setErrorText,
     errors: {
@@ -515,6 +554,15 @@ function GigControlPage() {
       toggleExplicitFilter: 'Failed to toggle filter.',
     },
   })
+
+  // Show error message if present
+  useEffect(() => {
+    if (errorText) {
+      // Optionally, show a toast or alert here
+      // eslint-disable-next-line no-console
+      console.warn('GigControlPage error:', errorText);
+    }
+  }, [errorText]);
 
   const quoteIndexRef = useRef(0)
   const lastSpaceActionAtRef = useRef(0)
