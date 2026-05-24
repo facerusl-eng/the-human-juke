@@ -45,7 +45,7 @@ import {
   BACKGROUND_SYNC_TAG,
 } from '../lib/constants';
 import { useAuthStore } from '../state/authStore';
-import { useQueueStore, type EventState } from '../state/queueStore';
+import { useQueueStore } from '../state/queueStore';
 // ...existing code...
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
