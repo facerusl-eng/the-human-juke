@@ -1358,15 +1358,24 @@ function EventPage() {
     })
   }, [songs, isNowPlayingStarted, activeSong?.id])
   const normalizedAudienceName = audienceName.trim().toLowerCase()
+  const normalizedAudienceUserId = user?.id?.trim().toLowerCase() || ''
   const myQueuedRequests = useMemo(() => {
-    if (!normalizedAudienceName) {
+    if (!normalizedAudienceName && !normalizedAudienceUserId) {
       return [] as Array<{ song: QueueSong; queuePosition: number }>
     }
 
     return upNext
       .map((song, songIndex) => ({ song, queuePosition: songIndex + 1 }))
-      .filter(({ song }) => (song.createdByName ?? '').trim().toLowerCase() === normalizedAudienceName)
-  }, [normalizedAudienceName, upNext])
+      .filter(({ song }) => {
+        const songCreatorId = (song.creatorId ?? '').trim().toLowerCase()
+
+        if (normalizedAudienceUserId && songCreatorId) {
+          return songCreatorId === normalizedAudienceUserId
+        }
+
+        return (song.createdByName ?? '').trim().toLowerCase() === normalizedAudienceName
+      })
+  }, [normalizedAudienceName, normalizedAudienceUserId, upNext])
   const myQueuedSongIds = useMemo(() => {
     return new Set(myQueuedRequests.map(({ song }) => song.id))
   }, [myQueuedRequests])
@@ -1607,6 +1616,7 @@ function EventPage() {
         liveFeed: '💬 Livefeed',
         cancelMyRequestAria: 'Annuller mit ønske',
         cancelButton: 'Annuller',
+        cancelRequestFailed: 'Kunne ikke annullere ønsket lige nu. Prøv igen.',
       }
     : audienceLocale === 'is'
     ? {
@@ -1622,6 +1632,7 @@ function EventPage() {
         liveFeed: '💬 Live Feed',
         cancelMyRequestAria: 'Cancel my request',
         cancelButton: 'Cancel',
+        cancelRequestFailed: 'Could not cancel this request right now. Please try again.',
       }
     : {
         fallbackMode: 'Fallback Mode',
@@ -1636,6 +1647,7 @@ function EventPage() {
         liveFeed: '💬 Live Feed',
         cancelMyRequestAria: 'Cancel my request',
         cancelButton: 'Cancel',
+        cancelRequestFailed: 'Could not cancel this request right now. Please try again.',
       }
 
   const primaryQueuedRequest = myQueuedRequests[0] ?? null
@@ -3491,7 +3503,7 @@ function EventPage() {
                 {queuedBannerText}
                 {queuedBannerSecondaryText ? ` ${queuedBannerSecondaryText}` : ''}
               </span>
-              {primaryQueuedRequest && !isNowPlayingStarted ? (
+              {primaryQueuedRequest ? (
                 <div className="audience-queued-banner-actions">
                   <button
                     type="button"
@@ -3502,6 +3514,8 @@ function EventPage() {
                       setCancellingRequestId(primaryQueuedRequest.song.id)
                       try {
                         await removeSong(primaryQueuedRequest.song.id)
+                      } catch {
+                        setErrorText(audienceUiCopy.cancelRequestFailed)
                       } finally {
                         setCancellingRequestId(null)
                       }
