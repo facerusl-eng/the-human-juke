@@ -1653,9 +1653,9 @@ function MirrorPageContent() {
   const activeQrFlashText = showQrFlashText
     ? qrFlashLines[qrFlashTextIndex % qrFlashLines.length] ?? null
     : null
-  const audienceQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=L&margin=16&data=${encodeURIComponent(audienceUrl)}`
-  const countdownQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=L&margin=16&data=${encodeURIComponent(countdownQrCodeUrl)}`
-  const breakQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=L&margin=16&data=${encodeURIComponent(breakQrCodeUrl)}`
+  const audienceQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=Q&margin=28&data=${encodeURIComponent(audienceUrl)}`
+  const countdownQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=Q&margin=28&data=${encodeURIComponent(countdownQrCodeUrl)}`
+  const breakQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=2200x2200&ecc=Q&margin=28&data=${encodeURIComponent(breakQrCodeUrl)}`
   const playbackSong = playbackState?.currentSongId
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
@@ -4351,15 +4351,7 @@ function MirrorPageContent() {
           </div>
           <div className="mirror-brb-qr-panel">
             <img src={breakQrUrl} alt="QR code for break screen link" className="mirror-brb-qr-image" />
-            <a
-              href={breakQrCodeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mirror-qr-open-button"
-            >
-              Join the lounge
-            </a>
-            <p className="mirror-brb-qr-label">Open this link on your phone.</p>
+            <p className="mirror-brb-qr-label">Scan to join the lounge.</p>
             <p className="mirror-brb-qr-url">{breakQrCodeUrl}</p>
             {activeQrFlashText ? <p className="mirror-brb-qr-flash-line">{activeQrFlashText}</p> : null}
           </div>
