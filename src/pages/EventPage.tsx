@@ -3576,8 +3576,6 @@ function EventPage() {
                 normalizeCoverUrl={normalizeCoverUrl}
                 disabled={!roomOpen || song.voting_locked || Boolean(votingSongIds[song.id])}
                 isVoting={Boolean(votingSongIds[song.id])}
-                myName={audienceName || undefined}
-                isOwnRequest={myQueuedSongIds.has(song.id)}
                 hostId={event?.hostId}
                 onVote={handleVoteSong}
               />
