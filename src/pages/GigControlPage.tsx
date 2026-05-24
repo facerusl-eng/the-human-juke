@@ -1049,7 +1049,18 @@ function GigControlPage() {
       introAudio.addEventListener('error', onError, { once: true })
     })
 
-    await introAudio.play()
+    try {
+      await introAudio.play()
+    } catch {
+      // Fallback: browsers often allow muted autoplay even when audible play() is blocked.
+      introAudio.muted = true
+      introAudio.volume = 0
+      await introAudio.play()
+
+      introAudio.currentTime = Math.max(0, introAudio.currentTime)
+      introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
+      introAudio.muted = false
+    }
 
     await completionPromise
   }, [sendSpotifyTransportCommand])
@@ -2046,6 +2057,10 @@ function GigControlPage() {
         return
       }
 
+      if (event.introAudioUrl) {
+        primeIntroAudioPlayback(event.id, event.introAudioUrl)
+      }
+
       autoLiveInFlightRef.current = true
 
       try {
@@ -2066,10 +2081,19 @@ function GigControlPage() {
         setAutoLiveLastError(null)
 
         if (latestEvent.introAudioUrl) {
+          const primedIntroAudio = primedIntroAudioRef.current
+          const primedElement =
+            primedIntroAudio
+            && primedIntroAudio.eventId === latestEvent.id
+            && primedIntroAudio.url === latestEvent.introAudioUrl
+              ? primedIntroAudio.element
+              : null
+
           await playIntroAudioOnceSafely(
             latestEvent.id,
             latestEvent.introAudioUrl,
             'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
+            primedElement,
           )
         }
 
@@ -2127,6 +2151,7 @@ function GigControlPage() {
     getHostNowMs,
     nowPlaying?.cover_url,
     nowPlaying?.id,
+    primeIntroAudioPlayback,
     playIntroAudioOnceSafely,
     runGoLivePreflight,
   ])
