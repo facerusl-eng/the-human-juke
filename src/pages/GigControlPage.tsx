@@ -2483,16 +2483,16 @@ function GigControlPage() {
   }, [])
 
   const openMirrorFromGigControl = useCallback(() => {
-    const { openedInNewTabWindow, navigatedInCurrentWindow } = openMirrorScreen({ eventId: event?.id ?? null })
+    const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
     }
 
     const statusMessage = openedInNewTabWindow
-      ? 'Mirror opened in a new tab. Gig Control stays open here.'
-      : navigatedInCurrentWindow
-      ? 'Popup was blocked, so Mirror opened in this same window.'
+      ? 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
+      : blockedByPopup
+      ? 'Mirror was blocked by pop-up settings. Gig Control stays open here. Allow pop-ups and try again.'
       : 'Could not open Mirror. Please try again.'
 
     setMirrorLaunchStatusText(statusMessage)
