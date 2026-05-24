@@ -22,17 +22,20 @@ function normalizeExternalLink(value: string | null | undefined): string | null 
 function resolveSafeBackPath(search: string): string {
   const params = new URLSearchParams(search)
   const backPath = params.get('back')?.trim() ?? ''
+  const returnIndex = Math.floor(Math.random() * 10_000)
 
   if (backPath.startsWith('/') && !backPath.startsWith('//')) {
     try {
       const parsedBackUrl = new URL(backPath, window.location.origin)
+      parsedBackUrl.searchParams.set('rm', 'bar')
+      parsedBackUrl.searchParams.set('ri', String(returnIndex))
       return `${parsedBackUrl.pathname}${parsedBackUrl.search}`
     } catch {
-      return '/qr-landing'
+      return '/qr-landing?rm=bar&ri=0'
     }
   }
 
-  return '/qr-landing'
+  return `/qr-landing?rm=bar&ri=${returnIndex}`
 }
 
 function resolveLoungeDestination(search: string) {

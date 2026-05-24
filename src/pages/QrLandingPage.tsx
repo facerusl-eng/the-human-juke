@@ -30,6 +30,23 @@ type ChoiceAction = 'lounge' | 'bar'
 type SyncStatusReason = 'notFound' | 'reconnecting'
 type QrChoiceContext = 'countdown' | 'break'
 
+function resolveReturnMessageIndex(search: string): number | null {
+  const params = new URLSearchParams(search)
+  const marker = params.get('rm')?.trim().toLowerCase() ?? ''
+
+  if (marker !== 'bar') {
+    return null
+  }
+
+  const index = Number(params.get('ri'))
+
+  if (!Number.isFinite(index) || index < 0) {
+    return 0
+  }
+
+  return Math.floor(index)
+}
+
 function normalizeCustomDestination(value: string | null | undefined): string | null {
   const trimmedValue = value?.trim()
 
@@ -316,14 +333,11 @@ function QrLandingPage() {
   const hasCustomChoiceLink = Boolean(customDestination)
   const requiresEventCustomLookup = Boolean(eventId && qrChoiceContext && !customDestinationFromSearch)
   const choiceBackPath = useMemo(() => `/qr-landing${search}`, [search])
-  const loungeChoiceBridgeUrl = useMemo(
-    () => (hasCustomChoiceLink ? buildChoiceBridgeUrl(choiceBackPath, { to: audienceDestination, mode: 'lounge' }) : null),
-    [audienceDestination, choiceBackPath, hasCustomChoiceLink],
-  )
   const barChoiceBridgeUrl = useMemo(
     () => (customDestination ? buildChoiceBridgeUrl(choiceBackPath, { url: customDestination, mode: 'bar' }) : null),
     [choiceBackPath, customDestination],
   )
+  const returnMessageIndex = useMemo(() => resolveReturnMessageIndex(search), [search])
 
   useEffect(() => {
     void import('./EventPage')
@@ -333,7 +347,7 @@ function QrLandingPage() {
     if (locale === 'da') {
       return {
         buttonGoToLounge: 'Join the Lounge',
-        buttonGoToLink: 'Open link in browser',
+        buttonGoToLink: 'Check out the bar',
         buttonBackToWelcome: 'Tilbage til velkomst',
         buttonSyncingStatus: 'Synkroniserer live-status...',
         buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
@@ -351,7 +365,7 @@ function QrLandingPage() {
     if (locale === 'is') {
       return {
         buttonGoToLounge: 'Join the Lounge',
-        buttonGoToLink: 'Open link in browser',
+        buttonGoToLink: 'Check out the bar',
         buttonBackToWelcome: 'Aftur i velkomid',
         buttonSyncingStatus: 'Samstilli live-stodu...',
         buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
@@ -368,7 +382,7 @@ function QrLandingPage() {
 
     return {
       buttonGoToLounge: 'Join the Lounge',
-      buttonGoToLink: 'Open link in browser',
+      buttonGoToLink: 'Check out the bar',
       buttonBackToWelcome: 'Back to welcome',
       buttonSyncingStatus: 'Syncing live status...',
       buttonSyncingCountdownPrefix: 'Syncing countdown',
@@ -582,7 +596,25 @@ function QrLandingPage() {
   }, [customDestinationFromSearch])
 
   useEffect(() => {
-    if (!eventId || eventRoomOpen || didAutoNavigateRef.current || hasCustomChoiceLink) {
+    if (returnMessageIndex === null) {
+      return
+    }
+
+    const message = FUNNY_RETURN_MESSAGES[returnMessageIndex % FUNNY_RETURN_MESSAGES.length] ?? copy.emptyStateChoice
+    setActiveFunnyMessage(message)
+
+    if (funnyMessageTimerRef.current !== null) {
+      window.clearTimeout(funnyMessageTimerRef.current)
+    }
+
+    funnyMessageTimerRef.current = window.setTimeout(() => {
+      setActiveFunnyMessage(null)
+      funnyMessageTimerRef.current = null
+    }, LINK_FUNNY_TEXT_DURATION_MS)
+  }, [copy.emptyStateChoice, returnMessageIndex])
+
+  useEffect(() => {
+    if (!eventId || eventRoomOpen || didAutoNavigateRef.current) {
       return
     }
 
@@ -596,10 +628,10 @@ function QrLandingPage() {
 
     didAutoNavigateRef.current = true
     window.location.replace(audienceDestination)
-  }, [audienceDestination, countdownRemainingMs, customDestinationLookupComplete, eventId, eventRoomOpen, hasCustomChoiceLink, requiresEventCustomLookup])
+  }, [audienceDestination, countdownRemainingMs, customDestinationLookupComplete, eventId, eventRoomOpen, requiresEventCustomLookup])
 
   useEffect(() => {
-    if (!eventId || !eventRoomOpen || didAutoNavigateRef.current || hasCustomChoiceLink) {
+    if (!eventId || !eventRoomOpen || didAutoNavigateRef.current) {
       return
     }
 
@@ -609,7 +641,7 @@ function QrLandingPage() {
 
     didAutoNavigateRef.current = true
     window.location.replace(audienceDestination)
-  }, [audienceDestination, customDestinationLookupComplete, eventId, eventRoomOpen, hasCustomChoiceLink, requiresEventCustomLookup])
+  }, [audienceDestination, customDestinationLookupComplete, eventId, eventRoomOpen, requiresEventCustomLookup])
 
   useEffect(() => {
     return () => {
@@ -657,10 +689,10 @@ function QrLandingPage() {
     <section className="qr-landing-shell" aria-label="Audience lounge landing page">
       <div className="qr-landing-button-overlay">
         <a
-          href={loungeChoiceBridgeUrl ?? audienceDestination}
+          href={audienceDestination}
           className={`qr-landing-button${shouldDisableLoungeButton ? ' qr-landing-button-disabled' : ''}`}
           aria-label={copy.ariaGoToAudienceLounge}
-          onClick={customDestination ? () => handleChoiceActionClick('lounge') : undefined}
+          onClick={hasCustomChoiceLink ? () => handleChoiceActionClick('lounge') : undefined}
         >
           {loungeButtonText}
         </a>
