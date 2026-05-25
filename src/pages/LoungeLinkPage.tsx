@@ -95,11 +95,12 @@ function LoungeLinkPage() {
   }, [search])
   const backToWelcomePath = useMemo(() => resolveSafeBackPath(search), [search])
   const destinationHref = customLink ?? destination
-  const openButtonLabel = mode === 'bar' ? 'Check out the bar' : 'Join the Lounge'
+  const openButtonLabel = mode === 'bar' ? 'Check out the bar' : 'Open the Lounge'
+  const panelLabel = mode === 'bar' ? 'Bar choices' : 'Audience lounge'
 
-  if (mode === 'bar' && customLink) {
+  if (destinationHref) {
     return (
-      <section className="app-shell" aria-label="Bar link viewer" style={{ minHeight: '100dvh', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
+      <section className="app-shell" aria-label="QR destination viewer" style={{ minHeight: '100dvh', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
         <section
           className="queue-panel"
           style={{
@@ -113,16 +114,19 @@ function LoungeLinkPage() {
             flexWrap: 'wrap',
           }}
         >
-          <p className="eyebrow" style={{ margin: 0 }}>Bar choices</p>
+          <p className="eyebrow" style={{ margin: 0 }}>{panelLabel}</p>
           <div style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
+            <a href={destinationHref} target="_blank" rel="noopener noreferrer" className="qr-landing-button qr-landing-button-link">
+              {openButtonLabel}
+            </a>
             <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
-              Back to welcome
+              Back to Start
             </button>
           </div>
         </section>
         <iframe
-          src={customLink}
-          title="Bar choices"
+          src={destinationHref}
+          title={panelLabel}
           style={{ width: '100%', height: '100%', border: 'none', background: '#060a1a' }}
           referrerPolicy="no-referrer"
         />
@@ -143,7 +147,7 @@ function LoungeLinkPage() {
             {openButtonLabel}
           </a>
           <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
-            Go back to choices
+            Back to Start
           </button>
         </div>
       </section>

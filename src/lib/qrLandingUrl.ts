@@ -6,6 +6,7 @@ type BuildQrLandingUrlOptions = {
   audienceLinkVersion?: string | null
   clockOffsetMs?: number | null
   customUrl?: string | null
+  loungeUrl?: string | null
   qrContext?: 'countdown' | 'break' | null
 }
 
@@ -48,6 +49,11 @@ export function buildQrLandingUrl(options: BuildQrLandingUrlOptions): string {
 
   if (typeof options.clockOffsetMs === 'number' && Number.isFinite(options.clockOffsetMs)) {
     queryParams.set('co', String(Math.round(options.clockOffsetMs)))
+  }
+
+  const normalizedLoungeUrl = normalizeCustomUrl(options.loungeUrl)
+  if (normalizedLoungeUrl) {
+    queryParams.set('lounge', normalizedLoungeUrl)
   }
 
   const normalizedCustomUrl = normalizeCustomUrl(options.customUrl)

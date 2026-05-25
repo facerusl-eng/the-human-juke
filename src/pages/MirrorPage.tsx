@@ -1604,10 +1604,10 @@ function MirrorPageContent() {
     audienceLinkVersion: audienceUrlVersion,
     clockOffsetMs: mirrorClockOffsetMs,
     customUrl,
+    loungeUrl: legacyCountdownQrLink || null,
     qrContext,
   })
-  // Route old QR link field through landing page so "Go to Lounge" button appears automatically
-  const countdownQrDestination = buildCountdownLandingUrl(legacyCountdownQrLink || null)
+  const countdownQrDestination = buildCountdownLandingUrl(null)
   
   // Custom QR code logic for countdown and break screens
   const useCustomCountdownQr = liveMirrorEventSettings.mirrorCountdownQrCustomEnabled && customCountdownQrLink.length > 0

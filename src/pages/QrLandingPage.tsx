@@ -231,7 +231,12 @@ function resolveAudienceDestination(
   countdownTargetMs: number | null,
   audienceLinkVersion: string | null,
   clockOffsetMs: number,
+  loungeOverrideUrl: string | null,
 ) {
+  if (loungeOverrideUrl) {
+    return loungeOverrideUrl
+  }
+
   const params = new URLSearchParams()
 
   if (eventId) {
@@ -317,6 +322,10 @@ function QrLandingPage() {
     const version = params.get('v')?.trim() || ''
     return version || null
   }, [search])
+  const loungeDestinationOverrideFromSearch = useMemo(() => {
+    const params = new URLSearchParams(search)
+    return normalizeCustomDestination(params.get('lounge'))
+  }, [search])
   const audienceDestination = useMemo(
     () => resolveAudienceDestination(
       eventId,
@@ -325,8 +334,9 @@ function QrLandingPage() {
       countdownTargetMsFromLink,
       audienceLinkVersion,
       clockOffsetMs,
+      loungeDestinationOverrideFromSearch,
     ),
-    [audienceLinkVersion, clockOffsetMs, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale],
+    [audienceLinkVersion, clockOffsetMs, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale, loungeDestinationOverrideFromSearch],
   )
   const customDestination = customDestinationFromSearch ?? eventCustomDestination
   const hasCustomChoiceLink = Boolean(customDestination)
@@ -336,6 +346,16 @@ function QrLandingPage() {
     () => (customDestination ? buildChoiceBridgeUrl(choiceBackPath, { url: customDestination, mode: 'bar' }) : null),
     [choiceBackPath, customDestination],
   )
+  const loungeChoiceBridgeUrl = useMemo(() => {
+    const isExternalDestination = /^https?:\/\//i.test(audienceDestination)
+
+    return buildChoiceBridgeUrl(
+      choiceBackPath,
+      isExternalDestination
+        ? { url: audienceDestination, mode: 'lounge' }
+        : { to: audienceDestination, mode: 'lounge' },
+    )
+  }, [audienceDestination, choiceBackPath])
   const returnMessageIndex = useMemo(() => resolveReturnMessageIndex(search), [search])
 
   useEffect(() => {
@@ -667,7 +687,7 @@ function QrLandingPage() {
     <section className="qr-landing-shell" aria-label="Audience lounge landing page">
       <div className="qr-landing-button-overlay">
         <a
-          href={audienceDestination}
+          href={loungeChoiceBridgeUrl}
           className={`qr-landing-button${shouldDisableLoungeButton ? ' qr-landing-button-disabled' : ''}`}
           aria-label={copy.ariaGoToAudienceLounge}
           onClick={hasCustomChoiceLink ? () => handleChoiceActionClick('lounge') : undefined}
@@ -703,7 +723,7 @@ function QrLandingPage() {
 
       <div className="qr-landing-container">
         <div className={`qr-landing-empty-state${customDestination ? ' qr-landing-empty-state-choice' : ''}`}>
-          <p>{customDestination ? choiceWelcomeText : copy.emptyState}</p>
+          <p className={customDestination ? 'qr-landing-flash-text' : undefined}>{customDestination ? choiceWelcomeText : copy.emptyState}</p>
         </div>
       </div>
     </section>

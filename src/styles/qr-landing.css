@@ -57,6 +57,16 @@
   margin-top: clamp(0.9rem, 2.8vh, 2rem);
 }
 
+.qr-landing-flash-text {
+  animation: qr-landing-flash-text 2.6s ease-in-out infinite;
+  text-shadow:
+    0 0 8px rgba(255, 255, 255, 0.8),
+    0 0 16px rgba(255, 255, 255, 0.58),
+    0 0 24px rgba(93, 215, 255, 0.45),
+    0 0 32px rgba(93, 215, 255, 0.28),
+    0 2px 4px rgba(0, 0, 0, 0.56);
+}
+
 .qr-landing-button-overlay {
   position: fixed;
   top: clamp(1rem, 3vh, 1.5rem);
@@ -272,5 +282,18 @@
 
   50% {
     transform: scale(1.025);
+  }
+}
+
+@keyframes qr-landing-flash-text {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    filter: brightness(1.28);
   }
 }
