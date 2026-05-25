@@ -341,27 +341,11 @@ function GigsPage() {
 
               return (
                 <li key={hostEvent.id} className="gig-management-entry">
-                  <div
-                    className="gig-management-image"
-                    style={{
-                      width: 120,
-                      height: 120,
-                      borderRadius: 8,
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                    }}
-                  >
+                  <div className="gig-management-image">
                     <img
                       src={getGigPlaylistImageUrl(hostEvent.eventType, hostEvent.eventTheme)}
                       alt={`${formatEventTypeLabel(hostEvent.eventType, hostEvent.eventTheme)} playlist`}
                       className="gig-playlist-thumbnail"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        objectPosition: 'center',
-                        display: 'block',
-                      }}
                     />
                   </div>
                   <div className="gig-management-main">
