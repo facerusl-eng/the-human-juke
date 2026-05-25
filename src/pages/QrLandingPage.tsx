@@ -725,6 +725,11 @@ function QrLandingPage() {
         <div className={`qr-landing-empty-state${customDestination ? ' qr-landing-empty-state-choice' : ''}`}>
           <p className={customDestination ? 'qr-landing-flash-text' : undefined}>{customDestination ? choiceWelcomeText : copy.emptyState}</p>
         </div>
+        <img
+          src="/the-human-jukebox-logo.svg"
+          alt="The Human Jukebox"
+          className="qr-landing-logo"
+        />
       </div>
     </section>
   )

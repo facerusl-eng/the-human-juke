@@ -95,9 +95,7 @@ function LoungeLinkPage() {
   }, [search])
   const backToWelcomePath = useMemo(() => resolveSafeBackPath(search), [search])
   const destinationHref = customLink ?? destination
-  const openButtonLabel = mode === 'bar' ? 'Check out the bar' : 'Open the Lounge'
   const panelLabel = mode === 'bar' ? 'Bar choices' : 'Audience lounge'
-  const showOpenButton = mode !== 'bar'
 
   if (destinationHref) {
     return (
@@ -117,11 +115,6 @@ function LoungeLinkPage() {
         >
           <p className="eyebrow" style={{ margin: 0 }}>{panelLabel}</p>
           <div style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
-            {showOpenButton ? (
-              <a href={destinationHref} target="_blank" rel="noopener noreferrer" className="qr-landing-button qr-landing-button-link">
-                {openButtonLabel}
-              </a>
-            ) : null}
             <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
               Back to Start
             </button>
@@ -143,12 +136,9 @@ function LoungeLinkPage() {
         <p className="eyebrow">Quick Choice</p>
         <h1>{mode === 'bar' ? 'Bar route selected' : 'Lounge route selected'}</h1>
         <p className="subcopy">
-          Open your destination in a new tab, or jump straight back to the QR choice screen.
+          Use Back to Start to return to the QR landing page.
         </p>
         <div style={{ display: 'grid', gap: '0.8rem', marginTop: '1rem' }}>
-          <a href={destinationHref} target="_blank" rel="noopener noreferrer" className="qr-landing-button qr-landing-button-link">
-            {openButtonLabel}
-          </a>
           <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
             Back to Start
           </button>
