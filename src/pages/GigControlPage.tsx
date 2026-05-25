@@ -59,6 +59,7 @@ const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gr
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const SONG_START_COUNTDOWN_MS = 10_000
+const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_SYNC_POLL_INTERVAL_MS = 2_500
 const BRB_MESSAGE_DICE_OPTIONS = [
   'Quick break in progress. Keep your requests coming and I will be right back.',
@@ -654,13 +655,31 @@ function GigControlPage() {
     && playbackTransitionRemainingMs !== null
     ? Math.max(1, Math.ceil(playbackTransitionRemainingMs / 1000))
     : null
-  const isPlaybackTransitionLocked = Boolean(playbackTransitionState)
+  const playbackTransitionIntroRemainingMs = useMemo(() => {
+    if (playbackTransitionState?.phase !== 'intro') {
+      return null
+    }
+
+    if (typeof playbackTransitionState.introStartedAtMs !== 'number') {
+      return null
+    }
+
+    const elapsedMs = (playbackTransitionNowMs + hostClockOffsetRef.current) - playbackTransitionState.introStartedAtMs
+    return Math.max(0, INTRO_TRANSITION_LOCK_MAX_MS - elapsedMs)
+  }, [playbackTransitionNowMs, playbackTransitionState])
+  const isPlaybackTransitionLocked = playbackTransitionState?.phase === 'countdown'
+    ? playbackTransitionRemainingMs !== null && playbackTransitionRemainingMs > 0
+    : playbackTransitionState?.phase === 'intro'
+    ? playbackTransitionIntroRemainingMs !== null && playbackTransitionIntroRemainingMs > 0
+    : false
   const playbackTransitionStatusText = playbackTransitionState?.phase === 'countdown'
     ? playbackTransitionCountdownSeconds !== null
       ? `Global start in ${playbackTransitionCountdownSeconds}`
       : 'Global start is syncing...'
     : playbackTransitionState?.phase === 'intro'
-    ? 'Intro MP3 playing...'
+    ? isPlaybackTransitionLocked
+      ? 'Intro MP3 playing...'
+      : null
     : null
   const mirroredCountdownTargetMs = useMemo(() => {
     const target = resolveGigStartAt(event?.gigDate, event?.gigStartTime)
