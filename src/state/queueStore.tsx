@@ -757,6 +757,106 @@ function isMissingColumnError(error: unknown) {
   return code === '42703' || code === 'PGRST204'
 }
 
+function isMissingVenueLogoUrlColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('venue_logo_url')
+}
+
+function isMissingAutoLiveEnabledColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('auto_live_enabled')
+}
+
+function isMissingIntroAudioUrlColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('intro_audio_url')
+}
+
+function isMissingEventArtistNameColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('event_artist_name')
+}
+
+function isMissingEventThemeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('event_theme')
+}
+
 function isMissingNewerEventColumnsError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -3962,7 +4062,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           return updateResult
         }, 3)
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingGlobalActionCheckColumnError(error) || isMissingMaxQueueSizeColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingVenueLogoAppearanceColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingColumnError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingGlobalActionCheckColumnError(error) || isMissingMaxQueueSizeColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingVenueLogoAppearanceColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingVenueLogoUrlColumnError(error) || isMissingAutoLiveEnabledColumnError(error) || isMissingIntroAudioUrlColumnError(error) || isMissingEventArtistNameColumnError(error) || isMissingEventThemeColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingColumnError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -4028,11 +4128,23 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.mirror_brb_qr_flash_venue
           }
 
-          if (isMissingNewerEventColumnsError(error)) {
+          if (isMissingVenueLogoUrlColumnError(error)) {
             delete fallbackPayload.venue_logo_url
+          }
+
+          if (isMissingAutoLiveEnabledColumnError(error)) {
             delete fallbackPayload.auto_live_enabled
+          }
+
+          if (isMissingIntroAudioUrlColumnError(error)) {
             delete fallbackPayload.intro_audio_url
+          }
+
+          if (isMissingEventArtistNameColumnError(error)) {
             delete fallbackPayload.event_artist_name
+          }
+
+          if (isMissingEventThemeColumnError(error)) {
             delete fallbackPayload.event_theme
           }
 
@@ -4040,27 +4152,31 @@ function QueueProvider({ children }: PropsWithChildren) {
           // When any missing-column error appears, strip all optional newer columns
           // so the fallback write can still succeed on partially-migrated databases.
           if (isMissingColumnError(error)) {
-            delete fallbackPayload.cover_image_url
-            delete fallbackPayload.tip_thank_you_message_da
-            delete fallbackPayload.tip_thank_you_message_en
-            delete fallbackPayload.audience_icelandic_enabled
-            delete fallbackPayload.audience_voting_enabled
-            delete fallbackPayload.global_action_check_enabled
-            delete fallbackPayload.max_queue_size
-            delete fallbackPayload.mirror_countdown_show_qr_link
-            delete fallbackPayload.mirror_brb_qr_link
-            delete fallbackPayload.mirror_brb_qr_text
-            delete fallbackPayload.mirror_brb_qr_flash_enabled
-            delete fallbackPayload.mirror_brb_qr_flash_venue
-            delete fallbackPayload.venue_logo_url
-            delete fallbackPayload.venue_logo_scale
-            delete fallbackPayload.venue_logo_offset_x
-            delete fallbackPayload.venue_logo_offset_y
-            delete fallbackPayload.venue_logo_appearance
-            delete fallbackPayload.auto_live_enabled
-            delete fallbackPayload.intro_audio_url
-            delete fallbackPayload.event_artist_name
-            delete fallbackPayload.event_theme
+            if (!hasGlobalActionCheckColumn) {
+              delete fallbackPayload.global_action_check_enabled
+            }
+            if (!hasMaxQueueSizeColumn) {
+              delete fallbackPayload.max_queue_size
+            }
+            if (!hasMirrorCountdownQrLinkColumn) {
+              delete fallbackPayload.mirror_countdown_show_qr_link
+            }
+            if (!hasMirrorQrSettingsColumns) {
+              delete fallbackPayload.mirror_brb_qr_link
+              delete fallbackPayload.mirror_brb_qr_text
+            }
+            if (!hasMirrorQrFlashColumns) {
+              delete fallbackPayload.mirror_brb_qr_flash_enabled
+              delete fallbackPayload.mirror_brb_qr_flash_venue
+            }
+            if (!hasVenueLogoLayoutColumns) {
+              delete fallbackPayload.venue_logo_scale
+              delete fallbackPayload.venue_logo_offset_x
+              delete fallbackPayload.venue_logo_offset_y
+            }
+            if (!hasVenueLogoAppearanceColumn) {
+              delete fallbackPayload.venue_logo_appearance
+            }
           }
 
           const { error: fallbackError } = await withTransientRetry(async () => {
