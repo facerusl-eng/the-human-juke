@@ -322,10 +322,7 @@ function QrLandingPage() {
     const version = params.get('v')?.trim() || ''
     return version || null
   }, [search])
-  const loungeDestinationOverrideFromSearch = useMemo(() => {
-    const params = new URLSearchParams(search)
-    return normalizeCustomDestination(params.get('lounge'))
-  }, [search])
+  // Always route lounge button to audience app, never to a lounge override link
   const audienceDestination = useMemo(
     () => resolveAudienceDestination(
       eventId,
@@ -334,9 +331,9 @@ function QrLandingPage() {
       countdownTargetMsFromLink,
       audienceLinkVersion,
       clockOffsetMs,
-      loungeDestinationOverrideFromSearch,
+      null, // loungeDestinationOverrideFromSearch forcibly disabled
     ),
-    [audienceLinkVersion, clockOffsetMs, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale, loungeDestinationOverrideFromSearch],
+    [audienceLinkVersion, clockOffsetMs, countdownTargetMsFromLink, eventId, isTestPreviewMode, locale],
   )
   const customDestination = customDestinationFromSearch ?? eventCustomDestination
   const hasCustomChoiceLink = Boolean(customDestination)
