@@ -76,6 +76,7 @@ type EventSettingsUpdates = {
   maxQueueSize: number | null
   roomOpen: boolean
   explicitFilterEnabled: boolean
+  globalActionCheckEnabled: boolean
   showInAudienceNoGig: boolean
   coverImageUrl: string | null
   venueLogoUrl: string | null
@@ -98,7 +99,7 @@ type EventSettingsUpdates = {
   introAudioUrl: string | null
 }
 
-type EventState = {
+export type EventState = {
   id: string
   hostId: string | null
   name: string
@@ -134,6 +135,7 @@ type EventState = {
   maxQueueSize: number | null
   roomOpen: boolean
   explicitFilterEnabled: boolean
+  globalActionCheckEnabled: boolean
   showInAudienceNoGig: boolean
   coverImageUrl: string | null
   venueLogoUrl: string | null
@@ -266,6 +268,7 @@ type EventTypeSettings = {
   karafun_url: string | null
   artist_name: string | null
   audience_voting_enabled: boolean
+  global_action_check_enabled: boolean
   auto_live_enabled: boolean
   intro_audio_url: string | null
 }
@@ -321,6 +324,7 @@ type MissingColumnsCache = {
   mirrorCountdownQrLink?: boolean
   mirrorQrSettings?: boolean
   mirrorQrFlashSettings?: boolean
+  globalActionCheck?: boolean
 }
 
 function readMissingColumnsCache(): MissingColumnsCache {
@@ -337,6 +341,7 @@ function readMissingColumnsCache(): MissingColumnsCache {
     mirrorCountdownQrLink: parsed.mirrorCountdownQrLink === true,
     mirrorQrSettings: parsed.mirrorQrSettings === true,
     mirrorQrFlashSettings: parsed.mirrorQrFlashSettings === true,
+    globalActionCheck: parsed.globalActionCheck === true,
   }
 }
 
@@ -360,6 +365,7 @@ let hasPerformedAtColumn = missingColumnsCache.performedAt !== true
 let hasMirrorCountdownQrLinkColumn = missingColumnsCache.mirrorCountdownQrLink !== true
 let hasMirrorQrSettingsColumns = missingColumnsCache.mirrorQrSettings !== true
 let hasMirrorQrFlashColumns = missingColumnsCache.mirrorQrFlashSettings !== true
+let hasGlobalActionCheckColumn = missingColumnsCache.globalActionCheck !== true
 const eventOptionalSettingsCache = new Map<string, EventOptionalSettingsBundle>()
 
 function getLiveDiscoveryPollInterval(operatingMode: 'normal' | 'degraded') {
@@ -590,6 +596,26 @@ function isMissingAudienceVotingColumnError(error: unknown) {
     .join(' ')
 
   return (code === '42703' || code === 'PGRST204') && text.includes('audience_voting_enabled')
+}
+
+function isMissingGlobalActionCheckColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('global_action_check_enabled')
 }
 
 function isMissingVenueLogoLayoutColumnError(error: unknown) {
@@ -1156,6 +1182,7 @@ function buildEventFallbackFromHostEvent(hostEvent: HostEventSummary, hostId: st
     maxQueueSize: null,
     roomOpen: false,
     explicitFilterEnabled: false,
+    globalActionCheckEnabled: true,
     showInAudienceNoGig: hostEvent.showInAudienceNoGig,
     coverImageUrl: null,
     venueLogoUrl: null,
@@ -1360,6 +1387,7 @@ function QueueProvider({ children }: PropsWithChildren) {
   const prevConnectionStatusRef = useRef<'connecting' | 'connected' | 'reconnecting' | 'offline'>('connecting')
   const queueOperatingModeRef = useRef<'normal' | 'degraded'>('normal')
   const hostEventsRef = useRef<HostEventSummary[]>([])
+  const songsRef = useRef<QueueSong[]>([])
 
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
@@ -1377,6 +1405,10 @@ function QueueProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     hostEventsRef.current = hostEvents
   }, [hostEvents])
+
+  useEffect(() => {
+    songsRef.current = songs
+  }, [songs])
 
   useEffect(() => {
     const snapshot = readFromLocalStorage<PersistedQueueSnapshot | null>(QUEUE_STATE_STORAGE_KEY, null)
@@ -1443,6 +1475,143 @@ function QueueProvider({ children }: PropsWithChildren) {
     })
   }, [event?.id])
 
+  const sortQueueSongsByPosition = useCallback((queueSongs: QueueSong[]) => {
+    return [...queueSongs].sort((leftSong, rightSong) => {
+      const leftPosition = typeof leftSong.position === 'number' ? leftSong.position : Number.MAX_SAFE_INTEGER
+      const rightPosition = typeof rightSong.position === 'number' ? rightSong.position : Number.MAX_SAFE_INTEGER
+
+      if (leftPosition !== rightPosition) {
+        return leftPosition - rightPosition
+      }
+
+      return leftSong.id.localeCompare(rightSong.id)
+    })
+  }, [])
+
+  const sortPerformedSongsByTime = useCallback((nextPerformedSongs: PerformedSong[]) => {
+    return [...nextPerformedSongs].sort((leftSong, rightSong) => {
+      const leftTime = Date.parse(leftSong.performedAt)
+      const rightTime = Date.parse(rightSong.performedAt)
+      const normalizedLeftTime = Number.isFinite(leftTime) ? leftTime : 0
+      const normalizedRightTime = Number.isFinite(rightTime) ? rightTime : 0
+
+      if (normalizedRightTime !== normalizedLeftTime) {
+        return normalizedRightTime - normalizedLeftTime
+      }
+
+      return rightSong.id.localeCompare(leftSong.id)
+    })
+  }, [])
+
+  const mapRealtimeRowToQueueSong = useCallback((
+    row: Record<string, unknown>,
+    previousSong?: QueueSong | PerformedSong,
+  ): QueueSong => {
+    const requesterName = typeof row.requester_name === 'string' ? row.requester_name.trim() : ''
+    const fallbackTitle = typeof previousSong?.title === 'string' ? previousSong.title : ''
+    const fallbackArtist = typeof previousSong?.artist === 'string' ? previousSong.artist : ''
+
+    return {
+      id: String(row.id ?? previousSong?.id ?? ''),
+      event_id: String(row.event_id ?? previousSong?.event_id ?? ''),
+      title: typeof row.title === 'string' ? row.title : fallbackTitle,
+      artist: typeof row.artist === 'string' ? row.artist : fallbackArtist,
+      votes_count: Number(row.votes_count ?? previousSong?.votes_count ?? 0),
+      is_explicit: Boolean(row.is_explicit ?? previousSong?.is_explicit),
+      voting_locked: Boolean(row.voting_locked ?? previousSong?.voting_locked),
+      is_removed: Boolean(row.is_removed ?? previousSong?.is_removed),
+      cover_url: (row.cover_url as string | null | undefined) ?? previousSong?.cover_url ?? null,
+      library_song_id: (row.library_song_id as string | null | undefined) ?? previousSong?.library_song_id ?? null,
+      audience_sings: Boolean(row.audience_sings ?? previousSong?.audience_sings),
+      position: typeof row.position === 'number'
+        ? row.position
+        : previousSong?.position,
+      createdByName: requesterName || previousSong?.createdByName || null,
+      creatorId: typeof row.created_by === 'string'
+        ? row.created_by
+        : previousSong?.creatorId ?? null,
+    }
+  }, [])
+
+  const applyRealtimeQueueSongEvent = useCallback((payload: {
+    eventType?: 'INSERT' | 'UPDATE' | 'DELETE'
+    new?: Record<string, unknown> | null
+    old?: Record<string, unknown> | null
+  }) => {
+    const nextRow = payload.new ?? null
+    const oldRow = payload.old ?? null
+    const activeEventId = activeEventIdRef.current
+
+    if (!activeEventId) {
+      return
+    }
+
+    const payloadEventId = String(nextRow?.event_id ?? oldRow?.event_id ?? '')
+    if (payloadEventId && payloadEventId !== activeEventId) {
+      return
+    }
+
+    const targetSongId = String(nextRow?.id ?? oldRow?.id ?? '')
+
+    if (!targetSongId) {
+      return
+    }
+
+    if (payload.eventType === 'DELETE') {
+      setSongs((currentSongs) => currentSongs.filter((song) => song.id !== targetSongId))
+      setPerformedSongs((currentPerformedSongs) => currentPerformedSongs.filter((song) => song.id !== targetSongId))
+      return
+    }
+
+    if (!nextRow) {
+      return
+    }
+
+    const isRemoved = Boolean(nextRow.is_removed)
+
+    if (!isRemoved) {
+      setSongs((currentSongs) => {
+        const existingSong = currentSongs.find((song) => song.id === targetSongId)
+        const nextSong = mapRealtimeRowToQueueSong(nextRow, existingSong)
+        const remainingSongs = currentSongs.filter((song) => song.id !== targetSongId)
+        return sortQueueSongsByPosition([...remainingSongs, nextSong])
+      })
+
+      setPerformedSongs((currentPerformedSongs) => currentPerformedSongs.filter((song) => song.id !== targetSongId))
+      setQueueOperatingMode('normal')
+      setQueueHealthMessage(null)
+      return
+    }
+
+    setSongs((currentSongs) => currentSongs.filter((song) => song.id !== targetSongId))
+    setPerformedSongs((currentPerformedSongs) => {
+      const existingPerformedSong = currentPerformedSongs.find((song) => song.id === targetSongId)
+      const queueFallbackSong = songsRef.current.find((song) => song.id === targetSongId)
+      const baseSong = existingPerformedSong ?? queueFallbackSong
+      const nextSong = mapRealtimeRowToQueueSong(nextRow, baseSong)
+      const performedAt = typeof nextRow.performed_at === 'string'
+        ? nextRow.performed_at
+        : typeof nextRow.updated_at === 'string'
+        ? nextRow.updated_at
+        : new Date().toISOString()
+
+      const remainingPerformedSongs = currentPerformedSongs.filter((song) => song.id !== targetSongId)
+      const nextPerformedSongs: PerformedSong[] = [
+        {
+          ...nextSong,
+          is_removed: true,
+          performedAt,
+        },
+        ...remainingPerformedSongs,
+      ]
+
+      return sortPerformedSongsByTime(nextPerformedSongs)
+    })
+
+    setQueueOperatingMode('normal')
+    setQueueHealthMessage(null)
+  }, [mapRealtimeRowToQueueSong, sortPerformedSongsByTime, sortQueueSongsByPosition])
+
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
       const withCoverSelect = 'id, host_id, name, venue, gig_date, gig_start_time, gig_end_time, subtitle, request_instructions, instagram_url, tiktok_url, youtube_url, facebook_url, paypal_url, mobilpay_url, contact_email, playlist_only_requests, mirror_photo_spotlight_enabled, mirror_countdown_enabled, mirror_countdown_show_qr_link, mirror_banner_enabled, allow_duplicate_requests, max_active_requests_per_user, room_open, explicit_filter_enabled, show_in_audience_no_gig, cover_image_url, venue_logo_url, show_custom_button, custom_button_label, custom_button_link'
@@ -1493,7 +1662,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           return { tip_thank_you_message_da: null, tip_thank_you_message_en: null }
         }
 
-        const row = data as Record<string, unknown>
+        const row = data as unknown as Record<string, unknown>
         return {
           tip_thank_you_message_da: (row.tip_thank_you_message_da as string | null) ?? null,
           tip_thank_you_message_en: (row.tip_thank_you_message_en as string | null) ?? null,
@@ -1506,17 +1675,30 @@ function QueueProvider({ children }: PropsWithChildren) {
     // Separately fetch event type settings (columns added via migration — graceful fallback).
     const loadEventTypeSettings = async (): Promise<EventTypeSettings> => {
       try {
+        const eventTypeSelect: string = hasGlobalActionCheckColumn
+          ? 'event_type, event_theme, karafun_url, event_artist_name, audience_voting_enabled, global_action_check_enabled, auto_live_enabled, intro_audio_url'
+          : 'event_type, event_theme, karafun_url, event_artist_name, audience_voting_enabled, auto_live_enabled, intro_audio_url'
+
         const { data, error } = await supabase
           .from('events')
-          .select('event_type, event_theme, karafun_url, event_artist_name, audience_voting_enabled, auto_live_enabled, intro_audio_url')
+          .select(eventTypeSelect)
           .eq('id', activeEventId)
           .single()
 
-        if (error || !data) {
-          return { event_type: 'halli-live', event_theme: 'human-jukebox', karafun_url: null, artist_name: null, audience_voting_enabled: true, auto_live_enabled: false, intro_audio_url: null }
+        if (error) {
+          if (isMissingGlobalActionCheckColumnError(error)) {
+            hasGlobalActionCheckColumn = false
+            markMissingColumnInCache('globalActionCheck')
+          }
+
+          return { event_type: 'halli-live', event_theme: 'human-jukebox', karafun_url: null, artist_name: null, audience_voting_enabled: true, global_action_check_enabled: true, auto_live_enabled: false, intro_audio_url: null }
         }
 
-        const row = data as Record<string, unknown>
+        if (!data) {
+          return { event_type: 'halli-live', event_theme: 'human-jukebox', karafun_url: null, artist_name: null, audience_voting_enabled: true, global_action_check_enabled: true, auto_live_enabled: false, intro_audio_url: null }
+        }
+
+        const row = data as unknown as Record<string, unknown>
         const rawType = row.event_type as string | null
         const resolvedType: 'halli-live' | 'karaoke' | 'build-self' =
           rawType === 'karaoke' ? 'karaoke' : rawType === 'build-self' ? 'build-self' : 'halli-live'
@@ -1526,11 +1708,12 @@ function QueueProvider({ children }: PropsWithChildren) {
           karafun_url: (row.karafun_url as string | null) ?? null,
           artist_name: (row.event_artist_name as string | null) ?? null,
           audience_voting_enabled: (row.audience_voting_enabled as boolean | null) ?? true,
+          global_action_check_enabled: (row.global_action_check_enabled as boolean | null) ?? true,
           auto_live_enabled: (row.auto_live_enabled as boolean | null) ?? false,
           intro_audio_url: (row.intro_audio_url as string | null) ?? null,
         }
       } catch {
-        return { event_type: 'halli-live', event_theme: 'human-jukebox', karafun_url: null, artist_name: null, audience_voting_enabled: true, auto_live_enabled: false, intro_audio_url: null }
+        return { event_type: 'halli-live', event_theme: 'human-jukebox', karafun_url: null, artist_name: null, audience_voting_enabled: true, global_action_check_enabled: true, auto_live_enabled: false, intro_audio_url: null }
       }
     }
 
@@ -2063,6 +2246,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       maxQueueSize: (eventData as Record<string, unknown>).max_queue_size as number | null ?? null,
       roomOpen: ((eventData as Record<string, unknown>).room_open as boolean | null) ?? false,
       explicitFilterEnabled: ((eventData as Record<string, unknown>).explicit_filter_enabled as boolean | null) ?? false,
+      globalActionCheckEnabled: eventTypeSettings.global_action_check_enabled,
       showInAudienceNoGig: ((eventData as Record<string, unknown>).show_in_audience_no_gig as boolean | null) ?? false,
       coverImageUrl: ((eventData as Record<string, unknown>).cover_image_url as string | null) ?? null,
       venueLogoUrl: ((eventData as Record<string, unknown>).venue_logo_url as string | null) ?? null,
@@ -2744,8 +2928,13 @@ function QueueProvider({ children }: PropsWithChildren) {
                 table: 'queue_songs',
                 filter: `event_id=eq.${resolvedEventId}`,
               },
-              () => {
+              (payload: {
+                eventType?: 'INSERT' | 'UPDATE' | 'DELETE'
+                new?: Record<string, unknown> | null
+                old?: Record<string, unknown> | null
+              }) => {
                 lastRealtimeEventAt = Date.now()
+                applyRealtimeQueueSongEvent(payload)
                 if (!feedRouteMode) {
                   void refreshSnapshot()
                 }
@@ -2759,8 +2948,47 @@ function QueueProvider({ children }: PropsWithChildren) {
                 table: 'events',
                 filter: `id=eq.${resolvedEventId}`,
               },
-              () => {
+              (payload: {
+                new?: Record<string, unknown> | null
+              }) => {
                 lastRealtimeEventAt = Date.now()
+
+                const nextRow = payload.new
+                if (nextRow) {
+                  const nextRoomOpen = typeof nextRow.room_open === 'boolean' ? nextRow.room_open : null
+                  const nextIsActive = typeof nextRow.is_active === 'boolean' ? nextRow.is_active : null
+
+                  if (nextRoomOpen !== null) {
+                    setEvent((currentEvent) => {
+                      if (!currentEvent || currentEvent.id !== resolvedEventId) {
+                        return currentEvent
+                      }
+
+                      if (currentEvent.roomOpen === nextRoomOpen) {
+                        return currentEvent
+                      }
+
+                      return {
+                        ...currentEvent,
+                        roomOpen: nextRoomOpen,
+                      }
+                    })
+                  }
+
+                  if (nextIsActive !== null) {
+                    setHostEvents((currentHostEvents) => currentHostEvents.map((hostEvent) => {
+                      if (hostEvent.id !== resolvedEventId || hostEvent.isActive === nextIsActive) {
+                        return hostEvent
+                      }
+
+                      return {
+                        ...hostEvent,
+                        isActive: nextIsActive,
+                      }
+                    }))
+                  }
+                }
+
                 void refreshSnapshot()
               },
             )
@@ -2925,7 +3153,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       clearAudiencePollTimer()
       clearChannelWatchdog()
     }
-  }, [user, eventId, isHostSession, routePathname, audienceRefreshTick, refreshProfile, fetchQueueSnapshot])
+  }, [user, eventId, isHostSession, routePathname, audienceRefreshTick, refreshProfile, fetchQueueSnapshot, applyRealtimeQueueSongEvent])
 
   useEffect(() => {
     if (!event?.id) {
@@ -3574,6 +3802,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           max_active_requests_per_user: updates.maxActiveRequestsPerUser,
           room_open: updates.roomOpen,
           explicit_filter_enabled: updates.explicitFilterEnabled,
+          global_action_check_enabled: updates.globalActionCheckEnabled,
           show_in_audience_no_gig: updates.showInAudienceNoGig,
           cover_image_url: updates.coverImageUrl,
           venue_logo_url: updates.venueLogoUrl,
@@ -3669,7 +3898,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           return updateResult
         }, 3)
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingVenueLogoAppearanceColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingColumnError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingGlobalActionCheckColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingVenueLogoAppearanceColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingColumnError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -3687,6 +3916,12 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (isMissingAudienceVotingColumnError(error)) {
             delete fallbackPayload.audience_voting_enabled
+          }
+
+          if (isMissingGlobalActionCheckColumnError(error)) {
+            hasGlobalActionCheckColumn = false
+            markMissingColumnInCache('globalActionCheck')
+            delete fallbackPayload.global_action_check_enabled
           }
 
           if (isMissingVenueLogoLayoutColumnError(error)) {
@@ -3740,6 +3975,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.tip_thank_you_message_en
             delete fallbackPayload.audience_icelandic_enabled
             delete fallbackPayload.audience_voting_enabled
+            delete fallbackPayload.global_action_check_enabled
             delete fallbackPayload.mirror_countdown_show_qr_link
             delete fallbackPayload.mirror_brb_qr_link
             delete fallbackPayload.mirror_brb_qr_text
@@ -3903,6 +4139,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             karafun_url: updates.karafunUrl ?? null,
             artist_name: updates.artistName ?? null,
             audience_voting_enabled: updates.audienceVotingEnabled ?? true,
+            global_action_check_enabled: updates.globalActionCheckEnabled ?? true,
             auto_live_enabled: updates.autoLiveEnabled ?? false,
             intro_audio_url: updates.introAudioUrl ?? null,
           },
@@ -3975,6 +4212,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             maxQueueSize: updates.maxQueueSize,
             roomOpen: updates.roomOpen,
             explicitFilterEnabled: updates.explicitFilterEnabled,
+            globalActionCheckEnabled: updates.globalActionCheckEnabled,
             showInAudienceNoGig: updates.showInAudienceNoGig,
             coverImageUrl: updates.coverImageUrl,
             venueLogoUrl: updates.venueLogoUrl,
@@ -4053,8 +4291,25 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
       },
       setRoomOpen: async (nextRoomOpen: boolean) => {
+        if (event && !event.globalActionCheckEnabled) {
+          throw new Error('Global Action Check is OFF. Enable it in Gig Settings before changing live request state.')
+        }
+
         if (!event) {
           return
+        }
+
+        // Only allow for test gigs if isTestGig is true
+        const isTestGig = readTestGigMap()[event.id] ?? false
+        if (isTestGig && !event.isTestGig) {
+          // Defensive: event should have isTestGig true if test gig
+          // eslint-disable-next-line no-console
+          console.warn('Test gig mismatch: local map says test gig but event.isTestGig is false', event)
+        }
+
+        // If this is a test gig, only update if isTestGig is true
+        if (isTestGig && !event.isTestGig) {
+          throw new Error('This test gig is private to the host account.')
         }
 
         const previousRoomOpen = event.roomOpen
@@ -4108,8 +4363,25 @@ function QueueProvider({ children }: PropsWithChildren) {
         await fetchQueueSnapshot(event.id)
       },
       toggleRoomOpen: async () => {
+        if (event && !event.globalActionCheckEnabled) {
+          throw new Error('Global Action Check is OFF. Enable it in Gig Settings before changing live request state.')
+        }
+
         if (!event) {
           return
+        }
+
+        // Only allow for test gigs if isTestGig is true
+        const isTestGig = readTestGigMap()[event.id] ?? false
+        if (isTestGig && !event.isTestGig) {
+          // Defensive: event should have isTestGig true if test gig
+          // eslint-disable-next-line no-console
+          console.warn('Test gig mismatch: local map says test gig but event.isTestGig is false', event)
+        }
+
+        // If this is a test gig, only update if isTestGig is true
+        if (isTestGig && !event.isTestGig) {
+          throw new Error('This test gig is private to the host account.')
         }
 
         const nextRoomOpen = !event.roomOpen
@@ -4154,6 +4426,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         await fetchQueueSnapshot(event.id)
       },
       toggleExplicitFilter: async () => {
+        if (event && !event.globalActionCheckEnabled) {
+          throw new Error('Global Action Check is OFF. Enable it in Gig Settings before changing content filters.')
+        }
+
         if (!event) {
           return
         }
@@ -4170,6 +4446,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         await fetchQueueSnapshot(event.id)
       },
       toggleAudienceVoting: async () => {
+        if (event && !event.globalActionCheckEnabled) {
+          throw new Error('Global Action Check is OFF. Enable it in Gig Settings before changing audience voting.')
+        }
+
         if (!event) {
           return
         }
@@ -4228,6 +4508,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
       },
       removeSong: async (songId: string) => {
+        if (event && !event.globalActionCheckEnabled) {
+          throw new Error('Global Action Check is OFF. Enable it in Gig Settings before removing songs.')
+        }
+
         const { error } = await supabase
           .from('queue_songs')
           .update({ is_removed: true })
@@ -4242,6 +4526,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
       },
       moveSong: async (songId: string, direction: 'up' | 'down') => {
+        if (event && !event.globalActionCheckEnabled) {
+          throw new Error('Global Action Check is OFF. Enable it in Gig Settings before moving songs.')
+        }
+
         if (!event?.id) {
           throw new Error('No active gig to reorder songs.')
         }
@@ -4284,6 +4572,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
       },
       reorderSong: async (songId: string, targetIndex: number) => {
+        if (event && !event.globalActionCheckEnabled) {
+          throw new Error('Global Action Check is OFF. Enable it in Gig Settings before reordering songs.')
+        }
+
         if (!event?.id) {
           throw new Error('No active gig to reorder songs.')
         }
@@ -4396,6 +4688,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           maxQueueSize: null,
           roomOpen: false,
           explicitFilterEnabled: true,
+          globalActionCheckEnabled: true,
           showInAudienceNoGig: resolvedShowInAudienceNoGig,
           coverImageUrl: options?.coverImageUrl ?? null,
           venueLogoUrl: null,
@@ -4484,6 +4777,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 subtitle: options?.subtitle ?? null,
                 event_artist_name: options?.artistName ?? null,
                 audience_voting_enabled: options?.audienceVotingEnabled ?? true,
+                global_action_check_enabled: true,
                 auto_live_enabled: options?.autoLiveEnabled ?? false,
                 intro_audio_url: options?.introAudioUrl ?? null,
                 mirror_countdown_qr_custom_enabled: options?.mirrorCountdownQrCustomEnabled ?? false,
@@ -4581,6 +4875,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           playlist_only_requests: true,
           room_open: false,
           explicit_filter_enabled: true,
+          global_action_check_enabled: true,
           gig_date: options?.gigDate ?? null,
           gig_start_time: options?.gigStartTime ?? null,
           gig_end_time: options?.gigEndTime ?? null,
@@ -4732,6 +5027,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
       },
       markPlayed: async () => {
+        if (event && !event.globalActionCheckEnabled) {
+          throw new Error('Global Action Check is OFF. Enable it in Gig Settings before changing playback state.')
+        }
+
         if (!songs[0]) {
           return
         }
@@ -4808,6 +5107,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
       },
       unmarkPlayed: async (songId: string) => {
+        if (event && !event.globalActionCheckEnabled) {
+          throw new Error('Global Action Check is OFF. Enable it in Gig Settings before changing playback state.')
+        }
+
         if (!user || !isHostSession) {
           throw new Error('Host account required.')
         }

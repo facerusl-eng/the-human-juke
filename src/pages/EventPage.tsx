@@ -17,6 +17,8 @@ import {
 import {
   BETWEEN_SONG_QUOTES,
   getCountdownTargetRemainingMs,
+  getSharedPlaybackDisplayMessage,
+  getSharedPlaybackTransitionState,
   isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
   normalizeCountdownTargetMs,
@@ -1281,6 +1283,23 @@ function EventPage() {
       ? candidateTarget
       : null
   }, [getAudienceNowMs, playbackState?.countdownTargetMs])
+  const playbackTransitionState = useMemo(
+    () => getSharedPlaybackTransitionState(playbackState),
+    [playbackState],
+  )
+  const playbackTransitionRemainingMs = playbackTransitionState?.phase === 'countdown'
+    ? getCountdownTargetRemainingMs(playbackTransitionState.countdownTargetMs, getAudienceNowMs())
+    : null
+  const playbackTransitionCountdownSeconds = playbackTransitionRemainingMs !== null
+    ? Math.max(1, Math.ceil(playbackTransitionRemainingMs / 1000))
+    : null
+  const playbackTransitionStatusText = playbackTransitionState?.phase === 'countdown'
+    ? playbackTransitionCountdownSeconds !== null
+      ? `Starting in ${playbackTransitionCountdownSeconds}`
+      : 'Starting soon'
+    : playbackTransitionState?.phase === 'intro'
+    ? 'Intro MP3 playing...'
+    : null
   // Prefer mirrored host state when available so audience/mirror countdowns stay aligned.
   const effectiveCountdownTargetMs = mirroredCountdownTargetMs ?? requestedCountdownTargetMs
   const hasRequestedEventParam = Boolean(requestedEventId)
@@ -1383,9 +1402,9 @@ function EventPage() {
   const isLastSongSoonMode = isLastSongSoonOverlayMessage(playbackState?.brbMessage)
   const isAudienceBreakMode = Boolean(playbackState?.brbActive) && !isLastSongSoonMode
   const openingWelcomeMessage = isBetweenSongs && !isLastSongSoonMode
-    ? (playbackState?.brbMessage?.trim() || null)
+    ? getSharedPlaybackDisplayMessage(playbackState?.brbMessage)
     : null
-  const audienceBreakMessage = playbackState?.brbMessage?.trim() || null
+  const audienceBreakMessage = getSharedPlaybackDisplayMessage(playbackState?.brbMessage)
   const normalizedBetweenSongQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
     ? Math.abs(Math.trunc(playbackState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
     : 0
@@ -3531,6 +3550,7 @@ function EventPage() {
           {isBetweenSongs ? (
             <div className="now-playing-media now-playing-between-songs">
               <p className="between-songs-quote">{betweenSongQuote}</p>
+              {playbackTransitionStatusText ? <p className="subcopy no-margin">{playbackTransitionStatusText}</p> : null}
             </div>
           ) : (
             <div className="now-playing-media now-playing-media-stacked">
