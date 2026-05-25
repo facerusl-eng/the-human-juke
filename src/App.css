@@ -9719,6 +9719,30 @@ body:has(.audience-no-gig-shell) {
   text-shadow: 0 1px 8px rgba(255, 200, 0, 0.35);
   margin: 0;
   text-align: center;
+  animation: karaoke-confirm-flash 0.9s steps(2, start) infinite;
+}
+
+@keyframes karaoke-confirm-flash {
+  0% {
+    opacity: 1;
+    text-shadow: 0 1px 8px rgba(255, 200, 0, 0.35);
+  }
+
+  50% {
+    opacity: 0.2;
+    text-shadow: 0 0 1px rgba(255, 200, 0, 0.15);
+  }
+
+  100% {
+    opacity: 1;
+    text-shadow: 0 1px 8px rgba(255, 200, 0, 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audience-song-choice-karaoke-eyebrow {
+    animation: none;
+  }
 }
 
 .audience-song-choice-karaoke-body {
