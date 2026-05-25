@@ -325,6 +325,7 @@ type MissingColumnsCache = {
   mirrorQrSettings?: boolean
   mirrorQrFlashSettings?: boolean
   globalActionCheck?: boolean
+  maxQueueSize?: boolean
 }
 
 function readMissingColumnsCache(): MissingColumnsCache {
@@ -342,6 +343,7 @@ function readMissingColumnsCache(): MissingColumnsCache {
     mirrorQrSettings: parsed.mirrorQrSettings === true,
     mirrorQrFlashSettings: parsed.mirrorQrFlashSettings === true,
     globalActionCheck: parsed.globalActionCheck === true,
+    maxQueueSize: parsed.maxQueueSize === true,
   }
 }
 
@@ -366,6 +368,7 @@ let hasMirrorCountdownQrLinkColumn = missingColumnsCache.mirrorCountdownQrLink !
 let hasMirrorQrSettingsColumns = missingColumnsCache.mirrorQrSettings !== true
 let hasMirrorQrFlashColumns = missingColumnsCache.mirrorQrFlashSettings !== true
 let hasGlobalActionCheckColumn = missingColumnsCache.globalActionCheck !== true
+let hasMaxQueueSizeColumn = missingColumnsCache.maxQueueSize !== true
 const eventOptionalSettingsCache = new Map<string, EventOptionalSettingsBundle>()
 
 function getLiveDiscoveryPollInterval(operatingMode: 'normal' | 'degraded') {
@@ -3887,6 +3890,10 @@ function QueueProvider({ children }: PropsWithChildren) {
           eventUpdatePayload.mirror_banner_text = updates.mirrorBannerText
         }
 
+        if (!hasMaxQueueSizeColumn) {
+          delete eventUpdatePayload.max_queue_size
+        }
+
         const nextCoverImageUrl = updates.coverImageUrl ?? null
         const nextVenueLogoUrl = updates.venueLogoUrl ?? null
         const nextIntroAudioUrl = updates.introAudioUrl ?? null
@@ -3982,6 +3989,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
 
           if (isMissingMaxQueueSizeColumnError(error)) {
+            hasMaxQueueSizeColumn = false
+            markMissingColumnInCache('maxQueueSize')
             delete fallbackPayload.max_queue_size
           }
 
