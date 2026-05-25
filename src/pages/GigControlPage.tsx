@@ -2886,12 +2886,16 @@ function GigControlPage() {
 
   useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
-      if (!event.isTrusted || event.defaultPrevented) {
+      if (!event.isTrusted) {
         return
       }
 
       const isSpaceKey = event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar'
       if (!isSpaceKey) {
+        return
+      }
+
+      if (event.defaultPrevented && !isFocusedGigControlWindow) {
         return
       }
 
@@ -2933,10 +2937,9 @@ function GigControlPage() {
       }
     }
 
-    // Registered once — never torn down and re-added, eliminating the brief gap
-    window.addEventListener('keydown', onKeyDown as unknown as EventListener)
-    return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [runQueueTogglePlayWithSpacebarRule])
+    window.addEventListener('keydown', onKeyDown as unknown as EventListener, true)
+    return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener, true)
+  }, [isFocusedGigControlWindow, runQueueTogglePlayWithSpacebarRule])
 
   const openMirrorFromGigControl = useCallback(() => {
     const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
