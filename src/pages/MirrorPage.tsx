@@ -738,14 +738,36 @@ function MirrorLayoutEditorPage() {
         ) : null}
 
         {visibleBlocks.joinQr ? (
-          <section className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel" data-mirror-layout-panel="joinQr" onPointerDown={beginPanelDrag('joinQr')}>
-            <button type="button" className="mirror-layout-drag-handle" aria-label="Drag join QR panel" onPointerDown={beginInteraction('joinQr', 'drag')}>Move</button>
+          <section
+            className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel mirror-qr-visual-block"
+            data-mirror-layout-panel="joinQr"
+            onPointerDown={beginPanelDrag('joinQr')}
+          >
+            <button
+              type="button"
+              className="mirror-layout-drag-handle"
+              aria-label="Drag join QR panel"
+              onPointerDown={beginInteraction('joinQr', 'drag')}
+            >
+              Move
+            </button>
             <div className="mirror-layout-edit-simple-panel-body mirror-layout-edit-qr-panel">
-              <div className="mirror-layout-edit-qr-box" />
-              <p className="mirror-now-playing-qr-label">Join QR</p>
-              <p className="mirror-now-playing-qr-url">Place this where the audience should scan</p>
+              <div className="mirror-layout-edit-qr-box mirror-qr-visual-box">
+                <img
+                  src={audienceQrUrl}
+                  alt="Scan to join the show"
+                  className="mirror-qr-visual-img"
+                />
+                <div className="mirror-qr-visual-title">Join the Show!</div>
+                <div className="mirror-qr-visual-desc">Scan this QR code with your phone camera</div>
+              </div>
             </div>
-            <button type="button" className="mirror-layout-resize-handle" aria-label="Resize join QR panel" onPointerDown={beginInteraction('joinQr', 'resize')} />
+            <button
+              type="button"
+              className="mirror-layout-resize-handle"
+              aria-label="Resize join QR panel"
+              onPointerDown={beginInteraction('joinQr', 'resize')}
+            />
           </section>
         ) : null}
       </section>

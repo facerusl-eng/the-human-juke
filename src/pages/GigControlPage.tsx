@@ -1634,56 +1634,66 @@ function GigControlPage() {
 
   const toggleLiveState = useCallback(async () => {
     if (!ensureGlobalActionCheckEnabled('changing live state')) {
-      return
+      return;
     }
 
-    const currentEvent = eventRef.current
+    const currentEvent = eventRef.current;
     if (!currentEvent?.id) {
-      setErrorText('No active gig selected.')
-      return
+      setErrorText('No active gig selected.');
+      return;
     }
 
-    const isOpeningRoom = !currentEvent.roomOpen
+    // Block manual Go Live if countdown is set and not reached
+    const gigStartAt = resolveGigStartAt(currentEvent.gigDate, currentEvent.gigStartTime);
+    const now = getHostNowMs();
+    if (
+      currentEvent.autoLiveEnabled && gigStartAt && gigStartAt.getTime() > now && !currentEvent.roomOpen
+    ) {
+      setErrorText('Go Live is countdown-only: manual start is disabled until the timer reaches zero.');
+      return;
+    }
+
+    const isOpeningRoom = !currentEvent.roomOpen;
 
     try {
       if (isOpeningRoom) {
         if (currentEvent.introAudioUrl) {
-          primeIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl)
+          primeIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl);
         }
 
-        setAutoLiveLastError(null)
-        await runGoLivePreflight()
+        setAutoLiveLastError(null);
+        await runGoLivePreflight();
       } else {
         setEndGigPromptEvent({
           id: currentEvent.id,
           name: currentEvent.name,
-        })
-        return
+        });
+        return;
       }
 
-      await ensureRoomOpenState(isOpeningRoom)
-      setAutoLiveLastError(null)
+      await ensureRoomOpenState(isOpeningRoom);
+      setAutoLiveLastError(null);
 
-      const latestEvent = eventRef.current
+      const latestEvent = eventRef.current;
       if (!isOpeningRoom || !latestEvent?.id || latestEvent.id !== currentEvent.id) {
-        return
+        return;
       }
 
       if (latestEvent.introAudioUrl) {
-        const primedIntroAudio = primedIntroAudioRef.current
+        const primedIntroAudio = primedIntroAudioRef.current;
         const primedElement =
-          primedIntroAudio
-          && primedIntroAudio.eventId === latestEvent.id
-          && primedIntroAudio.url === latestEvent.introAudioUrl
+          primedIntroAudio &&
+          primedIntroAudio.eventId === latestEvent.id &&
+          primedIntroAudio.url === latestEvent.introAudioUrl
             ? primedIntroAudio.element
-            : null
+            : null;
 
         await playIntroAudioOnceSafely(
           latestEvent.id,
           latestEvent.introAudioUrl,
           'Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
           primedElement,
-        )
+        );
       }
 
       await writeSharedPlaybackState(latestEvent.id, {
@@ -1694,9 +1704,9 @@ function GigControlPage() {
         countdownTargetMs: mirroredCountdownTargetMs,
         brbActive: false,
         brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
-      })
+      });
 
-      setIsNowPlayingStarted(false)
+      setIsNowPlayingStarted(false);
     } catch (error) {
       setErrorText(
         error instanceof Error
@@ -1704,7 +1714,7 @@ function GigControlPage() {
           : isOpeningRoom
           ? 'Go Live preflight failed.'
           : 'Could not end gig. Please try again.',
-      )
+      );
     }
   }, [
     ensureGlobalActionCheckEnabled,
@@ -1715,7 +1725,8 @@ function GigControlPage() {
     primeIntroAudioPlayback,
     resolveCoverUrlForSong,
     runGoLivePreflight,
-  ])
+    getHostNowMs,
+  ]);
 
   const runEndGigDecision = useCallback(async (decision: 'keep-offline' | 'delete') => {
     const targetEvent = endGigPromptEvent ?? eventRef.current
@@ -3068,28 +3079,38 @@ function GigControlPage() {
    */
   const runGlobalToggleQuoteNowPlaying = useCallback(async () => {
     if (!globalActionCheckEnabled) {
-      setErrorText(globalActionCheckBlockedText)
-      return
+      setErrorText(globalActionCheckBlockedText);
+      return;
     }
 
-    const currentEvent = eventRef.current
-    const currentSong = nowPlayingRef.current
+    const currentEvent = eventRef.current;
+    const currentSong = nowPlayingRef.current;
     if (!currentEvent?.id || !currentSong?.id) {
-      return
+      return;
     }
 
-    const now = Date.now()
-    if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
-      return
+    // Block manual Go Live if countdown is set and not reached
+    const gigStartAt = resolveGigStartAt(currentEvent.gigDate, currentEvent.gigStartTime);
+    const now = getHostNowMs();
+    if (
+      currentEvent.autoLiveEnabled && gigStartAt && gigStartAt.getTime() > now && !currentEvent.roomOpen && !isNowPlayingStartedRef.current
+    ) {
+      setErrorText('Go Live is countdown-only: manual start is disabled until the timer reaches zero.');
+      return;
     }
-    lastSpaceActionAtRef.current = now
 
-    const currentlyStarted = isNowPlayingStartedRef.current
+    const nowTs = Date.now();
+    if (nowTs - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
+      return;
+    }
+    lastSpaceActionAtRef.current = nowTs;
+
+    const currentlyStarted = isNowPlayingStartedRef.current;
 
     if (!currentlyStarted) {
       // QUOTE → NOW PLAYING: instant switch
-      setIsNowPlayingStarted(true)
-      isNowPlayingStartedRef.current = true
+      setIsNowPlayingStarted(true);
+      isNowPlayingStartedRef.current = true;
 
       try {
         await writeSharedPlaybackState(currentEvent.id, {
@@ -3100,28 +3121,28 @@ function GigControlPage() {
           countdownTargetMs: null,
           brbActive: syncedPlaybackState?.brbActive ?? false,
           brbMessage: null,
-        })
-        await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+        });
+        await registerBackgroundSync(BACKGROUND_SYNC_TAG);
         // Spotify pauses only after state is confirmed
-        sendSpotifyTransportCommand('pause', { force: true })
-        setErrorText(null)
+        sendSpotifyTransportCommand('pause', { force: true });
+        setErrorText(null);
       } catch (error) {
         // Roll back local state on failure
-        setIsNowPlayingStarted(false)
-        isNowPlayingStartedRef.current = false
-        console.warn('GigControlPage: go live via spacebar failed', error)
-        setErrorText('Playback toggle failed. Please try again.')
+        setIsNowPlayingStarted(false);
+        isNowPlayingStartedRef.current = false;
+        console.warn('GigControlPage: go live via spacebar failed', error);
+        setErrorText('Playback toggle failed. Please try again.');
       }
     } else {
       // NOW PLAYING → mark as played + advance to next song in queue, Spotify plays
       try {
-        await runQueueTogglePlayShortcutRef.current()
+        await runQueueTogglePlayShortcutRef.current();
       } catch (error) {
-        console.warn('GigControlPage: mark as played via spacebar failed', error)
-        setErrorText('Playback control failed. Please try again.')
+        console.warn('GigControlPage: mark as played via spacebar failed', error);
+        setErrorText('Playback control failed. Please try again.');
       }
     }
-  }, [globalActionCheckEnabled, globalActionCheckBlockedText, resolveCoverUrlForSong, sendSpotifyTransportCommand, syncedPlaybackState?.brbActive])
+  }, [globalActionCheckEnabled, globalActionCheckBlockedText, resolveCoverUrlForSong, sendSpotifyTransportCommand, syncedPlaybackState?.brbActive, getHostNowMs]);
 
   const runGlobalToggleQuoteNowPlayingRef = useRef(runGlobalToggleQuoteNowPlaying)
   useEffect(() => {
@@ -3313,9 +3334,35 @@ function GigControlPage() {
         : lastReadinessVerdict === 'fail'
         ? 'Go Live + Auto Fix'
         : 'Go Live',
-      onClick: toggleLiveState,
-      title: event?.roomOpen ? 'Pause the live event — the audience will see a waiting screen' : 'Run health checks and open the room so the audience can join',
-      disabled: !globalActionCheckEnabled || gigActions.quickActionBusy || preflightBusy || endGigDecisionBusy !== null,
+      onClick: async () => {
+        // If countdown is set and not reached, block manual Go Live
+        const gigStartAt = resolveGigStartAt(event?.gigDate, event?.gigStartTime);
+        const now = getHostNowMs();
+        if (
+          event?.autoLiveEnabled && gigStartAt && gigStartAt.getTime() > now && !event.roomOpen
+        ) {
+          setErrorText('Go Live is countdown-only: manual start is disabled until the timer reaches zero.');
+          return;
+        }
+        await toggleLiveState();
+      },
+      title:
+        event?.roomOpen
+          ? 'Pause the live event — the audience will see a waiting screen'
+          : event?.autoLiveEnabled && resolveGigStartAt(event?.gigDate, event?.gigStartTime) && resolveGigStartAt(event?.gigDate, event?.gigStartTime)!.getTime() > getHostNowMs() && !event.roomOpen
+          ? 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
+          : 'Run health checks and open the room so the audience can join',
+      disabled:
+        !globalActionCheckEnabled ||
+        gigActions.quickActionBusy ||
+        preflightBusy ||
+        endGigDecisionBusy !== null ||
+        (
+          event?.autoLiveEnabled &&
+          resolveGigStartAt(event?.gigDate, event?.gigStartTime) &&
+          resolveGigStartAt(event?.gigDate, event?.gigStartTime)!.getTime() > getHostNowMs() &&
+          !event.roomOpen
+        ),
       variant: event?.roomOpen ? 'secondary' : lastReadinessVerdict === 'fail' ? 'secondary' : 'primary',
     },
     {

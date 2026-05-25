@@ -483,11 +483,19 @@ function AdminDashboardContent({
         : 'Open Requests',
       onClick: async () => {
         if (!globalActionCheckEnabled) {
-          setQuickActionError(globalActionCheckBlockedMessage)
-          return
+          setQuickActionError(globalActionCheckBlockedMessage);
+          return;
         }
-
-        await quickGigActions.runToggleRoomOpen()
+        // Block manual Go Live if countdown is set and not reached
+        const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null);
+        const now = Date.now();
+        if (
+          event?.autoLiveEnabled && gigStartAt && gigStartAt.getTime() > now && !event.roomOpen
+        ) {
+          setQuickActionError('Go Live is countdown-only: manual start is disabled until the timer reaches zero.');
+          return;
+        }
+        await quickGigActions.runToggleRoomOpen();
       },
       disabled: !event || !globalActionCheckEnabled || quickGigActions.quickActionBusy,
       variant: event?.roomOpen ? 'secondary' : 'primary',
