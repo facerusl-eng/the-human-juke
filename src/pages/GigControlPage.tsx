@@ -637,6 +637,16 @@ function GigControlPage() {
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
 
   const nowPlaying = songs[0]
+  const globalActionCheckEnabled = event?.globalActionCheckEnabled ?? true
+  const globalActionCheckBlockedText = 'Global Action Check is OFF. Enable it in Gig Settings before using Gig Control actions.'
+  const ensureGlobalActionCheckEnabled = useCallback((actionLabel: string) => {
+    if (globalActionCheckEnabled) {
+      return true
+    }
+
+    setErrorText(`Global Action Check is OFF. Enable it in Gig Settings before ${actionLabel}.`)
+    return false
+  }, [globalActionCheckEnabled])
   const playbackTransitionState = useMemo(
     () => getSharedPlaybackTransitionState(syncedPlaybackState),
     [syncedPlaybackState],
@@ -1597,6 +1607,10 @@ function GigControlPage() {
   }, [playIntroAudioWithSpotifyBridge])
 
   const toggleLiveState = useCallback(async () => {
+    if (!ensureGlobalActionCheckEnabled('changing live state')) {
+      return
+    }
+
     const currentEvent = eventRef.current
     if (!currentEvent?.id) {
       setErrorText('No active gig selected.')
@@ -1667,6 +1681,7 @@ function GigControlPage() {
       )
     }
   }, [
+    ensureGlobalActionCheckEnabled,
     ensureRoomOpenState,
     mirroredCountdownTargetMs,
     nowPlaying?.id,
@@ -1792,13 +1807,21 @@ function GigControlPage() {
   ])
 
   const toggleLastSongSoonState = useCallback(async () => {
+    if (!ensureGlobalActionCheckEnabled('updating mirror overlays')) {
+      return
+    }
+
     await setMirrorOverlayMessage(isFinalSongSoonActive ? null : LAST_SONG_SOON_OVERLAY_MESSAGE)
-  }, [isFinalSongSoonActive, setMirrorOverlayMessage])
+  }, [ensureGlobalActionCheckEnabled, isFinalSongSoonActive, setMirrorOverlayMessage])
 
   const toggleBrbState = useCallback(async () => {
+    if (!ensureGlobalActionCheckEnabled('updating break mode')) {
+      return
+    }
+
     const nextBrb = !isBrbActive
     await setMirrorOverlayMessage(nextBrb ? (brbCustomMessage.trim() || DEFAULT_BRB_MESSAGE) : null)
-  }, [brbCustomMessage, isBrbActive, setMirrorOverlayMessage])
+  }, [brbCustomMessage, ensureGlobalActionCheckEnabled, isBrbActive, setMirrorOverlayMessage])
 
   const rollBreakMessage = useCallback(async () => {
     const nextMessage = pickRandomBreakMessage(brbCustomMessage)
@@ -2698,12 +2721,14 @@ function GigControlPage() {
         return
       }
 
-      if (currentEvent.introAudioUrl) {
+      const transitionIntroAudioUrl = transitionState.introAudioUrl
+
+      if (transitionIntroAudioUrl) {
         const introStartedAtMs = getHostNowMs()
         const introPrimedAudio = primedIntroAudioRef.current
         const primedElement = introPrimedAudio
           && introPrimedAudio.eventId === currentEvent.id
-          && introPrimedAudio.url === currentEvent.introAudioUrl
+          && introPrimedAudio.url === transitionIntroAudioUrl
             ? introPrimedAudio.element
             : null
 
@@ -2721,12 +2746,12 @@ function GigControlPage() {
             phase: 'intro',
             countdownTargetMs: transitionState.countdownTargetMs,
             introStartedAtMs,
-            introAudioUrl: currentEvent.introAudioUrl,
+            introAudioUrl: transitionIntroAudioUrl,
           }),
         })
 
         try {
-          await playIntroAudioWithSpotifyBridge(currentEvent.introAudioUrl, primedElement)
+          await playIntroAudioWithSpotifyBridge(transitionIntroAudioUrl, primedElement)
         } catch (error) {
           console.warn('GigControlPage: intro audio playback failed during song start transition', error)
           setErrorText('Countdown finished, but intro MP3 was blocked. Starting the song now.')
@@ -2839,16 +2864,18 @@ function GigControlPage() {
     }
   }, [beginBetweenSongsTransition, restoreStartedSong])
 
-  const startCurrentSong = useCallback(async () => {
+  const startCurrentSong = useCallback(async (options?: { skipIntroAudio?: boolean }) => {
     const currentEvent = eventRef.current
     const currentSong = nowPlayingRef.current
+    const shouldSkipIntroAudio = options?.skipIntroAudio === true
+    const transitionIntroAudioUrl = shouldSkipIntroAudio ? null : (currentEvent?.introAudioUrl ?? null)
 
     if (!currentEvent?.id || !currentSong?.id || playbackTransitionLockedRef.current) {
       return
     }
 
-    if (currentEvent.introAudioUrl) {
-      primeIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl)
+    if (transitionIntroAudioUrl) {
+      primeIntroAudioPlayback(currentEvent.id, transitionIntroAudioUrl)
     }
 
     const transitionId = `${currentSong.id}:${Date.now()}`
@@ -2869,13 +2896,17 @@ function GigControlPage() {
           phase: 'countdown',
           countdownTargetMs,
           introStartedAtMs: null,
-          introAudioUrl: currentEvent.introAudioUrl ?? null,
+          introAudioUrl: transitionIntroAudioUrl,
         }),
       })
     }, { includeTransition: false })
   }, [getHostNowMs, primeIntroAudioPlayback, resolveCoverUrlForSong, runPlaybackAction])
 
-  const runQueueTogglePlayShortcut = useCallback(async () => {
+  const runQueueTogglePlayShortcut = useCallback(async (options?: { skipIntroAudio?: boolean }) => {
+    if (!ensureGlobalActionCheckEnabled('changing playback state')) {
+      return
+    }
+
     const currentNowPlaying = nowPlayingRef.current
     const currentlyStarted = isNowPlayingStartedRef.current
 
@@ -2885,7 +2916,7 @@ function GigControlPage() {
     }
 
     if (!currentlyStarted) {
-      await startCurrentSong()
+      await startCurrentSong({ skipIntroAudio: options?.skipIntroAudio === true })
       return
     }
 
@@ -2898,7 +2929,7 @@ function GigControlPage() {
     if (finishedSong) {
       sendSpotifyTransportCommand('play')
     }
-  }, [markPlayed, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
+  }, [ensureGlobalActionCheckEnabled, markPlayed, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
 
   useEffect(() => {
     nowPlayingRef.current = nowPlaying
@@ -2918,7 +2949,7 @@ function GigControlPage() {
     runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
   }, [runQueueTogglePlayShortcut])
 
-  const runQueueTogglePlayWithSpacebarRule = useCallback(async () => {
+  const runQueueTogglePlayWithSpacebarRule = useCallback(async (options?: { skipIntroAudio?: boolean }) => {
     if (!nowPlayingRef.current) {
       return
     }
@@ -2933,11 +2964,18 @@ function GigControlPage() {
     }
 
     lastSpaceActionAtRef.current = now
-    await runQueueTogglePlayShortcutRef.current()
+    await runQueueTogglePlayShortcutRef.current({ skipIntroAudio: options?.skipIntroAudio === true })
   }, [])
 
   const handleGlobalSpacebarKeyDown = useCallback(async (event: KeyboardEvent) => {
-    const isSpaceKey = event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar'
+    const normalizedKey = typeof event.key === 'string' ? event.key.trim().toLowerCase() : ''
+    const isSpaceKey = event.code === 'Space'
+      || event.key === ' '
+      || event.key === 'Space'
+      || event.key === 'Spacebar'
+      || normalizedKey === 'space'
+      || (event as unknown as { keyCode?: number; which?: number }).keyCode === 32
+      || (event as unknown as { keyCode?: number; which?: number }).which === 32
     if (!isSpaceKey) {
       return
     }
@@ -2972,17 +3010,22 @@ function GigControlPage() {
       return
     }
 
+    if (!globalActionCheckEnabled) {
+      setErrorText(globalActionCheckBlockedText)
+      return
+    }
+
     event.preventDefault()
     event.stopPropagation()
     event.stopImmediatePropagation()
 
     try {
-      await runQueueTogglePlayWithSpacebarRule()
+      await runQueueTogglePlayWithSpacebarRule({ skipIntroAudio: true })
     } catch (error) {
       console.warn('GigControlPage: spacebar playback action failed', error)
       setErrorText('Playback control failed. Please try again.')
     }
-  }, [runQueueTogglePlayWithSpacebarRule])
+  }, [globalActionCheckBlockedText, globalActionCheckEnabled, runQueueTogglePlayWithSpacebarRule])
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
@@ -3113,7 +3156,7 @@ function GigControlPage() {
         : 'Go Live',
       onClick: toggleLiveState,
       title: event?.roomOpen ? 'Pause the live event — the audience will see a waiting screen' : 'Run health checks and open the room so the audience can join',
-      disabled: gigActions.quickActionBusy || preflightBusy || endGigDecisionBusy !== null,
+      disabled: !globalActionCheckEnabled || gigActions.quickActionBusy || preflightBusy || endGigDecisionBusy !== null,
       variant: event?.roomOpen ? 'secondary' : lastReadinessVerdict === 'fail' ? 'secondary' : 'primary',
     },
     {
@@ -3153,7 +3196,7 @@ function GigControlPage() {
       onClick: async () => {
         await gigActions.runToggleExplicitFilter()
       },
-      disabled: gigActions.quickActionBusy,
+      disabled: !globalActionCheckEnabled || gigActions.quickActionBusy,
     },
     {
       id: 'host-readiness',
@@ -3167,7 +3210,7 @@ function GigControlPage() {
       label: isBrbActive ? 'Cancel BRB' : 'BRB Screen',
       title: isBrbActive ? 'Cancel BRB — return to the normal live screen' : 'Show a "Be Right Back" screen to the audience while you take a break',
       onClick: toggleBrbState,
-      disabled: mirrorOverlayUpdateBusy,
+      disabled: !globalActionCheckEnabled || mirrorOverlayUpdateBusy,
       variant: 'ghost' as const,
     },
     {
@@ -3191,7 +3234,7 @@ function GigControlPage() {
       onClick: () => {
         sendManualSpotifyTransportCommand('play')
       },
-      disabled: !spotifyAccessToken,
+      disabled: !globalActionCheckEnabled || !spotifyAccessToken,
       variant: 'ghost',
     },
   ]
@@ -3441,13 +3484,16 @@ function GigControlPage() {
             <span className={`gig-performer-status-pill ${event.roomOpen ? 'is-live' : 'is-paused'}`}>{liveModeLabel}</span>
             <span className="gig-performer-status-pill is-neutral">{mirrorStateLabel}</span>
             <span className="gig-performer-status-pill is-neutral">Audience {activeAudienceCount ?? 0}</span>
+            <span className={`gig-performer-status-pill ${globalActionCheckEnabled ? 'is-live' : 'is-paused'}`}>
+              {globalActionCheckEnabled ? 'Global Actions On' : 'Global Actions Off'}
+            </span>
           </div>
         </div>
         <div className="gig-performer-controls">
           <button
             type="button"
             className="primary-button"
-            disabled={gigActions.quickActionBusy || preflightBusy || endGigDecisionBusy !== null}
+            disabled={!globalActionCheckEnabled || gigActions.quickActionBusy || preflightBusy || endGigDecisionBusy !== null}
             onClick={async () => {
               await toggleLiveState()
             }}
@@ -3457,7 +3503,7 @@ function GigControlPage() {
           <button
             type="button"
             className="secondary-button"
-            disabled={mirrorOverlayUpdateBusy}
+            disabled={!globalActionCheckEnabled || mirrorOverlayUpdateBusy}
             onClick={async () => {
               await toggleBrbState()
             }}
