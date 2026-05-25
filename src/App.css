@@ -7649,12 +7649,10 @@ body:has(.audience-no-gig-shell) {
 
 .live-feed-warning-text {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 500;
   color: #ff6b35;
-  line-height: 1.5;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  line-height: 1.4;
 }
 
 .live-feed-post-actions {
