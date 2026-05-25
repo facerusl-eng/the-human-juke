@@ -7,6 +7,8 @@ import {
   PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
   PLAYBACK_STATE_STORAGE_KEY,
+  getSharedPlaybackDisplayMessage,
+  getSharedPlaybackTransitionState,
   isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
   normalizeCountdownTargetMs,
@@ -1673,15 +1675,7 @@ function MirrorPageContent() {
       ? safeSongs.filter((song) => song.id !== activeSong?.id)
       : safeSongs
 
-    return [...candidateSongs].sort((songA, songB) => {
-      if (songB.votes_count !== songA.votes_count) {
-        return songB.votes_count - songA.votes_count
-      }
-
-      const positionA = typeof songA.position === 'number' ? songA.position : Number.MAX_SAFE_INTEGER
-      const positionB = typeof songB.position === 'number' ? songB.position : Number.MAX_SAFE_INTEGER
-      return positionA - positionB
-    })
+    return candidateSongs
   }, [safeSongs, isNowPlayingStarted, activeSong?.id])
   const hostUpcomingEvent = useMemo<MirrorUpcomingEvent | null>(() => {
     const nowMs = getMirrorNowMs()
@@ -1721,7 +1715,7 @@ function MirrorPageContent() {
     ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length
     : 0
   const openingWelcomeMessage = isBetweenSongs && !isLastSongSoonOverlayMessage(playbackState?.brbMessage)
-    ? (playbackState?.brbMessage?.trim() || null)
+    ? getSharedPlaybackDisplayMessage(playbackState?.brbMessage)
     : null
   const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
     ?? 'Remain calm. The next song is loading.'
@@ -1981,8 +1975,23 @@ function MirrorPageContent() {
 
     return new Date(targetMs as number)
   }, [getMirrorNowMs, playbackState?.countdownTargetMs])
+  const playbackTransitionState = useMemo(
+    () => getSharedPlaybackTransitionState(playbackState),
+    [playbackState],
+  )
   const countdownTarget = fallbackCountdownTarget ?? mirroredCountdownTarget
   const countdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : null
+  const playbackTransitionRemainingMs = playbackTransitionState?.phase === 'countdown'
+    && playbackTransitionState.countdownTargetMs !== null
+    ? Math.max(0, playbackTransitionState.countdownTargetMs - countdownNow)
+    : null
+  const playbackTransitionStatusText = playbackTransitionState?.phase === 'countdown'
+    ? playbackTransitionRemainingMs !== null
+      ? `Starting in ${Math.max(1, Math.ceil(playbackTransitionRemainingMs / 1000))}`
+      : 'Starting soon'
+    : playbackTransitionState?.phase === 'intro'
+    ? 'Intro MP3 playing...'
+    : null
   const countdownDisplayRemainingMs = countdownRemainingMs === null
     ? null
     : Math.max(0, countdownRemainingMs)
@@ -4108,7 +4117,9 @@ function MirrorPageContent() {
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
                       <p className="mirror-between-song-quote">{displayedBetweenSongMessage}</p>
-                      {!activeSong ? <p className="mirror-song-waiting-note">Waiting for next song...</p> : null}
+                      {playbackTransitionStatusText || !activeSong ? (
+                        <p className="mirror-song-waiting-note">{playbackTransitionStatusText ?? 'Waiting for next song...'}</p>
+                      ) : null}
                     </div>
                   </div>
                 ) : (

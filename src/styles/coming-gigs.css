@@ -113,6 +113,10 @@
 }
 
 .cg-upcoming-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.9rem;
+  align-items: start;
   border: 1px solid rgba(80, 113, 183, 0.4);
   border-radius: 12px;
   padding: 0.8rem;
@@ -120,6 +124,10 @@
 }
 
 .cg-upcoming-date {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: start;
+  white-space: nowrap;
   margin: 0;
   color: #8ec5ff;
   font-weight: 700;
@@ -127,13 +135,30 @@
 }
 
 .cg-upcoming-card h3 {
+  grid-column: 2;
   margin: 0.25rem 0 0.35rem;
   color: #eef4ff;
   font-size: 1rem;
 }
 
+.cg-upcoming-card p:not(.cg-upcoming-date) {
+  grid-column: 2;
+  margin: 0;
+}
+
 @media (max-width: 900px) {
   .cg-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cg-upcoming-card {
+    grid-template-columns: 1fr;
+  }
+
+  .cg-upcoming-date,
+  .cg-upcoming-card h3,
+  .cg-upcoming-card p:not(.cg-upcoming-date) {
+    grid-column: 1;
+    grid-row: auto;
   }
 }

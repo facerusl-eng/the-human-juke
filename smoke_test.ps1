@@ -9,6 +9,21 @@ $tests = @(
     @{ Name = "7) GET /api/join-meta?event=demo-event-001"; Method = "GET"; Path = "/api/join-meta?event=demo-event-001"; Body = $null }
 )
 
+function Write-SafeBodyPreview {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$BodyText
+    )
+
+    if ([string]::IsNullOrWhiteSpace($BodyText)) {
+        Write-Host "Body: <empty>"
+        return
+    }
+
+    $cleanBody = $BodyText -replace '\s+', ' '
+    Write-Host "Body: $($cleanBody.Substring(0, [Math]::Min(200, $cleanBody.Length)))"
+}
+
 foreach ($test in $tests) {
     Write-Host "`n--- $($test.Name) ---"
     try {
@@ -16,24 +31,51 @@ foreach ($test in $tests) {
             Uri = "$baseUrl$($test.Path)"
             Method = $test.Method
             ContentType = "application/json"
+            UseBasicParsing = $true
             MaximumRedirection = 0
             ErrorAction = "Stop"
         }
         if ($test.Body) { $params.Body = $test.Body }
         $response = Invoke-WebRequest @params
         Write-Host "Status: $($response.StatusCode)"
-        if ($response.Headers.Location) { Write-Host "Location: $($response.Headers.Location)" }
-        $cleanBody = $response.Content -replace '\s+', ' '
-        Write-Host "Body: $($cleanBody.Substring(0, [Math]::Min(200, $cleanBody.Length)))"
+        Write-SafeBodyPreview -BodyText $response.Content
     } catch {
-        if ($_.Exception.Response) {
-            Write-Host "Status: $([int]$_.Exception.Response.StatusCode)"
-            if ($_.Exception.Response.Headers.Location) { Write-Host "Location: $($_.Exception.Response.Headers.Location)" }
-            $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
-            $content = $reader.ReadToEnd() -replace '\s+', ' '
-            Write-Host "Body: $($content.Substring(0, [Math]::Min(200, $content.Length)))"
+        $response = $_.Exception.Response
+        if ($response) {
+            try {
+                Write-Host "Status: $([int]$response.StatusCode)"
+            } catch {
+                Write-Host "Status: <unavailable>"
+            }
+
+            $bodyText = $null
+            try {
+                $stream = $response.GetResponseStream()
+                if ($null -ne $stream) {
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $bodyText = $reader.ReadToEnd()
+                }
+            } catch {
+                $bodyText = $null
+            }
+
+            Write-SafeBodyPreview -BodyText $bodyText
         } else {
-            Write-Host "Error: $($_.Exception.Message)"
+            $errorMessage = $_.Exception.Message
+            if ($test.Method -eq "GET") {
+                try {
+                    $curlStatus = curl.exe -s -o NUL -w "%{http_code}" "$baseUrl$($test.Path)"
+                    if ($curlStatus -match '^[0-9]{3}$') {
+                        Write-Host "Status: $curlStatus"
+                        Write-Host "Body: <empty>"
+                        continue
+                    }
+                } catch {
+                    # If curl fallback fails, print the original web cmdlet error below.
+                }
+            }
+
+            Write-Host "Error: $errorMessage"
         }
     }
 }

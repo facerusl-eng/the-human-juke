@@ -83,6 +83,7 @@ type SettingsState = {
   selectedPlaylistIds: string[]
   roomOpen: boolean
   explicitFilterEnabled: boolean
+  globalActionCheckEnabled: boolean
   showInAudienceNoGig: boolean
   coverImageUrl: string
   venueLogoUrl: string
@@ -755,6 +756,10 @@ function getPendingSaveChangeLabels(
     changedLabels.push('explicit filter')
   }
 
+  if (saveState.globalActionCheckEnabled !== (event.globalActionCheckEnabled ?? true)) {
+    changedLabels.push('global action check')
+  }
+
   if (saveState.showInAudienceNoGig !== event.showInAudienceNoGig) {
     changedLabels.push('audience no-gig visibility')
   }
@@ -825,6 +830,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     selectedPlaylistIds: [],
     roomOpen: event.roomOpen,
     explicitFilterEnabled: event.explicitFilterEnabled,
+    globalActionCheckEnabled: event.globalActionCheckEnabled ?? true,
     showInAudienceNoGig: event.showInAudienceNoGig,
     coverImageUrl: event.coverImageUrl ?? '',
     venueLogoUrl: event.venueLogoUrl ?? '',
@@ -1247,6 +1253,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           maxQueueSize: null,
           roomOpen: saveState.roomOpen,
           explicitFilterEnabled: saveState.explicitFilterEnabled,
+          globalActionCheckEnabled: saveState.globalActionCheckEnabled,
           showInAudienceNoGig: saveState.showInAudienceNoGig,
           coverImageUrl: saveState.coverImageUrl.trim() || null,
           venueLogoUrl: saveState.venueLogoUrl.trim() || null,
@@ -1687,9 +1694,9 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
       id: 'open-mirror-screen',
       label: 'Mirror Screen',
       onClick: () => {
-        void openMirrorScreen()
+        void openMirrorScreen({ eventId: event.id })
       },
-      title: 'Open mirror screen in new window',
+      title: 'Open mirror screen in new tab (or same window if popups are blocked)',
       variant: 'ghost',
     },
   ]
@@ -1819,6 +1826,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     || normalizeRequestCapValue(state.maxActiveRequestsPerUser) !== normalizeRequestCapValue(event.maxActiveRequestsPerUser)
     || state.roomOpen !== event.roomOpen
     || state.explicitFilterEnabled !== event.explicitFilterEnabled
+    || state.globalActionCheckEnabled !== (event.globalActionCheckEnabled ?? true)
     || !arePlaylistSelectionsEqual(state.selectedPlaylistIds, initialSelectedPlaylistIds)
     || state.coverImageUrl !== (event.coverImageUrl ?? '')
     || state.showInAudienceNoGig !== event.showInAudienceNoGig
@@ -2256,6 +2264,22 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
               <div>
                 <strong>{state.explicitFilterEnabled ? '🧼 Clean Mode On' : '🔊 Explicit Allowed'}</strong>
                 <span>{state.explicitFilterEnabled ? 'Tracks marked explicit are blocked from audience requests.' : 'Explicit tracks can be requested by guests.'}</span>
+              </div>
+            </label>
+
+            <label className={`toggle-card ${state.globalActionCheckEnabled ? 'toggle-card-active' : 'toggle-card-inactive'}`} htmlFor="gig-global-action-check">
+              <input
+                id="gig-global-action-check"
+                type="checkbox"
+                checked={state.globalActionCheckEnabled}
+                onChange={(e) => {
+                  pushUndoState()
+                  updateState({ globalActionCheckEnabled: e.target.checked })
+                }}
+              />
+              <div>
+                <strong>{state.globalActionCheckEnabled ? '✅ Global Action Check On' : '🛑 Global Action Check Off'}</strong>
+                <span>{state.globalActionCheckEnabled ? 'Control actions are enabled across Gig Control and Control Room.' : 'Protected control actions are blocked app-wide until this is re-enabled.'}</span>
               </div>
             </label>
           </div>
@@ -3015,6 +3039,13 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
                 <div>
                   <strong>{state.maxActiveRequestsPerUser || 'No limit'}</strong>
                   <span className="small-text">Requests per person</span>
+                </div>
+              </div>
+              <div className="status-item">
+                <span className="status-icon">🛡️</span>
+                <div>
+                  <strong>{state.globalActionCheckEnabled ? 'Global Action Check On' : 'Global Action Check Off'}</strong>
+                  <span className="small-text">Control safety gate</span>
                 </div>
               </div>
             </div>

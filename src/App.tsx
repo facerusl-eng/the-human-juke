@@ -15,6 +15,7 @@ import { logCrashTelemetry } from './lib/crashTelemetry'
 import EventPage from './pages/EventPage'
 import AudienceSongListPage from './pages/AudienceSongListPage'
 import MirrorPage from './pages/MirrorPage'
+import HomePage from './pages/HomePage'
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
 import { demoMode } from './demo/demoMode'
@@ -94,7 +95,6 @@ const GigControlPage = lazyWithChunkReload(() => import('./pages/GigControlPage'
 const GigSettingsPage = lazyWithChunkReload(() => import('./pages/GigSettingsPage'))
 const GigsPage = lazyWithChunkReload(() => import('./pages/GigsPage'))
 const HealthCheckPage = lazyWithChunkReload(() => import('./pages/HealthCheckPage'))
-const HomePage = lazyWithChunkReload(() => import('./pages/HomePage'))
 const LoungeLinkPage = lazyWithChunkReload(() => import('./pages/LoungeLinkPage'))
 const QrLandingPage = lazyWithChunkReload(() => import('./pages/QrLandingPage'))
 const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))

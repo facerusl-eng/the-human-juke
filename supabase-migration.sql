@@ -648,6 +648,10 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS tip_thank_you_message_da TEXT,
   ADD COLUMN IF NOT EXISTS tip_thank_you_message_en TEXT;
 
+-- ─── Global Action Check gate for shared control actions (May 2026) ───────────
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS global_action_check_enabled BOOLEAN NOT NULL DEFAULT true;
+
 -- ─── Contact email on profiles (April 2026) ─────────────────────────────────
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS contact_email TEXT;

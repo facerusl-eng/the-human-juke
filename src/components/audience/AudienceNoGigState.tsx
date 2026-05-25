@@ -221,37 +221,6 @@ function formatUpcomingEventTimeRange(gigStartTime: string | null, gigEndTime: s
   return locale === 'da' ? `Slutter ${formatClockTime(gigEndTime as string)}` : `Ends ${formatClockTime(gigEndTime as string)}`
 }
 
-function getUpcomingEventFallbackCoverUrl(event: AudienceUpcomingEvent) {
-  const resolvedTheme = event.eventTheme === 'karaoke'
-    ? 'karaoke'
-    : event.eventTheme === 'harald-live'
-    ? 'harald-live'
-    : event.eventType === 'karaoke'
-    ? 'karaoke'
-    : 'human-jukebox'
-
-  if (resolvedTheme === 'karaoke') {
-    return '/images/Karaoke%20live%20playlist.png'
-  }
-
-  if (resolvedTheme === 'harald-live') {
-    return '/images/Harald%20Live%20playlist.png'
-  }
-
-  return '/images/Human%20jukebox%20Live%20playlist.png'
-}
-
-function isKnownPlaylistCover(url: string): boolean {
-  const normalized = decodeURIComponent(url).toLowerCase()
-
-  return normalized.includes('/images/playlist-karaoke.jpg')
-    || normalized.includes('/images/karaoke live playlist.png')
-    || normalized.includes('/images/playlist-human-jukebox.jpg')
-    || normalized.includes('/images/human jukebox live playlist.png')
-    || normalized.includes('/images/harald live.png')
-    || normalized.includes('/images/harald live playlist.png')
-}
-
 function resolveUpcomingEventCoverUrl(event: AudienceUpcomingEvent): string {
   void event
   return '/images/Human%20jukebox%20Live%20playlist.png'
@@ -269,7 +238,6 @@ function AudienceNoGigState({
   upcomingEventsNotice = null,
   getEventHref,
   locale = 'en',
-  socialLinks = [],
 }: {
   upcomingEvents: AudienceUpcomingEvent[]
   countdownFallbackEvent?: AudienceUpcomingEvent | null
@@ -280,7 +248,6 @@ function AudienceNoGigState({
   upcomingEventsNotice?: string | null
   getEventHref?: (eventId: string) => string
   locale?: AudienceLocale
-  socialLinks?: { label: string; url: string }[]
 }) {
   const [showHowJukeboxWorks, setShowHowJukeboxWorks] = useState(false)
   const [showHowKaraokeWorks, setShowHowKaraokeWorks] = useState(false)
@@ -559,16 +526,6 @@ function AudienceNoGigState({
             {showHowJukeboxWorks ? copy.hideHowItWorks : copy.howItWorks}
           </button>
         </div>
-
-        {socialLinks.length > 0 ? (
-          <div className="audience-social-links-inline">
-            {socialLinks.map((link) => (
-              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="secondary-button">
-                {link.label}
-              </a>
-            ))}
-          </div>
-        ) : null}
 
         {showHowJukeboxWorks ? (
           <section id="audience-no-gig-how-it-works" className="audience-no-gig-how-it-works" aria-label={copy.howItWorksTitle}>

@@ -349,6 +349,7 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
         ...DEMO_EVENT,
         mirrorBrbQrLink: null,
         mirrorBrbQrText: null,
+        globalActionCheckEnabled: true,
       },
       hostEvents: [],
       songs,

@@ -71,6 +71,7 @@ const LEGACY_LAST_SONG_SOON_OVERLAY_MESSAGES = [
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const PLAYBACK_PERMISSION_WARNING_INTERVAL_MS = 30000
+const PLAYBACK_TRANSITION_MESSAGE_PREFIX = '__human_jukebox_transition__:'
 const playbackPermissionWarningAtByEventId = new Map<string, number>()
 
 export type SharedPlaybackState = {
@@ -81,6 +82,112 @@ export type SharedPlaybackState = {
   countdownTargetMs?: number | null
   brbActive?: boolean
   brbMessage?: string | null
+}
+
+export type SharedPlaybackTransitionPhase = 'countdown' | 'intro'
+
+export type SharedPlaybackTransitionState = {
+  transitionId: string
+  controllerId: string | null
+  songId: string | null
+  phase: SharedPlaybackTransitionPhase
+  countdownTargetMs: number | null
+  introStartedAtMs: number | null
+  introAudioUrl: string | null
+}
+
+function normalizeSharedPlaybackTransitionState(value: unknown): SharedPlaybackTransitionState | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const candidate = value as {
+    transitionId?: unknown
+    controllerId?: unknown
+    songId?: unknown
+    phase?: unknown
+    countdownTargetMs?: unknown
+    introStartedAtMs?: unknown
+    introAudioUrl?: unknown
+  }
+
+  if (candidate.phase !== 'countdown' && candidate.phase !== 'intro') {
+    return null
+  }
+
+  const transitionId = typeof candidate.transitionId === 'string' ? candidate.transitionId.trim() : ''
+  if (!transitionId) {
+    return null
+  }
+
+  return {
+    transitionId,
+    controllerId: typeof candidate.controllerId === 'string' && candidate.controllerId.trim().length > 0
+      ? candidate.controllerId.trim()
+      : null,
+    songId: typeof candidate.songId === 'string' && candidate.songId.trim().length > 0
+      ? candidate.songId.trim()
+      : null,
+    phase: candidate.phase,
+    countdownTargetMs: normalizeCountdownTargetMs(candidate.countdownTargetMs),
+    introStartedAtMs: normalizeCountdownTargetMs(candidate.introStartedAtMs),
+    introAudioUrl: typeof candidate.introAudioUrl === 'string' && candidate.introAudioUrl.trim().length > 0
+      ? candidate.introAudioUrl.trim()
+      : null,
+  }
+}
+
+export function createSharedPlaybackTransitionMessage(state: SharedPlaybackTransitionState | null | undefined) {
+  const normalizedState = normalizeSharedPlaybackTransitionState(state)
+
+  if (!normalizedState) {
+    return null
+  }
+
+  return `${PLAYBACK_TRANSITION_MESSAGE_PREFIX}${JSON.stringify(normalizedState)}`
+}
+
+export function getSharedPlaybackTransitionState(
+  value: SharedPlaybackState | string | null | undefined,
+): SharedPlaybackTransitionState | null {
+  if (!value) {
+    return null
+  }
+
+  const rawMessage = typeof value === 'string'
+    ? value
+    : value.brbActive
+    ? null
+    : value.brbMessage
+
+  const normalizedMessage = typeof rawMessage === 'string' ? rawMessage.trim() : ''
+  if (!normalizedMessage.startsWith(PLAYBACK_TRANSITION_MESSAGE_PREFIX)) {
+    return null
+  }
+
+  try {
+    const serializedPayload = normalizedMessage.slice(PLAYBACK_TRANSITION_MESSAGE_PREFIX.length)
+    return normalizeSharedPlaybackTransitionState(JSON.parse(serializedPayload))
+  } catch {
+    return null
+  }
+}
+
+export function getSharedPlaybackDisplayMessage(message: string | null | undefined) {
+  const normalizedMessage = message?.trim() ?? ''
+
+  if (!normalizedMessage) {
+    return null
+  }
+
+  return normalizedMessage.startsWith(PLAYBACK_TRANSITION_MESSAGE_PREFIX)
+    ? null
+    : normalizedMessage
+}
+
+export function isSharedPlaybackTransitionLocked(state: SharedPlaybackState | null | undefined) {
+  const transitionState = getSharedPlaybackTransitionState(state)
+  return transitionState?.phase === 'countdown' || transitionState?.phase === 'intro'
 }
 
 export function getLastSongSoonAudienceMessage(locale: AudienceLocale) {

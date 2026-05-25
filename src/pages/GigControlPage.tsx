@@ -3067,33 +3067,41 @@ function GigControlPage() {
     }
     lastSpaceActionAtRef.current = now
 
-    const nextStarted = !isNowPlayingStartedRef.current
+    const currentlyStarted = isNowPlayingStartedRef.current
 
-    // Update local state immediately so UI responds before DB roundtrip
-    setIsNowPlayingStarted(nextStarted)
-    isNowPlayingStartedRef.current = nextStarted
+    if (!currentlyStarted) {
+      // QUOTE → NOW PLAYING: instant switch, Spotify pauses
+      setIsNowPlayingStarted(true)
+      isNowPlayingStartedRef.current = true
+      sendSpotifyTransportCommand('pause')
 
-    // Spotify follows: NOW PLAYING = pause, QUOTE = play
-    sendSpotifyTransportCommand(nextStarted ? 'pause' : 'play')
-
-    try {
-      await writeSharedPlaybackState(currentEvent.id, {
-        currentSongId: currentSong.id,
-        currentSongCoverUrl: resolveCoverUrlForSong(currentSong.id),
-        isStarted: nextStarted,
-        quoteIndex: quoteIndexRef.current,
-        countdownTargetMs: null,
-        brbActive: syncedPlaybackState?.brbActive ?? false,
-        brbMessage: null, // clear any stale transition state
-      })
-      await registerBackgroundSync(BACKGROUND_SYNC_TAG)
-      setErrorText(null)
-    } catch (error) {
-      // Roll back local state on failure so UI stays consistent
-      setIsNowPlayingStarted(!nextStarted)
-      isNowPlayingStartedRef.current = !nextStarted
-      console.warn('GigControlPage: global toggle quote/now-playing failed', error)
-      setErrorText('Playback toggle failed. Please try again.')
+      try {
+        await writeSharedPlaybackState(currentEvent.id, {
+          currentSongId: currentSong.id,
+          currentSongCoverUrl: resolveCoverUrlForSong(currentSong.id),
+          isStarted: true,
+          quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: null,
+          brbActive: syncedPlaybackState?.brbActive ?? false,
+          brbMessage: null,
+        })
+        await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+        setErrorText(null)
+      } catch (error) {
+        // Roll back local state on failure
+        setIsNowPlayingStarted(false)
+        isNowPlayingStartedRef.current = false
+        console.warn('GigControlPage: go live via spacebar failed', error)
+        setErrorText('Playback toggle failed. Please try again.')
+      }
+    } else {
+      // NOW PLAYING → mark as played + advance to next song in queue, Spotify plays
+      try {
+        await runQueueTogglePlayShortcutRef.current()
+      } catch (error) {
+        console.warn('GigControlPage: mark as played via spacebar failed', error)
+        setErrorText('Playback control failed. Please try again.')
+      }
     }
   }, [globalActionCheckEnabled, globalActionCheckBlockedText, resolveCoverUrlForSong, sendSpotifyTransportCommand, syncedPlaybackState?.brbActive])
 

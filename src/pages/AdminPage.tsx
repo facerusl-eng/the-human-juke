@@ -242,6 +242,8 @@ function AdminDashboardContent({
   const queueEstMinutes = Math.round(songs.filter((s) => !s.is_removed).length * 3.5)
   const activeGigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
   const isBeforeActiveGigStart = Boolean(event && !event.roomOpen && activeGigStartAt && activeGigStartAt.getTime() > Date.now())
+  const globalActionCheckEnabled = event?.globalActionCheckEnabled ?? true
+  const globalActionCheckBlockedMessage = 'Global Action Check is OFF. Enable it in Gig Settings before using Control Room actions.'
   const activeEventSummary = useMemo(
     () => hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null,
     [hostEvents, event?.id],
@@ -480,9 +482,14 @@ function AdminDashboardContent({
         ? 'Pause Requests'
         : 'Open Requests',
       onClick: async () => {
+        if (!globalActionCheckEnabled) {
+          setQuickActionError(globalActionCheckBlockedMessage)
+          return
+        }
+
         await quickGigActions.runToggleRoomOpen()
       },
-      disabled: !event || quickGigActions.quickActionBusy,
+      disabled: !event || !globalActionCheckEnabled || quickGigActions.quickActionBusy,
       variant: event?.roomOpen ? 'secondary' : 'primary',
       className: 'admin-mobile-priority',
     },
@@ -511,12 +518,19 @@ function AdminDashboardContent({
         ? 'Allow Explicit'
         : 'Block Explicit',
       onClick: async () => {
+        if (!globalActionCheckEnabled) {
+          setQuickActionError(globalActionCheckBlockedMessage)
+          return
+        }
+
         await quickGigActions.runToggleExplicitFilter()
       },
-      disabled: !event || quickGigActions.quickActionBusy,
+      disabled: !event || !globalActionCheckEnabled || quickGigActions.quickActionBusy,
     },
   ], [
     event,
+    globalActionCheckBlockedMessage,
+    globalActionCheckEnabled,
     openAudienceScreen,
     openMirrorScreen,
     openSetlistLibrary,
@@ -581,9 +595,14 @@ function AdminDashboardContent({
           ? 'Pause Requests'
           : 'Open Requests',
         onClick: async () => {
+          if (!globalActionCheckEnabled) {
+            setQuickActionError(globalActionCheckBlockedMessage)
+            return
+          }
+
           await quickGigActions.runToggleRoomOpen()
         },
-        disabled: !event || quickGigActions.quickActionBusy,
+        disabled: !event || !globalActionCheckEnabled || quickGigActions.quickActionBusy,
         variant: event?.roomOpen ? 'secondary' : 'primary',
       },
       {
@@ -607,9 +626,14 @@ function AdminDashboardContent({
           ? 'Allow Explicit'
           : 'Block Explicit',
         onClick: async () => {
+          if (!globalActionCheckEnabled) {
+            setQuickActionError(globalActionCheckBlockedMessage)
+            return
+          }
+
           await quickGigActions.runToggleExplicitFilter()
         },
-        disabled: !event || quickGigActions.quickActionBusy,
+        disabled: !event || !globalActionCheckEnabled || quickGigActions.quickActionBusy,
       })
     }
 
@@ -625,6 +649,8 @@ function AdminDashboardContent({
   }, [
     contextualStripAction,
     event,
+    globalActionCheckBlockedMessage,
+    globalActionCheckEnabled,
     openAudienceScreen,
     openMirrorScreen,
     openSetlistLibrary,
@@ -632,7 +658,10 @@ function AdminDashboardContent({
   ])
 
   const activatePanicMode = useCallback(async () => {
-    if (!event || quickGigActions.quickActionBusy) {
+    if (!event || !globalActionCheckEnabled || quickGigActions.quickActionBusy) {
+      if (!globalActionCheckEnabled) {
+        setQuickActionError(globalActionCheckBlockedMessage)
+      }
       return
     }
 
@@ -661,10 +690,13 @@ function AdminDashboardContent({
       console.warn('AdminPage: panic mode activation failed', error)
       setQuickActionError(error instanceof Error ? error.message : 'Failed to activate panic mode.')
     }
-  }, [event, panicIncludeVotingLock, quickGigActions, toggleAudienceVoting])
+  }, [event, globalActionCheckBlockedMessage, globalActionCheckEnabled, panicIncludeVotingLock, quickGigActions, toggleAudienceVoting])
 
   const undoPanicMode = useCallback(async () => {
-    if (!event || !panicSnapshot || quickGigActions.quickActionBusy) {
+    if (!event || !panicSnapshot || !globalActionCheckEnabled || quickGigActions.quickActionBusy) {
+      if (!globalActionCheckEnabled) {
+        setQuickActionError(globalActionCheckBlockedMessage)
+      }
       return
     }
 
@@ -689,7 +721,7 @@ function AdminDashboardContent({
       console.warn('AdminPage: panic mode undo failed', error)
       setQuickActionError(error instanceof Error ? error.message : 'Failed to undo panic mode.')
     }
-  }, [event, panicSnapshot, quickGigActions, toggleAudienceVoting])
+  }, [event, globalActionCheckBlockedMessage, globalActionCheckEnabled, panicSnapshot, quickGigActions, toggleAudienceVoting])
 
   const panicModeActions: ActionButtonConfig[] = [
     {
@@ -703,7 +735,7 @@ function AdminDashboardContent({
 
         await activatePanicMode()
       },
-      disabled: !event || quickGigActions.quickActionBusy,
+      disabled: !event || !globalActionCheckEnabled || quickGigActions.quickActionBusy,
       variant: panicModeActive ? 'secondary' : 'primary',
       className: 'admin-mobile-priority',
     },
@@ -763,6 +795,10 @@ function AdminDashboardContent({
                   <strong>{event.explicitFilterEnabled ? 'On' : 'Off'}</strong>
                   <span>Explicit Filter</span>
                 </li>
+                <li className={!globalActionCheckEnabled ? 'admin-stat-amber' : ''}>
+                  <strong>{globalActionCheckEnabled ? 'On' : 'Off'}</strong>
+                  <span>Global Action Check</span>
+                </li>
               </ul>
               {topVotedSong && topVotedSong.votes_count > 0 ? (
                 <p className="subcopy admin-top-voted-hint" aria-live="polite">
@@ -781,6 +817,10 @@ function AdminDashboardContent({
               <h2>Quick Controls</h2>
               <span className="meta-badge">One-hand mode</span>
             </div>
+
+            {!globalActionCheckEnabled ? (
+              <p className="meta-badge">Global Action Check is OFF. Quick control actions are blocked.</p>
+            ) : null}
 
             <ActionButtonGroup actions={panicModeActions} layoutClassName="admin-mobile-action-grid" buttonClassName="admin-mobile-cta" />
             <label className="subcopy no-margin-bottom admin-panic-voting-label">

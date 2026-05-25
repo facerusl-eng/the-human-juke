@@ -164,7 +164,7 @@ function RequireHost({ children }: PropsWithChildren) {
               } else {
                 setResetStatus('If this email is registered, a reset link has been sent.');
               }
-            } catch (err) {
+            } catch {
               setResetStatus('Failed to send reset email.');
             } finally {
               setResetBusy(false);
