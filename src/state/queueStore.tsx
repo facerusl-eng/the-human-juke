@@ -3963,7 +3963,6 @@ function QueueProvider({ children }: PropsWithChildren) {
           mirror_banner_enabled: updates.mirrorBannerEnabled,
           allow_duplicate_requests: updates.allowDuplicateRequests,
           max_active_requests_per_user: updates.maxActiveRequestsPerUser,
-          max_queue_size: updates.maxQueueSize,
           room_open: updates.roomOpen,
           explicit_filter_enabled: updates.explicitFilterEnabled,
           global_action_check_enabled: updates.globalActionCheckEnabled,
@@ -3988,6 +3987,10 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         if (updates.mirrorBannerText !== undefined) {
           eventUpdatePayload.mirror_banner_text = updates.mirrorBannerText
+        }
+
+        if (hasMaxQueueSizeColumn && updates.maxQueueSize !== null) {
+          eventUpdatePayload.max_queue_size = updates.maxQueueSize
         }
 
         if (!hasMaxQueueSizeColumn) {
