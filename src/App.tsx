@@ -14,6 +14,7 @@ import ShellLayout from './components/ShellLayout'
 import { logCrashTelemetry } from './lib/crashTelemetry'
 import EventPage from './pages/EventPage'
 import AudienceSongListPage from './pages/AudienceSongListPage'
+import MirrorPage from './pages/MirrorPage'
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
 import { demoMode } from './demo/demoMode'
@@ -97,7 +98,6 @@ const HomePage = lazyWithChunkReload(() => import('./pages/HomePage'))
 const LoungeLinkPage = lazyWithChunkReload(() => import('./pages/LoungeLinkPage'))
 const QrLandingPage = lazyWithChunkReload(() => import('./pages/QrLandingPage'))
 const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
-const MirrorPage = lazyWithChunkReload(() => import('./pages/MirrorPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
 const SettingsPage = lazyWithChunkReload(() => import('./pages/SettingsPage'))
 const SpotifyCallbackPage = lazyWithChunkReload(() => import('./pages/SpotifyCallbackPage'))
@@ -262,6 +262,10 @@ const router = createBrowserRouter([
       },
       {
         path: 'a/:eventId',
+        element: <AudienceShortcutRedirect />,
+      },
+      {
+        path: 'j/:eventId',
         element: <AudienceShortcutRedirect />,
       },
       {
