@@ -618,6 +618,26 @@ function isMissingGlobalActionCheckColumnError(error: unknown) {
   return (code === '42703' || code === 'PGRST204') && text.includes('global_action_check_enabled')
 }
 
+function isMissingMaxQueueSizeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return (code === '42703' || code === 'PGRST204') && text.includes('max_queue_size')
+}
+
 function isMissingVenueLogoLayoutColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -3935,7 +3955,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           return updateResult
         }, 3)
 
-        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingGlobalActionCheckColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingVenueLogoAppearanceColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingColumnError(error))) {
+        if (error && (isMissingCoverImageColumnError(error) || isMissingTipThankYouMessageColumnError(error) || isMissingAudienceIcelandicColumnError(error) || isMissingAudienceVotingColumnError(error) || isMissingGlobalActionCheckColumnError(error) || isMissingMaxQueueSizeColumnError(error) || isMissingVenueLogoLayoutColumnError(error) || isMissingVenueLogoAppearanceColumnError(error) || isMissingMirrorCountdownQrLinkColumnError(error) || isMissingMirrorQrSettingsColumnError(error) || isMissingMirrorQrFlashColumnError(error) || isMissingNewerEventColumnsError(error) || isMissingColumnError(error))) {
           const fallbackPayload = { ...eventUpdatePayload }
 
           if (isMissingCoverImageColumnError(error)) {
@@ -3959,6 +3979,10 @@ function QueueProvider({ children }: PropsWithChildren) {
             hasGlobalActionCheckColumn = false
             markMissingColumnInCache('globalActionCheck')
             delete fallbackPayload.global_action_check_enabled
+          }
+
+          if (isMissingMaxQueueSizeColumnError(error)) {
+            delete fallbackPayload.max_queue_size
           }
 
           if (isMissingVenueLogoLayoutColumnError(error)) {
@@ -4013,6 +4037,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             delete fallbackPayload.audience_icelandic_enabled
             delete fallbackPayload.audience_voting_enabled
             delete fallbackPayload.global_action_check_enabled
+            delete fallbackPayload.max_queue_size
             delete fallbackPayload.mirror_countdown_show_qr_link
             delete fallbackPayload.mirror_brb_qr_link
             delete fallbackPayload.mirror_brb_qr_text
