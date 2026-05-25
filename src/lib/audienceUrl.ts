@@ -1,5 +1,5 @@
 const DEV_PUBLIC_ORIGIN = import.meta.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
-const AUDIENCE_LINK_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || '20260426'
+const AUDIENCE_LINK_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || __HUMAN_JUKEBOX_BUILD_ID__
 
 type AudienceUrlOptions = {
   compact?: boolean
