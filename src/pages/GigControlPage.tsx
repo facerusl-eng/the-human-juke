@@ -597,6 +597,7 @@ function GigControlPage() {
   const hostClockOffsetRef = useRef(0)
   const introAudioLockOwnerRef = useRef<string | null>(null)
   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
+  const spotifyMirrorPauseSignalRef = useRef<string | null>(null)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
@@ -1091,6 +1092,26 @@ function GigControlPage() {
 
     setSpotifyTransportCommand({ mode, nonce: Date.now() })
   }, [spotifyAutoTransportEnabled])
+
+  useEffect(() => {
+    const currentEventId = event?.id ?? null
+    const currentSongId = nowPlaying?.id ?? null
+    const pauseSignal = isNowPlayingStarted && currentEventId && currentSongId
+      ? `${currentEventId}:${currentSongId}`
+      : null
+
+    if (!pauseSignal) {
+      spotifyMirrorPauseSignalRef.current = null
+      return
+    }
+
+    if (spotifyMirrorPauseSignalRef.current === pauseSignal) {
+      return
+    }
+
+    spotifyMirrorPauseSignalRef.current = pauseSignal
+    sendSpotifyTransportCommand('pause', { force: true })
+  }, [event?.id, isNowPlayingStarted, nowPlaying?.id, sendSpotifyTransportCommand])
 
   const sendManualSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
     if (!spotifyAccessToken) {
