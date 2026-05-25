@@ -60,6 +60,7 @@ const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const SONG_START_COUNTDOWN_MS = 10_000
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
+const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
 const PLAYBACK_SYNC_POLL_INTERVAL_MS = 2_500
 const BRB_MESSAGE_DICE_OPTIONS = [
   'Quick break in progress. Keep your requests coming and I will be right back.',
@@ -2776,10 +2777,22 @@ function GigControlPage() {
   }, [getHostNowMs, playIntroAudioWithSpotifyBridge, resolveCoverUrlForSong, sendSpotifyTransportCommand, syncedPlaybackState])
 
   useEffect(() => {
+    const countdownRemainingMs = playbackTransitionState?.phase === 'countdown'
+      ? getCountdownTargetRemainingMs(
+        playbackTransitionState.countdownTargetMs,
+        getHostNowMs(),
+      )
+      : null
+    const isStaleCountdownTransition = countdownRemainingMs !== null
+      && countdownRemainingMs < -PLAYBACK_TRANSITION_RECOVERY_GRACE_MS
+
     if (
       playbackTransitionState?.phase !== 'countdown'
-      || playbackTransitionState.controllerId !== playbackTransitionControllerIdRef.current
       || playbackTransitionExecutionIdRef.current === playbackTransitionState.transitionId
+      || (
+        playbackTransitionState.controllerId !== playbackTransitionControllerIdRef.current
+        && !isStaleCountdownTransition
+      )
     ) {
       return
     }
