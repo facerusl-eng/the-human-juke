@@ -597,7 +597,7 @@ function GigControlPage() {
   const hostClockOffsetRef = useRef(0)
   const introAudioLockOwnerRef = useRef<string | null>(null)
   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
-  const spotifyMirrorPauseSignalRef = useRef<string | null>(null)
+  const spotifyMirrorTransportSignalRef = useRef<string | null>(null)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
@@ -1096,21 +1096,21 @@ function GigControlPage() {
   useEffect(() => {
     const currentEventId = event?.id ?? null
     const currentSongId = nowPlaying?.id ?? null
-    const pauseSignal = isNowPlayingStarted && currentEventId && currentSongId
-      ? `${currentEventId}:${currentSongId}`
-      : null
 
-    if (!pauseSignal) {
-      spotifyMirrorPauseSignalRef.current = null
+    if (!currentEventId || !currentSongId) {
+      spotifyMirrorTransportSignalRef.current = null
       return
     }
 
-    if (spotifyMirrorPauseSignalRef.current === pauseSignal) {
+    const mode: SpotifyTransportMode = isNowPlayingStarted ? 'pause' : 'play'
+    const transportSignal = `${mode}:${currentEventId}:${currentSongId}`
+
+    if (spotifyMirrorTransportSignalRef.current === transportSignal) {
       return
     }
 
-    spotifyMirrorPauseSignalRef.current = pauseSignal
-    sendSpotifyTransportCommand('pause', { force: true })
+    spotifyMirrorTransportSignalRef.current = transportSignal
+    sendSpotifyTransportCommand(mode, { force: true })
   }, [event?.id, isNowPlayingStarted, nowPlaying?.id, sendSpotifyTransportCommand])
 
   const sendManualSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
@@ -3001,15 +3001,11 @@ function GigControlPage() {
       return
     }
 
-    const finishedSong = await runPlaybackAction(async () => {
+    await runPlaybackAction(async () => {
       await runWithSafetySnapshot('before-mark-played', async () => {
         await markPlayed()
       })
     })
-
-    if (finishedSong) {
-      sendSpotifyTransportCommand('play', { force: true })
-    }
   }, [ensureGlobalActionCheckEnabled, markPlayed, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
 
   useEffect(() => {
