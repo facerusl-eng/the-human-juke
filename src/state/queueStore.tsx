@@ -1896,10 +1896,6 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const loadMirrorQrSettings = async (): Promise<MirrorQrSettings> => {
       try {
-        if (!hasMirrorQrSettingsColumns) {
-          return { mirror_brb_qr_link: null, mirror_brb_qr_text: null, mirror_countdown_qr_custom_enabled: false, mirror_countdown_qr_custom_url: null, mirror_break_qr_enabled: false, mirror_break_qr_custom_url: null }
-        }
-
         const { data, error } = await supabase
           .from('events')
           .select('mirror_brb_qr_link, mirror_brb_qr_text, mirror_countdown_qr_custom_enabled, mirror_countdown_qr_custom_url, mirror_break_qr_enabled, mirror_break_qr_custom_url')
@@ -1915,6 +1911,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           return { mirror_brb_qr_link: null, mirror_brb_qr_text: null, mirror_countdown_qr_custom_enabled: false, mirror_countdown_qr_custom_url: null, mirror_break_qr_enabled: false, mirror_break_qr_custom_url: null }
         }
 
+        hasMirrorQrSettingsColumns = true
         const row = (data ?? {}) as Record<string, unknown>
         return {
           mirror_brb_qr_link: (row.mirror_brb_qr_link as string | null) ?? null,
@@ -1931,10 +1928,6 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     const loadMirrorQrFlashSettings = async (): Promise<MirrorQrFlashSettings> => {
       try {
-        if (!hasMirrorQrFlashColumns) {
-          return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
-        }
-
         const { data, error } = await supabase
           .from('events')
           .select('mirror_brb_qr_flash_enabled, mirror_brb_qr_flash_venue')
@@ -1950,6 +1943,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           return { mirror_brb_qr_flash_enabled: true, mirror_brb_qr_flash_venue: null }
         }
 
+        hasMirrorQrFlashColumns = true
         const row = (data ?? {}) as Record<string, unknown>
         return {
           mirror_brb_qr_flash_enabled: (row.mirror_brb_qr_flash_enabled as boolean | null) ?? true,
@@ -3906,23 +3900,15 @@ function QueueProvider({ children }: PropsWithChildren) {
           delete eventUpdatePayload.venue_logo_appearance
         }
 
-        if (hasMirrorCountdownQrLinkColumn) {
-          eventUpdatePayload.mirror_countdown_show_qr_link = updates.mirrorCountdownShowQrLink
-        }
-
-        if (hasMirrorQrSettingsColumns) {
-          eventUpdatePayload.mirror_brb_qr_link = updates.mirrorCountdownQrLink
-          eventUpdatePayload.mirror_brb_qr_text = updates.mirrorCountdownQrText
-          eventUpdatePayload.mirror_countdown_qr_custom_enabled = updates.mirrorCountdownQrCustomEnabled
-          eventUpdatePayload.mirror_countdown_qr_custom_url = updates.mirrorCountdownQrCustomUrl
-          eventUpdatePayload.mirror_break_qr_enabled = updates.mirrorBreakQrEnabled
-          eventUpdatePayload.mirror_break_qr_custom_url = updates.mirrorBreakQrCustomUrl
-        }
-
-        if (hasMirrorQrFlashColumns) {
-          eventUpdatePayload.mirror_brb_qr_flash_enabled = updates.mirrorCountdownQrFlashEnabled
-          eventUpdatePayload.mirror_brb_qr_flash_venue = updates.mirrorCountdownQrFlashVenue
-        }
+        eventUpdatePayload.mirror_countdown_show_qr_link = updates.mirrorCountdownShowQrLink
+        eventUpdatePayload.mirror_brb_qr_link = updates.mirrorCountdownQrLink
+        eventUpdatePayload.mirror_brb_qr_text = updates.mirrorCountdownQrText
+        eventUpdatePayload.mirror_countdown_qr_custom_enabled = updates.mirrorCountdownQrCustomEnabled
+        eventUpdatePayload.mirror_countdown_qr_custom_url = updates.mirrorCountdownQrCustomUrl
+        eventUpdatePayload.mirror_break_qr_enabled = updates.mirrorBreakQrEnabled
+        eventUpdatePayload.mirror_break_qr_custom_url = updates.mirrorBreakQrCustomUrl
+        eventUpdatePayload.mirror_brb_qr_flash_enabled = updates.mirrorCountdownQrFlashEnabled
+        eventUpdatePayload.mirror_brb_qr_flash_venue = updates.mirrorCountdownQrFlashVenue
 
         if (hasVenueLogoLayoutColumns) {
           eventUpdatePayload.venue_logo_scale = updates.venueLogoScale
