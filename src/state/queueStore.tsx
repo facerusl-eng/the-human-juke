@@ -967,6 +967,82 @@ function isMissingEventSnapshotError(error: unknown) {
     || text.includes('event not found')
 }
 
+function isUniqueConstraintError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const normalizedError = error as {
+    code?: unknown
+    message?: unknown
+    details?: unknown
+    hint?: unknown
+  }
+
+  const code = typeof normalizedError.code === 'string' ? normalizedError.code.toUpperCase() : ''
+  const text = [normalizedError.message, normalizedError.details, normalizedError.hint]
+    .map((value) => (typeof value === 'string' ? value.toLowerCase() : ''))
+    .join(' ')
+
+  return code === '23505' || text.includes('duplicate key') || text.includes('unique constraint')
+}
+
+type QueueSongInsertInput = {
+  event_id: string
+  title: string
+  artist: string
+  is_explicit: boolean
+  cover_url: string | null
+  library_song_id: string | null
+  audience_sings: boolean
+  created_by: string
+  requester_name: string | null
+}
+
+async function insertQueueSongAtTail(songInput: QueueSongInsertInput, maxAttempts = 4) {
+  let lastError: unknown = null
+
+  for (let attemptIndex = 0; attemptIndex < maxAttempts; attemptIndex += 1) {
+    const { data: maxPositionData, error: maxPositionError } = await supabase
+      .from('queue_songs')
+      .select('position')
+      .eq('event_id', songInput.event_id)
+      .eq('is_removed', false)
+      .order('position', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (maxPositionError) {
+      throw maxPositionError
+    }
+
+    const nextPosition = ((maxPositionData?.position as number | null) ?? -1) + 1
+
+    const { error } = await supabase
+      .from('queue_songs')
+      .insert({
+        ...songInput,
+        position: nextPosition,
+      })
+
+    if (!error) {
+      return
+    }
+
+    lastError = error
+
+    if (!isUniqueConstraintError(error) || attemptIndex >= maxAttempts - 1) {
+      throw error
+    }
+
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 60 * (attemptIndex + 1))
+    })
+  }
+
+  throw lastError
+}
+
 async function withTransientRetry<T>(operation: () => Promise<T>, attempts = TRANSIENT_LOAD_RETRY_ATTEMPTS) {
   let lastError: unknown
 
@@ -2342,18 +2418,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
       for (const song of pending) {
         try {
-          const { data: maxPos } = await supabase
-            .from('queue_songs')
-            .select('position')
-            .eq('event_id', targetEventId)
-            .eq('is_removed', false)
-            .order('position', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-
-          const nextPosition = ((maxPos?.position as number | null) ?? -1) + 1
-
-          const { error } = await supabase.from('queue_songs').insert({
+          await insertQueueSongAtTail({
             event_id: song.eventId,
             title: song.title,
             artist: song.artist,
@@ -2363,10 +2428,9 @@ function QueueProvider({ children }: PropsWithChildren) {
             audience_sings: song.performerMode === 'audience',
             created_by: userId,
             requester_name: song.requesterName || null,
-            position: nextPosition,
           })
 
-          if (!error) {
+          {
             await idbRemovePendingSong(song.id).catch(() => {})
             setPendingOfflineSongs((prev) => prev.filter((p) => p.id !== song.id))
           }
@@ -3367,21 +3431,6 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
-        // Get the max position to calculate the next position for this song
-        const { data: maxPositionData, error: maxPositionError } = await supabase
-          .from('queue_songs')
-          .select('position')
-          .eq('event_id', targetEventId)
-          .eq('is_removed', false)
-          .order('position', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (maxPositionError) {
-          throw maxPositionError
-        }
-
-        const nextPosition = ((maxPositionData?.position as number | null) ?? -1) + 1
         const requesterName = readCommittedAudienceName().trim()
 
         // Keep audience profile display_name in sync with the chosen audience identity
@@ -3405,7 +3454,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
-        const { error } = await supabase.from('queue_songs').insert({
+        await insertQueueSongAtTail({
           event_id: targetEventId,
           title: normalizedTitle,
           artist: normalizedArtist,
@@ -3415,12 +3464,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           audience_sings: options?.performerMode === 'audience',
           created_by: user.id,
           requester_name: requesterName || null,
-          position: nextPosition,
         })
-
-        if (error) {
-          throw error
-        }
 
         // Record the timestamp so the rate limiter can enforce the cooldown.
         if (!options?.bypassEventRules && !isHostSession) {
