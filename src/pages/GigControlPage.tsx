@@ -3043,6 +3043,65 @@ function GigControlPage() {
     })
   }, [])
 
+  /**
+   * GLOBAL MODE SWITCH: QUOTE ↔ NOW PLAYING
+   * One call = instant state flip broadcast to all clients.
+   * Spotify follows: NOW PLAYING → pause, QUOTE → play.
+   * No countdown, no transition lock, no queue advancement.
+   */
+  const runGlobalToggleQuoteNowPlaying = useCallback(async () => {
+    if (!globalActionCheckEnabled) {
+      setErrorText(globalActionCheckBlockedText)
+      return
+    }
+
+    const currentEvent = eventRef.current
+    const currentSong = nowPlayingRef.current
+    if (!currentEvent?.id || !currentSong?.id) {
+      return
+    }
+
+    const now = Date.now()
+    if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
+      return
+    }
+    lastSpaceActionAtRef.current = now
+
+    const nextStarted = !isNowPlayingStartedRef.current
+
+    // Update local state immediately so UI responds before DB roundtrip
+    setIsNowPlayingStarted(nextStarted)
+    isNowPlayingStartedRef.current = nextStarted
+
+    // Spotify follows: NOW PLAYING = pause, QUOTE = play
+    sendSpotifyTransportCommand(nextStarted ? 'pause' : 'play')
+
+    try {
+      await writeSharedPlaybackState(currentEvent.id, {
+        currentSongId: currentSong.id,
+        currentSongCoverUrl: resolveCoverUrlForSong(currentSong.id),
+        isStarted: nextStarted,
+        quoteIndex: quoteIndexRef.current,
+        countdownTargetMs: null,
+        brbActive: syncedPlaybackState?.brbActive ?? false,
+        brbMessage: null, // clear any stale transition state
+      })
+      await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+      setErrorText(null)
+    } catch (error) {
+      // Roll back local state on failure so UI stays consistent
+      setIsNowPlayingStarted(!nextStarted)
+      isNowPlayingStartedRef.current = !nextStarted
+      console.warn('GigControlPage: global toggle quote/now-playing failed', error)
+      setErrorText('Playback toggle failed. Please try again.')
+    }
+  }, [globalActionCheckEnabled, globalActionCheckBlockedText, resolveCoverUrlForSong, sendSpotifyTransportCommand, syncedPlaybackState?.brbActive])
+
+  const runGlobalToggleQuoteNowPlayingRef = useRef(runGlobalToggleQuoteNowPlaying)
+  useEffect(() => {
+    runGlobalToggleQuoteNowPlayingRef.current = runGlobalToggleQuoteNowPlaying
+  }, [runGlobalToggleQuoteNowPlaying])
+
   const handleGlobalSpacebarKeyDown = useCallback(async (event: KeyboardEvent) => {
     const normalizedKey = typeof event.key === 'string' ? event.key.trim().toLowerCase() : ''
     const isSpaceKey = event.code === 'Space'
@@ -3096,15 +3155,12 @@ function GigControlPage() {
     event.stopImmediatePropagation()
 
     try {
-      await runQueueTogglePlayWithSpacebarRule({
-        skipIntroAudio: true,
-        countdownMs: SPACEBAR_START_COUNTDOWN_MS,
-      })
+      await runGlobalToggleQuoteNowPlayingRef.current()
     } catch (error) {
       console.warn('GigControlPage: spacebar playback action failed', error)
-      setErrorText('Playback control failed. Please try again.')
+      setErrorText('Playback toggle failed. Please try again.')
     }
-  }, [globalActionCheckBlockedText, globalActionCheckEnabled, runQueueTogglePlayWithSpacebarRule])
+  }, [globalActionCheckBlockedText, globalActionCheckEnabled])
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
@@ -4091,11 +4147,26 @@ function GigControlPage() {
                 <button
                   type="button"
                   className="primary-button"
-                  title="Mark this song as played and move to the next one (Space)"
+                  title="Switch back to Quote / between-songs mode (Space)"
+                  onClick={async () => {
+                    try {
+                      await runGlobalToggleQuoteNowPlaying()
+                    } catch (error) {
+                      console.warn('GigControlPage: toggle playback failed', error)
+                      setErrorText('Playback toggle failed. Please try again.')
+                    }
+                  }}
+                >
+                  ◀ Show Quote
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  title="Mark this song as played and move to the next one"
                   disabled={spaceActionBusy || songActionBusyId === nowPlaying.id || isPlaybackTransitionLocked}
                   onClick={async () => {
                     try {
-                      await runQueueTogglePlayWithSpacebarRule()
+                      await runQueueTogglePlayShortcut()
                     } catch (error) {
                       console.warn('GigControlPage: toggle playback failed', error)
                       setErrorText('Playback control failed. Please try again.')
@@ -4134,7 +4205,7 @@ function GigControlPage() {
                 </button>
               </div>
               <p className="subcopy no-margin">
-                Playing now. Press Space again to mark as played.
+                Playing now. Press Space to toggle Quote / Now Playing.
               </p>
             </>
           ) : nowPlaying ? (
@@ -4142,31 +4213,24 @@ function GigControlPage() {
               <div className="gig-between-songs-state">
                 <p className="gig-between-songs-quote">{betweenSongQuote}</p>
                 <p className="subcopy gig-between-songs-hint">
-                  {playbackTransitionStatusText ?? 'Tap to start, or press Space.'}
+                  {'Tap Go Live or press Space to go live.'}
                 </p>
               </div>
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
                 <button
                   type="button"
                   className="primary-button"
-                  title="Start the shared 10-second countdown for this song (Space)"
-                  disabled={spaceActionBusy || isPlaybackTransitionLocked}
+                  title="Switch to Now Playing mode — broadcasts instantly to all screens (Space)"
                   onClick={async () => {
                     try {
-                      await runQueueTogglePlayWithSpacebarRule()
+                      await runGlobalToggleQuoteNowPlaying()
                     } catch (error) {
                       console.warn('GigControlPage: toggle playback failed', error)
-                      setErrorText('Playback control failed. Please try again.')
+                      setErrorText('Playback toggle failed. Please try again.')
                     }
                   }}
                 >
-                  {playbackTransitionState?.phase === 'countdown'
-                    ? `Starting in ${playbackTransitionCountdownSeconds ?? '...'}`
-                    : playbackTransitionState?.phase === 'intro'
-                    ? 'Playing Intro MP3...'
-                    : spaceActionBusy
-                    ? 'Starting...'
-                    : 'Start 10-Second Countdown'}
+                  ▶ Go Live
                 </button>
               </div>
             </>
