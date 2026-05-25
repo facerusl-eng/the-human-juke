@@ -61,6 +61,7 @@ const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - g
 const SONG_START_COUNTDOWN_MS = 10_000
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
+const PLAYBACK_ACTION_LOCK_MAX_MS = 20_000
 const PLAYBACK_SYNC_POLL_INTERVAL_MS = 2_500
 const BRB_MESSAGE_DICE_OPTIONS = [
   'Quick break in progress. Keep your requests coming and I will be right back.',
@@ -578,6 +579,7 @@ function GigControlPage() {
   const previousSongIdRef = useRef<string | null>(null)
   const previousRoomOpenRef = useRef<boolean | null>(null)
   const playbackActionLockRef = useRef(false)
+  const playbackActionLockStartedAtRef = useRef(0)
   const playbackTransitionLockedRef = useRef(false)
   const playbackTransitionControllerIdRef = useRef(
     typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function'
@@ -2847,6 +2849,7 @@ function GigControlPage() {
     }
 
     playbackActionLockRef.current = true
+    playbackActionLockStartedAtRef.current = Date.now()
     setSpaceActionBusy(true)
 
     const includeTransition = options?.includeTransition ?? true
@@ -2873,6 +2876,7 @@ function GigControlPage() {
       throw error
     } finally {
       playbackActionLockRef.current = false
+      playbackActionLockStartedAtRef.current = 0
       setSpaceActionBusy(false)
     }
   }, [beginBetweenSongsTransition, restoreStartedSong])
@@ -2967,11 +2971,24 @@ function GigControlPage() {
       return
     }
 
+    const now = Date.now()
+
+    if (
+      playbackActionLockRef.current
+      && playbackActionLockStartedAtRef.current > 0
+      && now - playbackActionLockStartedAtRef.current > PLAYBACK_ACTION_LOCK_MAX_MS
+    ) {
+      // Recover from stale lock state if a prior async flow got interrupted.
+      playbackActionLockRef.current = false
+      playbackActionLockStartedAtRef.current = 0
+      spaceActionBusyRef.current = false
+      setSpaceActionBusy(false)
+    }
+
     if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
       return
     }
 
-    const now = Date.now()
     if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
       return
     }
