@@ -2917,62 +2917,109 @@ function GigControlPage() {
     await runQueueTogglePlayShortcutRef.current()
   }, [])
 
+  const handleGlobalSpacebarKeyDown = useCallback(async (event: KeyboardEvent) => {
+    const isSpaceKey = event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar'
+    if (!isSpaceKey) {
+      return
+    }
+
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return
+    }
+
+    if (event.repeat) {
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
+      return
+    }
+
+    const target = event.target as HTMLElement | null
+    const activeElement = document.activeElement as HTMLElement | null
+    const interactiveSelector = 'input, textarea, select, [contenteditable], [role="textbox"], [aria-multiline="true"], [data-spacebar-ignore="true"]'
+    const interactiveTarget = target?.closest(interactiveSelector)
+    const interactiveActiveElement = activeElement?.closest(interactiveSelector)
+    const isTypingTarget = Boolean(
+      interactiveTarget
+      || interactiveActiveElement
+      || activeElement?.isContentEditable,
+    )
+
+    if (isTypingTarget) {
+      return
+    }
+
+    if (!nowPlayingRef.current) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    event.stopImmediatePropagation()
+
+    try {
+      await runQueueTogglePlayWithSpacebarRule()
+    } catch (error) {
+      console.warn('GigControlPage: spacebar playback action failed', error)
+      setErrorText('Playback control failed. Please try again.')
+    }
+  }, [runQueueTogglePlayWithSpacebarRule])
+
   useEffect(() => {
-    const onKeyDown = async (event: KeyboardEvent) => {
-      const isSpaceKey = event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar'
-      if (!isSpaceKey) {
-        return
-      }
+    document.addEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
+    window.addEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
+    return () => {
+      document.removeEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
+      window.removeEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
+    }
+  }, [handleGlobalSpacebarKeyDown])
 
-      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
-        return
-      }
+  useEffect(() => {
+    if (!isFocusedGigControlWindow) {
+      return
+    }
 
-      if (event.repeat) {
-        event.preventDefault()
-        event.stopPropagation()
-        event.stopImmediatePropagation()
-        return
-      }
-
-      const target = event.target as HTMLElement | null
+    const reclaimFocus = () => {
       const activeElement = document.activeElement as HTMLElement | null
       const interactiveSelector = 'input, textarea, select, [contenteditable], [role="textbox"], [aria-multiline="true"], [data-spacebar-ignore="true"]'
-      const interactiveTarget = target?.closest(interactiveSelector)
-      const interactiveActiveElement = activeElement?.closest(interactiveSelector)
-      const isTypingTarget = Boolean(
-        interactiveTarget
-        || interactiveActiveElement
-        || activeElement?.isContentEditable,
-      )
+      const isTypingTarget = Boolean(activeElement?.closest(interactiveSelector) || activeElement?.isContentEditable)
 
       if (isTypingTarget) {
         return
       }
 
-      if (!nowPlayingRef.current) {
-        return
+      if (activeElement && activeElement !== document.body) {
+        activeElement.blur()
       }
 
-      event.preventDefault()
-      event.stopPropagation()
-      event.stopImmediatePropagation()
+      if (!document.body.hasAttribute('tabindex')) {
+        document.body.setAttribute('tabindex', '-1')
+      }
 
-      try {
-        await runQueueTogglePlayWithSpacebarRule()
-      } catch (error) {
-        console.warn('GigControlPage: spacebar playback action failed', error)
-        setErrorText('Playback control failed. Please try again.')
+      document.body.focus({ preventScroll: true })
+    }
+
+    reclaimFocus()
+
+    const timerId = window.setInterval(() => {
+      if (document.fullscreenElement) {
+        reclaimFocus()
+      }
+    }, 600)
+
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement) {
+        reclaimFocus()
       }
     }
 
-    document.addEventListener('keydown', onKeyDown as unknown as EventListener, true)
-    window.addEventListener('keydown', onKeyDown as unknown as EventListener, true)
+    document.addEventListener('fullscreenchange', onFullscreenChange, true)
+
     return () => {
-      document.removeEventListener('keydown', onKeyDown as unknown as EventListener, true)
-      window.removeEventListener('keydown', onKeyDown as unknown as EventListener, true)
+      window.clearInterval(timerId)
+      document.removeEventListener('fullscreenchange', onFullscreenChange, true)
     }
-  }, [runQueueTogglePlayWithSpacebarRule])
+  }, [isFocusedGigControlWindow])
 
   const openMirrorFromGigControl = useCallback(() => {
     const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
