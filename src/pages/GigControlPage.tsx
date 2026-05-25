@@ -2987,7 +2987,7 @@ function GigControlPage() {
     })
 
     if (finishedSong) {
-      sendSpotifyTransportCommand('play')
+      sendSpotifyTransportCommand('play', { force: true })
     }
   }, [ensureGlobalActionCheckEnabled, markPlayed, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
 
@@ -3070,10 +3070,9 @@ function GigControlPage() {
     const currentlyStarted = isNowPlayingStartedRef.current
 
     if (!currentlyStarted) {
-      // QUOTE → NOW PLAYING: instant switch, Spotify pauses
+      // QUOTE → NOW PLAYING: instant switch
       setIsNowPlayingStarted(true)
       isNowPlayingStartedRef.current = true
-      sendSpotifyTransportCommand('pause')
 
       try {
         await writeSharedPlaybackState(currentEvent.id, {
@@ -3086,6 +3085,8 @@ function GigControlPage() {
           brbMessage: null,
         })
         await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+        // Spotify pauses only after state is confirmed
+        sendSpotifyTransportCommand('pause', { force: true })
         setErrorText(null)
       } catch (error) {
         // Roll back local state on failure
