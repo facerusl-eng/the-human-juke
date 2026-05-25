@@ -1364,7 +1364,7 @@ function EventPage() {
   const upNext = useMemo(() => {
     const candidateSongs = isNowPlayingStarted
       ? songs.filter((song) => song.id !== activeSong?.id)
-      : songs.slice(1)
+      : songs
 
     return [...candidateSongs].sort((songA, songB) => {
       if (songB.votes_count !== songA.votes_count) {
