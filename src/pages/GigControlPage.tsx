@@ -769,6 +769,26 @@ function GigControlPage() {
     const searchParams = new URLSearchParams(location.search)
     return searchParams.get('fullscreen') === '1'
   }, [location.search])
+  const releaseFullscreenFocus = useCallback(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
+    const activeElement = document.activeElement as HTMLElement | null
+    if (activeElement && activeElement !== document.body) {
+      activeElement.blur()
+    }
+
+    if (document.documentElement.hasAttribute('tabindex')) {
+      document.documentElement.removeAttribute('tabindex')
+    }
+
+    if (!document.body.hasAttribute('tabindex')) {
+      document.body.setAttribute('tabindex', '-1')
+    }
+
+    document.body.focus({ preventScroll: true })
+  }, [])
   const shouldShowErrorText = useMemo(() => {
     if (!errorText) {
       return false
@@ -808,15 +828,28 @@ function GigControlPage() {
     }
 
     const timerId = window.setTimeout(() => {
-      void document.documentElement.requestFullscreen().catch(() => {
-        // Ignore blocked auto-fullscreen attempts in focus mode.
-      })
+      void document.documentElement.requestFullscreen()
+        .then(() => {
+          releaseFullscreenFocus()
+        })
+        .catch(() => {
+          // Ignore blocked auto-fullscreen attempts in focus mode.
+        })
     }, 120)
+
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement) {
+        releaseFullscreenFocus()
+      }
+    }
+
+    document.addEventListener('fullscreenchange', onFullscreenChange, true)
 
     return () => {
       window.clearTimeout(timerId)
+      document.removeEventListener('fullscreenchange', onFullscreenChange, true)
     }
-  }, [isFocusedGigControlWindow, shouldAutoEnterFullscreenInFocusWindow])
+  }, [isFocusedGigControlWindow, releaseFullscreenFocus, shouldAutoEnterFullscreenInFocusWindow])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !event?.id) {
@@ -2901,6 +2934,7 @@ function GigControlPage() {
 
       if (event.repeat) {
         event.preventDefault()
+        event.stopPropagation()
         return
       }
 
@@ -2924,6 +2958,7 @@ function GigControlPage() {
       }
 
       event.preventDefault()
+      event.stopPropagation()
 
       try {
         await runQueueTogglePlayWithSpacebarRule()
@@ -2984,10 +3019,14 @@ function GigControlPage() {
       return
     }
 
-    void document.documentElement.requestFullscreen().catch(() => {
-      setErrorText('Could not enter fullscreen. Try browser fullscreen (F11).')
-    })
-  }, [])
+    void document.documentElement.requestFullscreen()
+      .then(() => {
+        releaseFullscreenFocus()
+      })
+      .catch(() => {
+        setErrorText('Could not enter fullscreen. Try browser fullscreen (F11).')
+      })
+  }, [releaseFullscreenFocus])
 
   const headerActions: ActionButtonConfig[] = [
     {
