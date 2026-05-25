@@ -2886,10 +2886,6 @@ function GigControlPage() {
 
   useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
-      if (!event.isTrusted) {
-        return
-      }
-
       const isSpaceKey = event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar'
       if (!isSpaceKey) {
         return
@@ -2937,8 +2933,12 @@ function GigControlPage() {
       }
     }
 
+    document.addEventListener('keydown', onKeyDown as unknown as EventListener, true)
     window.addEventListener('keydown', onKeyDown as unknown as EventListener, true)
-    return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener, true)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown as unknown as EventListener, true)
+      window.removeEventListener('keydown', onKeyDown as unknown as EventListener, true)
+    }
   }, [isFocusedGigControlWindow, runQueueTogglePlayWithSpacebarRule])
 
   const openMirrorFromGigControl = useCallback(() => {
