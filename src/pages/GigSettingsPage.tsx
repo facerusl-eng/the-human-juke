@@ -3147,11 +3147,16 @@ function GigSettingsPage() {
               }}
               disabled={switchingGig}
             >
-              {hostEvents.map((hostGig) => (
-                <option key={hostGig.id} value={hostGig.id}>
-                  {hostGig.name}{hostGig.venue ? ` - ${hostGig.venue}` : ''}
-                </option>
-              ))}
+              {hostEvents.map((hostGig) => {
+                const date = hostGig.gigDate ? hostGig.gigDate : '';
+                const time = hostGig.gigStartTime ? hostGig.gigStartTime : '';
+                const dateTime = date && time ? `${date} ${time}` : date || time;
+                return (
+                  <option key={hostGig.id} value={hostGig.id}>
+                    {dateTime ? `${dateTime}  b7 ` : ''}{hostGig.name}{hostGig.venue ? `  b7 ${hostGig.venue}` : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div className="hero-actions no-margin-bottom">
