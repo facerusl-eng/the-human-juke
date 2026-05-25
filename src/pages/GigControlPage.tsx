@@ -3149,13 +3149,6 @@ function GigControlPage() {
       return
     }
 
-    if (event.repeat) {
-      event.preventDefault()
-      event.stopPropagation()
-      event.stopImmediatePropagation()
-      return
-    }
-
     const target = event.target as HTMLElement | null
     const activeElement = document.activeElement as HTMLElement | null
     const interactiveSelector = 'input, textarea, select, [contenteditable], [role="textbox"], [aria-multiline="true"], [data-spacebar-ignore="true"]'
@@ -3171,6 +3164,15 @@ function GigControlPage() {
       return
     }
 
+    // Always block browser/page scroll on handled spacebar presses.
+    event.preventDefault()
+    event.stopPropagation()
+    event.stopImmediatePropagation()
+
+    if (event.repeat) {
+      return
+    }
+
     if (!nowPlayingRef.current) {
       return
     }
@@ -3179,10 +3181,6 @@ function GigControlPage() {
       setErrorText(globalActionCheckBlockedText)
       return
     }
-
-    event.preventDefault()
-    event.stopPropagation()
-    event.stopImmediatePropagation()
 
     try {
       await runGlobalToggleQuoteNowPlayingRef.current()
