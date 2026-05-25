@@ -97,6 +97,7 @@ function LoungeLinkPage() {
   const destinationHref = customLink ?? destination
   const openButtonLabel = mode === 'bar' ? 'Check out the bar' : 'Open the Lounge'
   const panelLabel = mode === 'bar' ? 'Bar choices' : 'Audience lounge'
+  const showOpenButton = mode !== 'bar'
 
   if (destinationHref) {
     return (
@@ -116,9 +117,11 @@ function LoungeLinkPage() {
         >
           <p className="eyebrow" style={{ margin: 0 }}>{panelLabel}</p>
           <div style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
-            <a href={destinationHref} target="_blank" rel="noopener noreferrer" className="qr-landing-button qr-landing-button-link">
-              {openButtonLabel}
-            </a>
+            {showOpenButton ? (
+              <a href={destinationHref} target="_blank" rel="noopener noreferrer" className="qr-landing-button qr-landing-button-link">
+                {openButtonLabel}
+              </a>
+            ) : null}
             <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
               Back to Start
             </button>

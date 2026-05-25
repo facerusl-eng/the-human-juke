@@ -58,6 +58,9 @@
 }
 
 .qr-landing-flash-text {
+  font-size: clamp(1.2rem, 2.7vw, 1.85rem);
+  font-weight: 800;
+  line-height: 1.3;
   animation: qr-landing-flash-text 2.6s ease-in-out infinite;
   text-shadow:
     0 0 8px rgba(255, 255, 255, 0.8),
