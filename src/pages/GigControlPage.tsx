@@ -20,7 +20,15 @@ import {
 import {
   BETWEEN_SONG_QUOTES,
   LAST_SONG_SOON_OVERLAY_MESSAGE,
+  PLAYBACK_STATE_BROADCAST_CHANNEL,
+  PLAYBACK_STATE_EVENT,
+  PLAYBACK_STATE_STORAGE_KEY,
+  createSharedPlaybackTransitionMessage,
+  getCountdownTargetRemainingMs,
+  getSharedPlaybackTransitionState,
   isLastSongSoonOverlayMessage,
+  normalizeCountdownTargetMs,
+  type SharedPlaybackState,
   readSharedPlaybackState,
   writeSharedPlaybackState,
 } from '../lib/playbackState';
@@ -50,6 +58,8 @@ import { useQueueStore } from '../state/queueStore';
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
+const SONG_START_COUNTDOWN_MS = 10_000
+const PLAYBACK_SYNC_POLL_INTERVAL_MS = 2_500
 const BRB_MESSAGE_DICE_OPTIONS = [
   'Quick break in progress. Keep your requests coming and I will be right back.',
   'Bar check and sound check in one mission. Stay fabulous, I am back shortly.',
@@ -457,6 +467,7 @@ function GigControlPage() {
 
   const [errorText, setErrorText] = useState<string | null>(null)
   const [isNowPlayingStarted, setIsNowPlayingStarted] = useState(false)
+  const [syncedPlaybackState, setSyncedPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [spaceActionBusy, setSpaceActionBusy] = useState(false)
   const [songActionBusyId, setSongActionBusyId] = useState<string | null>(null)
   const [draggedSongId, setDraggedSongId] = useState<string | null>(null)
@@ -501,6 +512,7 @@ function GigControlPage() {
   const [autoLiveLastError, setAutoLiveLastError] = useState<string | null>(null)
   const [autoLiveLockBadgeText, setAutoLiveLockBadgeText] = useState<string | null>(null)
   const [hostClockOffsetMs, setHostClockOffsetMs] = useState(() => readSharedClockOffsetCache() ?? 0)
+  const [playbackTransitionNowMs, setPlaybackTransitionNowMs] = useState(() => Date.now())
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
@@ -564,6 +576,13 @@ function GigControlPage() {
   const previousSongIdRef = useRef<string | null>(null)
   const previousRoomOpenRef = useRef<boolean | null>(null)
   const playbackActionLockRef = useRef(false)
+  const playbackTransitionLockedRef = useRef(false)
+  const playbackTransitionControllerIdRef = useRef(
+    typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : `gig-control-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  )
+  const playbackTransitionExecutionIdRef = useRef<string | null>(null)
   const gigWorkerRef = useRef<Worker | null>(null)
   const liveHealthGuardLastRunAtRef = useRef(0)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
@@ -617,6 +636,32 @@ function GigControlPage() {
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
 
   const nowPlaying = songs[0]
+  const playbackTransitionState = useMemo(
+    () => getSharedPlaybackTransitionState(syncedPlaybackState),
+    [syncedPlaybackState],
+  )
+  const playbackTransitionRemainingMs = useMemo(() => {
+    if (playbackTransitionState?.phase !== 'countdown') {
+      return null
+    }
+
+    return getCountdownTargetRemainingMs(
+      playbackTransitionState.countdownTargetMs,
+      playbackTransitionNowMs + hostClockOffsetRef.current,
+    )
+  }, [playbackTransitionNowMs, playbackTransitionState])
+  const playbackTransitionCountdownSeconds = playbackTransitionState?.phase === 'countdown'
+    && playbackTransitionRemainingMs !== null
+    ? Math.max(1, Math.ceil(playbackTransitionRemainingMs / 1000))
+    : null
+  const isPlaybackTransitionLocked = Boolean(playbackTransitionState)
+  const playbackTransitionStatusText = playbackTransitionState?.phase === 'countdown'
+    ? playbackTransitionCountdownSeconds !== null
+      ? `Global start in ${playbackTransitionCountdownSeconds}`
+      : 'Global start is syncing...'
+    : playbackTransitionState?.phase === 'intro'
+    ? 'Intro MP3 playing...'
+    : null
   const mirroredCountdownTargetMs = useMemo(() => {
     const target = resolveGigStartAt(event?.gigDate, event?.gigStartTime)
     return target ? target.getTime() : null
@@ -639,17 +684,7 @@ function GigControlPage() {
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
   const mirrorPreviewUpNext = useMemo(() => {
-    const candidateSongs = songs.slice(1)
-
-    return [...candidateSongs].sort((songA, songB) => {
-      if (songB.votes_count !== songA.votes_count) {
-        return songB.votes_count - songA.votes_count
-      }
-
-      const positionA = typeof songA.position === 'number' ? songA.position : Number.MAX_SAFE_INTEGER
-      const positionB = typeof songB.position === 'number' ? songB.position : Number.MAX_SAFE_INTEGER
-      return positionA - positionB
-    })
+    return songs.slice(1)
   }, [songs])
   const nextUpSong = upNext[0] ?? null
   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
@@ -890,6 +925,31 @@ function GigControlPage() {
   useEffect(() => {
     isNowPlayingStartedRef.current = isNowPlayingStarted
   }, [isNowPlayingStarted])
+
+  useEffect(() => {
+    playbackTransitionLockedRef.current = isPlaybackTransitionLocked
+  }, [isPlaybackTransitionLocked])
+
+  useEffect(() => {
+    if (playbackTransitionState?.phase !== 'countdown') {
+      return
+    }
+
+    let rafId: number | null = null
+
+    const tick = () => {
+      setPlaybackTransitionNowMs(Date.now())
+      rafId = window.requestAnimationFrame(tick)
+    }
+
+    tick()
+
+    return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+      }
+    }
+  }, [playbackTransitionState?.countdownTargetMs, playbackTransitionState?.phase])
 
   useEffect(() => {
     if (audienceConnectionStatus === 'connected') {
@@ -2247,6 +2307,7 @@ function GigControlPage() {
     const initializePlaybackState = async () => {
       try {
         const sharedPlaybackState = await readSharedPlaybackState(activeEventId)
+        setSyncedPlaybackState(sharedPlaybackState)
         const preservedCountdownTargetMs = sharedPlaybackState?.countdownTargetMs ?? mirroredCountdownTargetMs
         const preservedBrbActive = Boolean(sharedPlaybackState?.brbActive)
         const preservedBrbMessage = typeof sharedPlaybackState?.brbMessage === 'string'
@@ -2326,6 +2387,175 @@ function GigControlPage() {
     }
   }, [event?.id, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong])
 
+  const applyIncomingPlaybackState = useCallback((nextState: SharedPlaybackState | null) => {
+    setSyncedPlaybackState(nextState)
+
+    const normalizedQuoteIndex = Number.isFinite(nextState?.quoteIndex)
+      ? Math.abs(Math.trunc(nextState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
+      : 0
+
+    setQuoteIndex(normalizedQuoteIndex)
+    setIsBrbActive(Boolean(nextState?.brbActive))
+    setIsFinalSongSoonActive(isLastSongSoonOverlayMessage(nextState?.brbMessage))
+
+    if (nextState?.brbActive && typeof nextState.brbMessage === 'string') {
+      setBrbCustomMessage(nextState.brbMessage)
+    }
+
+    if (!nowPlaying?.id) {
+      setIsNowPlayingStarted(false)
+      return
+    }
+
+    setIsNowPlayingStarted(Boolean(nextState?.isStarted) && nextState?.currentSongId === nowPlaying.id)
+  }, [nowPlaying?.id])
+
+  useEffect(() => {
+    const eventId = event?.id
+
+    if (!eventId) {
+      setSyncedPlaybackState(null)
+      return
+    }
+
+    let isCurrent = true
+    let subscription: ReturnType<typeof supabase.channel> | null = null
+    let syncTimerId: number | null = null
+    let playbackBroadcastChannel: BroadcastChannel | null = null
+
+    const syncPlaybackState = async () => {
+      try {
+        const nextState = await readSharedPlaybackState(eventId)
+
+        if (!isCurrent) {
+          return
+        }
+
+        applyIncomingPlaybackState(nextState)
+      } catch (error) {
+        console.warn('GigControlPage: playback sync failed', error)
+      }
+    }
+
+    subscription = supabase
+      .channel(`playback_state:${eventId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'playback_state',
+          filter: `event_id=eq.${eventId}`,
+        },
+        (payload: {
+          eventType?: 'INSERT' | 'UPDATE' | 'DELETE'
+          new?: {
+            current_song_id?: string | null
+            current_song_cover_url?: string | null
+            is_started?: boolean | null
+            quote_index?: number | null
+            countdown_target_ms?: number | string | null
+            brb_active?: boolean | null
+            brb_message?: string | null
+          } | null
+        }) => {
+          if (payload?.eventType === 'DELETE' || !payload?.new) {
+            void syncPlaybackState()
+            return
+          }
+
+          applyIncomingPlaybackState({
+            currentSongId: payload.new.current_song_id ?? null,
+            currentSongCoverUrl: payload.new.current_song_cover_url ?? null,
+            isStarted: Boolean(payload.new.is_started),
+            quoteIndex: Number.isFinite(payload.new.quote_index)
+              ? (payload.new.quote_index as number)
+              : 0,
+            countdownTargetMs: normalizeCountdownTargetMs(payload.new.countdown_target_ms),
+            brbActive: Boolean(payload.new.brb_active),
+            brbMessage: typeof payload.new.brb_message === 'string' ? payload.new.brb_message : null,
+          })
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          void syncPlaybackState()
+          return
+        }
+
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          void syncPlaybackState()
+        }
+      })
+
+    const onPlaybackStateEvent = (nextEvent: Event) => {
+      const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState }>).detail
+
+      if (detail?.eventId === eventId) {
+        applyIncomingPlaybackState(detail.state ?? null)
+      }
+    }
+
+    const onStoragePlaybackState = (nextEvent: StorageEvent) => {
+      if (nextEvent.key !== PLAYBACK_STATE_STORAGE_KEY || !nextEvent.newValue) {
+        return
+      }
+
+      try {
+        const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
+
+        if (detail.eventId !== eventId || !detail.state) {
+          return
+        }
+
+        applyIncomingPlaybackState(detail.state)
+      } catch {
+        // Ignore malformed cross-tab sync payloads.
+      }
+    }
+
+    void syncPlaybackState()
+    syncTimerId = window.setInterval(() => {
+      if (document.hidden) {
+        return
+      }
+
+      void syncPlaybackState()
+    }, PLAYBACK_SYNC_POLL_INTERVAL_MS)
+
+    window.addEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
+    window.addEventListener('storage', onStoragePlaybackState)
+
+    if ('BroadcastChannel' in window) {
+      playbackBroadcastChannel = new BroadcastChannel(PLAYBACK_STATE_BROADCAST_CHANNEL)
+      playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
+        const detail = messageEvent.data
+
+        if (detail?.eventId !== eventId || !detail.state) {
+          return
+        }
+
+        applyIncomingPlaybackState(detail.state)
+      }
+    }
+
+    return () => {
+      isCurrent = false
+
+      if (subscription) {
+        void supabase.removeChannel(subscription)
+      }
+
+      if (syncTimerId !== null) {
+        window.clearInterval(syncTimerId)
+      }
+
+      window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
+      window.removeEventListener('storage', onStoragePlaybackState)
+      playbackBroadcastChannel?.close()
+    }
+  }, [applyIncomingPlaybackState, event?.id])
+
   const setQuoteIndex = (nextQuoteIndex: number) => {
     quoteIndexRef.current = nextQuoteIndex
     setBetweenSongQuoteIndex(nextQuoteIndex)
@@ -2386,13 +2616,121 @@ function GigControlPage() {
         currentSongCoverUrl: resolveCoverUrlForSong(targetSongId),
         isStarted: nextStarted,
         quoteIndex: quoteIndexRef.current,
-        countdownTargetMs: mirroredCountdownTargetMs,
+        countdownTargetMs: event.roomOpen ? null : mirroredCountdownTargetMs,
+        brbActive: syncedPlaybackState?.brbActive ?? false,
+        brbMessage: syncedPlaybackState?.brbMessage ?? null,
       })
     } catch (error) {
       console.warn('GigControlPage: playback sync write failed', error)
       // Do not block local playback controls if cross-screen sync is temporarily unavailable.
     }
-  }, [event, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong])
+  }, [event, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong, syncedPlaybackState?.brbActive, syncedPlaybackState?.brbMessage])
+
+  const executeSharedSongStartTransition = useCallback(async (transitionId: string) => {
+    if (playbackTransitionExecutionIdRef.current === transitionId) {
+      return
+    }
+
+    playbackTransitionExecutionIdRef.current = transitionId
+
+    try {
+      const currentEvent = eventRef.current
+      const currentSong = nowPlayingRef.current
+
+      if (!currentEvent?.id || !currentSong?.id) {
+        return
+      }
+
+      const transitionState = getSharedPlaybackTransitionState(syncedPlaybackState)
+      if (!transitionState || transitionState.transitionId !== transitionId) {
+        return
+      }
+
+      if (currentEvent.introAudioUrl) {
+        const introStartedAtMs = getHostNowMs()
+        const introPrimedAudio = primedIntroAudioRef.current
+        const primedElement = introPrimedAudio
+          && introPrimedAudio.eventId === currentEvent.id
+          && introPrimedAudio.url === currentEvent.introAudioUrl
+            ? introPrimedAudio.element
+            : null
+
+        await writeSharedPlaybackState(currentEvent.id, {
+          currentSongId: currentSong.id,
+          currentSongCoverUrl: resolveCoverUrlForSong(currentSong.id),
+          isStarted: false,
+          quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: transitionState.countdownTargetMs,
+          brbActive: false,
+          brbMessage: createSharedPlaybackTransitionMessage({
+            transitionId,
+            controllerId: playbackTransitionControllerIdRef.current,
+            songId: currentSong.id,
+            phase: 'intro',
+            countdownTargetMs: transitionState.countdownTargetMs,
+            introStartedAtMs,
+            introAudioUrl: currentEvent.introAudioUrl,
+          }),
+        })
+
+        try {
+          await playIntroAudioWithSpotifyBridge(currentEvent.introAudioUrl, primedElement)
+        } catch (error) {
+          console.warn('GigControlPage: intro audio playback failed during song start transition', error)
+          setErrorText('Countdown finished, but intro MP3 was blocked. Starting the song now.')
+        }
+      }
+
+      await writeSharedPlaybackState(currentEvent.id, {
+        currentSongId: currentSong.id,
+        currentSongCoverUrl: resolveCoverUrlForSong(currentSong.id),
+        isStarted: true,
+        quoteIndex: quoteIndexRef.current,
+        countdownTargetMs: null,
+        brbActive: false,
+        brbMessage: null,
+      })
+
+      setIsNowPlayingStarted(true)
+      sendSpotifyTransportCommand('pause')
+    } finally {
+      playbackTransitionExecutionIdRef.current = null
+    }
+  }, [getHostNowMs, playIntroAudioWithSpotifyBridge, resolveCoverUrlForSong, sendSpotifyTransportCommand, syncedPlaybackState])
+
+  useEffect(() => {
+    if (
+      playbackTransitionState?.phase !== 'countdown'
+      || playbackTransitionState.controllerId !== playbackTransitionControllerIdRef.current
+      || playbackTransitionExecutionIdRef.current === playbackTransitionState.transitionId
+    ) {
+      return
+    }
+
+    let rafId: number | null = null
+
+    const tick = () => {
+      const remainingMs = getCountdownTargetRemainingMs(
+        playbackTransitionState.countdownTargetMs,
+        getHostNowMs(),
+      )
+
+      if (remainingMs !== null && remainingMs > 0) {
+        rafId = window.requestAnimationFrame(tick)
+        return
+      }
+
+      void executeSharedSongStartTransition(playbackTransitionState.transitionId)
+    }
+
+    tick()
+
+    return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+      }
+    }
+  }, [executeSharedSongStartTransition, getHostNowMs, playbackTransitionState])
 
   const beginBetweenSongsTransition = useCallback(async () => {
     const previousQuoteIndex = quoteIndexRef.current
@@ -2450,21 +2788,47 @@ function GigControlPage() {
   }, [beginBetweenSongsTransition, restoreStartedSong])
 
   const startCurrentSong = useCallback(async () => {
-    const started = await runPlaybackAction(async () => {
-      await syncStartedState(true)
-    }, { includeTransition: false })
+    const currentEvent = eventRef.current
+    const currentSong = nowPlayingRef.current
 
-    if (started) {
-      sendSpotifyTransportCommand('pause')
+    if (!currentEvent?.id || !currentSong?.id || playbackTransitionLockedRef.current) {
+      return
     }
-  }, [runPlaybackAction, sendSpotifyTransportCommand, syncStartedState])
+
+    if (currentEvent.introAudioUrl) {
+      primeIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl)
+    }
+
+    const transitionId = `${currentSong.id}:${Date.now()}`
+    const countdownTargetMs = getHostNowMs() + SONG_START_COUNTDOWN_MS
+
+    await runPlaybackAction(async () => {
+      await writeSharedPlaybackState(currentEvent.id, {
+        currentSongId: currentSong.id,
+        currentSongCoverUrl: resolveCoverUrlForSong(currentSong.id),
+        isStarted: false,
+        quoteIndex: quoteIndexRef.current,
+        countdownTargetMs,
+        brbActive: false,
+        brbMessage: createSharedPlaybackTransitionMessage({
+          transitionId,
+          controllerId: playbackTransitionControllerIdRef.current,
+          songId: currentSong.id,
+          phase: 'countdown',
+          countdownTargetMs,
+          introStartedAtMs: null,
+          introAudioUrl: currentEvent.introAudioUrl ?? null,
+        }),
+      })
+    }, { includeTransition: false })
+  }, [getHostNowMs, primeIntroAudioPlayback, resolveCoverUrlForSong, runPlaybackAction])
 
   const runQueueTogglePlayShortcut = useCallback(async () => {
     const currentNowPlaying = nowPlayingRef.current
     const currentlyStarted = isNowPlayingStartedRef.current
 
     // Rely on the ref-based lock only — spaceActionBusy state can lag by one render
-    if (!currentNowPlaying || playbackActionLockRef.current) {
+    if (!currentNowPlaying || playbackActionLockRef.current || playbackTransitionLockedRef.current) {
       return
     }
 
@@ -2502,6 +2866,24 @@ function GigControlPage() {
     runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
   }, [runQueueTogglePlayShortcut])
 
+  const runQueueTogglePlayWithSpacebarRule = useCallback(async () => {
+    if (!nowPlayingRef.current) {
+      return
+    }
+
+    if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
+      return
+    }
+
+    const now = Date.now()
+    if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
+      return
+    }
+
+    lastSpaceActionAtRef.current = now
+    await runQueueTogglePlayShortcutRef.current()
+  }, [])
+
   useEffect(() => {
     const onKeyDown = async (event: KeyboardEvent) => {
       if (!event.isTrusted || event.defaultPrevented) {
@@ -2518,12 +2900,6 @@ function GigControlPage() {
       }
 
       if (event.repeat) {
-        event.preventDefault()
-        return
-      }
-
-      // Block if a playback action is already running (use ref — always current, no stale closure)
-      if (playbackActionLockRef.current || spaceActionBusyRef.current) {
         event.preventDefault()
         return
       }
@@ -2547,17 +2923,10 @@ function GigControlPage() {
         return
       }
 
-      const now = Date.now()
-      if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
-        event.preventDefault()
-        return
-      }
-
       event.preventDefault()
-      lastSpaceActionAtRef.current = now
 
       try {
-        await runQueueTogglePlayShortcutRef.current()
+        await runQueueTogglePlayWithSpacebarRule()
       } catch (error) {
         console.warn('GigControlPage: spacebar playback action failed', error)
         setErrorText('Playback control failed. Please try again.')
@@ -2567,7 +2936,7 @@ function GigControlPage() {
     // Registered once — never torn down and re-added, eliminating the brief gap
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [])
+  }, [runQueueTogglePlayWithSpacebarRule])
 
   const openMirrorFromGigControl = useCallback(() => {
     const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
@@ -3492,29 +3861,13 @@ function GigControlPage() {
                   type="button"
                   className="primary-button"
                   title="Mark this song as played and move to the next one (Space)"
-                  disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
+                  disabled={spaceActionBusy || songActionBusyId === nowPlaying.id || isPlaybackTransitionLocked}
                   onClick={async () => {
-                    if (spaceActionBusy || playbackActionLockRef.current || songActionBusyId === nowPlaying.id) {
-                      return
-                    }
-
-                    setSongActionBusyId(nowPlaying.id)
-
                     try {
-                      const finishedSong = await runPlaybackAction(async () => {
-                        await runWithSafetySnapshot('before-mark-played', async () => {
-                          await markPlayed()
-                        })
-                      })
-
-                      if (finishedSong) {
-                        sendSpotifyTransportCommand('play')
-                      }
+                      await runQueueTogglePlayWithSpacebarRule()
                     } catch (error) {
-                      console.warn('GigControlPage: mark played failed', error)
-                      setErrorText('Failed to mark as played.')
-                    } finally {
-                      setSongActionBusyId(null)
+                      console.warn('GigControlPage: toggle playback failed', error)
+                      setErrorText('Playback control failed. Please try again.')
                     }
                   }}
                 >
@@ -3524,9 +3877,9 @@ function GigControlPage() {
                   type="button"
                   className="secondary-button"
                   title="Remove this song from the queue without marking it as played"
-                  disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
+                  disabled={spaceActionBusy || songActionBusyId === nowPlaying.id || isPlaybackTransitionLocked}
                   onClick={async () => {
-                    if (spaceActionBusy || playbackActionLockRef.current || songActionBusyId === nowPlaying.id) {
+                    if (spaceActionBusy || playbackActionLockRef.current || songActionBusyId === nowPlaying.id || isPlaybackTransitionLocked) {
                       return
                     }
 
@@ -3557,25 +3910,32 @@ function GigControlPage() {
             <>
               <div className="gig-between-songs-state">
                 <p className="gig-between-songs-quote">{betweenSongQuote}</p>
-                <p className="subcopy gig-between-songs-hint">Tap to start, or press Space.</p>
+                <p className="subcopy gig-between-songs-hint">
+                  {playbackTransitionStatusText ?? 'Tap to start, or press Space.'}
+                </p>
               </div>
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
                 <button
                   type="button"
                   className="primary-button"
-                  title="Mark this song as started — it will show as now playing on the mirror screen (Space)"
-                  disabled={spaceActionBusy}
+                  title="Start the shared 10-second countdown for this song (Space)"
+                  disabled={spaceActionBusy || isPlaybackTransitionLocked}
                   onClick={async () => {
-                    if (spaceActionBusy || playbackActionLockRef.current) return
                     try {
-                      await startCurrentSong()
+                      await runQueueTogglePlayWithSpacebarRule()
                     } catch (error) {
-                      console.warn('GigControlPage: start song failed', error)
-                      setErrorText('Failed to start song. Please try again.')
+                      console.warn('GigControlPage: toggle playback failed', error)
+                      setErrorText('Playback control failed. Please try again.')
                     }
                   }}
                 >
-                  {spaceActionBusy ? 'Starting…' : '▶ Start Song'}
+                  {playbackTransitionState?.phase === 'countdown'
+                    ? `Starting in ${playbackTransitionCountdownSeconds ?? '...'}`
+                    : playbackTransitionState?.phase === 'intro'
+                    ? 'Playing Intro MP3...'
+                    : spaceActionBusy
+                    ? 'Starting...'
+                    : 'Start 10-Second Countdown'}
                 </button>
               </div>
             </>
