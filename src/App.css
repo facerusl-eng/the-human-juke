@@ -9719,28 +9719,32 @@ body:has(.audience-no-gig-shell) {
   text-shadow: 0 1px 8px rgba(255, 200, 0, 0.35);
   margin: 0;
   text-align: center;
-  animation: karaoke-confirm-flash 0.9s steps(2, start) infinite;
+  animation: karaoke-confirm-pulse 2.2s ease-in-out infinite;
 }
 
-@keyframes karaoke-confirm-flash {
+@keyframes karaoke-confirm-pulse {
   0% {
-    opacity: 1;
-    text-shadow: 0 1px 8px rgba(255, 200, 0, 0.35);
+    opacity: 0.9;
+    filter: saturate(0.96);
+    transform: translateY(0);
   }
 
-  50% {
-    opacity: 0.2;
-    text-shadow: 0 0 1px rgba(255, 200, 0, 0.15);
+  45% {
+    opacity: 1;
+    filter: saturate(1.08);
+    transform: translateY(-1px);
   }
 
   100% {
-    opacity: 1;
-    text-shadow: 0 1px 8px rgba(255, 200, 0, 0.35);
+    opacity: 0.9;
+    filter: saturate(0.96);
+    transform: translateY(0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .audience-song-choice-karaoke-eyebrow {
+  .audience-song-choice-karaoke-eyebrow,
+  .audience-song-choice-karaoke-body {
     animation: none;
   }
 }
@@ -9751,6 +9755,8 @@ body:has(.audience-no-gig-shell) {
   color: #e8f2ff;
   margin: 0.15rem 0 0;
   text-align: center;
+  animation: karaoke-confirm-pulse 2.2s ease-in-out infinite;
+  animation-delay: 0.18s;
 }
 
 .karaoke-confirm-actions {
