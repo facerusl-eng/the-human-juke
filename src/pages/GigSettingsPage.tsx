@@ -3153,7 +3153,7 @@ function GigSettingsPage() {
                 const dateTime = date && time ? `${date} ${time}` : date || time;
                 return (
                   <option key={hostGig.id} value={hostGig.id}>
-                    {dateTime ? `${dateTime}  b7 ` : ''}{hostGig.name}{hostGig.venue ? `  b7 ${hostGig.venue}` : ''}
+                    {dateTime ? `${dateTime} ` : ''}{hostGig.name}{hostGig.venue ? ` ${hostGig.venue}` : ''}
                   </option>
                 );
               })}
