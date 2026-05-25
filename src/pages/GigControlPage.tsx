@@ -2924,10 +2924,6 @@ function GigControlPage() {
         return
       }
 
-      if (event.defaultPrevented && !isFocusedGigControlWindow) {
-        return
-      }
-
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return
       }
@@ -2935,6 +2931,7 @@ function GigControlPage() {
       if (event.repeat) {
         event.preventDefault()
         event.stopPropagation()
+        event.stopImmediatePropagation()
         return
       }
 
@@ -2959,6 +2956,7 @@ function GigControlPage() {
 
       event.preventDefault()
       event.stopPropagation()
+      event.stopImmediatePropagation()
 
       try {
         await runQueueTogglePlayWithSpacebarRule()
@@ -2974,7 +2972,7 @@ function GigControlPage() {
       document.removeEventListener('keydown', onKeyDown as unknown as EventListener, true)
       window.removeEventListener('keydown', onKeyDown as unknown as EventListener, true)
     }
-  }, [isFocusedGigControlWindow, runQueueTogglePlayWithSpacebarRule])
+  }, [runQueueTogglePlayWithSpacebarRule])
 
   const openMirrorFromGigControl = useCallback(() => {
     const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
