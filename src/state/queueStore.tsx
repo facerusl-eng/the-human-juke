@@ -3237,7 +3237,9 @@ function QueueProvider({ children }: PropsWithChildren) {
         setQueueOperatingMode('degraded')
       },
       addSong: async (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => {
-        const targetEventId = eventId ?? event?.id ?? null
+        // Always target the event currently loaded in the queue state first.
+        // Profile active_event_id can be stale briefly during audience auto-sync.
+        const targetEventId = event?.id ?? activeEventIdRef.current ?? eventId ?? null
 
         if (!user) {
           throw new Error('Please sign in before requesting a song.')
