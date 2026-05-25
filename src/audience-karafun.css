@@ -1691,19 +1691,6 @@
   line-height: 1;
 }
 
-/* ── Own-request highlight (#6 / #8) ───────────────────────── */
-.audience-karafun .audience-song-card-own {
-  border-color: rgba(103, 232, 249, 0.6);
-  background: rgba(103, 232, 249, 0.04);
-}
-
-.audience-karafun .audience-song-own-badge {
-  font-size: 0.7rem;
-  color: #67e8f9;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 /* ── Karaoke card tint (#5) ────────────────────────────────── */
 .audience-karafun .audience-song-list-card-karaoke {
   background: rgba(255, 79, 154, 0.07);

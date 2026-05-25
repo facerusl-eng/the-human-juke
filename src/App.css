@@ -3095,44 +3095,6 @@ body:has(.audience-no-gig-shell) {
   font-size: 0.92rem;
 }
 
-.audience-song-card-own {
-  border-color: rgba(16, 185, 129, 0.56);
-  background: linear-gradient(140deg, rgba(16, 185, 129, 0.08), rgba(59, 130, 246, 0.06));
-  box-shadow:
-    0 0 0 1px rgba(16, 185, 129, 0.22),
-    0 12px 22px rgba(16, 185, 129, 0.12);
-}
-
-.audience-song-own-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.2rem 0.52rem;
-  border-radius: 999px;
-  border: 1px solid rgba(16, 185, 129, 0.5);
-  background: rgba(16, 185, 129, 0.12);
-  color: #065f46;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.045em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.audience-shell-modern .audience-song-card.audience-song-card-own {
-  border-color: rgba(52, 211, 153, 0.6);
-  background: linear-gradient(145deg, rgba(15, 62, 58, 0.58), rgba(21, 45, 82, 0.64));
-  box-shadow:
-    inset 0 0 0 1px rgba(52, 211, 153, 0.2),
-    0 12px 24px rgba(6, 18, 37, 0.42);
-}
-
-.audience-shell-modern .audience-song-own-badge {
-  border-color: rgba(110, 231, 183, 0.62);
-  background: rgba(16, 185, 129, 0.28);
-  color: #d1fae5;
-}
-
 .song-card-move {
   animation: song-card-move 420ms ease;
 }
@@ -4322,9 +4284,9 @@ body:has(.audience-no-gig-shell) {
 }
 
 .gig-management-entry {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) minmax(18rem, 26rem);
+  align-items: start;
   gap: 1rem;
   padding: 1rem;
   border: 1px solid rgba(93, 215, 255, 0.24);
@@ -4364,7 +4326,6 @@ body:has(.audience-no-gig-shell) {
   display: grid;
   gap: 0.3rem;
   min-width: 0;
-  flex: 1;
 }
 
 .gig-management-title-row {
@@ -4392,6 +4353,7 @@ body:has(.audience-no-gig-shell) {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-content: flex-start;
   gap: 0.55rem;
 }
 
@@ -4770,8 +4732,8 @@ body:has(.audience-no-gig-shell) {
 .gig-control-shell-focus .gig-control-top-grid {
   order: 2;
   flex: 1 1 auto;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1.45fr) minmax(0, 0.55fr);
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  grid-template-rows: auto;
   gap: 0.56rem;
   min-height: 0;
   height: 100%;
@@ -4779,13 +4741,13 @@ body:has(.audience-no-gig-shell) {
 
 .gig-control-shell-focus .gig-control-header {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
   padding: 0.64rem;
   gap: 0.42rem;
 }
 
 .gig-control-shell-focus .gig-mirror-preview-card {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
 }
 
