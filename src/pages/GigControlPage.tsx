@@ -59,6 +59,7 @@ const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gr
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const SONG_START_COUNTDOWN_MS = 10_000
+const SPACEBAR_START_COUNTDOWN_MS = 4_000
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
 const PLAYBACK_ACTION_LOCK_MAX_MS = 20_000
@@ -587,6 +588,7 @@ function GigControlPage() {
       : `gig-control-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   )
   const playbackTransitionExecutionIdRef = useRef<string | null>(null)
+  const playbackTransitionRecoveryTransitionIdRef = useRef<string | null>(null)
   const gigWorkerRef = useRef<Worker | null>(null)
   const liveHealthGuardLastRunAtRef = useRef(0)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
@@ -2824,6 +2826,41 @@ function GigControlPage() {
     }
   }, [executeSharedSongStartTransition, getHostNowMs, playbackTransitionState])
 
+  useEffect(() => {
+    if (
+      playbackTransitionState?.phase !== 'intro'
+      || playbackTransitionIntroRemainingMs === null
+      || playbackTransitionIntroRemainingMs > 0
+      || playbackTransitionRecoveryTransitionIdRef.current === playbackTransitionState.transitionId
+    ) {
+      return
+    }
+
+    const currentEvent = eventRef.current
+    const currentSong = nowPlayingRef.current
+
+    if (!currentEvent?.id || !currentSong?.id) {
+      return
+    }
+
+    playbackTransitionRecoveryTransitionIdRef.current = playbackTransitionState.transitionId
+
+    void writeSharedPlaybackState(currentEvent.id, {
+      currentSongId: currentSong.id,
+      currentSongCoverUrl: resolveCoverUrlForSong(currentSong.id),
+      isStarted: true,
+      quoteIndex: quoteIndexRef.current,
+      countdownTargetMs: null,
+      brbActive: false,
+      brbMessage: null,
+    }).then(() => {
+      setIsNowPlayingStarted(true)
+    }).catch((error) => {
+      console.warn('GigControlPage: failed to auto-finalize stale intro transition', error)
+      playbackTransitionRecoveryTransitionIdRef.current = null
+    })
+  }, [playbackTransitionIntroRemainingMs, playbackTransitionState, resolveCoverUrlForSong])
+
   const beginBetweenSongsTransition = useCallback(async () => {
     const previousQuoteIndex = quoteIndexRef.current
     const nextQuoteIndex = (previousQuoteIndex + 1) % BETWEEN_SONG_QUOTES.length
@@ -2881,11 +2918,14 @@ function GigControlPage() {
     }
   }, [beginBetweenSongsTransition, restoreStartedSong])
 
-  const startCurrentSong = useCallback(async (options?: { skipIntroAudio?: boolean }) => {
+  const startCurrentSong = useCallback(async (options?: { skipIntroAudio?: boolean; countdownMs?: number }) => {
     const currentEvent = eventRef.current
     const currentSong = nowPlayingRef.current
     const shouldSkipIntroAudio = options?.skipIntroAudio === true
     const transitionIntroAudioUrl = shouldSkipIntroAudio ? null : (currentEvent?.introAudioUrl ?? null)
+    const countdownMs = Number.isFinite(options?.countdownMs)
+      ? Math.max(1_000, Number(options?.countdownMs))
+      : SONG_START_COUNTDOWN_MS
 
     if (!currentEvent?.id || !currentSong?.id || playbackTransitionLockedRef.current) {
       return
@@ -2896,7 +2936,7 @@ function GigControlPage() {
     }
 
     const transitionId = `${currentSong.id}:${Date.now()}`
-    const countdownTargetMs = getHostNowMs() + SONG_START_COUNTDOWN_MS
+    const countdownTargetMs = getHostNowMs() + countdownMs
 
     await runPlaybackAction(async () => {
       await writeSharedPlaybackState(currentEvent.id, {
@@ -2919,7 +2959,7 @@ function GigControlPage() {
     }, { includeTransition: false })
   }, [getHostNowMs, primeIntroAudioPlayback, resolveCoverUrlForSong, runPlaybackAction])
 
-  const runQueueTogglePlayShortcut = useCallback(async (options?: { skipIntroAudio?: boolean }) => {
+  const runQueueTogglePlayShortcut = useCallback(async (options?: { skipIntroAudio?: boolean; countdownMs?: number }) => {
     if (!ensureGlobalActionCheckEnabled('changing playback state')) {
       return
     }
@@ -2933,7 +2973,10 @@ function GigControlPage() {
     }
 
     if (!currentlyStarted) {
-      await startCurrentSong({ skipIntroAudio: options?.skipIntroAudio === true })
+      await startCurrentSong({
+        skipIntroAudio: options?.skipIntroAudio === true,
+        countdownMs: options?.countdownMs,
+      })
       return
     }
 
@@ -2966,7 +3009,7 @@ function GigControlPage() {
     runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
   }, [runQueueTogglePlayShortcut])
 
-  const runQueueTogglePlayWithSpacebarRule = useCallback(async (options?: { skipIntroAudio?: boolean }) => {
+  const runQueueTogglePlayWithSpacebarRule = useCallback(async (options?: { skipIntroAudio?: boolean; countdownMs?: number }) => {
     if (!nowPlayingRef.current) {
       return
     }
@@ -2994,7 +3037,10 @@ function GigControlPage() {
     }
 
     lastSpaceActionAtRef.current = now
-    await runQueueTogglePlayShortcutRef.current({ skipIntroAudio: options?.skipIntroAudio === true })
+    await runQueueTogglePlayShortcutRef.current({
+      skipIntroAudio: options?.skipIntroAudio === true,
+      countdownMs: options?.countdownMs,
+    })
   }, [])
 
   const handleGlobalSpacebarKeyDown = useCallback(async (event: KeyboardEvent) => {
@@ -3050,7 +3096,10 @@ function GigControlPage() {
     event.stopImmediatePropagation()
 
     try {
-      await runQueueTogglePlayWithSpacebarRule({ skipIntroAudio: true })
+      await runQueueTogglePlayWithSpacebarRule({
+        skipIntroAudio: true,
+        countdownMs: SPACEBAR_START_COUNTDOWN_MS,
+      })
     } catch (error) {
       console.warn('GigControlPage: spacebar playback action failed', error)
       setErrorText('Playback control failed. Please try again.')
