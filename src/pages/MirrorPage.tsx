@@ -4496,9 +4496,6 @@ function MirrorPage() {
     <MirrorPageContent />
   </>;
 }
-
-  if (isMirrorLayoutEditRequest) {
-    return <MirrorLayoutEditorPage />
   }
   return <MirrorPageContent />
 }

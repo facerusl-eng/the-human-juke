@@ -3740,6 +3740,7 @@ function EventPage() {
         ) : null}
       </section>
     </section>
+    </>
   )
 }
 
