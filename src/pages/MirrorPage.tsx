@@ -1,4 +1,7 @@
 // --- MirrorJoinQrBlock: Place after imports, before any other code ---
+
+const GIG_WELCOME_MESSAGE = "Welcome! The show is starting. Enjoy the music and have fun!";
+
 type MirrorJoinQrBlockProps = {
   audienceUrl: string;
   beginPanelDrag: any;
@@ -2880,10 +2883,6 @@ function MirrorPageContent() {
         return
       }
 
-      if (!demoMode) {
-        return
-      }
-
       if (keyEvent.altKey || keyEvent.ctrlKey || keyEvent.metaKey || keyEvent.shiftKey) {
         return
       }
@@ -2901,12 +2900,21 @@ function MirrorPageContent() {
 
       keyEvent.preventDefault()
       lastSpacebarActionAtRef.current = now
-      setForceQuoteMode((currentMode) => !currentMode)
+      // --- Advance queue on spacebar if gig is live ---
+      if (event?.roomOpen && queue.length > 0) {
+        // Move the first song in the queue to Now Playing
+        // This should call the same action as the show controller
+        // (Assume updateEventSettings or similar is available)
+        if (typeof updateEventSettings === 'function') {
+          updateEventSettings({ nowPlayingSongId: queue[0].id });
+        }
+      }
+      // ---
     }
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [launchCastToScreen, layoutEditMode])
+  }, [launchCastToScreen, layoutEditMode, event?.roomOpen, queue, updateEventSettings])
 
   useEffect(() => {
     if (!isHost || isEmbeddedPreview) {
@@ -4457,7 +4465,38 @@ function MirrorPageContent() {
   )
 }
 
+// --- Welcome Overlay Logic ---
+import { useEffect, useState } from 'react';
+
 function MirrorPage() {
+  const { event } = useQueueStore();
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
+
+  useEffect(() => {
+    if (event?.roomOpen && !hasShownWelcome) {
+      setShowWelcome(true);
+      setHasShownWelcome(true);
+      const timer = setTimeout(() => setShowWelcome(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [event?.roomOpen, hasShownWelcome]);
+
+  if (isMirrorLayoutEditRequest) {
+    return <MirrorLayoutEditorPage />
+  }
+  return <>
+    {showWelcome && (
+      <div className="mirror-welcome-overlay" style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.7)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{background:'#fff',padding:'2rem 3rem',borderRadius:'2rem',fontSize:'2rem',fontWeight:'bold',color:'#222',boxShadow:'0 4px 32px #0008'}}>
+          {GIG_WELCOME_MESSAGE}
+        </div>
+      </div>
+    )}
+    <MirrorPageContent />
+  </>;
+}
+
   if (isMirrorLayoutEditRequest) {
     return <MirrorLayoutEditorPage />
   }

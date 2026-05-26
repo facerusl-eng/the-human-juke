@@ -6,58 +6,14 @@ import { ActionButtonGroup, type ActionButtonConfig } from '../components/action
 import { SaveStatusBadges } from '../components/settings/SaveStatusBadges'
 import { SettingsSection } from '../components/settings/SettingsSection'
 import { useAutosaveSaveLifecycle } from '../hooks/useAutosaveSaveLifecycle'
-
-// ...existing code...
-
-// Ensure QR links are initialized from event on mount
-// This effect must come after state and event are defined
-// It also needs correct typing for setState updater
-// and must check event is defined
-// (Assume this is inside the GigSettingsForm component)
-useEffect(() => {
-  if (!event) return;
-  setState((current: SettingsState) => {
-    let changed = false;
-    const updates = { ...current };
-    if (
-      event.mirrorCountdownQrCustomUrl &&
-      (!current.mirrorCountdownQrCustomUrl || current.mirrorCountdownQrCustomUrl === '')
-    ) {
-      updates.mirrorCountdownQrCustomUrl = event.mirrorCountdownQrCustomUrl;
-      changed = true;
-    }
-    if (
-      event.mirrorBreakQrCustomUrl &&
-      (!current.mirrorBreakQrCustomUrl || current.mirrorBreakQrCustomUrl === '')
-    ) {
-      updates.mirrorBreakQrCustomUrl = event.mirrorBreakQrCustomUrl;
-      changed = true;
-    }
-    if (
-      event.mirrorCountdownQrLink &&
-      (!current.mirrorCountdownQrLink || current.mirrorCountdownQrLink === '')
-    ) {
-      updates.mirrorCountdownQrLink = event.mirrorCountdownQrLink;
-      changed = true;
-    }
-    return changed ? updates : current;
-  });
-  // Only run on mount or event change
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [event?.id]);
-import { useEffect, useRef, useState } from 'react'
-import type { ChangeEvent, FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import AudioPlayer from '../components/ui/AudioPlayer'
-import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
-import { SaveStatusBadges } from '../components/settings/SaveStatusBadges'
-import { SettingsSection } from '../components/settings/SettingsSection'
-import { useAutosaveSaveLifecycle } from '../hooks/useAutosaveSaveLifecycle'
 import { useClipboardCopy } from '../hooks/useClipboardCopy'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { registerBackgroundSync } from '../lib/backgroundSync'
 import { openMirrorScreen } from '../lib/openMirrorScreen'
 import { fetchSongArtwork } from '../lib/songArtwork'
+
+
+
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore, type VenueLogoAppearance } from '../state/queueStore'
@@ -830,6 +786,38 @@ function summarizePendingSaveChanges(changedLabels: string[]) {
 }
 
 function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: GigSettingsFormProps) {
+  // Ensure QR links are initialized from event on mount
+  useEffect(() => {
+    if (!event) return;
+    setState((current: SettingsState) => {
+      let changed = false;
+      const updates = { ...current };
+      if (
+        event.mirrorCountdownQrCustomUrl &&
+        (!current.mirrorCountdownQrCustomUrl || current.mirrorCountdownQrCustomUrl === '')
+      ) {
+        updates.mirrorCountdownQrCustomUrl = event.mirrorCountdownQrCustomUrl;
+        changed = true;
+      }
+      if (
+        event.mirrorBreakQrCustomUrl &&
+        (!current.mirrorBreakQrCustomUrl || current.mirrorBreakQrCustomUrl === '')
+      ) {
+        updates.mirrorBreakQrCustomUrl = event.mirrorBreakQrCustomUrl;
+        changed = true;
+      }
+      if (
+        event.mirrorCountdownQrLink &&
+        (!current.mirrorCountdownQrLink || current.mirrorCountdownQrLink === '')
+      ) {
+        updates.mirrorCountdownQrLink = event.mirrorCountdownQrLink;
+        changed = true;
+      }
+      return changed ? updates : current;
+    });
+    // Only run on mount or event change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event?.id]);
   const { user } = useAuthStore()
 
   // Form State

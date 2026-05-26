@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+const GIG_WELCOME_MESSAGE = "Welcome! The show is starting. Enjoy the music and have fun!";
 import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import AudienceNoGigState, { type AudienceUpcomingEvent } from '../components/audience/AudienceNoGigState'
@@ -1062,7 +1064,21 @@ function normalizeExternalLink(url: string | null | undefined) {
   }
 }
 
+import { useEffect, useState } from 'react';
 function EventPage() {
+  // --- Welcome Overlay Logic ---
+  const { event } = useQueueStore();
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
+  useEffect(() => {
+    if (event?.roomOpen && !hasShownWelcome) {
+      setShowWelcome(true);
+      setHasShownWelcome(true);
+      const timer = setTimeout(() => setShowWelcome(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [event?.roomOpen, hasShownWelcome]);
+
   const navigate = useNavigate()
   const location = useLocation()
   const requestedClockOffsetMs = useMemo(() => resolveClockOffsetMsFromSearch(location.search), [location.search])
@@ -3322,10 +3338,18 @@ function EventPage() {
   }
 
   return (
-    <section
-      className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun${isKaraokeEvent ? ' audience-shell-karaoke' : ''}${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
-      aria-label="Audience app"
-    >
+    <>
+      {showWelcome && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.7)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'#fff',padding:'2rem 3rem',borderRadius:'2rem',fontSize:'2rem',fontWeight:'bold',color:'#222',boxShadow:'0 4px 32px #0008'}}>
+            {GIG_WELCOME_MESSAGE}
+          </div>
+        </div>
+      )}
+      <section
+        className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun${isKaraokeEvent ? ' audience-shell-karaoke' : ''}${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
+        aria-label="Audience app"
+      >
       <section className="audience-stage">
         <AudienceFixedHeader
           eventName={isBuildSelfEvent && event?.artistName ? `${event.artistName} — ${event.name ?? copy.audienceLive}` : (event?.name ?? copy.audienceLive)}
