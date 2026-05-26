@@ -1,7 +1,22 @@
+import { useEffect, useRef, useState } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import AudioPlayer from '../components/ui/AudioPlayer'
+import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
+import { SaveStatusBadges } from '../components/settings/SaveStatusBadges'
+import { SettingsSection } from '../components/settings/SettingsSection'
+import { useAutosaveSaveLifecycle } from '../hooks/useAutosaveSaveLifecycle'
+
+// ...existing code...
+
 // Ensure QR links are initialized from event on mount
+// This effect must come after state and event are defined
+// It also needs correct typing for setState updater
+// and must check event is defined
+// (Assume this is inside the GigSettingsForm component)
 useEffect(() => {
-  // Only set if not already set in state (avoid overwriting user edits)
-  setState((current) => {
+  if (!event) return;
+  setState((current: SettingsState) => {
     let changed = false;
     const updates = { ...current };
     if (
@@ -29,7 +44,7 @@ useEffect(() => {
   });
   // Only run on mount or event change
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [event.id]);
+}, [event?.id]);
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
