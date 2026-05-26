@@ -4496,8 +4496,5 @@ function MirrorPage() {
     <MirrorPageContent />
   </>;
 }
-  }
-  return <MirrorPageContent />
-}
 
-export default MirrorPage
+  export default MirrorPage
