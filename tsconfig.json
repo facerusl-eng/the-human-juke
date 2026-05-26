@@ -1,0 +1,3 @@
+{
+  "extends": "./the-human-juke-main/tsconfig.json"
+}
