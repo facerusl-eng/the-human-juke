@@ -4481,6 +4481,19 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
       },
       setRoomOpen: async (nextRoomOpen: boolean) => {
+                // --- Enforce countdown restriction for going live ---
+                if (
+                  event &&
+                  nextRoomOpen && // only when opening the room
+                  !event.roomOpen &&
+                  event.autoLiveEnabled &&
+                  event.gigDate && event.gigStartTime
+                ) {
+                  const gigStartAt = new Date(`${event.gigDate}T${event.gigStartTime}`)
+                  if (gigStartAt.getTime() > Date.now()) {
+                    throw new Error('Go Live is countdown-only: manual start is disabled until the timer reaches zero.')
+                  }
+                }
         if (event && !event.globalActionCheckEnabled) {
           throw new Error('Global Action Check is OFF. Enable it in Gig Settings before changing live request state.')
         }
@@ -4553,6 +4566,18 @@ function QueueProvider({ children }: PropsWithChildren) {
         await fetchQueueSnapshot(event.id)
       },
       toggleRoomOpen: async () => {
+                // --- Enforce countdown restriction for going live ---
+                if (
+                  event &&
+                  !event.roomOpen && // only when opening the room
+                  event.autoLiveEnabled &&
+                  event.gigDate && event.gigStartTime
+                ) {
+                  const gigStartAt = new Date(`${event.gigDate}T${event.gigStartTime}`)
+                  if (gigStartAt.getTime() > Date.now()) {
+                    throw new Error('Go Live is countdown-only: manual start is disabled until the timer reaches zero.')
+                  }
+                }
         if (event && !event.globalActionCheckEnabled) {
           throw new Error('Global Action Check is OFF. Enable it in Gig Settings before changing live request state.')
         }

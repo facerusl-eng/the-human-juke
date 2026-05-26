@@ -1,3 +1,46 @@
+// --- MirrorJoinQrBlock: Place after imports, before any other code ---
+type MirrorJoinQrBlockProps = {
+  audienceUrl: string;
+  beginPanelDrag: any;
+  beginInteraction: any;
+};
+
+function MirrorJoinQrBlock(props: MirrorJoinQrBlockProps) {
+  const { audienceUrl, beginPanelDrag, beginInteraction } = props;
+  return (
+    <section
+      className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel mirror-qr-visual-block"
+      data-mirror-layout-panel="joinQr"
+      onPointerDown={beginPanelDrag('joinQr')}
+    >
+      <button
+        type="button"
+        className="mirror-layout-drag-handle"
+        aria-label="Drag join QR panel"
+        onPointerDown={beginInteraction('joinQr', 'drag')}
+      >
+        Move
+      </button>
+      <div className="mirror-layout-edit-simple-panel-body mirror-layout-edit-qr-panel">
+        <div className="mirror-layout-edit-qr-box mirror-qr-visual-box">
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=2400x2400&ecc=M&margin=36&data=${encodeURIComponent(audienceUrl)}`}
+            alt="Scan to join the show"
+            className="mirror-qr-visual-img"
+          />
+          <div className="mirror-qr-visual-title">Join the Show!</div>
+          <div className="mirror-qr-visual-desc">Scan this QR code with your phone camera</div>
+        </div>
+      </div>
+      <button
+        type="button"
+        className="mirror-layout-resize-handle"
+        aria-label="Resize join QR panel"
+        onPointerDown={beginInteraction('joinQr', 'resize')}
+      />
+    </section>
+  );
+}
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
@@ -630,7 +673,7 @@ function MirrorLayoutEditorPage() {
 
       {showBlockPicker ? (
         <aside className="mirror-layout-block-picker" aria-label="Available blocks">
-          <p className="mirror-layout-block-picker-title">Available blocks</p>
+            <p className="mirror-layout-block-picker-title">Available Blocks</p>
           <div className="mirror-layout-block-picker-list">
             {MIRROR_LAYOUT_BLOCKS.map((block) => (
               <button
@@ -738,36 +781,20 @@ function MirrorLayoutEditorPage() {
         ) : null}
 
         {visibleBlocks.joinQr ? (
-          <section
-            className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel mirror-qr-visual-block"
-            data-mirror-layout-panel="joinQr"
-            onPointerDown={beginPanelDrag('joinQr')}
-          >
-            <button
-              type="button"
-              className="mirror-layout-drag-handle"
-              aria-label="Drag join QR panel"
-              onPointerDown={beginInteraction('joinQr', 'drag')}
-            >
-              Move
-            </button>
+          <section className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel mirror-qr-visual-block" data-mirror-layout-panel="joinQr" onPointerDown={beginPanelDrag('joinQr')}>
+            <button type="button" className="mirror-layout-drag-handle" aria-label="Drag join QR panel" onPointerDown={beginInteraction('joinQr', 'drag')}>Move</button>
             <div className="mirror-layout-edit-simple-panel-body mirror-layout-edit-qr-panel">
               <div className="mirror-layout-edit-qr-box mirror-qr-visual-box">
                 <img
-                  src={audienceQrUrl}
-                  alt="Scan to join the show"
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=2400x2400&ecc=M&margin=36&data=https://example.com/join`}
+                  alt="QR code placeholder"
                   className="mirror-qr-visual-img"
                 />
                 <div className="mirror-qr-visual-title">Join the Show!</div>
                 <div className="mirror-qr-visual-desc">Scan this QR code with your phone camera</div>
               </div>
             </div>
-            <button
-              type="button"
-              className="mirror-layout-resize-handle"
-              aria-label="Resize join QR panel"
-              onPointerDown={beginInteraction('joinQr', 'resize')}
-            />
+            <button type="button" className="mirror-layout-resize-handle" aria-label="Resize join QR panel" onPointerDown={beginInteraction('joinQr', 'resize')} />
           </section>
         ) : null}
       </section>
@@ -2754,8 +2781,15 @@ function MirrorPageContent() {
     setBetweenSongQuoteIndex(nextQuoteIndex)
   }
 
+
+  // When the show goes live, reset the quote index to 0 so the first message is always the welcome message
   useEffect(() => {
     if (layoutEditMode) {
+      return
+    }
+
+    if (isLive && quoteIndexRef.current !== 0) {
+      setQuoteIndex(0)
       return
     }
 
@@ -2766,7 +2800,7 @@ function MirrorPageContent() {
     if (normalizedQuoteIndex !== quoteIndexRef.current) {
       setQuoteIndex(normalizedQuoteIndex)
     }
-  }, [playbackState?.quoteIndex, layoutEditMode])
+  }, [isLive, playbackState?.quoteIndex, layoutEditMode])
 
   useEffect(() => {
     if (layoutEditMode) {
@@ -4138,7 +4172,7 @@ function MirrorPageContent() {
                 {isQuoteModeActive ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
-                      <p className="mirror-between-song-quote">{displayedBetweenSongMessage}</p>
+                      <p className="mirror-between-song-quote">{betweenSongQuoteIndex === 0 ? 'Welcome to the show.' : displayedBetweenSongMessage}</p>
                       {playbackTransitionStatusText || !activeSong ? (
                         <p className="mirror-song-waiting-note">{playbackTransitionStatusText ?? 'Waiting for next song...'}</p>
                       ) : null}

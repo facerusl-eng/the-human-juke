@@ -19,7 +19,8 @@
     "rollback:24h": "node scripts/rollback-known-good.mjs --older-than-hours 24 --apply",
     "mixer:preset:backing": "node scripts/apply-backing-preset.mjs",
     "mixer:mute": "node scripts/mixer-mute-hotkeys.mjs",
-    "ci:verify": "npm run lint && npm run build"
+    "ci:verify": "npm run lint && npm run build",
+    "deploy": "vercel --prod"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",

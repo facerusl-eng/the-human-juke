@@ -483,6 +483,7 @@ function GigControlPage() {
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
   const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
   const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
+  const [isEndingOrDeletingGig, setIsEndingOrDeletingGig] = useState(false)
   const [spotifyAutoTransportEnabled, setSpotifyAutoTransportEnabled] = useState(true)
   const [workerHeartbeatText, setWorkerHeartbeatText] = useState<string | null>(null)
   const [activeAudienceCount, setActiveAudienceCount] = useState<number | null>(null)
@@ -1086,12 +1087,12 @@ function GigControlPage() {
     mode: SpotifyTransportMode,
     options?: { force?: boolean },
   ) => {
+    if (isEndingOrDeletingGig) return
     if (!options?.force && !spotifyAutoTransportEnabled) {
       return
     }
-
     setSpotifyTransportCommand({ mode, nonce: Date.now() })
-  }, [spotifyAutoTransportEnabled])
+  }, [spotifyAutoTransportEnabled, isEndingOrDeletingGig])
 
   useEffect(() => {
     const currentEventId = event?.id ?? null
@@ -1162,37 +1163,33 @@ function GigControlPage() {
     }
   }, [])
 
-  const playIntroAudioWithSpotifyBridge = useCallback(async (introAudioUrl: string, primedAudioElement?: HTMLAudioElement | null) => {
-    if (typeof window === 'undefined' || typeof Audio === 'undefined') {
-      return
-    }
+// Prevent overlapping intro MP3 playback (module scope)
+let introAudioLock = false
 
+const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudioElement?: HTMLAudioElement | null) => {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+    return
+  }
+  if (introAudioLock) return
+  introAudioLock = true
+  try {
     const introAudio = primedAudioElement ?? new Audio(introAudioUrl)
     introAudio.muted = false
     introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
     introAudio.currentTime = 0
     introAudio.preload = 'auto'
 
-    // Duck Spotify while the intro stinger runs. Keep it paused afterwards.
-    sendSpotifyTransportCommand('pause', { force: true })
-    void sendSpotifyWebApiTransportCommand('pause')
+    // Duck Spotify before and after intro
+    await sendSpotifyTransportCommand('pause', { force: true })
+    await sendSpotifyWebApiTransportCommand('pause')
 
-    const completionPromise = new Promise<void>((resolve) => {
+    const completionPromise = new Promise((resolve) => {
       const cleanup = () => {
         introAudio.removeEventListener('ended', onEnded)
         introAudio.removeEventListener('error', onError)
       }
-
-      const onEnded = () => {
-        cleanup()
-        resolve()
-      }
-
-      const onError = () => {
-        cleanup()
-        resolve()
-      }
-
+      const onEnded = () => { cleanup(); resolve(undefined) }
+      const onError = () => { cleanup(); resolve(undefined) }
       introAudio.addEventListener('ended', onEnded, { once: true })
       introAudio.addEventListener('error', onError, { once: true })
     })
@@ -1204,14 +1201,19 @@ function GigControlPage() {
       introAudio.muted = true
       introAudio.volume = 0
       await introAudio.play()
-
       introAudio.currentTime = Math.max(0, introAudio.currentTime)
       introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
       introAudio.muted = false
     }
 
     await completionPromise
-  }, [sendSpotifyTransportCommand])
+    // Pause Spotify again after intro, just in case
+    await sendSpotifyTransportCommand('pause', { force: true })
+    await sendSpotifyWebApiTransportCommand('pause')
+  } finally {
+    introAudioLock = false
+  }
+}
 
   useEffect(() => {
     const storedToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)
@@ -1729,6 +1731,7 @@ function GigControlPage() {
   ]);
 
   const runEndGigDecision = useCallback(async (decision: 'keep-offline' | 'delete') => {
+    setIsEndingOrDeletingGig(true)
     const targetEvent = endGigPromptEvent ?? eventRef.current
 
     if (!targetEvent?.id) {
@@ -1759,6 +1762,7 @@ function GigControlPage() {
       )
     } finally {
       setEndGigDecisionBusy(null)
+      setIsEndingOrDeletingGig(false)
     }
   }, [deleteEvent, endGigPromptEvent, ensureRoomOpenState])
 
@@ -3037,39 +3041,39 @@ function GigControlPage() {
     runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
   }, [runQueueTogglePlayShortcut])
 
+
+  // Only allow spacebar playback when gig is live
   const runQueueTogglePlayWithSpacebarRule = useCallback(async (options?: { skipIntroAudio?: boolean; countdownMs?: number }) => {
+    if (!event?.roomOpen) {
+      setErrorText('Spacebar playback is disabled until the gig is live.');
+      return;
+    }
     if (!nowPlayingRef.current) {
-      return
+      return;
     }
-
-    const now = Date.now()
-
+    const now = Date.now();
     if (
-      playbackActionLockRef.current
-      && playbackActionLockStartedAtRef.current > 0
-      && now - playbackActionLockStartedAtRef.current > PLAYBACK_ACTION_LOCK_MAX_MS
+      playbackActionLockRef.current &&
+      playbackActionLockStartedAtRef.current > 0 &&
+      now - playbackActionLockStartedAtRef.current > PLAYBACK_ACTION_LOCK_MAX_MS
     ) {
-      // Recover from stale lock state if a prior async flow got interrupted.
-      playbackActionLockRef.current = false
-      playbackActionLockStartedAtRef.current = 0
-      spaceActionBusyRef.current = false
-      setSpaceActionBusy(false)
+      playbackActionLockRef.current = false;
+      playbackActionLockStartedAtRef.current = 0;
+      spaceActionBusyRef.current = false;
+      setSpaceActionBusy(false);
     }
-
     if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
-      return
+      return;
     }
-
     if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
-      return
+      return;
     }
-
-    lastSpaceActionAtRef.current = now
+    lastSpaceActionAtRef.current = now;
     await runQueueTogglePlayShortcutRef.current({
       skipIntroAudio: options?.skipIntroAudio === true,
       countdownMs: options?.countdownMs,
-    })
-  }, [])
+    });
+  }, [event?.roomOpen]);
 
   /**
    * GLOBAL MODE SWITCH: QUOTE ↔ NOW PLAYING
@@ -3353,13 +3357,13 @@ function GigControlPage() {
           ? 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
           : 'Run health checks and open the room so the audience can join',
       disabled:
-        !globalActionCheckEnabled ||
-        gigActions.quickActionBusy ||
-        preflightBusy ||
+        !!globalActionCheckEnabled === false ||
+        !!gigActions.quickActionBusy ||
+        !!preflightBusy ||
         endGigDecisionBusy !== null ||
         (
-          event?.autoLiveEnabled &&
-          resolveGigStartAt(event?.gigDate, event?.gigStartTime) &&
+          !!event?.autoLiveEnabled &&
+          !!resolveGigStartAt(event?.gigDate, event?.gigStartTime) &&
           resolveGigStartAt(event?.gigDate, event?.gigStartTime)!.getTime() > getHostNowMs() &&
           !event.roomOpen
         ),
@@ -4276,7 +4280,7 @@ function GigControlPage() {
                 </button>
               </div>
               <p className="subcopy no-margin">
-                Playing now. Press Space to toggle Quote / Now Playing.
+                Playing now. {event?.roomOpen ? 'Press Space to toggle Quote / Now Playing.' : 'Spacebar is disabled until gig is live.'}
               </p>
             </>
           ) : nowPlaying ? (
@@ -4284,7 +4288,8 @@ function GigControlPage() {
               <div className="gig-between-songs-state">
                 <p className="gig-between-songs-quote">{betweenSongQuote}</p>
                 <p className="subcopy gig-between-songs-hint">
-                  {'Tap Go Live or press Space to go live.'}
+                  {'Tap Go Live or '}
+                  {event?.roomOpen ? 'press Space to go live.' : 'Spacebar is disabled until gig is live.'}
                 </p>
               </div>
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">

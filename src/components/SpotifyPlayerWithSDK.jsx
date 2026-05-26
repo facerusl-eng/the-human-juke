@@ -529,36 +529,35 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     })
   }
 
+  // Prevent concurrent toggle actions
+  let syncToggleLock = false
   const syncTogglePlayState = async (shouldPlay) => {
-    if (!playerRef.current) {
-      return
-    }
-
-    const currentState = await playerRef.current.getCurrentState?.()
-
-    if (!currentState) {
-      // No track loaded in the SDK player — calling togglePlay() here would throw
-      // "no list was loaded". Throw so callers fall through to REST API recovery.
-      if (shouldPlay) {
-        throw new Error('Cannot perform operation; no list was loaded.')
+    if (syncToggleLock) return
+    syncToggleLock = true
+    try {
+      if (!playerRef.current) return
+      const currentState = await playerRef.current.getCurrentState?.()
+      if (!currentState) {
+        if (shouldPlay) throw new Error('Cannot perform operation; no list was loaded.')
+        return
       }
-      return
-    }
-
-    const isPaused = currentState.paused
-
-    if ((shouldPlay && isPaused) || (!shouldPlay && !isPaused)) {
-      await playerRef.current.togglePlay()
+      const isPaused = currentState.paused
+      if ((shouldPlay && isPaused) || (!shouldPlay && !isPaused)) {
+        await playerRef.current.togglePlay()
+      }
+    } finally {
+      syncToggleLock = false
     }
   }
 
+  // Prevent concurrent toggles
+  let togglePlayLock = false
   const togglePlay = async () => {
-    if (!playerRef.current) return
-
+    if (togglePlayLock) return
+    togglePlayLock = true
     setActionBusy(true)
     try {
-      // Check state first — if nothing is loaded, go straight to REST recovery
-      // instead of calling togglePlay() which would trigger a no-list SDK error.
+      if (!playerRef.current) return
       const currentState = await playerRef.current.getCurrentState?.()
       if (!currentState) {
         try {
@@ -567,9 +566,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
             setPlayerStatus('Spotify playback resumed from where it stopped.')
             return
           }
-        } catch {
-          // fall through to playlist start
-        }
+        } catch {}
         if (playlistInput.trim()) {
           await startPlaylistPlayback(playlistInput)
           return
@@ -587,9 +584,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
             setPlayerStatus('Spotify playback resumed from where it stopped.')
             return
           }
-        } catch {
-          // fall through to playlist start
-        }
+        } catch {}
         if (playlistInput.trim()) {
           await startPlaylistPlayback(playlistInput)
           return
@@ -600,6 +595,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
       setPlayerStatus(error instanceof Error ? error.message : 'Toggle play failed.')
     } finally {
       setActionBusy(false)
+      togglePlayLock = false
     }
   }
 

@@ -1,3 +1,35 @@
+// Ensure QR links are initialized from event on mount
+useEffect(() => {
+  // Only set if not already set in state (avoid overwriting user edits)
+  setState((current) => {
+    let changed = false;
+    const updates = { ...current };
+    if (
+      event.mirrorCountdownQrCustomUrl &&
+      (!current.mirrorCountdownQrCustomUrl || current.mirrorCountdownQrCustomUrl === '')
+    ) {
+      updates.mirrorCountdownQrCustomUrl = event.mirrorCountdownQrCustomUrl;
+      changed = true;
+    }
+    if (
+      event.mirrorBreakQrCustomUrl &&
+      (!current.mirrorBreakQrCustomUrl || current.mirrorBreakQrCustomUrl === '')
+    ) {
+      updates.mirrorBreakQrCustomUrl = event.mirrorBreakQrCustomUrl;
+      changed = true;
+    }
+    if (
+      event.mirrorCountdownQrLink &&
+      (!current.mirrorCountdownQrLink || current.mirrorCountdownQrLink === '')
+    ) {
+      updates.mirrorCountdownQrLink = event.mirrorCountdownQrLink;
+      changed = true;
+    }
+    return changed ? updates : current;
+  });
+  // Only run on mount or event change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [event.id]);
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -966,7 +998,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     markError,
     scheduleAutosave,
   } = useAutosaveSaveLifecycle({
-    autosaveDelayMs: 3500,
+    autosaveDelayMs: 1000,
     savedResetDelayMs: 2000,
   })
 
