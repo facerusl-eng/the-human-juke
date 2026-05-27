@@ -1,3 +1,61 @@
+/* Mirror Welcome Overlay (moved from inline styles in MirrorPage.tsx) */
+.mirror-welcome-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mirror-welcome-message {
+  background: #fff;
+  padding: 2rem 3rem;
+  border-radius: 2rem;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #222;
+  box-shadow: 0 4px 32px #0008;
+}
+/* Audience Welcome Overlay (moved from inline styles in EventPage.tsx) */
+.audience-welcome-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.audience-welcome-message {
+  background: #fff;
+  padding: 2rem 3rem;
+  border-radius: 2rem;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #222;
+  box-shadow: 0 4px 32px #0008;
+}
+/* Force QR code <img> to fill its parent edge-to-edge */
+
+/* Remove frame styling for QR code block to allow full expansion */
+/* Only remove border, background, and box-shadow from the block, let it size naturally */
+.mirror-qr-visual-block.mirror-frame {
+  border: none !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
 /* ─── Mirror QR Visual Block ─────────────────────────────── */
 .mirror-qr-visual-block {
   /* No extra block-level styles needed, panel already styled */
@@ -7,17 +65,18 @@
   display: flex !important;
   align-items: stretch !important;
   justify-content: stretch !important;
-  background: none !important;
+  background: #fff !important;
   border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
+  border-radius: 18px !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10) !important;
   padding: 0 !important;
   margin: 0 auto 24px !important;
-  max-width: 98vw !important;
+  max-width: 90vw !important;
+  max-height: 90vh !important;
   width: 100% !important;
   aspect-ratio: 1 / 1 !important;
-  min-width: 240px !important;
-  min-height: 240px !important;
+  min-width: 180px !important;
+  min-height: 180px !important;
   position: relative !important;
   z-index: 2 !important;
   overflow: hidden !important;
@@ -26,7 +85,7 @@
 .mirror-qr-visual-img {
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover !important;
+  object-fit: contain !important;
   border-radius: 0 !important;
   border: none !important;
   background: none !important;

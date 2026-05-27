@@ -3327,8 +3327,8 @@ function EventPage() {
   return (
     <>
       {showWelcome && (
-        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.7)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <div style={{background:'#fff',padding:'2rem 3rem',borderRadius:'2rem',fontSize:'2rem',fontWeight:'bold',color:'#222',boxShadow:'0 4px 32px #0008'}}>
+        <div className="audience-welcome-overlay">
+          <div className="audience-welcome-message">
             {GIG_WELCOME_MESSAGE}
           </div>
         </div>

@@ -1527,8 +1527,9 @@
 /* ÔöÇÔöÇ QR image ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
 
 .mirror-qr-image {
-  width: clamp(280px, min(40vw, 36dvh), 620px);
-  height: clamp(280px, min(40vw, 36dvh), 620px);
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
   border-radius: 14px;
   background: #ffffff;
   padding: clamp(0.52rem, 0.82vw, 0.74rem);

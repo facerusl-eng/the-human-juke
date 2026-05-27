@@ -28,7 +28,7 @@ function MirrorJoinQrBlock(props: MirrorJoinQrBlockProps) {
       <div className="mirror-layout-edit-simple-panel-body mirror-layout-edit-qr-panel">
         <div className="mirror-layout-edit-qr-box mirror-qr-visual-box">
           <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=2400x2400&ecc=M&margin=36&data=${encodeURIComponent(audienceUrl)}`}
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=2400x2400&ecc=M&margin=0&data=${encodeURIComponent(audienceUrl)}`}
             alt="Scan to join the show"
             className="mirror-qr-visual-img"
           />
@@ -4480,8 +4480,8 @@ function MirrorPage() {
   }
   return <>
     {showWelcome && (
-      <div className="mirror-welcome-overlay" style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.7)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <div style={{background:'#fff',padding:'2rem 3rem',borderRadius:'2rem',fontSize:'2rem',fontWeight:'bold',color:'#222',boxShadow:'0 4px 32px #0008'}}>
+      <div className="mirror-welcome-overlay">
+        <div className="mirror-welcome-message">
           {GIG_WELCOME_MESSAGE}
         </div>
       </div>
