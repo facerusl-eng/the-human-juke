@@ -15,7 +15,11 @@ const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to the show!';
 const MIRROR_FUN_FACTS_CACHE_STORAGE_KEY = 'mirror_fun_facts_cache';
 const SONG_INFO_ROTATE_INTERVAL_MS = 10000;
 const QUOTE_ROTATE_INTERVAL_MS = 10000;
-const DEMO_NOW_PLAYING_FACTS: any[] = [];
+const DEMO_NOW_PLAYING_FACTS: string[] = [
+  'This is a demo fun fact about the song.',
+  'Did you know? This song was a top request!',
+  'Audience loves to sing along to this track!'
+];
 const SPOTLIGHT_DURATION_MS = 5000;
 const SPOTLIGHT_POLL_INTERVAL_MS = 10000;
 const MIRROR_FUN_FACTS_CACHE_KEY = 'mirror_fun_facts_cache';
@@ -164,18 +168,18 @@ const useQueueStore = () => ({
     id: 'event-id',
     gigDate: '2023-01-01',
     gigStartTime: '20:00',
-    mirrorCountdownQrLink: '',
-    mirrorCountdownQrCustomEnabled: false,
-    mirrorCountdownQrCustomUrl: '',
+    mirrorCountdownQrLink: 'https://the-human-jukebox.vercel.app/join/event-id',
+    mirrorCountdownQrCustomEnabled: true,
+    mirrorCountdownQrCustomUrl: 'https://the-human-jukebox.vercel.app/join/event-id',
     mirrorBreakQrEnabled: false,
     mirrorBreakQrCustomUrl: '',
-    mirrorCountdownQrText: '',
-    mirrorCountdownQrFlashVenue: '',
-    mirrorVenue: '',
-    mirrorBannerEnabled: false,
+    mirrorCountdownQrText: 'Scan to join the show!',
+    mirrorCountdownQrFlashVenue: 'Main Hall',
+    mirrorVenue: 'Main Hall',
+    mirrorBannerEnabled: true,
     venueLogoUrl: '',
-    name: '',
-    venue: '',
+    name: 'Live Night',
+    venue: 'Main Hall',
     mirrorCountdownEnabled: true,
     roomOpen: true,
     isTestGig: false,
@@ -199,24 +203,24 @@ const useQueueStore = () => ({
       id: 'song-1',
       title: 'Song 1',
       artist: 'Artist 1',
-      createdByName: 'User 1',
-      votes_count: 5,
+      cover_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Iconic_image_placeholder.png/240px-Iconic_image_placeholder.png',
       audience_sings: true,
-      cover_url: 'cover1.jpg',
+      createdByName: 'Host',
+      votes_count: 5,
       creatorId: 'user-1',
-      is_explicit: false,
+      is_explicit: false
     },
     {
       id: 'song-2',
       title: 'Song 2',
       artist: 'Artist 2',
-      createdByName: 'User 2',
-      votes_count: 3,
+      cover_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Iconic_image_placeholder.png/240px-Iconic_image_placeholder.png',
       audience_sings: false,
-      cover_url: 'cover2.jpg',
+      createdByName: 'Audience',
+      votes_count: 3,
       creatorId: 'user-2',
-      is_explicit: true,
-    },
+      is_explicit: true
+    }
   ],
   loading: false,
   setRoomOpen: () => Promise.resolve(),
