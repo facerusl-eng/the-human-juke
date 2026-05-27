@@ -32,9 +32,9 @@ function MirrorJoinQrBlock(props: MirrorJoinQrBlockProps) {
             alt="Scan to join the show"
             className="mirror-qr-visual-img"
           />
-          <div className="mirror-qr-visual-title">Join the Show!</div>
-          <div className="mirror-qr-visual-desc">Scan this QR code with your phone camera</div>
         </div>
+        <div className="mirror-qr-visual-title">Join the Show!</div>
+        <div className="mirror-qr-visual-desc">Scan this QR code with your phone camera</div>
       </div>
       <button
         type="button"

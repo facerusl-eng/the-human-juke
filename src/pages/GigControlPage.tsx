@@ -1701,7 +1701,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       await writeSharedPlaybackState(latestEvent.id, {
         currentSongId: nowPlaying?.id ?? null,
         currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
-        isStarted: false,
+        isStarted: true,
         quoteIndex: quoteIndexRef.current,
         countdownTargetMs: mirroredCountdownTargetMs,
         brbActive: false,
