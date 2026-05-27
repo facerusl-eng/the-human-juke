@@ -3128,7 +3128,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         });
         await registerBackgroundSync(BACKGROUND_SYNC_TAG);
         // Spotify pauses only after state is confirmed
-        sendSpotifyTransportCommand('pause', { force: true });
+        if (isNowPlayingStartedRef.current) {
+          sendSpotifyTransportCommand('pause', { force: true });
+        }
         setErrorText(null);
       } catch (error) {
         // Roll back local state on failure
@@ -3141,6 +3143,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       // NOW PLAYING → mark as played + advance to next song in queue, Spotify plays
       try {
         await runQueueTogglePlayShortcutRef.current();
+        sendSpotifyTransportCommand('play', { force: true });
       } catch (error) {
         console.warn('GigControlPage: mark as played via spacebar failed', error);
         setErrorText('Playback control failed. Please try again.');
