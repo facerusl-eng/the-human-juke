@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
 
 const GIG_WELCOME_MESSAGE = "Welcome! The show is starting. Enjoy the music and have fun!";
-import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import AudienceNoGigState, { type AudienceUpcomingEvent } from '../components/audience/AudienceNoGigState'
 import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
@@ -1064,10 +1064,9 @@ function normalizeExternalLink(url: string | null | undefined) {
   }
 }
 
-import { useEffect, useState } from 'react';
 function EventPage() {
   // --- Welcome Overlay Logic ---
-  const { event } = useQueueStore();
+  const { event, songs, performedSongs, loading, upvoteSong, removeSong, audienceConnectionStatus, pendingOfflineSongs, queueOperatingMode, queueHealthMessage } = useQueueStore();
   const [showWelcome, setShowWelcome] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   useEffect(() => {
@@ -1083,18 +1082,6 @@ function EventPage() {
   const location = useLocation()
   const requestedClockOffsetMs = useMemo(() => resolveClockOffsetMsFromSearch(location.search), [location.search])
   const { authError, loading: authLoading, user, signOut } = useAuthStore()
-  const {
-    event,
-    songs,
-    performedSongs,
-    loading,
-    upvoteSong,
-    removeSong,
-    audienceConnectionStatus,
-    pendingOfflineSongs,
-    queueOperatingMode,
-    queueHealthMessage,
-  } = useQueueStore()
 
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null)
   const [audienceNameInput, setAudienceNameInput] = useState(() => readCommittedAudienceName())

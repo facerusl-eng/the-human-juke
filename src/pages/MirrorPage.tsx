@@ -2,6 +2,7 @@
 
 const GIG_WELCOME_MESSAGE = "Welcome! The show is starting. Enjoy the music and have fun!";
 
+// --- MirrorJoinQrBlock: Place after imports, before any other code ---
 type MirrorJoinQrBlockProps = {
   audienceUrl: string;
   beginPanelDrag: any;
@@ -44,7 +45,7 @@ function MirrorJoinQrBlock(props: MirrorJoinQrBlockProps) {
     </section>
   );
 }
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { getAudienceUrl } from '../lib/audienceUrl'
@@ -2901,20 +2902,13 @@ function MirrorPageContent() {
       keyEvent.preventDefault()
       lastSpacebarActionAtRef.current = now
       // --- Advance queue on spacebar if gig is live ---
-      if (event?.roomOpen && queue.length > 0) {
-        // Move the first song in the queue to Now Playing
-        // This should call the same action as the show controller
-        // (Assume updateEventSettings or similar is available)
-        if (typeof updateEventSettings === 'function') {
-          updateEventSettings({ nowPlayingSongId: queue[0].id });
-        }
-      }
+      // TODO: Implement queue advancement logic here if needed, using available store/actions.
       // ---
     }
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [launchCastToScreen, layoutEditMode, event?.roomOpen, queue, updateEventSettings])
+  }, [launchCastToScreen, layoutEditMode])
 
   useEffect(() => {
     if (!isHost || isEmbeddedPreview) {
@@ -4466,7 +4460,6 @@ function MirrorPageContent() {
 }
 
 // --- Welcome Overlay Logic ---
-import { useEffect, useState } from 'react';
 
 function MirrorPage() {
   const { event } = useQueueStore();
