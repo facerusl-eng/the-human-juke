@@ -1,3 +1,25 @@
+// Musixmatch fallback (requires MUSIXMATCH_API_KEY in env)
+async function fetchMusixmatchLyrics(title: string, artist: string): Promise<string | null> {
+  const MUSIXMATCH_API_KEY = process.env.MUSIXMATCH_API_KEY;
+  if (!MUSIXMATCH_API_KEY) return null;
+  try {
+    // Step 1: Search for track ID
+    const searchUrl = `https://api.musixmatch.com/ws/1.1/track.search?q_track=${encodeURIComponent(title)}&q_artist=${encodeURIComponent(artist)}&f_has_lyrics=1&s_track_rating=desc&apikey=${MUSIXMATCH_API_KEY}`;
+    const searchRes = await axios.get(searchUrl);
+    const trackList = searchRes.data?.message?.body?.track_list;
+    if (!trackList || trackList.length === 0) return null;
+    const trackId = trackList[0].track.track_id;
+    // Step 2: Fetch lyrics by track ID
+    const lyricsUrl = `https://api.musixmatch.com/ws/1.1/track.lyrics.get?track_id=${trackId}&apikey=${MUSIXMATCH_API_KEY}`;
+    const lyricsRes = await axios.get(lyricsUrl);
+    const lyrics = lyricsRes.data?.message?.body?.lyrics?.lyrics_body;
+    if (lyrics && lyrics.trim().length > 0) {
+      // Remove Musixmatch copyright footer if present
+      return lyrics.replace(/\*\* This Lyrics is NOT for Commercial use \*\*[\s\S]*/g, '').trim();
+    }
+  } catch {}
+  return null;
+}
 // Vercel Serverless Function for Genius Lyrics
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import axios from 'axios';
@@ -100,6 +122,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const auddLyrics = await fetchAudD(String(song), String(artist));
     if (auddLyrics) {
       res.json({ lyrics: auddLyrics });
+      return;
+    }
+    // Try Musixmatch
+    const musixmatchLyrics = await fetchMusixmatchLyrics(String(song), String(artist));
+    if (musixmatchLyrics) {
+      res.json({ lyrics: musixmatchLyrics });
       return;
     }
     res.status(404).json({ error: 'Lyrics not found in any source' });

@@ -794,22 +794,33 @@ function playShutterSound() {
 
 function MirrorPageContent() {
           // ...existing code...
-          // Render QR code for audience join link
-          const showMirrorQr = !!event?.mirrorCountdownQrLink;
+          // ...existing code...
+          // Render QR code for audience join link (after event is defined)
+          // Place this after event is declared
 
           // ...existing code...
-          return (
-            <div className="mirror-page-root">
-              {/* ...existing content... */}
-              {showMirrorQr && (
-                <div className="mirror-qr-block">
-                  <MirrorQrCode value={event.mirrorCountdownQrLink} size={256} />
-                  <p className="mirror-qr-label">Scan to join the show</p>
-                </div>
-              )}
-              {/* ...existing content... */}
-            </div>
-          );
+          // Place this inside the main return, after event is declared
+            // ...existing code...
+            // Null checks for countdown and encore event logic (MUST be after all variables are declared)
+            // Place this block after countdownTarget, countdownNow, isLive, audienceLocale, upcomingEncoreEvent are declared.
+
+            // --- Place this block after all referenced variables are declared ---
+            // const safeCountdownTarget = countdownTarget ?? new Date();
+            // const safeCountdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : 0;
+            // const safeShowCountdown = !isLive && Boolean(countdownTarget) && safeCountdownRemainingMs > 0;
+            // const safeCountdownDisplayRemainingMs = safeCountdownRemainingMs > 0 ? safeCountdownRemainingMs : 0;
+            // const safeFinalCountdownSeconds = safeShowCountdown && safeCountdownRemainingMs > 0 && safeCountdownRemainingMs <= 10_000
+            //   ? Math.ceil(safeCountdownRemainingMs / 1000)
+            //   : null;
+            // const safeCountdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget, audienceLocale) : null;
+            // const safeUpcomingEncoreEvent = upcomingEncoreEvent ?? { name: '', venue: '', gigDate: '', gigStartTime: '' };
+            // const safeNextGigStart = safeUpcomingEncoreEvent.gigDate && safeUpcomingEncoreEvent.gigStartTime
+            //   ? getMirrorCountdownTarget(safeUpcomingEncoreEvent.gigDate, safeUpcomingEncoreEvent.gigStartTime)
+            //   : null;
+            // const safeNextGigStartLabel = safeNextGigStart ? formatMirrorCountdownStartTime(safeNextGigStart, audienceLocale) : null;
+
+            // ...existing code...
+            // Place QR code rendering after event is declared
           // ...existing code...
         // Layout editor state and effects (moved from top-level)
         const [layoutState, setLayoutState] = useState<MirrorLayoutState>(DEFAULT_MIRROR_LAYOUT_STATE);
@@ -1518,7 +1529,7 @@ function MirrorPageContent() {
       return
     }
 
-    bannerSaveDebounceTimerRef.current = window
+    bannerSaveDebounceTimerRef.current = window.setTimeout(() => {
       void supabase
         .from('events')
         .update({ mirror_banner_text: nextBannerText || null })
@@ -1528,7 +1539,6 @@ function MirrorPageContent() {
             if (isMissingMirrorBannerTextColumnError(error)) {
               return
             }
-
             setMirrorWarningMessage('Could not save banner text. Please try again.')
           }
         })
@@ -2644,73 +2654,12 @@ function MirrorPageContent() {
 
   const activeSpotlight = useMemo(() => {
     if (!eventId || !spotlight || spotlight.eventId !== eventId) {
-      return null
+      return null;
     }
+    return spotlight;
+  }, [eventId, spotlight]);
 
-    return spotlight
-  }, [eventId, spotlight])
 
-  const mirrorBackgroundClass = useMemo(() => {
-    // Mirror always uses the Human Jukebox background.
-    return 'mirror-shell-bg-human-jukebox'
-  }, [])
-
-  useEffect(() => {
-    const onPointerMove = (pointerEvent: PointerEvent) => {
-      const interaction = layoutInteractionRef.current
-
-      if (!interaction || pointerEvent.pointerId !== interaction.pointerId) {
-        return
-      }
-
-      const deltaX = ((pointerEvent.clientX - interaction.startX) / interaction.stageWidth) * 100
-      const deltaY = ((pointerEvent.clientY - interaction.startY) / interaction.stageHeight) * 100
-
-      setMirrorLayoutState((currentState: any) => {
-        const startRect = interaction.startState[interaction.panelId]
-        const nextRect = interaction.mode === 'resize'
-          ? clampMirrorLayoutRect({
-            left: startRect.left,
-            top: startRect.top,
-            width: startRect.width + deltaX,
-            height: startRect.height + deltaY,
-          })
-          : clampMirrorLayoutRect({
-            left: startRect.left + deltaX,
-            top: startRect.top + deltaY,
-            width: startRect.width,
-            height: startRect.height,
-          })
-
-        return {
-          ...currentState,
-          [interaction.panelId]: nextRect,
-        }
-      })
-    }
-
-    const endInteraction = (pointerEvent?: PointerEvent) => {
-      const interaction = layoutInteractionRef.current
-
-      if (!interaction) {
-        return
-      }
-
-      if (!pointerEvent || pointerEvent.pointerId === interaction.pointerId) {
-        layoutInteractionRef.current = null
-      }
-    }
-
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', endInteraction)
-    window.addEventListener('pointercancel', endInteraction)
-
-    return () => {
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', endInteraction)
-      window.removeEventListener('pointercancel', endInteraction)
-    }
-  }, [])
 
   const beginMirrorLayoutInteraction = useCallback((panelId: MirrorLayoutPanelId, mode: 'drag' | 'resize') => (pointerEvent: React.PointerEvent<HTMLButtonElement>) => {
     if (!layoutEditMode || !mirrorShellRef.current) {
@@ -2848,7 +2797,7 @@ function MirrorPageContent() {
   }
 
   return (
-    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${mirrorBackgroundClass} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''} ${!activeSong ? 'mirror-shell-no-live-data' : ''} ${(homeMirrorPreviewMode || demoMode) ? 'mirror-shell-home-preview' : ''}`} aria-label="Mirror display screen">
+    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''} ${!activeSong ? 'mirror-shell-no-live-data' : ''} ${(homeMirrorPreviewMode || demoMode) ? 'mirror-shell-home-preview' : ''}`} aria-label="Mirror display screen">
       {showFullscreenPrompt && !isFullscreen && (
         <button
           type="button"
@@ -3458,4 +3407,4 @@ function MirrorPage() {
   </>;
 }
 
-  export default MirrorPage
+export default MirrorPage

@@ -1,11 +1,16 @@
 import React from 'react';
-import QRCode from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
+interface MirrorQrCodeProps {
+  value: string;
+  size?: number;
+  className?: string;
+}
 
-export function MirrorQrCode({ value, size = 256, className = '' }) {
+export function MirrorQrCode({ value, size = 256, className = '' }: MirrorQrCodeProps) {
   if (!value) return null;
   return (
     <div className={`mirror-qr-code ${className}`.trim()}>
-      <QRCode value={value} size={size} renderAs="svg" />
+      <QRCodeSVG value={value} size={size} />
     </div>
   );
 }
