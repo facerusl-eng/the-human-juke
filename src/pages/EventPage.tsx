@@ -1,7 +1,20 @@
+
+// Sing Along Button Component (module scope)
+function SingAlongButton(props: { title: string; artist: string }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      className="primary-button sing-along-btn"
+      onClick={() => navigate('/lyrics', { state: { title: props.title, artist: props.artist } })}
+    >
+      🎤 Sing Along
+    </button>
+  );
+}
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React from 'react';
 import type { FormEvent } from 'react'
 
-const GIG_WELCOME_MESSAGE = "Welcome! The show is starting. Enjoy the music and have fun!";
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import AudienceNoGigState, { type AudienceUpcomingEvent } from '../components/audience/AudienceNoGigState'
 import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
@@ -3326,13 +3339,6 @@ function EventPage() {
 
   return (
     <>
-      {showWelcome && (
-        <div className="audience-welcome-overlay">
-          <div className="audience-welcome-message">
-            {GIG_WELCOME_MESSAGE}
-          </div>
-        </div>
-      )}
       <section
         className={`audience-shell audience-shell-compact audience-shell-modern audience-karafun${isKaraokeEvent ? ' audience-shell-karaoke' : ''}${isTestGigView ? '' : ' audience-theme-no-gig-blend'}`}
         aria-label="Audience app"
@@ -3567,6 +3573,10 @@ function EventPage() {
             <div className="now-playing-media now-playing-media-stacked">
               <h2>{displaySong?.title ?? copy.queueThinking}</h2>
               <p className="artist now-playing-artist">{displaySong?.artist ?? copy.requestPrompt}</p>
+                {/* Sing Along Button */}
+                {displaySong?.title && displaySong?.artist && (
+                  <SingAlongButton title={displaySong.title} artist={displaySong.artist} />
+                )}
               <div className="now-playing-artwork-slot">
                 {displaySongCoverUrl ? (
                   <img
@@ -3588,6 +3598,9 @@ function EventPage() {
             </div>
           )}
         </article>
+
+
+
 
         <article className="queue-panel audience-live-queue-panel">
           <div className="panel-head">

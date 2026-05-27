@@ -182,20 +182,6 @@
   padding: 0.55rem 0.7rem calc(0.55rem + env(safe-area-inset-bottom));
   border-top: 1px solid rgba(111, 181, 255, 0.36);
   background: linear-gradient(180deg, rgba(8, 13, 32, 0.95), rgba(11, 17, 37, 0.98));
-}
-
-.mobile-bottom-nav-link {
-  min-height: 2.8rem;
-  border-radius: 12px;
-  border: 1px solid rgba(111, 181, 255, 0.25);
-  background: rgba(7, 12, 28, 0.64);
-  color: #d6e8ff;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.78rem;
-  font-weight: 700;
   letter-spacing: 0.03em;
 }
 

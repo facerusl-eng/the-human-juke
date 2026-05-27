@@ -1,6 +1,5 @@
 // --- MirrorJoinQrBlock: Place after imports, before any other code ---
 
-const GIG_WELCOME_MESSAGE = "Welcome! The show is starting. Enjoy the music and have fun!";
 
 // --- MirrorJoinQrBlock: Place after imports, before any other code ---
 type MirrorJoinQrBlockProps = {
@@ -733,19 +732,42 @@ function MirrorLayoutEditorPage() {
 
         {visibleBlocks.nowPlaying ? (
           <section className="mirror-now-playing mirror-frame mirror-frame-now-playing mirror-layout-edit-panel" data-mirror-layout-panel="nowPlaying" onPointerDown={beginPanelDrag('nowPlaying')}>
-          <button type="button" className="mirror-layout-drag-handle" aria-label="Drag now playing panel" onPointerDown={beginInteraction('nowPlaying', 'drag')}>Move</button>
-          <p className="mirror-now-playing-band-label">Now Playing</p>
-          <div className="mirror-now-playing-track">
-            <div className="mirror-now-playing-meta">
-              <h1 className="mirror-title">Now playing block</h1>
-              <p className="mirror-artist">Drag this anywhere on the screen</p>
-              <div className="mirror-song-fact-box">
-                <p className="mirror-song-fact-label">Fact</p>
-                <p className="mirror-song-fact">Stretch this box bigger or smaller to match the look you want.</p>
+            <button type="button" className="mirror-layout-drag-handle" aria-label="Drag now playing panel" onPointerDown={beginInteraction('nowPlaying', 'drag')}>Move</button>
+            <p className="mirror-now-playing-band-label">Now Playing</p>
+            <div className="mirror-now-playing-track">
+              <div className="mirror-now-playing-meta">
+                {isQuoteModeActive ? (
+                  <div className="now-playing-media now-playing-between-songs">
+                    <p className="between-songs-quote">{displayedBetweenSongMessage}</p>
+                    {playbackTransitionStatusText ? <p className="subcopy no-margin">{playbackTransitionStatusText}</p> : null}
+                  </div>
+                ) : (
+                  <div className="now-playing-media now-playing-media-stacked">
+                    <h2>{activeSong?.title ?? 'Loading...'}</h2>
+                    <p className="artist now-playing-artist">{activeSong?.artist ?? ''}</p>
+                    <div className="now-playing-artwork-slot">
+                      {activeSong?.cover_url ? (
+                        <img
+                          src={activeSong.cover_url}
+                          alt={`Cover art for ${activeSong?.title ?? 'current song'}`}
+                          className="song-cover song-cover-large"
+                        />
+                      ) : (
+                        <span className="song-cover song-cover-large song-cover-fallback now-playing-cover-fallback" aria-hidden="true">
+                          {activeSong?.audience_sings ? '🎤' : '♪'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="now-playing-fact-box" aria-live="polite">
+                      <p key={`${activeSong?.id ?? 'unknown'}-${currentFactIndex}`} className="now-playing-fact">
+                        {currentSongFact}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-          <button type="button" className="mirror-layout-resize-handle" aria-label="Resize now playing panel" onPointerDown={beginInteraction('nowPlaying', 'resize')} />
+            <button type="button" className="mirror-layout-resize-handle" aria-label="Resize now playing panel" onPointerDown={beginInteraction('nowPlaying', 'resize')} />
           </section>
         ) : null}
 
@@ -4470,7 +4492,7 @@ function MirrorPage() {
     if (event?.roomOpen && !hasShownWelcome) {
       setShowWelcome(true);
       setHasShownWelcome(true);
-      const timer = setTimeout(() => setShowWelcome(false), 5000);
+      const timer = setTimeout(() => setShowWelcome(false), 15000); // Show for 15 seconds
       return () => clearTimeout(timer);
     }
   }, [event?.roomOpen, hasShownWelcome]);
@@ -4479,13 +4501,7 @@ function MirrorPage() {
     return <MirrorLayoutEditorPage />
   }
   return <>
-    {showWelcome && (
-      <div className="mirror-welcome-overlay">
-        <div className="mirror-welcome-message">
-          {GIG_WELCOME_MESSAGE}
-        </div>
-      </div>
-    )}
+    {/* Welcome overlay removed */}
     <MirrorPageContent />
   </>;
 }

@@ -1,3 +1,51 @@
+/* Lyrics Page Styles */
+.audience-lyrics-page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 32px 16px 64px 16px;
+  background: var(--color-bg, #181818);
+  color: var(--color-fg, #fff);
+  border-radius: 18px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+  text-align: center;
+}
+.audience-lyrics-title {
+  font-size: 2rem;
+  margin-bottom: 18px;
+  font-weight: 700;
+}
+.audience-lyrics-text {
+  white-space: pre-wrap;
+  font-size: 1.15rem;
+  line-height: 1.6;
+  background: rgba(0,0,0,0.15);
+  border-radius: 10px;
+  padding: 18px 12px;
+  margin: 0 auto 24px auto;
+  text-align: left;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.sing-along-btn {
+  background: linear-gradient(90deg, #ffb347 0%, #ffcc33 100%);
+  color: #222;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 28px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 10px;
+}
+.sing-along-btn:hover, .sing-along-btn:focus {
+  background: linear-gradient(90deg, #ffe066 0%, #ffd700 100%);
+  color: #111;
+}
+.error-text {
+  color: #ff4d4f;
+  font-weight: 500;
+  margin: 18px 0;
+}
 /* ═══════════════════════════════════════════════════════════════
    KaraFun-inspired Audience Theme
    Scoped under .audience-karafun — no impact on host/admin views.
