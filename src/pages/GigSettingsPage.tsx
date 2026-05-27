@@ -852,12 +852,16 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
     mirrorCountdownEnabled: event.mirrorCountdownEnabled,
     mirrorCountdownShowQrLink: event.mirrorCountdownShowQrLink ?? true,
     mirrorCountdownQrLink: event.mirrorCountdownQrLink ?? '',
-    mirrorCountdownQrCustomEnabled: event.mirrorCountdownQrCustomEnabled ?? false,
+    mirrorCountdownQrCustomEnabled: (typeof event.mirrorCountdownQrCustomEnabled === 'boolean')
+      ? event.mirrorCountdownQrCustomEnabled
+      : !!(event.mirrorCountdownQrCustomUrl && event.mirrorCountdownQrCustomUrl !== ''),
     mirrorCountdownQrCustomUrl: event.mirrorCountdownQrCustomUrl ?? '',
     mirrorCountdownQrText: event.mirrorCountdownQrText ?? '',
     mirrorCountdownQrFlashEnabled: event.mirrorCountdownQrFlashEnabled ?? true,
     mirrorCountdownQrFlashVenue: event.mirrorCountdownQrFlashVenue ?? (event.venue ?? ''),
-    mirrorBreakQrEnabled: event.mirrorBreakQrEnabled ?? false,
+    mirrorBreakQrEnabled: (typeof event.mirrorBreakQrEnabled === 'boolean')
+      ? event.mirrorBreakQrEnabled
+      : !!(event.mirrorBreakQrCustomUrl && event.mirrorBreakQrCustomUrl !== ''),
     mirrorBreakQrCustomUrl: event.mirrorBreakQrCustomUrl ?? '',
     mirrorBannerEnabled: event.mirrorBannerEnabled ?? true,
     allowDuplicateRequests: event.allowDuplicateRequests,
