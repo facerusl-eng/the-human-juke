@@ -1,3 +1,5 @@
+import { MirrorQrCode } from '../components/MirrorQrCode';
+
 // Expanded QueueSong type for all referenced properties
 type QueueSong = {
   id: string;
@@ -791,6 +793,24 @@ function playShutterSound() {
 }
 
 function MirrorPageContent() {
+          // ...existing code...
+          // Render QR code for audience join link
+          const showMirrorQr = !!event?.mirrorCountdownQrLink;
+
+          // ...existing code...
+          return (
+            <div className="mirror-page-root">
+              {/* ...existing content... */}
+              {showMirrorQr && (
+                <div className="mirror-qr-block">
+                  <MirrorQrCode value={event.mirrorCountdownQrLink} size={256} />
+                  <p className="mirror-qr-label">Scan to join the show</p>
+                </div>
+              )}
+              {/* ...existing content... */}
+            </div>
+          );
+          // ...existing code...
         // Layout editor state and effects (moved from top-level)
         const [layoutState, setLayoutState] = useState<MirrorLayoutState>(DEFAULT_MIRROR_LAYOUT_STATE);
         const [visibleBlocks, setVisibleBlocks] = useState<MirrorLayoutVisibilityState>(DEFAULT_MIRROR_LAYOUT_VISIBILITY);
@@ -1498,7 +1518,7 @@ function MirrorPageContent() {
       return
     }
 
-    bannerSaveDebounceTimerRef.current = window.setTimeout(() => {
+    bannerSaveDebounceTimerRef.current = window
       void supabase
         .from('events')
         .update({ mirror_banner_text: nextBannerText || null })
@@ -1798,61 +1818,6 @@ function MirrorPageContent() {
       isCurrent = false
     }
   }, [event?.hostId, eventId, getMirrorNowMs, hostUpcomingEvent])
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !eventId) {
-      setVenueLogoLayoutPreview(null)
-      return
-    }
-
-    const applyPreviewPayload = (rawPayload: unknown) => {
-      const parsedPreview = parseVenueLogoLayoutPreviewMessage(rawPayload)
-
-      if (!parsedPreview || parsedPreview.eventId !== eventId) {
-        return
-      }
-
-      setVenueLogoLayoutPreview(parsedPreview)
-    }
-
-    const savedPreviewText = readTextFromLocalStorage(MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY)
-
-    if (savedPreviewText) {
-      try {
-        applyPreviewPayload(JSON.parse(savedPreviewText))
-      } catch {
-        // Ignore malformed preview payloads.
-      }
-    }
-
-    const onStoragePreview = (storageEvent: StorageEvent) => {
-      if (storageEvent.key !== MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY || !storageEvent.newValue) {
-        return
-      }
-
-      try {
-        applyPreviewPayload(JSON.parse(storageEvent.newValue))
-      } catch {
-        // Ignore malformed preview payloads.
-      }
-    }
-
-    let previewChannel: BroadcastChannel | null = null
-
-    if ('BroadcastChannel' in window) {
-      previewChannel = new BroadcastChannel(MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL)
-      previewChannel.onmessage = (messageEvent: MessageEvent<unknown>) => {
-        applyPreviewPayload(messageEvent.data)
-      }
-    }
-
-    window.addEventListener('storage', onStoragePreview)
-
-    return () => {
-      window.removeEventListener('storage', onStoragePreview)
-      previewChannel?.close()
-    }
-  }, [eventId])
 
   useEffect(() => {
     if (!activeVenueLogoLayoutPreview || !eventId) {
@@ -3215,7 +3180,7 @@ function MirrorPageContent() {
                           </h1>
                           <p className="mirror-artist">
                             {(() => {
-                              const artistText = normalizeMirrorText(activeSong.artist, 'Be first to request a tune.')
+                              const artistText = normalizeMirrorText(activeSong.artist, 'Unknown Artist')
                               return artistText.charAt(0).toUpperCase() + artistText.slice(1)
                             })()}
                           </p>

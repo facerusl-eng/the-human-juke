@@ -17,28 +17,56 @@ export default function LyricsPage() {
     setLoading(true);
     setError(null);
 
-    // Try Genius proxy first
-    fetch(`/api/lyrics-genius?song=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.lyrics) {
-          setLyrics(data.lyrics);
-        } else {
-          // Fallback to lyrics.ovh
-          return fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`)
-            .then(res2 => res2.json())
-            .then(data2 => {
-              if (data2.lyrics) setLyrics(data2.lyrics);
-              else if (demoMode) setLyrics('🎤 This is a demo lyric.\nSing along and have fun!\n[No real lyrics found for this demo song.]');
-              else setError('Lyrics not found.');
-            });
-        }
-      })
-      .catch(() => {
-        if (demoMode) setLyrics('🎤 This is a demo lyric.\nSing along and have fun!\n[No real lyrics found for this demo song.]');
-        else setError('Failed to fetch lyrics.');
-      })
-      .finally(() => setLoading(false));
+    // Helper: try all sources and fuzzy queries
+    const tryAllSources = async () => {
+      const queries = [
+        { t: title, a: artist },
+        { t: title.replace(/\(.*?\)/g, '').trim(), a: artist },
+        { t: title, a: artist.replace(/feat\..*$/i, '').trim() },
+        { t: artist, a: title },
+      ];
+      // Try backend proxy first (which now does fuzzy + ChartLyrics + AudD)
+      for (const q of queries) {
+        try {
+          const res = await fetch(`/api/lyrics-genius?song=${encodeURIComponent(q.t)}&artist=${encodeURIComponent(q.a)}`);
+          const data = await res.json();
+          if (data.lyrics) {
+            setLyrics(data.lyrics);
+            setLoading(false);
+            return;
+          }
+        } catch {}
+      }
+      // Fallback: try lyrics.ovh
+      for (const q of queries) {
+        try {
+          const res2 = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(q.a)}/${encodeURIComponent(q.t)}`);
+          const data2 = await res2.json();
+          if (data2.lyrics) {
+            setLyrics(data2.lyrics);
+            setLoading(false);
+            return;
+          }
+        } catch {}
+      }
+      // Fallback: try ChartLyrics directly
+      for (const q of queries) {
+        try {
+          const url = `https://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=${encodeURIComponent(q.a)}&song=${encodeURIComponent(q.t)}`;
+          const res3 = await fetch(url);
+          const text = await res3.text();
+          const match = text.match(/<Lyric>([\s\S]*?)<\/Lyric>/);
+          if (match && match[1] && match[1].trim().length > 0) {
+            setLyrics(match[1].trim());
+            setLoading(false);
+            return;
+          }
+        } catch {}
+      }
+      setLyrics('🎤 Sorry, no lyrics found for this song. Try another song or check back later.');
+      setLoading(false);
+    };
+    tryAllSources();
   }, [title, artist]);
 
   return (
