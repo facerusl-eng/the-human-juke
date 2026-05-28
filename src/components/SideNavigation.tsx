@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, ListMusic, MessageSquareMore, PlusCircle, Settings, Sliders, Tv } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, LayoutDashboard, ListMusic, MessageSquareMore, PlusCircle, Settings, Sliders, Tv } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 
@@ -58,6 +58,12 @@ const NAV_ITEMS: NavEntry[] = [
     match: (path) => path === '/',
   },
   {
+    label: 'Dashboard',
+    to: '/admin',
+    icon: LayoutDashboard,
+    match: (path) => path === '/admin',
+  },
+  {
     label: 'Requests',
     to: '/audience',
     icon: MessageSquareMore,
@@ -66,7 +72,7 @@ const NAV_ITEMS: NavEntry[] = [
   {
     label: 'Gigs',
     icon: CalendarDays,
-    groupMatch: (path) => path.startsWith('/admin/gig') || path.startsWith('/admin/create-gig'),
+    groupMatch: (path) => path.startsWith('/admin/gig') || path.startsWith('/admin/create-gig') || path.startsWith('/admin/setlist-library'),
     children: [
       {
         label: 'Gig List',
@@ -91,6 +97,12 @@ const NAV_ITEMS: NavEntry[] = [
         to: '/admin/create-gig',
         icon: PlusCircle,
         match: (path) => path.startsWith('/admin/create-gig'),
+      },
+      {
+        label: 'Create Setlist',
+        to: '/admin/setlist-library',
+        icon: ListMusic,
+        match: (path) => path.startsWith('/admin/setlist-library'),
       },
     ],
   },
