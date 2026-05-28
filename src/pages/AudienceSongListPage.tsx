@@ -1009,7 +1009,7 @@ function AudienceSongListPage() {
                 className="audience-song-choice-cover"
               />
             ) : null}
-            <p className="eyebrow">{copy.selected}</p>
+            <p className="eyebrow audience-song-choice-selected-eyebrow">{copy.selected}</p>
             <h2>{normalizeDisplayText(selectedSong.title, copy.untitledSong)}</h2>
             <p className="subcopy">{normalizeDisplayText(selectedSong.artist, copy.unknownArtist)}</p>
             <div className="audience-song-choice-actions">
