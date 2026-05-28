@@ -107,11 +107,45 @@ function readFileAsDataUrl(file: File) {
 }
 
 function sanitizeCell(value: string) {
-  return value.trim().replace(/^"|"$/g, '').trim()
+  return value
+    .trim()
+    .replace(/^\uFEFF/, '')
+    .replace(/^"|"$/g, '')
+    .trim()
 }
 
 function parseDelimitedLine(line: string, delimiter: string) {
-  return line.split(delimiter).map((part) => sanitizeCell(part))
+  const parts: string[] = []
+  let current = ''
+  let inQuotes = false
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index]
+
+    if (character === '"') {
+      const nextCharacter = line[index + 1]
+
+      if (inQuotes && nextCharacter === '"') {
+        current += '"'
+        index += 1
+      } else {
+        inQuotes = !inQuotes
+      }
+
+      continue
+    }
+
+    if (character === delimiter && !inQuotes) {
+      parts.push(sanitizeCell(current))
+      current = ''
+      continue
+    }
+
+    current += character
+  }
+
+  parts.push(sanitizeCell(current))
+  return parts
 }
 
 function detectDelimiter(line: string) {
