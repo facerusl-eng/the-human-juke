@@ -901,39 +901,50 @@ function AudienceSongListPage() {
                 className="audience-song-list-grid audience-song-list-viewport"
                 aria-label={effectiveSetlist === 'karaoke' ? copy.karaokeSongsLabel : copy.jukeboxSongsLabel}
               >
-                {activeRows.map((row) => (
-                  <li
-                    key={row.song.id}
-                    className="audience-song-list-item"
-                  >
-                    {row.sectionLabel ? <p className="curated-section-label" aria-hidden="true">{row.sectionLabel}</p> : null}
-                    <button
-                      type="button"
-                      className={`audience-song-list-card${effectiveSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}`}
-                      disabled={isFinalSongRequestsClosed}
-                      onClick={() => handleSelectSong(row.song)}
+                {activeRows.map((row) => {
+                  const isQueued = queuedLibrarySongIds.has(row.song.id)
+                  const isSelected = selectedSong?.id === row.song.id
+                  const isHighlighted = isQueued || isSelected
+
+                  return (
+                    <li
+                      key={row.song.id}
+                      className={`audience-song-list-item${isHighlighted ? ' is-highlighted' : ''}`}
                     >
-                      {row.song.cover_url ? (
-                        <img
-                          src={normalizeCoverUrl(row.song.cover_url) ?? row.song.cover_url}
-                          alt={`Cover art for ${row.title}`}
-                          className="audience-song-list-cover"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      ) : (
-                        <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
-                      )}
-                      <span className="audience-song-list-copy">
-                        <span className="audience-song-list-title">{row.title}</span>
-                        <span className="audience-song-list-artist">{row.artist}</span>
-                        {effectiveSetlist === 'karaoke' ? <span className="karaoke-tag">{copy.iSing}</span> : null}
-                        {row.song.is_explicit ? <span className="curated-pick-meta">{copy.explicit}</span> : null}
-                        {queuedLibrarySongIds.has(row.song.id) ? <span className="audience-song-queued-badge">✓ {copy.selected}</span> : null}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                      {row.sectionLabel ? <p className="curated-section-label" aria-hidden="true">{row.sectionLabel}</p> : null}
+                      <button
+                        type="button"
+                        className={`audience-song-list-card${effectiveSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}${isQueued ? ' is-queued' : ''}${isSelected ? ' is-selected' : ''}`}
+                        aria-pressed={isSelected}
+                        disabled={isFinalSongRequestsClosed}
+                        onClick={() => handleSelectSong(row.song)}
+                      >
+                        {row.song.cover_url ? (
+                          <img
+                            src={normalizeCoverUrl(row.song.cover_url) ?? row.song.cover_url}
+                            alt={`Cover art for ${row.title}`}
+                            className="audience-song-list-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <span className="audience-song-list-cover song-cover-fallback" aria-hidden="true">♪</span>
+                        )}
+                        <span className="audience-song-list-copy">
+                          <span className="audience-song-list-title">{row.title}</span>
+                          <span className="audience-song-list-artist">{row.artist}</span>
+                          {effectiveSetlist === 'karaoke' ? <span className="karaoke-tag">{copy.iSing}</span> : null}
+                          {row.song.is_explicit ? <span className="curated-pick-meta">{copy.explicit}</span> : null}
+                        </span>
+                        {isHighlighted ? (
+                          <span className="audience-song-list-selection-badge" aria-hidden="true">
+                            {isQueued ? `✓ ${copy.selected}` : copy.selected}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
               {!activeRows.length ? (
                 <p className="subcopy">
