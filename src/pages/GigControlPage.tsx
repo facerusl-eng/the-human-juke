@@ -3693,47 +3693,51 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
       {isFocusedGigControlWindow ? (
         <section className="queue-panel gig-control-focus-toolbar" aria-label="Focus window actions">
-          <div className="hero-actions no-margin-bottom">
-            <button type="button" className="secondary-button" onClick={handleGoBackToGigControl}>
-              Go Back to Gig Control
-            </button>
-            <button type="button" className="ghost-button" onClick={handleEnterFocusFullscreen}>
-              Enter Fullscreen
-            </button>
+          <div className="gig-focus-toolbar-sides">
+            <div className="hero-actions no-margin-bottom gig-focus-toolbar-nav-actions">
+              <button type="button" className="secondary-button" onClick={handleGoBackToGigControl}>
+                Go Back to Gig Control
+              </button>
+              <button type="button" className="ghost-button" onClick={handleEnterFocusFullscreen}>
+                Enter Fullscreen
+              </button>
+            </div>
+            <div className="gig-focus-toolbar-spotify-stack">
+              <div className="hero-actions no-margin-bottom gig-focus-spotify-actions">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => {
+                    sendManualSpotifyTransportCommand('previous')
+                  }}
+                  disabled={!spotifyAccessToken}
+                >
+                  Spotify Previous
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    sendManualSpotifyTransportCommand('play')
+                  }}
+                  disabled={!spotifyAccessToken}
+                >
+                  Spotify Play
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => {
+                    sendManualSpotifyTransportCommand('next')
+                  }}
+                  disabled={!spotifyAccessToken}
+                >
+                  Spotify Next
+                </button>
+              </div>
+              {spotifyStatusText ? <p className="meta-badge gig-focus-spotify-status" role="status" aria-live="polite">{spotifyStatusText}</p> : null}
+            </div>
           </div>
-          <div className="hero-actions no-margin-bottom gig-focus-spotify-actions">
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => {
-                sendManualSpotifyTransportCommand('previous')
-              }}
-              disabled={!spotifyAccessToken}
-            >
-              Spotify Previous
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                sendManualSpotifyTransportCommand('play')
-              }}
-              disabled={!spotifyAccessToken}
-            >
-              Spotify Play
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => {
-                sendManualSpotifyTransportCommand('next')
-              }}
-              disabled={!spotifyAccessToken}
-            >
-              Spotify Next
-            </button>
-          </div>
-          {spotifyStatusText ? <p className="meta-badge gig-focus-spotify-status" role="status" aria-live="polite">{spotifyStatusText}</p> : null}
         </section>
       ) : null}
 
