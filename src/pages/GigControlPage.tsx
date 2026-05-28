@@ -1073,8 +1073,19 @@ function GigControlPage() {
   }, [playbackTransitionState?.countdownTargetMs, playbackTransitionState?.phase])
 
   useEffect(() => {
-    if (audienceConnectionStatus === 'connected') {
+    if (audienceConnectionStatus !== 'connected') {
+      return
+    }
+
+    // Keep the mirror sync badge fresh while realtime stays connected.
+    setLastMirrorSyncAt(Date.now())
+
+    const heartbeatTimerId = window.setInterval(() => {
       setLastMirrorSyncAt(Date.now())
+    }, 5000)
+
+    return () => {
+      window.clearInterval(heartbeatTimerId)
     }
   }, [audienceConnectionStatus])
 
@@ -1259,9 +1270,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     await completionPromise
-    // Pause Spotify again after intro, just in case
-    await sendSpotifyTransportCommand('pause', { force: true })
-    await sendSpotifyWebApiTransportCommand('pause')
+    // Resume Spotify after intro so between-song playlist comes back automatically.
+    await sendSpotifyTransportCommand('play', { force: true })
+    await sendSpotifyWebApiTransportCommand('play')
   } finally {
     introAudioLock = false
   }
