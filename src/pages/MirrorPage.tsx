@@ -4130,6 +4130,11 @@ function MirrorPageContent() {
                   <p className="mirror-countdown-label">{countdownCopy.scheduledStart}</p>
                   <p className="mirror-countdown-value mirror-countdown-value-compact">{countdownStartLabel}</p>
                 </div>
+              ) : isHost && !countdownTarget ? (
+                <div className="mirror-countdown-card mirror-countdown-card-missing" aria-label="Missing show start time">
+                  <p className="mirror-countdown-label">⚠ No countdown set</p>
+                  <p className="mirror-countdown-missing-hint">Set a date &amp; start time in the event settings to show the countdown here.</p>
+                </div>
               ) : null}
             </div>
 

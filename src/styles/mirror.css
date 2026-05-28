@@ -866,6 +866,20 @@
     linear-gradient(145deg, rgba(17, 17, 31, 0.88) 0%, rgba(23, 22, 33, 0.86) 100%);
 }
 
+.mirror-countdown-card-missing {
+  border-color: rgba(255, 180, 40, 0.35);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 180, 40, 0.10) 0%, transparent 52%),
+    linear-gradient(145deg, rgba(20, 15, 8, 0.92) 0%, rgba(26, 20, 10, 0.88) 100%);
+}
+
+.mirror-countdown-missing-hint {
+  margin: 0;
+  font-size: clamp(0.78rem, 1.1vw, 0.9rem);
+  color: rgba(255, 210, 100, 0.8);
+  line-height: 1.4;
+}
+
 .mirror-countdown-label {
   margin: 0;
   font-size: clamp(0.78rem, 1.2vw, 0.94rem);
