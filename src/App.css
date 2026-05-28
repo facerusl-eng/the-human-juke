@@ -9956,7 +9956,8 @@ body.audience-immersive-mode {
 }
 
 .audience-song-list-card.is-selected {
-  transform: scale(1.01);
+  transform: scale(1.012);
+  animation: selected-card-pulse 1.2s ease-in-out infinite;
 }
 
 .audience-song-list-cover {
@@ -9979,16 +9980,49 @@ body.audience-immersive-mode {
   transform: translate(-50%, -50%);
   pointer-events: none;
   border-radius: 999px;
-  border: 1px solid rgba(96, 244, 152, 0.8);
-  background: rgba(5, 29, 20, 0.92);
-  color: #baffd3;
-  padding: 0.28rem 0.72rem;
-  font-size: 0.78rem;
+  border: 1px solid rgba(164, 255, 201, 0.95);
+  background: linear-gradient(135deg, rgba(8, 42, 28, 0.98) 0%, rgba(18, 26, 66, 0.95) 100%);
+  color: #f3fff8;
+  padding: 0.35rem 0.88rem;
+  font-size: 0.8rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  box-shadow: 0 0 20px rgba(96, 244, 152, 0.36);
+  text-shadow: 0 0 8px rgba(164, 255, 201, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(164, 255, 201, 0.42),
+    0 0 24px rgba(96, 244, 152, 0.58);
   z-index: 2;
+  animation: selected-badge-flash 920ms ease-in-out infinite;
+}
+
+@keyframes selected-card-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(96, 244, 152, 0.5),
+      0 10px 22px rgba(10, 36, 28, 0.38);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(146, 255, 190, 0.95),
+      0 0 22px rgba(96, 244, 152, 0.64),
+      0 12px 28px rgba(10, 36, 28, 0.52);
+  }
+}
+
+@keyframes selected-badge-flash {
+  0%,
+  100% {
+    opacity: 0.76;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
 }
 
 .audience-song-list-title {
@@ -10182,18 +10216,20 @@ body.audience-immersive-mode {
   margin: 0 auto;
   width: fit-content;
   text-align: center;
-  padding: 0.26rem 0.9rem;
+  padding: 0.34rem 1.02rem;
   border-radius: 999px;
-  border: 1px solid rgba(96, 244, 152, 0.82);
-  background: linear-gradient(135deg, rgba(6, 30, 21, 0.94) 0%, rgba(26, 18, 52, 0.92) 100%);
-  color: #b8ffd8;
-  letter-spacing: 0.11em;
+  border: 1px solid rgba(164, 255, 201, 0.95);
+  background: linear-gradient(135deg, rgba(8, 42, 28, 0.98) 0%, rgba(19, 28, 66, 0.96) 100%);
+  color: #f3fff8;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-weight: 800;
+  font-weight: 900;
+  font-size: 0.78rem;
+  text-shadow: 0 0 9px rgba(164, 255, 201, 0.45);
   box-shadow:
-    0 0 0 1px rgba(96, 244, 152, 0.35),
-    0 0 18px rgba(96, 244, 152, 0.28);
-  animation: selected-eyebrow-flash 1.15s ease-in-out infinite;
+    0 0 0 1px rgba(164, 255, 201, 0.42),
+    0 0 24px rgba(96, 244, 152, 0.58);
+  animation: selected-eyebrow-flash 0.95s ease-in-out infinite;
 }
 
 @keyframes selected-eyebrow-flash {
@@ -10269,7 +10305,9 @@ body.audience-immersive-mode {
 @media (prefers-reduced-motion: reduce) {
   .audience-song-choice-karaoke-eyebrow,
   .audience-song-choice-karaoke-body,
-  .audience-song-choice-selected-eyebrow {
+  .audience-song-choice-selected-eyebrow,
+  .audience-song-list-selection-badge,
+  .audience-song-list-card.is-selected {
     animation: none;
   }
 }
