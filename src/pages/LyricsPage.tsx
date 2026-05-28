@@ -4,6 +4,44 @@ import { useEffect, useState } from 'react';
 import { demoMode } from '../demo/demoMode';
 import '../audience-karafun.css';
 
+const LYRICS_OVERRIDE_STORAGE_KEY = 'lyrics_manual_overrides_v1';
+
+type LyricsOverridesMap = Record<string, string>;
+
+function buildLyricsOverrideKey(title: string, artist: string) {
+  return `${normalizeLyricsInput(title).toLowerCase()}::${normalizeLyricsInput(artist).toLowerCase()}`;
+}
+
+function readLyricsOverrides(): LyricsOverridesMap {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LYRICS_OVERRIDE_STORAGE_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw) as LyricsOverridesMap;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLyricsOverrides(nextValue: LyricsOverridesMap) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(LYRICS_OVERRIDE_STORAGE_KEY, JSON.stringify(nextValue));
+  } catch {
+    // Non-blocking: user can still read fetched lyrics.
+  }
+}
+
 function normalizeLyricsInput(value: string | null | undefined) {
   return (value ?? '').replace(/\s+/g, ' ').trim();
 }
@@ -58,15 +96,38 @@ export default function LyricsPage() {
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [manualLyricsDraft, setManualLyricsDraft] = useState('');
+  const [showManualEditor, setShowManualEditor] = useState(false);
+  const [hasManualOverride, setHasManualOverride] = useState(false);
+  const [manualSaveStatus, setManualSaveStatus] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     if (!title || !artist) {
       setError('Missing song information. Please go back and tap Sing Along again.');
       return;
     }
+
     setLoading(true);
     setError(null);
     setLyrics(null);
+    setManualSaveStatus(null);
+
+    const overrideMap = readLyricsOverrides();
+    const primaryOverrideKey = buildLyricsOverrideKey(title, artist);
+    const fallbackKeys = buildLyricsQueries(title, artist).map((query) => buildLyricsOverrideKey(query.t, query.a));
+    const manualOverride = [primaryOverrideKey, ...fallbackKeys]
+      .map((key) => overrideMap[key])
+      .find((value) => typeof value === 'string' && value.trim().length > 0);
+
+    if (manualOverride) {
+      setHasManualOverride(true);
+      setLyrics(manualOverride.trim());
+      setLoading(false);
+      return;
+    }
+
+    setHasManualOverride(false);
 
     const tryAllSources = async () => {
       const queries = buildLyricsQueries(title, artist);
@@ -97,7 +158,47 @@ export default function LyricsPage() {
     };
 
     tryAllSources();
-  }, [title, artist]);
+  }, [title, artist, reloadNonce]);
+
+  const saveManualLyricsOverride = () => {
+    const normalizedLyrics = manualLyricsDraft.trim();
+
+    if (!title || !artist) {
+      setManualSaveStatus('Missing song context. Go back and open Sing Along again.');
+      return;
+    }
+
+    if (!normalizedLyrics) {
+      setManualSaveStatus('Paste lyrics before saving.');
+      return;
+    }
+
+    const nextOverrides = readLyricsOverrides();
+    const key = buildLyricsOverrideKey(title, artist);
+    nextOverrides[key] = normalizedLyrics;
+    writeLyricsOverrides(nextOverrides);
+
+    setHasManualOverride(true);
+    setLyrics(normalizedLyrics);
+    setShowManualEditor(false);
+    setManualSaveStatus('Saved. These lyrics will always be used for this song.');
+  };
+
+  const removeManualLyricsOverride = () => {
+    if (!title || !artist) {
+      return;
+    }
+
+    const key = buildLyricsOverrideKey(title, artist);
+    const nextOverrides = readLyricsOverrides();
+    delete nextOverrides[key];
+    writeLyricsOverrides(nextOverrides);
+
+    setHasManualOverride(false);
+    setManualLyricsDraft('');
+    setManualSaveStatus('Removed saved override. Re-checking online lyrics...');
+    setReloadNonce((current) => current + 1);
+  };
 
   return (
     <div className="audience-lyrics-page">
@@ -108,6 +209,45 @@ export default function LyricsPage() {
       {loading && <p>Loading lyrics…</p>}
       {error && <p className="error-text">{error}</p>}
       {lyrics && <pre className="audience-lyrics-text">{lyrics}</pre>}
+      {!loading && title && artist ? (
+        <div style={{ display: 'grid', gap: '0.5rem', marginTop: '1rem' }}>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => setShowManualEditor((current) => !current)}
+          >
+            {showManualEditor ? 'Hide manual lyrics editor' : 'Paste manual lyrics'}
+          </button>
+          {hasManualOverride ? (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={removeManualLyricsOverride}
+            >
+              Remove saved lyrics override
+            </button>
+          ) : null}
+          {showManualEditor ? (
+            <>
+              <textarea
+                value={manualLyricsDraft}
+                onChange={(event) => setManualLyricsDraft(event.target.value)}
+                rows={12}
+                placeholder="Paste lyrics here. Saved lyrics override API results for this song."
+                style={{ width: '100%', resize: 'vertical' }}
+              />
+              <button
+                type="button"
+                className="primary-button"
+                onClick={saveManualLyricsOverride}
+              >
+                Save manual lyrics for this song
+              </button>
+            </>
+          ) : null}
+          {manualSaveStatus ? <p>{manualSaveStatus}</p> : null}
+        </div>
+      ) : null}
     </div>
   );
 }
