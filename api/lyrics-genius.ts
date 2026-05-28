@@ -5,8 +5,65 @@ import * as cheerio from 'cheerio';
 const GENIUS_API_BASE = 'https://api.genius.com';
 const GENIUS_ACCESS_TOKEN = process.env.GENIUS_ACCESS_TOKEN;
 
+const PROVIDER_BASE_SCORE = {
+  genius: 100,
+  musixmatch: 95,
+  audd: 80,
+  chartlyrics: 72,
+  'lyrics.ovh': 65,
+} as const;
+
+type ProviderName = keyof typeof PROVIDER_BASE_SCORE;
+type VariantPair = { title: string; artist: string };
+type LyricsCandidate = {
+  lyrics: string;
+  source: ProviderName;
+  variant: VariantPair;
+  qualityScore: number;
+  confidenceScore: number;
+};
+
 function normalizeText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeComparable(value: string) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function calculateTokenOverlapScore(expected: string, actual: string) {
+  const expectedTokens = new Set(normalizeComparable(expected).split(' ').filter(Boolean));
+  const actualTokens = new Set(normalizeComparable(actual).split(' ').filter(Boolean));
+
+  if (expectedTokens.size === 0 || actualTokens.size === 0) {
+    return 0;
+  }
+
+  let overlap = 0;
+  for (const token of expectedTokens) {
+    if (actualTokens.has(token)) {
+      overlap += 1;
+    }
+  }
+
+  return overlap / Math.max(expectedTokens.size, actualTokens.size);
+}
+
+function scoreLyricsQuality(lyrics: string) {
+  const lineCount = lyrics.split(/\n+/).filter((line) => line.trim().length > 0).length;
+  const lengthScore = Math.min(30, lyrics.length / 45);
+  const lineScore = Math.min(22, lineCount * 1.6);
+  const structureBonus = /\[[^\]]+\]/.test(lyrics) ? 6 : 0;
+
+  return Math.round(lengthScore + lineScore + structureBonus);
+}
+
+function scoreCandidate(candidate: LyricsCandidate) {
+  return PROVIDER_BASE_SCORE[candidate.source] + candidate.qualityScore + candidate.confidenceScore;
 }
 
 function stripTitleNoise(value: string) {
@@ -106,11 +163,31 @@ async function searchGeniusSong(title: string, artist: string): Promise<string |
 
     try {
       const response = await fetchWithRetry(() => axios.get(url, { headers, timeout: 9000 }), 1);
-      const hits = response.data?.response?.hits as Array<{ result?: { url?: string } }> | undefined;
-      const firstUrl = hits?.[0]?.result?.url;
+      const hits = response.data?.response?.hits as Array<{
+        result?: { url?: string; title?: string; full_title?: string; primary_artist?: { name?: string } };
+      }> | undefined;
 
-      if (typeof firstUrl === 'string' && firstUrl.trim()) {
-        return firstUrl;
+      let bestMatch: { url: string; score: number } | null = null;
+
+      for (const hit of hits ?? []) {
+        const hitUrl = hit.result?.url;
+        if (!hitUrl) {
+          continue;
+        }
+
+        const hitTitle = hit.result?.title ?? hit.result?.full_title ?? '';
+        const hitArtist = hit.result?.primary_artist?.name ?? hit.result?.full_title ?? '';
+        const titleOverlap = calculateTokenOverlapScore(title, hitTitle);
+        const artistOverlap = calculateTokenOverlapScore(artist, hitArtist);
+        const score = titleOverlap * 0.7 + artistOverlap * 0.3;
+
+        if (!bestMatch || score > bestMatch.score) {
+          bestMatch = { url: hitUrl, score };
+        }
+      }
+
+      if (bestMatch && bestMatch.score >= 0.2) {
+        return bestMatch.url;
       }
     } catch {
       // Continue with next query/source.
@@ -213,40 +290,80 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const variants = buildVariants(song, artist);
+  let bestCandidate: LyricsCandidate | null = null;
 
   for (const variant of variants) {
+    const registerCandidate = (lyrics: string, source: ProviderName, confidenceScore: number) => {
+      const candidate: LyricsCandidate = {
+        lyrics,
+        source,
+        variant,
+        qualityScore: scoreLyricsQuality(lyrics),
+        confidenceScore,
+      };
+
+      if (!bestCandidate || scoreCandidate(candidate) > scoreCandidate(bestCandidate)) {
+        bestCandidate = candidate;
+      }
+
+      // High-confidence winner: stop searching to keep latency low.
+      if (source === 'genius' && candidate.qualityScore >= 25) {
+        return true;
+      }
+
+      if (scoreCandidate(candidate) >= 135) {
+        return true;
+      }
+
+      return false;
+    };
+
     const geniusUrl = await searchGeniusSong(variant.title, variant.artist);
     if (geniusUrl) {
       const geniusLyrics = await scrapeGeniusLyrics(geniusUrl);
       if (geniusLyrics) {
-        res.status(200).json({ lyrics: geniusLyrics, source: 'genius', variant });
-        return;
+        if (registerCandidate(geniusLyrics, 'genius', 12)) {
+          break;
+        }
+      }
+    }
+
+    const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
+    if (musixmatchLyrics) {
+      if (registerCandidate(musixmatchLyrics, 'musixmatch', 8)) {
+        break;
+      }
+    }
+
+    const auddLyrics = await fetchAudDLyrics(variant.title, variant.artist);
+    if (auddLyrics) {
+      if (registerCandidate(auddLyrics, 'audd', 7)) {
+        break;
+      }
+    }
+
+    const chartLyrics = await fetchChartLyrics(variant.title, variant.artist);
+    if (chartLyrics) {
+      if (registerCandidate(chartLyrics, 'chartlyrics', 5)) {
+        break;
       }
     }
 
     const lyricsOvh = await fetchLyricsOvh(variant.title, variant.artist);
     if (lyricsOvh) {
-      res.status(200).json({ lyrics: lyricsOvh, source: 'lyrics.ovh', variant });
-      return;
+      if (registerCandidate(lyricsOvh, 'lyrics.ovh', 3)) {
+        break;
+      }
     }
+  }
 
-    const chartLyrics = await fetchChartLyrics(variant.title, variant.artist);
-    if (chartLyrics) {
-      res.status(200).json({ lyrics: chartLyrics, source: 'chartlyrics', variant });
-      return;
-    }
-
-    const auddLyrics = await fetchAudDLyrics(variant.title, variant.artist);
-    if (auddLyrics) {
-      res.status(200).json({ lyrics: auddLyrics, source: 'audd', variant });
-      return;
-    }
-
-    const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
-    if (musixmatchLyrics) {
-      res.status(200).json({ lyrics: musixmatchLyrics, source: 'musixmatch', variant });
-      return;
-    }
+  if (bestCandidate) {
+    res.status(200).json({
+      lyrics: bestCandidate.lyrics,
+      source: bestCandidate.source,
+      variant: bestCandidate.variant,
+    });
+    return;
   }
 
   res.status(404).json({ error: 'Lyrics not found in any source' });
