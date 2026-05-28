@@ -3111,7 +3111,8 @@ body.audience-immersive-mode .audience-shell,
 body.audience-immersive-mode .audience-song-list-shell {
   min-height: 100dvh;
   border-radius: 0;
-  overflow: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 body.audience-immersive-mode .audience-fixed-header {
@@ -3119,8 +3120,9 @@ body.audience-immersive-mode .audience-fixed-header {
 }
 
 body.audience-immersive-mode {
-  overflow: hidden;
-  overscroll-behavior: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
 }
 
 .audience-inline-fullscreen-button {
