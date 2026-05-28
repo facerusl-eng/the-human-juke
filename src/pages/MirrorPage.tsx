@@ -120,6 +120,7 @@ const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - g
 const SPOTLIGHT_DURATION_MS = 10000
 const SPOTLIGHT_POLL_INTERVAL_MS = 6000
 const QUOTE_ROTATE_INTERVAL_MS = 20000
+const GO_LIVE_WELCOME_DURATION_MS = 15000
 const SONG_INFO_ROTATE_INTERVAL_MS = 20000
 const SONG_FACT_MAX_LENGTH = 180
 const MIRROR_FUN_FACTS_CACHE_STORAGE_KEY = 'human-jukebox-mirror-fun-facts-cache-v3'
@@ -1446,10 +1447,12 @@ function MirrorPageContent() {
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
   const [fallbackUpcomingEvent, setFallbackUpcomingEvent] = useState<MirrorUpcomingEvent | null>(null)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
+  const [goLiveWelcomeUntilMs, setGoLiveWelcomeUntilMs] = useState<number | null>(null)
   const [hasStartedSongDuringLastSongMode, setHasStartedSongDuringLastSongMode] = useState(false)
   const [forceQuoteMode, setForceQuoteMode] = useState(false)
   const [qrFlashTextIndex, setQrFlashTextIndex] = useState(0)
   const quoteIndexRef = useRef(0)
+  const wasLiveRef = useRef(false)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveInFlightRef = useRef(false)
   const spotlightTimerRef = useRef<number | null>(null)
@@ -1725,6 +1728,7 @@ function MirrorPageContent() {
     : Boolean(playbackState?.isStarted && playbackState.currentSongId)
   const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)
   const isQuoteModeActive = (demoMode && forceQuoteMode) || isBetweenSongs || !activeSong
+  const isGoLiveWelcomeActive = goLiveWelcomeUntilMs !== null && countdownNow < goLiveWelcomeUntilMs
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = useMemo(() => {
     const candidateSongs = isNowPlayingStarted
@@ -1770,8 +1774,8 @@ function MirrorPageContent() {
   const normalizedBetweenSongQuoteIndex = Number.isFinite(betweenSongQuoteIndex)
     ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length
     : 0
-  const openingWelcomeMessage = isBetweenSongs && !isLastSongSoonOverlayMessage(playbackState?.brbMessage)
-    ? getSharedPlaybackDisplayMessage(playbackState?.brbMessage)
+  const openingWelcomeMessage = isBetweenSongs && isGoLiveWelcomeActive && !isLastSongSoonOverlayMessage(playbackState?.brbMessage)
+    ? AUTO_LIVE_WELCOME_MESSAGE
     : null
   const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
     ?? 'Remain calm. The next song is loading.'
@@ -2798,14 +2802,27 @@ function MirrorPageContent() {
   }
 
 
-  // When the show goes live, reset the quote index to 0 so the first message is always the welcome message
   useEffect(() => {
     if (layoutEditMode) {
       return
     }
 
-    if (isLive && quoteIndexRef.current !== 0) {
-      setQuoteIndex(0)
+    const wasLive = wasLiveRef.current
+
+    if (!wasLive && isLive) {
+      setGoLiveWelcomeUntilMs(Date.now() + GO_LIVE_WELCOME_DURATION_MS)
+    }
+
+    if (!isLive) {
+      setGoLiveWelcomeUntilMs(null)
+    }
+
+    wasLiveRef.current = isLive
+  }, [isLive, layoutEditMode])
+
+
+  useEffect(() => {
+    if (layoutEditMode) {
       return
     }
 
@@ -2816,7 +2833,7 @@ function MirrorPageContent() {
     if (normalizedQuoteIndex !== quoteIndexRef.current) {
       setQuoteIndex(normalizedQuoteIndex)
     }
-  }, [isLive, playbackState?.quoteIndex, layoutEditMode])
+  }, [playbackState?.quoteIndex, layoutEditMode])
 
   useEffect(() => {
     if (layoutEditMode) {
@@ -4210,7 +4227,7 @@ function MirrorPageContent() {
                   {isQuoteModeActive ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
-                      <p className="mirror-between-song-quote">{betweenSongQuoteIndex === 0 ? 'Welcome to the show.' : displayedBetweenSongMessage}</p>
+                      <p className="mirror-between-song-quote">{displayedBetweenSongMessage}</p>
                       {playbackTransitionStatusText || !activeSong ? (
                         <p className="mirror-song-waiting-note">{idleSongStatusText}</p>
                       ) : null}
