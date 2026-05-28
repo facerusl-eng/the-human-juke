@@ -1217,13 +1217,33 @@ async function fetchLatestActiveEventId() {
     supabase
       .from('events')
       .select('id')
-      .eq('is_active', true)
       .eq('room_open', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
     DEFAULT_DB_TIMEOUT_MS,
     'Loading the active gig timed out. Please try again.',
+  )
+
+  if (error) {
+    throw error
+  }
+
+  return data?.id ?? null
+}
+
+async function fetchLatestHostActiveEventId(hostId: string) {
+  const { data, error } = await withTimeout(
+    supabase
+      .from('events')
+      .select('id')
+      .eq('host_id', hostId)
+      .eq('room_open', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    DEFAULT_DB_TIMEOUT_MS,
+    'Loading the host live gig timed out. Please try again.',
   )
 
   if (error) {
@@ -2790,6 +2810,14 @@ function QueueProvider({ children }: PropsWithChildren) {
           const nextHostEvents = await withTransientRetry(() => fetchHostEvents(user.id))
           latestHostEvents = nextHostEvents
 
+          const requestedHostEventId = requestedEventId
+            && nextHostEvents.some((nextEvent) => nextEvent.id === requestedEventId)
+            ? requestedEventId
+            : null
+          const liveHostEventId = isMirrorRoutePath()
+            ? await withTransientRetry(() => fetchLatestHostActiveEventId(user.id), 2).catch(() => null)
+            : null
+
           if (isCurrent) {
             setHostEvents(nextHostEvents)
 
@@ -2800,7 +2828,9 @@ function QueueProvider({ children }: PropsWithChildren) {
             }
           }
 
-          targetEventId = nextHostEvents.find((nextEvent) => nextEvent.id === eventId)?.id
+          targetEventId = requestedHostEventId
+            ?? liveHostEventId
+            ?? nextHostEvents.find((nextEvent) => nextEvent.id === eventId)?.id
             ?? nextHostEvents.find((nextEvent) => nextEvent.isActive)?.id
             ?? nextHostEvents[0]?.id
             ?? null
