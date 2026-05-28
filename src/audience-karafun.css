@@ -73,6 +73,41 @@
   font-weight: 500;
   margin: 18px 0;
 }
+
+.lyrics-manual-entry {
+  margin: 0 auto 1rem;
+  padding: 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 179, 71, 0.5);
+  background: rgba(20, 14, 8, 0.78);
+  text-align: left;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.lyrics-manual-entry h2 {
+  margin: 0;
+  font-size: 1rem;
+  color: #ffe4ad;
+}
+
+.lyrics-manual-entry .subcopy {
+  margin: 0;
+  color: rgba(255, 225, 168, 0.86);
+}
+
+.lyrics-manual-entry-input {
+  width: 100%;
+  min-height: 190px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(6, 10, 20, 0.82);
+  color: #f5f8ff;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  padding: 0.7rem;
+  resize: vertical;
+}
 /* ═══════════════════════════════════════════════════════════════
    KaraFun-inspired Audience Theme
    Scoped under .audience-karafun — no impact on host/admin views.

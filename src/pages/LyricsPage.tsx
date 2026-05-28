@@ -2,6 +2,8 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { demoMode } from '../demo/demoMode';
+import { useAuthStore } from '../state/authStore';
+import { supabase } from '../lib/supabase';
 import { cacheFoundLyrics, getAutoCachedLyrics, getLyricsPrefetchStatus, markLyricsNotFound } from '../lib/lyricsPrefetch';
 import '../audience-karafun.css';
 
@@ -52,13 +54,21 @@ export default function LyricsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
-  const stateTitle = (location.state as { title?: string } | null)?.title;
-  const stateArtist = (location.state as { artist?: string } | null)?.artist;
+  const routeState = (location.state as { title?: string; artist?: string; librarySongId?: string | null } | null) ?? null;
+  const stateTitle = routeState?.title;
+  const stateArtist = routeState?.artist;
+  const stateLibrarySongId = routeState?.librarySongId ?? null;
   const title = normalizeLyricsInput(stateTitle || searchParams.get('title'));
   const artist = normalizeLyricsInput(stateArtist || searchParams.get('artist'));
+  const librarySongId = normalizeLyricsInput(stateLibrarySongId || searchParams.get('songId'));
+  const { isHost } = useAuthStore();
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lyricsNotFound, setLyricsNotFound] = useState(false);
+  const [manualLyricsInput, setManualLyricsInput] = useState('');
+  const [manualSaveMessage, setManualSaveMessage] = useState<string | null>(null);
+  const [savingManualLyrics, setSavingManualLyrics] = useState(false);
 
   useEffect(() => {
     if (!title || !artist) {
@@ -69,11 +79,38 @@ export default function LyricsPage() {
     setLoading(true);
     setError(null);
     setLyrics(null);
+    setLyricsNotFound(false);
+    setManualSaveMessage(null);
+    setManualLyricsInput('');
 
-    // Check lyrics that were pre-fetched when the song was added to the queue.
+    // First, check if host already saved manual lyrics directly on this library song.
+    const loadLyrics = async () => {
+      if (librarySongId && !demoMode) {
+        try {
+          const { data, error: fetchSongError } = await supabase
+            .from('library_songs')
+            .select('manual_lyrics')
+            .eq('id', librarySongId)
+            .maybeSingle();
+
+          const songManualLyrics = typeof data?.manual_lyrics === 'string' ? data.manual_lyrics.trim() : '';
+
+          if (!fetchSongError && songManualLyrics) {
+            cacheFoundLyrics(title, artist, songManualLyrics);
+            setLyrics(songManualLyrics);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // Continue with cache/API fallback.
+        }
+      }
+
+      // Check lyrics that were pre-fetched when the song was added to the queue.
     const autoCached = getAutoCachedLyrics(title, artist);
     if (autoCached) {
       setLyrics(autoCached.trim());
+      setLyricsNotFound(false);
       setLoading(false);
       return;
     }
@@ -83,7 +120,7 @@ export default function LyricsPage() {
     const prefetchStatus = getLyricsPrefetchStatus(title, artist);
     void prefetchStatus;
 
-    const tryAllSources = async () => {
+      const tryAllSources = async () => {
       const queries = buildLyricsQueries(title, artist);
 
       for (const q of queries) {
@@ -100,6 +137,7 @@ export default function LyricsPage() {
           if (resolvedLyrics.length > 0) {
             cacheFoundLyrics(title, artist, resolvedLyrics);
             setLyrics(resolvedLyrics);
+            setLyricsNotFound(false);
             setLoading(false);
             return;
           }
@@ -109,12 +147,51 @@ export default function LyricsPage() {
       }
 
       markLyricsNotFound(title, artist);
-      setLyrics('No lyrics found for this song right now. Try another version/title spelling or try again in a moment.');
+      setLyricsNotFound(true);
       setLoading(false);
     };
 
-    tryAllSources();
-  }, [title, artist]);
+      await tryAllSources();
+    };
+
+    void loadLyrics();
+  }, [title, artist, librarySongId]);
+
+  const saveManualLyrics = async () => {
+    const normalizedLyrics = manualLyricsInput.trim();
+
+    if (!normalizedLyrics) {
+      setManualSaveMessage('Paste lyrics first.');
+      return;
+    }
+
+    setSavingManualLyrics(true);
+
+    cacheFoundLyrics(title, artist, normalizedLyrics);
+
+    if (librarySongId && !demoMode) {
+      try {
+        const { error: updateSongError } = await supabase
+          .from('library_songs')
+          .update({ manual_lyrics: normalizedLyrics })
+          .eq('id', librarySongId);
+
+        if (updateSongError) {
+          setManualSaveMessage('Saved locally, but could not persist to song record yet.');
+        } else {
+          setManualSaveMessage('Manual lyrics saved to this song. Next time it loads automatically.');
+        }
+      } catch {
+        setManualSaveMessage('Saved locally, but song persistence failed this time.');
+      }
+    } else {
+      setManualSaveMessage('Manual lyrics saved locally for this title/artist.');
+    }
+
+    setLyrics(normalizedLyrics);
+    setLyricsNotFound(false);
+    setSavingManualLyrics(false);
+  };
 
   return (
     <div className="audience-lyrics-page">
@@ -124,6 +201,28 @@ export default function LyricsPage() {
       <h1 className="audience-lyrics-title">Sing Along: {title} – {artist}</h1>
       {loading && <p>Loading lyrics…</p>}
       {error && <p className="error-text">{error}</p>}
+      {lyricsNotFound ? (
+        <p className="error-text">No lyrics found automatically right now.</p>
+      ) : null}
+
+      {isHost && lyricsNotFound ? (
+        <section className="lyrics-manual-entry" aria-label="Manual lyrics fallback">
+          <h2>Admin fallback: Paste lyrics manually</h2>
+          <p className="subcopy">API did not return lyrics for this song. Paste and save to continue.</p>
+          <textarea
+            className="lyrics-manual-entry-input"
+            value={manualLyricsInput}
+            onChange={(event) => setManualLyricsInput(event.target.value)}
+            placeholder="Paste lyrics here..."
+            rows={10}
+          />
+          <button type="button" className="primary-button" onClick={() => { void saveManualLyrics(); }} disabled={savingManualLyrics}>
+            {savingManualLyrics ? 'Saving…' : 'Save Manual Lyrics'}
+          </button>
+          {manualSaveMessage ? <p className="subcopy">{manualSaveMessage}</p> : null}
+        </section>
+      ) : null}
+
       {lyrics && <pre className="audience-lyrics-text">{lyrics}</pre>}
     </div>
   );

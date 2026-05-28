@@ -1,9 +1,10 @@
 
 // Sing Along Button Component (module scope)
-function SingAlongButton(props: { title: string; artist: string }) {
+function SingAlongButton(props: { title: string; artist: string; librarySongId?: string | null }) {
   const navigate = useNavigate();
   const titleParam = encodeURIComponent(props.title ?? '');
   const artistParam = encodeURIComponent(props.artist ?? '');
+  const songIdParam = props.librarySongId ? `&songId=${encodeURIComponent(props.librarySongId)}` : '';
   const lyricsStatus = getLyricsPrefetchStatus(props.title, props.artist);
   const needsManualLyrics = lyricsStatus === 'not_found';
   return (
@@ -12,7 +13,9 @@ function SingAlongButton(props: { title: string; artist: string }) {
         className="primary-button sing-along-btn"
         onClick={() => {
           prefetchAndCacheLyrics(props.title, props.artist)
-          navigate(`/lyrics?title=${titleParam}&artist=${artistParam}`, { state: { title: props.title, artist: props.artist } })
+          navigate(`/lyrics?title=${titleParam}&artist=${artistParam}${songIdParam}`, {
+            state: { title: props.title, artist: props.artist, librarySongId: props.librarySongId },
+          })
         }}
       >
         🎤 Sing Along
@@ -3593,7 +3596,11 @@ function EventPage() {
               <p className="artist now-playing-artist">{displaySong?.artist ?? copy.requestPrompt}</p>
                 {/* Sing Along Button */}
                 {displaySong?.title && displaySong?.artist && (
-                  <SingAlongButton title={displaySong.title} artist={displaySong.artist} />
+                  <SingAlongButton
+                    title={displaySong.title}
+                    artist={displaySong.artist}
+                    librarySongId={displaySong.library_song_id}
+                  />
                 )}
               <div className="now-playing-artwork-slot">
                 {displaySongCoverUrl ? (
