@@ -2,6 +2,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { demoMode } from '../demo/demoMode';
+import { getAutoCachedLyrics, getLyricsPrefetchStatus } from '../lib/lyricsPrefetch';
 import '../audience-karafun.css';
 
 const LYRICS_OVERRIDE_STORAGE_KEY = 'lyrics_manual_overrides_v1';
@@ -128,6 +129,25 @@ export default function LyricsPage() {
     }
 
     setHasManualOverride(false);
+
+    // Check lyrics that were pre-fetched when the song was added to the queue.
+    const autoCached = getAutoCachedLyrics(title, artist);
+    if (autoCached) {
+      setLyrics(autoCached.trim());
+      setLoading(false);
+      return;
+    }
+
+    // If the prefetch already determined no lyrics exist, skip the slow API
+    // calls and open the manual editor so the host can paste lyrics now.
+    const prefetchStatus = getLyricsPrefetchStatus(title, artist);
+    if (prefetchStatus === 'not_found') {
+      setLyrics(null);
+      setShowManualEditor(true);
+      setManualSaveStatus('No lyrics were found automatically for this song. Paste lyrics below to enable sing-along.');
+      setLoading(false);
+      return;
+    }
 
     const tryAllSources = async () => {
       const queries = buildLyricsQueries(title, artist);

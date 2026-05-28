@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { prefetchAndCacheLyrics } from '../../lib/lyricsPrefetch'
 import { supabase } from '../../lib/supabase'
 import { Card, PrimaryButton, SectionHeader } from '../ui'
 import CustomSongForm from './CustomSongForm'
@@ -123,6 +124,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
         performerMode: song.playlist_type === 'karaoke' ? 'audience' : 'performer',
         bypassEventRules: true,
       })
+      prefetchAndCacheLyrics(song.title, song.artist)
       showToast(`${song.title} added to queue.`, 'success')
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not add playlist song to queue.', 'error')
@@ -144,6 +146,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
         performerMode: 'performer',
         bypassEventRules: true,
       })
+      prefetchAndCacheLyrics(song.title, song.artist?.trim() || 'Unknown Artist')
       showToast(`${song.title} added to queue.`, 'success')
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not add custom song to queue.', 'error')
@@ -189,6 +192,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
           performerMode: song.playlist_type === 'karaoke' ? 'audience' : 'performer',
           bypassEventRules: true,
         })
+        prefetchAndCacheLyrics(song.title, song.artist)
         addedCount += 1
       } catch (error) {
         if (!firstErrorMessage) {

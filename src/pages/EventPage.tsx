@@ -4,13 +4,22 @@ function SingAlongButton(props: { title: string; artist: string }) {
   const navigate = useNavigate();
   const titleParam = encodeURIComponent(props.title ?? '');
   const artistParam = encodeURIComponent(props.artist ?? '');
+  const lyricsStatus = getLyricsPrefetchStatus(props.title, props.artist);
+  const needsManualLyrics = lyricsStatus === 'not_found';
   return (
-    <button
-      className="primary-button sing-along-btn"
-      onClick={() => navigate(`/lyrics?title=${titleParam}&artist=${artistParam}`, { state: { title: props.title, artist: props.artist } })}
-    >
-      🎤 Sing Along
-    </button>
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+      <button
+        className="primary-button sing-along-btn"
+        onClick={() => navigate(`/lyrics?title=${titleParam}&artist=${artistParam}`, { state: { title: props.title, artist: props.artist } })}
+      >
+        🎤 Sing Along
+      </button>
+      {needsManualLyrics ? (
+        <span style={{ fontSize: '0.72rem', color: '#f4a261', fontWeight: 600 }}>
+          ⚠ Paste lyrics needed
+        </span>
+      ) : null}
+    </div>
   );
 }
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -48,6 +57,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
 import { readFromLocalStorage, readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
+import { getLyricsPrefetchStatus } from '../lib/lyricsPrefetch'
 import '../audience-karafun.css'
 import { demoMode } from '../demo/demoMode'
 
