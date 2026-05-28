@@ -1,24 +1,51 @@
 /* Lyrics Page Styles */
 .audience-lyrics-page {
-  max-width: 600px;
+  position: relative;
+  isolation: isolate;
+  max-width: 680px;
+  min-height: 100dvh;
   margin: 0 auto;
   padding: 32px 16px 64px 16px;
-  background: var(--color-bg, #181818);
+  background: rgba(8, 12, 24, 0.76);
   color: var(--color-fg, #fff);
   border-radius: 18px;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.48);
   text-align: center;
+}
+
+.audience-lyrics-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    linear-gradient(140deg, rgba(5, 9, 18, 0.7), rgba(8, 14, 28, 0.78)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center / cover no-repeat;
+}
+
+.audience-lyrics-page::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.12), transparent 32%);
+  pointer-events: none;
 }
 .audience-lyrics-title {
   font-size: 2rem;
   margin-bottom: 18px;
   font-weight: 700;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.6);
 }
 .audience-lyrics-text {
   white-space: pre-wrap;
   font-size: 1.15rem;
   line-height: 1.6;
-  background: rgba(0,0,0,0.15);
+  background: rgba(6, 10, 20, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
   border-radius: 10px;
   padding: 18px 12px;
   margin: 0 auto 24px auto;
