@@ -4,12 +4,20 @@ import { supabase } from '../lib/supabase'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
+import {
+  SPACEBAR_ACTION_COOLDOWN_MS,
+  SPOTIFY_ACCESS_TOKEN_STORAGE_KEY,
+  SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY,
+} from '../lib/constants'
 
 type CheckId =
   | 'network'
   | 'session'
   | 'database'
   | 'realtime'
+  | 'introMp3'
+  | 'spotifyToggle'
+  | 'spacebarRule'
   | 'shareLinks'
   | 'keepwarm'
 
@@ -54,6 +62,24 @@ const CHECKS: CheckDefinition[] = [
     fixHint: 'Check Supabase Realtime status at status.supabase.com.',
   },
   {
+    id: 'introMp3',
+    title: 'Intro MP3',
+    description: 'The current gig has a playable intro MP3 configured.',
+    fixHint: 'Add or re-select the intro MP3 in Gig Settings.',
+  },
+  {
+    id: 'spotifyToggle',
+    title: 'Spotify Toggle',
+    description: 'Spotify access and auto-transport toggle are ready.',
+    fixHint: 'Reconnect Spotify and turn auto-transport on in Gig Control.',
+  },
+  {
+    id: 'spacebarRule',
+    title: 'Spacebar Rule',
+    description: 'Spacebar advance is locked to live mode and cooldown rules.',
+    fixHint: 'Open the gig in Live Control to enable the live-only spacebar rule.',
+  },
+  {
     id: 'shareLinks',
     title: 'Share Links',
     description: 'Audience and mirror URLs generate correctly.',
@@ -68,7 +94,7 @@ const CHECKS: CheckDefinition[] = [
 ]
 
 // IDs that can safely run in parallel (fast, independent)
-const PARALLEL_CHECK_IDS: CheckId[] = ['network', 'session', 'database', 'shareLinks', 'keepwarm']
+const PARALLEL_CHECK_IDS: CheckId[] = ['network', 'session', 'database', 'introMp3', 'spotifyToggle', 'spacebarRule', 'shareLinks', 'keepwarm']
 // IDs that must run after network is confirmed (realtime needs online)
 const SEQUENTIAL_CHECK_IDS: CheckId[] = ['realtime']
 
@@ -83,6 +109,9 @@ function buildDefaultResults(): Record<CheckId, CheckResult> {
     session: { ...DEFAULT_RESULT },
     database: { ...DEFAULT_RESULT },
     realtime: { ...DEFAULT_RESULT },
+    introMp3: { ...DEFAULT_RESULT },
+    spotifyToggle: { ...DEFAULT_RESULT },
+    spacebarRule: { ...DEFAULT_RESULT },
     shareLinks: { ...DEFAULT_RESULT },
     keepwarm: { ...DEFAULT_RESULT },
   }
@@ -164,6 +193,44 @@ function ReadinessPage() {
           })
           void supabase.removeChannel(ch)
           if (status !== 'SUBSCRIBED') throw new Error(`Realtime subscription failed (${status}).`)
+          break
+        }
+        case 'introMp3': {
+          if (!event?.introAudioUrl?.trim()) {
+            throw new Error('No intro MP3 is configured for the active gig.')
+          }
+
+          const introResponse = await fetch(event.introAudioUrl, { method: 'HEAD', cache: 'no-store' })
+          if (!introResponse.ok) {
+            throw new Error(`Intro MP3 returned ${introResponse.status}.`)
+          }
+          break
+        }
+        case 'spotifyToggle': {
+          const spotifyAccessToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)?.trim()
+          if (!spotifyAccessToken) {
+            throw new Error('Spotify is not connected on this device.')
+          }
+
+          const storedAutoTransport = window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY)
+          const autoTransportEnabled = storedAutoTransport === null ? true : storedAutoTransport === '1'
+          if (!autoTransportEnabled) {
+            throw new Error('Spotify auto-transport toggle is off.')
+          }
+          break
+        }
+        case 'spacebarRule': {
+          if (!event?.id) {
+            throw new Error('No active gig is selected.')
+          }
+
+          if (!event.roomOpen) {
+            throw new Error('Spacebar advance is only enabled while the gig is live.')
+          }
+
+          if (!Number.isFinite(SPACEBAR_ACTION_COOLDOWN_MS) || SPACEBAR_ACTION_COOLDOWN_MS <= 0) {
+            throw new Error('Spacebar cooldown is not configured correctly.')
+          }
           break
         }
         case 'shareLinks': {
