@@ -507,7 +507,7 @@ function GigControlPage() {
   const [mirrorOverlayUpdateBusy, setMirrorOverlayUpdateBusy] = useState(false)
   const [mirrorPreviewTransitionMessage, setMirrorPreviewTransitionMessage] = useState<string | null>(null)
   const [mirrorPreviewTransitionTone, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
-  const [mirrorReadabilityCheckEnabled, setMirrorReadabilityCheckEnabled] = useState(false)
+  const [mirrorMonitorRefreshNonce, setMirrorMonitorRefreshNonce] = useState(0)
   const [lastMirrorSyncAt, setLastMirrorSyncAt] = useState<number>(() => Date.now())
   const [mirrorLaunchStatusText, setMirrorLaunchStatusText] = useState<string | null>(null)
   const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
@@ -794,6 +794,27 @@ function GigControlPage() {
     mode: 'test',
   })
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
+  const mirrorMonitorUrl = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return '/mirror?preview=1&safeMargins=1&density=medium&cast=1'
+    }
+
+    const mirrorUrl = new URL('/mirror', window.location.origin)
+    mirrorUrl.searchParams.set('preview', '1')
+    mirrorUrl.searchParams.set('safeMargins', '1')
+    mirrorUrl.searchParams.set('density', 'medium')
+    mirrorUrl.searchParams.set('cast', '1')
+
+    if (event?.id) {
+      mirrorUrl.searchParams.set('event', event.id)
+    }
+
+    if (mirrorMonitorRefreshNonce > 0) {
+      mirrorUrl.searchParams.set('monitorRefresh', String(mirrorMonitorRefreshNonce))
+    }
+
+    return mirrorUrl.toString()
+  }, [event?.id, mirrorMonitorRefreshNonce])
   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
   const signedInEmail = user?.email?.trim() ?? ''
   const isGigLoadFailureState = queueOperatingMode === 'degraded' || Boolean(queueHealthMessage)
@@ -3849,12 +3870,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             />
             <button
               type="button"
-              className={`ghost-button gig-mirror-readability-toggle ${mirrorReadabilityCheckEnabled ? 'is-active' : ''}`}
+              className="ghost-button gig-mirror-readability-toggle"
               onClick={() => {
-                setMirrorReadabilityCheckEnabled((currentValue) => !currentValue)
+                setMirrorMonitorRefreshNonce((currentValue) => currentValue + 1)
               }}
             >
-              {mirrorReadabilityCheckEnabled ? 'Readability Check: On' : 'Readability Check'}
+              Reload Monitor
             </button>
           </div>
           <p className="meta-badge" role="status" aria-live="polite">{setlistBucketHintText}</p>
@@ -3902,115 +3923,16 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             </button>
           </div>
           <div className="gig-mirror-preview-frame" role="img" aria-label="Mirror screen preview">
-            <div className="gig-mirror-preview-scale-shell">
-              <div className={`gig-mirror-preview-scale-canvas ${mirrorReadabilityCheckEnabled ? 'is-readability-check' : ''}`}>
-                {isBrbActive ? (
-                  <div className="gig-mirror-preview-brb-overlay" aria-live="polite" role="status">
-                    <p className="gig-mirror-preview-brb-icon" aria-hidden="true">🍺</p>
-                    <p className="gig-mirror-preview-brb-heading">On Break</p>
-                    <p className="gig-mirror-preview-brb-message">{brbCustomMessage.trim() || DEFAULT_BRB_MESSAGE}</p>
-                  </div>
-                ) : null}
-                {mirrorPreviewTransitionMessage && !isBrbActive ? (
-                  <div className={`gig-mirror-preview-transition-toast is-${mirrorPreviewTransitionTone}`} aria-live="polite" role="status">
-                    <p>{mirrorPreviewTransitionMessage}</p>
-                  </div>
-                ) : null}
-                <div className="gig-mirror-preview-top">
-                  <div className="gig-mirror-preview-brand-shell">
-                    {event.venueLogoUrl ? (
-                      <img
-                        src={event.venueLogoUrl}
-                        alt={`${event.venue || 'Venue'} logo`}
-                        className="gig-mirror-preview-venue-logo"
-                        onError={(errorEvent) => {
-                          errorEvent.currentTarget.style.display = 'none'
-                        }}
-                      />
-                    ) : null}
-                    <span className="gig-mirror-preview-brand">Human Jukebox</span>
-                  </div>
-                  <span className={`gig-mirror-preview-state ${event.roomOpen ? 'is-live' : 'is-paused'}`}>
-                    {event.roomOpen ? 'Live' : isBeforeScheduledStart ? 'Starting Soon' : 'Paused'}
-                  </span>
-                </div>
-                <p className="gig-mirror-preview-label">Now Playing</p>
-                <div className="gig-mirror-preview-now-playing-stage">
-                  {!isNowPlayingStarted ? (
-                    <div className="gig-mirror-preview-quote-shell">
-                      <p className="gig-mirror-preview-quote">{betweenSongQuote}</p>
-                    </div>
-                  ) : (
-                    <div className="gig-mirror-preview-now-playing-row">
-                      {nowPlaying?.cover_url ? (
-                        <img
-                          src={nowPlaying.cover_url}
-                          alt={`Cover art for ${nowPlaying.title}`}
-                          className="gig-mirror-preview-now-playing-cover"
-                        />
-                      ) : null}
-                      <div>
-                        <p className="gig-mirror-preview-song">{nowPlaying?.title ?? 'Waiting for requests from brave volunteers...'}</p>
-                        <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'Queue currently calm, suspiciously so'}</p>
-                        {nowPlaying?.audience_sings ? (
-                          <div className="gig-mirror-preview-karafun-block">
-                            <span className="gig-mirror-preview-karafun-title">KaraFun Request</span>
-                            <span className="gig-mirror-preview-karafun-meta">
-                              {nowPlaying?.createdByName ? `Chosen by ${nowPlaying.createdByName}` : 'Chosen from karaoke list'}
-                            </span>
-                          </div>
-                        ) : null}
-                        {nowPlaying?.createdByName ? (
-                          <span className="gig-mirror-preview-requested-by">
-                            <span className="gig-mirror-preview-requested-by-label">Wished by:</span> {nowPlaying.createdByName}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <p className="gig-mirror-preview-label">Up Next</p>
-                <ul className="gig-mirror-preview-list">
-                  {mirrorPreviewUpNext.slice(0, 3).map((song) => {
-                    const chosenBy = song.createdByName?.trim() ?? ''
-
-                    return (
-                    <li key={song.id}>
-                      <div className="gig-mirror-preview-list-main">
-                        {song.cover_url ? (
-                          <img
-                            src={song.cover_url}
-                            alt={`Cover art for ${song.title}`}
-                            className="gig-mirror-preview-list-cover"
-                          />
-                        ) : null}
-                        <div className="gig-mirror-preview-list-copy">
-                          <span className="gig-mirror-preview-list-song">{song.title}</span>
-                          <span className="gig-mirror-preview-list-artist">{song.artist || 'Unknown Artist'}</span>
-                          {song.audience_sings ? (
-                            <div className="gig-mirror-preview-list-karafun-block">
-                              <span className="gig-mirror-preview-list-karafun-title">KaraFun Request</span>
-                              <span className="gig-mirror-preview-list-karafun-meta">
-                                {chosenBy ? `Chosen by ${chosenBy}` : 'Chosen from karaoke list'}
-                              </span>
-                            </div>
-                          ) : null}
-                          {chosenBy ? (
-                            <span className="gig-mirror-preview-list-chosen-by">
-                              <span className="gig-mirror-preview-list-chosen-by-label">Wished by:</span> {chosenBy}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                      <span>+{song.votes_count}</span>
-                    </li>
-                    )
-                  })}
-                  {mirrorPreviewUpNext.length === 0 ? <li><span>No songs queued</span><span>+0</span></li> : null}
-                </ul>
-              </div>
-            </div>
+            <iframe
+              key={mirrorMonitorUrl}
+              title="Live mirror monitor"
+              src={mirrorMonitorUrl}
+              className="gig-mirror-live-embed"
+              loading="lazy"
+              allow="fullscreen"
+            />
           </div>
+          <p className="subcopy no-margin">This monitor now renders the exact mirror route in real time, including countdown and live now-playing states.</p>
         </article>
 
         {!isFocusedGigControlWindow ? (

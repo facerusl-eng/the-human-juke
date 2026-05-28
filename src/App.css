@@ -5626,6 +5626,16 @@ body:has(.audience-no-gig-shell) {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
+.gig-mirror-live-embed {
+  width: 100%;
+  min-height: clamp(320px, 55vh, 760px);
+  height: 100%;
+  display: block;
+  border: 0;
+  border-radius: 10px;
+  background: #070b14;
+}
+
 .gig-mirror-preview-scale-shell {
   min-width: 0;
   width: 100%;
