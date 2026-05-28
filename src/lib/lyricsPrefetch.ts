@@ -77,13 +77,49 @@ export function getAutoCachedLyrics(title: string, artist: string): string | nul
   }
 }
 
+export function cacheFoundLyrics(title: string, artist: string, lyrics: string): void {
+  const normalizedLyrics = lyrics.trim()
+  if (!normalizedLyrics) {
+    return
+  }
+
+  const primaryKey = lyricsPrefetchCacheKey(title, artist)
+
+  try {
+    const cache: CacheMap = JSON.parse(localStorage.getItem(AUTO_CACHE_KEY) ?? '{}')
+    cache[primaryKey] = normalizedLyrics
+    localStorage.setItem(AUTO_CACHE_KEY, JSON.stringify(cache))
+  } catch {
+    // Non-blocking.
+  }
+
+  try {
+    const statuses: StatusMap = JSON.parse(localStorage.getItem(STATUS_KEY) ?? '{}')
+    statuses[primaryKey] = 'found'
+    localStorage.setItem(STATUS_KEY, JSON.stringify(statuses))
+  } catch {
+    // Non-blocking.
+  }
+}
+
+export function markLyricsNotFound(title: string, artist: string): void {
+  const primaryKey = lyricsPrefetchCacheKey(title, artist)
+
+  try {
+    const statuses: StatusMap = JSON.parse(localStorage.getItem(STATUS_KEY) ?? '{}')
+    statuses[primaryKey] = 'not_found'
+    localStorage.setItem(STATUS_KEY, JSON.stringify(statuses))
+  } catch {
+    // Non-blocking.
+  }
+}
+
 // Fire-and-forget. Call after a song is successfully added to the queue.
 // Skips silently if the song was already checked.
 export function prefetchAndCacheLyrics(title: string, artist: string): void {
   if (typeof window === 'undefined') return
   if (getLyricsPrefetchStatus(title, artist) !== null) return
 
-  const primaryKey = lyricsPrefetchCacheKey(title, artist)
   const variants = buildQueryVariants(title, artist)
 
   void (async () => {
@@ -98,20 +134,7 @@ export function prefetchAndCacheLyrics(title: string, artist: string): void {
         const lyricsText = typeof data?.lyrics === 'string' ? data.lyrics.trim() : ''
 
         if (lyricsText.length > 0) {
-          try {
-            const cache: CacheMap = JSON.parse(localStorage.getItem(AUTO_CACHE_KEY) ?? '{}')
-            cache[primaryKey] = lyricsText
-            localStorage.setItem(AUTO_CACHE_KEY, JSON.stringify(cache))
-          } catch {
-            // Non-blocking.
-          }
-          try {
-            const statuses: StatusMap = JSON.parse(localStorage.getItem(STATUS_KEY) ?? '{}')
-            statuses[primaryKey] = 'found'
-            localStorage.setItem(STATUS_KEY, JSON.stringify(statuses))
-          } catch {
-            // Non-blocking.
-          }
+          cacheFoundLyrics(title, artist, lyricsText)
           return
         }
       } catch {
@@ -120,12 +143,6 @@ export function prefetchAndCacheLyrics(title: string, artist: string): void {
     }
 
     // All variants exhausted.
-    try {
-      const statuses: StatusMap = JSON.parse(localStorage.getItem(STATUS_KEY) ?? '{}')
-      statuses[primaryKey] = 'not_found'
-      localStorage.setItem(STATUS_KEY, JSON.stringify(statuses))
-    } catch {
-      // Non-blocking.
-    }
+    markLyricsNotFound(title, artist)
   })()
 }

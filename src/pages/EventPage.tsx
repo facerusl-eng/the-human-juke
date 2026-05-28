@@ -10,7 +10,10 @@ function SingAlongButton(props: { title: string; artist: string }) {
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
       <button
         className="primary-button sing-along-btn"
-        onClick={() => navigate(`/lyrics?title=${titleParam}&artist=${artistParam}`, { state: { title: props.title, artist: props.artist } })}
+        onClick={() => {
+          prefetchAndCacheLyrics(props.title, props.artist)
+          navigate(`/lyrics?title=${titleParam}&artist=${artistParam}`, { state: { title: props.title, artist: props.artist } })
+        }}
       >
         🎤 Sing Along
       </button>
@@ -57,7 +60,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
 import { readFromLocalStorage, readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
-import { getLyricsPrefetchStatus } from '../lib/lyricsPrefetch'
+import { getLyricsPrefetchStatus, prefetchAndCacheLyrics } from '../lib/lyricsPrefetch'
 import '../audience-karafun.css'
 import { demoMode } from '../demo/demoMode'
 

@@ -2,7 +2,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { demoMode } from '../demo/demoMode';
-import { getAutoCachedLyrics, getLyricsPrefetchStatus } from '../lib/lyricsPrefetch';
+import { cacheFoundLyrics, getAutoCachedLyrics, getLyricsPrefetchStatus, markLyricsNotFound } from '../lib/lyricsPrefetch';
 import '../audience-karafun.css';
 
 const LYRICS_OVERRIDE_STORAGE_KEY = 'lyrics_manual_overrides_v1';
@@ -138,15 +138,12 @@ export default function LyricsPage() {
       return;
     }
 
-    // If the prefetch already determined no lyrics exist, skip the slow API
-    // calls and open the manual editor so the host can paste lyrics now.
+    // If prefetch previously failed, still retry now because provider/API
+    // availability can change between queue-time and sing-along-time.
     const prefetchStatus = getLyricsPrefetchStatus(title, artist);
     if (prefetchStatus === 'not_found') {
-      setLyrics(null);
       setShowManualEditor(true);
-      setManualSaveStatus('No lyrics were found automatically for this song. Paste lyrics below to enable sing-along.');
-      setLoading(false);
-      return;
+      setManualSaveStatus('Retrying automatic lyrics lookup. If none are found, paste lyrics below.');
     }
 
     const tryAllSources = async () => {
@@ -164,6 +161,7 @@ export default function LyricsPage() {
           const resolvedLyrics = typeof data?.lyrics === 'string' ? data.lyrics.trim() : '';
 
           if (resolvedLyrics.length > 0) {
+            cacheFoundLyrics(title, artist, resolvedLyrics);
             setLyrics(resolvedLyrics);
             setLoading(false);
             return;
@@ -173,7 +171,10 @@ export default function LyricsPage() {
         }
       }
 
+      markLyricsNotFound(title, artist);
       setLyrics('No lyrics found for this song right now. Try another version/title spelling or try again in a moment.');
+      setShowManualEditor(true);
+      setManualSaveStatus('No lyrics were found automatically for this song. Paste lyrics below to enable sing-along.');
       setLoading(false);
     };
 
@@ -197,6 +198,7 @@ export default function LyricsPage() {
     const key = buildLyricsOverrideKey(title, artist);
     nextOverrides[key] = normalizedLyrics;
     writeLyricsOverrides(nextOverrides);
+    cacheFoundLyrics(title, artist, normalizedLyrics);
 
     setHasManualOverride(true);
     setLyrics(normalizedLyrics);
