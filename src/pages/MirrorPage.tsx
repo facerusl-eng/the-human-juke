@@ -2048,6 +2048,8 @@ function MirrorPageContent() {
     : playbackTransitionState?.phase === 'intro'
     ? 'Intro MP3 playing...'
     : null
+  const idleSongStatusText = playbackTransitionStatusText
+    ?? (activeSong ? 'Waiting for next song...' : 'No active song yet - waiting for first song...')
   const countdownDisplayRemainingMs = countdownRemainingMs === null
     ? null
     : Math.max(0, countdownRemainingMs)
@@ -4179,7 +4181,7 @@ function MirrorPageContent() {
                     <div className="mirror-now-playing-meta">
                       <p className="mirror-between-song-quote">{betweenSongQuoteIndex === 0 ? 'Welcome to the show.' : displayedBetweenSongMessage}</p>
                       {playbackTransitionStatusText || !activeSong ? (
-                        <p className="mirror-song-waiting-note">{playbackTransitionStatusText ?? 'Waiting for next song...'}</p>
+                        <p className="mirror-song-waiting-note">{idleSongStatusText}</p>
                       ) : null}
                     </div>
                   </div>
