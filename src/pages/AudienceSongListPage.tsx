@@ -9,6 +9,7 @@ import { DEMO_CURATED_SONGS } from '../demo/demoSongCatalog'
 import { batchFetchDemoArtwork } from '../demo/demoArtwork'
 import { useQueueStore } from '../state/queueStore'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
+import AudienceFullscreenToggleButton from '../components/audience/AudienceFullscreenToggleButton'
 import '../audience-karafun.css'
 
 type CuratedSong = {
@@ -811,20 +812,23 @@ function AudienceSongListPage() {
   return (
     <section className="audience-song-list-shell audience-karafun" aria-label="Song list page">
       <header className="audience-song-list-header">
-        <button
-          type="button"
-          className="secondary-button audience-song-list-back"
-          onClick={() => {
-            if (activeSetlist !== null && hasBothSetlists) {
-              setActiveSetlist(null)
-              setSongSearchQuery('')
-            } else {
-              navigate(`/audience${location.search || ''}`, { replace: true })
-            }
-          }}
-        >
-          ← {copy.back}
-        </button>
+        <div className="audience-song-list-top-actions">
+          <button
+            type="button"
+            className="secondary-button audience-song-list-back"
+            onClick={() => {
+              if (activeSetlist !== null && hasBothSetlists) {
+                setActiveSetlist(null)
+                setSongSearchQuery('')
+              } else {
+                navigate(`/audience${location.search || ''}`, { replace: true })
+              }
+            }}
+          >
+            ← {copy.back}
+          </button>
+          <AudienceFullscreenToggleButton locale={audienceLocale} className="audience-song-list-fullscreen" />
+        </div>
         <div className="audience-song-list-header-copy">
           <p className="eyebrow">{copy.eyebrow}</p>
           <h1>{showPlaylistPicker ? copy.pickPlaylist : effectiveSetlist === 'karaoke' ? 'Karaoke' : 'Human Jukebox'}</h1>

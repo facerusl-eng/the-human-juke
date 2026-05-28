@@ -2,6 +2,7 @@ import { memo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { AudienceLocale } from '../../lib/audienceIdentity'
 import { PrimaryButton } from '../ui'
+import AudienceFullscreenToggleButton from './AudienceFullscreenToggleButton'
 
 type AudienceFixedHeaderProps = {
   eventName: string
@@ -95,6 +96,7 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en', shar
         </div>
       </div>
       <div className="audience-fixed-actions">
+        <AudienceFullscreenToggleButton locale={locale} />
         {shareUrl ? (
           <PrimaryButton type="button" variant="tertiary" onClick={() => { void handleShare() }} aria-label={copy.shareLabel} title={copy.shareLabel}>
             {shareCopied ? copy.shareCopied : `🔗 ${copy.shareLabel}`}

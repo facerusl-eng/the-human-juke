@@ -3081,6 +3081,16 @@ body:has(.audience-no-gig-shell) {
   flex-shrink: 0;
 }
 
+.audience-fullscreen-toggle {
+  white-space: nowrap;
+}
+
+.audience-fullscreen-hint {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
 .audience-fixed-logo {
   width: 72px;
   height: 72px;
@@ -9686,6 +9696,17 @@ body:has(.audience-no-gig-shell) {
   grid-template-columns: auto 1fr;
   gap: 0.75rem;
   align-items: start;
+}
+
+.audience-song-list-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.44rem;
+  flex-wrap: wrap;
+}
+
+.audience-song-list-fullscreen {
+  white-space: nowrap;
 }
 
 .audience-song-list-header-copy {
