@@ -3091,6 +3091,32 @@ body:has(.audience-no-gig-shell) {
   color: #fde68a;
 }
 
+body.audience-immersive-mode .topbar,
+body.audience-immersive-mode .app-title,
+body.audience-immersive-mode .app-subtitle,
+body.audience-immersive-mode .site-legal-footer {
+  display: none !important;
+}
+
+body.audience-immersive-mode .app-shell,
+body.audience-immersive-mode .app-shell-audience {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+body.audience-immersive-mode .audience-shell,
+body.audience-immersive-mode .audience-song-list-shell {
+  min-height: 100dvh;
+  border-radius: 0;
+}
+
+body.audience-immersive-mode .audience-fixed-header {
+  top: max(0.25rem, env(safe-area-inset-top));
+}
+
 .audience-fixed-logo {
   width: 72px;
   height: 72px;

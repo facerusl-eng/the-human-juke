@@ -2,6 +2,10 @@ import { memo, useEffect, useMemo, useState } from 'react'
 import type { AudienceLocale } from '../../lib/audienceIdentity'
 import { PrimaryButton } from '../ui'
 
+const AUDIENCE_IMMERSIVE_CLASS = 'audience-immersive-mode'
+const AUDIENCE_IMMERSIVE_STORAGE_KEY = 'human-jukebox-audience-immersive-mode'
+const AUDIENCE_IMMERSIVE_EVENT = 'human-jukebox:audience-immersive-changed'
+
 type FullscreenDocument = Document & {
   webkitFullscreenElement?: Element | null
   webkitExitFullscreen?: () => Promise<void> | void
@@ -34,6 +38,30 @@ function supportsFullscreenApi() {
     || typeof candidate.webkitRequestFullscreen === 'function'
     || typeof candidate.webkitRequestFullScreen === 'function'
     || typeof fullscreenDocument.webkitExitFullscreen === 'function'
+}
+
+function isImmersiveModeActive() {
+  if (typeof document === 'undefined') {
+    return false
+  }
+
+  return document.body.classList.contains(AUDIENCE_IMMERSIVE_CLASS)
+}
+
+function applyImmersiveMode(nextEnabled: boolean) {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return
+  }
+
+  document.body.classList.toggle(AUDIENCE_IMMERSIVE_CLASS, nextEnabled)
+
+  try {
+    window.localStorage.setItem(AUDIENCE_IMMERSIVE_STORAGE_KEY, nextEnabled ? '1' : '0')
+  } catch {
+    // Ignore storage write failures.
+  }
+
+  window.dispatchEvent(new CustomEvent(AUDIENCE_IMMERSIVE_EVENT, { detail: { enabled: nextEnabled } }))
 }
 
 async function requestFullscreenSafe(targetElement: HTMLElement) {
@@ -69,6 +97,7 @@ async function exitFullscreenSafe() {
 
 function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFullscreenToggleButtonProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isImmersiveMode, setIsImmersiveMode] = useState(false)
   const [showFallbackHint, setShowFallbackHint] = useState(false)
 
   const copy = useMemo(() => {
@@ -76,6 +105,8 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
       return {
         enter: 'Fuld skærm',
         exit: 'Luk fuld skærm',
+        immersiveOn: 'Immersive: Til',
+        immersiveOff: 'Immersive: Fra',
         unsupported: 'Fuld skærm kræver Chrome/Safari browser',
       }
     }
@@ -84,6 +115,8 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
       return {
         enter: 'Skjarfylli',
         exit: 'Haetta i skjarfylli',
+        immersiveOn: 'Immersive: A',
+        immersiveOff: 'Immersive: Af',
         unsupported: 'Skjarfylli krefst Chrome/Safari',
       }
     }
@@ -91,6 +124,8 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
     return {
       enter: 'Fullscreen',
       exit: 'Exit Fullscreen',
+      immersiveOn: 'Immersive: On',
+      immersiveOff: 'Immersive: Off',
       unsupported: 'Fullscreen needs Chrome/Safari browser',
     }
   }, [locale])
@@ -116,12 +151,35 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
     }
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const syncImmersiveState = () => {
+      setIsImmersiveMode(isImmersiveModeActive())
+    }
+
+    syncImmersiveState()
+
+    const persistedValue = window.localStorage.getItem(AUDIENCE_IMMERSIVE_STORAGE_KEY)
+    if (persistedValue === '1' && !isImmersiveModeActive()) {
+      applyImmersiveMode(true)
+      syncImmersiveState()
+    }
+
+    window.addEventListener(AUDIENCE_IMMERSIVE_EVENT, syncImmersiveState as EventListener)
+
+    return () => {
+      window.removeEventListener(AUDIENCE_IMMERSIVE_EVENT, syncImmersiveState as EventListener)
+    }
+  }, [])
+
   const onToggleFullscreen = async () => {
     if (!fullscreenSupported) {
-      setShowFallbackHint(true)
-      window.setTimeout(() => {
-        setShowFallbackHint(false)
-      }, 2500)
+      const nextImmersiveEnabled = !isImmersiveMode
+      applyImmersiveMode(nextImmersiveEnabled)
+      setIsImmersiveMode(nextImmersiveEnabled)
       return
     }
 
@@ -132,12 +190,24 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
         await requestFullscreenSafe(document.documentElement)
       }
     } catch {
+      const nextImmersiveEnabled = !isImmersiveMode
+      applyImmersiveMode(nextImmersiveEnabled)
+      setIsImmersiveMode(nextImmersiveEnabled)
+
       setShowFallbackHint(true)
       window.setTimeout(() => {
         setShowFallbackHint(false)
       }, 2500)
     }
   }
+
+  const buttonLabel = isFullscreen
+    ? copy.exit
+    : isImmersiveMode
+    ? copy.immersiveOn
+    : copy.enter
+
+  const buttonIcon = isFullscreen || isImmersiveMode ? '⤢' : '⛶'
 
   return (
     <>
@@ -146,12 +216,12 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
         variant="tertiary"
         onClick={() => { void onToggleFullscreen() }}
         className={`audience-fullscreen-toggle ${className ?? ''}`.trim()}
-        aria-label={isFullscreen ? copy.exit : copy.enter}
-        title={isFullscreen ? copy.exit : copy.enter}
+        aria-label={buttonLabel}
+        title={buttonLabel}
       >
-        {isFullscreen ? '⤢ ' : '⛶ '} {isFullscreen ? copy.exit : copy.enter}
+        {buttonIcon} {buttonLabel}
       </PrimaryButton>
-      {showFallbackHint ? <span className="audience-fullscreen-hint">{copy.unsupported}</span> : null}
+      {showFallbackHint ? <span className="audience-fullscreen-hint">{copy.unsupported}. {copy.immersiveOff} / {copy.immersiveOn} fallback enabled.</span> : null}
     </>
   )
 }
