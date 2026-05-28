@@ -1,6 +1,10 @@
 import 'dotenv/config'
 import { spawn } from 'node:child_process'
 import express from 'express'
+import path from 'path'
+
+// Import the keepwarm handler for local API routing
+import keepwarmHandler from '../api/keepwarm.js'
 import { fileURLToPath } from 'node:url'
 
 const app = express()
@@ -26,6 +30,16 @@ const fallbackBookingWebhookUrls = [
 let latestRefreshToken = process.env.SPOTIFY_REFRESH_TOKEN ?? null
 
 app.use(express.json())
+
+// Local mirror of Vercel's /api/keepwarm endpoint
+app.all('/api/keepwarm', (req, res) => {
+  // Express does not use (req, res) in the same way as Vercel, so we adapt
+  // The handler expects (req, res) with .method and .status/.json
+  // req.method is available, and res.status/res.json are standard
+  // For compatibility, ensure req.method is set and pass req/res directly
+  // If using TypeScript, you may need to adjust types
+  keepwarmHandler(req, res)
+})
 
 async function runMixerRepairScript() {
   await new Promise((resolve, reject) => {
