@@ -5451,18 +5451,53 @@ body:has(.audience-no-gig-shell) {
 
 .gig-next-up-hint {
   margin-top: 0.42rem;
-  padding: 0.52rem 0.66rem;
+  padding: 0.66rem 0.78rem;
   border-radius: 12px;
   border: 1px solid rgba(132, 173, 255, 0.36);
   background: rgba(8, 18, 42, 0.58);
   color: #eef6ff;
-  font-size: 0.98rem;
-  font-weight: 700;
+  font-size: 1.06rem;
+  font-weight: 740;
   line-height: 1.45;
+  display: grid;
+  gap: 0.2rem;
 }
 
 .gig-next-up-hint strong {
   color: #ffffff;
+}
+
+.gig-next-up-label {
+  display: inline-block;
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b8d6ff;
+}
+
+.gig-next-up-song {
+  display: block;
+  font-size: 1.1em;
+}
+
+.gig-next-up-requester {
+  display: block;
+  font-size: 1.02em;
+  font-weight: 820;
+  color: #fff7cb;
+}
+
+.gig-next-up-queue {
+  display: inline-block;
+  width: fit-content;
+  margin-top: 0.1rem;
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 228, 163, 0.46);
+  background: rgba(70, 52, 20, 0.54);
+  color: #fff0c0;
+  font-size: 0.86rem;
+  font-weight: 760;
 }
 
 .gig-playback-note {
@@ -5821,11 +5856,23 @@ body:has(.audience-no-gig-shell) {
 
 .gig-mirror-preview-brb-icon {
   margin: 0;
-  font-size: 2.1rem;
-  line-height: 1;
+  font-size: 1.1rem;
+  padding: 0.7rem 0.8rem;
 }
 
 .gig-mirror-preview-brb-heading {
+
+.gig-control-shell-focus .gig-next-up-label {
+  font-size: 0.8rem;
+}
+
+.gig-control-shell-focus .gig-next-up-song {
+  font-size: 1.14em;
+}
+
+.gig-control-shell-focus .gig-next-up-requester {
+  font-size: 1.06em;
+}
   margin: 0;
   color: rgba(255, 255, 255, 0.99);
   font-size: 1.22rem;
@@ -6371,10 +6418,18 @@ body:has(.audience-no-gig-shell) {
   user-select: none;
   cursor: grab;
   color: #8ea6d1;
-  font-size: 1.05rem;
-  line-height: 1;
+    font-size: 1.14rem;
+    padding: 0.74rem 0.84rem;
   padding: 0.12rem 0.25rem;
   border-radius: 6px;
+
+  .app-main-content-focus .gig-control-shell-focus .gig-next-up-song {
+    font-size: 1.16em;
+  }
+
+  .app-main-content-focus .gig-control-shell-focus .gig-next-up-requester {
+    font-size: 1.08em;
+  }
   border: 1px solid rgba(93, 215, 255, 0.24);
   background: rgba(7, 12, 28, 0.35);
 }
