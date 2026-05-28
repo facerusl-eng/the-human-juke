@@ -9914,18 +9914,16 @@ body.audience-immersive-mode {
   position: relative;
   border-color: rgba(180, 130, 255, 0.45);
   background: linear-gradient(145deg, rgba(14, 10, 38, 0.92) 0%, rgba(24, 14, 50, 0.94) 100%);
-  padding-right: 3.4rem;
 }
 
 .audience-song-list-card-karaoke .karaoke-tag {
-  position: absolute;
-  top: 50%;
-  right: 0.2rem;
-  min-width: 4.9rem;
-  justify-content: center;
-  padding: 0.16rem 0.7rem;
-  transform: translateY(-50%) rotate(90deg);
-  transform-origin: center;
+  position: static;
+  width: fit-content;
+  min-width: 0;
+  justify-self: start;
+  align-self: center;
+  padding: 0.16rem 0.62rem;
+  transform: none;
 }
 
 .audience-song-list-item {
