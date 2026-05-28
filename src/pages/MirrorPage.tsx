@@ -841,7 +841,7 @@ function truncateFact(value: string, maxLength = SONG_FACT_MAX_LENGTH) {
     return normalizedValue
   }
 
-  return `${normalizedValue.slice(0, Math.max(0, maxLength - 1)).trimEnd()}ÔÇª`
+  return `${normalizedValue.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`
 }
 function buildFunFactsCacheKey(title: string, artist: string) {
   return `${title.trim().toLowerCase()}::${artist.trim().toLowerCase()}`
@@ -979,7 +979,7 @@ async function fetchMusicBrainzFallbackFacts(title: string, artist: string, sign
 
 const SONG_INFO_BUILDERS = [
   (song: NowPlayingInfoSong) => /\//.test(song.title)
-    ? `This title looks like a medley set ÔÇö multiple songs woven into one performance.`
+    ? `This title looks like a medley set - multiple songs woven into one performance.`
     : `Tonight's crowd voted "${song.title}" to the top of the queue.`,
   (song: NowPlayingInfoSong) => /[()[\]]/.test(song.title)
     ? `Bracketed title detected - this is often a remix, edit, or live version.`
@@ -1518,7 +1518,7 @@ function MirrorPageContent() {
   }, [])
 
   const setMirrorWarningMessage = (message: string) => {
-    if (demoMode) return  // suppress all warnings in demo ÔÇö reconnects are expected and not real
+    if (demoMode) return  // suppress all warnings in demo - reconnects are expected and not real
     if (message === 'Crowd spotlight sync is reconnecting.') {
       return
     }
@@ -1982,7 +1982,7 @@ function MirrorPageContent() {
         return
       }
 
-      // Network gate removed ÔÇö mirror is accessible from any connection.
+      // Network gate removed - mirror is accessible from any connection.
       setIsMirrorNetworkAllowed(true)
       setHasCheckedMirrorNetworkAccess(true)
     }
@@ -2103,30 +2103,30 @@ function MirrorPageContent() {
         voteEyebrow: 'Ekstranummer-afstemning',
         voteTitle: 'Sidste sang er spillet.',
         voteBody: 'Stem i livefeedet, hvis I vil have et ekstranummer.',
-        acceptHint: 'For at acceptere ekstranummeret: v├ªlg en sang i sanglisten.',
+        acceptHint: 'For at acceptere ekstranummeret: vælg en sang i sanglisten.',
         topCandidateLabel: 'Mest stemte ekstranummer lige nu',
         closeEyebrow: 'Hvis vi lukker her',
-        closeMessage: 'Tak fordi I dukkede op, sang med og gjorde aftenen helt speciel. Det har v├ªret en forn├©jelse at spille for jer.',
-        upcomingLabel: 'N├ªste gig',
+        closeMessage: 'Tak fordi I dukkede op, sang med og gjorde aftenen helt speciel. Det har været en fornøjelse at spille for jer.',
+        upcomingLabel: 'Næste gig',
         whenLabel: 'Tid',
         whereLabel: 'Sted',
-        noUpcoming: 'N├ªste gig bliver annonceret snart.',
-        seeYouAgain: 'H├Ñber vi ses der igen.',
+        noUpcoming: 'Næste gig bliver annonceret snart.',
+        seeYouAgain: 'Håber vi ses der igen.',
       }
     : audienceLocale === 'is'
     ? {
         voteEyebrow: 'Aukalagakosning',
-        voteTitle: 'Si├░asta lagi er loki├░.',
-        voteBody: 'Kj├│si├░ i live-feedinu ef ├¥i├░ vilji├░ aukalag.',
-        acceptHint: 'Til a├░ sam├¥ykkja aukalag: veldu lag i Song List.',
+        voteTitle: 'Siðasta lagið er lokið.',
+        voteBody: 'Kjósið í live-feedinu ef þið viljið aukalag.',
+        acceptHint: 'Til að samþykkja aukalag: veldu lag i Song List.',
         topCandidateLabel: 'Efsta aukalag i bili',
-        closeEyebrow: 'Ef vi├░ lokum her',
-        closeMessage: 'Takk fyrir a├░ m├ªta, syngja me├░ og skapa stemninguna me├░ m├®r i kv├Âld. ├×i├░ ger├░u├░ kv├Âldi├░ eftirminnilegt.',
-        upcomingLabel: 'N├ªsti vi├░bur├░ur',
-        whenLabel: 'T├¡mi',
-        whereLabel: 'Sta├░ur',
-        noUpcoming: 'N├ªsti vi├░bur├░ur ver├░ur auglystur fljotlega.',
-        seeYouAgain: 'Vona a├░ vi├░ sj├íumst ├¥ar aftur.',
+        closeEyebrow: 'Ef við lokum hér',
+        closeMessage: 'Takk fyrir að mæta, syngja með og skapa stemninguna með mér í kvöld. Þið gerðuð kvöldið eftirminnilegt.',
+        upcomingLabel: 'Næsti viðburður',
+        whenLabel: 'Tími',
+        whereLabel: 'Staður',
+        noUpcoming: 'Næsti viðburður verður auglýstur fljótlega.',
+        seeYouAgain: 'Vona að við sjáumst þar aftur.',
       }
     : {
         voteEyebrow: 'Encore Vote',
@@ -3867,7 +3867,7 @@ function MirrorPageContent() {
   if (loading) {
     return (
       <div className="mirror-shell">
-        <p className="mirror-loading">Connecting to stageÔÇª</p>
+        <p className="mirror-loading">Connecting to stage...</p>
       </div>
     )
   }
@@ -3875,7 +3875,7 @@ function MirrorPageContent() {
   if (!hasCheckedMirrorNetworkAccess) {
     return (
       <div className="mirror-shell">
-        <p className="mirror-loading">Checking secure mirror accessÔÇª</p>
+        <p className="mirror-loading">Checking secure mirror access...</p>
       </div>
     )
   }
@@ -3885,12 +3885,12 @@ function MirrorPageContent() {
       <div className="mirror-shell mirror-shell-paused" aria-label="Mirror access restricted">
         <section className="mirror-pre-show" aria-label="Mirror access blocked">
           <div className="mirror-pre-show-top">
-            <h1 className="mirror-pre-show-title">Sk├ªrmen er l├Ñst ­ƒöÆ</h1>
+            <h1 className="mirror-pre-show-title">Screen Locked</h1>
             <p className="mirror-pre-show-subtitle">
               Tilslut denne enhed til <strong>Drifter 5G</strong> eller <strong>Drifter 2,4</strong> for at se scenetavlen.
             </p>
             <p className="mirror-pre-show-subtitle mirror-pre-show-subtitle-secondary">
-              Screen locked ÔÇö connect to <strong>Drifter 5G</strong> or <strong>Drifter 2,4</strong> to view the mirror display.
+              Screen locked - connect to <strong>Drifter 5G</strong> or <strong>Drifter 2,4</strong> to view the mirror display.
             </p>
             <div className="mirror-countdown-card mirror-countdown-card-muted mirror-network-block-card" aria-label="Access rule">
               <p className="mirror-countdown-label">WiFi</p>
@@ -3918,7 +3918,7 @@ function MirrorPageContent() {
             }
           }}
         >
-          <span className="mirror-fullscreen-prompt-icon">ÔøÂ</span>
+          <span className="mirror-fullscreen-prompt-icon">[]</span>
           <span className="mirror-fullscreen-prompt-label">Tap to enter fullscreen</span>
         </button>
       )}
@@ -4179,7 +4179,7 @@ function MirrorPageContent() {
                   onClick={() => { void saveMirrorLayoutGlobally() }}
                   disabled={globalMirrorLayoutSaveBusy}
                 >
-                  {globalMirrorLayoutSaveBusy ? 'SavingÔÇª' : 'Save Global'}
+                  {globalMirrorLayoutSaveBusy ? 'Saving...' : 'Save Global'}
                 </button>
                 <button type="button" className="mirror-layout-edit-button mirror-layout-edit-button-primary" onClick={() => setLayoutEditMode(false)}>Done</button>
               </div>
@@ -4251,7 +4251,7 @@ function MirrorPageContent() {
                       ) : activeSong.audience_sings ? (
                         <span className="mirror-now-playing-karaoke-mark" aria-label="Karaoke request">Karaoke</span>
                       ) : (
-                        <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">ÔÖ¬</span>
+                        <span className="mirror-now-playing-karaoke-mark" aria-hidden="true">Music</span>
                       )}
                     </div>
                     <div className="mirror-now-playing-meta">
@@ -4259,7 +4259,7 @@ function MirrorPageContent() {
                         <div className="mirror-now-playing-details">
                           <h1 className="mirror-title">
                             <span className="mirror-title-song">
-                              {normalizeMirrorText(activeSong.title, 'Waiting for requestsÔÇª')}
+                              {normalizeMirrorText(activeSong.title, 'Waiting for requests...')}
                             </span>
                           </h1>
                           <p className="mirror-artist">
