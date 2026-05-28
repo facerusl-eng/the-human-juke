@@ -9922,7 +9922,7 @@ body.audience-immersive-mode {
   min-width: 4.9rem;
   justify-content: center;
   padding: 0.16rem 0.7rem;
-  transform: translateY(-50%) rotate(-90deg);
+  transform: translateY(-50%) rotate(90deg);
   transform-origin: center;
 }
 
