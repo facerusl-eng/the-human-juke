@@ -1839,6 +1839,11 @@ function MirrorPageContent() {
   const activeSongChosenByAccentClass = activeSong?.id
     ? getChosenByAccentClass(activeSong.id)
     : CHOSEN_BY_ACCENT_CLASSES[0]
+  const activeSongPickerName = activeSong?.createdByName?.trim() || (isHostPick(activeSong) ? 'The Host' : 'the crowd')
+  const nowPlayingComingUpSong = upNext[0] ?? null
+  const nowPlayingRollerText = nowPlayingComingUpSong
+    ? `Picked by ${activeSongPickerName} - the room is smiling already - maybe coming up: ${normalizeMirrorText(nowPlayingComingUpSong.title, 'More requests on deck')}`
+    : `Picked by ${activeSongPickerName} - the room is smiling already - maybe coming up`
 
   useEffect(() => {
     const activeSongIds = new Set(safeSongs.map((song) => song.id))
@@ -4160,23 +4165,31 @@ function MirrorPageContent() {
               className={`mirror-kiosk-columns ${layoutEditMode ? 'mirror-layout-edit-canvas' : ''}`}
               aria-label="Now playing and live queue/feed"
             >
-              <section
-                className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isQuoteModeActive ? 'mirror-now-playing-between' : ''} ${layoutEditMode ? 'mirror-layout-edit-panel' : ''}`}
-                data-mirror-layout-panel={layoutEditMode ? 'nowPlaying' : undefined}
-              >
-                {layoutEditMode ? (
-                  <button
-                    type="button"
-                    className="mirror-layout-drag-handle"
-                    aria-label="Drag now playing panel"
-                    title="Drag to move"
-                    onPointerDown={beginMirrorLayoutInteraction('nowPlaying', 'drag')}
-                  >
-                    Move
-                  </button>
-                ) : null}
-                <p className="mirror-now-playing-band-label">Now Playing / Quote Mode</p>
-                {isQuoteModeActive ? (
+              <div className="mirror-now-playing-column">
+                <section className="mirror-now-playing-banner-block mirror-frame" aria-label="Now playing crowd reaction banner">
+                  <div className="mirror-now-playing-roller-track">
+                    <span className="mirror-now-playing-roller-content">{nowPlayingRollerText}</span>
+                    <span className="mirror-now-playing-roller-content" aria-hidden="true">{nowPlayingRollerText}</span>
+                  </div>
+                </section>
+
+                <section
+                  className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isQuoteModeActive ? 'mirror-now-playing-between' : ''} ${layoutEditMode ? 'mirror-layout-edit-panel' : ''}`}
+                  data-mirror-layout-panel={layoutEditMode ? 'nowPlaying' : undefined}
+                >
+                  {layoutEditMode ? (
+                    <button
+                      type="button"
+                      className="mirror-layout-drag-handle"
+                      aria-label="Drag now playing panel"
+                      title="Drag to move"
+                      onPointerDown={beginMirrorLayoutInteraction('nowPlaying', 'drag')}
+                    >
+                      Move
+                    </button>
+                  ) : null}
+                  <p className="mirror-now-playing-band-label">Now Playing / Quote Mode</p>
+                  {isQuoteModeActive ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
                       <p className="mirror-between-song-quote">{betweenSongQuoteIndex === 0 ? 'Welcome to the show.' : displayedBetweenSongMessage}</p>
@@ -4241,27 +4254,28 @@ function MirrorPageContent() {
                     </div>
                   </div>
                 )}
-                {!layoutEditMode ? (
-                  <a
-                    className="mirror-now-playing-qr-panel"
-                    href={audienceUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    aria-label="Audience request page QR link"
-                  >
-                    <img src={audienceQrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
-                  </a>
-                ) : null}
-                {layoutEditMode ? (
-                  <button
-                    type="button"
-                    className="mirror-layout-resize-handle"
-                    aria-label="Resize now playing panel"
-                    title="Drag to resize"
-                    onPointerDown={beginMirrorLayoutInteraction('nowPlaying', 'resize')}
-                  />
-                ) : null}
-              </section>
+                  {!layoutEditMode ? (
+                    <a
+                      className="mirror-now-playing-qr-panel"
+                      href={audienceUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      aria-label="Audience request page QR link"
+                    >
+                      <img src={audienceQrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
+                    </a>
+                  ) : null}
+                  {layoutEditMode ? (
+                    <button
+                      type="button"
+                      className="mirror-layout-resize-handle"
+                      aria-label="Resize now playing panel"
+                      title="Drag to resize"
+                      onPointerDown={beginMirrorLayoutInteraction('nowPlaying', 'resize')}
+                    />
+                  ) : null}
+                </section>
+              </div>
 
               <section
                 className="mirror-kiosk-right"
