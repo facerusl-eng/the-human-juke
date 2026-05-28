@@ -1289,7 +1289,7 @@
 /* Post cards — neon chat bubbles */
 .audience-karafun .live-feed-list {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   max-height: 740px;
   overflow-y: auto;
   padding-right: 2px;
@@ -1309,8 +1309,8 @@
 }
 
 .audience-karafun .live-feed-post {
-  padding: 14px 16px;
-  border-radius: 20px;
+  padding: 10px 14px;
+  border-radius: 16px;
   border: 1px solid rgba(93, 215, 255, 0.24);
   background:
     radial-gradient(circle at 10% 10%, rgba(93, 215, 255, 0.15) 0%, transparent 34%),
@@ -1322,8 +1322,9 @@
   box-shadow:
     0 0 20px rgba(93, 215, 255, 0.08),
     0 10px 20px rgba(4, 6, 20, 0.4);
-  max-width: 88%;
-  margin-right: auto;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
   position: relative;
   /* Left accent stripe */
   border-left: 3px solid;
@@ -1358,8 +1359,10 @@
 
 .audience-karafun .live-feed-post-message {
   color: #e8e8ff;
-  font-size: 0.98rem;
-  line-height: 1.55;
+  font-size: 0.96rem;
+  line-height: 1.45;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* Polaroid photo cards */
