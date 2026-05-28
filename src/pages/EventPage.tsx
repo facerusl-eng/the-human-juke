@@ -32,6 +32,7 @@ import type { FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import AudienceNoGigState, { type AudienceUpcomingEvent } from '../components/audience/AudienceNoGigState'
 import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
+import AudienceFullscreenToggleButton from '../components/audience/AudienceFullscreenToggleButton'
 import SongVoteCard from '../components/audience/SongVoteCard'
 import { useQueueStore, type QueueSong } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
@@ -3261,6 +3262,7 @@ function EventPage() {
               </div>
             ) : null}
             <div className="audience-waiting-primary-actions">
+              <AudienceFullscreenToggleButton locale={audienceLocale} className="audience-inline-fullscreen-button" />
               <button
                 type="button"
                 className="primary-button"
@@ -3344,6 +3346,7 @@ function EventPage() {
             >
               {audienceNameSaving ? copy.joining : copy.join}
             </button>
+            <AudienceFullscreenToggleButton locale={audienceLocale} className="audience-inline-fullscreen-button" />
             {demoBackToHomeButton}
           </form>
           {errorText ? <p className={`request-error-inline${isLastSongSoonOverlayMessage(errorText) ? ' audience-requests-closed-notice' : ' error-text'}`}>{errorText}</p> : null}

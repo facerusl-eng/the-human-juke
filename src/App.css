@@ -3111,10 +3111,20 @@ body.audience-immersive-mode .audience-shell,
 body.audience-immersive-mode .audience-song-list-shell {
   min-height: 100dvh;
   border-radius: 0;
+  overflow: auto;
 }
 
 body.audience-immersive-mode .audience-fixed-header {
   top: max(0.25rem, env(safe-area-inset-top));
+}
+
+body.audience-immersive-mode {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.audience-inline-fullscreen-button {
+  min-height: 2.6rem;
 }
 
 .audience-fixed-logo {

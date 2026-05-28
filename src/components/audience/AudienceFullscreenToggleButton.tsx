@@ -62,6 +62,12 @@ function applyImmersiveMode(nextEnabled: boolean) {
   }
 
   window.dispatchEvent(new CustomEvent(AUDIENCE_IMMERSIVE_EVENT, { detail: { enabled: nextEnabled } }))
+
+  if (nextEnabled) {
+    window.setTimeout(() => {
+      window.scrollTo(0, 1)
+    }, 30)
+  }
 }
 
 async function requestFullscreenSafe(targetElement: HTMLElement) {
@@ -108,6 +114,8 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
         immersiveOn: 'Immersive: Til',
         immersiveOff: 'Immersive: Fra',
         unsupported: 'Fuld skærm kræver Chrome/Safari browser',
+        enterImmersive: 'Start immersive',
+        exitImmersive: 'Afslut immersive',
       }
     }
 
@@ -118,6 +126,8 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
         immersiveOn: 'Immersive: A',
         immersiveOff: 'Immersive: Af',
         unsupported: 'Skjarfylli krefst Chrome/Safari',
+        enterImmersive: 'Start immersive',
+        exitImmersive: 'Haetta immersive',
       }
     }
 
@@ -127,6 +137,8 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
       immersiveOn: 'Immersive: On',
       immersiveOff: 'Immersive: Off',
       unsupported: 'Fullscreen needs Chrome/Safari browser',
+      enterImmersive: 'Enter Immersive',
+      exitImmersive: 'Exit Immersive',
     }
   }, [locale])
 
@@ -176,6 +188,12 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
   }, [])
 
   const onToggleFullscreen = async () => {
+    if (isImmersiveMode && !getActiveFullscreenElement()) {
+      applyImmersiveMode(false)
+      setIsImmersiveMode(false)
+      return
+    }
+
     if (!fullscreenSupported) {
       const nextImmersiveEnabled = !isImmersiveMode
       applyImmersiveMode(nextImmersiveEnabled)
@@ -204,7 +222,7 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
   const buttonLabel = isFullscreen
     ? copy.exit
     : isImmersiveMode
-    ? copy.immersiveOn
+    ? copy.exitImmersive
     : copy.enter
 
   const buttonIcon = isFullscreen || isImmersiveMode ? '⤢' : '⛶'
@@ -221,7 +239,7 @@ function AudienceFullscreenToggleButton({ locale = 'en', className }: AudienceFu
       >
         {buttonIcon} {buttonLabel}
       </PrimaryButton>
-      {showFallbackHint ? <span className="audience-fullscreen-hint">{copy.unsupported}. {copy.immersiveOff} / {copy.immersiveOn} fallback enabled.</span> : null}
+      {showFallbackHint ? <span className="audience-fullscreen-hint">{copy.unsupported}. {copy.enterImmersive} fallback enabled.</span> : null}
     </>
   )
 }
