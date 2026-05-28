@@ -1841,9 +1841,12 @@ function MirrorPageContent() {
     : CHOSEN_BY_ACCENT_CLASSES[0]
   const activeSongPickerName = activeSong?.createdByName?.trim() || (isHostPick(activeSong) ? 'The Host' : 'the crowd')
   const nowPlayingComingUpSong = upNext[0] ?? null
-  const nowPlayingRollerText = nowPlayingComingUpSong
-    ? `Picked by ${activeSongPickerName} - the room is smiling already - maybe coming up: ${normalizeMirrorText(nowPlayingComingUpSong.title, 'More requests on deck')}`
-    : `Picked by ${activeSongPickerName} - the room is smiling already - maybe coming up`
+  const nowPlayingTitleText = normalizeMirrorText(activeSong?.title, 'Waiting for requests')
+  const nowPlayingPickedByText = activeSongChosenByLine ?? `Picked by ${activeSongPickerName} - the room is smiling already.`
+  const nowPlayingComingUpText = nowPlayingComingUpSong
+    ? normalizeMirrorText(nowPlayingComingUpSong.title, 'More requests on deck')
+    : 'More requests on deck'
+  const nowPlayingRollerText = `Now Playing: ${nowPlayingTitleText} - ${nowPlayingPickedByText} - Coming Up: ${nowPlayingComingUpText}`
 
   useEffect(() => {
     const activeSongIds = new Set(safeSongs.map((song) => song.id))
