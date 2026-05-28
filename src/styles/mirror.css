@@ -779,14 +779,14 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-.mirror-stage-live .mirror-now-playing {
+.mirror-stage-live > .mirror-now-playing {
   grid-column: 1;
   grid-row: 1;
   min-height: 0;
   height: 100%;
 }
 
-.mirror-stage-live .mirror-secondary-grid {
+.mirror-stage-live > .mirror-secondary-grid {
   grid-column: 1;
   grid-row: 2;
   min-height: 0;
@@ -3097,6 +3097,14 @@
   gap: clamp(0.34rem, 0.56vw, 0.6rem);
   min-height: 0;
   height: 100%;
+}
+
+.mirror-now-playing-column > .mirror-now-playing-banner-block {
+  grid-row: 1;
+}
+
+.mirror-now-playing-column > .mirror-now-playing {
+  grid-row: 2;
 }
 
 .mirror-now-playing-band-label {
