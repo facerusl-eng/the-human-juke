@@ -181,10 +181,6 @@
   transform-origin: left center;
 }
 
-.mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing-qr-panel {
-  transform-origin: center center;
-}
-
 .mirror-shell-home-preview.mirror-shell-hide-controls .mirror-now-playing .mirror-title {
   font-size: clamp(1.4rem, 2.6vw, 2.5rem);
   line-height: 1.08;
@@ -986,24 +982,7 @@
   padding-right: calc(clamp(1rem, 1.8vw, 1.8rem) + var(--mirror-now-playing-qr-safe-space));
 }
 
-.mirror-now-playing-track {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: center;
-  gap: clamp(0.95rem, 1.42vw, 1.4rem);
-  align-items: center;
-  width: min(100%, 1180px);
-}
-
 .mirror-now-playing-qr {
-  position: absolute;
-  top: clamp(0.7rem, 1vw, 1rem);
-  right: clamp(0.7rem, 1vw, 1rem);
-  width: clamp(104px, 9vw, 148px);
-  height: clamp(104px, 9vw, 148px);
-  border-radius: 10px;
-  padding: clamp(0.18rem, 0.3vw, 0.24rem);
-  background: #ffffff;
   image-rendering: -webkit-optimize-contrast;
   image-rendering: pixelated;
   border: 1px solid rgba(255, 255, 255, 0.44);
@@ -2812,36 +2791,23 @@
   color: #d7ecff;
 }
 
+
+
 .mirror-now-playing-qr-panel {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 0.5rem;
-  padding: clamp(0.75rem, 1.1vw, 1rem);
-  border-radius: 16px;
-  border: 1px solid rgba(6, 182, 212, 0.24);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, clamp(188px, 15vw, 286px));
+  max-width: 100%;
+  height: min(100%, clamp(188px, 15vw, 286px));
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+  padding: clamp(0.34rem, 0.56vw, 0.5rem);
+  border-radius: 14px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
   background: rgba(9, 12, 25, 0.5);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.mirror-now-playing-qr {
-  position: static;
-  top: auto;
-  right: auto;
-  width: min(100%, clamp(118px, 11vw, 182px));
-  height: auto;
-  aspect-ratio: 1 / 1;
-  border-radius: 12px;
-}
-
-.mirror-now-playing-qr-label {
-  margin: 0;
-  font-size: clamp(0.72rem, 0.95vw, 0.9rem);
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #7dd3fc;
-  text-align: center;
 }
 
 .mirror-now-playing-qr-url {
@@ -3873,17 +3839,6 @@
   grid-template-columns: minmax(0, 1fr) clamp(250px, 20vw, 390px);
 }
 
-.mirror-shell-hide-controls .mirror-now-playing-qr-panel {
-  min-height: 0;
-  width: min(100%, clamp(236px, 19vw, 356px));
-  aspect-ratio: 1 / 1;
-  justify-self: center;
-  align-self: center;
-  place-items: center;
-  padding: clamp(0.34rem, 0.52vw, 0.5rem);
-  box-sizing: border-box;
-  overflow: hidden;
-}
 
 .mirror-shell-hide-controls .mirror-now-playing-qr {
   width: 100%;
