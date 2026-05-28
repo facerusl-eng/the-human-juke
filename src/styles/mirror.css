@@ -3622,6 +3622,34 @@
   word-break: break-word;
 }
 
+.mirror-now-playing .mirror-title-song {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mirror-now-playing .mirror-artist {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mirror-now-playing .mirror-picked-by {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mirror-now-playing .mirror-song-fact {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .mirror-now-playing .mirror-title {
   font-size: clamp(1.34rem, 2.35vw, 2.72rem);
   line-height: 1.08;
