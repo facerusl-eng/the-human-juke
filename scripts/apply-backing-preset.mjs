@@ -149,6 +149,8 @@ const commands = [
   // AUX stereo return (Spotify) uses /rtn/aux — NOT /ch/17 or /ch/18
   ['/rtn/aux/config/name',  [{ type: 's', value: 'Spotify'     }]],
   ['/rtn/aux/config/color', [{ type: 'i', value: COLOR.GREEN   }]],
+  ['/rtn/aux/mix/on',       [{ type: 'i', value: 1 }]],
+  ['/rtn/aux/mix/fader',    [{ type: 'f', value: fader(0) }]],      // 0dB master send
 
   // ══ BUS NAMES & COLORS ═══════════════════════════════════════════════════
   ['/bus/01/config/name',  [{ type: 's', value: 'IEM L'        }]],
