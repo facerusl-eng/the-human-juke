@@ -58,6 +58,7 @@ import { useQueueStore } from '../state/queueStore';
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
+const GO_LIVE_COUNTDOWN_LOCK_MESSAGE = 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
 const SONG_START_COUNTDOWN_MS = 10_000
 const SPACEBAR_START_COUNTDOWN_MS = 4_000
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
@@ -270,6 +271,29 @@ function formatGigSwitcherDate(gigDate: string | null | undefined, gigStartTime:
   }).format(startAt)
 
   return `${dateLabel} at ${timeLabel}`
+}
+
+function isGoLiveCountdownLocked(
+  roomOpen: boolean,
+  mirrorCountdownEnabled: boolean | null | undefined,
+  gigDate: string | null | undefined,
+  gigStartTime: string | null | undefined,
+  hostNowMs: number,
+) {
+  if (roomOpen) {
+    return false
+  }
+
+  if (!mirrorCountdownEnabled) {
+    return false
+  }
+
+  const gigStartAt = resolveGigStartAt(gigDate, gigStartTime)
+  if (!gigStartAt) {
+    return false
+  }
+
+  return gigStartAt.getTime() > hostNowMs
 }
 
 async function fetchServerClockOffsetMs(): Promise<number | null> {
@@ -734,6 +758,13 @@ function GigControlPage() {
   const nowPlayingRequesters = parseRequesterNames(nowPlaying?.createdByName)
   const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
   const isBeforeScheduledStart = Boolean(!event?.roomOpen && gigStartAt && gigStartAt.getTime() > getHostNowMs())
+  const isManualGoLiveLocked = Boolean(event) && isGoLiveCountdownLocked(
+    Boolean(event?.roomOpen),
+    event?.mirrorCountdownEnabled,
+    event?.gigDate,
+    event?.gigStartTime,
+    getHostNowMs(),
+  )
   const mirrorStateLabel = isBrbActive
     ? 'Mirror showing BRB screen'
     : event?.roomOpen
@@ -1666,13 +1697,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return;
     }
 
-    // Block manual Go Live if countdown is set and not reached
-    const gigStartAt = resolveGigStartAt(currentEvent.gigDate, currentEvent.gigStartTime);
-    const now = getHostNowMs();
-    if (
-      currentEvent.autoLiveEnabled && gigStartAt && gigStartAt.getTime() > now && !currentEvent.roomOpen
-    ) {
-      setErrorText('Go Live is countdown-only: manual start is disabled until the timer reaches zero.');
+    if (isGoLiveCountdownLocked(
+      currentEvent.roomOpen,
+      currentEvent.mirrorCountdownEnabled,
+      currentEvent.gigDate,
+      currentEvent.gigStartTime,
+      getHostNowMs(),
+    )) {
+      setErrorText(GO_LIVE_COUNTDOWN_LOCK_MESSAGE)
       return;
     }
 
@@ -3114,13 +3146,17 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return;
     }
 
-    // Block manual Go Live if countdown is set and not reached
-    const gigStartAt = resolveGigStartAt(currentEvent.gigDate, currentEvent.gigStartTime);
-    const now = getHostNowMs();
     if (
-      currentEvent.autoLiveEnabled && gigStartAt && gigStartAt.getTime() > now && !currentEvent.roomOpen && !isNowPlayingStartedRef.current
+      !isNowPlayingStartedRef.current
+      && isGoLiveCountdownLocked(
+        currentEvent.roomOpen,
+        currentEvent.mirrorCountdownEnabled,
+        currentEvent.gigDate,
+        currentEvent.gigStartTime,
+        getHostNowMs(),
+      )
     ) {
-      setErrorText('Go Live is countdown-only: manual start is disabled until the timer reaches zero.');
+      setErrorText(GO_LIVE_COUNTDOWN_LOCK_MESSAGE)
       return;
     }
 
@@ -3363,13 +3399,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         ? 'Go Live + Auto Fix'
         : 'Go Live',
       onClick: async () => {
-        // If countdown is set and not reached, block manual Go Live
-        const gigStartAt = resolveGigStartAt(event?.gigDate, event?.gigStartTime);
-        const now = getHostNowMs();
-        if (
-          event?.autoLiveEnabled && gigStartAt && gigStartAt.getTime() > now && !event.roomOpen
-        ) {
-          setErrorText('Go Live is countdown-only: manual start is disabled until the timer reaches zero.');
+        if (isManualGoLiveLocked) {
+          setErrorText(GO_LIVE_COUNTDOWN_LOCK_MESSAGE)
           return;
         }
         await toggleLiveState();
@@ -3377,20 +3408,15 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       title:
         event?.roomOpen
           ? 'Pause the live event — the audience will see a waiting screen'
-          : event?.autoLiveEnabled && resolveGigStartAt(event?.gigDate, event?.gigStartTime) && resolveGigStartAt(event?.gigDate, event?.gigStartTime)!.getTime() > getHostNowMs() && !event.roomOpen
-          ? 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
+          : isManualGoLiveLocked
+          ? GO_LIVE_COUNTDOWN_LOCK_MESSAGE
           : 'Run health checks and open the room so the audience can join',
       disabled:
         !!globalActionCheckEnabled === false ||
         !!gigActions.quickActionBusy ||
         !!preflightBusy ||
         endGigDecisionBusy !== null ||
-        (
-          !!event?.autoLiveEnabled &&
-          !!resolveGigStartAt(event?.gigDate, event?.gigStartTime) &&
-          resolveGigStartAt(event?.gigDate, event?.gigStartTime)!.getTime() > getHostNowMs() &&
-          !event.roomOpen
-        ),
+        isManualGoLiveLocked,
       variant: event?.roomOpen ? 'secondary' : lastReadinessVerdict === 'fail' ? 'secondary' : 'primary',
     },
     {
