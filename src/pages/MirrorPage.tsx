@@ -2979,7 +2979,10 @@ function MirrorPageContent() {
       return
     }
 
-    if (isLive || !countdownTarget) {
+    const shouldTickCountdown = !isLive && Boolean(countdownTarget)
+    const shouldTickWelcome = isLive && goLiveWelcomeUntilMs !== null
+
+    if (!shouldTickCountdown && !shouldTickWelcome) {
       return
     }
 
@@ -2992,7 +2995,7 @@ function MirrorPageContent() {
     return () => {
       window.clearInterval(timerId)
     }
-  }, [countdownTarget, isLive, layoutEditMode, getMirrorNowMs])
+  }, [countdownTarget, isLive, layoutEditMode, getMirrorNowMs, goLiveWelcomeUntilMs])
 
   useEffect(() => {
     const onRuntimeError = (event: ErrorEvent) => {
