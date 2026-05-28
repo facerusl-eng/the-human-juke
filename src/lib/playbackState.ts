@@ -58,8 +58,8 @@ import { readFromLocalStorage, saveToLocalStorage } from './saveHandling'
 export const PLAYBACK_STATE_EVENT = 'human-jukebox:playback-state'
 export const PLAYBACK_STATE_STORAGE_KEY = 'human-jukebox:playback-state-sync'
 export const PLAYBACK_STATE_BROADCAST_CHANNEL = 'human-jukebox:playback-state'
-export const LAST_SONG_SOON_OVERLAY_MESSAGE = 'Last song is coming soon. New song requests are now closed. Vote in the live feed if you want an extra number (encore), and keep voting on songs already in the queue.'
-export const LAST_SONG_SOON_OVERLAY_MESSAGE_DA = 'Aftenens sidste sang kommer snart. Nye sangønsker er nu lukket. Stem i livefeedet, hvis du vil have et ekstranummer, og stem videre på sangene i køen.'
+export const LAST_SONG_SOON_OVERLAY_MESSAGE = 'We are near the end of the show, so there is no room for more song requests right now. You can still post in Live Feed. / Vi er naer slutningen af showet, sa der er ikke plads til flere sangonsker lige nu. Du kan stadig skrive i Live Feed.'
+export const LAST_SONG_SOON_OVERLAY_MESSAGE_DA = 'Vi er naer slutningen af showet, sa der er ikke plads til flere sangonsker lige nu. Du kan stadig skrive i Live Feed. / We are near the end of the show, so there is no room for more song requests right now. You can still post in Live Feed.'
 export const LAST_SONG_SOON_OVERLAY_MESSAGE_IS = 'Síðasta lag kvöldsins kemur bráðum. Nýjar lagabeiðnir eru nú lokaðar. Kjósið í live-feedinu ef þið viljið aukalag, og haldið áfram að kjósa lögin í röðinni.'
 
 const LEGACY_LAST_SONG_SOON_OVERLAY_MESSAGES = [

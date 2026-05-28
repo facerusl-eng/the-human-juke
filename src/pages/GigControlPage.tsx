@@ -3953,7 +3953,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 void toggleLastSongSoonState()
               }}
             >
-              {isFinalSongSoonActive ? 'Last Song: On (Turn Off)' : 'Last Song: Off (Turn On)'}
+              {isFinalSongSoonActive ? 'Stop New Requests: On (Allow Requests)' : 'Stop New Requests: Off (Stop Requests)'}
             </button>
             <button
               type="button"
