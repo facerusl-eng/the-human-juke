@@ -217,6 +217,10 @@ const commands = [
   ['/config/buslink/1-2',  [{ type: 'i', value: 1 }]],  // IEM stereo pair
   ['/config/buslink/5-6',  [{ type: 'i', value: 1 }]],  // Jamzone bus stereo pair
 
+  // ══ MAIN LR / MASTER ══════════════════════════════════════════════════════
+  ['/main/st/mix/on',      [{ type: 'i', value: 1 }]],
+  ['/main/st/mix/fader',   [{ type: 'f', value: fader(0) }]],      // 0dB master open
+
   // ══ CH 1: HOST MIC — EQ + COMPRESSOR ══════════════════════════════════════
   // EQ: HPF @ 100Hz | -2dB mud @ 250Hz | +2.5dB presence @ 3kHz
   ['/ch/01/eq/on',         [{ type: 'i', value: 1 }]],
