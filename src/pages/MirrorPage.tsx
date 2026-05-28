@@ -1846,7 +1846,6 @@ function MirrorPageContent() {
   const nowPlayingComingUpText = nowPlayingComingUpSong
     ? normalizeMirrorText(nowPlayingComingUpSong.title, 'More requests on deck')
     : 'More requests on deck'
-  const nowPlayingRollerText = `Now Playing: ${nowPlayingTitleText} - ${nowPlayingPickedByText} - Coming Up: ${nowPlayingComingUpText}`
 
   useEffect(() => {
     const activeSongIds = new Set(safeSongs.map((song) => song.id))
@@ -4171,8 +4170,24 @@ function MirrorPageContent() {
               <div className="mirror-now-playing-column">
                 <section className="mirror-now-playing-banner-block mirror-frame" aria-label="Now playing crowd reaction banner">
                   <div className="mirror-now-playing-roller-track">
-                    <span className="mirror-now-playing-roller-content">{nowPlayingRollerText}</span>
-                    <span className="mirror-now-playing-roller-content" aria-hidden="true">{nowPlayingRollerText}</span>
+                    <span className="mirror-now-playing-roller-content">
+                      <span className="mirror-now-playing-roller-label mirror-now-playing-roller-label-now">Now Playing</span>
+                      <span className="mirror-now-playing-roller-detail">{nowPlayingTitleText}</span>
+                      <span className="mirror-now-playing-roller-separator" aria-hidden="true">•</span>
+                      <span className="mirror-now-playing-roller-detail">{nowPlayingPickedByText}</span>
+                      <span className="mirror-now-playing-roller-separator" aria-hidden="true">•</span>
+                      <span className="mirror-now-playing-roller-label mirror-now-playing-roller-label-up">Coming Up</span>
+                      <span className="mirror-now-playing-roller-detail">{nowPlayingComingUpText}</span>
+                    </span>
+                    <span className="mirror-now-playing-roller-content" aria-hidden="true">
+                      <span className="mirror-now-playing-roller-label mirror-now-playing-roller-label-now">Now Playing</span>
+                      <span className="mirror-now-playing-roller-detail">{nowPlayingTitleText}</span>
+                      <span className="mirror-now-playing-roller-separator" aria-hidden="true">•</span>
+                      <span className="mirror-now-playing-roller-detail">{nowPlayingPickedByText}</span>
+                      <span className="mirror-now-playing-roller-separator" aria-hidden="true">•</span>
+                      <span className="mirror-now-playing-roller-label mirror-now-playing-roller-label-up">Coming Up</span>
+                      <span className="mirror-now-playing-roller-detail">{nowPlayingComingUpText}</span>
+                    </span>
                   </div>
                 </section>
 
