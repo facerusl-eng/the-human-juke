@@ -4945,28 +4945,41 @@ body:has(.audience-no-gig-shell) {
 }
 
 .gig-control-shell-focus .gig-control-header h1 {
-  font-size: 1.16rem;
+  font-size: 1.3rem;
   margin: 0.12rem 0 0;
+}
+
+.gig-control-shell-focus .gig-control-header .subcopy {
+  font-size: 0.98rem;
+  line-height: 1.45;
 }
 
 .gig-control-shell-focus .gig-next-up-hint {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 1rem;
+  padding: 0.56rem 0.66rem;
+  border-color: rgba(142, 188, 255, 0.52);
+  background: rgba(10, 22, 50, 0.74);
 }
 
 .gig-control-shell-focus .gig-playback-note {
   display: block;
-  font-size: 0.86rem;
-  padding: 0.46rem 0.6rem;
+  font-size: 0.94rem;
+  padding: 0.54rem 0.64rem;
+  border-color: rgba(138, 179, 255, 0.48);
+  background: rgba(8, 19, 44, 0.78);
 }
 
 .gig-control-shell-focus .gig-audience-count-badge {
-  font-size: 0.9rem;
-  padding: 0.42rem 0.6rem;
+  font-size: 1rem;
+  padding: 0.52rem 0.68rem;
+  border-color: rgba(108, 224, 255, 0.54);
+  background: rgba(11, 30, 58, 0.78);
 }
 
 .gig-control-shell-focus .gig-auto-live-countdown {
-  font-size: 0.86rem;
+  font-size: 0.98rem;
+  padding: 0.4rem 0.7rem;
 }
 
 .gig-control-shell-focus .gig-performer-cockpit {
@@ -5176,32 +5189,42 @@ body:has(.audience-no-gig-shell) {
   .app-main-content-focus .gig-control-shell-focus .gig-control-header {
     grid-column: 1;
     grid-row: 1;
-    padding: 0.68rem;
-    gap: 0.48rem;
+    padding: 0.82rem;
+    gap: 0.62rem;
   }
 
   .app-main-content-focus .gig-control-shell-focus .gig-control-header h1 {
-    font-size: 1.08rem;
+    font-size: 1.36rem;
+    line-height: 1.2;
+  }
+
+  .app-main-content-focus .gig-control-shell-focus .gig-control-header .subcopy {
+    font-size: 1rem;
+    line-height: 1.45;
   }
 
   .app-main-content-focus .gig-control-shell-focus .gig-next-up-hint {
-    font-size: 0.9rem;
-    padding: 0.48rem 0.58rem;
+    font-size: 1.04rem;
+    padding: 0.62rem 0.74rem;
+    line-height: 1.5;
   }
 
   .app-main-content-focus .gig-control-shell-focus .gig-playback-note {
     display: block;
-    font-size: 0.82rem;
-    padding: 0.42rem 0.54rem;
+    font-size: 0.94rem;
+    padding: 0.56rem 0.68rem;
+    line-height: 1.5;
   }
 
   .app-main-content-focus .gig-control-shell-focus .gig-audience-count-badge {
-    font-size: 0.86rem;
-    padding: 0.4rem 0.54rem;
+    font-size: 0.98rem;
+    padding: 0.54rem 0.68rem;
+    line-height: 1.42;
   }
 
   .app-main-content-focus .gig-control-shell-focus .gig-auto-live-countdown {
-    font-size: 0.8rem;
+    font-size: 0.96rem;
+    padding: 0.44rem 0.72rem;
   }
 
   .app-main-content-focus .gig-control-shell-focus .gig-mirror-preview-card {
