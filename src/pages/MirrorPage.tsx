@@ -81,16 +81,16 @@ type FeedImageSpotlight = {
 }
 
 const SPOTLIGHT_CAPTION_BUILDERS = [
-  (authorName: string) => `­ƒô© ${authorName}, you just made the show 10├ù more beautiful Ô£¿`,
-  (authorName: string) => `­ƒîƒ ${authorName} with the VIP shot ÔÇö we see you! ­ƒÄë`,
-  (authorName: string) => `ÔØñ´©Å ${authorName}, thanks for sharing ÔÇö you absolute legend!`,
-  (authorName: string) => `­ƒÄÂ ${authorName} came, vibed, and left photographic evidence. Love it!`,
-  (authorName: string) => `­ƒÑ│ ${authorName}, this pic just became the cover of tonight's album!`,
-  (authorName: string) => `­ƒöÑ ${authorName} proving once again that the audience steals the show!`,
-  (authorName: string) => `­ƒÿì ${authorName}, this photo deserves a standing ovation. Respect.`,
-  (authorName: string) => `­ƒÄñ ${authorName} dropping evidence of a great night ÔÇö we love this!`,
-  (authorName: string) => `Ô£¿ ${authorName}, you made the feed instantly classier. No debate.`,
-  (authorName: string) => `­ƒÄ© ${authorName} with the snap heard around the room! ­ƒô©`,
+  (authorName: string) => `${authorName}, you just made the show 10 percent more beautiful.`,
+  (authorName: string) => `${authorName} with the VIP shot. We see you.`,
+  (authorName: string) => `${authorName}, thanks for sharing. You absolute legend.`,
+  (authorName: string) => `${authorName} came, vibed, and left photographic evidence. Love it.`,
+  (authorName: string) => `${authorName}, this pic just became the cover of tonight's album.`,
+  (authorName: string) => `${authorName} proving once again that the audience steals the show.`,
+  (authorName: string) => `${authorName}, this photo deserves a standing ovation. Respect.`,
+  (authorName: string) => `${authorName} dropping evidence of a great night. We love this.`,
+  (authorName: string) => `${authorName}, you made the feed instantly classier. No debate.`,
+  (authorName: string) => `${authorName} with the snap heard around the room.`,
 ]
 
 const CHOSEN_BY_BUILDERS = [
@@ -114,7 +114,7 @@ const CHOSEN_BY_ACCENT_CLASSES = [
   'mirror-picker-accent-7',
   'mirror-picker-accent-8',
 ]
-const HOST_PICKED_BY_FALLBACK = 'Picked by The Hoast'
+const HOST_PICKED_BY_FALLBACK = 'Picked by The Host'
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 
 const SPOTLIGHT_DURATION_MS = 10000
@@ -143,7 +143,7 @@ const QR_FLASH_ROTATE_INTERVAL_MS = 5000
 const QR_FLASH_BASE_LINES = [
   'Thirsty?',
   'The Bar Got Options',
-  'Some Of Them Even Make Sence',
+  'Some Of Them Even Make Sense',
   'Check Out These Amazing',
   'Cold Beverages',
 ]
