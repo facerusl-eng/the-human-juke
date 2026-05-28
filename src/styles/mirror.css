@@ -3171,6 +3171,8 @@
   color: #8af4ff;
   border: 1px solid rgba(99, 232, 255, 0.55);
   background: linear-gradient(135deg, rgba(14, 76, 103, 0.62) 0%, rgba(20, 41, 85, 0.62) 100%);
+  padding: 0.2rem 0.74rem;
+  font-size: clamp(0.68rem, 0.86vw, 0.8rem);
   animation: mirror-now-playing-label-pulse 1.8s ease-in-out infinite;
 }
 
