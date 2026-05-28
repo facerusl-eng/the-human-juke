@@ -1348,7 +1348,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
           })
         }
         markSaved()
-        await registerBackgroundSync('jukebox-sync')
+        void registerBackgroundSync('jukebox-sync')
       } catch (error) {
         console.warn('GigSettingsPage: failed to save settings', {
           error,
