@@ -4,10 +4,11 @@ import * as cheerio from 'cheerio';
 
 const GENIUS_API_BASE = 'https://api.genius.com';
 const GENIUS_ACCESS_TOKEN = process.env.GENIUS_ACCESS_TOKEN;
+const MUSIXMATCH_API_BASE = 'https://api.musixmatch.com/ws/1.1';
 
 const PROVIDER_BASE_SCORE = {
-  genius: 100,
-  musixmatch: 95,
+  musixmatch: 102,
+  genius: 98,
   audd: 80,
   chartlyrics: 72,
   'lyrics.ovh': 65,
@@ -139,7 +140,7 @@ async function fetchWithRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> 
 
 function sanitizeLyrics(value: string | null | undefined) {
   const normalized = (value ?? '')
-    .replace(/\*\* This Lyrics is NOT for Commercial use \*\*[\s\S]*/g, '')
+    .replace(/\*+\s*This Lyrics is NOT for Commercial use\s*\*+[\s\S]*/gi, '')
     .replace(/\r\n/g, '\n')
     .trim();
 
@@ -261,20 +262,86 @@ async function fetchMusixmatchLyrics(title: string, artist: string): Promise<str
     return null;
   }
 
-  try {
-    const searchUrl = `https://api.musixmatch.com/ws/1.1/track.search?q_track=${encodeURIComponent(title)}&q_artist=${encodeURIComponent(artist)}&f_has_lyrics=1&s_track_rating=desc&apikey=${musixmatchApiKey}`;
-    const searchResponse = await axios.get(searchUrl, { timeout: 9000 });
-    const trackId = searchResponse.data?.message?.body?.track_list?.[0]?.track?.track_id;
-
-    if (!trackId) {
+  const cleanTimestampedLyrics = (value: string | null | undefined) => {
+    if (!value) {
       return null;
     }
 
-    const lyricsUrl = `https://api.musixmatch.com/ws/1.1/track.lyrics.get?track_id=${trackId}&apikey=${musixmatchApiKey}`;
+    const withoutTimestamps = value
+      .replace(/\[\d{1,2}:\d{2}(?:\.\d{1,2})?\]/g, '')
+      .replace(/\r\n/g, '\n');
+
+    return sanitizeLyrics(withoutTimestamps);
+  };
+
+  const pickBestTrack = (tracks: Array<{ track?: { track_id?: number; track_name?: string; artist_name?: string } }> | undefined) => {
+    let bestTrackId: number | null = null;
+    let bestScore = -1;
+
+    for (const trackWrapper of tracks ?? []) {
+      const track = trackWrapper.track;
+      const trackId = track?.track_id;
+      if (!trackId) {
+        continue;
+      }
+
+      const titleOverlap = calculateTokenOverlapScore(title, track.track_name ?? '');
+      const artistOverlap = calculateTokenOverlapScore(artist, track.artist_name ?? '');
+      const score = titleOverlap * 0.65 + artistOverlap * 0.35;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestTrackId = trackId;
+      }
+    }
+
+    return bestTrackId;
+  };
+
+  try {
+    const matcherLyricsUrl = `${MUSIXMATCH_API_BASE}/matcher.lyrics.get?q_track=${encodeURIComponent(title)}&q_artist=${encodeURIComponent(artist)}&apikey=${musixmatchApiKey}`;
+    const matcherLyricsResponse = await axios.get(matcherLyricsUrl, { timeout: 9000 });
+    const matcherLyrics = matcherLyricsResponse.data?.message?.body?.lyrics?.lyrics_body;
+
+    const directLyrics = sanitizeLyrics(matcherLyrics);
+    if (directLyrics) {
+      return directLyrics;
+    }
+
+    const searchUrl = `${MUSIXMATCH_API_BASE}/track.search?q_track=${encodeURIComponent(title)}&q_artist=${encodeURIComponent(artist)}&f_has_lyrics=1&s_track_rating=desc&page_size=8&apikey=${musixmatchApiKey}`;
+    const searchResponse = await axios.get(searchUrl, { timeout: 9000 });
+    const initialTrackId = pickBestTrack(searchResponse.data?.message?.body?.track_list);
+
+    let trackId = initialTrackId;
+
+    if (!trackId) {
+      const trackOnlySearchUrl = `${MUSIXMATCH_API_BASE}/track.search?q_track=${encodeURIComponent(title)}&f_has_lyrics=1&s_track_rating=desc&page_size=8&apikey=${musixmatchApiKey}`;
+      const trackOnlyResponse = await axios.get(trackOnlySearchUrl, { timeout: 9000 });
+      trackId = pickBestTrack(trackOnlyResponse.data?.message?.body?.track_list);
+    }
+
+    if (!trackId) {
+      const matcherSubtitleUrl = `${MUSIXMATCH_API_BASE}/matcher.subtitle.get?q_track=${encodeURIComponent(title)}&q_artist=${encodeURIComponent(artist)}&apikey=${musixmatchApiKey}`;
+      const matcherSubtitleResponse = await axios.get(matcherSubtitleUrl, { timeout: 9000 });
+      const subtitleBody = matcherSubtitleResponse.data?.message?.body?.subtitle?.subtitle_body;
+      const subtitleLyrics = cleanTimestampedLyrics(subtitleBody);
+      return subtitleLyrics;
+    }
+
+    const lyricsUrl = `${MUSIXMATCH_API_BASE}/track.lyrics.get?track_id=${trackId}&apikey=${musixmatchApiKey}`;
     const lyricsResponse = await axios.get(lyricsUrl, { timeout: 9000 });
     const lyrics = lyricsResponse.data?.message?.body?.lyrics?.lyrics_body;
 
-    return sanitizeLyrics(lyrics);
+    const resolvedLyrics = sanitizeLyrics(lyrics);
+    if (resolvedLyrics) {
+      return resolvedLyrics;
+    }
+
+    const subtitleUrl = `${MUSIXMATCH_API_BASE}/track.subtitle.get?track_id=${trackId}&apikey=${musixmatchApiKey}`;
+    const subtitleResponse = await axios.get(subtitleUrl, { timeout: 9000 });
+    const subtitleBody = subtitleResponse.data?.message?.body?.subtitle?.subtitle_body;
+
+    return cleanTimestampedLyrics(subtitleBody);
   } catch {
     return null;
   }
@@ -318,6 +385,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return false;
     };
 
+    const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
+    if (musixmatchLyrics) {
+      if (registerCandidate(musixmatchLyrics, 'musixmatch', 8)) {
+        break;
+      }
+    }
+
     const geniusUrl = await searchGeniusSong(variant.title, variant.artist);
     if (geniusUrl) {
       const geniusLyrics = await scrapeGeniusLyrics(geniusUrl);
@@ -325,13 +399,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (registerCandidate(geniusLyrics, 'genius', 12)) {
           break;
         }
-      }
-    }
-
-    const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
-    if (musixmatchLyrics) {
-      if (registerCandidate(musixmatchLyrics, 'musixmatch', 8)) {
-        break;
       }
     }
 
