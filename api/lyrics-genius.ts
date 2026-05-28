@@ -1,26 +1,3 @@
-// Musixmatch fallback (requires MUSIXMATCH_API_KEY in env)
-async function fetchMusixmatchLyrics(title: string, artist: string): Promise<string | null> {
-  const MUSIXMATCH_API_KEY = process.env.MUSIXMATCH_API_KEY;
-  if (!MUSIXMATCH_API_KEY) return null;
-  try {
-    // Step 1: Search for track ID
-    const searchUrl = `https://api.musixmatch.com/ws/1.1/track.search?q_track=${encodeURIComponent(title)}&q_artist=${encodeURIComponent(artist)}&f_has_lyrics=1&s_track_rating=desc&apikey=${MUSIXMATCH_API_KEY}`;
-    const searchRes = await axios.get(searchUrl);
-    const trackList = searchRes.data?.message?.body?.track_list;
-    if (!trackList || trackList.length === 0) return null;
-    const trackId = trackList[0].track.track_id;
-    // Step 2: Fetch lyrics by track ID
-    const lyricsUrl = `https://api.musixmatch.com/ws/1.1/track.lyrics.get?track_id=${trackId}&apikey=${MUSIXMATCH_API_KEY}`;
-    const lyricsRes = await axios.get(lyricsUrl);
-    const lyrics = lyricsRes.data?.message?.body?.lyrics?.lyrics_body;
-    if (lyrics && lyrics.trim().length > 0) {
-      // Remove Musixmatch copyright footer if present
-      return lyrics.replace(/\*\* This Lyrics is NOT for Commercial use \*\*[\s\S]*/g, '').trim();
-    }
-  } catch {}
-  return null;
-}
-// Vercel Serverless Function for Genius Lyrics
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -28,110 +5,249 @@ import * as cheerio from 'cheerio';
 const GENIUS_API_BASE = 'https://api.genius.com';
 const GENIUS_ACCESS_TOKEN = process.env.GENIUS_ACCESS_TOKEN;
 
+function normalizeText(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
 
-async function fetchWithRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
-  let lastErr;
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
+function stripTitleNoise(value: string) {
+  return normalizeText(
+    value
+      .replace(/\(.*?\)/g, ' ')
+      .replace(/\[.*?\]/g, ' ')
+      .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+      .replace(/\s*-\s*(official|lyrics?|video).*$/i, ' '),
+  );
+}
+
+function stripArtistNoise(value: string) {
+  return normalizeText(
+    value
+      .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+      .replace(/[,&/].*$/, ' '),
+  );
+}
+
+function buildVariants(song: string, artist: string) {
+  const songBase = normalizeText(song);
+  const artistBase = normalizeText(artist);
+
+  const titleVariants = Array.from(
+    new Set([
+      songBase,
+      stripTitleNoise(songBase),
+    ].filter(Boolean)),
+  );
+
+  const artistVariants = Array.from(
+    new Set([
+      artistBase,
+      stripArtistNoise(artistBase),
+    ].filter(Boolean)),
+  );
+
+  const pairs: Array<{ title: string; artist: string }> = [];
+
+  for (const titleVariant of titleVariants) {
+    for (const artistVariant of artistVariants) {
+      pairs.push({ title: titleVariant, artist: artistVariant });
     }
   }
-  throw lastErr;
+
+  if (titleVariants[0] && artistVariants[0]) {
+    pairs.push({ title: artistVariants[0], artist: titleVariants[0] });
+  }
+
+  return Array.from(
+    new Map(
+      pairs
+        .filter((pair) => pair.title && pair.artist)
+        .map((pair) => [`${pair.title}:::${pair.artist}`, pair]),
+    ).values(),
+  );
+}
+
+async function fetchWithRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError;
+}
+
+function sanitizeLyrics(value: string | null | undefined) {
+  const normalized = (value ?? '')
+    .replace(/\*\* This Lyrics is NOT for Commercial use \*\*[\s\S]*/g, '')
+    .replace(/\r\n/g, '\n')
+    .trim();
+
+  return normalized.length > 0 ? normalized : null;
 }
 
 async function searchGeniusSong(title: string, artist: string): Promise<string | null> {
+  if (!GENIUS_ACCESS_TOKEN) {
+    return null;
+  }
+
+  const headers = { Authorization: `Bearer ${GENIUS_ACCESS_TOKEN}` };
   const queries = [
     `${title} ${artist}`,
-    `${title.replace(/\(.*?\)/g, '').trim()} ${artist}`,
-    `${title} ${artist.replace(/feat\..*$/i, '').trim()}`,
-    `${artist} ${title}`
+    `${title}`,
+    `${artist} ${title}`,
   ];
-  const headers = { Authorization: `Bearer ${GENIUS_ACCESS_TOKEN}` };
+
   for (const query of queries) {
     const url = `${GENIUS_API_BASE}/search?q=${encodeURIComponent(query)}`;
+
     try {
-      const res = await fetchWithRetry(() => axios.get(url, { headers }), 2);
-      const hits = res.data.response.hits;
-      if (hits && hits.length) return hits[0].result.url;
-    } catch {}
+      const response = await fetchWithRetry(() => axios.get(url, { headers, timeout: 9000 }), 1);
+      const hits = response.data?.response?.hits as Array<{ result?: { url?: string } }> | undefined;
+      const firstUrl = hits?.[0]?.result?.url;
+
+      if (typeof firstUrl === 'string' && firstUrl.trim()) {
+        return firstUrl;
+      }
+    } catch {
+      // Continue with next query/source.
+    }
   }
+
   return null;
 }
-// ChartLyrics fallback
+
+async function scrapeGeniusLyrics(songUrl: string): Promise<string | null> {
+  try {
+    const response = await fetchWithRetry(() => axios.get(songUrl, { timeout: 9000 }), 1);
+    const $ = cheerio.load(response.data);
+    let lyrics = '';
+
+    $('[data-lyrics-container="true"]').each((_, element: cheerio.Element) => {
+      lyrics += `${$(element).text()}\n`;
+    });
+
+    return sanitizeLyrics(lyrics);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchLyricsOvh(title: string, artist: string): Promise<string | null> {
+  const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
+
+  try {
+    const response = await axios.get(url, { timeout: 9000 });
+    return sanitizeLyrics(response.data?.lyrics);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchChartLyrics(title: string, artist: string): Promise<string | null> {
   const url = `https://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(title)}`;
+
   try {
-    const res = await axios.get(url);
-    const match = res.data.match(/<Lyric>([\s\S]*?)<\/Lyric>/);
-    if (match && match[1] && match[1].trim().length > 0) {
-      return match[1].trim();
-    }
-  } catch {}
-  return null;
+    const response = await axios.get(url, { timeout: 9000 });
+    const match = String(response.data ?? '').match(/<Lyric>([\s\S]*?)<\/Lyric>/);
+    return sanitizeLyrics(match?.[1]);
+  } catch {
+    return null;
+  }
 }
 
-// AudD fallback (requires AUDD_API_TOKEN in env)
-async function fetchAudD(title: string, artist: string): Promise<string | null> {
-  const AUDD_API_TOKEN = process.env.AUDD_API_TOKEN;
-  if (!AUDD_API_TOKEN) return null;
-  const url = `https://api.audd.io/findLyrics/?q=${encodeURIComponent(title + ' ' + artist)}&api_token=${AUDD_API_TOKEN}`;
+async function fetchAudDLyrics(title: string, artist: string): Promise<string | null> {
+  const auddToken = process.env.AUDD_API_TOKEN;
+
+  if (!auddToken) {
+    return null;
+  }
+
+  const url = `https://api.audd.io/findLyrics/?q=${encodeURIComponent(`${title} ${artist}`)}&api_token=${auddToken}`;
+
   try {
-    const res = await axios.get(url);
-    if (res.data && res.data.result && res.data.result.length > 0 && res.data.result[0].lyrics) {
-      return res.data.result[0].lyrics;
-    }
-  } catch {}
-  return null;
+    const response = await axios.get(url, { timeout: 9000 });
+    const lyrics = response.data?.result?.[0]?.lyrics;
+    return sanitizeLyrics(lyrics);
+  } catch {
+    return null;
+  }
 }
 
-async function scrapeGeniusLyrics(songUrl: string): Promise<string> {
-  const res = await fetchWithRetry(() => axios.get(songUrl), 2);
-  const $ = cheerio.load(res.data);
-  let lyrics = '';
-  $('[data-lyrics-container="true"]').each((_: number, el: cheerio.Element) => {
-    lyrics += $(el).text() + '\n';
-  });
-  return lyrics.trim();
+async function fetchMusixmatchLyrics(title: string, artist: string): Promise<string | null> {
+  const musixmatchApiKey = process.env.MUSIXMATCH_API_KEY;
+
+  if (!musixmatchApiKey) {
+    return null;
+  }
+
+  try {
+    const searchUrl = `https://api.musixmatch.com/ws/1.1/track.search?q_track=${encodeURIComponent(title)}&q_artist=${encodeURIComponent(artist)}&f_has_lyrics=1&s_track_rating=desc&apikey=${musixmatchApiKey}`;
+    const searchResponse = await axios.get(searchUrl, { timeout: 9000 });
+    const trackId = searchResponse.data?.message?.body?.track_list?.[0]?.track?.track_id;
+
+    if (!trackId) {
+      return null;
+    }
+
+    const lyricsUrl = `https://api.musixmatch.com/ws/1.1/track.lyrics.get?track_id=${trackId}&apikey=${musixmatchApiKey}`;
+    const lyricsResponse = await axios.get(lyricsUrl, { timeout: 9000 });
+    const lyrics = lyricsResponse.data?.message?.body?.lyrics?.lyrics_body;
+
+    return sanitizeLyrics(lyrics);
+  } catch {
+    return null;
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { song, artist } = req.query;
+  const song = normalizeText(String(req.query.song ?? ''));
+  const artist = normalizeText(String(req.query.artist ?? ''));
+
   if (!song || !artist) {
     res.status(400).json({ error: 'Missing song or artist' });
     return;
   }
-  try {
-    // Try Genius (with fuzzy search)
-    const songUrl = await searchGeniusSong(String(song), String(artist));
-    if (songUrl) {
-      const lyrics = await scrapeGeniusLyrics(songUrl);
-      if (lyrics) {
-        res.json({ lyrics });
+
+  const variants = buildVariants(song, artist);
+
+  for (const variant of variants) {
+    const geniusUrl = await searchGeniusSong(variant.title, variant.artist);
+    if (geniusUrl) {
+      const geniusLyrics = await scrapeGeniusLyrics(geniusUrl);
+      if (geniusLyrics) {
+        res.status(200).json({ lyrics: geniusLyrics, source: 'genius', variant });
         return;
       }
     }
-    // Try ChartLyrics
-    const chartLyrics = await fetchChartLyrics(String(song), String(artist));
+
+    const lyricsOvh = await fetchLyricsOvh(variant.title, variant.artist);
+    if (lyricsOvh) {
+      res.status(200).json({ lyrics: lyricsOvh, source: 'lyrics.ovh', variant });
+      return;
+    }
+
+    const chartLyrics = await fetchChartLyrics(variant.title, variant.artist);
     if (chartLyrics) {
-      res.json({ lyrics: chartLyrics });
+      res.status(200).json({ lyrics: chartLyrics, source: 'chartlyrics', variant });
       return;
     }
-    // Try AudD
-    const auddLyrics = await fetchAudD(String(song), String(artist));
+
+    const auddLyrics = await fetchAudDLyrics(variant.title, variant.artist);
     if (auddLyrics) {
-      res.json({ lyrics: auddLyrics });
+      res.status(200).json({ lyrics: auddLyrics, source: 'audd', variant });
       return;
     }
-    // Try Musixmatch
-    const musixmatchLyrics = await fetchMusixmatchLyrics(String(song), String(artist));
+
+    const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
     if (musixmatchLyrics) {
-      res.json({ lyrics: musixmatchLyrics });
+      res.status(200).json({ lyrics: musixmatchLyrics, source: 'musixmatch', variant });
       return;
     }
-    res.status(404).json({ error: 'Lyrics not found in any source' });
-  } catch (err: any) {
-    res.status(500).json({ error: 'Failed to fetch lyrics', details: err.message });
   }
+
+  res.status(404).json({ error: 'Lyrics not found in any source' });
 }

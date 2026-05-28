@@ -2,10 +2,12 @@
 // Sing Along Button Component (module scope)
 function SingAlongButton(props: { title: string; artist: string }) {
   const navigate = useNavigate();
+  const titleParam = encodeURIComponent(props.title ?? '');
+  const artistParam = encodeURIComponent(props.artist ?? '');
   return (
     <button
       className="primary-button sing-along-btn"
-      onClick={() => navigate('/lyrics', { state: { title: props.title, artist: props.artist } })}
+      onClick={() => navigate(`/lyrics?title=${titleParam}&artist=${artistParam}`, { state: { title: props.title, artist: props.artist } })}
     >
       🎤 Sing Along
     </button>

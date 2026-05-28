@@ -4,68 +4,98 @@ import { useEffect, useState } from 'react';
 import { demoMode } from '../demo/demoMode';
 import '../audience-karafun.css';
 
+function normalizeLyricsInput(value: string | null | undefined) {
+  return (value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function buildLyricsQueries(title: string, artist: string) {
+  const stripTitle = (value: string) => value
+    .replace(/\(.*?\)/g, ' ')
+    .replace(/\[.*?\]/g, ' ')
+    .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+    .replace(/\s*-\s*(official|lyrics?|video).*$/i, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const stripArtist = (value: string) => value
+    .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+    .replace(/[,&/].*$/, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const titleVariants = Array.from(new Set([
+    title,
+    stripTitle(title),
+  ].filter(Boolean)));
+
+  const artistVariants = Array.from(new Set([
+    artist,
+    stripArtist(artist),
+  ].filter(Boolean)));
+
+  const queries: Array<{ t: string; a: string }> = [];
+  for (const t of titleVariants) {
+    for (const a of artistVariants) {
+      queries.push({ t, a });
+    }
+  }
+
+  if (titleVariants[0] && artistVariants[0]) {
+    queries.push({ t: artistVariants[0], a: titleVariants[0] });
+  }
+
+  return queries;
+}
+
 export default function LyricsPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { title, artist } = location.state || {};
+  const searchParams = new URLSearchParams(location.search);
+  const stateTitle = (location.state as { title?: string } | null)?.title;
+  const stateArtist = (location.state as { artist?: string } | null)?.artist;
+  const title = normalizeLyricsInput(stateTitle || searchParams.get('title'));
+  const artist = normalizeLyricsInput(stateArtist || searchParams.get('artist'));
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!title || !artist) return;
+    if (!title || !artist) {
+      setError('Missing song information. Please go back and tap Sing Along again.');
+      return;
+    }
     setLoading(true);
     setError(null);
+    setLyrics(null);
 
-    // Helper: try all sources and fuzzy queries
     const tryAllSources = async () => {
-      const queries = [
-        { t: title, a: artist },
-        { t: title.replace(/\(.*?\)/g, '').trim(), a: artist },
-        { t: title, a: artist.replace(/feat\..*$/i, '').trim() },
-        { t: artist, a: title },
-      ];
-      // Try backend proxy first (which now does fuzzy + ChartLyrics + AudD)
+      const queries = buildLyricsQueries(title, artist);
+
       for (const q of queries) {
         try {
           const res = await fetch(`/api/lyrics-genius?song=${encodeURIComponent(q.t)}&artist=${encodeURIComponent(q.a)}`);
+
+          if (!res.ok) {
+            continue;
+          }
+
           const data = await res.json();
-          if (data.lyrics) {
-            setLyrics(data.lyrics);
+          const resolvedLyrics = typeof data?.lyrics === 'string' ? data.lyrics.trim() : '';
+
+          if (resolvedLyrics.length > 0) {
+            setLyrics(resolvedLyrics);
             setLoading(false);
             return;
           }
-        } catch {}
+        } catch {
+          // Continue trying variants.
+        }
       }
-      // Fallback: try lyrics.ovh
-      for (const q of queries) {
-        try {
-          const res2 = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(q.a)}/${encodeURIComponent(q.t)}`);
-          const data2 = await res2.json();
-          if (data2.lyrics) {
-            setLyrics(data2.lyrics);
-            setLoading(false);
-            return;
-          }
-        } catch {}
-      }
-      // Fallback: try ChartLyrics directly
-      for (const q of queries) {
-        try {
-          const url = `https://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=${encodeURIComponent(q.a)}&song=${encodeURIComponent(q.t)}`;
-          const res3 = await fetch(url);
-          const text = await res3.text();
-          const match = text.match(/<Lyric>([\s\S]*?)<\/Lyric>/);
-          if (match && match[1] && match[1].trim().length > 0) {
-            setLyrics(match[1].trim());
-            setLoading(false);
-            return;
-          }
-        } catch {}
-      }
-      setLyrics('🎤 Sorry, no lyrics found for this song. Try another song or check back later.');
+
+      setLyrics('No lyrics found for this song right now. Try another version/title spelling or try again in a moment.');
       setLoading(false);
     };
+
     tryAllSources();
   }, [title, artist]);
 
