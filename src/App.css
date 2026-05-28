@@ -9768,6 +9768,17 @@ body.audience-immersive-mode .audience-fixed-header {
   margin: 0;
 }
 
+.audience-requests-closed-notice {
+  margin: 0;
+  padding: 0.62rem 0.76rem;
+  border-radius: 12px;
+  border: 1px solid rgba(132, 204, 22, 0.42);
+  background: rgba(31, 64, 13, 0.24);
+  color: #e7ffd0;
+  font-weight: 700;
+  line-height: 1.42;
+}
+
 .audience-song-list-scroll {
   min-height: 0;
   overflow: auto;

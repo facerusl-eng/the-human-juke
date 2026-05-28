@@ -3346,7 +3346,7 @@ function EventPage() {
             </button>
             {demoBackToHomeButton}
           </form>
-          {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
+          {errorText ? <p className={`request-error-inline${isLastSongSoonOverlayMessage(errorText) ? ' audience-requests-closed-notice' : ' error-text'}`}>{errorText}</p> : null}
         </article>
       </section>
     )
@@ -3414,7 +3414,7 @@ function EventPage() {
             </div>
           </div>
           {confirmationText ? <p className="meta-badge audience-policy-badge" role="status" aria-live="polite">{confirmationText}</p> : null}
-          {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
+          {errorText ? <p className={`request-error-inline${isLastSongSoonOverlayMessage(errorText) ? ' audience-requests-closed-notice' : ' error-text'}`}>{errorText}</p> : null}
           <div className="audience-start-actions">
             {isKaraokeEvent ? (
               <>

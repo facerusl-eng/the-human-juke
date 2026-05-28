@@ -1,7 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { readCommittedAudienceLocale, readCommittedAudienceName } from '../lib/audienceIdentity'
-import { getLastSongSoonAudienceMessage, isLastSongSoonPlaybackState, readSharedPlaybackState } from '../lib/playbackState'
+import { getLastSongSoonAudienceMessage, isLastSongSoonOverlayMessage, isLastSongSoonPlaybackState, readSharedPlaybackState } from '../lib/playbackState'
 import { fetchSongArtwork } from '../lib/songArtwork'
 import { supabase } from '../lib/supabase'
 import { demoMode } from '../demo/demoMode'
@@ -841,8 +841,8 @@ function AudienceSongListPage() {
           <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="72" height="72" />
         </div>
       ) : null}
-      {isFinalSongRequestsClosed ? <p className="error-text request-error-inline" role="status">{copy.finalSongRequestsClosed}</p> : null}
-      {errorText ? <p className="error-text request-error-inline">{errorText}</p> : null}
+      {isFinalSongRequestsClosed ? <p className="request-error-inline audience-requests-closed-notice" role="status">{copy.finalSongRequestsClosed}</p> : null}
+      {errorText ? <p className={`request-error-inline${isLastSongSoonOverlayMessage(errorText) ? ' audience-requests-closed-notice' : ' error-text'}`}>{errorText}</p> : null}
 
       {/* ── Playlist picker ── */}
       {showPlaylistPicker ? (
