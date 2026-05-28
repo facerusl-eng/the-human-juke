@@ -4233,9 +4233,7 @@ function MirrorPageContent() {
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
                       <p className="mirror-between-song-quote">{displayedBetweenSongMessage}</p>
-                      {playbackTransitionStatusText || !activeSong ? (
-                        <p className="mirror-song-waiting-note">{idleSongStatusText}</p>
-                      ) : null}
+                      <p className="mirror-song-waiting-note">{idleSongStatusText}</p>
                     </div>
                   </div>
                 ) : (
