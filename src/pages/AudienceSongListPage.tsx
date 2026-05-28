@@ -45,6 +45,15 @@ type EventPlaylistRow = {
   } | null
 }
 
+const SONG_FACT_ROTATE_INTERVAL_MS = 12000
+const SONG_FACT_MAX_LENGTH = 220
+
+type SongFactContext = {
+  title: string
+  artist: string
+  isExplicit: boolean
+}
+
 function buildSongRows(songs: CuratedSong[]): SongRow[] {
   return songs.map((song, index) => {
     const title = normalizeDisplayText(song.title, 'Untitled Song')
@@ -103,6 +112,157 @@ function sortSongs(left: CuratedSong, right: CuratedSong) {
   return left.artist.localeCompare(right.artist, undefined, { sensitivity: 'base' })
 }
 
+function truncateFact(value: string, maxLength = SONG_FACT_MAX_LENGTH) {
+  const trimmed = value.trim()
+
+  if (trimmed.length <= maxLength) {
+    return trimmed
+  }
+
+  return `${trimmed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}...`
+}
+
+function normalizeSongFacts(facts: string[]) {
+  return Array.from(new Set(
+    facts
+      .map((fact) => truncateFact(fact).replace(/\s+/g, ' ').trim())
+      .filter((fact) => fact.length >= 18),
+  ))
+}
+
+function extractInterestingSentences(extract: string) {
+  const sentenceMatches = extract.match(/[^.!?]+[.!?]+/g) ?? []
+
+  const normalizedSentences = sentenceMatches
+    .map((sentence) => sentence.replace(/\s+/g, ' ').trim())
+    .filter((sentence) => sentence.length >= 35 && sentence.length <= 260)
+    .filter((sentence) => !/^coordinates?:?/i.test(sentence))
+
+  return Array.from(new Set(normalizedSentences)).slice(0, 8)
+}
+
+async function fetchWikipediaSongFacts(title: string, artist: string, signal: AbortSignal) {
+  const candidateTitles = [
+    `${title} (song)`,
+    title,
+    `${title} (${artist} song)`,
+    `${title} ${artist}`,
+    artist,
+  ]
+
+  for (const candidateTitle of candidateTitles) {
+    try {
+      const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(candidateTitle)}`
+      const summaryResponse = await fetch(summaryUrl, { signal })
+
+      if (!summaryResponse.ok) {
+        continue
+      }
+
+      const summaryPayload = await summaryResponse.json() as { extract?: string }
+      const extract = summaryPayload.extract?.trim()
+
+      if (!extract) {
+        continue
+      }
+
+      const facts = extractInterestingSentences(extract)
+      if (facts.length >= 2) {
+        return facts
+      }
+    } catch {
+      // Try the next candidate title.
+    }
+  }
+
+  return []
+}
+
+async function fetchMusicBrainzSongFacts(title: string, artist: string, signal: AbortSignal) {
+  const query = `recording:${JSON.stringify(title)} AND artist:${JSON.stringify(artist)}`
+  const searchUrl = `https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json&limit=1`
+
+  try {
+    const response = await fetch(searchUrl, {
+      signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const payload = await response.json() as {
+      recordings?: Array<{
+        length?: number
+        'first-release-date'?: string
+        releases?: Array<{ title?: string }>
+      }>
+    }
+
+    const recording = payload.recordings?.[0]
+
+    if (!recording) {
+      return []
+    }
+
+    const releaseTitle = recording.releases?.[0]?.title?.trim()
+    const firstReleaseDate = recording['first-release-date']?.trim()
+    const releaseYear = firstReleaseDate ? firstReleaseDate.slice(0, 4) : null
+    const durationMs = recording.length ?? 0
+    const durationMin = durationMs > 0 ? Math.floor(durationMs / 60000) : 0
+    const durationSec = durationMs > 0 ? String(Math.round((durationMs % 60000) / 1000)).padStart(2, '0') : '00'
+    const durationLabel = durationMs > 0 ? `${durationMin}:${durationSec}` : null
+
+    return [
+      releaseYear ? `"${title}" was first released in ${releaseYear}.` : null,
+      releaseTitle && releaseTitle.toLowerCase() !== title.toLowerCase()
+        ? `The track originally appeared on the album "${releaseTitle}".`
+        : null,
+      durationLabel ? `Track length is about ${durationLabel}.` : null,
+    ].filter((fact): fact is string => Boolean(fact))
+  } catch {
+    return []
+  }
+}
+
+function buildLocalSongFacts(song: SongFactContext) {
+  const titleWordCount = song.title.trim().split(/\s+/).filter(Boolean).length
+  const hasFeature = /\b(feat\.?|ft\.?)\b/i.test(song.title)
+  const hasBrackets = /[()\[\]]/.test(song.title)
+
+  return [
+    hasFeature
+      ? `This looks like a collaboration track: "${song.title}".`
+      : `"${song.title}" appears as a solo-style title with no feature tag.`,
+    hasBrackets
+      ? `The title includes brackets, often used for remixes or live edits.`
+      : `No bracket tags in the title, which usually means a standard version.`,
+    song.isExplicit
+      ? `This song is marked explicit.`
+      : `This song is marked clean for all-audience singalongs.`,
+    titleWordCount >= 6
+      ? `Long title alert: this track name has ${titleWordCount} words.`
+      : `Quick title: this track name has ${titleWordCount} words.`,
+  ]
+}
+
+async function buildInterestingSongFacts(song: SongFactContext, signal: AbortSignal) {
+  const wikipediaFacts = await fetchWikipediaSongFacts(song.title, song.artist, signal)
+  const musicBrainzFacts = wikipediaFacts.length >= 3
+    ? []
+    : await fetchMusicBrainzSongFacts(song.title, song.artist, signal)
+  const localFacts = buildLocalSongFacts(song)
+
+  return normalizeSongFacts([
+    ...wikipediaFacts,
+    ...musicBrainzFacts,
+    ...localFacts,
+  ]).slice(0, 8)
+}
+
 function isMissingPlaylistTypeColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
     return false
@@ -155,6 +315,9 @@ function AudienceSongListPage() {
   const [submittingMode, setSubmittingMode] = useState<PerformerMode | null>(null)
   const [activeSetlist, setActiveSetlist] = useState<'human_jukebox' | 'karaoke' | null>(null)
   const [karaokeConfirmPending, setKaraokeConfirmPending] = useState(false)
+  const [selectedSongFacts, setSelectedSongFacts] = useState<string[]>([])
+  const [currentSongFactIndex, setCurrentSongFactIndex] = useState(0)
+  const [loadingSelectedSongFacts, setLoadingSelectedSongFacts] = useState(false)
 
   const audienceName = readCommittedAudienceName()
   const audienceLocale = readCommittedAudienceLocale()
@@ -339,6 +502,70 @@ function AudienceSongListPage() {
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [selectedSong, submittingMode])
+
+  useEffect(() => {
+    if (!selectedSong) {
+      setSelectedSongFacts([])
+      setCurrentSongFactIndex(0)
+      setLoadingSelectedSongFacts(false)
+      return
+    }
+
+    let isCurrent = true
+    const abortController = new AbortController()
+
+    setLoadingSelectedSongFacts(true)
+    setSelectedSongFacts([])
+    setCurrentSongFactIndex(0)
+
+    void buildInterestingSongFacts({
+      title: selectedSong.title,
+      artist: selectedSong.artist,
+      isExplicit: selectedSong.is_explicit,
+    }, abortController.signal)
+      .then((facts) => {
+        if (!isCurrent) {
+          return
+        }
+
+        setSelectedSongFacts(facts)
+      })
+      .catch(() => {
+        if (!isCurrent) {
+          return
+        }
+
+        setSelectedSongFacts(buildLocalSongFacts({
+          title: selectedSong.title,
+          artist: selectedSong.artist,
+          isExplicit: selectedSong.is_explicit,
+        }))
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setLoadingSelectedSongFacts(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
+      abortController.abort()
+    }
+  }, [selectedSong])
+
+  useEffect(() => {
+    if (!selectedSong || selectedSongFacts.length <= 1) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setCurrentSongFactIndex((currentIndex) => (currentIndex + 1) % selectedSongFacts.length)
+    }, SONG_FACT_ROTATE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [selectedSong, selectedSongFacts])
 
   useEffect(() => {
     if (!demoMode && !audienceName) {
@@ -809,6 +1036,10 @@ function AudienceSongListPage() {
     setErrorText(null)
   }, [audienceLocale, copy.finalSongRequestsClosed, isFinalSongRequestsClosed])
 
+  const currentSongFact = selectedSongFacts.length > 0
+    ? selectedSongFacts[currentSongFactIndex % selectedSongFacts.length]
+    : null
+
   return (
     <section className="audience-song-list-shell audience-karafun" aria-label="Song list page">
       <header className="audience-song-list-header">
@@ -981,6 +1212,8 @@ function AudienceSongListPage() {
                 ) : null}
                 <p className="audience-song-choice-karaoke-eyebrow">🎤 {copy.karaokeConfirmHeading}</p>
                 <p className="audience-song-choice-karaoke-body">{copy.karaokeConfirmBody}</p>
+                {loadingSelectedSongFacts ? <p className="subcopy">Loading an interesting song fact...</p> : null}
+                {!loadingSelectedSongFacts && currentSongFact ? <p className="subcopy">Interesting fact: {currentSongFact}</p> : null}
                 <div className="audience-song-choice-actions karaoke-confirm-actions">
                   <button
                     type="button"
@@ -1012,6 +1245,8 @@ function AudienceSongListPage() {
             <p className="eyebrow audience-song-choice-selected-eyebrow">{copy.selected}</p>
             <h2>{normalizeDisplayText(selectedSong.title, copy.untitledSong)}</h2>
             <p className="subcopy">{normalizeDisplayText(selectedSong.artist, copy.unknownArtist)}</p>
+            {loadingSelectedSongFacts ? <p className="subcopy">Loading an interesting song fact...</p> : null}
+            {!loadingSelectedSongFacts && currentSongFact ? <p className="subcopy">Interesting fact: {currentSongFact}</p> : null}
             <div className="audience-song-choice-actions">
               {selectedSong.fromKaraokeSetlist ? (
                 <button

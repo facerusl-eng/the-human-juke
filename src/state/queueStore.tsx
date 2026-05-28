@@ -3502,13 +3502,42 @@ function QueueProvider({ children }: PropsWithChildren) {
             throw new Error(getLastSongSoonAudienceMessage(audienceLocale))
           }
 
-          // Rate limiting: per-session cooldown to prevent rapid-fire requests.
+          // Rate limiting: short per-request cooldown + anti-spam burst cap.
           const RATE_LIMIT_WINDOW_MS = 30 * 1000 // 30 seconds
+          const BURST_LIMIT_COUNT = 5
+          const BURST_COOLDOWN_MS = 3 * 60 * 1000 // 3 minutes
           const rateLimitKey = `human-jukebox-request-cooldown-${user.id}-${targetEventId}`
+          const burstLimitKey = `human-jukebox-request-burst-${user.id}-${targetEventId}`
+
+          const now = Date.now()
+          const burstRaw = typeof window !== 'undefined' ? window.sessionStorage.getItem(burstLimitKey) : null
+          let recentBurstTimestamps: number[] = []
+
+          if (burstRaw) {
+            try {
+              const parsed = JSON.parse(burstRaw) as unknown
+              if (Array.isArray(parsed)) {
+                recentBurstTimestamps = parsed
+                  .filter((value): value is number => Number.isFinite(value))
+                  .filter((value) => value > 0 && now - value < BURST_COOLDOWN_MS)
+                  .sort((a, b) => a - b)
+              }
+            } catch {
+              recentBurstTimestamps = []
+            }
+          }
+
+          if (recentBurstTimestamps.length >= BURST_LIMIT_COUNT) {
+            const oldestInWindow = recentBurstTimestamps[0]
+            const remainingMs = Math.max(0, BURST_COOLDOWN_MS - (now - oldestInWindow))
+            const remainingMinutes = Math.ceil(remainingMs / (60 * 1000))
+            throw new Error(`You have already made ${BURST_LIMIT_COUNT} requests. Please wait about ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'} before requesting another song.`)
+          }
+
           const lastRequestRaw = typeof window !== 'undefined' ? window.sessionStorage.getItem(rateLimitKey) : null
           if (lastRequestRaw) {
             const lastRequestTime = parseInt(lastRequestRaw, 10)
-            const elapsed = Date.now() - lastRequestTime
+            const elapsed = now - lastRequestTime
             if (Number.isFinite(lastRequestTime) && elapsed >= 0 && elapsed < RATE_LIMIT_WINDOW_MS) {
               const remaining = Math.ceil((RATE_LIMIT_WINDOW_MS - elapsed) / 1000)
               throw new Error(`Please wait ${remaining}s before making another request.`)
@@ -3615,9 +3644,24 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         // Record the timestamp so the rate limiter can enforce the cooldown.
         if (!options?.bypassEventRules && !isHostSession) {
+          const now = Date.now()
           const rateLimitKey = `human-jukebox-request-cooldown-${user.id}-${targetEventId}`
+          const burstLimitKey = `human-jukebox-request-burst-${user.id}-${targetEventId}`
+
           try {
-            window.sessionStorage.setItem(rateLimitKey, String(Date.now()))
+            window.sessionStorage.setItem(rateLimitKey, String(now))
+
+            const burstRaw = window.sessionStorage.getItem(burstLimitKey)
+            const existingTimestamps = burstRaw ? JSON.parse(burstRaw) as unknown : []
+            const parsedTimestamps = Array.isArray(existingTimestamps)
+              ? existingTimestamps.filter((value): value is number => Number.isFinite(value))
+              : []
+            const nextBurstTimestamps = [...parsedTimestamps, now]
+              .filter((value) => now - value < 3 * 60 * 1000)
+              .sort((a, b) => a - b)
+              .slice(-5)
+
+            window.sessionStorage.setItem(burstLimitKey, JSON.stringify(nextBurstTimestamps))
           } catch {
             // sessionStorage may be unavailable in private mode — not a blocker.
           }
