@@ -24,6 +24,13 @@ type LyricsCandidate = {
   confidenceScore: number;
 };
 
+type ProviderAttempt = {
+  variant: VariantPair;
+  provider: ProviderName;
+  ok: boolean;
+  reason?: string;
+};
+
 function normalizeText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
@@ -350,6 +357,9 @@ async function fetchMusixmatchLyrics(title: string, artist: string): Promise<str
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const song = normalizeText(String(req.query.song ?? ''));
   const artist = normalizeText(String(req.query.artist ?? ''));
+  const debug = String(req.query.debug ?? '').toLowerCase();
+  const includeDebug = debug === '1' || debug === 'true' || debug === 'yes';
+  const attempts: ProviderAttempt[] = [];
 
   if (!song || !artist) {
     res.status(400).json({ error: 'Missing song or artist' });
@@ -360,6 +370,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let bestCandidate: LyricsCandidate | null = null;
 
   for (const variant of variants) {
+    const markAttempt = (provider: ProviderName, ok: boolean, reason?: string) => {
+      if (!includeDebug) {
+        return;
+      }
+
+      attempts.push({
+        variant,
+        provider,
+        ok,
+        reason,
+      });
+    };
+
     const registerCandidate = (lyrics: string, source: ProviderName, confidenceScore: number) => {
       const candidate: LyricsCandidate = {
         lyrics,
@@ -387,40 +410,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
     if (musixmatchLyrics) {
+      markAttempt('musixmatch', true);
       if (registerCandidate(musixmatchLyrics, 'musixmatch', 8)) {
         break;
       }
+    } else {
+      markAttempt('musixmatch', false, 'No lyrics returned');
     }
 
     const geniusUrl = await searchGeniusSong(variant.title, variant.artist);
     if (geniusUrl) {
       const geniusLyrics = await scrapeGeniusLyrics(geniusUrl);
       if (geniusLyrics) {
+        markAttempt('genius', true);
         if (registerCandidate(geniusLyrics, 'genius', 12)) {
           break;
         }
+      } else {
+        markAttempt('genius', false, 'Song page found but lyrics scrape empty');
       }
+    } else {
+      markAttempt('genius', false, 'No song match found');
     }
 
     const auddLyrics = await fetchAudDLyrics(variant.title, variant.artist);
     if (auddLyrics) {
+      markAttempt('audd', true);
       if (registerCandidate(auddLyrics, 'audd', 7)) {
         break;
       }
+    } else {
+      markAttempt('audd', false, 'No lyrics returned');
     }
 
     const chartLyrics = await fetchChartLyrics(variant.title, variant.artist);
     if (chartLyrics) {
+      markAttempt('chartlyrics', true);
       if (registerCandidate(chartLyrics, 'chartlyrics', 5)) {
         break;
       }
+    } else {
+      markAttempt('chartlyrics', false, 'No lyrics returned');
     }
 
     const lyricsOvh = await fetchLyricsOvh(variant.title, variant.artist);
     if (lyricsOvh) {
+      markAttempt('lyrics.ovh', true);
       if (registerCandidate(lyricsOvh, 'lyrics.ovh', 3)) {
         break;
       }
+    } else {
+      markAttempt('lyrics.ovh', false, 'No lyrics returned');
     }
   }
 
@@ -429,9 +469,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       lyrics: bestCandidate.lyrics,
       source: bestCandidate.source,
       variant: bestCandidate.variant,
+      ...(includeDebug
+        ? {
+            debug: {
+              attemptedVariants: variants.length,
+              attemptedProviders: attempts.length,
+              attempts,
+            },
+          }
+        : {}),
     });
     return;
   }
 
-  res.status(404).json({ error: 'Lyrics not found in any source' });
+  res.status(404).json({
+    error: 'Lyrics not found in any source',
+    ...(includeDebug
+      ? {
+          debug: {
+            attemptedVariants: variants.length,
+            attemptedProviders: attempts.length,
+            env: {
+              hasGeniusToken: Boolean(GENIUS_ACCESS_TOKEN),
+              hasMusixmatchKey: Boolean(process.env.MUSIXMATCH_API_KEY),
+              hasAuddToken: Boolean(process.env.AUDD_API_TOKEN),
+            },
+            attempts,
+          },
+        }
+      : {}),
+  });
 }
