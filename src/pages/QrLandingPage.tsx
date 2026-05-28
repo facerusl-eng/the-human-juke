@@ -366,8 +366,8 @@ function QrLandingPage() {
   const copy = useMemo(() => {
     if (locale === 'da') {
       return {
-        buttonGoToLounge: 'Join the Lounge',
-        buttonGoToLink: 'Check out the bar',
+        buttonGoToLounge: 'Gå til loungen',
+        buttonGoToLink: 'Se bar-linket',
         buttonSyncingStatus: 'Synkroniserer live-status...',
         buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
         statusGoingLiveIn: 'Går live om',
@@ -376,8 +376,8 @@ function QrLandingPage() {
         statusReconnecting: 'Genopretter forbindelse til live-status...',
         ariaGoToAudienceLounge: 'Gå til publikums-lounge',
         ariaGoToChoiceLink: 'Åbn ekstra link',
-        emptyState: 'Velkommen! Tryk på knappen nedenfor for at gå i loungen.',
-        emptyStateChoice: 'Welcome to the show, you magnificent troublemaker. Pick your route above, make questionable but memorable decisions, and return here whenever you fancy another dramatic entrance.',
+        emptyState: 'Velkommen! Tryk på knappen nedenfor for at gå til loungen.',
+        emptyStateChoice: 'Velkommen til showet, du herlige ballademager. Vælg din vej heroppe, tag nogle mindeværdige valg, og vend tilbage her, når du er klar til endnu en dramatisk entré.',
       }
     }
 
