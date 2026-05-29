@@ -211,7 +211,7 @@ function getSpotifyDisconnectHint(message) {
   return null
 }
 
-function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, onStatusTextChange }) {
+function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, onStatusTextChange, onPlaylistMetaChange }) {
   const playerRef = useRef(null)
   const accessTokenRef = useRef(accessToken)
   const playlistInputRef = useRef('')
@@ -246,6 +246,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
     onStatusTextChange(nextStatusText ?? null)
   }, [onStatusTextChange, playerStatus, transportStatusText])
+
+  useEffect(() => {
+    if (!onPlaylistMetaChange) {
+      return
+    }
+
+    onPlaylistMetaChange(playlistMeta)
+  }, [onPlaylistMetaChange, playlistMeta])
 
   accessTokenRef.current = accessToken
 

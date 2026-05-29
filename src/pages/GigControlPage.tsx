@@ -76,6 +76,11 @@ const BRB_MESSAGE_DICE_OPTIONS = [
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle' | 'next' | 'previous'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
 type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
+type SpotifyPlaylistMeta = {
+  name?: string
+  uri?: string
+  ownerName?: string
+} | null
 
 type PersistedGigControlNowPlaying = {
   eventId: string
@@ -506,6 +511,7 @@ function GigControlPage() {
   const [snapshotRestoreBusy, setSnapshotRestoreBusy] = useState(false)
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
   const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
+  const [selectedSpotifyPlaylistMeta, setSelectedSpotifyPlaylistMeta] = useState<SpotifyPlaylistMeta>(null)
   const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
   const [isEndingOrDeletingGig, setIsEndingOrDeletingGig] = useState(false)
   const [spotifyAutoTransportEnabled, setSpotifyAutoTransportEnabled] = useState(true)
@@ -3390,6 +3396,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       })
   }, [releaseFullscreenFocus])
 
+  const handleSpotifyPlaylistMetaChange = useCallback((playlistMeta: SpotifyPlaylistMeta) => {
+    setSelectedSpotifyPlaylistMeta(playlistMeta)
+  }, [])
+
+  const selectedSpotifyPlaylistLabel = selectedSpotifyPlaylistMeta?.name?.trim() || 'Not selected yet'
+  const selectedSpotifyPlaylistOwnerText = selectedSpotifyPlaylistMeta?.ownerName?.trim()
+
   const headerActions: ActionButtonConfig[] = [
     {
       id: 'connect-spotify',
@@ -3501,7 +3514,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     {
       id: 'play-spotify-shortcut',
       label: 'Play Spotify Playlist',
-      title: 'Start or resume the Spotify between-song playlist without pausing it',
+      title: selectedSpotifyPlaylistMeta?.name
+        ? `Start or resume "${selectedSpotifyPlaylistMeta.name}" without pausing it`
+        : 'Start or resume the Spotify between-song playlist without pausing it',
       onClick: () => {
         sendManualSpotifyTransportCommand('play')
       },
@@ -3735,6 +3750,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                   Spotify Next
                 </button>
               </div>
+              <p className="subcopy no-margin">
+                Selected Spotify playlist: <strong>{selectedSpotifyPlaylistLabel}</strong>
+                {selectedSpotifyPlaylistOwnerText ? ` by ${selectedSpotifyPlaylistOwnerText}` : ''}
+              </p>
               {spotifyStatusText ? <p className="meta-badge gig-focus-spotify-status" role="status" aria-live="polite">{spotifyStatusText}</p> : null}
             </div>
           </div>
@@ -3748,6 +3767,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             onRefreshToken={refreshSpotifyAccessToken}
             transportCommand={spotifyTransportCommand}
             onStatusTextChange={setSpotifyStatusText}
+            onPlaylistMetaChange={handleSpotifyPlaylistMetaChange}
           />
         </section>
       ) : null}
@@ -4124,6 +4144,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               />{' '}
               Auto play between-song Spotify on finish, and auto pause on start
             </label>
+            <p className="subcopy no-margin">
+              Selected Spotify playlist: <strong>{selectedSpotifyPlaylistLabel}</strong>
+              {selectedSpotifyPlaylistOwnerText ? ` by ${selectedSpotifyPlaylistOwnerText}` : ''}
+            </p>
           </section>
 
           <SpotifyPlayerWithSDK
@@ -4131,6 +4155,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             onRefreshToken={refreshSpotifyAccessToken}
             transportCommand={spotifyTransportCommand}
             onStatusTextChange={setSpotifyStatusText}
+            onPlaylistMetaChange={handleSpotifyPlaylistMetaChange}
           />
         </>
       ) : (
