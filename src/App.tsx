@@ -68,16 +68,6 @@ async function importWithChunkReloadRecovery<T>(loader: () => Promise<T>) {
       throw error
     }
 
-    const alreadyRetried = window.sessionStorage.getItem(CHUNK_RELOAD_STORAGE_KEY) === '1'
-
-    if (!alreadyRetried) {
-      window.sessionStorage.setItem(CHUNK_RELOAD_STORAGE_KEY, '1')
-      window.location.reload()
-      return new Promise<T>(() => {
-        // Keep suspense pending while the page reloads.
-      })
-    }
-
     window.sessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY)
     throw error
   }

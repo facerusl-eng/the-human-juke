@@ -479,22 +479,9 @@ function setupBuildUpdateRefresh() {
     }
   }
 
-  const onVisibilityChange = () => {
-    if (!document.hidden) {
-      void checkForUpdatedBuild()
-    }
-  }
-
-  window.addEventListener('focus', () => {
-    void checkForUpdatedBuild()
-  })
   window.addEventListener('online', () => {
     void checkForUpdatedBuild()
   })
-  window.addEventListener('pageshow', () => {
-    void checkForUpdatedBuild()
-  })
-  document.addEventListener('visibilitychange', onVisibilityChange)
 
   window.setInterval(() => {
     if (!document.hidden) {
