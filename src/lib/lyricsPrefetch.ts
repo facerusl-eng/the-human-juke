@@ -18,24 +18,56 @@ export function lyricsPrefetchCacheKey(title: string, artist: string): string {
 }
 
 function buildQueryVariants(title: string, artist: string): Array<{ t: string; a: string }> {
-  const stripTitle = (v: string) =>
+  const normalizeQuotes = (v: string) =>
     v
+      .replace(/[\u2018\u2019\u2032]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const stripTitle = (v: string) =>
+    normalizeQuotes(v)
       .replace(/\(.*?\)/g, ' ')
       .replace(/\[.*?\]/g, ' ')
       .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+      .replace(/\b(remix|version|edit|live|acoustic)\b/gi, ' ')
       .replace(/\s*-\s*(official|lyrics?|video).*$/i, ' ')
       .replace(/\s+/g, ' ')
       .trim()
 
   const stripArtist = (v: string) =>
-    v
+    normalizeQuotes(v)
       .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
-      .replace(/[,&/].*$/, ' ')
+      .split(/\s(?:&|x|with|and)\s|,|\//i)[0]
       .replace(/\s+/g, ' ')
       .trim()
 
-  const titles = Array.from(new Set([title, stripTitle(title)].filter(Boolean)))
-  const artists = Array.from(new Set([artist, stripArtist(artist)].filter(Boolean)))
+  const splitPrimary = (v: string) =>
+    normalizeQuotes(v)
+      .split(/\s\/\s|\s-\s|\s\|\s|\//)[0]
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const normalizeNoPunctuation = (v: string) =>
+    normalizeQuotes(v)
+      .replace(/[.,!?:;]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const titles = Array.from(new Set([
+    normalizeQuotes(title),
+    stripTitle(title),
+    splitPrimary(stripTitle(title)),
+    normalizeNoPunctuation(stripTitle(title)),
+  ].filter(Boolean)))
+
+  const artists = Array.from(new Set([
+    normalizeQuotes(artist),
+    stripArtist(artist),
+    splitPrimary(stripArtist(artist)),
+  ].filter(Boolean)))
+
   const pairs: Array<{ t: string; a: string }> = []
 
   for (const t of titles) {
@@ -44,7 +76,11 @@ function buildQueryVariants(title: string, artist: string): Array<{ t: string; a
     }
   }
 
-  return pairs
+  if (titles[0] && artists[0]) {
+    pairs.push({ t: artists[0], a: titles[0] })
+  }
+
+  return Array.from(new Map(pairs.map((pair) => [`${pair.t}::${pair.a}`, pair])).values())
 }
 
 export function getLyricsPrefetchStatus(title: string, artist: string): PrefetchStatus | null {

@@ -11,29 +11,59 @@ function normalizeLyricsInput(value: string | null | undefined) {
   return (value ?? '').replace(/\s+/g, ' ').trim();
 }
 
+function buildFallbackLyricsText(title: string, artist: string) {
+  return [
+    `${title} - ${artist}`,
+    '',
+    'Lyrics are not available from automatic providers yet.',
+    'If you are the host, paste manual lyrics below to save this song for next time.',
+  ].join('\n');
+}
+
 function buildLyricsQueries(title: string, artist: string) {
-  const stripTitle = (value: string) => value
+  const normalizeQuotes = (value: string) => value
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const stripTitle = (value: string) => normalizeQuotes(value)
     .replace(/\(.*?\)/g, ' ')
     .replace(/\[.*?\]/g, ' ')
     .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+    .replace(/\b(remix|version|edit|live|acoustic)\b/gi, ' ')
     .replace(/\s*-\s*(official|lyrics?|video).*$/i, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
-  const stripArtist = (value: string) => value
+  const stripArtist = (value: string) => normalizeQuotes(value)
     .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
-    .replace(/[,&/].*$/, ' ')
+    .split(/\s(?:&|x|with|and)\s|,|\//i)[0]
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const splitPrimary = (value: string) => normalizeQuotes(value)
+    .split(/\s\/\s|\s-\s|\s\|\s|\//)[0]
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const stripPunctuation = (value: string) => normalizeQuotes(value)
+    .replace(/[.,!?:;]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
   const titleVariants = Array.from(new Set([
-    title,
+    normalizeQuotes(title),
     stripTitle(title),
+    splitPrimary(stripTitle(title)),
+    stripPunctuation(stripTitle(title)),
   ].filter(Boolean)));
 
   const artistVariants = Array.from(new Set([
-    artist,
+    normalizeQuotes(artist),
     stripArtist(artist),
+    splitPrimary(stripArtist(artist)),
   ].filter(Boolean)));
 
   const queries: Array<{ t: string; a: string }> = [];
@@ -47,7 +77,7 @@ function buildLyricsQueries(title: string, artist: string) {
     queries.push({ t: artistVariants[0], a: titleVariants[0] });
   }
 
-  return queries;
+  return Array.from(new Map(queries.map((query) => [`${query.t}::${query.a}`, query])).values());
 }
 
 export default function LyricsPage() {
@@ -147,6 +177,7 @@ export default function LyricsPage() {
       }
 
       markLyricsNotFound(title, artist);
+      setLyrics(buildFallbackLyricsText(title, artist));
       setLyricsNotFound(true);
       setLoading(false);
     };

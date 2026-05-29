@@ -53,6 +53,15 @@ function normalizeText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeQuotes(value: string) {
+  return normalizeText(
+    value
+      .replace(/[\u2018\u2019\u2032]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u2013\u2014]/g, '-'),
+  );
+}
+
 function normalizeComparable(value: string) {
   return normalizeText(value)
     .toLowerCase()
@@ -111,13 +120,26 @@ function stripArtistNoise(value: string) {
 }
 
 function buildVariants(song: string, artist: string) {
-  const songBase = normalizeText(song);
-  const artistBase = normalizeText(artist);
+  const songBase = normalizeQuotes(song);
+  const artistBase = normalizeQuotes(artist);
+
+  const stripBrackets = (value: string) => normalizeText(
+    value
+      .replace(/\([^)]*\)/g, ' ')
+      .replace(/\[[^\]]*\]/g, ' '),
+  );
+
+  const splitPrimary = (value: string) => normalizeText(
+    value
+      .split(/\s\/\s|\s-\s|\s\|\s|\//)[0] ?? value,
+  );
 
   const titleVariants = Array.from(
     new Set([
       songBase,
       stripTitleNoise(songBase),
+      stripBrackets(songBase),
+      splitPrimary(stripTitleNoise(songBase)),
     ].filter(Boolean)),
   );
 
@@ -125,6 +147,8 @@ function buildVariants(song: string, artist: string) {
     new Set([
       artistBase,
       stripArtistNoise(artistBase),
+      stripBrackets(artistBase),
+      splitPrimary(stripArtistNoise(artistBase)),
     ].filter(Boolean)),
   );
 
