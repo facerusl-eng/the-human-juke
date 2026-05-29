@@ -2,7 +2,7 @@ const spotifyClientId = process.env.SPOTIFY_CLIENT_ID ?? '510534c3ee9046aba1b67c
 const spotifyRedirectUriOverride = process.env.SPOTIFY_REDIRECT_URI?.trim() ?? ''
 const spotifyRedirectUriDev = process.env.SPOTIFY_REDIRECT_URI_DEV ?? 'http://localhost:5173/callback'
 const spotifyRedirectUriProd = process.env.SPOTIFY_REDIRECT_URI_PROD?.trim() ?? ''
-const spotifyScopes = 'user-read-playback-state user-modify-playback-state streaming'
+const spotifyScopes = 'user-read-playback-state user-modify-playback-state streaming playlist-read-private playlist-read-collaborative'
 const REFRESH_COOKIE_NAME = 'human_jukebox_spotify_refresh_token'
 const spotifySecretKeyNames = ['SPOTIFY_CLIENT_SECRET', 'SPOTIFY_SECRET', 'SPOTIFYCLIENTSECRET']
 

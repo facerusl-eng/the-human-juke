@@ -150,7 +150,27 @@ function normalizePlaylistContextUri(input) {
     return `spotify:playlist:${legacyUriMatch[1]}`
   }
 
-  const playlistUrlMatch = trimmed.match(/spotify\.com\/(?:intl-[a-z]{2}\/)?playlist\/([a-zA-Z0-9]+)/i)
+  try {
+    const parsedUrl = new URL(trimmed)
+    const hostname = parsedUrl.hostname.toLowerCase()
+
+    if (hostname.endsWith('spotify.com')) {
+      const pathSegments = parsedUrl.pathname.split('/').filter(Boolean)
+      const playlistSegmentIndex = pathSegments.findIndex((segment) => segment.toLowerCase() === 'playlist')
+
+      if (playlistSegmentIndex >= 0) {
+        const playlistId = pathSegments[playlistSegmentIndex + 1]
+
+        if (playlistId && /^[a-zA-Z0-9]+$/.test(playlistId)) {
+          return `spotify:playlist:${playlistId}`
+        }
+      }
+    }
+  } catch {
+    // Not a URL; continue with regex and plain-id parsing.
+  }
+
+  const playlistUrlMatch = trimmed.match(/spotify\.com\/(?:intl-[a-z]{2}\/)?(?:embed\/)?playlist\/([a-zA-Z0-9]+)/i)
   if (playlistUrlMatch?.[1]) {
     return `spotify:playlist:${playlistUrlMatch[1]}`
   }
@@ -661,8 +681,12 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           throw new Error('Spotify access token expired.')
         }
 
+        if (response.status === 403) {
+          throw new Error('Spotify denied access to this playlist. Reconnect Spotify and ensure your account can access that playlist (private/collab playlists require granted access).')
+        }
+
         if (response.status === 404) {
-          throw new Error('Playlist not found. Check ID/URL and Spotify account access.')
+          throw new Error('Playlist not found. Check the link/ID and confirm this Spotify account has access. If needed, reconnect Spotify to refresh permissions.')
         }
 
         if (!response.ok) {
