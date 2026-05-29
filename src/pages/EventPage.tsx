@@ -8,7 +8,7 @@ function SingAlongButton(props: { title: string; artist: string; librarySongId?:
   const lyricsStatus = getLyricsPrefetchStatus(props.title, props.artist);
   const needsManualLyrics = lyricsStatus === 'not_found';
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+    <div className="sing-along-wrap">
       <button
         className="primary-button sing-along-btn"
         onClick={() => {
@@ -21,7 +21,7 @@ function SingAlongButton(props: { title: string; artist: string; librarySongId?:
         🎤 Sing Along
       </button>
       {needsManualLyrics ? (
-        <span style={{ fontSize: '0.72rem', color: '#f4a261', fontWeight: 600 }}>
+        <span className="sing-along-warning">
           ⚠ Paste lyrics needed
         </span>
       ) : null}

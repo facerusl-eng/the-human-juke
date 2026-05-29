@@ -14,6 +14,7 @@
  *   Q  →  Ch 15 + 16  (Jamzone L+R)
  *   W  →  Bus 5 + 6   (Jamzone submix)
  *   +  →  Master LR
+ *   P/0 →  PANIC: Force Spotify stereo ON (all relevant paths)
  *   ESC / Ctrl+C  →  Quit
  */
 
@@ -72,6 +73,14 @@ function toggle(keys, addresses, label) {
   console.log(`  ${icon}  ${label}`);
 }
 
+function forceOn(keys, addresses, label) {
+  for (const k of keys) {
+    if (k in state) state[k] = 1;
+  }
+  for (const addr of addresses) send(addr, 1);
+  console.log(`  🔊 LIVE    ${label}`);
+}
+
 // ─── Keymap ──────────────────────────────────────────────────────────────────
 
 function handleKey(key) {
@@ -92,6 +101,19 @@ function handleKey(key) {
     case 'w': toggle(['bus05','bus06'], ['/bus/05/mix/on','/bus/06/mix/on'],       'Bus 5+6  — Jamzone Bus'); break;
     case '+':
     case '=': toggle(['master'],        ['/main/st/mix/on'],                       'MASTER LR');              break;
+    case 'p':
+    case '0':
+      forceOn(
+        ['ch15', 'ch16', 'bus05', 'bus06', 'master'],
+        [
+          '/ch/15/mix/on', '/ch/16/mix/on',
+          '/rtn/aux/mix/05/on', '/rtn/aux/mix/06/on',
+          '/bus/05/mix/on', '/bus/06/mix/on',
+          '/main/st/mix/on',
+        ],
+        'PANIC — Spotify stereo forced ON'
+      );
+      break;
     case '\u001b':  // ESC
     case '\u0003':  // Ctrl+C
       console.log('\n  Exiting hotkey controller. Bye!\n');
@@ -128,6 +150,7 @@ function start() {
   console.log('║  Q  →  Ch 15+16   Jamzone L+R                       ║');
   console.log('║  W  →  Bus 5+6    Jamzone Bus                       ║');
   console.log('║  +  →  MASTER LR                                    ║');
+  console.log('║  P/0→  PANIC: Force Spotify stereo ON               ║');
   console.log('║  ESC / Ctrl+C  →  Quit                              ║');
   console.log('╚══════════════════════════════════════════════════════╝');
   console.log(`\n  Connected to ${MIXER_IP}:${MIXER_PORT}  — all channels LIVE\n`);

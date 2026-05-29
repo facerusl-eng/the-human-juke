@@ -46,11 +46,29 @@ Write-Host "  6 -> Ch 6                  (H alias)" -ForegroundColor Cyan
 Write-Host "  Q -> Ch 15+16  Jamzone L+R" -ForegroundColor Cyan
 Write-Host "  W -> Bus 5+6   Jamzone Bus" -ForegroundColor Cyan
 Write-Host "  + -> MASTER LR" -ForegroundColor Cyan
+Write-Host "  P/0 -> PANIC force Spotify stereo ON" -ForegroundColor Cyan
 Write-Host "  ESC -> Quit" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Connected to ${MIXER_IP}:${MIXER_PORT} - all channels LIVE" -ForegroundColor Green
 Write-Host ""
+
+function ForceSpotifyStereoOn {
+    $state['ch15'] = $true
+    $state['ch16'] = $true
+    $state['bus05'] = $true
+    $state['bus06'] = $true
+    $state['master'] = $true
+
+    SendOSC '/ch/15/mix/on' 1
+    SendOSC '/ch/16/mix/on' 1
+    SendOSC '/rtn/aux/mix/05/on' 1
+    SendOSC '/rtn/aux/mix/06/on' 1
+    SendOSC '/bus/05/mix/on' 1
+    SendOSC '/bus/06/mix/on' 1
+    SendOSC '/main/st/mix/on' 1
+    Write-Host "  LIVE   PANIC - Spotify stereo forced ON" -ForegroundColor Green
+}
 
 while ($true) {
     $k = [System.Console]::ReadKey($true)
@@ -71,6 +89,8 @@ while ($true) {
         'w' { Toggle @('bus05','bus06') @('/bus/05/mix/on','/bus/06/mix/on') 'Bus 5+6  - Jamzone Bus'  }
         '+' { Toggle @('master')        @('/main/st/mix/on')                 'MASTER LR'               }
         '=' { Toggle @('master')        @('/main/st/mix/on')                 'MASTER LR'               }
+        'p' { ForceSpotifyStereoOn }
+        '0' { ForceSpotifyStereoOn }
     }
     if ($k.Key -eq [System.ConsoleKey]::Escape) {
         Write-Host "`n  Exiting. Bye!" -ForegroundColor Yellow

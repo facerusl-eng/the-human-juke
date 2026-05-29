@@ -68,6 +68,20 @@
   background: linear-gradient(90deg, #ffe066 0%, #ffd700 100%);
   color: #111;
 }
+
+.sing-along-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.sing-along-warning {
+  font-size: 0.72rem;
+  color: #f4a261;
+  font-weight: 600;
+}
+
 .error-text {
   color: #ff4d4f;
   font-weight: 500;

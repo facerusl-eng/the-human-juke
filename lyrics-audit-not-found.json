@@ -1,0 +1,1929 @@
+{
+  "summary": {
+    "generatedAt": "2026-05-29T09:47:13.403Z",
+    "checked": 194,
+    "failures": 23,
+    "successes": 171
+  },
+  "failures": [
+    {
+      "songId": "cadbf239-965f-4978-9040-fa4b9d0e5398",
+      "title": "Blowing in the Wind",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "b96174a1-6abb-4f12-9739-8fefb33570f1",
+      "title": "Blue Moon of Kentucky",
+      "artist": "Dwight Yoakam",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "5901ceea-08bb-4fa0-8fc1-b812c0240afc",
+      "title": "Ferðalok",
+      "artist": "Óðinn Valdimarsson",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "c2ac4cd3-7729-4fe1-b686-a1f0b8238e44",
+      "title": "Fram Á nótt",
+      "artist": "Nýdönsk",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "473ff71c-8bd9-47f4-b6cd-43bd546f1b73",
+      "title": "Húsið Og Ég",
+      "artist": "Sssól",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "127fdc27-2d3d-416a-9c93-78d563a39410",
+      "title": "I Got Stripes / Folsom Prison Blues / Ring of Fire",
+      "artist": "The Three Amigos",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "8a037d0b-5601-407f-8840-ad5d5e35771a",
+      "title": "Komdu Í partí",
+      "artist": "Mannakorn",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "9fe108fa-1cb9-4a95-9bbd-1c17ee875c4c",
+      "title": "Manst ekki eftir mér",
+      "artist": "Stuðmenn",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "015c5725-e512-4bb7-8664-e9e2e146d909",
+      "title": "Medley The Beatles (rock)",
+      "artist": "Medley Covers",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "fdcbea85-37ac-4bd6-bc2f-c7e2680ed8e8",
+      "title": "Peaceful Easy Feeling (live)",
+      "artist": "Johnny Brady",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "40a7e7b1-c98f-41e1-9ccd-6e1a68757f01",
+      "title": "Reyndu aftur",
+      "artist": "Mannakorn",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "53c21577-32d7-4d17-9a64-89d59367be70",
+      "title": "Seasons in the Sun",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "1efa46ee-44a7-42b1-a49f-30d23bf0fd60",
+      "title": "Shallow",
+      "artist": "A Star is Born (2018 film) (Lady Gaga & Bradley Cooper)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "a1c099f1-cd3f-465b-a04b-38ccfcd3b3aa",
+      "title": "Song Title",
+      "artist": "Artist Name",
+      "setlists": [
+        "Karaoke"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "49a6c4b7-fc35-41fe-9fc6-efaec54ad3c8",
+      "title": "Song Title",
+      "artist": "Artist Name",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "0dff14b6-62c3-498b-a02d-90c5fd369beb",
+      "title": "Summer of ‘69 (Little More Country Sessions)",
+      "artist": "Max Jackson",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "0ab2d31c-82bd-4943-bc47-87a1d574fbc2",
+      "title": "Tætum og tryllum",
+      "artist": "Stuðmenn",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "3dbf0f85-7a1b-4cfe-8d16-7b8ea0b31316",
+      "title": "The Gambler",
+      "artist": "Johnny Brady",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "ee451808-b641-4005-8d7c-8698a2091ad7",
+      "title": "The Streets of London",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "da8e3e9d-c0d9-491e-bb6a-c066a34ddcb9",
+      "title": "Tie a Yellow Ribbon Round the Ole Oak Tree",
+      "artist": "Dean Martin",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "bca1ee2b-e6c3-4df7-a573-d0ff869ec878",
+      "title": "Vegbúi",
+      "artist": "KK",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "19f19cc2-e53f-4242-8c2b-1bd603cba641",
+      "title": "Walk of Life (live)",
+      "artist": "Mike Denver (The Late Late Country Special)",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    },
+    {
+      "songId": "d6df4ef8-baa3-4703-bf06-fdad09fc534a",
+      "title": "Whiskey in the Jar (live)",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "reason": "http_404"
+    }
+  ],
+  "successes": [
+    {
+      "songId": "ac60f1ba-6d98-4f92-8dc0-95e17a11d25a",
+      "title": "'74 '75",
+      "artist": "The Connells",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 988
+    },
+    {
+      "songId": "df9e08cf-7246-4687-b19e-9749039a05a8",
+      "title": "A Taste of Honey",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 588
+    },
+    {
+      "songId": "1ddae1a2-dcd2-42ea-a100-6aaf71f17917",
+      "title": "Absolute Beginners",
+      "artist": "David Bowie",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 884
+    },
+    {
+      "songId": "d55c8fdc-5200-43ef-90a0-a4bb534a43d5",
+      "title": "Achy Breaky Heart",
+      "artist": "Billy Ray Cyrus",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1356
+    },
+    {
+      "songId": "13d5cb33-545b-4faa-b64a-1d2e2226d640",
+      "title": "Afgan",
+      "artist": "Bubbi Morthens",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 979
+    },
+    {
+      "songId": "f3383a47-9ca3-4e01-a525-72ca4c9a8b13",
+      "title": "After the Lovin'",
+      "artist": "Engelbert Humperdinck",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 824
+    },
+    {
+      "songId": "cd3f4049-c0b5-4676-81ba-2b424573dfd8",
+      "title": "Against the Wind",
+      "artist": "Bob Seger",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2242
+    },
+    {
+      "songId": "43d14d14-0cad-4dd5-9235-e018680dfd89",
+      "title": "Alberta (live Acoustic version)",
+      "artist": "Eric Clapton",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 533
+    },
+    {
+      "songId": "1e43ede4-483d-44e7-81c1-8d1b75cbd727",
+      "title": "All I Ask",
+      "artist": "Adele",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1296
+    },
+    {
+      "songId": "dab20802-d4a3-4e85-a187-d9c17c9b6329",
+      "title": "All My Loving",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 729
+    },
+    {
+      "songId": "bd244d39-b086-48e2-94a2-b3a96dac8a7e",
+      "title": "All Things Must Pass",
+      "artist": "George Harrison",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 755
+    },
+    {
+      "songId": "64408610-1f04-4603-85f6-4aea07fd83f9",
+      "title": "Amarillo by Morning",
+      "artist": "George Strait",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 704
+    },
+    {
+      "songId": "ccd995d8-c7e0-4f84-8a98-f1b2f016d3eb",
+      "title": "Angels (acoustic)",
+      "artist": "Robbie Williams",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1256
+    },
+    {
+      "songId": "25d30fb1-b722-4b06-ad27-925f8d1c3bea",
+      "title": "Are You Lonesome Tonight",
+      "artist": "Elvis Presley",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1120
+    },
+    {
+      "songId": "84b83452-81c0-4b25-a423-82fded960142",
+      "title": "Back in the U.S.S.R.",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1361
+    },
+    {
+      "songId": "a34b970e-13d3-4f72-b2a1-29c727d0341d",
+      "title": "Blame It on Me",
+      "artist": "George Ezra",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1281
+    },
+    {
+      "songId": "a35a1ff4-70f9-4c70-bc38-deccb101581d",
+      "title": "Blaze of Glory",
+      "artist": "Jon Bon Jovi (Young Guns II)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1687
+    },
+    {
+      "songId": "4ad07c35-9751-470e-bfa3-21c44f512866",
+      "title": "Blinding Lights (country version)",
+      "artist": "Tebey",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1267
+    },
+    {
+      "songId": "684cd5ff-c613-490a-82a7-358560e3c014",
+      "title": "Boing!",
+      "artist": "Nik & Jay",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2932
+    },
+    {
+      "songId": "3723766f-598b-4103-b44f-f17e3f7857a0",
+      "title": "Boulevard of Broken Dreams",
+      "artist": "Green Day",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1237
+    },
+    {
+      "songId": "0d01e4c7-8ee2-49b6-8441-072967223d43",
+      "title": "Breakfast At Tiffany's",
+      "artist": "Deep Blue Something",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1552
+    },
+    {
+      "songId": "22a09b35-83d3-4ea7-ba9c-810a3f09f49d",
+      "title": "Budapest",
+      "artist": "George Ezra",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1383
+    },
+    {
+      "songId": "e2a3bcd5-a521-49b2-88cf-fc82f8afd5a1",
+      "title": "Burning Love",
+      "artist": "Elvis Presley",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1188
+    },
+    {
+      "songId": "fea44e30-6156-467f-80bf-d3112783f4c7",
+      "title": "Chasing Cars (live acoustic)",
+      "artist": "Snow Patrol",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 965
+    },
+    {
+      "songId": "564c2f44-5cd2-4d81-a8cc-a7c40d0fce78",
+      "title": "Complicated",
+      "artist": "Avril Lavigne",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2411
+    },
+    {
+      "songId": "e8c489c6-a043-4ae6-a7b9-2285257b1854",
+      "title": "Crazy Little Thing Called Love",
+      "artist": "Queen",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1131
+    },
+    {
+      "songId": "6e3dc5da-6a7f-45f2-9b58-d58e95a5f87d",
+      "title": "Creep",
+      "artist": "Radiohead",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 805
+    },
+    {
+      "songId": "fae51a54-ef85-40e2-b48d-ddac7f03e7ca",
+      "title": "Dance Monkey",
+      "artist": "Tones and I",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2130
+    },
+    {
+      "songId": "532270d5-7276-4d83-9b48-3ebcb9873c52",
+      "title": "Despacito",
+      "artist": "Luis Fonsi & Daddy Yankee",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 5151
+    },
+    {
+      "songId": "8ceb0d89-57c3-4053-b7ed-4e1d38045222",
+      "title": "Det er Mig der står herude og banker på",
+      "artist": "Thomas Helmig",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1124
+    },
+    {
+      "songId": "ad5db3f3-2379-45c5-baca-e432a3023012",
+      "title": "Dick in My Nightstand",
+      "artist": "Danae Hays",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1739
+    },
+    {
+      "songId": "f883c0fa-e000-4144-b138-848453dab1fb",
+      "title": "Don't Be Cruel",
+      "artist": "Elvis Presley",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 983
+    },
+    {
+      "songId": "e1f90fd1-e011-42c5-af41-ac63901ea057",
+      "title": "Don't Look Back in Anger (acoustic - live MTV Unplugged)",
+      "artist": "Oasis",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1393
+    },
+    {
+      "songId": "f2ea1ac5-86cf-4f12-bfab-2aa8b88be18c",
+      "title": "Don't Speak",
+      "artist": "No Doubt",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1596
+    },
+    {
+      "songId": "fd36855a-1d39-436e-b4f6-63a14857989e",
+      "title": "Don't Stop Me Now",
+      "artist": "Queen",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2016
+    },
+    {
+      "songId": "6d7211dd-37c5-40e4-ad48-f51a7e9357d6",
+      "title": "Don't Worry, Be Happy",
+      "artist": "Bobby McFerrin",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2468
+    },
+    {
+      "songId": "d5507cac-fba1-49ad-a184-f9e8fdaff35c",
+      "title": "Drivin' My Life Away",
+      "artist": "Eddie Rabbitt",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1296
+    },
+    {
+      "songId": "e55b788f-da19-4ecb-9a2c-12014381e3c2",
+      "title": "Drunk in the Morning",
+      "artist": "Lukas Graham",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1469
+    },
+    {
+      "songId": "a7b50cbe-8008-46a5-9e30-d5729103c774",
+      "title": "Every Day I Have the Blues",
+      "artist": "Joe Williams & Count Basie Orchestra",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 838
+    },
+    {
+      "songId": "ff63a79e-6f5e-4392-ad35-75f68930a73d",
+      "title": "Father and Son",
+      "artist": "Ronan Keating & Cat Stevens",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1152
+    },
+    {
+      "songId": "118073f4-9c4f-43b1-854d-bcc029e9cfd0",
+      "title": "Fisherman's Blues",
+      "artist": "The Waterboys",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 890
+    },
+    {
+      "songId": "05e613a3-5869-487f-ab61-7f0432ad6ab6",
+      "title": "Fishin' in the Dark",
+      "artist": "Nitty Gritty Dirt Band",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1789
+    },
+    {
+      "songId": "0f4e076a-039b-4809-87cc-fb973c63dfa3",
+      "title": "Fly Me to the Moon (Uptempo)",
+      "artist": "Frank Sinatra",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 508
+    },
+    {
+      "songId": "f9b52306-5300-418a-b0bd-6ca319422d14",
+      "title": "For No One",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 921
+    },
+    {
+      "songId": "72ee0edd-e066-48ff-b961-713f0f70d4a5",
+      "title": "Fuck Her Gently",
+      "artist": "Tenacious D",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 940
+    },
+    {
+      "songId": "c527680d-9228-45e0-89f6-1c575882cb38",
+      "title": "Get Back",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 522
+    },
+    {
+      "songId": "7946149d-3994-4cdf-a26c-278a8f75ef72",
+      "title": "Gimme Hope Jo'anna",
+      "artist": "Eddy Grant",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1981
+    },
+    {
+      "songId": "1151cad8-6aed-4a41-a8d7-d0af5df8b455",
+      "title": "Girl",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 810
+    },
+    {
+      "songId": "806b2f2a-ba0e-4b6c-a4bc-d726c037ff04",
+      "title": "Girls Just Want to Have Fun",
+      "artist": "Cyndi Lauper",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1797
+    },
+    {
+      "songId": "f6a28c67-6e8a-44bc-9762-7eaa3ad226e7",
+      "title": "Half the World Away",
+      "artist": "Oasis",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1223
+    },
+    {
+      "songId": "9be47b4d-a0f7-49b7-986b-a61a6ecacc1f",
+      "title": "Hand in My Pocket",
+      "artist": "Alanis Morissette",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1291
+    },
+    {
+      "songId": "ec29d14f-6d1c-49a6-9658-1e8d8f6a7a8e",
+      "title": "Handle with Care",
+      "artist": "Traveling Wilburys",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 945
+    },
+    {
+      "songId": "97108e10-e844-4f2f-97c4-843ed2e3ff88",
+      "title": "Happy Together",
+      "artist": "The Turtles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1095
+    },
+    {
+      "songId": "7ac9f0c9-6b7e-4c5b-b92e-49b7fe1c03fe",
+      "title": "Have You Ever Seen the Rain",
+      "artist": "Creedence Clearwater Revival",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 714
+    },
+    {
+      "songId": "6d701a49-416e-4da8-b6cc-11ba9f6a5524",
+      "title": "Hopelessly Devoted to You",
+      "artist": "Grease (film)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 769
+    },
+    {
+      "songId": "170118e9-2adc-4c29-b881-30f15a88f08b",
+      "title": "Hurt",
+      "artist": "Johnny Cash",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 775
+    },
+    {
+      "songId": "da14a26f-353b-4c49-be69-7443e64c22d6",
+      "title": "Hvorfor går Louise til bal",
+      "artist": "Bamses Venner",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1142
+    },
+    {
+      "songId": "8bb37e47-7254-4faf-92a5-d74b49157f38",
+      "title": "I Don't Want To Talk About It (live)",
+      "artist": "Rod Stewart",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1121
+    },
+    {
+      "songId": "e29fca2b-4ba6-4bcb-8a7c-a454b14f3751",
+      "title": "I en lille båd der gynger",
+      "artist": "Bamses Venner",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1234
+    },
+    {
+      "songId": "92e47f04-6ffa-4149-9aaa-08dc3d85ffc1",
+      "title": "I Love Rock 'n' Roll",
+      "artist": "Joan Jett",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1620
+    },
+    {
+      "songId": "160f7a6f-9b15-431f-bdb7-0249586b1bd4",
+      "title": "I Walk the Line",
+      "artist": "Johnny Cash",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 821
+    },
+    {
+      "songId": "459f3e2b-fced-4260-a75f-2dbed83b035a",
+      "title": "I Want to Break Free",
+      "artist": "Queen",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 870
+    },
+    {
+      "songId": "147e6892-63e3-46d3-ae88-52d7e8e8fae8",
+      "title": "I Will Survive",
+      "artist": "Gloria Gaynor",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 3031
+    },
+    {
+      "songId": "2ce1fbf2-40b9-4582-b854-c952692c33a3",
+      "title": "I'll Make a Man Out of You",
+      "artist": "Mulan (Donny Osmond)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1388
+    },
+    {
+      "songId": "64f72456-fd56-4aa2-b3d5-75750f453280",
+      "title": "I'm a Believer",
+      "artist": "The Monkees",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1236
+    },
+    {
+      "songId": "c3d5e32d-b34f-43b8-be62-69ca0782a418",
+      "title": "I'm Gonna Be (500 Miles)",
+      "artist": "The Proclaimers",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2174
+    },
+    {
+      "songId": "aa476867-cf8a-40b3-b6da-0e83289559fa",
+      "title": "If I Fell",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 759
+    },
+    {
+      "songId": "096cca76-da6d-4429-8d18-85770f239914",
+      "title": "If Tomorrow Never Comes",
+      "artist": "Ronan Keating",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1228
+    },
+    {
+      "songId": "27aef595-09c8-4db8-b998-19b55459a464",
+      "title": "Jealous Guy",
+      "artist": "John Lennon",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 852
+    },
+    {
+      "songId": "a7a59090-1426-44ba-a619-4e3c56759557",
+      "title": "Joanna",
+      "artist": "Kim Larsen",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 680
+    },
+    {
+      "songId": "ca111141-8d6e-492f-abb2-5a4ad7a5518c",
+      "title": "Karma Chameleon",
+      "artist": "Culture Club",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1485
+    },
+    {
+      "songId": "cd4d3fbf-fcbb-490f-bb75-e36c6dd6f79f",
+      "title": "Karma Police",
+      "artist": "Radiohead",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 816
+    },
+    {
+      "songId": "e6510b7f-a0bc-435d-80e1-f6cb6705475d",
+      "title": "Kiss Me",
+      "artist": "Sixpence None the Richer",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 883
+    },
+    {
+      "songId": "cd6533f6-5898-4a9c-8ce2-118c1d23913d",
+      "title": "Knock on Wood",
+      "artist": "Eric Clapton",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1032
+    },
+    {
+      "songId": "72a6a95e-c467-4e35-9ba4-ff35e7bf46c0",
+      "title": "La Isla Bonita",
+      "artist": "Madonna",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1520
+    },
+    {
+      "songId": "40643fcf-7ff4-4d07-862d-a91210e4d57b",
+      "title": "Lady Madonna",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 773
+    },
+    {
+      "songId": "1600e56f-f5cc-4a34-be12-65292ae37e15",
+      "title": "Last Kiss",
+      "artist": "Pearl Jam",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1177
+    },
+    {
+      "songId": "b9099da5-ec93-4356-81e6-8191c279fd42",
+      "title": "Lemon Tree",
+      "artist": "Fool's Garden",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1580
+    },
+    {
+      "songId": "98ff1e30-1cb8-4be9-a7c5-d061779af6df",
+      "title": "Let It Be",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1192
+    },
+    {
+      "songId": "09103f85-45a5-45f0-ac46-069108bd4ce0",
+      "title": "Let Your Love Flow",
+      "artist": "The Bellamy Brothers",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1578
+    },
+    {
+      "songId": "25f71974-5ade-4919-ab55-f6e4a6edaf53",
+      "title": "Lightning Crashes",
+      "artist": "Live",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1229
+    },
+    {
+      "songId": "70edceb0-0412-4dbe-9449-79b0287ec6a5",
+      "title": "Listen to the Music",
+      "artist": "The Doobie Brothers",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2119
+    },
+    {
+      "songId": "952b5989-17aa-4fa3-82b1-6727af2f0c54",
+      "title": "Living Next Door to Alice",
+      "artist": "Smokie",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1671
+    },
+    {
+      "songId": "2c279b7e-ec25-4fc4-85b3-0253fda04454",
+      "title": "Lodi",
+      "artist": "Creedence Clearwater Revival",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 847
+    },
+    {
+      "songId": "b3168954-b69e-4564-95c0-a23d8840f460",
+      "title": "Losing My Religion",
+      "artist": "R.E.M.",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1318
+    },
+    {
+      "songId": "58c194fe-9f45-497e-8a45-e489b37471a7",
+      "title": "Maggie May",
+      "artist": "Rod Stewart",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1422
+    },
+    {
+      "songId": "62bb2c37-9f7e-4cb1-a93e-3272c16aaf36",
+      "title": "Make Me Smile (Come Up And See Me)",
+      "artist": "Steve Harley And Cockney Rebel",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1009
+    },
+    {
+      "songId": "63a9b524-cf81-43f3-a055-86e4dc2898a0",
+      "title": "Mamma Mia",
+      "artist": "ABBA",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1511
+    },
+    {
+      "songId": "362ffb52-6f51-4e85-85f5-004153af2e76",
+      "title": "Man on the Moon",
+      "artist": "R.E.M.",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2134
+    },
+    {
+      "songId": "e581478a-f58e-418a-a262-dd6ab8736d7e",
+      "title": "Mandy",
+      "artist": "Barry Manilow",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 885
+    },
+    {
+      "songId": "763c8804-e067-4dc8-bb11-b932ec993bc7",
+      "title": "Mary Jane's Last Dance",
+      "artist": "Tom Petty",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1301
+    },
+    {
+      "songId": "d7b99093-6535-4e98-94bd-fa060c190376",
+      "title": "Me and Bobby McGee",
+      "artist": "Kris Kristofferson",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1169
+    },
+    {
+      "songId": "2f1b8999-567c-41cc-91af-e71231f3c6e3",
+      "title": "Memories",
+      "artist": "Maroon 5",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2226
+    },
+    {
+      "songId": "b3ce2ccd-dfd4-45c3-b9d1-a06c0b80e7e3",
+      "title": "Midt om natten",
+      "artist": "Kim Larsen",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1023
+    },
+    {
+      "songId": "e3509ffe-110f-4f15-ba5a-d3b35090f3a3",
+      "title": "Minning um mann",
+      "artist": "Logar",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 885
+    },
+    {
+      "songId": "8b39e22e-ac8e-4b13-ab97-2bae91cb0e72",
+      "title": "Mustang Sally",
+      "artist": "The Commitments",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1558
+    },
+    {
+      "songId": "92cbe08e-bbcd-43ab-87a5-181c62dbae37",
+      "title": "My Sweet Lord",
+      "artist": "George Harrison",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1620
+    },
+    {
+      "songId": "7ef13622-a8ce-4ba1-9249-bab7441fa912",
+      "title": "My Way",
+      "artist": "Frank Sinatra",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1098
+    },
+    {
+      "songId": "e9ba3571-c4f7-42d3-b68f-4c53998bcc30",
+      "title": "New York, New York",
+      "artist": "Frank Sinatra",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 813
+    },
+    {
+      "songId": "3618f38f-b2e6-4112-90ab-7373f4ec8305",
+      "title": "Norwegian Wood (This Bird Has Flown)",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 540
+    },
+    {
+      "songId": "68f5407e-0027-4a69-aec9-e71eb4605a1e",
+      "title": "Now and Then",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 550
+    },
+    {
+      "songId": "aff664b1-0c06-4701-bf53-23aa9c53236a",
+      "title": "Nowhere Man",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 927
+    },
+    {
+      "songId": "21456f7b-adef-43d4-b439-fb9eaa61df74",
+      "title": "On the Road Again",
+      "artist": "Willie Nelson",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 937
+    },
+    {
+      "songId": "154e6ad5-166f-4b46-903c-9a4a8efc9acc",
+      "title": "One",
+      "artist": "U2",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1177
+    },
+    {
+      "songId": "6933dde2-5268-4d04-ac57-b8dcc1916550",
+      "title": "One More Cup of Coffee (Valley Below)",
+      "artist": "Bob Dylan",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1000
+    },
+    {
+      "songId": "e2e45e14-9154-4272-b584-9cff1b23bc8f",
+      "title": "Pokémon Theme",
+      "artist": "Pokémon (Jason Paige)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1402
+    },
+    {
+      "songId": "a430b600-1c1f-497f-b2b5-498bd30fe6e7",
+      "title": "Polly",
+      "artist": "Nirvana",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1047
+    },
+    {
+      "songId": "52ae5098-0966-42a2-8bbc-6aba9e2164b8",
+      "title": "Proud Mary",
+      "artist": "Creedence Clearwater Revival",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 902
+    },
+    {
+      "songId": "94644952-34e1-4332-8e2a-7b89aa1cd143",
+      "title": "Rockin' All Over the World",
+      "artist": "Status Quo",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 960
+    },
+    {
+      "songId": "5f2f3d60-2e8d-4f1c-b407-4727d70a1ae4",
+      "title": "Rolling in the Deep",
+      "artist": "Adele",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 3479
+    },
+    {
+      "songId": "f84f346d-5cb2-4d60-ab06-be10239fc4ba",
+      "title": "Rómeo og Júlía",
+      "artist": "Bubbi Morthens",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 948
+    },
+    {
+      "songId": "8a6d9d2f-b155-48fb-a09b-3044e1b2a093",
+      "title": "Så længe jeg lever",
+      "artist": "John Mogensen",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 920
+    },
+    {
+      "songId": "c3567e06-3fa5-48bf-b048-090397336a24",
+      "title": "Save Tonight",
+      "artist": "Eagle-Eye Cherry",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1446
+    },
+    {
+      "songId": "15f0dec1-f08d-4c6d-ab5f-192969f478f7",
+      "title": "Sex on Fire",
+      "artist": "Kings of Leon",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 697
+    },
+    {
+      "songId": "ee02425d-27e9-437d-8f8b-d628a5d1cc16",
+      "title": "She's The One",
+      "artist": "Robbie Williams",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1203
+    },
+    {
+      "songId": "32e85eaf-0c1d-4a30-99ae-55b79bb6db71",
+      "title": "Show Them to Me",
+      "artist": "Rodney Carrington",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1553
+    },
+    {
+      "songId": "6db6d15c-c743-4f7a-9e63-73e65e1df05e",
+      "title": "Sister Golden Hair",
+      "artist": "America",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1347
+    },
+    {
+      "songId": "3dc1dbad-7743-4d6c-907b-ad481f6b57a2",
+      "title": "Somebody to Love",
+      "artist": "Queen",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2158
+    },
+    {
+      "songId": "925d927c-a28b-4184-a395-f61119166d63",
+      "title": "Someone Like You",
+      "artist": "Adele",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2203
+    },
+    {
+      "songId": "61d3050d-856a-433e-b60d-14f10876abf9",
+      "title": "Something Beautiful",
+      "artist": "Robbie Williams",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1727
+    },
+    {
+      "songId": "24d07feb-3edb-430f-a119-97baf2bbbc05",
+      "title": "Space Oddity",
+      "artist": "David Bowie",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1133
+    },
+    {
+      "songId": "730f47c0-eff0-4aea-94c2-18d00b7ce467",
+      "title": "Stál og hnífur",
+      "artist": "Bubbi Morthens",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 458
+    },
+    {
+      "songId": "ba46a7c8-8822-4b2f-a458-532e1c6647bf",
+      "title": "Stand by Me",
+      "artist": "Ben E. King",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 709
+    },
+    {
+      "songId": "e9788a49-4c8b-4281-bece-6eb0d78eec1b",
+      "title": "Stand by Me",
+      "artist": "Oasis",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 737
+    },
+    {
+      "songId": "136e8162-7fdd-4635-a7bb-df119d2506d3",
+      "title": "Stop Crying Your Heart Out",
+      "artist": "Oasis",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1027
+    },
+    {
+      "songId": "0502b6c2-78b2-4428-83b9-fe0c074f8259",
+      "title": "Stumblin' In",
+      "artist": "Suzi Quatro & Chris Norman",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1391
+    },
+    {
+      "songId": "0f8e63fb-92c4-4eeb-a434-bdc570fdf154",
+      "title": "Sunny Afternoon",
+      "artist": "The Kinks",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1101
+    },
+    {
+      "songId": "aaf91123-cadd-47c5-b998-c9c2a1a0bf2f",
+      "title": "Suspicious Minds",
+      "artist": "Elvis Presley",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1129
+    },
+    {
+      "songId": "baf2cea1-a2a6-402f-abb8-bf5103d795ab",
+      "title": "Sway",
+      "artist": "Michael Bublé",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1258
+    },
+    {
+      "songId": "aa1f5d13-2372-4f90-9633-e519328df9db",
+      "title": "Sway",
+      "artist": "Michael Bublé",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1258
+    },
+    {
+      "songId": "2ea143b4-7cb0-4340-af53-0071ef2862b1",
+      "title": "Sweet Caroline",
+      "artist": "Neil Diamond",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 743
+    },
+    {
+      "songId": "d4e2bdc4-55be-4c87-be59-86f5f8ebe494",
+      "title": "Sylvia's Mother",
+      "artist": "Dr. Hook & The Medicine Show",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1285
+    },
+    {
+      "songId": "b738253f-3c60-4458-a326-c0d5f0cc3a6a",
+      "title": "Tænder på dig",
+      "artist": "Jakob Sveistrup (Eurovision Denmark)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 619
+    },
+    {
+      "songId": "6a3ecff4-65be-4007-ad49-744d62a35520",
+      "title": "Take It Easy",
+      "artist": "Jackson Browne",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1054
+    },
+    {
+      "songId": "99e54cb0-2295-44ac-b902-c174af928a5a",
+      "title": "Take It to the Limit (live)",
+      "artist": "Eagles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1462
+    },
+    {
+      "songId": "30bf883e-d9d4-4efa-8dfc-28eb2951fb7a",
+      "title": "Take Me Home, Country Roads",
+      "artist": "John Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1002
+    },
+    {
+      "songId": "aa467104-24c9-4b44-8445-093b501c26cd",
+      "title": "The Cave",
+      "artist": "Mumford & Sons",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1417
+    },
+    {
+      "songId": "71a11857-be8e-4d07-8c54-4c1057a9f267",
+      "title": "The Grease Mega-Mix",
+      "artist": "Grease (film)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2739
+    },
+    {
+      "songId": "296e880d-88e4-48dd-9ec1-b939d80a78e2",
+      "title": "The House of the Rising Sun",
+      "artist": "The Animals",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 725
+    },
+    {
+      "songId": "199be865-cc6d-4f21-a805-d429bce9c838",
+      "title": "The Man Who Sold the World",
+      "artist": "Nirvana",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 931
+    },
+    {
+      "songId": "2ab6461f-134b-4e2b-8d96-1326637d7861",
+      "title": "The River",
+      "artist": "Bruce Springsteen",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1490
+    },
+    {
+      "songId": "174ddc8b-1aef-4064-be2a-d76f126b1340",
+      "title": "The Way",
+      "artist": "Fastball",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1535
+    },
+    {
+      "songId": "13449c03-acbc-4fc1-9051-a3b5bc31a404",
+      "title": "The Wild Rover",
+      "artist": "The Dubliners",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 848
+    },
+    {
+      "songId": "8794fc5e-cdb9-443e-aa7f-e183b6dbd484",
+      "title": "The Wonder of You (live 1970)",
+      "artist": "Elvis Presley",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 626
+    },
+    {
+      "songId": "2629fe21-89b1-40ab-825d-bac4a5860954",
+      "title": "These Boots Are Made for Walkin'",
+      "artist": "Nancy Sinatra",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 999
+    },
+    {
+      "songId": "6e84036a-9c4e-47e0-9afe-e0019ec2e5d4",
+      "title": "Times Like These",
+      "artist": "Glen Campbell",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 857
+    },
+    {
+      "songId": "021f77a4-1950-4745-9163-35a9760b15ea",
+      "title": "Traustur Vinur",
+      "artist": "Upplyfting",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 959
+    },
+    {
+      "songId": "f8c60c65-d9aa-4915-9a5c-7b5e2d67c95b",
+      "title": "Tulsa Time",
+      "artist": "Pistol Annies",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1166
+    },
+    {
+      "songId": "6a1e546d-146a-4a61-8b98-777ab22a4ba5",
+      "title": "Turn the Page",
+      "artist": "Bob Seger",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1818
+    },
+    {
+      "songId": "6a887982-365a-467f-9d48-f2715a95401d",
+      "title": "Two of Us",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1000
+    },
+    {
+      "songId": "a4ae5340-c52c-48cc-b902-e2581064ee9f",
+      "title": "Vågner i natten",
+      "artist": "Dodo & The Dodos",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 903
+    },
+    {
+      "songId": "3747a6dc-7baf-46a7-9250-618364c84cdd",
+      "title": "Valerie ('68 version)",
+      "artist": "Amy Winehouse",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1412
+    },
+    {
+      "songId": "09b1ab19-bbc4-44a8-a123-ac67fe11dba1",
+      "title": "What's Up?",
+      "artist": "4 Non Blondes",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1649
+    },
+    {
+      "songId": "02352122-9db7-42db-b7fc-4c5cdef14239",
+      "title": "Whatta Man",
+      "artist": "En Vogue & Salt-N-Pepa",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 3899
+    },
+    {
+      "songId": "bf4264c6-4be6-4819-8acf-e7ea964448a9",
+      "title": "When I'm Sixty-Four",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1013
+    },
+    {
+      "songId": "a8cedbbe-d95e-4c06-ba1c-4ceda5c7c00b",
+      "title": "When You Say Nothing at All",
+      "artist": "Ronan Keating",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1630
+    },
+    {
+      "songId": "2500a9b0-f9ab-41b3-aea6-6658d888cef3",
+      "title": "Who'll Stop the Rain",
+      "artist": "Creedence Clearwater Revival",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 609
+    },
+    {
+      "songId": "e3a33bf9-c1e8-4a86-890b-c5b857d6d72e",
+      "title": "Who'll Stop the Rain",
+      "artist": "John Fogerty",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 612
+    },
+    {
+      "songId": "479db36e-a229-4a5d-8e06-e3b0ae86e776",
+      "title": "Wicked Game",
+      "artist": "Chris Isaak",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1376
+    },
+    {
+      "songId": "637eedd5-f5d0-417d-bbee-023bcc911e2c",
+      "title": "Will You Still Love Me Tomorrow?",
+      "artist": "Carole King",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 550
+    },
+    {
+      "songId": "904cfdec-ff65-44f5-ad3e-82d2788bcd1e",
+      "title": "Wonderwall",
+      "artist": "Oasis",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1401
+    },
+    {
+      "songId": "8d505c8f-fccf-434f-bffe-4abeba68c483",
+      "title": "Yellow",
+      "artist": "Coldplay",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 993
+    },
+    {
+      "songId": "d037e37f-b59b-4eb5-b5f1-6161d6497a8f",
+      "title": "You Got It",
+      "artist": "Roy Orbison",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1037
+    },
+    {
+      "songId": "34b9a1fe-e0eb-4536-b378-807da5b4531e",
+      "title": "You Never Can Tell (C'est la vie)",
+      "artist": "Chuck Berry",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1240
+    },
+    {
+      "songId": "4540ad80-fdc1-462b-8763-71be3be9eb76",
+      "title": "You Oughta Know",
+      "artist": "Alanis Morissette",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1875
+    },
+    {
+      "songId": "69d25c3a-8b3f-40ed-ac44-2e02c4700525",
+      "title": "You Raise Me Up",
+      "artist": "Josh Groban",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 872
+    },
+    {
+      "songId": "0ccb8386-ae1e-4523-b086-b42169f23dec",
+      "title": "You've Got a Friend",
+      "artist": "Carole King",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1407
+    },
+    {
+      "songId": "c1051e3a-2146-4a98-a71a-ba638b8c0d2c",
+      "title": "You've Got a Friend",
+      "artist": "James Taylor",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1401
+    },
+    {
+      "songId": "536e35e2-13a4-4767-929d-3adcd9dc5857",
+      "title": "You've Got to Hide Your Love Away",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 528
+    },
+    {
+      "songId": "ff61e08c-1a20-4b9e-85ea-e4a9f659cb0b",
+      "title": "Your Song",
+      "artist": "Elton John",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1280
+    },
+    {
+      "songId": "732b0620-f21b-4947-aab5-2475b394efb8",
+      "title": "Zombie",
+      "artist": "The Cranberries",
+      "setlists": [
+        "Karaoke"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 946
+    }
+  ]
+}

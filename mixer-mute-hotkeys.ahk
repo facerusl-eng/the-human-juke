@@ -14,6 +14,7 @@
 ; Numpad 7 = Ch 15+16  Jamzone L+R
 ; Numpad 8 = AUX source to Bus 5+6
 ; Numpad 9 = Master channel (Bus 5+6)
+; Numpad 0 = PANIC force Spotify stereo ON
 ; Numpad controls are mapped globally to keep non-numpad keys normal
 ; ─────────────────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,22 @@ Toggle(keys, addresses, label) {
     SetTimer(() => ToolTip(), -1200)
 }
 
+ForceSpotifyStereoOn() {
+    global state, MIXER_IP, MIXER_PORT
+    state["ch15"] := true
+    state["ch16"] := true
+    state["aux"] := true
+    state["master"] := true
+    SendOSC(MIXER_IP, MIXER_PORT, "/ch/15/mix/on", 1)
+    SendOSC(MIXER_IP, MIXER_PORT, "/ch/16/mix/on", 1)
+    SendOSC(MIXER_IP, MIXER_PORT, "/rtn/aux/mix/05/on", 1)
+    SendOSC(MIXER_IP, MIXER_PORT, "/rtn/aux/mix/06/on", 1)
+    SendOSC(MIXER_IP, MIXER_PORT, "/bus/05/mix/on", 1)
+    SendOSC(MIXER_IP, MIXER_PORT, "/bus/06/mix/on", 1)
+    ToolTip("LIVE  PANIC - Spotify stereo ON")
+    SetTimer(() => ToolTip(), -1200)
+}
+
 ; ── Hotkeys ───────────────────────────────────────────────────────────────────
 
 Numpad1::
@@ -115,3 +132,5 @@ NumpadUp:: Toggle(["aux"], ["/rtn/aux/mix/05/on","/rtn/aux/mix/06/on"], "AUX Sou
 Numpad9::
 NumpadPgUp::
 NumpadAdd:: Toggle(["master"], ["/bus/05/mix/on","/bus/06/mix/on"], "MASTER Channel (Bus 5+6)")
+Numpad0::
+NumpadIns:: ForceSpotifyStereoOn()

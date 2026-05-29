@@ -3112,7 +3112,6 @@ body.audience-immersive-mode .audience-song-list-shell {
   min-height: 100dvh;
   border-radius: 0;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 body.audience-immersive-mode .audience-fixed-header {
