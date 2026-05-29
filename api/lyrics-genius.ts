@@ -9,6 +9,7 @@ const MUSIXMATCH_API_BASE = 'https://api.musixmatch.com/ws/1.1';
 const PROVIDER_BASE_SCORE = {
   musixmatch: 102,
   genius: 98,
+  lrclib: 90,
   audd: 80,
   chartlyrics: 72,
   'lyrics.ovh': 65,
@@ -533,6 +534,56 @@ async function fetchMusixmatchLyrics(title: string, artist: string): Promise<str
   }
 }
 
+async function fetchLrcLibLyrics(title: string, artist: string): Promise<string | null> {
+  const directUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
+  const searchUrl = `https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
+
+  const pickLyrics = (entry: { plainLyrics?: string; syncedLyrics?: string } | null | undefined) => {
+    return sanitizeLyrics(entry?.plainLyrics ?? entry?.syncedLyrics ?? null);
+  };
+
+  try {
+    const directResponse = await axios.get(directUrl, { timeout: 9000 });
+    const directLyrics = pickLyrics(directResponse.data);
+    if (directLyrics) {
+      return directLyrics;
+    }
+  } catch {
+    // Fallback to search endpoint below.
+  }
+
+  try {
+    const searchResponse = await axios.get(searchUrl, { timeout: 9000 });
+    const candidates = Array.isArray(searchResponse.data) ? searchResponse.data : [];
+
+    let bestLyrics: string | null = null;
+    let bestScore = -1;
+
+    for (const candidate of candidates) {
+      const candidateTitle = String(candidate?.trackName ?? '');
+      const candidateArtist = String(candidate?.artistName ?? '');
+      const candidateLyrics = pickLyrics(candidate);
+
+      if (!candidateLyrics) {
+        continue;
+      }
+
+      const titleOverlap = calculateTokenOverlapScore(title, candidateTitle);
+      const artistOverlap = calculateTokenOverlapScore(artist, candidateArtist);
+      const score = (titleOverlap * 0.65) + (artistOverlap * 0.35);
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestLyrics = candidateLyrics;
+      }
+    }
+
+    return bestLyrics;
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const song = normalizeText(String(req.query.song ?? ''));
   const artist = normalizeText(String(req.query.artist ?? ''));
@@ -605,6 +656,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
     } else {
       markAttempt('genius', false, 'No high-confidence Genius match found');
+    }
+
+    const lrcLibLyrics = await fetchLrcLibLyrics(variant.title, variant.artist);
+    if (lrcLibLyrics) {
+      markAttempt('lrclib', true);
+      if (registerCandidate(lrcLibLyrics, 'lrclib', 10)) {
+        break;
+      }
+    } else {
+      markAttempt('lrclib', false, 'No lyrics returned');
     }
 
     const auddLyrics = await fetchAudDLyrics(variant.title, variant.artist);
