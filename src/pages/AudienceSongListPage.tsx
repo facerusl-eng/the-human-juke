@@ -453,14 +453,19 @@ function AudienceSongListPage() {
   ), [songs])
 
   const availableSongs = useMemo(() => {
+    const explicitFilterEnabled = event?.explicitFilterEnabled ?? false
+    const policyFilteredSongs = explicitFilterEnabled
+      ? curatedSongs.filter((song) => !song.is_explicit)
+      : curatedSongs
+
     if (!normalizedSearchQuery) {
-      return curatedSongs
+      return policyFilteredSongs
     }
 
-    return curatedSongs.filter((song) => (
+    return policyFilteredSongs.filter((song) => (
       song.searchText.includes(normalizedSearchQuery)
     ))
-  }, [curatedSongs, normalizedSearchQuery])
+  }, [curatedSongs, event?.explicitFilterEnabled, normalizedSearchQuery])
 
   const humanJukeboxSongs = useMemo(
     () => availableSongs.filter((song) => !song.fromKaraokeSetlist),
@@ -736,6 +741,11 @@ function AudienceSongListPage() {
           return
         }
 
+        if (!event.playlistOnlyRequests) {
+          await loadFallbackSongs()
+          return
+        }
+
         let eventPlaylistsRows: EventPlaylistRow[] = []
 
         const { data: eventPlaylistsWithType, error: eventPlaylistsWithTypeError } = await supabase
@@ -828,7 +838,9 @@ function AudienceSongListPage() {
         }
 
         if (!playlistIds.length) {
-          await loadFallbackSongs()
+          if (isCurrent) {
+            setCuratedSongs([])
+          }
           return
         }
 
@@ -913,7 +925,7 @@ function AudienceSongListPage() {
     return () => {
       isCurrent = false
     }
-  }, [copy.unableToLoadSongs, event?.id, event?.hostId])
+  }, [copy.unableToLoadSongs, event?.id, event?.hostId, event?.playlistOnlyRequests])
 
   useEffect(() => {
     if (demoMode) {
@@ -975,6 +987,11 @@ function AudienceSongListPage() {
       return
     }
 
+    if (!event?.roomOpen) {
+      setErrorText('Requests are currently paused. You can browse songs, but cannot submit right now.')
+      return
+    }
+
     if (isFinalSongRequestsClosed) {
       setErrorText(copy.finalSongRequestsClosed)
       return
@@ -1026,6 +1043,11 @@ function AudienceSongListPage() {
   const showPlaylistPicker = !loadingSongs && hasBothSetlists && activeSetlist === null
   const activeRows = effectiveSetlist === 'karaoke' ? karaokeRows : humanJukeboxRows
   const handleSelectSong = useCallback((song: CuratedSong) => {
+    if (!event?.roomOpen) {
+      setErrorText('Requests are currently paused. You can browse songs, but cannot submit right now.')
+      return
+    }
+
     if (isFinalSongRequestsClosed) {
       setErrorText(copy.finalSongRequestsClosed)
       return
@@ -1034,7 +1056,7 @@ function AudienceSongListPage() {
     setSelectedSong(song)
     setKaraokeConfirmPending(audienceLocale === 'is' && song.fromKaraokeSetlist)
     setErrorText(null)
-  }, [audienceLocale, copy.finalSongRequestsClosed, isFinalSongRequestsClosed])
+  }, [audienceLocale, copy.finalSongRequestsClosed, event?.roomOpen, isFinalSongRequestsClosed])
 
   const currentSongFact = selectedSongFacts.length > 0
     ? selectedSongFacts[currentSongFactIndex % selectedSongFacts.length]
@@ -1073,6 +1095,7 @@ function AudienceSongListPage() {
         </div>
       ) : null}
       {isFinalSongRequestsClosed ? <p className="request-error-inline audience-requests-closed-notice" role="status">{copy.finalSongRequestsClosed}</p> : null}
+      {!event?.roomOpen ? <p className="request-error-inline audience-requests-closed-notice" role="status">Requests are paused right now. Browse songs while you wait.</p> : null}
       {errorText ? <p className={`request-error-inline${isLastSongSoonOverlayMessage(errorText) ? ' audience-requests-closed-notice' : ' error-text'}`}>{errorText}</p> : null}
 
       {/* ── Playlist picker ── */}
@@ -1146,7 +1169,6 @@ function AudienceSongListPage() {
                       <button
                         type="button"
                         className={`audience-song-list-card${effectiveSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}${isQueued ? ' is-queued' : ''}${isSelected ? ' is-selected' : ''}`}
-                        aria-pressed={isSelected}
                         disabled={isFinalSongRequestsClosed}
                         onClick={() => handleSelectSong(row.song)}
                       >
@@ -1218,7 +1240,7 @@ function AudienceSongListPage() {
                   <button
                     type="button"
                     className="primary-button audience-song-choice-button"
-                    disabled={Boolean(submittingMode) || isFinalSongRequestsClosed}
+                    disabled={Boolean(submittingMode) || isFinalSongRequestsClosed || !event?.roomOpen}
                     onClick={() => { void submitSongRequest('audience') }}
                   >
                     {submittingMode === 'audience' ? copy.adding : copy.karaokeConfirmGo}
@@ -1252,7 +1274,7 @@ function AudienceSongListPage() {
                 <button
                   type="button"
                   className="secondary-button audience-song-choice-button"
-                  disabled={Boolean(submittingMode) || isFinalSongRequestsClosed}
+                  disabled={Boolean(submittingMode) || isFinalSongRequestsClosed || !event?.roomOpen}
                   onClick={() => setKaraokeConfirmPending(true)}
                 >
                   {copy.addKaraoke}
@@ -1262,7 +1284,7 @@ function AudienceSongListPage() {
                   <button
                     type="button"
                     className="primary-button audience-song-choice-button"
-                    disabled={Boolean(submittingMode) || isFinalSongRequestsClosed}
+                    disabled={Boolean(submittingMode) || isFinalSongRequestsClosed || !event?.roomOpen}
                     onClick={() => {
                       void submitSongRequest('performer')
                     }}
@@ -1272,7 +1294,7 @@ function AudienceSongListPage() {
                   <button
                     type="button"
                     className="secondary-button audience-song-choice-button"
-                    disabled={Boolean(submittingMode) || isFinalSongRequestsClosed}
+                    disabled={Boolean(submittingMode) || isFinalSongRequestsClosed || !event?.roomOpen}
                     onClick={() => {
                       void submitSongRequest('audience')
                     }}

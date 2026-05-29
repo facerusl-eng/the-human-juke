@@ -3467,6 +3467,22 @@ function QueueProvider({ children }: PropsWithChildren) {
           throw new Error('Song title and artist are required.')
         }
 
+        const shouldBypassRules = options?.bypassEventRules || isHostSession
+
+        if (!shouldBypassRules && event) {
+          if (!event.roomOpen) {
+            throw new Error('Requests are currently paused. You can browse songs, but cannot submit right now.')
+          }
+
+          if (event.explicitFilterEnabled && isExplicit) {
+            throw new Error('Explicit tracks are currently blocked for this gig.')
+          }
+
+          if (event.playlistOnlyRequests && !options?.librarySongId) {
+            throw new Error('This gig only accepts requests from the selected setlists.')
+          }
+        }
+
         // If the device is offline, save to the IndexedDB pending queue and
         // surface a friendly message. The request will be auto-replayed on reconnect.
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -3492,8 +3508,6 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           throw new Error("You're offline. Your request has been saved and will submit automatically when you reconnect.")
         }
-
-        const shouldBypassRules = options?.bypassEventRules || isHostSession
 
         if (!shouldBypassRules) {
           const sharedPlaybackState = await readSharedPlaybackState(targetEventId)
@@ -3546,12 +3560,56 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         if (!shouldBypassRules && event) {
+          if (event.playlistOnlyRequests) {
+            const targetLibrarySongId = options?.librarySongId?.trim() ?? ''
+
+            if (!targetLibrarySongId) {
+              throw new Error('This gig only accepts requests from the selected setlists.')
+            }
+
+            const { data: selectedPlaylists, error: selectedPlaylistsError } = await supabase
+              .from('event_playlists')
+              .select('playlist_id')
+              .eq('event_id', targetEventId)
+
+            if (selectedPlaylistsError) {
+              throw selectedPlaylistsError
+            }
+
+            const selectedPlaylistIds = (selectedPlaylists ?? [])
+              .map((row) => row.playlist_id as string)
+              .filter((playlistId) => Boolean(playlistId))
+
+            if (selectedPlaylistIds.length === 0) {
+              throw new Error('Setlist-only mode is enabled, but no setlists are attached to this gig.')
+            }
+
+            const { data: allowedSongRow, error: allowedSongError } = await supabase
+              .from('playlist_songs')
+              .select('song_id')
+              .in('playlist_id', selectedPlaylistIds)
+              .eq('song_id', targetLibrarySongId)
+              .limit(1)
+              .maybeSingle()
+
+            if (allowedSongError) {
+              throw allowedSongError
+            }
+
+            if (!allowedSongRow) {
+              throw new Error('This song is not in the selected setlists for this gig.')
+            }
+          }
+
           // Client-side pre-check for duplicates — saves a DB round-trip.
           if (!event.allowDuplicateRequests) {
             const isDuplicate = songs.some(
               (s) =>
+                (options?.librarySongId && s.library_song_id && s.library_song_id === options.librarySongId)
+                || (
                 s.title.trim().toLowerCase() === normalizedTitle.toLowerCase() &&
-                s.artist.trim().toLowerCase() === normalizedArtist.toLowerCase(),
+                s.artist.trim().toLowerCase() === normalizedArtist.toLowerCase()
+                ),
             )
             if (isDuplicate) {
               throw new Error('That song is already in the live queue for this gig.')
@@ -3576,6 +3634,27 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
 
           if (!event.allowDuplicateRequests) {
+            const targetLibrarySongId = options?.librarySongId?.trim() ?? ''
+
+            if (targetLibrarySongId) {
+              const { data: existingLibrarySongRequest, error: duplicateLibrarySongError } = await supabase
+                .from('queue_songs')
+                .select('id')
+                .eq('event_id', targetEventId)
+                .eq('library_song_id', targetLibrarySongId)
+                .eq('is_removed', false)
+                .limit(1)
+                .maybeSingle()
+
+              if (duplicateLibrarySongError) {
+                throw duplicateLibrarySongError
+              }
+
+              if (existingLibrarySongRequest) {
+                throw new Error('That song is already in the live queue for this gig.')
+              }
+            }
+
             const { data: existingSong, error: duplicateError } = await supabase
               .from('queue_songs')
               .select('id')
