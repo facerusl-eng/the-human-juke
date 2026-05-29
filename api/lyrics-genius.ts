@@ -124,6 +124,40 @@ function buildVariants(song: string, artist: string) {
   const songBase = normalizeQuotes(song);
   const artistBase = normalizeQuotes(artist);
 
+  const aliasMap: Record<string, VariantPair[]> = {
+    "blowing in the wind:::mike denver": [{ title: "Blowin' in the Wind", artist: 'Bob Dylan' }],
+    "seasons in the sun:::mike denver": [{ title: 'Seasons in the Sun', artist: 'Terry Jacks' }],
+    "peaceful easy feeling:::johnny brady": [{ title: 'Peaceful Easy Feeling', artist: 'Eagles' }],
+    "walk of life:::mike denver": [{ title: 'Walk of Life', artist: 'Dire Straits' }],
+    "the gambler:::johnny brady": [{ title: 'The Gambler', artist: 'Kenny Rogers' }],
+    "the streets of london:::mike denver": [{ title: 'Streets of London', artist: 'Ralph McTell' }],
+    "whiskey in the jar:::mike denver": [{ title: 'Whiskey in the Jar', artist: 'Traditional' }],
+    "who'll stop the rain:::john fogerty": [{ title: "Who'll Stop the Rain", artist: 'Creedence Clearwater Revival' }],
+    "blinding lights:::tebey": [{ title: 'Blinding Lights', artist: 'The Weeknd' }],
+    "summer of 69:::max jackson": [{ title: "Summer of '69", artist: 'Bryan Adams' }],
+    "i'll make a man out of you:::mulan": [{ title: "I'll Make a Man Out of You", artist: 'Donny Osmond' }],
+    "pokemon theme:::pokemon": [{ title: 'Pokemon Theme', artist: 'Jason Paige' }],
+    "shallow:::a star is born": [{ title: 'Shallow', artist: 'Lady Gaga' }],
+    "the grease mega mix:::grease": [{ title: 'The Grease Megamix', artist: 'Grease' }],
+    "blue moon of kentucky:::dwight yoakam": [{ title: 'Blue Moon of Kentucky', artist: 'Bill Monroe' }],
+    "the wild rover:::the dubliners": [{ title: 'The Wild Rover', artist: 'Traditional' }],
+    "you've got to hide your love away:::the beatles": [{ title: "You've Got to Hide Your Love Away", artist: 'Beatles' }],
+  };
+
+  const aliasPairs: VariantPair[] = [];
+  const aliasKey = `${normalizeComparable(songBase)}:::${normalizeComparable(artistBase)}`;
+  const normalizedTitleOnly = normalizeComparable(stripTitleNoise(songBase));
+  const normalizedArtistOnly = normalizeComparable(stripArtistNoise(artistBase));
+  const relaxedAliasKey = `${normalizedTitleOnly}:::${normalizedArtistOnly}`;
+
+  if (aliasMap[aliasKey]) {
+    aliasPairs.push(...aliasMap[aliasKey]);
+  }
+
+  if (relaxedAliasKey !== aliasKey && aliasMap[relaxedAliasKey]) {
+    aliasPairs.push(...aliasMap[relaxedAliasKey]);
+  }
+
   const stripBrackets = (value: string) => normalizeText(
     value
       .replace(/\([^)]*\)/g, ' ')
@@ -164,6 +198,8 @@ function buildVariants(song: string, artist: string) {
   if (titleVariants[0] && artistVariants[0]) {
     pairs.push({ title: artistVariants[0], artist: titleVariants[0] });
   }
+
+  pairs.push(...aliasPairs);
 
   return Array.from(
     new Map(
