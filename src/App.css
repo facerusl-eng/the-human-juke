@@ -7470,6 +7470,101 @@ body.audience-immersive-mode {
   font-size: 0.78rem;
 }
 
+.gig-spotify-saved-playlists {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.gig-spotify-saved-playlists-label {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: rgba(192, 218, 242, 0.88);
+}
+
+.gig-spotify-saved-playlists-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.gig-spotify-saved-playlist-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(117, 186, 237, 0.28);
+  background: rgba(9, 18, 38, 0.74);
+}
+
+.gig-spotify-saved-playlist-card.is-selected {
+  border-color: rgba(52, 211, 153, 0.7);
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.32) inset;
+}
+
+.gig-spotify-saved-playlist-select {
+  border: none;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.gig-spotify-saved-playlist-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 0.5rem;
+  object-fit: cover;
+  box-shadow: 0 6px 14px rgba(4, 11, 23, 0.42);
+}
+
+.gig-spotify-saved-playlist-cover-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.26), rgba(11, 54, 39, 0.4));
+  color: rgba(225, 246, 255, 0.95);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.gig-spotify-saved-playlist-copy {
+  min-width: 0;
+  display: grid;
+}
+
+.gig-spotify-saved-playlist-title,
+.gig-spotify-saved-playlist-owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gig-spotify-saved-playlist-title {
+  color: #eef7ff;
+  font-size: 0.84rem;
+}
+
+.gig-spotify-saved-playlist-owner {
+  color: rgba(186, 213, 235, 0.82);
+  font-size: 0.73rem;
+  margin-top: 0.16rem;
+}
+
+.gig-spotify-saved-playlist-remove {
+  padding: 0.36rem 0.58rem;
+  min-height: 0;
+  font-size: 0.72rem;
+}
+
 .gig-settings-playlist-option strong {
   color: #f7fbff;
 }

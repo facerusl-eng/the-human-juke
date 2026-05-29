@@ -4,6 +4,7 @@ import { SPOTIFY_TOGGLE_BASE_VOLUME } from '../lib/constants'
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js'
 const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
 const SPOTIFY_PLAYLIST_META_STORAGE_KEY = 'human-jukebox-spotify-playlist-meta'
+const SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY = 'human-jukebox-spotify-saved-playlists'
 const SPOTIFY_DEVICE_ID_STORAGE_KEY = 'human-jukebox-spotify-device-id'
 const SPOTIFY_PLAYER_SINGLETON_KEY = '__humanJukeboxSpotifyPlayerSingleton'
 const DEFAULT_BETWEEN_SONGS_PLAYLIST = 'spotify:playlist:4SarKcYGzetJ7AIlqVa1qj'
@@ -167,6 +168,30 @@ function getPlaylistIdFromContextUri(contextUri) {
   return contextUriMatch?.[1] ?? ''
 }
 
+function normalizeStoredPlaylistMeta(rawMeta) {
+  if (!rawMeta || typeof rawMeta !== 'object') {
+    return null
+  }
+
+  const normalizedUri = normalizePlaylistContextUri(typeof rawMeta.uri === 'string' ? rawMeta.uri : '')
+  if (!normalizedUri) {
+    return null
+  }
+
+  const normalizedName = typeof rawMeta.name === 'string' && rawMeta.name.trim()
+    ? rawMeta.name.trim()
+    : normalizedUri
+
+  return {
+    id: typeof rawMeta.id === 'string' ? rawMeta.id : getPlaylistIdFromContextUri(normalizedUri),
+    uri: normalizedUri,
+    name: normalizedName,
+    ownerName: typeof rawMeta.ownerName === 'string' ? rawMeta.ownerName.trim() : '',
+    imageUrl: typeof rawMeta.imageUrl === 'string' ? rawMeta.imageUrl.trim() : '',
+    savedAt: typeof rawMeta.savedAt === 'number' && Number.isFinite(rawMeta.savedAt) ? rawMeta.savedAt : Date.now(),
+  }
+}
+
 function isNoListError(error) {
   const normalized = String(error?.message || error || '').toLowerCase()
   return normalized.includes('no list') || normalized.includes('cannot perform operation')
@@ -229,6 +254,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   const [playlistMeta, setPlaylistMeta] = useState(null)
   const [playlistMetaBusy, setPlaylistMetaBusy] = useState(false)
   const [playlistMetaError, setPlaylistMetaError] = useState(null)
+  const [savedPlaylists, setSavedPlaylists] = useState([])
   const [actionBusy, setActionBusy] = useState(false)
   const [transportStatusText, setTransportStatusText] = useState(null)
   const disconnectHint = !deviceId ? getSpotifyDisconnectHint(playerStatus) : null
@@ -294,27 +320,62 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     }
 
     if (!storedPlaylistMetaRaw) {
+      const storedSavedPlaylistsRaw = window.localStorage.getItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
+
+      if (!storedSavedPlaylistsRaw) {
+        return
+      }
+
+      try {
+        const parsedSavedPlaylists = JSON.parse(storedSavedPlaylistsRaw)
+
+        if (Array.isArray(parsedSavedPlaylists)) {
+          const normalizedSavedPlaylists = parsedSavedPlaylists
+            .map(normalizeStoredPlaylistMeta)
+            .filter(Boolean)
+            .sort((left, right) => (right.savedAt ?? 0) - (left.savedAt ?? 0))
+
+          setSavedPlaylists(normalizedSavedPlaylists)
+        }
+      } catch {
+        window.localStorage.removeItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
+      }
+
       return
     }
 
     try {
       const parsedPlaylistMeta = JSON.parse(storedPlaylistMetaRaw)
-      if (
-        parsedPlaylistMeta
-        && typeof parsedPlaylistMeta === 'object'
-        && typeof parsedPlaylistMeta.uri === 'string'
-        && typeof parsedPlaylistMeta.name === 'string'
-      ) {
-        setPlaylistMeta({
-          uri: parsedPlaylistMeta.uri,
-          name: parsedPlaylistMeta.name,
-          id: typeof parsedPlaylistMeta.id === 'string' ? parsedPlaylistMeta.id : '',
-          ownerName: typeof parsedPlaylistMeta.ownerName === 'string' ? parsedPlaylistMeta.ownerName : '',
-          imageUrl: typeof parsedPlaylistMeta.imageUrl === 'string' ? parsedPlaylistMeta.imageUrl : '',
-        })
+      const normalizedStoredPlaylistMeta = normalizeStoredPlaylistMeta(parsedPlaylistMeta)
+
+      if (normalizedStoredPlaylistMeta) {
+        setPlaylistMeta(normalizedStoredPlaylistMeta)
       }
     } catch {
       window.localStorage.removeItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY)
+    }
+
+    const storedSavedPlaylistsRaw = window.localStorage.getItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
+
+    if (!storedSavedPlaylistsRaw) {
+      return
+    }
+
+    try {
+      const parsedSavedPlaylists = JSON.parse(storedSavedPlaylistsRaw)
+
+      if (!Array.isArray(parsedSavedPlaylists)) {
+        return
+      }
+
+      const normalizedSavedPlaylists = parsedSavedPlaylists
+        .map(normalizeStoredPlaylistMeta)
+        .filter(Boolean)
+        .sort((left, right) => (right.savedAt ?? 0) - (left.savedAt ?? 0))
+
+      setSavedPlaylists(normalizedSavedPlaylists)
+    } catch {
+      window.localStorage.removeItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
     }
   }, [])
 
@@ -344,6 +405,19 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
     window.localStorage.setItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY, JSON.stringify(playlistMeta))
   }, [playlistMeta])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    if (!savedPlaylists.length) {
+      window.localStorage.removeItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
+      return
+    }
+
+    window.localStorage.setItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY, JSON.stringify(savedPlaylists))
+  }, [savedPlaylists])
 
   useEffect(() => {
     playlistInputRef.current = playlistInput
@@ -980,6 +1054,59 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     }
   }
 
+  const saveCurrentPlaylist = () => {
+    const normalizedInputUri = normalizePlaylistContextUri(playlistInput)
+    const normalizedMeta = normalizeStoredPlaylistMeta(playlistMeta)
+    const uriToSave = normalizedMeta?.uri || normalizedInputUri
+
+    if (!uriToSave) {
+      setPlayerStatus('Paste a valid playlist link first, then save it.')
+      return
+    }
+
+    const playlistToSave = {
+      id: normalizedMeta?.id || getPlaylistIdFromContextUri(uriToSave),
+      uri: uriToSave,
+      name: normalizedMeta?.name || uriToSave,
+      ownerName: normalizedMeta?.ownerName || '',
+      imageUrl: normalizedMeta?.imageUrl || '',
+      savedAt: Date.now(),
+    }
+
+    setSavedPlaylists((currentPlaylists) => {
+      const withoutExisting = currentPlaylists.filter((playlist) => playlist.uri !== playlistToSave.uri)
+      return [playlistToSave, ...withoutExisting]
+    })
+
+    setPlaylistInput(playlistToSave.uri)
+    setPlaylistMeta(playlistToSave)
+    setPlaylistMetaError(null)
+    setPlayerStatus(`Saved playlist "${playlistToSave.name}" for quick Spotify toggle use.`)
+  }
+
+  const selectSavedPlaylist = (savedPlaylist) => {
+    const normalizedPlaylist = normalizeStoredPlaylistMeta(savedPlaylist)
+
+    if (!normalizedPlaylist) {
+      return
+    }
+
+    setPlaylistInput(normalizedPlaylist.uri)
+    setPlaylistMeta(normalizedPlaylist)
+    setPlaylistMetaError(null)
+    setPlayerStatus(`Selected playlist "${normalizedPlaylist.name}".`)
+  }
+
+  const removeSavedPlaylist = (uriToRemove) => {
+    setSavedPlaylists((currentPlaylists) => currentPlaylists.filter((playlist) => playlist.uri !== uriToRemove))
+
+    if (normalizePlaylistContextUri(playlistInput) === uriToRemove) {
+      setPlayerStatus('Removed current saved playlist. Paste or choose another playlist.')
+    }
+  }
+
+  const selectedPlaylistUri = normalizePlaylistContextUri(playlistInput)
+
   useEffect(() => {
     if (!transportCommand) {
       return
@@ -1295,6 +1422,16 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         placeholder="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
         className="gig-switcher-select"
       />
+      <div className="hero-actions no-margin-bottom">
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={playlistMetaBusy || Boolean(playlistMetaError) || !normalizePlaylistContextUri(playlistInput)}
+          onClick={saveCurrentPlaylist}
+        >
+          Import & Save Playlist Link
+        </button>
+      </div>
       {playlistMetaBusy ? <p className="subcopy no-margin">Loading playlist details…</p> : null}
       {playlistMeta ? (
         <article className="gig-spotify-playlist-preview" aria-label="Selected Spotify playlist details">
@@ -1314,6 +1451,57 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         </article>
       ) : null}
       {playlistMetaError ? <p className="subcopy no-margin">{playlistMetaError}</p> : null}
+
+      {savedPlaylists.length > 0 ? (
+        <div className="gig-spotify-saved-playlists" aria-label="Saved Spotify playlists">
+          <p className="gig-spotify-saved-playlists-label">Saved playlists</p>
+          <div className="gig-spotify-saved-playlists-grid">
+            {savedPlaylists.map((savedPlaylist) => {
+              const isSelected = selectedPlaylistUri === savedPlaylist.uri
+
+              return (
+                <article
+                  key={savedPlaylist.uri}
+                  className={`gig-spotify-saved-playlist-card${isSelected ? ' is-selected' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="gig-spotify-saved-playlist-select"
+                    onClick={() => {
+                      selectSavedPlaylist(savedPlaylist)
+                    }}
+                  >
+                    {savedPlaylist.imageUrl ? (
+                      <img
+                        src={savedPlaylist.imageUrl}
+                        alt={`Cover for ${savedPlaylist.name}`}
+                        className="gig-spotify-saved-playlist-cover"
+                      />
+                    ) : (
+                      <span className="gig-spotify-saved-playlist-cover gig-spotify-saved-playlist-cover-fallback" aria-hidden="true">♪</span>
+                    )}
+                    <span className="gig-spotify-saved-playlist-copy">
+                      <strong className="gig-spotify-saved-playlist-title">{savedPlaylist.name}</strong>
+                      {savedPlaylist.ownerName ? <span className="gig-spotify-saved-playlist-owner">by {savedPlaylist.ownerName}</span> : null}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button gig-spotify-saved-playlist-remove"
+                    onClick={() => {
+                      removeSavedPlaylist(savedPlaylist.uri)
+                    }}
+                    aria-label={`Remove saved playlist ${savedPlaylist.name}`}
+                  >
+                    Remove
+                  </button>
+                </article>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+
       <div className="hero-actions no-margin-bottom">
         <button
           type="button"
