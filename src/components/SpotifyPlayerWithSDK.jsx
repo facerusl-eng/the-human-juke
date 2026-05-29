@@ -3,6 +3,7 @@ import { SPOTIFY_TOGGLE_BASE_VOLUME } from '../lib/constants'
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js'
 const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
+const SPOTIFY_PLAYLIST_META_STORAGE_KEY = 'human-jukebox-spotify-playlist-meta'
 const SPOTIFY_DEVICE_ID_STORAGE_KEY = 'human-jukebox-spotify-device-id'
 const SPOTIFY_PLAYER_SINGLETON_KEY = '__humanJukeboxSpotifyPlayerSingleton'
 const DEFAULT_BETWEEN_SONGS_PLAYLIST = 'spotify:playlist:4SarKcYGzetJ7AIlqVa1qj'
@@ -160,6 +161,12 @@ function normalizePlaylistContextUri(input) {
   return ''
 }
 
+function getPlaylistIdFromContextUri(contextUri) {
+  const normalizedContextUri = normalizePlaylistContextUri(contextUri)
+  const contextUriMatch = normalizedContextUri.match(/^spotify:playlist:([a-zA-Z0-9]+)$/i)
+  return contextUriMatch?.[1] ?? ''
+}
+
 function isNoListError(error) {
   const normalized = String(error?.message || error || '').toLowerCase()
   return normalized.includes('no list') || normalized.includes('cannot perform operation')
@@ -219,6 +226,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   const [playerStatus, setPlayerStatus] = useState(DEFAULT_SPOTIFY_PLAYER_STATUS)
   const [spotifyUriInput, setSpotifyUriInput] = useState('')
   const [playlistInput, setPlaylistInput] = useState(DEFAULT_BETWEEN_SONGS_PLAYLIST)
+  const [playlistMeta, setPlaylistMeta] = useState(null)
+  const [playlistMetaBusy, setPlaylistMetaBusy] = useState(false)
+  const [playlistMetaError, setPlaylistMetaError] = useState(null)
   const [actionBusy, setActionBusy] = useState(false)
   const [transportStatusText, setTransportStatusText] = useState(null)
   const disconnectHint = !deviceId ? getSpotifyDisconnectHint(playerStatus) : null
@@ -267,12 +277,37 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     }
 
     const storedPlaylistInput = window.localStorage.getItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY)
+    const storedPlaylistMetaRaw = window.localStorage.getItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY)
+
     if (storedPlaylistInput) {
       setPlaylistInput(storedPlaylistInput)
+    } else {
+      setPlaylistInput(DEFAULT_BETWEEN_SONGS_PLAYLIST)
+    }
+
+    if (!storedPlaylistMetaRaw) {
       return
     }
 
-    setPlaylistInput(DEFAULT_BETWEEN_SONGS_PLAYLIST)
+    try {
+      const parsedPlaylistMeta = JSON.parse(storedPlaylistMetaRaw)
+      if (
+        parsedPlaylistMeta
+        && typeof parsedPlaylistMeta === 'object'
+        && typeof parsedPlaylistMeta.uri === 'string'
+        && typeof parsedPlaylistMeta.name === 'string'
+      ) {
+        setPlaylistMeta({
+          uri: parsedPlaylistMeta.uri,
+          name: parsedPlaylistMeta.name,
+          id: typeof parsedPlaylistMeta.id === 'string' ? parsedPlaylistMeta.id : '',
+          ownerName: typeof parsedPlaylistMeta.ownerName === 'string' ? parsedPlaylistMeta.ownerName : '',
+          imageUrl: typeof parsedPlaylistMeta.imageUrl === 'string' ? parsedPlaylistMeta.imageUrl : '',
+        })
+      }
+    } catch {
+      window.localStorage.removeItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY)
+    }
   }, [])
 
   useEffect(() => {
@@ -288,6 +323,19 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
     window.localStorage.setItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY, normalizedValue)
   }, [playlistInput])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    if (!playlistMeta) {
+      window.localStorage.removeItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY)
+      return
+    }
+
+    window.localStorage.setItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY, JSON.stringify(playlistMeta))
+  }, [playlistMeta])
 
   useEffect(() => {
     playlistInputRef.current = playlistInput
@@ -492,6 +540,92 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
     return response
   }
+
+  useEffect(() => {
+    const normalizedPlaylistContextUri = normalizePlaylistContextUri(playlistInput)
+
+    if (!normalizedPlaylistContextUri) {
+      setPlaylistMeta(null)
+      setPlaylistMetaError(playlistInput.trim() ? 'Provide a valid Spotify playlist ID, URI, or URL.' : null)
+      setPlaylistMetaBusy(false)
+      return
+    }
+
+    if (playlistMeta?.uri === normalizedPlaylistContextUri) {
+      setPlaylistMetaError(null)
+      setPlaylistMetaBusy(false)
+      return
+    }
+
+    let cancelled = false
+    setPlaylistMetaBusy(true)
+    setPlaylistMetaError(null)
+
+    const timer = window.setTimeout(() => {
+      void withRefreshRetry(async (token) => {
+        const playlistId = getPlaylistIdFromContextUri(normalizedPlaylistContextUri)
+
+        if (!playlistId) {
+          throw new Error('Provide a valid Spotify playlist ID, URI, or URL.')
+        }
+
+        const response = await requestWithSpotifyRetry(() => fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}?fields=id,name,uri,owner(display_name),images(url,height,width)`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }))
+
+        if (response.status === 401) {
+          throw new Error('Spotify access token expired.')
+        }
+
+        if (response.status === 404) {
+          throw new Error('Playlist not found. Check ID/URL and Spotify account access.')
+        }
+
+        if (!response.ok) {
+          const payload = await parseJson(response)
+          const message = payload?.error?.message || payload?.error_description || 'Failed to load playlist details.'
+          throw new Error(mapSpotifyApiError(message))
+        }
+
+        const payload = await parseJson(response)
+        const images = Array.isArray(payload?.images) ? payload.images : []
+        const firstImageWithUrl = images.find((image) => typeof image?.url === 'string' && image.url.trim())
+
+        if (cancelled) {
+          return
+        }
+
+        setPlaylistMeta({
+          id: typeof payload?.id === 'string' ? payload.id : playlistId,
+          uri: typeof payload?.uri === 'string' ? payload.uri : normalizedPlaylistContextUri,
+          name: typeof payload?.name === 'string' && payload.name.trim() ? payload.name.trim() : normalizedPlaylistContextUri,
+          ownerName: typeof payload?.owner?.display_name === 'string' ? payload.owner.display_name.trim() : '',
+          imageUrl: typeof firstImageWithUrl?.url === 'string' ? firstImageWithUrl.url : '',
+        })
+        setPlaylistMetaError(null)
+      }).catch((error) => {
+        if (cancelled) {
+          return
+        }
+
+        setPlaylistMeta(null)
+        setPlaylistMetaError(error instanceof Error ? error.message : 'Failed to load playlist details.')
+      }).finally(() => {
+        if (cancelled) {
+          return
+        }
+
+        setPlaylistMetaBusy(false)
+      })
+    }, 350)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [playlistInput, playlistMeta?.uri])
 
   const resolvePlaybackDeviceId = async () => {
     if (deviceId) {
@@ -1153,6 +1287,25 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         placeholder="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
         className="gig-switcher-select"
       />
+      {playlistMetaBusy ? <p className="subcopy no-margin">Loading playlist details…</p> : null}
+      {playlistMeta ? (
+        <article className="gig-spotify-playlist-preview" aria-label="Selected Spotify playlist details">
+          {playlistMeta.imageUrl ? (
+            <img
+              src={playlistMeta.imageUrl}
+              alt={`Cover for ${playlistMeta.name}`}
+              className="gig-spotify-playlist-preview-cover"
+            />
+          ) : (
+            <span className="gig-spotify-playlist-preview-cover gig-spotify-playlist-preview-cover-fallback" aria-hidden="true">♪</span>
+          )}
+          <div className="gig-spotify-playlist-preview-copy">
+            <p className="gig-spotify-playlist-preview-title">{playlistMeta.name}</p>
+            {playlistMeta.ownerName ? <p className="gig-spotify-playlist-preview-owner">by {playlistMeta.ownerName}</p> : null}
+          </div>
+        </article>
+      ) : null}
+      {playlistMetaError ? <p className="subcopy no-margin">{playlistMetaError}</p> : null}
       <div className="hero-actions no-margin-bottom">
         <button
           type="button"
