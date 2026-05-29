@@ -862,6 +862,19 @@ function AdminDashboardContent({
               <ul className="queue-list admin-mobile-switch-list">
                 {hostEvents.map((hostEvent) => {
                   const isBusy = activeGigActions.activatingEventId === hostEvent.id
+                  const isCurrentEvent = event?.id === hostEvent.id
+                  // A gig is truly "live" (room open) only when it's the active gig and its room is open.
+                  // For the currently loaded event we have roomOpen; for other gigs we only know isActive.
+                  const isRoomOpen = isCurrentEvent ? (event?.roomOpen ?? false) : false
+                  const liveStatus = hostEvent.isTestGig
+                    ? 'Private Test Gig'
+                    : hostEvent.isActive
+                    ? isCurrentEvent
+                      ? isRoomOpen
+                        ? 'Live for audience (room open)'
+                        : 'Active for audience (room paused)'
+                      : 'Live for audience'
+                    : 'Not live for audience'
 
                   return (
                     <li key={hostEvent.id} className="admin-gig-switch-row admin-mobile-switch-row">
@@ -876,20 +889,30 @@ function AdminDashboardContent({
                           </p>
                         ) : null}
                         <p className="artist">
-                          {hostEvent.isActive ? 'Live for audience' : 'Not live for audience'}
-                          {event?.id === hostEvent.id ? ' · Open in your control panel' : ''}
+                          {liveStatus}
+                          {isCurrentEvent ? ' · Open in your control panel' : ''}
                         </p>
                       </div>
                       <div className="queue-actions admin-gig-switch-actions">
                         <button
                           type="button"
                           className="secondary-button admin-mobile-cta"
-                          disabled={hostEvent.isActive || isBusy}
+                          disabled={hostEvent.isActive || hostEvent.isTestGig || isBusy}
                           onClick={async () => {
                             await activeGigActions.switchActiveGig(hostEvent.id)
                           }}
                         >
-                          {hostEvent.isActive ? 'Live Now' : isBusy ? 'Switching...' : 'Set Live for Audience'}
+                          {hostEvent.isTestGig
+                            ? 'Private Test'
+                            : hostEvent.isActive
+                            ? isCurrentEvent
+                              ? isRoomOpen
+                                ? 'Live Now'
+                                : 'Active (Paused)'
+                              : 'Live Now'
+                            : isBusy
+                            ? 'Switching...'
+                            : 'Set Live for Audience'}
                         </button>
                       </div>
                     </li>
