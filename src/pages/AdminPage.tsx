@@ -868,6 +868,13 @@ function AdminDashboardContent({
                       <div>
                         <p className="song">{hostEvent.name}</p>
                         <p className="artist">{hostEvent.venue ?? 'No venue set'}</p>
+                        {(hostEvent.gigDate || hostEvent.gigStartTime) ? (
+                          <p className="artist">
+                            {hostEvent.gigDate ?? ''}
+                            {hostEvent.gigDate && hostEvent.gigStartTime ? ' · ' : ''}
+                            {hostEvent.gigStartTime ?? ''}
+                          </p>
+                        ) : null}
                         <p className="artist">
                           {hostEvent.isActive ? 'Live for audience' : 'Not live for audience'}
                           {event?.id === hostEvent.id ? ' · Open in your control panel' : ''}
