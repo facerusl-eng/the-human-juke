@@ -487,7 +487,7 @@ function setupBuildUpdateRefresh() {
     if (!document.hidden) {
       void checkForUpdatedBuild()
     }
-  }, 60_000)
+  }, 300_000)
 
   void checkForUpdatedBuild()
 }

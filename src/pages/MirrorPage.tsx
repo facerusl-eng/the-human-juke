@@ -118,7 +118,7 @@ const HOST_PICKED_BY_FALLBACK = 'Picked by The Host'
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 
 const SPOTLIGHT_DURATION_MS = 10000
-const SPOTLIGHT_POLL_INTERVAL_MS = 6000
+const SPOTLIGHT_POLL_INTERVAL_MS = 15000
 const QUOTE_ROTATE_INTERVAL_MS = 20000
 const GO_LIVE_WELCOME_DURATION_MS = 15000
 const SONG_INFO_ROTATE_INTERVAL_MS = 20000
