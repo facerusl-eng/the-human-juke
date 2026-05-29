@@ -63,8 +63,12 @@ function normalizeQuotes(value: string) {
   );
 }
 
+function stripDiacritics(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 function normalizeComparable(value: string) {
-  return normalizeText(value)
+  return normalizeText(stripDiacritics(value))
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
@@ -136,12 +140,41 @@ function buildVariants(song: string, artist: string) {
     "blinding lights:::tebey": [{ title: 'Blinding Lights', artist: 'The Weeknd' }],
     "summer of 69:::max jackson": [{ title: "Summer of '69", artist: 'Bryan Adams' }],
     "i'll make a man out of you:::mulan": [{ title: "I'll Make a Man Out of You", artist: 'Donny Osmond' }],
+    "i'll make a man out of you:::mulan donny osmond": [{ title: "I'll Make a Man Out of You", artist: 'Donny Osmond' }],
     "pokemon theme:::pokemon": [{ title: 'Pokemon Theme', artist: 'Jason Paige' }],
     "shallow:::a star is born": [{ title: 'Shallow', artist: 'Lady Gaga' }],
+    "shallow:::a star is born 2018 film lady gaga": [{ title: 'Shallow', artist: 'Lady Gaga' }],
+    "shallow:::lady gaga": [{ title: 'Shallow', artist: 'Lady Gaga' }],
     "the grease mega mix:::grease": [{ title: 'The Grease Megamix', artist: 'Grease' }],
+    "the grease mega mix:::grease film": [{ title: 'The Grease Megamix', artist: 'Grease' }],
     "blue moon of kentucky:::dwight yoakam": [{ title: 'Blue Moon of Kentucky', artist: 'Bill Monroe' }],
     "the wild rover:::the dubliners": [{ title: 'The Wild Rover', artist: 'Traditional' }],
     "you've got to hide your love away:::the beatles": [{ title: "You've Got to Hide Your Love Away", artist: 'Beatles' }],
+    "the gambler:::mike denver": [{ title: 'The Gambler', artist: 'Kenny Rogers' }],
+    "tie a yellow ribbon round the ole oak tree:::dean martin": [{ title: 'Tie a Yellow Ribbon Round the Ole Oak Tree', artist: 'Tony Orlando' }],
+    "walk of life live mike denver the late late country special:::mike denver": [{ title: 'Walk of Life', artist: 'Dire Straits' }],
+    "whiskey in the jar live:::mike denver": [{ title: 'Whiskey in the Jar', artist: 'Traditional' }],
+    "medley the beatles rock:::medley covers": [{ title: 'Medley The Beatles', artist: 'The Beatles' }],
+    "boing:::nik": [{ title: 'Boing', artist: 'Nik & Jay' }],
+    "despacito:::luis fonsi": [{ title: 'Despacito', artist: 'Luis Fonsi' }],
+    "det er mig der star herude og banker pa:::thomas helmig": [{ title: 'Det er mig der star herude og banker pa', artist: 'Thomas Helmig' }],
+    "dick in my nightstand:::danae hays": [{ title: 'Dick in My Nightstand', artist: 'Danae Hays' }],
+    "every day i have the blues:::joe williams": [{ title: 'Every Day I Have the Blues', artist: 'Joe Williams' }],
+    "hvorfor gar louise til bal:::bamses venner": [{ title: 'Hvorfor gar Louise til bal', artist: 'Bamses Venner' }],
+    "i en lille bad der gynger:::bamses venner": [{ title: 'I en lille bad der gynger', artist: 'Bamses Venner' }],
+    "taender pa dig:::jakob sveistrup": [{ title: 'Taender pa dig', artist: 'Jakob Sveistrup' }],
+    "vagner i natten:::dodo": [{ title: 'Vagner i natten', artist: 'Dodo & The Dodos' }],
+    "will you still love me tomorrow:::carole king": [{ title: 'Will You Still Love Me Tomorrow', artist: 'Carole King' }],
+    "you've got a friend:::carole king": [{ title: "You've Got a Friend", artist: 'Carole King' }],
+    "you've got a friend:::james taylor": [{ title: "You've Got a Friend", artist: 'James Taylor' }],
+    "ferdalok:::odinn valdimarsson": [{ title: 'Ferdalok', artist: 'Odinn Valdimarsson' }],
+    "fram a nott:::nydonsk": [{ title: 'Fram a nott', artist: 'Nydonsk' }],
+    "husid og eg:::sssol": [{ title: 'Husid Og Eg', artist: 'Sssol' }],
+    "komdu i parti:::mannakorn": [{ title: 'Komdu I parti', artist: 'Mannakorn' }],
+    "manst ekki eftir mer:::studmenn": [{ title: 'Manst ekki eftir mer', artist: 'Studmenn' }],
+    "reyndu aftur:::mannakorn": [{ title: 'Reyndu aftur', artist: 'Mannakorn' }],
+    "taetum og tryllum:::studmenn": [{ title: 'Taetum og tryllum', artist: 'Studmenn' }],
+    "vegbui:::kk": [{ title: 'Vegbui', artist: 'KK' }],
   };
 
   const aliasPairs: VariantPair[] = [];
