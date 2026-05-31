@@ -302,6 +302,9 @@ function AudienceSongListPage() {
     event,
     songs,
     addSong,
+    audienceConnectionStatus,
+    queueOperatingMode,
+    queueHealthMessage,
   } = useQueueStore()
 
   const [curatedSongs, setCuratedSongs] = useState<CuratedSong[]>([])
@@ -318,6 +321,8 @@ function AudienceSongListPage() {
   const [selectedSongFacts, setSelectedSongFacts] = useState<string[]>([])
   const [currentSongFactIndex, setCurrentSongFactIndex] = useState(0)
   const [loadingSelectedSongFacts, setLoadingSelectedSongFacts] = useState(false)
+  const [lastHealthySyncAt, setLastHealthySyncAt] = useState<number | null>(null)
+  const [diagnosticsNowMs, setDiagnosticsNowMs] = useState(() => Date.now())
 
   const audienceName = readCommittedAudienceName()
   const audienceLocale = readCommittedAudienceLocale()
@@ -444,6 +449,49 @@ function AudienceSongListPage() {
   const deferredSongSearchQuery = useDeferredValue(songSearchQuery)
   const normalizedSearchQuery = deferredSongSearchQuery.trim().toLowerCase()
 
+  const connectionStatusLabel = audienceConnectionStatus === 'connected'
+    ? 'Connected'
+    : audienceConnectionStatus === 'reconnecting'
+    ? 'Reconnecting'
+    : audienceConnectionStatus === 'offline'
+    ? 'Offline'
+    : 'Connecting'
+  const connectionStatusToneClassName = audienceConnectionStatus === 'connected'
+    ? 'is-ok'
+    : audienceConnectionStatus === 'reconnecting'
+    ? 'is-warn'
+    : audienceConnectionStatus === 'offline'
+    ? 'is-danger'
+    : 'is-muted'
+
+  const formatDurationSinceHealthySync = (ageMs: number) => {
+    if (!Number.isFinite(ageMs) || ageMs < 0) {
+      return 'just now'
+    }
+
+    const ageSeconds = Math.floor(ageMs / 1000)
+    if (ageSeconds < 60) {
+      return `${ageSeconds}s ago`
+    }
+
+    const ageMinutes = Math.floor(ageSeconds / 60)
+    if (ageMinutes < 60) {
+      return `${ageMinutes}m ago`
+    }
+
+    const ageHours = Math.floor(ageMinutes / 60)
+    const remainingMinutes = ageMinutes % 60
+    if (remainingMinutes === 0) {
+      return `${ageHours}h ago`
+    }
+
+    return `${ageHours}h ${remainingMinutes}m ago`
+  }
+
+  const healthySyncAgeText = lastHealthySyncAt === null
+    ? 'waiting for first stable sync'
+    : formatDurationSinceHealthySync(diagnosticsNowMs - lastHealthySyncAt)
+
   const queuedLibrarySongIds = useMemo(() => (
     new Set(
       songs
@@ -451,6 +499,22 @@ function AudienceSongListPage() {
         .filter((songId): songId is string => Boolean(songId)),
     )
   ), [songs])
+
+  useEffect(() => {
+    if (audienceConnectionStatus === 'connected' && queueOperatingMode === 'normal') {
+      setLastHealthySyncAt(Date.now())
+    }
+  }, [audienceConnectionStatus, queueOperatingMode])
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setDiagnosticsNowMs(Date.now())
+    }, 30_000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [])
 
   const availableSongs = useMemo(() => {
     const explicitFilterEnabled = event?.explicitFilterEnabled ?? false
@@ -1088,6 +1152,17 @@ function AudienceSongListPage() {
           <p className="subcopy">{copy.greeting} {audienceName || copy.guest} — {showPlaylistPicker ? copy.choosePlaylistFirst : copy.chooseRequest}</p>
         </div>
       </header>
+
+      <section className="audience-song-list-live-diagnostics" aria-label="Live sync diagnostics" role="status" aria-live="polite">
+        <div className="audience-song-list-live-diagnostics-head">
+          <span className={`meta-badge audience-song-list-live-diagnostics-pill ${connectionStatusToneClassName}`}>
+            Live sync: {connectionStatusLabel}
+          </span>
+          {queueOperatingMode === 'degraded' ? <span className="meta-badge audience-song-list-live-diagnostics-pill is-degraded">Fallback mode</span> : null}
+        </div>
+        <p className="subcopy audience-song-list-live-diagnostics-meta">Last healthy sync: {healthySyncAgeText}</p>
+        {queueHealthMessage ? <p className="subcopy audience-song-list-live-diagnostics-message">{queueHealthMessage}</p> : null}
+      </section>
 
       {loadingSongs ? (
         <div className="audience-song-list-logo-loader" role="status" aria-live="polite" aria-label={copy.loadingSongs}>
