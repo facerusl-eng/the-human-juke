@@ -3146,7 +3146,9 @@ function QueueProvider({ children }: PropsWithChildren) {
               }) => {
                 lastRealtimeEventAt = Date.now()
                 applyRealtimeQueueSongEvent(payload)
-                if (!feedRouteMode) {
+                // Audience clients already apply realtime deltas and run short polling.
+                // Avoid forcing a full snapshot fetch on every queue mutation.
+                if (runAsHostSession && !feedRouteMode) {
                   void refreshSnapshot()
                 }
               },
