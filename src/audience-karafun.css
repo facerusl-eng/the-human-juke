@@ -95,6 +95,24 @@
   font-size: 0.92rem;
 }
 
+.lyrics-stage-back-block {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.lyrics-back-hint {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.lyrics-stage-view .lyrics-back-hint {
+  margin: 0;
+  max-width: 28ch;
+  font-size: 0.76rem;
+}
+
 .lyrics-stage-heading-block {
   min-width: 0;
 }
@@ -164,6 +182,10 @@
   .lyrics-stage-toolbar {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .lyrics-stage-view .lyrics-back-hint {
+    max-width: none;
   }
 
   .lyrics-stage-text {

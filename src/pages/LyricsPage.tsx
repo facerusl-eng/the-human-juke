@@ -32,6 +32,7 @@ function getLyricsPageCopy(locale: AudienceLocale) {
       localSaveFailed: 'Gemt lokalt, men sang-gemning fejlede denne gang.',
       manualSavedLocal: 'Manuel sangtekst gemt lokalt for denne titel/artist.',
       backToLounge: 'Tilbage til lounge',
+      playbackUnaffectedHint: 'Tilbage-knappen starter eller stopper ikke Spotify.',
       singAlongTitlePrefix: 'Syng med til',
       lyricsSubtitle: 'Her er sangteksten til sangen, der spiller nu. Hop med nar du er klar.',
       loadingLyrics: 'Indlaeser sangtekst…',
@@ -54,6 +55,7 @@ function getLyricsPageCopy(locale: AudienceLocale) {
     localSaveFailed: 'Saved locally, but song persistence failed this time.',
     manualSavedLocal: 'Manual lyrics saved locally for this title/artist.',
     backToLounge: 'Back to Lounge',
+    playbackUnaffectedHint: 'Going back does not start or stop Spotify.',
     singAlongTitlePrefix: 'Sing along with',
     lyricsSubtitle: 'These are the lyrics for the song playing right now. Jump in whenever you are ready.',
     loadingLyrics: 'Loading lyrics…',
@@ -278,6 +280,8 @@ export default function LyricsPage() {
     return 'Back to Gig Control';
   }, [copy.backToLounge, isGigControlReturnPath, returnToPath]);
 
+  const backButtonHint = isGigControlReturnPath ? copy.playbackUnaffectedHint : null;
+
   const handleBackNavigation = useCallback(() => {
     if (returnToPath) {
       navigate(returnToPath);
@@ -420,9 +424,12 @@ export default function LyricsPage() {
     <div className={`audience-lyrics-page${isStageMode ? ' lyrics-stage-view' : ''}`}>
       {isStageMode ? (
         <div className="lyrics-stage-toolbar">
-          <button className="primary-button lyrics-stage-back-button" onClick={handleBackNavigation}>
-            {backButtonLabel}
-          </button>
+          <div className="lyrics-stage-back-block">
+            <button className="primary-button lyrics-stage-back-button" onClick={handleBackNavigation}>
+              {backButtonLabel}
+            </button>
+            {backButtonHint ? <p className="lyrics-back-hint">{backButtonHint}</p> : null}
+          </div>
           <div className="lyrics-stage-heading-block">
             <h1 className="audience-lyrics-title">{title} - {displayArtist}</h1>
             <p className="audience-lyrics-subtitle">Stage lyrics view</p>
@@ -433,6 +440,7 @@ export default function LyricsPage() {
           <button className="primary-button" onClick={handleBackNavigation}>
             {backButtonLabel}
           </button>
+          {backButtonHint ? <p className="lyrics-back-hint">{backButtonHint}</p> : null}
           <h1 className="audience-lyrics-title">{copy.singAlongTitlePrefix} {title} - {displayArtist}</h1>
           <p className="audience-lyrics-subtitle">{copy.lyricsSubtitle}</p>
         </>
