@@ -304,6 +304,29 @@ export default function LyricsPage() {
     return annotateLyricsSections(lyrics);
   }, [lyrics]);
 
+  const stageLyricsDensityClass = useMemo(() => {
+    if (!isStageMode || !formattedLyrics) {
+      return '';
+    }
+
+    const nonEmptyLines = formattedLyrics.split('\n').filter((line) => line.trim().length > 0).length;
+    const characterCount = formattedLyrics.replace(/\s+/g, ' ').trim().length;
+
+    if (nonEmptyLines > 120 || characterCount > 5200) {
+      return ' lyrics-stage-text-auto-fit-max';
+    }
+
+    if (nonEmptyLines > 88 || characterCount > 3600) {
+      return ' lyrics-stage-text-auto-fit-more';
+    }
+
+    if (nonEmptyLines > 64 || characterCount > 2400) {
+      return ' lyrics-stage-text-auto-fit';
+    }
+
+    return '';
+  }, [formattedLyrics, isStageMode]);
+
   const backButtonLabel = useMemo(() => {
     if (!isGigControlReturnPath) {
       return copy.backToLounge;
@@ -456,11 +479,25 @@ export default function LyricsPage() {
 
   return (
     <div className={`audience-lyrics-page${isStageMode ? ' lyrics-stage-view' : ''}`}>
-      <button className="primary-button" onClick={handleBackNavigation}>
-        {backButtonLabel}
-      </button>
-      <h1 className="audience-lyrics-title">{copy.singAlongTitlePrefix} {title} - {displayArtist}</h1>
-      <p className="audience-lyrics-subtitle">{copy.lyricsSubtitle}</p>
+      {isStageMode ? (
+        <div className="lyrics-stage-toolbar">
+          <button className="primary-button lyrics-stage-back-button" onClick={handleBackNavigation}>
+            {backButtonLabel}
+          </button>
+          <div className="lyrics-stage-heading-block">
+            <h1 className="audience-lyrics-title">{title} - {displayArtist}</h1>
+            <p className="audience-lyrics-subtitle">Stage lyrics view</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <button className="primary-button" onClick={handleBackNavigation}>
+            {backButtonLabel}
+          </button>
+          <h1 className="audience-lyrics-title">{copy.singAlongTitlePrefix} {title} - {displayArtist}</h1>
+          <p className="audience-lyrics-subtitle">{copy.lyricsSubtitle}</p>
+        </>
+      )}
       {loading && <p>{copy.loadingLyrics}</p>}
       {error && <p className="error-text">{error}</p>}
       {lyricsNotFound ? (
@@ -485,7 +522,7 @@ export default function LyricsPage() {
         </section>
       ) : null}
 
-      {formattedLyrics ? <pre className={`audience-lyrics-text${isStageMode ? ' lyrics-stage-text' : ''}`}>{formattedLyrics}</pre> : null}
+      {formattedLyrics ? <pre className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}` : ''}`}>{formattedLyrics}</pre> : null}
     </div>
   );
 }
