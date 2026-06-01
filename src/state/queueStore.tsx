@@ -3740,10 +3740,10 @@ function QueueProvider({ children }: PropsWithChildren) {
             const savedForReplay = await queuePendingRequest()
 
             if (savedForReplay) {
-              throw new Error('Live sync is unstable right now. Your request was saved and will retry automatically.')
+              throw new Error('Live sync is unstable right now. Your request was saved and will retry automatically.', { cause: error })
             }
 
-            throw new Error('Live sync is unstable right now. Please try again in a moment.')
+            throw new Error('Live sync is unstable right now. Please try again in a moment.', { cause: error })
           }
 
           throw error
