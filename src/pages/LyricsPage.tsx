@@ -1,6 +1,6 @@
 
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { demoMode } from '../demo/demoMode';
 import { useAuthStore } from '../state/authStore';
 import { supabase } from '../lib/supabase';
@@ -65,6 +65,139 @@ function getLyricsPageCopy(locale: AudienceLocale) {
     saving: 'Saving…',
     saveManualLyrics: 'Save Manual Lyrics',
   };
+}
+
+function normalizeSectionHeading(value: string) {
+  const normalized = value.toLowerCase();
+
+  if (normalized.includes('chorus') || normalized.includes('refrain') || normalized.includes('hook')) {
+    return 'Chorus';
+  }
+
+  if (normalized.includes('verse')) {
+    return 'Verse';
+  }
+
+  if (normalized.includes('bridge')) {
+    return 'Bridge';
+  }
+
+  if (normalized.includes('solo') || normalized.includes('instrumental')) {
+    return 'Solo';
+  }
+
+  return null;
+}
+
+function parseHeadingLine(line: string) {
+  const trimmedLine = line.trim();
+
+  if (!trimmedLine) {
+    return null;
+  }
+
+  const bracketHeading = trimmedLine.match(/^\[([^\]]+)\]$/);
+  if (bracketHeading) {
+    const heading = normalizeSectionHeading(bracketHeading[1]);
+    return heading ? `==== ${heading.toUpperCase()} ====` : null;
+  }
+
+  const plainHeading = trimmedLine.match(/^(verse|chorus|bridge|solo|instrumental|hook)(?:\s+\d+)?\s*[:\-]?$/i);
+  if (plainHeading) {
+    const heading = normalizeSectionHeading(plainHeading[0]);
+    return heading ? `==== ${heading.toUpperCase()} ====` : null;
+  }
+
+  return null;
+}
+
+function normalizeBlockForComparison(lines: string[]) {
+  return lines
+    .map((line) => line.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+function annotateLyricsSections(rawLyrics: string) {
+  const lines = rawLyrics.replace(/\r\n/g, '\n').split('\n');
+  const blocks: Array<{ lines: string[]; normalized: string }> = [];
+  let currentBlock: string[] = [];
+
+  for (const line of lines) {
+    if (!line.trim()) {
+      if (currentBlock.length > 0) {
+        blocks.push({
+          lines: currentBlock,
+          normalized: normalizeBlockForComparison(currentBlock),
+        });
+        currentBlock = [];
+      }
+      continue;
+    }
+
+    currentBlock.push(line);
+  }
+
+  if (currentBlock.length > 0) {
+    blocks.push({
+      lines: currentBlock,
+      normalized: normalizeBlockForComparison(currentBlock),
+    });
+  }
+
+  const blockCounts = new Map<string, number>();
+  const blockFirstSeen = new Map<string, number>();
+
+  blocks.forEach((block, index) => {
+    if (!block.normalized) {
+      return;
+    }
+
+    blockCounts.set(block.normalized, (blockCounts.get(block.normalized) ?? 0) + 1);
+
+    if (!blockFirstSeen.has(block.normalized)) {
+      blockFirstSeen.set(block.normalized, index);
+    }
+  });
+
+  const output: string[] = [];
+
+  blocks.forEach((block, blockIndex) => {
+    const hasExplicitSection = block.lines.some((line) => Boolean(parseHeadingLine(line)));
+    const repeatedBlockCount = blockCounts.get(block.normalized) ?? 0;
+    const firstSeenIndex = blockFirstSeen.get(block.normalized);
+
+    if (!hasExplicitSection && repeatedBlockCount > 1 && firstSeenIndex !== undefined && blockIndex > firstSeenIndex) {
+      output.push('==== CHORUS ====');
+    }
+
+    block.lines.forEach((line) => {
+      const parsedHeading = parseHeadingLine(line);
+      output.push(parsedHeading ?? line);
+    });
+
+    output.push('');
+  });
+
+  return output.join('\n').trim();
+}
+
+function sanitizeReturnPath(value: string | null | undefined) {
+  const trimmedValue = (value ?? '').trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  if (!trimmedValue.startsWith('/')) {
+    return null;
+  }
+
+  if (trimmedValue.startsWith('//')) {
+    return null;
+  }
+
+  return trimmedValue;
 }
 
 function buildLyricsQueries(title: string, artist: string) {
@@ -138,12 +271,16 @@ export default function LyricsPage() {
     title?: string;
     artist?: string;
     audienceLocale?: AudienceLocale;
+    returnTo?: string;
     librarySongId?: string | null;
   } | null) ?? null;
   const stateTitle = routeState?.title;
   const stateArtist = routeState?.artist;
+  const returnToPath = sanitizeReturnPath(routeState?.returnTo || searchParams.get('returnTo'));
   const localeFromQuery = normalizeLyricsInput(searchParams.get('locale'));
   const audienceLocale = normalizeAudienceLocale(routeState?.audienceLocale || localeFromQuery || readCommittedAudienceLocale());
+  const isGigControlReturnPath = Boolean(returnToPath?.startsWith('/admin/gig-control'));
+  const isStageMode = searchParams.get('stage') === '1' || isGigControlReturnPath;
   const copy = getLyricsPageCopy(audienceLocale);
   const stateLibrarySongId = routeState?.librarySongId ?? null;
   const title = normalizeLyricsInput(stateTitle || searchParams.get('title'));
@@ -158,6 +295,35 @@ export default function LyricsPage() {
   const [manualLyricsInput, setManualLyricsInput] = useState('');
   const [manualSaveMessage, setManualSaveMessage] = useState<string | null>(null);
   const [savingManualLyrics, setSavingManualLyrics] = useState(false);
+
+  const formattedLyrics = useMemo(() => {
+    if (!lyrics) {
+      return null;
+    }
+
+    return annotateLyricsSections(lyrics);
+  }, [lyrics]);
+
+  const backButtonLabel = useMemo(() => {
+    if (!isGigControlReturnPath) {
+      return copy.backToLounge;
+    }
+
+    if (returnToPath?.includes('fullscreen=1') || returnToPath?.includes('view=focus')) {
+      return 'Back to Control Board';
+    }
+
+    return 'Back to Gig Control';
+  }, [copy.backToLounge, isGigControlReturnPath, returnToPath]);
+
+  const handleBackNavigation = useCallback(() => {
+    if (returnToPath) {
+      navigate(returnToPath);
+      return;
+    }
+
+    navigate(-1);
+  }, [navigate, returnToPath]);
 
   useEffect(() => {
     if (!title) {
@@ -289,9 +455,9 @@ export default function LyricsPage() {
   };
 
   return (
-    <div className="audience-lyrics-page">
-      <button className="primary-button" onClick={() => navigate(-1)}>
-        {copy.backToLounge}
+    <div className={`audience-lyrics-page${isStageMode ? ' lyrics-stage-view' : ''}`}>
+      <button className="primary-button" onClick={handleBackNavigation}>
+        {backButtonLabel}
       </button>
       <h1 className="audience-lyrics-title">{copy.singAlongTitlePrefix} {title} - {displayArtist}</h1>
       <p className="audience-lyrics-subtitle">{copy.lyricsSubtitle}</p>
@@ -319,7 +485,7 @@ export default function LyricsPage() {
         </section>
       ) : null}
 
-      {lyrics && <pre className="audience-lyrics-text">{lyrics}</pre>}
+      {formattedLyrics ? <pre className={`audience-lyrics-text${isStageMode ? ' lyrics-stage-text' : ''}`}>{formattedLyrics}</pre> : null}
     </div>
   );
 }

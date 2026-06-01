@@ -61,6 +61,37 @@
   max-height: 50vh;
   overflow-y: auto;
 }
+
+.lyrics-stage-view {
+  max-width: 1080px;
+  padding: 24px 20px 48px 20px;
+}
+
+.lyrics-stage-view .audience-lyrics-title {
+  font-size: clamp(2rem, 3.3vw, 2.8rem);
+}
+
+.lyrics-stage-view .audience-lyrics-subtitle {
+  font-size: 1.08rem;
+  max-width: 70ch;
+}
+
+.lyrics-stage-text {
+  font-size: clamp(1.3rem, 2.1vw, 1.85rem);
+  line-height: 1.9;
+  letter-spacing: 0.02em;
+  max-height: 72vh;
+  padding: 26px 22px;
+}
+
+@media (max-width: 768px) {
+  .lyrics-stage-text {
+    font-size: 1.2rem;
+    line-height: 1.75;
+    max-height: 66vh;
+  }
+}
+
 .sing-along-btn {
   background: linear-gradient(90deg, #ffb347 0%, #ffcc33 100%);
   color: #222;

@@ -34,6 +34,7 @@ import {
 } from '../lib/playbackState';
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling';
 import { supabase } from '../lib/supabase';
+import { prefetchAndCacheLyrics } from '../lib/lyricsPrefetch'
 import {
   INTRO_AUDIO_LOCK_STORAGE_KEY,
   INTRO_AUDIO_LOCK_TTL_MS,
@@ -3381,6 +3382,38 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     navigate('/admin/gig-control')
   }, [navigate])
 
+  const openNowPlayingLyrics = useCallback(() => {
+    if (!nowPlaying?.title) {
+      setErrorText('No now-playing song is available for lyrics yet.')
+      return
+    }
+
+    const artist = nowPlaying.artist ?? ''
+    prefetchAndCacheLyrics(nowPlaying.title, artist)
+
+    const searchParams = new URLSearchParams({
+      title: nowPlaying.title,
+      artist,
+      locale: 'en',
+      stage: '1',
+      returnTo: `${location.pathname}${location.search}`,
+    })
+
+    if (nowPlaying.library_song_id) {
+      searchParams.set('songId', nowPlaying.library_song_id)
+    }
+
+    navigate(`/lyrics?${searchParams.toString()}`, {
+      state: {
+        title: nowPlaying.title,
+        artist,
+        audienceLocale: 'en',
+        librarySongId: nowPlaying.library_song_id,
+        returnTo: `${location.pathname}${location.search}`,
+      },
+    })
+  }, [location.pathname, location.search, navigate, nowPlaying])
+
   const handleEnterFocusFullscreen = useCallback(() => {
     if (typeof document === 'undefined' || !document.documentElement.requestFullscreen) {
       setErrorText('Fullscreen is not available in this browser window.')
@@ -4215,6 +4248,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
                 <button
                   type="button"
+                  className="ghost-button"
+                  title="Open a stage-friendly lyrics screen for the current song"
+                  onClick={openNowPlayingLyrics}
+                >
+                  🎤 Open Lyrics Screen
+                </button>
+                <button
+                  type="button"
                   className="primary-button"
                   title="Switch back to Quote / between-songs mode (Space)"
                   onClick={async () => {
@@ -4287,6 +4328,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 </p>
               </div>
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  title="Open a stage-friendly lyrics screen for the current song"
+                  onClick={openNowPlayingLyrics}
+                >
+                  🎤 Open Lyrics Screen
+                </button>
                 <button
                   type="button"
                   className="primary-button"
