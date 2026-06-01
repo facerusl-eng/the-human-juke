@@ -1168,6 +1168,12 @@ function GigControlPage() {
     options?: { force?: boolean },
   ) => {
     if (isEndingOrDeletingGig) return
+
+    if (!spotifyAccessToken) {
+      setSpotifyStatusText('Spotify is disconnected. Click Connect Spotify to enable auto play/pause transport.')
+      return
+    }
+
     if (!options?.force && !spotifyAutoTransportEnabled) {
       return
     }
