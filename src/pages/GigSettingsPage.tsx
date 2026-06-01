@@ -1557,7 +1557,7 @@ function GigSettingsForm({ event, hostEvents, onBack, updateEventSettings }: Gig
         .storage
         .from('gig-intro-audio')
         .upload(storagePath, selectedFile, {
-          cacheControl: '3600',
+          cacheControl: '31536000',
           upsert: true,
           contentType: 'audio/mpeg',
         })

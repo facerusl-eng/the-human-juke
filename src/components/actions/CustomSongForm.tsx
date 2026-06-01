@@ -148,7 +148,7 @@ function CustomSongForm({ userId, onSavedSong, onStatus }: CustomSongFormProps) 
         .upload(filePath, nextFile, {
           contentType: nextFile.type,
           upsert: false,
-          cacheControl: '3600',
+          cacheControl: '31536000',
         })
 
       if (uploadError) {
