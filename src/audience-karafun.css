@@ -101,7 +101,7 @@
 
 .lyrics-stage-text {
   width: 100%;
-  font-size: clamp(1.08rem, 1.28vw, 1.42rem);
+  font-size: clamp(1.22rem, 1.46vw, 1.62rem);
   line-height: 1.52;
   letter-spacing: 0.01em;
   max-height: none;
@@ -118,19 +118,19 @@
 }
 
 .lyrics-stage-text-auto-fit {
-  font-size: clamp(0.98rem, 1.08vw, 1.18rem);
+  font-size: clamp(1.12rem, 1.24vw, 1.36rem);
   line-height: 1.42;
   column-gap: 28px;
 }
 
 .lyrics-stage-text-auto-fit-more {
-  font-size: clamp(0.9rem, 0.95vw, 1.06rem);
+  font-size: clamp(1.02rem, 1.08vw, 1.2rem);
   line-height: 1.34;
   column-gap: 24px;
 }
 
 .lyrics-stage-text-auto-fit-max {
-  font-size: clamp(0.82rem, 0.82vw, 0.96rem);
+  font-size: clamp(0.94rem, 0.94vw, 1.08rem);
   line-height: 1.24;
   column-gap: 20px;
 }
@@ -138,19 +138,19 @@
 @media (min-width: 1700px) {
   .lyrics-stage-text {
     column-count: 3;
-    font-size: clamp(1rem, 1.1vw, 1.28rem);
+    font-size: clamp(1.14rem, 1.26vw, 1.46rem);
   }
 
   .lyrics-stage-text-auto-fit {
-    font-size: clamp(0.9rem, 0.9vw, 1.04rem);
+    font-size: clamp(1.04rem, 1.04vw, 1.2rem);
   }
 
   .lyrics-stage-text-auto-fit-more {
-    font-size: clamp(0.82rem, 0.8vw, 0.94rem);
+    font-size: clamp(0.94rem, 0.92vw, 1.08rem);
   }
 
   .lyrics-stage-text-auto-fit-max {
-    font-size: clamp(0.74rem, 0.7vw, 0.86rem);
+    font-size: clamp(0.86rem, 0.82vw, 0.98rem);
   }
 }
 
