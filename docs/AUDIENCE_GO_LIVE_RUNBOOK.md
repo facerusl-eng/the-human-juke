@@ -124,3 +124,42 @@ Do not go live unless all are true:
 4. No sustained auth 429 in recent logs.
 
 If any gate fails, fix before opening audience room.
+
+# Host Readiness
+
+Use this as the final host checklist focused on audience app stability.
+
+## Audience app checks to complete before live start
+
+1. Confirm Supabase auth rate limits are high enough for venue spikes.
+- Anonymous users: 600 requests/hour/IP is currently verified stable for this project.
+- Keep anonymous provider enabled.
+
+2. Run audience join load test with logout disabled (realistic churn check):
+```powershell
+npm run loadtest:audience -- --eventId=<LIVE_EVENT_ID> --concurrency=25 --rounds=2 --signOut=false
+```
+Pass rule:
+- 0 auth failures
+- failure rate <= 5%
+- p95 <= 8000ms
+
+3. Run higher-stress audience check when crowd size requires it:
+```powershell
+npm run loadtest:audience -- --eventId=<LIVE_EVENT_ID> --concurrency=50 --rounds=2 --signOut=false
+```
+Pass rule:
+- No sustained auth 429 patterns
+- Queue failures stay at 0
+
+4. Run API log hotspot check after test window:
+```powershell
+npm run report:api-log -- --file <path-to-supabase-api-content.json> --top 15
+```
+Expected pattern for healthy audience join runs:
+- `/rest/v1/queue_songs` and `/auth/v1/signup` should dominate.
+- `/auth/v1/logout` should be near 0 for controlled `--signOut=false` checks.
+
+5. Final host go/no-go decision:
+- Go live only if build, smoke, responsive, and audience load tests all pass.
+- If auth 429 appears for >2 minutes, raise limits first, then re-test.
