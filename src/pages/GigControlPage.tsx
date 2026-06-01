@@ -3240,7 +3240,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
     const target = event.target as HTMLElement | null
     const activeElement = document.activeElement as HTMLElement | null
-    const interactiveSelector = 'input, textarea, select, button, a[href], summary, [contenteditable], [role="textbox"], [role="button"], [role="menuitem"], [role="option"], [aria-multiline="true"], [data-spacebar-ignore="true"]'
+    const interactiveSelector = 'input, textarea, select, [contenteditable], [role="textbox"], [aria-multiline="true"], [data-spacebar-ignore="true"]'
     const interactiveTarget = target?.closest(interactiveSelector)
     const interactiveActiveElement = activeElement?.closest(interactiveSelector)
     const isTypingTarget = Boolean(
