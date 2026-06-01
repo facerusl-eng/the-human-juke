@@ -3,6 +3,7 @@ import type { ChangeEvent, FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { ensureAnonymousAudienceSession } from '../lib/audienceAuth'
 import { prepareFeedImage, shrinkPreparedFeedImage } from '../lib/feedImage'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
 import { blockUser, isUserBlocked } from '../lib/feedModeration'
@@ -747,9 +748,9 @@ function LiveFeedPanel({
       return existingUserData.user
     }
 
-    const { error: anonymousSignInError } = await supabase.auth.signInAnonymously()
-
-    if (anonymousSignInError) {
+    try {
+      await ensureAnonymousAudienceSession()
+    } catch {
       throw new Error('Audience sign-in expired. Refresh the page and try posting again.')
     }
 
@@ -848,9 +849,9 @@ function LiveFeedPanel({
               throw error
             }
           } else if (postingUser.is_anonymous) {
-            const { error: signInError } = await supabase.auth.signInAnonymously()
-
-            if (signInError) {
+            try {
+              await ensureAnonymousAudienceSession()
+            } catch {
               throw error
             }
           } else {

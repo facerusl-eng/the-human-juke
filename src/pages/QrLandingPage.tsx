@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { AUDIENCE_LOCALE_STORAGE_KEY, normalizeAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
+import { ensureAnonymousAudienceSession } from '../lib/audienceAuth'
 import { readSharedPlaybackState } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 
@@ -520,11 +521,7 @@ function QrLandingPage() {
         }
 
         if (!sessionData.session) {
-          const { error: signInError } = await supabase.auth.signInAnonymously()
-
-          if (signInError) {
-            throw signInError
-          }
+          await ensureAnonymousAudienceSession()
         }
 
         const { data, error } = await supabase

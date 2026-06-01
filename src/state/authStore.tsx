@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { PropsWithChildren } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
+import { ensureAnonymousAudienceSession } from '../lib/audienceAuth'
 import { clearSupabaseAuthStorage, supabase } from '../lib/supabase'
 
 const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
@@ -471,14 +472,16 @@ function AuthProvider({ children }: PropsWithChildren) {
   )
 
   const ensureAudienceSession = useCallback(async () => {
-    const { data, error } = await retryTransientAuthOperation(() => withTimeout(
-      supabase.auth.signInAnonymously(),
-      AUTH_REQUEST_TIMEOUT_MS,
-      'Audience sign-in timed out. Retrying...',
-    ))
+    try {
+      const session = await retryTransientAuthOperation(() => withTimeout(
+        ensureAnonymousAudienceSession(),
+        AUTH_REQUEST_TIMEOUT_MS,
+        'Audience sign-in timed out. Retrying...',
+      ))
 
-    if (error) {
-      if (error.message.toLowerCase().includes('anonymous sign-ins are disabled')) {
+      return session ?? null
+    } catch (error) {
+      if (error instanceof Error && error.message.toLowerCase().includes('anonymous sign-ins are disabled')) {
         throw new Error('Audience guest sign-in is disabled in Supabase. Enable Authentication > Providers > Anonymous to let phones join live.')
       }
 
@@ -488,8 +491,6 @@ function AuthProvider({ children }: PropsWithChildren) {
 
       throw error
     }
-
-    return data.session ?? null
   }, [])
 
   const recoverFromInvalidStoredSession = useCallback(async () => {

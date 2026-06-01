@@ -11,6 +11,7 @@ for (const rawArg of process.argv.slice(2)) {
 const concurrency = Math.max(1, Number(args.get('concurrency') ?? '25'))
 const rounds = Math.max(1, Number(args.get('rounds') ?? '2'))
 const eventIdArg = (args.get('eventId') ?? '').trim() || null
+const shouldSignOut = (args.get('signOut') ?? 'false').trim().toLowerCase() === 'true'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim() || ''
 const publishableKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || ''
@@ -96,10 +97,12 @@ async function runVirtualAudienceJoin(userNumber) {
   } finally {
     metrics.users += 1
     metrics.timingsMs.push(Date.now() - startedAt)
-    try {
-      await client.auth.signOut()
-    } catch {
-      // Ignore sign-out cleanup failures.
+    if (shouldSignOut) {
+      try {
+        await client.auth.signOut()
+      } catch {
+        // Ignore sign-out cleanup failures.
+      }
     }
   }
 }

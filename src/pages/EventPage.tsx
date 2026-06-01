@@ -61,6 +61,7 @@ import {
   readSharedPlaybackState,
   type SharedPlaybackState,
 } from '../lib/playbackState'
+import { ensureAnonymousAudienceSession } from '../lib/audienceAuth'
 import { supabase } from '../lib/supabase'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
 import { readFromLocalStorage, readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
@@ -2523,15 +2524,11 @@ function EventPage() {
             // Keep first paint fast: do the auth retry + refetch in background.
             void (async () => {
               try {
-                const { error: signInError } = await withPromiseTimeout(
-                  supabase.auth.signInAnonymously(),
+                await withPromiseTimeout(
+                  ensureAnonymousAudienceSession(),
                   UPCOMING_AUTH_RETRY_TIMEOUT_MS,
                   'EventPage: anonymous sign-in retry timed out',
                 )
-
-                if (signInError) {
-                  throw signInError
-                }
 
                 const refreshedEvents = await fetchUpcomingEventsFromApi(getAudienceNowMs())
 
@@ -2570,15 +2567,11 @@ function EventPage() {
 
         if (isAuthSessionError(error) && !user) {
           try {
-            const { error: signInError } = await withPromiseTimeout(
-              supabase.auth.signInAnonymously(),
+            await withPromiseTimeout(
+              ensureAnonymousAudienceSession(),
               UPCOMING_AUTH_RETRY_TIMEOUT_MS,
               'EventPage: anonymous sign-in retry timed out',
             )
-
-            if (signInError) {
-              throw signInError
-            }
 
             const mappedEvents = await fetchUpcomingEventsFromApi(getAudienceNowMs())
 
