@@ -50,8 +50,9 @@ const AUTHOR_NAME_STORAGE_KEY = 'human-jukebox-feed-author-name'
 const DEMO_FEED_STORAGE_KEY = 'human-jukebox-demo-feed-posts-v1'
 const DEMO_FEED_BROADCAST_CHANNEL = 'human-jukebox-demo-feed-sync'
 const FEED_POLL_INTERVAL_MS = 30000
+const FEED_HIDDEN_POLL_INTERVAL_MS = 90000
 const FEED_FETCH_DEBOUNCE_MS = 300
-const FEED_MAX_POSTS = 40
+const FEED_MAX_POSTS = 25
 const FEED_PICKER_RECONNECT_SUPPRESS_MS = 20000
 const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif']
 
@@ -566,11 +567,25 @@ function LiveFeedPanel({
       connectFeedChannel()
     }
 
-    pollTimerId = window.setInterval(() => {
-      if (isCurrent && !document.hidden) {
-        requestReload(true)
-      }
-    }, FEED_POLL_INTERVAL_MS)
+    const schedulePoll = () => {
+      const nextDelayMs = document.hidden ? FEED_HIDDEN_POLL_INTERVAL_MS : FEED_POLL_INTERVAL_MS
+
+      pollTimerId = window.setTimeout(() => {
+        pollTimerId = null
+
+        if (!isCurrent) {
+          return
+        }
+
+        if (!document.hidden) {
+          requestReload(true)
+        }
+
+        schedulePoll()
+      }, nextDelayMs)
+    }
+
+    schedulePoll()
 
     const reloadOnReconnect = () => {
       if (!document.hidden) {
@@ -601,7 +616,7 @@ function LiveFeedPanel({
         reloadTimerIdRef.current = null
       }
       if (pollTimerId !== null) {
-        window.clearInterval(pollTimerId)
+        window.clearTimeout(pollTimerId)
       }
       window.removeEventListener('focus', reloadOnReconnect)
       window.removeEventListener('online', reloadOnReconnect)

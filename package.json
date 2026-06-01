@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test:responsive": "node scripts/responsive-smoke.mjs",
     "send:updates": "node scripts/send-updates-broadcast.mjs",
+    "report:api-log": "node scripts/analyze-supabase-api-log.mjs",
     "loadtest:audience": "node scripts/loadtest-audience-join.mjs",
     "rollback:known-good": "node scripts/rollback-known-good.mjs",
     "rollback:2d": "node scripts/rollback-known-good.mjs stable-2d --apply",

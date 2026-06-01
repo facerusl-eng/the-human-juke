@@ -243,6 +243,8 @@ const DEGRADE_AFTER_CONSECUTIVE_FAILURES = 2
 // In degraded mode we poll faster because realtime is unhealthy.
 const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 10_000
 const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 10_000
+// Hidden audience tabs do not need aggressive polling; prioritize lower egress and battery use.
+const HIDDEN_AUDIENCE_POLL_INTERVAL_MS = 60_000
 const REALTIME_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3
 const REALTIME_CIRCUIT_BREAKER_COOLDOWN_MS = 20_000
 const TRANSIENT_LOAD_RETRY_ATTEMPTS = 3
@@ -389,6 +391,14 @@ function getQueuePollInterval(options: {
   return options.operatingMode === 'degraded'
     ? DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS
     : AUDIENCE_QUEUE_POLL_INTERVAL_MS
+}
+
+function getScheduledPollDelayMs(delayMs: number, options: { isHostSession: boolean; isDocumentHidden: boolean }) {
+  if (!options.isHostSession && options.isDocumentHidden) {
+    return Math.max(delayMs, HIDDEN_AUDIENCE_POLL_INTERVAL_MS)
+  }
+
+  return delayMs
 }
 
 function readTestGigMap() {
@@ -2945,22 +2955,29 @@ function QueueProvider({ children }: PropsWithChildren) {
               }
 
               const nextDelayMs = getLiveDiscoveryPollInterval(queueOperatingModeRef.current)
+              const nextScheduledDelayMs = getScheduledPollDelayMs(nextDelayMs, {
+                isHostSession: runAsHostSession,
+                isDocumentHidden: document.hidden,
+              })
 
               if (document.hidden) {
-                scheduleAudiencePoll(runAudienceLiveDiscoveryPoll, nextDelayMs)
+                scheduleAudiencePoll(runAudienceLiveDiscoveryPoll, nextScheduledDelayMs)
                 return
               }
 
               void maybeReloadAudienceWhenLiveReturns().finally(() => {
                 if (isCurrent) {
-                  scheduleAudiencePoll(runAudienceLiveDiscoveryPoll, nextDelayMs)
+                  scheduleAudiencePoll(runAudienceLiveDiscoveryPoll, nextScheduledDelayMs)
                 }
               })
             }
 
             scheduleAudiencePoll(
               runAudienceLiveDiscoveryPoll,
-              getLiveDiscoveryPollInterval(queueOperatingModeRef.current),
+              getScheduledPollDelayMs(getLiveDiscoveryPollInterval(queueOperatingModeRef.current), {
+                isHostSession: runAsHostSession,
+                isDocumentHidden: document.hidden,
+              }),
             )
           }
 
@@ -3250,26 +3267,36 @@ function QueueProvider({ children }: PropsWithChildren) {
             isAdminGigsRoute: isAdminGigsRoutePath(),
             operatingMode: queueOperatingModeRef.current,
           })
+          const nextScheduledDelayMs = getScheduledPollDelayMs(nextDelayMs, {
+            isHostSession: runAsHostSession,
+            isDocumentHidden: document.hidden,
+          })
 
           if (document.hidden) {
-            scheduleAudiencePoll(runQueuePoll, nextDelayMs)
+            scheduleAudiencePoll(runQueuePoll, nextScheduledDelayMs)
             return
           }
 
           void refreshSnapshot().finally(() => {
             if (isCurrent) {
-              scheduleAudiencePoll(runQueuePoll, nextDelayMs)
+              scheduleAudiencePoll(runQueuePoll, nextScheduledDelayMs)
             }
           })
         }
 
         scheduleAudiencePoll(
           runQueuePoll,
-          getQueuePollInterval({
-            isHostSession: runAsHostSession,
-            isAdminGigsRoute: isAdminGigsRoutePath(),
-            operatingMode: queueOperatingModeRef.current,
-          }),
+          getScheduledPollDelayMs(
+            getQueuePollInterval({
+              isHostSession: runAsHostSession,
+              isAdminGigsRoute: isAdminGigsRoutePath(),
+              operatingMode: queueOperatingModeRef.current,
+            }),
+            {
+              isHostSession: runAsHostSession,
+              isDocumentHidden: document.hidden,
+            },
+          ),
         )
       } catch (error) {
         markSnapshotFailure(error)
