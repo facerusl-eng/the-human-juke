@@ -2880,7 +2880,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       })
 
       setIsNowPlayingStarted(true)
-      sendSpotifyTransportCommand('pause')
+      sendSpotifyTransportCommand('pause', { force: true })
     } finally {
       playbackTransitionExecutionIdRef.current = null
     }
@@ -4286,6 +4286,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                   onClick={async () => {
                     try {
                       await runQueueTogglePlayShortcut()
+                      sendSpotifyTransportCommand('play', { force: true })
                     } catch (error) {
                       console.warn('GigControlPage: toggle playback failed', error)
                       setErrorText('Playback control failed. Please try again.')
