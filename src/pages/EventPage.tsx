@@ -1,28 +1,41 @@
 
 // Sing Along Button Component (module scope)
-function SingAlongButton(props: { title: string; artist: string; librarySongId?: string | null }) {
+function SingAlongButton(props: {
+  title: string;
+  artist: string;
+  audienceLocale: 'en' | 'da' | 'is';
+  librarySongId?: string | null;
+}) {
   const navigate = useNavigate();
   const titleParam = encodeURIComponent(props.title ?? '');
   const artistParam = encodeURIComponent(props.artist ?? '');
+  const localeParam = `&locale=${encodeURIComponent(props.audienceLocale)}`;
   const songIdParam = props.librarySongId ? `&songId=${encodeURIComponent(props.librarySongId)}` : '';
   const lyricsStatus = getLyricsPrefetchStatus(props.title, props.artist);
   const needsManualLyrics = lyricsStatus === 'not_found';
+  const buttonLabel = props.audienceLocale === 'da' ? '🎤 Se sangtekst' : '🎤 Open Lyrics';
+  const warningLabel = props.audienceLocale === 'da' ? '⚠ Sangtekst skal indsaettes manuelt' : '⚠ Lyrics need manual paste';
   return (
     <div className="sing-along-wrap">
       <button
         className="primary-button sing-along-btn"
         onClick={() => {
           prefetchAndCacheLyrics(props.title, props.artist)
-          navigate(`/lyrics?title=${titleParam}&artist=${artistParam}${songIdParam}`, {
-            state: { title: props.title, artist: props.artist, librarySongId: props.librarySongId },
+          navigate(`/lyrics?title=${titleParam}&artist=${artistParam}${localeParam}${songIdParam}`, {
+            state: {
+              title: props.title,
+              artist: props.artist,
+              audienceLocale: props.audienceLocale,
+              librarySongId: props.librarySongId,
+            },
           })
         }}
       >
-        🎤 Sing Along
+        {buttonLabel}
       </button>
       {needsManualLyrics ? (
         <span className="sing-along-warning">
-          ⚠ Paste lyrics needed
+          {warningLabel}
         </span>
       ) : null}
     </div>
@@ -3588,10 +3601,11 @@ function EventPage() {
               <h2>{displaySong?.title ?? copy.queueThinking}</h2>
               <p className="artist now-playing-artist">{displaySong?.artist ?? copy.requestPrompt}</p>
                 {/* Sing Along Button */}
-                {displaySong?.title && displaySong?.artist && (
+                {displaySong?.title && (
                   <SingAlongButton
                     title={displaySong.title}
-                    artist={displaySong.artist}
+                    artist={displaySong.artist ?? ''}
+                    audienceLocale={audienceLocale}
                     librarySongId={displaySong.library_song_id}
                   />
                 )}

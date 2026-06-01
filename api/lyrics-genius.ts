@@ -220,6 +220,10 @@ function buildVariants(song: string, artist: string) {
     ].filter(Boolean)),
   );
 
+  if (artistVariants.length === 0) {
+    artistVariants.push('');
+  }
+
   const pairs: Array<{ title: string; artist: string }> = [];
 
   for (const titleVariant of titleVariants) {
@@ -237,7 +241,7 @@ function buildVariants(song: string, artist: string) {
   return Array.from(
     new Map(
       pairs
-        .filter((pair) => pair.title && pair.artist)
+        .filter((pair) => pair.title)
         .map((pair) => [`${pair.title}:::${pair.artist}`, pair]),
     ).values(),
   );
@@ -299,12 +303,18 @@ export function buildGeniusQueries(title: string, artist: string): string[] {
   const cleanedTitle = cleanTitle(title);
   const cleanedArtist = cleanArtist(artist);
 
-  return Array.from(new Set([
-    `"${normalizedTitle}" "${normalizedArtist}"`,
-    `${normalizedTitle} ${normalizedArtist}`,
-    `${cleanedTitle} ${cleanedArtist}`,
-    cleanedTitle,
-  ].map((query) => normalizeText(query)).filter(Boolean)));
+  const queries = [cleanedTitle, normalizedTitle];
+
+  if (normalizedArtist) {
+    queries.push(`"${normalizedTitle}" "${normalizedArtist}"`);
+    queries.push(`${normalizedTitle} ${normalizedArtist}`);
+  }
+
+  if (cleanedArtist) {
+    queries.push(`${cleanedTitle} ${cleanedArtist}`);
+  }
+
+  return Array.from(new Set(queries.map((query) => normalizeText(query)).filter(Boolean)));
 }
 
 export async function searchGenius(query: string): Promise<GeniusSearchHit[]> {
@@ -660,8 +670,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const includeDebug = debug === '1' || debug === 'true' || debug === 'yes';
   const attempts: ProviderAttempt[] = [];
 
-  if (!song || !artist) {
-    res.status(400).json({ error: 'Missing song or artist' });
+  if (!song) {
+    res.status(400).json({ error: 'Missing song' });
     return;
   }
 
