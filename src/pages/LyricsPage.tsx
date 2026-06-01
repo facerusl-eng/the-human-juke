@@ -112,6 +112,17 @@ function parseHeadingLine(line: string) {
   return null;
 }
 
+function getExplicitSectionLabel(lines: string[]) {
+  for (const line of lines) {
+    const parsedHeading = parseHeadingLine(line);
+    if (parsedHeading) {
+      return parsedHeading;
+    }
+  }
+
+  return null;
+}
+
 function normalizeBlockForComparison(lines: string[]) {
   return lines
     .map((line) => line.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim())
@@ -161,17 +172,41 @@ function annotateLyricsSections(rawLyrics: string) {
     }
   });
 
+  const chorusLikeIndexes = new Set<number>();
+
+  blocks.forEach((block, index) => {
+    const explicitLabel = getExplicitSectionLabel(block.lines);
+    const repeatedBlockCount = blockCounts.get(block.normalized) ?? 0;
+
+    if (explicitLabel?.startsWith('Chorus') || repeatedBlockCount > 1) {
+      chorusLikeIndexes.add(index);
+    }
+  });
+
+  const firstChorusIndex = chorusLikeIndexes.size > 0 ? Math.min(...chorusLikeIndexes) : -1;
+  const lastChorusIndex = chorusLikeIndexes.size > 0 ? Math.max(...chorusLikeIndexes) : -1;
+
   const output: string[] = [];
   let inferredVerseCount = 0;
 
   blocks.forEach((block, blockIndex) => {
-    const hasExplicitSection = block.lines.some((line) => Boolean(parseHeadingLine(line)));
+    const explicitLabel = getExplicitSectionLabel(block.lines);
+    const hasExplicitSection = Boolean(explicitLabel);
     const repeatedBlockCount = blockCounts.get(block.normalized) ?? 0;
     const isRepeatedBlock = repeatedBlockCount > 1;
+    const isBridgeCandidate =
+      !hasExplicitSection
+      && !isRepeatedBlock
+      && firstChorusIndex >= 0
+      && lastChorusIndex >= 0
+      && blockIndex > firstChorusIndex
+      && blockIndex < lastChorusIndex;
 
     if (!hasExplicitSection) {
       if (isRepeatedBlock) {
         output.push('Chorus:');
+      } else if (isBridgeCandidate) {
+        output.push('Bridge:');
       } else {
         inferredVerseCount += 1;
         output.push(`Verse ${inferredVerseCount}:`);
