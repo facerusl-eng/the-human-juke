@@ -3214,13 +3214,30 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         setErrorText('Playback toggle failed. Please try again.');
       }
     } else {
-      // NOW PLAYING → mark as played + advance to next song in queue, Spotify plays
+      // NOW PLAYING → QUOTE: instant switch without queue advancement
+      setIsNowPlayingStarted(false);
+      isNowPlayingStartedRef.current = false;
+
       try {
-        await runQueueTogglePlayShortcutRef.current();
+        await writeSharedPlaybackState(currentEvent.id, {
+          currentSongId: currentSong.id,
+          currentSongCoverUrl: resolveCoverUrlForSong(currentSong.id),
+          isStarted: false,
+          quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: null,
+          brbActive: syncedPlaybackState?.brbActive ?? false,
+          brbMessage: null,
+        });
+
+        await registerBackgroundSync(BACKGROUND_SYNC_TAG);
         sendSpotifyTransportCommand('play', { force: true });
+        setErrorText(null);
       } catch (error) {
-        console.warn('GigControlPage: mark as played via spacebar failed', error);
-        setErrorText('Playback control failed. Please try again.');
+        // Roll back local state on failure
+        setIsNowPlayingStarted(true);
+        isNowPlayingStartedRef.current = true;
+        console.warn('GigControlPage: quote toggle via spacebar failed', error);
+        setErrorText('Playback toggle failed. Please try again.');
       }
     }
   }, [globalActionCheckEnabled, globalActionCheckBlockedText, resolveCoverUrlForSong, sendSpotifyTransportCommand, syncedPlaybackState?.brbActive, getHostNowMs]);
