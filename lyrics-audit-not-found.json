@@ -1,29 +1,11 @@
 {
   "summary": {
-    "generatedAt": "2026-05-29T09:47:13.403Z",
+    "generatedAt": "2026-05-29T11:16:48.824Z",
     "checked": 194,
-    "failures": 23,
-    "successes": 171
+    "failures": 16,
+    "successes": 178
   },
   "failures": [
-    {
-      "songId": "cadbf239-965f-4978-9040-fa4b9d0e5398",
-      "title": "Blowing in the Wind",
-      "artist": "Mike Denver",
-      "setlists": [
-        "The Human Jukebox"
-      ],
-      "reason": "http_404"
-    },
-    {
-      "songId": "b96174a1-6abb-4f12-9739-8fefb33570f1",
-      "title": "Blue Moon of Kentucky",
-      "artist": "Dwight Yoakam",
-      "setlists": [
-        "The Human Jukebox"
-      ],
-      "reason": "http_404"
-    },
     {
       "songId": "5901ceea-08bb-4fa0-8fc1-b812c0240afc",
       "title": "Ferðalok",
@@ -88,29 +70,11 @@
       "reason": "http_404"
     },
     {
-      "songId": "fdcbea85-37ac-4bd6-bc2f-c7e2680ed8e8",
-      "title": "Peaceful Easy Feeling (live)",
-      "artist": "Johnny Brady",
-      "setlists": [
-        "The Human Jukebox"
-      ],
-      "reason": "http_404"
-    },
-    {
       "songId": "40a7e7b1-c98f-41e1-9ccd-6e1a68757f01",
       "title": "Reyndu aftur",
       "artist": "Mannakorn",
       "setlists": [
         "Harald Spiller"
-      ],
-      "reason": "http_404"
-    },
-    {
-      "songId": "53c21577-32d7-4d17-9a64-89d59367be70",
-      "title": "Seasons in the Sun",
-      "artist": "Mike Denver",
-      "setlists": [
-        "The Human Jukebox"
       ],
       "reason": "http_404"
     },
@@ -142,38 +106,11 @@
       "reason": "http_404"
     },
     {
-      "songId": "0dff14b6-62c3-498b-a02d-90c5fd369beb",
-      "title": "Summer of ‘69 (Little More Country Sessions)",
-      "artist": "Max Jackson",
-      "setlists": [
-        "The Human Jukebox"
-      ],
-      "reason": "http_404"
-    },
-    {
       "songId": "0ab2d31c-82bd-4943-bc47-87a1d574fbc2",
       "title": "Tætum og tryllum",
       "artist": "Stuðmenn",
       "setlists": [
         "Harald Spiller"
-      ],
-      "reason": "http_404"
-    },
-    {
-      "songId": "3dbf0f85-7a1b-4cfe-8d16-7b8ea0b31316",
-      "title": "The Gambler",
-      "artist": "Johnny Brady",
-      "setlists": [
-        "The Human Jukebox"
-      ],
-      "reason": "http_404"
-    },
-    {
-      "songId": "ee451808-b641-4005-8d7c-8698a2091ad7",
-      "title": "The Streets of London",
-      "artist": "Mike Denver",
-      "setlists": [
-        "The Human Jukebox"
       ],
       "reason": "http_404"
     },
@@ -211,7 +148,7 @@
       "setlists": [
         "The Human Jukebox"
       ],
-      "reason": "http_404"
+      "reason": "timeout"
     }
   ],
   "successes": [
@@ -394,6 +331,26 @@
       ],
       "source": "lrclib",
       "lyricsLength": 1267
+    },
+    {
+      "songId": "cadbf239-965f-4978-9040-fa4b9d0e5398",
+      "title": "Blowing in the Wind",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 925
+    },
+    {
+      "songId": "b96174a1-6abb-4f12-9739-8fefb33570f1",
+      "title": "Blue Moon of Kentucky",
+      "artist": "Dwight Yoakam",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 739
     },
     {
       "songId": "684cd5ff-c613-490a-82a7-358560e3c014",
@@ -1266,6 +1223,16 @@
       "lyricsLength": 1000
     },
     {
+      "songId": "fdcbea85-37ac-4bd6-bc2f-c7e2680ed8e8",
+      "title": "Peaceful Easy Feeling (live)",
+      "artist": "Johnny Brady",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 815
+    },
+    {
       "songId": "e2e45e14-9154-4272-b584-9cff1b23bc8f",
       "title": "Pokémon Theme",
       "artist": "Pokémon (Jason Paige)",
@@ -1344,6 +1311,16 @@
       ],
       "source": "lrclib",
       "lyricsLength": 1446
+    },
+    {
+      "songId": "53c21577-32d7-4d17-9a64-89d59367be70",
+      "title": "Seasons in the Sun",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1805
     },
     {
       "songId": "15f0dec1-f08d-4c6d-ab5f-192969f478f7",
@@ -1476,6 +1453,16 @@
       "lyricsLength": 1391
     },
     {
+      "songId": "0dff14b6-62c3-498b-a02d-90c5fd369beb",
+      "title": "Summer of ‘69 (Little More Country Sessions)",
+      "artist": "Max Jackson",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1333
+    },
+    {
       "songId": "0f8e63fb-92c4-4eeb-a434-bdc570fdf154",
       "title": "Sunny Afternoon",
       "artist": "The Kinks",
@@ -1586,6 +1573,16 @@
       "lyricsLength": 1417
     },
     {
+      "songId": "3dbf0f85-7a1b-4cfe-8d16-7b8ea0b31316",
+      "title": "The Gambler",
+      "artist": "Johnny Brady",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 2070
+    },
+    {
       "songId": "71a11857-be8e-4d07-8c54-4c1057a9f267",
       "title": "The Grease Mega-Mix",
       "artist": "Grease (film)",
@@ -1624,6 +1621,16 @@
       ],
       "source": "lrclib",
       "lyricsLength": 1490
+    },
+    {
+      "songId": "ee451808-b641-4005-8d7c-8698a2091ad7",
+      "title": "The Streets of London",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "source": "lrclib",
+      "lyricsLength": 1608
     },
     {
       "songId": "174ddc8b-1aef-4064-be2a-d76f126b1340",
