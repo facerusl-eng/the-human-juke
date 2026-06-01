@@ -1171,8 +1171,17 @@ function GigControlPage() {
     if (!options?.force && !spotifyAutoTransportEnabled) {
       return
     }
+
+    // In non-focus Gig Control view the SDK transport driver is not mounted,
+    // so mirror play/pause with Web API to keep spacebar behavior consistent.
+    if (!isFocusedGigControlWindow && spotifyAccessToken && (mode === 'play' || mode === 'pause')) {
+      void sendSpotifyWebApiTransportCommand(mode).catch((error) => {
+        console.warn('GigControlPage: spotify web api transport fallback failed', error)
+      })
+    }
+
     setSpotifyTransportCommand({ mode, nonce: Date.now() })
-  }, [spotifyAutoTransportEnabled, isEndingOrDeletingGig])
+  }, [isFocusedGigControlWindow, spotifyAccessToken, spotifyAutoTransportEnabled, isEndingOrDeletingGig])
 
   const sendManualSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
     if (!spotifyAccessToken) {
