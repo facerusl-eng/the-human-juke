@@ -38,6 +38,14 @@
   font-weight: 700;
   text-shadow: 0 3px 18px rgba(0, 0, 0, 0.6);
 }
+
+.audience-lyrics-subtitle {
+  margin: -8px auto 20px auto;
+  max-width: 48ch;
+  font-size: 0.98rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .audience-lyrics-text {
   white-space: pre-wrap;
   font-size: 1.15rem;

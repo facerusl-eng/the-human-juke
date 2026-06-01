@@ -229,7 +229,8 @@ export default function LyricsPage() {
       <button className="primary-button" onClick={() => navigate(-1)}>
         Back to Lounge
       </button>
-      <h1 className="audience-lyrics-title">Sing Along: {title} – {artist}</h1>
+      <h1 className="audience-lyrics-title">Sing along with {title} - {artist}</h1>
+      <p className="audience-lyrics-subtitle">These are the lyrics for the song playing right now. Jump in whenever you are ready.</p>
       {loading && <p>Loading lyrics…</p>}
       {error && <p className="error-text">{error}</p>}
       {lyricsNotFound ? (
