@@ -1604,6 +1604,7 @@ function QueueProvider({ children }: PropsWithChildren) {
   const [pendingOfflineSongs, setPendingOfflineSongs] = useState<PendingOfflineSong[]>([])
   const activeEventIdRef = useRef<string | null>(null)
   const prevConnectionStatusRef = useRef<'connecting' | 'connected' | 'reconnecting' | 'offline'>('connecting')
+  const pendingReplayInFlightRef = useRef(false)
   const queueOperatingModeRef = useRef<'normal' | 'degraded'>('normal')
   const hostEventsRef = useRef<HostEventSummary[]>([])
   const songsRef = useRef<QueueSong[]>([])
@@ -2528,17 +2529,21 @@ function QueueProvider({ children }: PropsWithChildren) {
     fetchQueueSnapshotRef.current = fetchQueueSnapshot
   }, [fetchQueueSnapshot])
 
-  // When connection is restored after being offline, replay pending requests.
+  // Replay pending requests whenever connection is healthy enough.
   useEffect(() => {
     const prevStatus = prevConnectionStatusRef.current
     prevConnectionStatusRef.current = audienceConnectionStatus
 
     const justReconnected = prevStatus === 'offline'
       && (audienceConnectionStatus === 'connected' || audienceConnectionStatus === 'reconnecting')
+    const connectedEnough = audienceConnectionStatus === 'connected' || audienceConnectionStatus === 'reconnecting'
+    const shouldReplayPending = justReconnected || (connectedEnough && pendingOfflineSongs.length > 0)
 
-    if (!justReconnected || !event?.id || !user?.id) {
+    if (!shouldReplayPending || !event?.id || !user?.id || pendingReplayInFlightRef.current) {
       return
     }
+
+    pendingReplayInFlightRef.current = true
 
     const targetEventId = event.id
     const userId = user.id
@@ -2555,7 +2560,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
       for (const song of pending) {
         try {
-          await insertQueueSongAtTail({
+          await withTransientRetry(() => insertQueueSongAtTail({
             event_id: song.eventId,
             title: song.title,
             artist: song.artist,
@@ -2565,7 +2570,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             audience_sings: song.performerMode === 'audience',
             created_by: userId,
             requester_name: song.requesterName || null,
-          })
+          }), 3)
 
           {
             await idbRemovePendingSong(song.id).catch(() => {})
@@ -2577,8 +2582,10 @@ function QueueProvider({ children }: PropsWithChildren) {
       }
 
       await fetchQueueSnapshotRef.current(targetEventId).catch(() => {})
-    }).catch(() => {})
-  }, [audienceConnectionStatus, event?.id, user?.id])
+    }).catch(() => {}).finally(() => {
+      pendingReplayInFlightRef.current = false
+    })
+  }, [audienceConnectionStatus, event?.id, user?.id, pendingOfflineSongs.length])
 
   useEffect(() => {
     let isCurrent = true
@@ -3471,6 +3478,29 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         const shouldBypassRules = options?.bypassEventRules || isHostSession
 
+        const queuePendingRequest = async () => {
+          const pendingSong: PendingOfflineSong = {
+            id: crypto.randomUUID(),
+            eventId: targetEventId,
+            title: normalizedTitle,
+            artist: normalizedArtist,
+            isExplicit,
+            coverUrl: options?.coverUrl ?? null,
+            librarySongId: options?.librarySongId ?? null,
+            performerMode: options?.performerMode,
+            requesterName: readCommittedAudienceName().trim(),
+            createdAt: Date.now(),
+          }
+
+          try {
+            await idbAddPendingSong(pendingSong)
+            setPendingOfflineSongs((prev) => [...prev, pendingSong])
+            return true
+          } catch {
+            return false
+          }
+        }
+
         if (!shouldBypassRules && event) {
           if (!event.roomOpen) {
             throw new Error('Requests are currently paused. You can browse songs, but cannot submit right now.')
@@ -3488,25 +3518,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         // If the device is offline, save to the IndexedDB pending queue and
         // surface a friendly message. The request will be auto-replayed on reconnect.
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          const pendingSong: PendingOfflineSong = {
-            id: crypto.randomUUID(),
-            eventId: targetEventId,
-            title: normalizedTitle,
-            artist: normalizedArtist,
-            isExplicit,
-            coverUrl: options?.coverUrl ?? null,
-            librarySongId: options?.librarySongId ?? null,
-            performerMode: options?.performerMode,
-            requesterName: readCommittedAudienceName().trim(),
-            createdAt: Date.now(),
-          }
-
-          try {
-            await idbAddPendingSong(pendingSong)
-            setPendingOfflineSongs((prev) => [...prev, pendingSong])
-          } catch {
-            // IDB save failed — fall through and let the normal error surface.
-          }
+          await queuePendingRequest()
 
           throw new Error("You're offline. Your request has been saved and will submit automatically when you reconnect.")
         }
@@ -3711,17 +3723,31 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
-        await insertQueueSongAtTail({
-          event_id: targetEventId,
-          title: normalizedTitle,
-          artist: normalizedArtist,
-          is_explicit: isExplicit,
-          cover_url: coverUrl,
-          library_song_id: options?.librarySongId ?? null,
-          audience_sings: options?.performerMode === 'audience',
-          created_by: user.id,
-          requester_name: requesterName || null,
-        })
+        try {
+          await withTransientRetry(() => insertQueueSongAtTail({
+            event_id: targetEventId,
+            title: normalizedTitle,
+            artist: normalizedArtist,
+            is_explicit: isExplicit,
+            cover_url: coverUrl,
+            library_song_id: options?.librarySongId ?? null,
+            audience_sings: options?.performerMode === 'audience',
+            created_by: user.id,
+            requester_name: requesterName || null,
+          }), 3)
+        } catch (error) {
+          if (isTransientLoadError(error)) {
+            const savedForReplay = await queuePendingRequest()
+
+            if (savedForReplay) {
+              throw new Error('Live sync is unstable right now. Your request was saved and will retry automatically.')
+            }
+
+            throw new Error('Live sync is unstable right now. Please try again in a moment.')
+          }
+
+          throw error
+        }
 
         // Record the timestamp so the rate limiter can enforce the cooldown.
         if (!options?.bypassEventRules && !isHostSession) {
@@ -3748,7 +3774,16 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
-        await fetchQueueSnapshot(targetEventId)
+        try {
+          await fetchQueueSnapshot(targetEventId)
+        } catch (snapshotError) {
+          console.warn('queueStore: post-submit snapshot refresh failed', snapshotError)
+
+          if (isTransientLoadError(snapshotError)) {
+            setQueueOperatingMode('degraded')
+            setQueueHealthMessage(`Live sync is unstable. Running fallback mode: short polling and auto-retries. (${getReadableErrorMessage(snapshotError)})`)
+          }
+        }
       },
       setActiveEvent: async (nextEventId: string) => {
         if (!user || !isHostSession) {
