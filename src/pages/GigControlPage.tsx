@@ -2797,6 +2797,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
+    const currentBrbMessage = syncedPlaybackState?.brbMessage ?? null
+    const hasActiveTransitionMessage = Boolean(getSharedPlaybackTransitionState(syncedPlaybackState))
+    const shouldPreserveBrbMessage = Boolean(syncedPlaybackState?.brbActive)
+      || isLastSongSoonOverlayMessage(currentBrbMessage)
+      || hasActiveTransitionMessage
+
+    const nextBrbMessage = shouldPreserveBrbMessage ? currentBrbMessage : null
+
     try {
       await writeSharedPlaybackState(event.id, {
         currentSongId: targetSongId,
@@ -2805,13 +2813,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         quoteIndex: quoteIndexRef.current,
         countdownTargetMs: event.roomOpen ? null : mirroredCountdownTargetMs,
         brbActive: syncedPlaybackState?.brbActive ?? false,
-        brbMessage: syncedPlaybackState?.brbMessage ?? null,
+        brbMessage: nextBrbMessage,
       })
     } catch (error) {
       console.warn('GigControlPage: playback sync write failed', error)
       // Do not block local playback controls if cross-screen sync is temporarily unavailable.
     }
-  }, [event, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong, syncedPlaybackState?.brbActive, syncedPlaybackState?.brbMessage])
+  }, [event, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong, syncedPlaybackState])
 
   const executeSharedSongStartTransition = useCallback(async (transitionId: string) => {
     if (playbackTransitionExecutionIdRef.current === transitionId) {
