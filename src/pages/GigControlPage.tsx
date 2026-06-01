@@ -3263,6 +3263,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     if (!nowPlayingRef.current) {
+      setErrorText('No song in queue yet. Add a song, then press Space.')
       return
     }
 
