@@ -1774,12 +1774,9 @@ function MirrorPageContent() {
   const normalizedBetweenSongQuoteIndex = Number.isFinite(betweenSongQuoteIndex)
     ? Math.abs(Math.trunc(betweenSongQuoteIndex)) % BETWEEN_SONG_QUOTES.length
     : 0
-  const openingWelcomeMessage = isBetweenSongs && isGoLiveWelcomeActive && !isLastSongSoonOverlayMessage(playbackState?.brbMessage)
-    ? AUTO_LIVE_WELCOME_MESSAGE
-    : null
   const currentBetweenSongQuote = BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex]
     ?? 'Remain calm. The next song is loading.'
-  const displayedBetweenSongMessage = openingWelcomeMessage ?? currentBetweenSongQuote
+  const displayedBetweenSongMessage = currentBetweenSongQuote
   const currentSongFact = funFacts.length > 0
     ? funFacts[currentFactIndex % funFacts.length]
     : 'No fun facts available for this song yet.'

@@ -1450,15 +1450,12 @@ function EventPage() {
   const isBetweenSongs = playbackState?.isStarted === false
   const isLastSongSoonMode = isLastSongSoonOverlayMessage(playbackState?.brbMessage)
   const isAudienceBreakMode = Boolean(playbackState?.brbActive) && !isLastSongSoonMode
-  const openingWelcomeMessage = isBetweenSongs && !isLastSongSoonMode
-    ? getSharedPlaybackDisplayMessage(playbackState?.brbMessage)
-    : null
   const audienceBreakMessage = getSharedPlaybackDisplayMessage(playbackState?.brbMessage)
   const normalizedBetweenSongQuoteIndex = Number.isFinite(playbackState?.quoteIndex)
     ? Math.abs(Math.trunc(playbackState?.quoteIndex ?? 0)) % BETWEEN_SONG_QUOTES.length
     : 0
   const betweenSongQuote = isBetweenSongs
-    ? (openingWelcomeMessage ?? BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex] ?? BETWEEN_SONG_QUOTES[0])
+    ? (BETWEEN_SONG_QUOTES[normalizedBetweenSongQuoteIndex] ?? BETWEEN_SONG_QUOTES[0])
     : null
   const connectionBadgeLabel = visibleConnectionStatus === 'connected'
     ? 'Connected'

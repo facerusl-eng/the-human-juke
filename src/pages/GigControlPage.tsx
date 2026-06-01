@@ -105,6 +105,17 @@ type PrimedIntroAudio = {
   element: HTMLAudioElement
 }
 
+function getPreservedOverlayMessage(state: SharedPlaybackState | null | undefined) {
+  const currentBrbMessage = state?.brbMessage ?? null
+  const hasActiveTransitionMessage = Boolean(getSharedPlaybackTransitionState(state))
+
+  return Boolean(state?.brbActive)
+    || isLastSongSoonOverlayMessage(currentBrbMessage)
+    || hasActiveTransitionMessage
+    ? currentBrbMessage
+    : null
+}
+
 function readIntroAudioPlayLock(eventId: string | null): IntroAudioPlayLock | null {
   if (typeof window === 'undefined' || !eventId) {
     return null
@@ -2497,9 +2508,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         setSyncedPlaybackState(sharedPlaybackState)
         const preservedCountdownTargetMs = sharedPlaybackState?.countdownTargetMs ?? mirroredCountdownTargetMs
         const preservedBrbActive = Boolean(sharedPlaybackState?.brbActive)
-        const preservedBrbMessage = typeof sharedPlaybackState?.brbMessage === 'string'
-          ? sharedPlaybackState.brbMessage
-          : null
+        const preservedBrbMessage = getPreservedOverlayMessage(sharedPlaybackState)
 
         if (!isCurrent) return
 
@@ -2797,13 +2806,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    const currentBrbMessage = syncedPlaybackState?.brbMessage ?? null
-    const hasActiveTransitionMessage = Boolean(getSharedPlaybackTransitionState(syncedPlaybackState))
-    const shouldPreserveBrbMessage = Boolean(syncedPlaybackState?.brbActive)
-      || isLastSongSoonOverlayMessage(currentBrbMessage)
-      || hasActiveTransitionMessage
-
-    const nextBrbMessage = shouldPreserveBrbMessage ? currentBrbMessage : null
+    const nextBrbMessage = getPreservedOverlayMessage(syncedPlaybackState)
 
     try {
       await writeSharedPlaybackState(event.id, {
