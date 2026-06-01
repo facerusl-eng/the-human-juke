@@ -99,13 +99,14 @@ function parseHeadingLine(line: string) {
   const bracketHeading = trimmedLine.match(/^\[([^\]]+)\]$/);
   if (bracketHeading) {
     const heading = normalizeSectionHeading(bracketHeading[1]);
-    return heading ? `==== ${heading.toUpperCase()} ====` : null;
+    const numberMatch = bracketHeading[1].match(/\b(\d+)\b/);
+    return heading ? `${heading}${numberMatch ? ` ${numberMatch[1]}` : ''}:` : null;
   }
 
-  const plainHeading = trimmedLine.match(/^(verse|chorus|bridge|solo|instrumental|hook)(?:\s+\d+)?\s*[:\-]?$/i);
+  const plainHeading = trimmedLine.match(/^(verse|chorus|bridge|solo|instrumental|hook|refrain)(?:\s+(\d+))?\s*[:\-]?$/i);
   if (plainHeading) {
     const heading = normalizeSectionHeading(plainHeading[0]);
-    return heading ? `==== ${heading.toUpperCase()} ====` : null;
+    return heading ? `${heading}${plainHeading[2] ? ` ${plainHeading[2]}` : ''}:` : null;
   }
 
   return null;
@@ -161,19 +162,30 @@ function annotateLyricsSections(rawLyrics: string) {
   });
 
   const output: string[] = [];
+  let inferredVerseCount = 0;
 
   blocks.forEach((block, blockIndex) => {
     const hasExplicitSection = block.lines.some((line) => Boolean(parseHeadingLine(line)));
     const repeatedBlockCount = blockCounts.get(block.normalized) ?? 0;
-    const firstSeenIndex = blockFirstSeen.get(block.normalized);
+    const isRepeatedBlock = repeatedBlockCount > 1;
 
-    if (!hasExplicitSection && repeatedBlockCount > 1 && firstSeenIndex !== undefined && blockIndex > firstSeenIndex) {
-      output.push('==== CHORUS ====');
+    if (!hasExplicitSection) {
+      if (isRepeatedBlock) {
+        output.push('Chorus:');
+      } else {
+        inferredVerseCount += 1;
+        output.push(`Verse ${inferredVerseCount}:`);
+      }
     }
 
     block.lines.forEach((line) => {
       const parsedHeading = parseHeadingLine(line);
-      output.push(parsedHeading ?? line);
+      if (parsedHeading) {
+        output.push(parsedHeading);
+        return;
+      }
+
+      output.push(line);
     });
 
     output.push('');
