@@ -18,6 +18,8 @@ const AUTH_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const AUTH_AUDIENCE_RETRY_BASE_DELAY_MS = 3_000
 const AUTH_AUDIENCE_RETRY_MAX_DELAY_MS = 60_000
 const AUTH_AUDIENCE_RATE_LIMIT_DELAY_MS = 90_000
+const AUTH_AUDIENCE_RETRY_JITTER_MS = 4_000
+const AUTH_AUDIENCE_RATE_LIMIT_JITTER_MS = 20_000
 
 type PersistedAuthSession = {
   userId: string
@@ -208,6 +210,14 @@ function supportsWebAuthn() {
   }
 
   return typeof window.PublicKeyCredential !== 'undefined'
+}
+
+function withRetryJitter(delayMs: number, jitterMs: number) {
+  if (jitterMs <= 0) {
+    return delayMs
+  }
+
+  return delayMs + Math.floor(Math.random() * (jitterMs + 1))
 }
 
 async function retryTransientAuthOperation<T>(operation: () => Promise<T>, attempts = AUTH_TRANSIENT_RETRY_COUNT) {
@@ -472,6 +482,10 @@ function AuthProvider({ children }: PropsWithChildren) {
         throw new Error('Audience guest sign-in is disabled in Supabase. Enable Authentication > Providers > Anonymous to let phones join live.')
       }
 
+      if (isRateLimitedAuthError(error)) {
+        throw new Error('Audience sign-in is busy right now. Auto-retrying in about 1-2 minutes.')
+      }
+
       throw error
     }
 
@@ -645,9 +659,12 @@ function AuthProvider({ children }: PropsWithChildren) {
         }
 
         if (!isCancelled) {
-          const retryDelayMs = isRateLimitedAuthError(error)
+          const baseRetryDelayMs = isRateLimitedAuthError(error)
             ? AUTH_AUDIENCE_RATE_LIMIT_DELAY_MS
             : Math.min(AUTH_AUDIENCE_RETRY_BASE_DELAY_MS * (2 ** retryAttempt), AUTH_AUDIENCE_RETRY_MAX_DELAY_MS)
+          const retryDelayMs = isRateLimitedAuthError(error)
+            ? withRetryJitter(baseRetryDelayMs, AUTH_AUDIENCE_RATE_LIMIT_JITTER_MS)
+            : withRetryJitter(baseRetryDelayMs, AUTH_AUDIENCE_RETRY_JITTER_MS)
 
           retryAttempt += 1
 
