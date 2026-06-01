@@ -3841,6 +3841,15 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
           <button type="button" className="ghost-button" onClick={openMirrorFromGigControl}>
             Open Mirror
           </button>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={openNowPlayingLyrics}
+            disabled={!nowPlaying?.title}
+            title={nowPlaying?.title ? 'Open lyrics for the now-playing song on a stage-friendly screen' : 'Start a song to enable lyrics screen'}
+          >
+            🎤 Open Lyrics Screen
+          </button>
           {!isFocusedGigControlWindow ? (
             <button type="button" className="ghost-button" onClick={openFocusedGigControlWindow}>
               Open Fullscreen Control Board (Same Window)
