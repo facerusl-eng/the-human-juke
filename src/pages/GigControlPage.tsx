@@ -4104,6 +4104,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               className="gig-mirror-live-embed"
               loading="lazy"
               allow="fullscreen"
+              tabIndex={-1}
+              onMouseDown={(event) => {
+                // Keep keyboard focus on Gig Control so Spacebar shortcuts remain reliable.
+                event.preventDefault()
+              }}
             />
           </div>
           <p className="subcopy no-margin">This monitor now renders the exact mirror route in real time, including countdown and live now-playing states.</p>
