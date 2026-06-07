@@ -1171,10 +1171,20 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
     try {
       const sdkDeviceWasReady = Boolean(deviceId)
-      const playbackDeviceId = await resolvePlaybackDeviceId()
+      let playbackDeviceId
+      try {
+        playbackDeviceId = await resolvePlaybackDeviceId()
+      } catch {
+        // No device found via API — send play without device_id so Spotify
+        // chooses the last active device automatically.
+        playbackDeviceId = null
+      }
 
       await withRefreshRetry(async (token) => {
-        const response = await requestWithSpotifyRetry(() => fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`, {
+        const url = playbackDeviceId
+          ? `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(playbackDeviceId)}`
+          : 'https://api.spotify.com/v1/me/player/play'
+        const response = await requestWithSpotifyRetry(() => fetch(url, {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1364,24 +1374,24 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
         if (nextTransportCommand.mode === 'play') {
           if (!hasSdkPlaybackDevice) {
-            // Try resuming first; if that throws (no active device) or returns false,
-            // always fall through to starting the configured playlist.
-            let resumed = false
-            try {
-              resumed = await resumePlayback()
-            } catch {
-              // No active device or context — fall through to playlist start.
-            }
-
-            if (resumed) {
-              setPlayerStatus('Between-song Spotify playback resumed from Gig Control.')
-              return
-            }
-
+            // When no SDK device is available, always start the configured playlist
+            // directly. Attempting resume first is unreliable when Spotify is paused
+            // because resolvePlaybackDeviceId can throw when no device is actively playing.
             if (playlistInput.trim()) {
               await startPlaylistPlayback(playlistInput)
               setPlayerStatus('Started between-song playlist.')
               return
+            }
+
+            // No playlist configured — try plain resume as last resort.
+            try {
+              const resumed = await resumePlayback()
+              if (resumed) {
+                setPlayerStatus('Between-song Spotify playback resumed from Gig Control.')
+                return
+              }
+            } catch {
+              // No active device or context.
             }
 
             throw new Error('No paused Spotify context found. Set a Between Songs Playlist first.')
