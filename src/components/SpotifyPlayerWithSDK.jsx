@@ -1125,6 +1125,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     setActionBusy(true)
 
     try {
+      const sdkDeviceWasReady = Boolean(deviceId)
       const playbackDeviceId = await resolvePlaybackDeviceId()
 
       await withRefreshRetry(async (token) => {
@@ -1149,7 +1150,12 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
       })
 
       lastStartedPlaylistContextRef.current = contextUri
-      setPlayerStatus(`Started playlist playback for ${contextUri}.`)
+
+      if (sdkDeviceWasReady) {
+        setPlayerStatus(`Started playlist playback for ${contextUri}.`)
+      } else {
+        setPlayerStatus(`Started playlist playback for ${contextUri} on your active Spotify device. This browser Web SDK device is not ready yet (Device ID still waiting).`)
+      }
     } catch (error) {
       setPlayerStatus(error instanceof Error ? mapSpotifyApiError(error.message) : 'Start playlist playback failed.')
     } finally {
