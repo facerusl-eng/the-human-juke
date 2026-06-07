@@ -659,7 +659,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     }
   }, [])
 
-  const canControlPlayback = Boolean(deviceId)
+  const canControlPlayback = Boolean(deviceId || accessToken)
 
   const withRefreshRetry = async (action) => {
     try {
@@ -876,25 +876,49 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     togglePlayLock = true
     setActionBusy(true)
     try {
-      if (!playerRef.current) return
-      const currentState = await playerRef.current.getCurrentState?.()
-      if (!currentState) {
-        try {
-          const resumed = await resumePlayback()
-          if (resumed) {
-            setPlayerStatus('Spotify playback resumed from where it stopped.')
+      if (playerRef.current && deviceId) {
+        const currentState = await playerRef.current.getCurrentState?.()
+        if (!currentState) {
+          try {
+            const resumed = await resumePlayback()
+            if (resumed) {
+              setPlayerStatus('Spotify playback resumed from where it stopped.')
+              return
+            }
+          } catch {}
+          if (playlistInput.trim()) {
+            await startPlaylistPlayback(playlistInput)
             return
           }
-        } catch {}
-        if (playlistInput.trim()) {
-          await startPlaylistPlayback(playlistInput)
+          setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press Play Playlist Between Songs first.')
           return
         }
-        setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press Play Playlist Between Songs first.')
+        await playerRef.current.togglePlay()
+        setPlayerStatus('Toggled play/pause.')
         return
       }
-      await playerRef.current.togglePlay()
-      setPlayerStatus('Toggled play/pause.')
+
+      const isPlaying = await getPlaybackIsPlaying()
+      if (isPlaying === true) {
+        const paused = await pausePlayback()
+        if (paused) {
+          setPlayerStatus('Spotify playback paused on the active device.')
+          return
+        }
+      }
+
+      const resumed = await resumePlayback()
+      if (resumed) {
+        setPlayerStatus('Spotify playback resumed on the active device.')
+        return
+      }
+
+      if (playlistInput.trim()) {
+        await startPlaylistPlayback(playlistInput)
+        return
+      }
+
+      setPlayerStatus('No active Spotify device/context. Open Spotify on a device, then try Toggle Play again.')
     } catch (error) {
       if (isNoListError(error)) {
         try {
@@ -919,12 +943,20 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   }
 
   const nextTrack = async () => {
-    if (!playerRef.current) return
-
     setActionBusy(true)
     try {
-      await playerRef.current.nextTrack()
-      setPlayerStatus('Skipped to next track.')
+      if (playerRef.current && deviceId) {
+        await playerRef.current.nextTrack()
+        setPlayerStatus('Skipped to next track.')
+        return
+      }
+
+      const skipped = await skipPlayback('next')
+      if (skipped) {
+        setPlayerStatus('Skipped to next track on the active Spotify device.')
+      } else {
+        setPlayerStatus('No active Spotify device/context for Next. Start Spotify on a device first.')
+      }
     } catch (error) {
       setPlayerStatus(error instanceof Error ? error.message : 'Next track failed.')
     } finally {
@@ -933,12 +965,20 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   }
 
   const previousTrack = async () => {
-    if (!playerRef.current) return
-
     setActionBusy(true)
     try {
-      await playerRef.current.previousTrack()
-      setPlayerStatus('Moved to previous track.')
+      if (playerRef.current && deviceId) {
+        await playerRef.current.previousTrack()
+        setPlayerStatus('Moved to previous track.')
+        return
+      }
+
+      const skipped = await skipPlayback('previous')
+      if (skipped) {
+        setPlayerStatus('Moved to previous track on the active Spotify device.')
+      } else {
+        setPlayerStatus('No active Spotify device/context for Previous. Start Spotify on a device first.')
+      }
     } catch (error) {
       setPlayerStatus(error instanceof Error ? error.message : 'Previous track failed.')
     } finally {
