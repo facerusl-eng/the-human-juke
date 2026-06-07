@@ -483,6 +483,65 @@ async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
   }
 }
 
+const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
+
+function normalizeSpotifyPlaylistContextUri(input: string) {
+  const trimmed = input.trim()
+
+  if (!trimmed) {
+    return ''
+  }
+
+  if (trimmed.startsWith('spotify:playlist:')) {
+    return trimmed
+  }
+
+  const legacyUriMatch = trimmed.match(/spotify:user:[^:]+:playlist:([a-zA-Z0-9]+)/i)
+  if (legacyUriMatch?.[1]) {
+    return `spotify:playlist:${legacyUriMatch[1]}`
+  }
+
+  const playlistUrlMatch = trimmed.match(/spotify\.com\/(?:intl-[a-z]{2}\/)?(?:embed\/)?playlist\/([a-zA-Z0-9]+)/i)
+  if (playlistUrlMatch?.[1]) {
+    return `spotify:playlist:${playlistUrlMatch[1]}`
+  }
+
+  if (/^[a-zA-Z0-9]+$/.test(trimmed)) {
+    return `spotify:playlist:${trimmed}`
+  }
+
+  return ''
+}
+
+async function startSpotifyStoredPlaylistViaWebApi() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const accessToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)?.trim()
+  const storedPlaylistInput = window.localStorage.getItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY)?.trim() ?? ''
+  const contextUri = normalizeSpotifyPlaylistContextUri(storedPlaylistInput)
+
+  if (!accessToken || !contextUri) {
+    return false
+  }
+
+  try {
+    const response = await fetch('https://api.spotify.com/v1/me/player/play', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ context_uri: contextUri }),
+    })
+
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
 function GigControlPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -1179,6 +1238,14 @@ function GigControlPage() {
 
     if (!options?.force && !spotifyAutoTransportEnabled) {
       return
+    }
+
+    // Fire a direct Web API fallback immediately so quote-mode Spotify can start
+    // even if the embedded player transport path fails or is delayed.
+    if (spotifyAccessToken && mode === 'play') {
+      void startSpotifyStoredPlaylistViaWebApi().catch((error) => {
+        console.warn('GigControlPage: spotify playlist start fallback failed', error)
+      })
     }
 
     // In non-focus Gig Control view the SDK transport driver is not mounted,
