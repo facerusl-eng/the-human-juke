@@ -1,7 +1,6 @@
 import {
-  ensureSpotifySecretConfigured,
+  clearSpotifyPkceVerifierCookie,
   exchangeCodeForTokens,
-  getSpotifyRedirectUri,
   getRequiredCode,
   setRefreshTokenCookie,
 } from './_shared.js'
@@ -14,16 +13,14 @@ export default async function handler(req, res) {
     return
   }
 
-  if (!ensureSpotifySecretConfigured(res)) {
-    return
-  }
-
   try {
-    const tokenPayload = await exchangeCodeForTokens(code, getSpotifyRedirectUri(req))
+    const tokenPayload = await exchangeCodeForTokens(code, req)
 
     if (typeof tokenPayload.refresh_token === 'string' && tokenPayload.refresh_token.length > 0) {
-      setRefreshTokenCookie(res, tokenPayload.refresh_token)
+      setRefreshTokenCookie(res, tokenPayload.refresh_token, req)
     }
+
+    clearSpotifyPkceVerifierCookie(res, req)
 
     res.status(200).json({
       access_token: tokenPayload.access_token,
@@ -31,6 +28,7 @@ export default async function handler(req, res) {
       expires_in: tokenPayload.expires_in,
     })
   } catch (error) {
+    clearSpotifyPkceVerifierCookie(res, req)
     console.error('Spotify callback error', error)
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Spotify callback failed.',

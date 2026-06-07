@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import { spawn } from 'node:child_process'
+import { createHash, randomBytes } from 'node:crypto'
 import express from 'express'
 import path from 'path'
 
@@ -13,11 +14,12 @@ const projectRoot = fileURLToPath(new URL('..', import.meta.url))
 const mixerPresetScriptPath = fileURLToPath(new URL('../scripts/apply-backing-preset.mjs', import.meta.url))
 
 const spotifyClientId = process.env.SPOTIFY_CLIENT_ID ?? '510534c3ee9046aba1b67cb526ef8b1c'
-const spotifySecretKeyNames = ['SPOTIFY_CLIENT_SECRET', 'SPOTIFY_SECRET', 'SPOTIFYCLIENTSECRET']
 const spotifyRedirectUriOverride = process.env.SPOTIFY_REDIRECT_URI?.trim() ?? ''
-const spotifyRedirectUriDev = process.env.SPOTIFY_REDIRECT_URI_DEV ?? 'http://localhost:5173/callback'
+const spotifyRedirectUriDev = process.env.SPOTIFY_REDIRECT_URI_DEV?.trim() ?? ''
 const spotifyRedirectUriProd = process.env.SPOTIFY_REDIRECT_URI_PROD ?? spotifyRedirectUriDev
 const spotifyScopes = 'user-read-playback-state user-modify-playback-state streaming'
+const spotifyRefreshCookieName = 'human_jukebox_spotify_refresh_token'
+const spotifyPkceCookieName = 'human_jukebox_spotify_code_verifier'
 const resendApiUrl = 'https://api.resend.com/emails'
 const resendApiRoot = 'https://api.resend.com'
 const defaultBookingWebhookUrl = process.env.BOOKING_WEBHOOK_URL?.trim() || 'https://book-jukebox.base44.app/api/functions/receiveExternalBooking'
@@ -83,32 +85,180 @@ async function runMixerRepairScript() {
   })
 }
 
-function getSpotifyClientSecret() {
-  for (const keyName of spotifySecretKeyNames) {
-    const candidate = process.env[keyName]
+function generateSpotifyPkcePair() {
+  const verifier = randomBytes(32).toString('base64url')
+  const challenge = createHash('sha256').update(verifier).digest('base64url')
 
-    if (typeof candidate === 'string') {
-      const trimmed = candidate.trim()
+  return { verifier, challenge }
+}
 
-      if (trimmed) {
-        return trimmed
+function isSecureRequest(req) {
+  const forwardedProto = req?.headers?.['x-forwarded-proto']
+
+  if (typeof forwardedProto === 'string' && forwardedProto.length > 0) {
+    return forwardedProto.split(',')[0].trim().toLowerCase() === 'https'
+  }
+
+  if (typeof req?.protocol === 'string' && req.protocol.length > 0) {
+    return req.protocol.toLowerCase() === 'https'
+  }
+
+  return process.env.NODE_ENV === 'production'
+}
+
+function appendSetCookieHeader(res, cookieValue) {
+  const existing = res.getHeader('Set-Cookie')
+
+  if (!existing) {
+    res.setHeader('Set-Cookie', cookieValue)
+    return
+  }
+
+  if (Array.isArray(existing)) {
+    res.setHeader('Set-Cookie', [...existing, cookieValue])
+    return
+  }
+
+  res.setHeader('Set-Cookie', [String(existing), cookieValue])
+}
+
+function serializeSpotifyCookie(name, value, req, options = {}) {
+  const cookieParts = [`${name}=${encodeURIComponent(value)}`, 'Path=/', 'SameSite=Lax']
+
+  if (typeof options.maxAgeSeconds === 'number') {
+    cookieParts.push(`Max-Age=${Math.max(0, Math.floor(options.maxAgeSeconds))}`)
+  }
+
+  if (options.httpOnly !== false) {
+    cookieParts.push('HttpOnly')
+  }
+
+  if (isSecureRequest(req)) {
+    cookieParts.push('Secure')
+  }
+
+  return cookieParts.join('; ')
+}
+
+function parseCookies(req) {
+  const header = req.headers?.cookie
+
+  if (!header) {
+    return {}
+  }
+
+  return header
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .reduce((cookies, part) => {
+      const separatorIndex = part.indexOf('=')
+
+      if (separatorIndex <= 0) {
+        return cookies
       }
-    }
+
+      const key = part.slice(0, separatorIndex).trim()
+      const value = part.slice(separatorIndex + 1).trim()
+
+      if (!key) {
+        return cookies
+      }
+
+      cookies[key] = decodeURIComponent(value)
+      return cookies
+    }, {})
+}
+
+function getSpotifyPkceVerifierFromRequest(req) {
+  const cookies = parseCookies(req)
+  const verifier = cookies[spotifyPkceCookieName]
+
+  if (typeof verifier === 'string' && verifier.trim().length > 0) {
+    return verifier.trim()
   }
 
   return ''
 }
 
-function getSpotifyRedirectUri() {
+function setRefreshTokenCookie(res, refreshToken, req) {
+  if (!refreshToken) {
+    return
+  }
+
+  const cookieValue = serializeSpotifyCookie(spotifyRefreshCookieName, refreshToken, req, {
+    maxAgeSeconds: 60 * 60 * 24 * 30,
+    httpOnly: true,
+  })
+
+  appendSetCookieHeader(res, cookieValue)
+}
+
+function setSpotifyPkceVerifierCookie(res, verifier, req) {
+  if (!verifier) {
+    return
+  }
+
+  const cookieValue = serializeSpotifyCookie(spotifyPkceCookieName, verifier, req, {
+    maxAgeSeconds: 60 * 10,
+    httpOnly: true,
+  })
+
+  appendSetCookieHeader(res, cookieValue)
+}
+
+function clearSpotifyPkceVerifierCookie(res, req) {
+  const cookieValue = serializeSpotifyCookie(spotifyPkceCookieName, '', req, {
+    maxAgeSeconds: 0,
+    httpOnly: true,
+  })
+
+  appendSetCookieHeader(res, cookieValue)
+}
+
+function getSpotifyRedirectUri(req) {
   if (process.env.NODE_ENV !== 'production') {
-    return spotifyRedirectUriDev
+    if (spotifyRedirectUriOverride) {
+      return spotifyRedirectUriOverride
+    }
+
+    if (spotifyRedirectUriDev) {
+      return spotifyRedirectUriDev
+    }
+
+    const devPublicOrigin = process.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
+    if (devPublicOrigin) {
+      return `${devPublicOrigin.replace(/\/$/, '')}/callback`
+    }
+
+    const host = req?.headers?.['x-forwarded-host'] ?? req?.headers?.host
+    const protocolHeader = req?.headers?.['x-forwarded-proto']
+    const protocol = typeof protocolHeader === 'string' && protocolHeader.length > 0 ? protocolHeader.split(',')[0] : 'http'
+
+    if (typeof host === 'string' && host.length > 0) {
+      return `${protocol}://${host}/callback`
+    }
+
+    return 'http://localhost:5173/callback'
   }
 
   if (spotifyRedirectUriOverride) {
     return spotifyRedirectUriOverride
   }
 
-  return spotifyRedirectUriProd
+  if (spotifyRedirectUriProd) {
+    return spotifyRedirectUriProd
+  }
+
+  const host = req?.headers?.['x-forwarded-host'] ?? req?.headers?.host
+  const protocolHeader = req?.headers?.['x-forwarded-proto']
+  const protocol = typeof protocolHeader === 'string' && protocolHeader.length > 0 ? protocolHeader.split(',')[0] : 'https'
+
+  if (typeof host === 'string' && host.length > 0) {
+    return `${protocol}://${host}/callback`
+  }
+
+  return 'https://the-human-jukebox.org/callback'
 }
 
 function isValidEmail(value) {
@@ -422,33 +572,40 @@ async function addContactToResendAudience(resendApiKey, audienceId, email, name)
   return { ok: false, status: response.status, responseBody }
 }
 
-function getAuthorizeUrl() {
-  const redirectUri = getSpotifyRedirectUri()
+function getAuthorizeUrl(req, res) {
+  const redirectUri = getSpotifyRedirectUri(req)
+  const { verifier, challenge } = generateSpotifyPkcePair()
+
+  if (res) {
+    setSpotifyPkceVerifierCookie(res, verifier, req)
+  }
+
   const params = new URLSearchParams({
     client_id: spotifyClientId,
     response_type: 'code',
     redirect_uri: redirectUri,
     scope: spotifyScopes,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
   })
 
   return `https://accounts.spotify.com/authorize?${params.toString()}`
 }
 
-async function exchangeCodeForTokens(code) {
-  const spotifyClientSecret = getSpotifyClientSecret()
-  const redirectUri = getSpotifyRedirectUri()
+async function exchangeCodeForTokens(code, req) {
+  const redirectUri = getSpotifyRedirectUri(req)
+  const codeVerifier = getSpotifyPkceVerifierFromRequest(req)
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
+    client_id: spotifyClientId,
     code,
     redirect_uri: redirectUri,
+    code_verifier: codeVerifier,
   })
-
-  const authHeader = Buffer.from(`${spotifyClientId}:${spotifyClientSecret}`).toString('base64')
 
   const response = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${authHeader}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body,
@@ -467,18 +624,15 @@ async function exchangeCodeForTokens(code) {
 }
 
 async function refreshAccessToken(refreshToken) {
-  const spotifyClientSecret = getSpotifyClientSecret()
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
+    client_id: spotifyClientId,
     refresh_token: refreshToken,
   })
-
-  const authHeader = Buffer.from(`${spotifyClientId}:${spotifyClientSecret}`).toString('base64')
 
   const response = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${authHeader}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body,
@@ -496,12 +650,11 @@ async function refreshAccessToken(refreshToken) {
   return payload
 }
 
-app.get('/api/spotify/login', (_req, res) => {
-  res.redirect(getAuthorizeUrl())
+app.get('/api/spotify/login', (req, res) => {
+  res.redirect(getAuthorizeUrl(req, res))
 })
 
 app.get('/api/spotify/callback', async (req, res) => {
-  const spotifyClientSecret = getSpotifyClientSecret()
   const code = typeof req.query.code === 'string' ? req.query.code : ''
 
   if (!code) {
@@ -509,19 +662,15 @@ app.get('/api/spotify/callback', async (req, res) => {
     return
   }
 
-  if (!spotifyClientSecret) {
-    res.status(500).json({
-      error: `Spotify client secret is missing. Configure one of: ${spotifySecretKeyNames.join(', ')}`,
-    })
-    return
-  }
-
   try {
-    const tokenPayload = await exchangeCodeForTokens(code)
+    const tokenPayload = await exchangeCodeForTokens(code, req)
 
     if (typeof tokenPayload.refresh_token === 'string' && tokenPayload.refresh_token.length > 0) {
       latestRefreshToken = tokenPayload.refresh_token
+      setRefreshTokenCookie(res, tokenPayload.refresh_token, req)
     }
+
+    clearSpotifyPkceVerifierCookie(res, req)
 
     res.json({
       access_token: tokenPayload.access_token,
@@ -529,6 +678,7 @@ app.get('/api/spotify/callback', async (req, res) => {
       expires_in: tokenPayload.expires_in,
     })
   } catch (error) {
+    clearSpotifyPkceVerifierCookie(res, req)
     console.error('Spotify callback error', error)
     res.status(500).json({
       error: error instanceof Error ? error.message : 'Spotify callback failed.',
@@ -537,15 +687,6 @@ app.get('/api/spotify/callback', async (req, res) => {
 })
 
 app.get('/api/spotify/token', async (_req, res) => {
-  const spotifyClientSecret = getSpotifyClientSecret()
-
-  if (!spotifyClientSecret) {
-    res.status(500).json({
-      error: `Spotify client secret is missing. Configure one of: ${spotifySecretKeyNames.join(', ')}`,
-    })
-    return
-  }
-
   if (!latestRefreshToken) {
     res.status(400).json({ error: 'No Spotify refresh token stored yet. Complete login first.' })
     return

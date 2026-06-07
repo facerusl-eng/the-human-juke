@@ -36,6 +36,9 @@ VITE_DEV_PUBLIC_ORIGIN=http://YOUR-LAN-IP:5173
 
 Do not set `VITE_DEV_PUBLIC_ORIGIN` in Vercel.
 
+Spotify login now uses PKCE and does not require a local `SPOTIFY_CLIENT_SECRET`.
+If you do set Spotify redirect overrides, make sure the callback URL exactly matches the one registered in the Spotify dashboard.
+
 4. Install dependencies:
 
 ```

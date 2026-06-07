@@ -1,15 +1,10 @@
 import {
-  ensureSpotifySecretConfigured,
   getRefreshTokenFromRequest,
   refreshAccessToken,
   setRefreshTokenCookie,
 } from './_shared.js'
 
 export default async function handler(req, res) {
-  if (!ensureSpotifySecretConfigured(res)) {
-    return
-  }
-
   const refreshToken = getRefreshTokenFromRequest(req)
 
   if (!refreshToken) {
@@ -21,7 +16,7 @@ export default async function handler(req, res) {
     const tokenPayload = await refreshAccessToken(refreshToken)
 
     if (typeof tokenPayload.refresh_token === 'string' && tokenPayload.refresh_token.length > 0) {
-      setRefreshTokenCookie(res, tokenPayload.refresh_token)
+      setRefreshTokenCookie(res, tokenPayload.refresh_token, req)
     }
 
     res.status(200).json({
