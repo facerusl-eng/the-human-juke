@@ -1448,7 +1448,15 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       setSpotifyAccessToken(token)
       return
     } catch {
-      window.location.assign('/api/spotify/login')
+      const isLocalHttpDev = (
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        && window.location.protocol === 'http:'
+      )
+      const loginUrl = isLocalHttpDev
+        ? 'https://www.the-human-jukebox.org/api/spotify/login'
+        : '/api/spotify/login'
+
+      window.location.assign(loginUrl)
     }
   }, [refreshSpotifyAccessToken])
 
