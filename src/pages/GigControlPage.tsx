@@ -61,7 +61,7 @@ const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const GO_LIVE_COUNTDOWN_LOCK_MESSAGE = 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
 const SONG_START_COUNTDOWN_MS = 10_000
-const SPACEBAR_START_COUNTDOWN_MS = 4_000
+const SPACEBAR_START_COUNTDOWN_MS = 150
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
 const PLAYBACK_ACTION_LOCK_MAX_MS = 20_000
@@ -3047,7 +3047,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     const shouldSkipIntroAudio = options?.skipIntroAudio === true
     const transitionIntroAudioUrl = shouldSkipIntroAudio ? null : (currentEvent?.introAudioUrl ?? null)
     const countdownMs = Number.isFinite(options?.countdownMs)
-      ? Math.max(1_000, Number(options?.countdownMs))
+      ? Math.max(0, Number(options?.countdownMs))
       : SONG_START_COUNTDOWN_MS
 
     if (!currentEvent?.id || !currentSong?.id || playbackTransitionLockedRef.current) {
