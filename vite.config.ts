@@ -54,7 +54,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    https: true,
+    https: process.env.VITE_DEV_HTTPS === '1',
     allowedHosts: [
       'localhost',
       '127.0.0.1',
