@@ -48,7 +48,6 @@ import {
   ROOM_STATE_ENSURE_MAX_ATTEMPTS,
   ROOM_STATE_ENSURE_RETRY_DELAY_MS,
   MIRROR_PREVIEW_TRANSITION_MS,
-  SPACEBAR_ACTION_COOLDOWN_MS,
   MIRROR_LAUNCH_STATUS_DURATION_MS,
   AUTO_LIVE_RETRY_DELAY_MS,
   BACKGROUND_SYNC_TAG,
@@ -614,7 +613,6 @@ function GigControlPage() {
   }, [errorText]);
 
   const quoteIndexRef = useRef(0)
-  const lastSpaceActionAtRef = useRef(0)
   const isNowPlayingStartedRef = useRef(isNowPlayingStarted)
   const nowPlayingRef = useRef<typeof songs[number] | undefined>(undefined)
   const songsRef = useRef(songs)
@@ -3147,10 +3145,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
       return;
     }
-    if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
-      return;
-    }
-    lastSpaceActionAtRef.current = now;
     await runQueueTogglePlayShortcutRef.current({
       skipIntroAudio: options?.skipIntroAudio === true,
       countdownMs: options?.countdownMs,
@@ -3188,12 +3182,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       setErrorText(GO_LIVE_COUNTDOWN_LOCK_MESSAGE)
       return;
     }
-
-    const nowTs = Date.now();
-    if (nowTs - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
-      return;
-    }
-    lastSpaceActionAtRef.current = nowTs;
 
     const currentlyStarted = isNowPlayingStartedRef.current;
 
