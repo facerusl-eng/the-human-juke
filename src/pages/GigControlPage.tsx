@@ -3261,6 +3261,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     runGlobalToggleQuoteNowPlayingRef.current = runGlobalToggleQuoteNowPlaying
   }, [runGlobalToggleQuoteNowPlaying])
 
+  const runQueueTogglePlayWithSpacebarRuleRef = useRef(runQueueTogglePlayWithSpacebarRule)
+  useEffect(() => {
+    runQueueTogglePlayWithSpacebarRuleRef.current = runQueueTogglePlayWithSpacebarRule
+  }, [runQueueTogglePlayWithSpacebarRule])
+
   const handleGlobalSpacebarKeyDown = useCallback(async (event: KeyboardEvent) => {
     const normalizedKey = typeof event.key === 'string' ? event.key.trim().toLowerCase() : ''
     const isSpaceKey = event.code === 'Space'
@@ -3307,18 +3312,16 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    if (!globalActionCheckEnabled) {
-      setErrorText(globalActionCheckBlockedText)
-      return
-    }
-
     try {
-      await runGlobalToggleQuoteNowPlayingRef.current()
+      await runQueueTogglePlayWithSpacebarRuleRef.current({
+        skipIntroAudio: false,
+        countdownMs: SPACEBAR_START_COUNTDOWN_MS,
+      })
     } catch (error) {
       console.warn('GigControlPage: spacebar playback action failed', error)
       setErrorText('Playback toggle failed. Please try again.')
     }
-  }, [globalActionCheckBlockedText, globalActionCheckEnabled])
+  }, [])
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
