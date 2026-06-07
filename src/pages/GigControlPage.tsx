@@ -482,80 +482,6 @@ async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
     return false
   }
 }
-
-const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
-
-function normalizeSpotifyPlaylistContextUri(input: string) {
-  const trimmed = input.trim()
-
-  if (!trimmed) {
-    return ''
-  }
-
-  if (trimmed.startsWith('spotify:playlist:')) {
-    return trimmed
-  }
-
-  const playlistUrlMatch = trimmed.match(/spotify\.com\/(?:intl-[a-z]{2}\/)?(?:embed\/)?playlist\/([a-zA-Z0-9]+)/i)
-  if (playlistUrlMatch?.[1]) {
-    return `spotify:playlist:${playlistUrlMatch[1]}`
-  }
-
-  if (/^[a-zA-Z0-9]+$/.test(trimmed)) {
-    return `spotify:playlist:${trimmed}`
-  }
-
-  return ''
-}
-
-async function resumeOrStartSpotifyStoredPlaylistViaWebApi() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  const accessToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)?.trim()
-  const storedPlaylistInput = window.localStorage.getItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY)?.trim() ?? ''
-  const contextUri = normalizeSpotifyPlaylistContextUri(storedPlaylistInput)
-
-  if (!accessToken) {
-    return false
-  }
-
-  try {
-    const resumeResponse = await fetch('https://api.spotify.com/v1/me/player/play', {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-
-    if (resumeResponse.ok) {
-      return true
-    }
-  } catch {
-    // Fall through to playlist start.
-  }
-
-  if (!contextUri) {
-    return false
-  }
-
-  try {
-    const playlistResponse = await fetch('https://api.spotify.com/v1/me/player/play', {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ context_uri: contextUri }),
-    })
-
-    return playlistResponse.ok
-  } catch {
-    return false
-  }
-}
-
 function GigControlPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -713,6 +639,7 @@ function GigControlPage() {
   const hostClockOffsetRef = useRef(0)
   const introAudioLockOwnerRef = useRef<string | null>(null)
   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
+  const spotifyTransportNonceRef = useRef(0)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
@@ -1251,16 +1178,9 @@ function GigControlPage() {
       return
     }
 
-    // In non-focus Gig Control view the SDK transport driver is not mounted,
-    // so mirror play/pause with Web API to keep spacebar behavior consistent.
-    if (!isFocusedGigControlWindow && spotifyAccessToken && (mode === 'play' || mode === 'pause')) {
-      void sendSpotifyWebApiTransportCommand(mode).catch((error) => {
-        console.warn('GigControlPage: spotify web api transport fallback failed', error)
-      })
-    }
-
-    setSpotifyTransportCommand({ mode, nonce: Date.now() })
-  }, [isFocusedGigControlWindow, spotifyAccessToken, spotifyAutoTransportEnabled, isEndingOrDeletingGig])
+    spotifyTransportNonceRef.current += 1
+    setSpotifyTransportCommand({ mode, nonce: spotifyTransportNonceRef.current })
+  }, [spotifyAccessToken, spotifyAutoTransportEnabled, isEndingOrDeletingGig])
 
   const sendManualSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
     if (!spotifyAccessToken) {
@@ -1276,7 +1196,8 @@ function GigControlPage() {
       setSpotifyStatusText('Sending Spotify previous command...')
     }
 
-    setSpotifyTransportCommand({ mode, nonce: Date.now() })
+    spotifyTransportNonceRef.current += 1
+    setSpotifyTransportCommand({ mode, nonce: spotifyTransportNonceRef.current })
   }, [spotifyAccessToken])
 
   const primeIntroAudioPlayback = useCallback((eventId: string, introAudioUrl: string) => {
@@ -3182,7 +3103,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     // When Space advances the queue, the mirror enters quote mode.
     // Trigger between-song Spotify playback for that quote segment.
     sendSpotifyTransportCommand('play', { force: true })
-    void resumeOrStartSpotifyStoredPlaylistViaWebApi().catch(() => undefined)
   }, [ensureGlobalActionCheckEnabled, markPlayed, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
 
   useEffect(() => {
@@ -3323,7 +3243,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
         await registerBackgroundSync(BACKGROUND_SYNC_TAG);
         sendSpotifyTransportCommand('play', { force: true });
-        void resumeOrStartSpotifyStoredPlaylistViaWebApi().catch(() => undefined)
         setErrorText(null);
       } catch (error) {
         // Roll back local state on failure
