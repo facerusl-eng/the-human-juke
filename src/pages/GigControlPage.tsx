@@ -629,6 +629,7 @@ function GigControlPage() {
   )
   const playbackTransitionExecutionIdRef = useRef<string | null>(null)
   const playbackTransitionRecoveryTransitionIdRef = useRef<string | null>(null)
+  const previousNowPlayingStartedRef = useRef(isNowPlayingStarted)
   const gigWorkerRef = useRef<Worker | null>(null)
   const liveHealthGuardLastRunAtRef = useRef(0)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
@@ -1179,6 +1180,31 @@ function GigControlPage() {
     spotifyTransportNonceRef.current += 1
     setSpotifyTransportCommand({ mode, nonce: spotifyTransportNonceRef.current })
   }, [spotifyAccessToken, spotifyAutoTransportEnabled, isEndingOrDeletingGig])
+
+  useEffect(() => {
+    const wasNowPlayingStarted = previousNowPlayingStartedRef.current
+    previousNowPlayingStartedRef.current = isNowPlayingStarted
+
+    if (!wasNowPlayingStarted || isNowPlayingStarted) {
+      return
+    }
+
+    if (!event?.roomOpen || !spotifyAccessToken) {
+      return
+    }
+
+    sendSpotifyTransportCommand('play', { force: true })
+
+    const retryTimer = window.setTimeout(() => {
+      if (!isNowPlayingStartedRef.current) {
+        sendSpotifyTransportCommand('play', { force: true })
+      }
+    }, 350)
+
+    return () => {
+      window.clearTimeout(retryTimer)
+    }
+  }, [event?.roomOpen, isNowPlayingStarted, sendSpotifyTransportCommand, spotifyAccessToken])
 
   const sendManualSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
     if (!spotifyAccessToken) {
