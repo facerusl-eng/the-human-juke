@@ -1277,9 +1277,11 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         return
       }
 
+      const hasSdkPlaybackDevice = Boolean(playerRef.current && deviceId)
+
       try {
         if (nextTransportCommand.mode === 'toggle') {
-          if (!playerRef.current) {
+          if (!hasSdkPlaybackDevice) {
             const isPlayingViaApi = await getPlaybackIsPlaying()
 
             if (isPlayingViaApi) {
@@ -1356,7 +1358,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         }
 
         if (nextTransportCommand.mode === 'play') {
-          if (!playerRef.current) {
+          if (!hasSdkPlaybackDevice) {
             const resumed = await resumePlayback()
 
             if (resumed) {
@@ -1423,7 +1425,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
             ? 'Skipped to next Spotify track from Gig Control.'
             : 'Moved to previous Spotify track from Gig Control.'
 
-          if (!playerRef.current) {
+          if (!hasSdkPlaybackDevice) {
             const skipped = await skipPlayback(isNextCommand ? 'next' : 'previous')
 
             if (skipped) {
@@ -1457,7 +1459,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           }
         }
 
-        if (!playerRef.current) {
+        if (!hasSdkPlaybackDevice) {
           const isPlayingViaApi = await getPlaybackIsPlaying()
 
           if (isPlayingViaApi === false) {
