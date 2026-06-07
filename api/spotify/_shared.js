@@ -165,14 +165,6 @@ export function getSpotifyRedirectUri(req) {
       return `${devPublicOrigin.replace(/\/$/, '')}/callback`
     }
 
-    const host = req?.headers?.['x-forwarded-host'] ?? req?.headers?.host
-    const protocolHeader = req?.headers?.['x-forwarded-proto']
-    const protocol = typeof protocolHeader === 'string' && protocolHeader.length > 0 ? protocolHeader.split(',')[0] : 'http'
-
-    if (typeof host === 'string' && host.length > 0) {
-      return `${protocol}://${host}/callback`
-    }
-
     return 'http://localhost:5173/callback'
   }
 
