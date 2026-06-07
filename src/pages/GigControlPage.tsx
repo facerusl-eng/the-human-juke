@@ -625,8 +625,9 @@ function GigControlPage() {
   const playbackActionLockRef = useRef(false)
   const playbackActionLockStartedAtRef = useRef(0)
   const playbackTransitionLockedRef = useRef(false)
-  const pendingSpacebarActionRef = useRef(false)
+  const pendingSpacebarActionCountRef = useRef(0)
   const pendingSpacebarActionAtRef = useRef(0)
+  const queuedSpacebarInFlightRef = useRef(false)
   const playbackTransitionControllerIdRef = useRef(
     typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function'
       ? window.crypto.randomUUID()
@@ -3149,7 +3150,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       setSpaceActionBusy(false);
     }
     if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
-      pendingSpacebarActionRef.current = true
+      pendingSpacebarActionCountRef.current = Math.min(6, pendingSpacebarActionCountRef.current + 1)
       pendingSpacebarActionAtRef.current = Date.now()
       return;
     }
@@ -3164,13 +3165,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [event?.roomOpen]);
 
   useEffect(() => {
-    if (!pendingSpacebarActionRef.current) {
+    if (pendingSpacebarActionCountRef.current <= 0) {
       return
     }
 
     // Drop very old queued presses to avoid surprise actions after long idle periods.
     if (Date.now() - pendingSpacebarActionAtRef.current > 12_000) {
-      pendingSpacebarActionRef.current = false
+      pendingSpacebarActionCountRef.current = 0
       pendingSpacebarActionAtRef.current = 0
       return
     }
@@ -3183,8 +3184,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    pendingSpacebarActionRef.current = false
+    if (queuedSpacebarInFlightRef.current) {
+      return
+    }
+
+    queuedSpacebarInFlightRef.current = true
+    pendingSpacebarActionCountRef.current -= 1
     pendingSpacebarActionAtRef.current = 0
+    lastSpaceActionAtRef.current = Date.now()
 
     void runQueueTogglePlayShortcutRef.current({
       skipIntroAudio: false,
@@ -3192,6 +3199,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }).catch((error) => {
       console.warn('GigControlPage: queued spacebar playback action failed', error)
       setErrorText('Playback toggle failed. Please try again.')
+    }).finally(() => {
+      queuedSpacebarInFlightRef.current = false
     })
   }, [event?.roomOpen, isPlaybackTransitionLocked, songs.length, spaceActionBusy])
 
