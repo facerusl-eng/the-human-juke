@@ -625,6 +625,8 @@ function GigControlPage() {
   const playbackActionLockRef = useRef(false)
   const playbackActionLockStartedAtRef = useRef(0)
   const playbackTransitionLockedRef = useRef(false)
+  const pendingSpacebarActionRef = useRef(false)
+  const pendingSpacebarActionAtRef = useRef(0)
   const playbackTransitionControllerIdRef = useRef(
     typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function'
       ? window.crypto.randomUUID()
@@ -3147,6 +3149,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       setSpaceActionBusy(false);
     }
     if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
+      pendingSpacebarActionRef.current = true
+      pendingSpacebarActionAtRef.current = Date.now()
       return;
     }
     if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
@@ -3158,6 +3162,38 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       countdownMs: options?.countdownMs,
     });
   }, [event?.roomOpen]);
+
+  useEffect(() => {
+    if (!pendingSpacebarActionRef.current) {
+      return
+    }
+
+    // Drop very old queued presses to avoid surprise actions after long idle periods.
+    if (Date.now() - pendingSpacebarActionAtRef.current > 12_000) {
+      pendingSpacebarActionRef.current = false
+      pendingSpacebarActionAtRef.current = 0
+      return
+    }
+
+    if (!event?.roomOpen || !nowPlayingRef.current) {
+      return
+    }
+
+    if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
+      return
+    }
+
+    pendingSpacebarActionRef.current = false
+    pendingSpacebarActionAtRef.current = 0
+
+    void runQueueTogglePlayShortcutRef.current({
+      skipIntroAudio: false,
+      countdownMs: SPACEBAR_START_COUNTDOWN_MS,
+    }).catch((error) => {
+      console.warn('GigControlPage: queued spacebar playback action failed', error)
+      setErrorText('Playback toggle failed. Please try again.')
+    })
+  }, [event?.roomOpen, isPlaybackTransitionLocked, songs.length, spaceActionBusy])
 
   /**
    * GLOBAL MODE SWITCH: QUOTE ↔ NOW PLAYING
