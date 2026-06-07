@@ -3108,6 +3108,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         await markPlayed()
       })
     })
+
+    // When Space advances the queue, the mirror enters quote mode.
+    // Trigger between-song Spotify playback for that quote segment.
+    sendSpotifyTransportCommand('play', { force: true })
   }, [ensureGlobalActionCheckEnabled, markPlayed, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
 
   useEffect(() => {
