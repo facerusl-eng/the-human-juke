@@ -416,7 +416,7 @@ export function extractLyricsFromHtml(html: string): string {
   const $ = cheerio.load(html);
   const lines: string[] = [];
 
-  $('[data-lyrics-container="true"]').each((_, element: cheerio.Element) => {
+  $('[data-lyrics-container="true"]').each((_, element) => {
     const text = normalizeText($(element).text());
     if (text) {
       lines.push(text);
@@ -676,7 +676,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const variants = buildVariants(song, artist);
-  let bestCandidate: LyricsCandidate | null = null;
+  const bestCandidateRef: { current: LyricsCandidate | null } = { current: null };
 
   for (const variant of variants) {
     const markAttempt = (provider: ProviderName, ok: boolean, reason?: string) => {
@@ -701,8 +701,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         confidenceScore,
       };
 
-      if (!bestCandidate || scoreCandidate(candidate) > scoreCandidate(bestCandidate)) {
-        bestCandidate = candidate;
+      if (!bestCandidateRef.current || scoreCandidate(candidate) > scoreCandidate(bestCandidateRef.current)) {
+        bestCandidateRef.current = candidate;
       }
 
       // High-confidence winner: stop searching to keep latency low.
@@ -778,11 +778,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  if (bestCandidate) {
+  const resolvedBestCandidate = bestCandidateRef.current;
+
+  if (resolvedBestCandidate) {
     res.status(200).json({
-      lyrics: bestCandidate.lyrics,
-      source: bestCandidate.source,
-      variant: bestCandidate.variant,
+      lyrics: resolvedBestCandidate.lyrics,
+      source: resolvedBestCandidate.source,
+      variant: resolvedBestCandidate.variant,
       ...(includeDebug
         ? {
             debug: {
