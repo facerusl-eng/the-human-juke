@@ -716,8 +716,18 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           return
         }
 
-        setPlaylistMeta(null)
-        setPlaylistMetaError(error instanceof Error ? error.message : 'Failed to load playlist details.')
+        const message = error instanceof Error ? error.message : 'Failed to load playlist details.'
+
+        // Keep a lightweight fallback meta so valid links can still be saved even if
+        // Spotify metadata fetch fails (token/permissions/network/transient API issues).
+        setPlaylistMeta({
+          id: getPlaylistIdFromContextUri(normalizedPlaylistContextUri),
+          uri: normalizedPlaylistContextUri,
+          name: normalizedPlaylistContextUri,
+          ownerName: '',
+          imageUrl: '',
+        })
+        setPlaylistMetaError(`Could not load playlist details right now (${message}). You can still save this playlist link.`)
       }).finally(() => {
         if (cancelled) {
           return
@@ -1450,7 +1460,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         <button
           type="button"
           className="secondary-button"
-          disabled={playlistMetaBusy || Boolean(playlistMetaError) || !normalizePlaylistContextUri(playlistInput)}
+          disabled={playlistMetaBusy || !normalizePlaylistContextUri(playlistInput)}
           onClick={saveCurrentPlaylist}
         >
           Import & Save Playlist Link
