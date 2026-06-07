@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -9,6 +10,7 @@ export default defineConfig({
     __HUMAN_JUKEBOX_BUILD_ID__: JSON.stringify(new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')),
   },
   plugins: [
+    basicSsl(),
     react(),
     tailwindcss(),
     VitePWA({
@@ -52,6 +54,7 @@ export default defineConfig({
     }),
   ],
   server: {
+    https: true,
     allowedHosts: [
       'localhost',
       '127.0.0.1',

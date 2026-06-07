@@ -37,6 +37,8 @@ VITE_DEV_PUBLIC_ORIGIN=http://YOUR-LAN-IP:5173
 Do not set `VITE_DEV_PUBLIC_ORIGIN` in Vercel.
 
 Spotify login now uses PKCE and does not require a local `SPOTIFY_CLIENT_SECRET`.
+Local Spotify callback testing now uses `https://localhost:5173/callback`.
+If your browser shows a certificate warning on first load, open `https://localhost:5173` once and trust the local certificate before running Spotify connect.
 If you do set Spotify redirect overrides, make sure the callback URL exactly matches the one registered in the Spotify dashboard.
 
 4. Install dependencies:

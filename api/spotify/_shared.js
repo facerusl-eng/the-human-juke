@@ -165,7 +165,7 @@ export function getSpotifyRedirectUri(req) {
       return `${devPublicOrigin.replace(/\/$/, '')}/callback`
     }
 
-    return 'http://localhost:5173/callback'
+    return 'https://localhost:5173/callback'
   }
 
   if (spotifyRedirectUriOverride) {
