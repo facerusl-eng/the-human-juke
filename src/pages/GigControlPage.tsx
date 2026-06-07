@@ -61,7 +61,7 @@ const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const GO_LIVE_COUNTDOWN_LOCK_MESSAGE = 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
 const SONG_START_COUNTDOWN_MS = 10_000
-const SPACEBAR_START_COUNTDOWN_MS = 150
+const SPACEBAR_START_COUNTDOWN_MS = 250
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
 const PLAYBACK_ACTION_LOCK_MAX_MS = 20_000
@@ -483,65 +483,6 @@ async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
   }
 }
 
-const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
-
-function normalizeSpotifyPlaylistContextUri(input: string) {
-  const trimmed = input.trim()
-
-  if (!trimmed) {
-    return ''
-  }
-
-  if (trimmed.startsWith('spotify:playlist:')) {
-    return trimmed
-  }
-
-  const legacyUriMatch = trimmed.match(/spotify:user:[^:]+:playlist:([a-zA-Z0-9]+)/i)
-  if (legacyUriMatch?.[1]) {
-    return `spotify:playlist:${legacyUriMatch[1]}`
-  }
-
-  const playlistUrlMatch = trimmed.match(/spotify\.com\/(?:intl-[a-z]{2}\/)?(?:embed\/)?playlist\/([a-zA-Z0-9]+)/i)
-  if (playlistUrlMatch?.[1]) {
-    return `spotify:playlist:${playlistUrlMatch[1]}`
-  }
-
-  if (/^[a-zA-Z0-9]+$/.test(trimmed)) {
-    return `spotify:playlist:${trimmed}`
-  }
-
-  return ''
-}
-
-async function startSpotifyStoredPlaylistViaWebApi() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  const accessToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)?.trim()
-  const storedPlaylistInput = window.localStorage.getItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY)?.trim() ?? ''
-  const contextUri = normalizeSpotifyPlaylistContextUri(storedPlaylistInput)
-
-  if (!accessToken || !contextUri) {
-    return false
-  }
-
-  try {
-    const response = await fetch('https://api.spotify.com/v1/me/player/play', {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ context_uri: contextUri }),
-    })
-
-    return response.ok
-  } catch {
-    return false
-  }
-}
-
 function GigControlPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -684,9 +625,6 @@ function GigControlPage() {
   const playbackActionLockRef = useRef(false)
   const playbackActionLockStartedAtRef = useRef(0)
   const playbackTransitionLockedRef = useRef(false)
-  const pendingSpacebarActionCountRef = useRef(0)
-  const pendingSpacebarActionAtRef = useRef(0)
-  const queuedSpacebarInFlightRef = useRef(false)
   const playbackTransitionControllerIdRef = useRef(
     typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function'
       ? window.crypto.randomUUID()
@@ -1238,14 +1176,6 @@ function GigControlPage() {
 
     if (!options?.force && !spotifyAutoTransportEnabled) {
       return
-    }
-
-    // Fire a direct Web API fallback immediately so quote-mode Spotify can start
-    // even if the embedded player transport path fails or is delayed.
-    if (spotifyAccessToken && mode === 'play') {
-      void startSpotifyStoredPlaylistViaWebApi().catch((error) => {
-        console.warn('GigControlPage: spotify playlist start fallback failed', error)
-      })
     }
 
     // In non-focus Gig Control view the SDK transport driver is not mounted,
@@ -3114,7 +3044,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     const shouldSkipIntroAudio = options?.skipIntroAudio === true
     const transitionIntroAudioUrl = shouldSkipIntroAudio ? null : (currentEvent?.introAudioUrl ?? null)
     const countdownMs = Number.isFinite(options?.countdownMs)
-      ? Math.max(0, Number(options?.countdownMs))
+      ? Math.max(250, Number(options?.countdownMs))
       : SONG_START_COUNTDOWN_MS
 
     if (!currentEvent?.id || !currentSong?.id || playbackTransitionLockedRef.current) {
@@ -3221,8 +3151,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       setSpaceActionBusy(false);
     }
     if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
-      pendingSpacebarActionCountRef.current = Math.min(6, pendingSpacebarActionCountRef.current + 1)
-      pendingSpacebarActionAtRef.current = Date.now()
+      return;
+    }
+    if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
       return;
     }
     lastSpaceActionAtRef.current = now;
@@ -3231,46 +3162,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       countdownMs: options?.countdownMs,
     });
   }, [event?.roomOpen]);
-
-  useEffect(() => {
-    if (pendingSpacebarActionCountRef.current <= 0) {
-      return
-    }
-
-    // Drop very old queued presses to avoid surprise actions after long idle periods.
-    if (Date.now() - pendingSpacebarActionAtRef.current > 12_000) {
-      pendingSpacebarActionCountRef.current = 0
-      pendingSpacebarActionAtRef.current = 0
-      return
-    }
-
-    if (!event?.roomOpen || !nowPlayingRef.current) {
-      return
-    }
-
-    if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
-      return
-    }
-
-    if (queuedSpacebarInFlightRef.current) {
-      return
-    }
-
-    queuedSpacebarInFlightRef.current = true
-    pendingSpacebarActionCountRef.current -= 1
-    pendingSpacebarActionAtRef.current = 0
-    lastSpaceActionAtRef.current = Date.now()
-
-    void runQueueTogglePlayShortcutRef.current({
-      skipIntroAudio: false,
-      countdownMs: SPACEBAR_START_COUNTDOWN_MS,
-    }).catch((error) => {
-      console.warn('GigControlPage: queued spacebar playback action failed', error)
-      setErrorText('Playback toggle failed. Please try again.')
-    }).finally(() => {
-      queuedSpacebarInFlightRef.current = false
-    })
-  }, [event?.roomOpen, isPlaybackTransitionLocked, songs.length, spaceActionBusy])
 
   /**
    * GLOBAL MODE SWITCH: QUOTE ↔ NOW PLAYING
