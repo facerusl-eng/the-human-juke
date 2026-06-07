@@ -231,7 +231,7 @@ function getSpotifyRedirectUri(req) {
       return `${devPublicOrigin.replace(/\/$/, '')}/callback`
     }
 
-    return 'https://localhost:5173/callback'
+    return 'https://the-human-jukebox.org/callback'
   }
 
   if (spotifyRedirectUriOverride) {
