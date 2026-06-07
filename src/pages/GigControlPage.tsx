@@ -3361,10 +3361,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
-    window.addEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
     return () => {
       document.removeEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
-      window.removeEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
     }
   }, [handleGlobalSpacebarKeyDown])
 
