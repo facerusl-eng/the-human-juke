@@ -3154,9 +3154,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       pendingSpacebarActionAtRef.current = Date.now()
       return;
     }
-    if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
-      return;
-    }
     lastSpaceActionAtRef.current = now;
     await runQueueTogglePlayShortcutRef.current({
       skipIntroAudio: options?.skipIntroAudio === true,
