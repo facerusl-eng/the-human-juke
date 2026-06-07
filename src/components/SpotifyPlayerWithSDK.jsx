@@ -9,6 +9,7 @@ const SPOTIFY_DEVICE_ID_STORAGE_KEY = 'human-jukebox-spotify-device-id'
 const SPOTIFY_PLAYER_SINGLETON_KEY = '__humanJukeboxSpotifyPlayerSingleton'
 const DEFAULT_BETWEEN_SONGS_PLAYLIST = 'spotify:playlist:4SarKcYGzetJ7AIlqVa1qj'
 const DEFAULT_SPOTIFY_PLAYER_STATUS = 'Spotify player is idle.'
+const SPOTIFY_SHORT_LINK_HOSTS = ['spotify.link', 'spoti.fi']
 
 function getStoredSpotifyDeviceId() {
   if (typeof window === 'undefined') {
@@ -177,6 +178,54 @@ function normalizePlaylistContextUri(input) {
 
   if (/^[a-zA-Z0-9]+$/.test(trimmed)) {
     return `spotify:playlist:${trimmed}`
+  }
+
+  return ''
+}
+
+function isLikelySpotifyShortLink(input) {
+  const trimmed = input.trim()
+
+  if (!trimmed) {
+    return false
+  }
+
+  try {
+    const parsedUrl = new URL(trimmed)
+    const hostname = parsedUrl.hostname.toLowerCase()
+    return SPOTIFY_SHORT_LINK_HOSTS.some((shortHost) => hostname === shortHost || hostname.endsWith(`.${shortHost}`))
+  } catch {
+    return false
+  }
+}
+
+async function resolvePlaylistContextUri(input) {
+  const normalizedContextUri = normalizePlaylistContextUri(input)
+  if (normalizedContextUri) {
+    return normalizedContextUri
+  }
+
+  if (!isLikelySpotifyShortLink(input)) {
+    return ''
+  }
+
+  const trimmed = input.trim()
+  const attempts = [
+    { method: 'GET', redirect: 'follow', cache: 'no-store' },
+    { method: 'HEAD', redirect: 'follow', cache: 'no-store' },
+  ]
+
+  for (const attempt of attempts) {
+    try {
+      const response = await fetch(trimmed, attempt)
+      const resolvedFromRedirect = normalizePlaylistContextUri(response?.url || '')
+
+      if (resolvedFromRedirect) {
+        return resolvedFromRedirect
+      }
+    } catch {
+      // Continue trying alternative request methods.
+    }
   }
 
   return ''
@@ -644,16 +693,24 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   }
 
   useEffect(() => {
-    const normalizedPlaylistContextUri = normalizePlaylistContextUri(playlistInput)
+    const rawPlaylistInput = playlistInput.trim()
+    const canResolvePlaylistInput = Boolean(normalizePlaylistContextUri(rawPlaylistInput) || isLikelySpotifyShortLink(rawPlaylistInput))
 
-    if (!normalizedPlaylistContextUri) {
+    if (!rawPlaylistInput) {
       setPlaylistMeta(null)
-      setPlaylistMetaError(playlistInput.trim() ? 'Provide a valid Spotify playlist ID, URI, or URL.' : null)
+      setPlaylistMetaError(null)
       setPlaylistMetaBusy(false)
       return
     }
 
-    if (playlistMeta?.uri === normalizedPlaylistContextUri) {
+    if (!canResolvePlaylistInput) {
+      setPlaylistMeta(null)
+      setPlaylistMetaError('Provide a valid Spotify playlist ID, URI, or URL.')
+      setPlaylistMetaBusy(false)
+      return
+    }
+
+    if (playlistMeta?.uri === normalizePlaylistContextUri(rawPlaylistInput)) {
       setPlaylistMetaError(null)
       setPlaylistMetaBusy(false)
       return
@@ -664,53 +721,65 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     setPlaylistMetaError(null)
 
     const timer = window.setTimeout(() => {
-      void withRefreshRetry(async (token) => {
-        const playlistId = getPlaylistIdFromContextUri(normalizedPlaylistContextUri)
+      void (async () => {
+        const resolvedContextUri = await resolvePlaylistContextUri(rawPlaylistInput)
 
-        if (!playlistId) {
+        if (!resolvedContextUri) {
           throw new Error('Provide a valid Spotify playlist ID, URI, or URL.')
         }
-
-        const response = await requestWithSpotifyRetry(() => fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}?fields=id,name,uri,owner(display_name),images(url,height,width)`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }))
-
-        if (response.status === 401) {
-          throw new Error('Spotify access token expired.')
-        }
-
-        if (response.status === 403) {
-          throw new Error('Spotify denied access to this playlist. Reconnect Spotify and ensure your account can access that playlist (private/collab playlists require granted access).')
-        }
-
-        if (response.status === 404) {
-          throw new Error('Playlist not found. Check the link/ID and confirm this Spotify account has access. If needed, reconnect Spotify to refresh permissions.')
-        }
-
-        if (!response.ok) {
-          const payload = await parseJson(response)
-          const message = payload?.error?.message || payload?.error_description || 'Failed to load playlist details.'
-          throw new Error(mapSpotifyApiError(message))
-        }
-
-        const payload = await parseJson(response)
-        const images = Array.isArray(payload?.images) ? payload.images : []
-        const firstImageWithUrl = images.find((image) => typeof image?.url === 'string' && image.url.trim())
 
         if (cancelled) {
           return
         }
 
-        setPlaylistMeta({
-          id: typeof payload?.id === 'string' ? payload.id : playlistId,
-          uri: typeof payload?.uri === 'string' ? payload.uri : normalizedPlaylistContextUri,
-          name: typeof payload?.name === 'string' && payload.name.trim() ? payload.name.trim() : normalizedPlaylistContextUri,
-          ownerName: typeof payload?.owner?.display_name === 'string' ? payload.owner.display_name.trim() : '',
-          imageUrl: typeof firstImageWithUrl?.url === 'string' ? firstImageWithUrl.url : '',
+        await withRefreshRetry(async (token) => {
+          const playlistId = getPlaylistIdFromContextUri(resolvedContextUri)
+
+          if (!playlistId) {
+            throw new Error('Provide a valid Spotify playlist ID, URI, or URL.')
+          }
+
+          const response = await requestWithSpotifyRetry(() => fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}?fields=id,name,uri,owner(display_name),images(url,height,width)`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }))
+
+          if (response.status === 401) {
+            throw new Error('Spotify access token expired.')
+          }
+
+          if (response.status === 403) {
+            throw new Error('Spotify denied access to this playlist. Reconnect Spotify and ensure your account can access that playlist (private/collab playlists require granted access).')
+          }
+
+          if (response.status === 404) {
+            throw new Error('Playlist not found. Check the link/ID and confirm this Spotify account has access. If needed, reconnect Spotify to refresh permissions.')
+          }
+
+          if (!response.ok) {
+            const payload = await parseJson(response)
+            const message = payload?.error?.message || payload?.error_description || 'Failed to load playlist details.'
+            throw new Error(mapSpotifyApiError(message))
+          }
+
+          const payload = await parseJson(response)
+          const images = Array.isArray(payload?.images) ? payload.images : []
+          const firstImageWithUrl = images.find((image) => typeof image?.url === 'string' && image.url.trim())
+
+          if (cancelled) {
+            return
+          }
+
+          setPlaylistMeta({
+            id: typeof payload?.id === 'string' ? payload.id : playlistId,
+            uri: typeof payload?.uri === 'string' ? payload.uri : resolvedContextUri,
+            name: typeof payload?.name === 'string' && payload.name.trim() ? payload.name.trim() : resolvedContextUri,
+            ownerName: typeof payload?.owner?.display_name === 'string' ? payload.owner.display_name.trim() : '',
+            imageUrl: typeof firstImageWithUrl?.url === 'string' ? firstImageWithUrl.url : '',
+          })
+          setPlaylistMetaError(null)
         })
-        setPlaylistMetaError(null)
       }).catch((error) => {
         if (cancelled) {
           return
@@ -721,9 +790,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         // Keep a lightweight fallback meta so valid links can still be saved even if
         // Spotify metadata fetch fails (token/permissions/network/transient API issues).
         setPlaylistMeta({
-          id: getPlaylistIdFromContextUri(normalizedPlaylistContextUri),
-          uri: normalizedPlaylistContextUri,
-          name: normalizedPlaylistContextUri,
+          id: getPlaylistIdFromContextUri(normalizePlaylistContextUri(rawPlaylistInput)),
+          uri: normalizePlaylistContextUri(rawPlaylistInput),
+          name: normalizePlaylistContextUri(rawPlaylistInput),
           ownerName: '',
           imageUrl: '',
         })
@@ -1088,34 +1157,44 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     }
   }
 
-  const saveCurrentPlaylist = () => {
-    const normalizedInputUri = normalizePlaylistContextUri(playlistInput)
-    const normalizedMeta = normalizeStoredPlaylistMeta(playlistMeta)
-    const uriToSave = normalizedMeta?.uri || normalizedInputUri
+  const saveCurrentPlaylist = async () => {
+    try {
+      const normalizedMeta = normalizeStoredPlaylistMeta(playlistMeta)
+      let uriToSave = normalizedMeta?.uri || normalizePlaylistContextUri(playlistInput)
 
-    if (!uriToSave) {
-      setPlayerStatus('Paste a valid playlist link first, then save it.')
-      return
+      if (!uriToSave && isLikelySpotifyShortLink(playlistInput)) {
+        setPlaylistMetaBusy(true)
+        uriToSave = await resolvePlaylistContextUri(playlistInput)
+        setPlaylistMetaBusy(false)
+      }
+
+      if (!uriToSave) {
+        setPlayerStatus('Paste a valid playlist link first, then save it.')
+        return
+      }
+
+      const playlistToSave = {
+        id: normalizedMeta?.id || getPlaylistIdFromContextUri(uriToSave),
+        uri: uriToSave,
+        name: normalizedMeta?.name || uriToSave,
+        ownerName: normalizedMeta?.ownerName || '',
+        imageUrl: normalizedMeta?.imageUrl || '',
+        savedAt: Date.now(),
+      }
+
+      setSavedPlaylists((currentPlaylists) => {
+        const withoutExisting = currentPlaylists.filter((playlist) => playlist.uri !== playlistToSave.uri)
+        return [playlistToSave, ...withoutExisting]
+      })
+
+      setPlaylistInput(playlistToSave.uri)
+      setPlaylistMeta(playlistToSave)
+      setPlaylistMetaError(null)
+      setPlayerStatus(`Saved playlist "${playlistToSave.name}" for quick Spotify toggle use.`)
+    } catch {
+      setPlaylistMetaBusy(false)
+      setPlayerStatus('Could not resolve that short Spotify link. Open the playlist in Spotify and paste the full playlist URL.')
     }
-
-    const playlistToSave = {
-      id: normalizedMeta?.id || getPlaylistIdFromContextUri(uriToSave),
-      uri: uriToSave,
-      name: normalizedMeta?.name || uriToSave,
-      ownerName: normalizedMeta?.ownerName || '',
-      imageUrl: normalizedMeta?.imageUrl || '',
-      savedAt: Date.now(),
-    }
-
-    setSavedPlaylists((currentPlaylists) => {
-      const withoutExisting = currentPlaylists.filter((playlist) => playlist.uri !== playlistToSave.uri)
-      return [playlistToSave, ...withoutExisting]
-    })
-
-    setPlaylistInput(playlistToSave.uri)
-    setPlaylistMeta(playlistToSave)
-    setPlaylistMetaError(null)
-    setPlayerStatus(`Saved playlist "${playlistToSave.name}" for quick Spotify toggle use.`)
   }
 
   const selectSavedPlaylist = (savedPlaylist) => {
@@ -1140,6 +1219,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   }
 
   const selectedPlaylistUri = normalizePlaylistContextUri(playlistInput)
+  const canAttemptPlaylistImport = Boolean(normalizePlaylistContextUri(playlistInput) || isLikelySpotifyShortLink(playlistInput))
 
   useEffect(() => {
     if (!transportCommand) {
@@ -1460,7 +1540,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         <button
           type="button"
           className="secondary-button"
-          disabled={playlistMetaBusy || !normalizePlaylistContextUri(playlistInput)}
+          disabled={playlistMetaBusy || !canAttemptPlaylistImport}
           onClick={saveCurrentPlaylist}
         >
           Import & Save Playlist Link
