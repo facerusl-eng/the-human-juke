@@ -1116,7 +1116,12 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     const normalizedTrackUri = normalizeTrackUri(spotifyUri)
 
     if (!normalizedTrackUri) {
-      setPlayerStatus('Provide a valid Spotify track URI, URL, or ID.')
+      if (playlistInput.trim()) {
+        await startPlaylistPlayback(playlistInput)
+        return
+      }
+
+      setPlayerStatus('Provide a valid Spotify track URI, URL, or ID, or set a Between Songs Playlist.')
       return
     }
 
