@@ -1364,7 +1364,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
         if (nextTransportCommand.mode === 'play') {
           if (!hasSdkPlaybackDevice) {
-            const resumed = await resumePlayback()
+            // Try resuming first; if that throws (no active device) or returns false,
+            // always fall through to starting the configured playlist.
+            let resumed = false
+            try {
+              resumed = await resumePlayback()
+            } catch {
+              // No active device or context — fall through to playlist start.
+            }
 
             if (resumed) {
               setPlayerStatus('Between-song Spotify playback resumed from Gig Control.')
@@ -1373,7 +1380,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
             if (playlistInput.trim()) {
               await startPlaylistPlayback(playlistInput)
-              setPlayerStatus('Started between-song playlist (no paused context was available).')
+              setPlayerStatus('Started between-song playlist.')
               return
             }
 
