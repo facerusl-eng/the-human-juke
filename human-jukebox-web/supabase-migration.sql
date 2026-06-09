@@ -1,0 +1,1157 @@
+-- Allow QR audience access for room-open gigs even when is_active/profile sync lags
+DROP POLICY IF EXISTS events_select_authenticated ON public.events;
+CREATE POLICY events_select_authenticated ON public.events
+  FOR SELECT TO authenticated
+  USING (
+    is_active = true
+    OR room_open = true
+    OR show_in_audience_no_gig = true
+    OR host_id = auth.uid()
+  );
+
+-- Enable Supabase Realtime on the events table so audience clients receive
+-- instant updates when room_open / is_active change (Go Live / Pause Live).
+-- Also enable for queue_songs so live queue votes propagate in real-time.
+-- Safe to run multiple times; ADD TABLE is idempotent in Postgres.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.events;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.queue_songs;
+
+DROP POLICY IF EXISTS queue_songs_select_event ON public.queue_songs;
+CREATE POLICY queue_songs_select_event ON public.queue_songs
+  FOR SELECT TO authenticated
+  USING (
+    (
+      event_id IN (
+        SELECT p.active_event_id
+        FROM public.profiles p
+        WHERE p.user_id = auth.uid()
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM public.events e
+        WHERE e.id = queue_songs.event_id
+          AND e.room_open = true
+      )
+    )
+    OR is_host_for_event(event_id)
+  );
+
+DROP POLICY IF EXISTS queue_songs_insert_guest ON public.queue_songs;
+CREATE POLICY queue_songs_insert_guest ON public.queue_songs
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = queue_songs.event_id
+        AND e.room_open = true
+        AND (
+          e.explicit_filter_enabled = false
+          OR queue_songs.is_explicit = false
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS feed_posts_event_select ON public.feed_posts;
+CREATE POLICY feed_posts_event_select ON public.feed_posts
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = feed_posts.event_id
+        AND (
+          e.is_active = true
+          OR e.room_open = true
+          OR is_host_for_event(e.id)
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS feed_posts_event_insert ON public.feed_posts;
+CREATE POLICY feed_posts_event_insert ON public.feed_posts
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = feed_posts.event_id
+        AND (
+          e.is_active = true
+          OR e.room_open = true
+          OR is_host_for_event(e.id)
+        )
+    )
+  );
+
+-- Allow active hosts to sync mirror playback state even if events.host_id differs
+DROP POLICY IF EXISTS "Only host can insert playback state" ON public.playback_state;
+DROP POLICY IF EXISTS "Only host can update playback state" ON public.playback_state;
+
+CREATE POLICY "Hosts can insert playback state" ON public.playback_state
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = playback_state.event_id
+        AND (
+          e.host_id = auth.uid()
+          OR is_host_for_event(playback_state.event_id)
+        )
+    )
+  );
+
+CREATE POLICY "Hosts can update playback state" ON public.playback_state
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = playback_state.event_id
+        AND (
+          e.host_id = auth.uid()
+          OR is_host_for_event(playback_state.event_id)
+        )
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.events e
+      WHERE e.id = playback_state.event_id
+        AND (
+          e.host_id = auth.uid()
+          OR is_host_for_event(playback_state.event_id)
+        )
+    )
+  );
+-- Run this in the Supabase SQL Editor
+-- Dashboard → SQL Editor → paste and run
+
+-- Add name/venue to events table
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT 'Untitled Gig',
+  ADD COLUMN IF NOT EXISTS venue TEXT,
+  ADD COLUMN IF NOT EXISTS subtitle TEXT,
+  ADD COLUMN IF NOT EXISTS request_instructions TEXT,
+  ADD COLUMN IF NOT EXISTS instagram_url TEXT,
+  ADD COLUMN IF NOT EXISTS tiktok_url TEXT,
+  ADD COLUMN IF NOT EXISTS youtube_url TEXT,
+  ADD COLUMN IF NOT EXISTS facebook_url TEXT,
+  ADD COLUMN IF NOT EXISTS paypal_url TEXT,
+  ADD COLUMN IF NOT EXISTS mobilpay_url TEXT,
+  ADD COLUMN IF NOT EXISTS contact_email TEXT,
+  ADD COLUMN IF NOT EXISTS playlist_only_requests BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS mirror_photo_spotlight_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS mirror_countdown_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS mirror_countdown_show_qr_link BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS mirror_brb_qr_flash_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS mirror_brb_qr_flash_venue TEXT,
+  ADD COLUMN IF NOT EXISTS mirror_banner_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS mirror_banner_text TEXT,
+  ADD COLUMN IF NOT EXISTS allow_duplicate_requests BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS max_active_requests_per_user INTEGER,
+  ADD COLUMN IF NOT EXISTS show_in_audience_no_gig BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS cover_image_url TEXT,
+  ADD COLUMN IF NOT EXISTS venue_logo_scale INTEGER NOT NULL DEFAULT 100,
+  ADD COLUMN IF NOT EXISTS venue_logo_offset_x INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS venue_logo_offset_y INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS venue_logo_appearance TEXT NOT NULL DEFAULT 'clean';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'events_venue_logo_appearance_check'
+  ) THEN
+    ALTER TABLE public.events
+      ADD CONSTRAINT events_venue_logo_appearance_check
+      CHECK (venue_logo_appearance IN ('clean', 'soft-glow', 'neon-pop', 'high-contrast'));
+  END IF;
+END $$;
+
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS audience_icelandic_enabled BOOLEAN NOT NULL DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS events_show_in_audience_no_gig_idx
+  ON public.events (show_in_audience_no_gig, gig_date, gig_start_time)
+  WHERE show_in_audience_no_gig = true;
+
+ALTER TABLE public.events
+  ALTER COLUMN host_code_hash DROP NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'events' AND policyname = 'events_insert_host'
+  ) THEN
+    CREATE POLICY events_insert_host ON public.events
+      FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = host_id);
+  END IF;
+END $$;
+
+ALTER TABLE public.events
+  ALTER COLUMN host_id SET DEFAULT auth.uid();
+
+DROP POLICY IF EXISTS events_insert_host ON public.events;
+CREATE POLICY events_insert_host ON public.events
+  FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() IS NOT NULL AND host_id = auth.uid());
+
+-- Add host settings columns to profiles table
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS display_name TEXT,
+  ADD COLUMN IF NOT EXISTS bio TEXT,
+  ADD COLUMN IF NOT EXISTS instagram_url TEXT,
+  ADD COLUMN IF NOT EXISTS tiktok_url TEXT,
+  ADD COLUMN IF NOT EXISTS youtube_url TEXT,
+  ADD COLUMN IF NOT EXISTS facebook_url TEXT,
+  ADD COLUMN IF NOT EXISTS paypal_url TEXT,
+  ADD COLUMN IF NOT EXISTS mobilpay_url TEXT,
+  ADD COLUMN IF NOT EXISTS buymeacoffee_url TEXT,
+  ADD COLUMN IF NOT EXISTS kofi_url TEXT,
+  ADD COLUMN IF NOT EXISTS default_gig_name TEXT,
+  ADD COLUMN IF NOT EXISTS default_venue TEXT;
+
+-- Add host_id to events and cover/library metadata to queue songs
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS host_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+ALTER TABLE public.queue_songs
+  ADD COLUMN IF NOT EXISTS cover_url TEXT,
+  ADD COLUMN IF NOT EXISTS library_song_id UUID REFERENCES public.library_songs(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS audience_sings BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE public.queue_songs
+  ADD COLUMN IF NOT EXISTS performed_at TIMESTAMPTZ;
+
+-- Add playlist and song-library tables
+CREATE TABLE IF NOT EXISTS public.playlists (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.playlists
+  ADD COLUMN IF NOT EXISTS playlist_type TEXT NOT NULL DEFAULT 'human_jukebox';
+
+UPDATE public.playlists
+SET playlist_type = 'karaoke'
+WHERE playlist_type = 'human_jukebox'
+  AND name ILIKE '%karaoke%';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'playlists_playlist_type_check'
+  ) THEN
+    ALTER TABLE public.playlists
+      ADD CONSTRAINT playlists_playlist_type_check
+      CHECK (playlist_type IN ('human_jukebox', 'karaoke'));
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.library_songs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  artist TEXT NOT NULL,
+  cover_url TEXT,
+  is_explicit BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.playlist_songs (
+  playlist_id UUID NOT NULL REFERENCES public.playlists(id) ON DELETE CASCADE,
+  song_id UUID NOT NULL REFERENCES public.library_songs(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (playlist_id, song_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.feed_posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  author_name TEXT NOT NULL,
+  message TEXT NOT NULL DEFAULT '',
+  image_data_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT feed_posts_message_or_image_check CHECK (
+    btrim(message) <> '' OR image_data_url IS NOT NULL
+  )
+);
+
+CREATE TABLE IF NOT EXISTS public.event_playlists (
+  event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  playlist_id UUID NOT NULL REFERENCES public.playlists(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (event_id, playlist_id)
+);
+
+CREATE INDEX IF NOT EXISTS playlists_user_id_created_at_idx
+  ON public.playlists (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS library_songs_user_id_created_at_idx
+  ON public.library_songs (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS playlist_songs_playlist_id_position_idx
+  ON public.playlist_songs (playlist_id, position, created_at);
+
+CREATE INDEX IF NOT EXISTS queue_songs_event_id_active_idx
+  ON public.queue_songs (event_id, created_at)
+  WHERE is_removed = false;
+
+CREATE INDEX IF NOT EXISTS feed_posts_event_id_created_at_idx
+  ON public.feed_posts (event_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS feed_posts_user_id_created_at_idx
+  ON public.feed_posts (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS event_playlists_playlist_id_idx
+  ON public.event_playlists (playlist_id);
+
+ALTER TABLE public.playlists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.library_songs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.playlist_songs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.feed_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.event_playlists ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlists' AND policyname = 'playlists_owner_select'
+  ) THEN
+    CREATE POLICY playlists_owner_select ON public.playlists FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlists' AND policyname = 'playlists_event_visible_select'
+  ) THEN
+    CREATE POLICY playlists_event_visible_select ON public.playlists
+      FOR SELECT TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1
+          FROM public.event_playlists event_playlists
+          JOIN public.events events ON events.id = event_playlists.event_id
+          WHERE event_playlists.playlist_id = playlists.id
+            AND (events.is_active = true OR is_host_for_event(events.id))
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlists' AND policyname = 'playlists_owner_insert'
+  ) THEN
+    CREATE POLICY playlists_owner_insert ON public.playlists FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlists' AND policyname = 'playlists_owner_update'
+  ) THEN
+    CREATE POLICY playlists_owner_update ON public.playlists FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlists' AND policyname = 'playlists_owner_delete'
+  ) THEN
+    CREATE POLICY playlists_owner_delete ON public.playlists FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'library_songs' AND policyname = 'library_songs_owner_select'
+  ) THEN
+    CREATE POLICY library_songs_owner_select ON public.library_songs FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'library_songs' AND policyname = 'library_songs_event_visible_select'
+  ) THEN
+    CREATE POLICY library_songs_event_visible_select ON public.library_songs
+      FOR SELECT TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1
+          FROM public.playlist_songs playlist_songs
+          JOIN public.event_playlists event_playlists ON event_playlists.playlist_id = playlist_songs.playlist_id
+          JOIN public.events events ON events.id = event_playlists.event_id
+          WHERE playlist_songs.song_id = library_songs.id
+            AND (events.is_active = true OR is_host_for_event(events.id))
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'library_songs' AND policyname = 'library_songs_owner_insert'
+  ) THEN
+    CREATE POLICY library_songs_owner_insert ON public.library_songs FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'library_songs' AND policyname = 'library_songs_owner_update'
+  ) THEN
+    CREATE POLICY library_songs_owner_update ON public.library_songs FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'library_songs' AND policyname = 'library_songs_owner_delete'
+  ) THEN
+    CREATE POLICY library_songs_owner_delete ON public.library_songs FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlist_songs' AND policyname = 'playlist_songs_owner_select'
+  ) THEN
+    CREATE POLICY playlist_songs_owner_select ON public.playlist_songs
+      FOR SELECT USING (
+        EXISTS (
+          SELECT 1 FROM public.playlists playlists
+          WHERE playlists.id = playlist_songs.playlist_id
+            AND playlists.user_id = auth.uid()
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlist_songs' AND policyname = 'playlist_songs_event_visible_select'
+  ) THEN
+    CREATE POLICY playlist_songs_event_visible_select ON public.playlist_songs
+      FOR SELECT TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1
+          FROM public.event_playlists event_playlists
+          JOIN public.events events ON events.id = event_playlists.event_id
+          WHERE event_playlists.playlist_id = playlist_songs.playlist_id
+            AND (events.is_active = true OR is_host_for_event(events.id))
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlist_songs' AND policyname = 'playlist_songs_owner_insert'
+  ) THEN
+    CREATE POLICY playlist_songs_owner_insert ON public.playlist_songs
+      FOR INSERT WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.playlists playlists
+          WHERE playlists.id = playlist_songs.playlist_id
+            AND playlists.user_id = auth.uid()
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlist_songs' AND policyname = 'playlist_songs_owner_update'
+  ) THEN
+    CREATE POLICY playlist_songs_owner_update ON public.playlist_songs
+      FOR UPDATE USING (
+        EXISTS (
+          SELECT 1 FROM public.playlists playlists
+          WHERE playlists.id = playlist_songs.playlist_id
+            AND playlists.user_id = auth.uid()
+        )
+      )
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM public.playlists playlists
+          WHERE playlists.id = playlist_songs.playlist_id
+            AND playlists.user_id = auth.uid()
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'playlist_songs' AND policyname = 'playlist_songs_owner_delete'
+  ) THEN
+    CREATE POLICY playlist_songs_owner_delete ON public.playlist_songs
+      FOR DELETE USING (
+        EXISTS (
+          SELECT 1 FROM public.playlists playlists
+          WHERE playlists.id = playlist_songs.playlist_id
+            AND playlists.user_id = auth.uid()
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'feed_posts' AND policyname = 'feed_posts_event_select'
+  ) THEN
+    CREATE POLICY feed_posts_event_select ON public.feed_posts
+      FOR SELECT TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1
+          FROM public.events events
+          WHERE events.id = feed_posts.event_id
+            AND (events.is_active = true OR is_host_for_event(events.id))
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'feed_posts' AND policyname = 'feed_posts_event_insert'
+  ) THEN
+    CREATE POLICY feed_posts_event_insert ON public.feed_posts
+      FOR INSERT TO authenticated
+      WITH CHECK (
+        auth.uid() = user_id
+        AND EXISTS (
+          SELECT 1
+          FROM public.events events
+          WHERE events.id = feed_posts.event_id
+            AND (events.is_active = true OR is_host_for_event(events.id))
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'feed_posts' AND policyname = 'feed_posts_owner_or_host_delete'
+  ) THEN
+    CREATE POLICY feed_posts_owner_or_host_delete ON public.feed_posts
+      FOR DELETE TO authenticated
+      USING (auth.uid() = user_id OR is_host_for_event(event_id));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'event_playlists' AND policyname = 'event_playlists_select_visible'
+  ) THEN
+    CREATE POLICY event_playlists_select_visible ON public.event_playlists
+      FOR SELECT TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1
+          FROM public.events events
+          WHERE events.id = event_playlists.event_id
+            AND (events.is_active = true OR is_host_for_event(events.id))
+        )
+      );
+  END IF;
+
+  DROP POLICY IF EXISTS event_playlists_host_insert ON public.event_playlists;
+  CREATE POLICY event_playlists_host_insert ON public.event_playlists
+    FOR INSERT TO authenticated
+    WITH CHECK (
+      EXISTS (
+        SELECT 1
+        FROM public.events events
+        WHERE events.id = event_playlists.event_id
+          AND events.host_id = auth.uid()
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM public.playlists playlists
+        WHERE playlists.id = event_playlists.playlist_id
+          AND playlists.user_id = auth.uid()
+      )
+    );
+
+  DROP POLICY IF EXISTS event_playlists_host_delete ON public.event_playlists;
+  CREATE POLICY event_playlists_host_delete ON public.event_playlists
+    FOR DELETE TO authenticated
+    USING (
+      EXISTS (
+        SELECT 1
+        FROM public.events events
+        WHERE events.id = event_playlists.event_id
+          AND events.host_id = auth.uid()
+      )
+    );
+END $$;
+
+-- Allow hosts to delete gigs safely and clear host profile pointers when a gig is removed
+DROP POLICY IF EXISTS events_delete_host ON public.events;
+CREATE POLICY events_delete_host ON public.events
+  FOR DELETE TO authenticated
+  USING (host_id = auth.uid());
+
+ALTER TABLE public.profiles
+  DROP CONSTRAINT IF EXISTS profiles_active_event_id_fkey;
+
+ALTER TABLE public.profiles
+  ADD CONSTRAINT profiles_active_event_id_fkey
+  FOREIGN KEY (active_event_id)
+  REFERENCES public.events(id)
+  ON DELETE SET NULL;
+
+CREATE OR REPLACE FUNCTION public.is_playlist_owner(target_playlist_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.playlists playlists
+    WHERE playlists.id = target_playlist_id
+      AND playlists.user_id = auth.uid()
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_playlist_owner(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_playlist_owner(UUID) TO authenticated;
+
+DROP POLICY IF EXISTS event_playlists_host_insert ON public.event_playlists;
+CREATE POLICY event_playlists_host_insert ON public.event_playlists
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.events events
+      WHERE events.id = event_playlists.event_id
+        AND events.host_id = auth.uid()
+    )
+    AND public.is_playlist_owner(event_playlists.playlist_id)
+  );
+
+-- ─── Settings Page redesign: new profile columns (April 2026) ───────────────
+-- Run in Supabase SQL Editor to enable website, photo, theme, and default screen settings
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS website_url TEXT,
+  ADD COLUMN IF NOT EXISTS performer_photo_url TEXT,
+  ADD COLUMN IF NOT EXISTS theme_preset TEXT NOT NULL DEFAULT 'dark',
+  ADD COLUMN IF NOT EXISTS accent_color TEXT NOT NULL DEFAULT '#5dd7ff',
+  ADD COLUMN IF NOT EXISTS default_audience_bg_blur INTEGER NOT NULL DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS default_mirror_layout TEXT NOT NULL DEFAULT 'centered';
+
+-- ─── Settings Page redesign: new profile columns (April 2026) ───────────────
+-- Run in Supabase SQL Editor to enable website, photo, theme, and default screen settings
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS website_url TEXT,
+  ADD COLUMN IF NOT EXISTS performer_photo_url TEXT,
+  ADD COLUMN IF NOT EXISTS theme_preset TEXT NOT NULL DEFAULT 'dark',
+  ADD COLUMN IF NOT EXISTS accent_color TEXT NOT NULL DEFAULT '#5dd7ff',
+  ADD COLUMN IF NOT EXISTS default_audience_bg_blur INTEGER NOT NULL DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS default_mirror_layout TEXT NOT NULL DEFAULT 'centered';
+
+-- ─── Optional gig date/time columns (April 2026) ────────────────────────────
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS gig_date DATE,
+  ADD COLUMN IF NOT EXISTS gig_start_time TIME,
+  ADD COLUMN IF NOT EXISTS gig_end_time TIME;
+
+-- ─── Custom button + Tip thank-you messages on events (May 2026) ──────────────
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS show_custom_button BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS custom_button_label TEXT,
+  ADD COLUMN IF NOT EXISTS custom_button_link TEXT,
+  ADD COLUMN IF NOT EXISTS tip_thank_you_message_da TEXT,
+  ADD COLUMN IF NOT EXISTS tip_thank_you_message_en TEXT;
+
+-- ─── Global Action Check gate for shared control actions (May 2026) ───────────
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS global_action_check_enabled BOOLEAN NOT NULL DEFAULT true;
+
+-- ─── Contact email on profiles (April 2026) ─────────────────────────────────
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS contact_email TEXT;
+
+-- ─── Custom songs and uploaded song covers (April 2026) ─────────────────────
+CREATE TABLE IF NOT EXISTS public.custom_songs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  artist TEXT,
+  cover_url TEXT,
+  created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS custom_songs_created_by_created_at_idx
+  ON public.custom_songs (created_by, created_at DESC);
+
+ALTER TABLE public.custom_songs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS custom_songs_owner_select ON public.custom_songs;
+CREATE POLICY custom_songs_owner_select ON public.custom_songs
+  FOR SELECT TO authenticated
+  USING (created_by = auth.uid());
+
+DROP POLICY IF EXISTS custom_songs_owner_insert ON public.custom_songs;
+CREATE POLICY custom_songs_owner_insert ON public.custom_songs
+  FOR INSERT TO authenticated
+  WITH CHECK (created_by = auth.uid());
+
+DROP POLICY IF EXISTS custom_songs_owner_update ON public.custom_songs;
+CREATE POLICY custom_songs_owner_update ON public.custom_songs
+  FOR UPDATE TO authenticated
+  USING (created_by = auth.uid())
+  WITH CHECK (created_by = auth.uid());
+
+DROP POLICY IF EXISTS custom_songs_owner_delete ON public.custom_songs;
+CREATE POLICY custom_songs_owner_delete ON public.custom_songs
+  FOR DELETE TO authenticated
+  USING (created_by = auth.uid());
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('song-covers', 'song-covers', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS song_covers_public_read ON storage.objects;
+CREATE POLICY song_covers_public_read ON storage.objects
+  FOR SELECT TO public
+  USING (bucket_id = 'song-covers');
+
+DROP POLICY IF EXISTS song_covers_owner_insert ON storage.objects;
+CREATE POLICY song_covers_owner_insert ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'song-covers'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS song_covers_owner_update ON storage.objects;
+CREATE POLICY song_covers_owner_update ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (
+    bucket_id = 'song-covers'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  )
+  WITH CHECK (
+    bucket_id = 'song-covers'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS song_covers_owner_delete ON storage.objects;
+CREATE POLICY song_covers_owner_delete ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'song-covers'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- ─── Crash telemetry logging (April 2026) ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.crash_telemetry (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  route TEXT NOT NULL,
+  error_fingerprint TEXT NOT NULL,
+  error_message TEXT NOT NULL,
+  stack_snippet TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS crash_telemetry_created_at_idx
+  ON public.crash_telemetry (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS crash_telemetry_route_created_at_idx
+  ON public.crash_telemetry (route, created_at DESC);
+
+ALTER TABLE public.crash_telemetry ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'crash_telemetry'
+      AND policyname = 'crash_telemetry_insert_authenticated'
+  ) THEN
+    CREATE POLICY crash_telemetry_insert_authenticated ON public.crash_telemetry
+      FOR INSERT TO authenticated
+      WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'crash_telemetry'
+      AND policyname = 'crash_telemetry_select_authenticated'
+  ) THEN
+    CREATE POLICY crash_telemetry_select_authenticated ON public.crash_telemetry
+      FOR SELECT TO authenticated
+      USING (true);
+  END IF;
+END $$;
+
+-- ─── Queue reordering: add position column to queue_songs (April 2026) ──────
+ALTER TABLE public.queue_songs
+  ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL DEFAULT 0;
+
+-- Update existing songs to have sequential positions based on created_at
+UPDATE public.queue_songs qs
+SET position = (
+  SELECT COUNT(*)
+  FROM public.queue_songs qs2
+  WHERE qs2.event_id = qs.event_id
+    AND qs2.is_removed = false
+    AND (qs2.created_at < qs.created_at OR (qs2.created_at = qs.created_at AND qs2.id <= qs.id))
+) - 1
+WHERE is_removed = false;
+
+-- Drop and recreate the index to include position for faster sorting
+DROP INDEX IF EXISTS queue_songs_event_id_active_idx;
+CREATE INDEX IF NOT EXISTS queue_songs_event_id_position_idx
+  ON public.queue_songs (event_id, position)
+  WHERE is_removed = false;
+
+-- ─── Atomic host gig creation RPC (April 2026) ─────────────────────────────
+CREATE OR REPLACE FUNCTION public.create_host_gig(
+  p_name text,
+  p_venue text DEFAULT NULL,
+  p_gig_date date DEFAULT NULL,
+  p_gig_start_time time DEFAULT NULL,
+  p_gig_end_time time DEFAULT NULL,
+  p_show_in_audience_no_gig boolean DEFAULT false,
+  p_cover_image_url text DEFAULT NULL
+)
+RETURNS TABLE(id uuid, activated boolean)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_host_id uuid := auth.uid();
+  v_event_id uuid;
+  v_default_playlist_id uuid;
+  v_karaoke_playlist_id uuid;
+  v_has_active_gig boolean;
+BEGIN
+  IF v_host_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  IF coalesce(trim(p_name), '') = '' THEN
+    RAISE EXCEPTION 'Gig name is required';
+  END IF;
+
+  INSERT INTO public.events (
+    host_id,
+    name,
+    venue,
+    is_active,
+    playlist_only_requests,
+    room_open,
+    explicit_filter_enabled,
+    gig_date,
+    gig_start_time,
+    gig_end_time,
+    show_in_audience_no_gig,
+    cover_image_url
+  )
+  VALUES (
+    v_host_id,
+    trim(p_name),
+    nullif(trim(coalesce(p_venue, '')), ''),
+    false,
+    true,
+    false,
+    true,
+    p_gig_date,
+    p_gig_start_time,
+    p_gig_end_time,
+    coalesce(p_show_in_audience_no_gig, false),
+    p_cover_image_url
+  )
+  RETURNING events.id INTO v_event_id;
+
+  SELECT playlists.id
+  INTO v_default_playlist_id
+  FROM public.playlists
+  WHERE playlists.user_id = v_host_id
+  ORDER BY playlists.created_at ASC
+  LIMIT 1;
+
+  IF v_default_playlist_id IS NULL THEN
+    INSERT INTO public.playlists (user_id, name, description, playlist_type)
+    VALUES (
+      v_host_id,
+      concat(trim(p_name), ' Setlist'),
+      'Main setlist for live requests.',
+      'human_jukebox'
+    )
+    RETURNING playlists.id INTO v_default_playlist_id;
+  END IF;
+
+  SELECT playlists.id
+  INTO v_karaoke_playlist_id
+  FROM public.playlists
+  WHERE playlists.user_id = v_host_id
+    AND playlists.playlist_type = 'karaoke'
+  ORDER BY playlists.created_at ASC
+  LIMIT 1;
+
+  IF v_karaoke_playlist_id IS NULL THEN
+    INSERT INTO public.playlists (user_id, name, description, playlist_type)
+    VALUES (
+      v_host_id,
+      'Karaoke Only',
+      'Songs reserved for audience karaoke requests.',
+      'karaoke'
+    )
+    RETURNING playlists.id INTO v_karaoke_playlist_id;
+  END IF;
+
+  INSERT INTO public.event_playlists (event_id, playlist_id)
+  VALUES (v_event_id, v_default_playlist_id)
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO public.event_playlists (event_id, playlist_id)
+  VALUES (v_event_id, v_karaoke_playlist_id)
+  ON CONFLICT DO NOTHING;
+
+  UPDATE public.profiles
+  SET active_event_id = v_event_id
+  WHERE user_id = v_host_id;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.events
+    WHERE host_id = v_host_id
+      AND is_active = true
+      AND public.events.id <> v_event_id
+  ) INTO v_has_active_gig;
+
+  IF NOT v_has_active_gig THEN
+    UPDATE public.events
+    SET is_active = true
+    WHERE public.events.id = v_event_id;
+  END IF;
+
+  id := v_event_id;
+  activated := NOT v_has_active_gig;
+  RETURN NEXT;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.create_host_gig(text, text, date, time, time, boolean, text) TO authenticated;
+
+-- ─── Event types: karaoke and halli-live (May 2026) ───────────────────────
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS event_type TEXT NOT NULL DEFAULT 'halli-live',
+  ADD COLUMN IF NOT EXISTS karafun_url TEXT;
+
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS event_theme TEXT NOT NULL DEFAULT 'human-jukebox';
+
+UPDATE public.events
+SET event_theme = CASE
+  WHEN event_type = 'karaoke' THEN 'karaoke'
+  ELSE 'human-jukebox'
+END
+WHERE event_theme IS NULL
+  OR event_theme NOT IN ('harald-live', 'human-jukebox', 'karaoke');
+
+ALTER TABLE public.events
+  DROP CONSTRAINT IF EXISTS events_event_type_check;
+
+ALTER TABLE public.events
+  ADD CONSTRAINT events_event_type_check
+  CHECK (event_type IN ('halli-live', 'karaoke'));
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'events_event_theme_check'
+  ) THEN
+    ALTER TABLE public.events
+      ADD CONSTRAINT events_event_theme_check
+      CHECK (event_theme IN ('harald-live', 'human-jukebox', 'karaoke'));
+  END IF;
+END $$;
+
+-- ─── Queue snapshots and transactional restore (May 2026) ─────────────────
+CREATE TABLE IF NOT EXISTS public.queue_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reason TEXT NOT NULL DEFAULT 'manual',
+  snapshot JSONB NOT NULL,
+  created_by UUID NULL REFERENCES auth.users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS queue_snapshots_event_created_idx
+  ON public.queue_snapshots (event_id, created_at DESC);
+
+ALTER TABLE public.queue_snapshots ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS queue_snapshots_select_host ON public.queue_snapshots;
+CREATE POLICY queue_snapshots_select_host ON public.queue_snapshots
+  FOR SELECT TO authenticated
+  USING (is_host_for_event(event_id));
+
+DROP POLICY IF EXISTS queue_snapshots_insert_host ON public.queue_snapshots;
+CREATE POLICY queue_snapshots_insert_host ON public.queue_snapshots
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    is_host_for_event(event_id)
+    AND (created_by IS NULL OR created_by = auth.uid())
+  );
+
+DROP POLICY IF EXISTS queue_snapshots_delete_host ON public.queue_snapshots;
+CREATE POLICY queue_snapshots_delete_host ON public.queue_snapshots
+  FOR DELETE TO authenticated
+  USING (is_host_for_event(event_id));
+
+CREATE OR REPLACE FUNCTION public.trim_queue_snapshots()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  DELETE FROM public.queue_snapshots
+  WHERE id IN (
+    SELECT id
+    FROM public.queue_snapshots
+    WHERE event_id = NEW.event_id
+    ORDER BY created_at DESC
+    OFFSET 20
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS queue_snapshots_trim_after_insert ON public.queue_snapshots;
+CREATE TRIGGER queue_snapshots_trim_after_insert
+AFTER INSERT ON public.queue_snapshots
+FOR EACH ROW
+EXECUTE FUNCTION public.trim_queue_snapshots();
+
+CREATE OR REPLACE FUNCTION public.restore_queue_snapshot(p_snapshot_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_snapshot RECORD;
+  v_queue JSONB;
+  v_restored_count INTEGER := 0;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  SELECT qs.*
+  INTO v_snapshot
+  FROM public.queue_snapshots qs
+  WHERE qs.id = p_snapshot_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Snapshot not found';
+  END IF;
+
+  IF NOT is_host_for_event(v_snapshot.event_id) THEN
+    RAISE EXCEPTION 'Not allowed to restore this snapshot';
+  END IF;
+
+  v_queue := COALESCE(v_snapshot.snapshot->'queue', '[]'::jsonb);
+
+  UPDATE public.queue_songs
+  SET is_removed = true
+  WHERE event_id = v_snapshot.event_id
+    AND is_removed = false;
+
+  INSERT INTO public.queue_songs (
+    event_id,
+    title,
+    artist,
+    votes_count,
+    is_explicit,
+    voting_locked,
+    is_removed,
+    cover_url,
+    library_song_id,
+    audience_sings,
+    requester_name,
+    created_by,
+    position
+  )
+  SELECT
+    v_snapshot.event_id,
+    COALESCE(item->>'title', ''),
+    COALESCE(item->>'artist', ''),
+    COALESCE((item->>'votes_count')::INTEGER, 0),
+    COALESCE((item->>'is_explicit')::BOOLEAN, false),
+    COALESCE((item->>'voting_locked')::BOOLEAN, false),
+    false,
+    NULLIF(item->>'cover_url', ''),
+    CASE
+      WHEN COALESCE(item->>'library_song_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+        THEN (item->>'library_song_id')::UUID
+      ELSE NULL
+    END,
+    COALESCE((item->>'audience_sings')::BOOLEAN, false),
+    NULLIF(item->>'createdByName', ''),
+    auth.uid(),
+    ordinality - 1
+  FROM jsonb_array_elements(v_queue) WITH ORDINALITY AS elements(item, ordinality);
+
+  GET DIAGNOSTICS v_restored_count = ROW_COUNT;
+
+  UPDATE public.events
+  SET
+    room_open = COALESCE((v_snapshot.snapshot->>'roomOpen')::BOOLEAN, room_open),
+    explicit_filter_enabled = COALESCE((v_snapshot.snapshot->>'explicitFilterEnabled')::BOOLEAN, explicit_filter_enabled)
+  WHERE id = v_snapshot.event_id;
+
+  RETURN jsonb_build_object(
+    'snapshot_id', p_snapshot_id,
+    'event_id', v_snapshot.event_id,
+    'restored_count', v_restored_count
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.restore_queue_snapshot(UUID) TO authenticated;
+
+-- ─── Audience voting, auto-live, intro audio, artist name, venue logo (May 2026) ─
+-- Columns used by updateEventSettings / createEvent that were never formally migrated.
+-- Safe to run multiple times; ADD COLUMN IF NOT EXISTS is idempotent.
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS venue_logo_url TEXT,
+  ADD COLUMN IF NOT EXISTS audience_voting_enabled BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS auto_live_enabled BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS intro_audio_url TEXT,
+  ADD COLUMN IF NOT EXISTS event_artist_name TEXT,
+  ADD COLUMN IF NOT EXISTS mirror_brb_qr_link TEXT,
+  ADD COLUMN IF NOT EXISTS mirror_brb_qr_text TEXT;
+
+-- ─── Global mirror layout state on profiles (May 2026) ───────────────────────
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS default_mirror_layout_state JSONB;
+
+-- ─── Mirror BRB overlay sync fields (May 2026) ───────────────────────────────
+-- Keeps emergency overlays (e.g. Last Song Soon) persistent across mirror screens.
+ALTER TABLE public.playback_state
+  ADD COLUMN IF NOT EXISTS brb_active BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS brb_message TEXT;
+
+-- ─── Host queue moderation update policy (May 2026) ─────────────────────────
+-- Required so host actions (mark played / skip / reorder) can persist under RLS.
+DROP POLICY IF EXISTS queue_songs_update_host ON public.queue_songs;
+CREATE POLICY queue_songs_update_host ON public.queue_songs
+  FOR UPDATE TO authenticated
+  USING (is_host_for_event(event_id))
+  WITH CHECK (is_host_for_event(event_id));
+
+-- ─── Host ownership helper hardening (May 2026) ──────────────────────────────
+-- Use canonical event ownership; profile.active_event_id may be null/stale.
+CREATE OR REPLACE FUNCTION public.is_host_for_event(target_event_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.events e
+    WHERE e.id = target_event_id
+      AND e.host_id = auth.uid()
+  );
+$$;

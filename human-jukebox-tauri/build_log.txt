@@ -1,0 +1,51 @@
+
+> human-jukebox-org@0.0.0 build
+> tsc -b && vite build
+
+[36mvite v7.3.2 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mÔ£ô[39m 1886 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32massets/gigWorker-BKWCAHdd.js                 [39m[1m[2m    0.49 kB[22m[1m[22m
+[2mdist/[22m[32mindex.html                                   [39m[1m[2m    3.85 kB[22m[1m[22m[2m Ôöé gzip:   1.38 kB[22m
+[2mdist/[22m[35massets/ComingGigsPage-CB-TTzvl.css           [39m[1m[2m    1.80 kB[22m[1m[22m[2m Ôöé gzip:   0.78 kB[22m
+[2mdist/[22m[35massets/AudioPlayer-DAI6RRwj.css              [39m[1m[2m    2.52 kB[22m[1m[22m[2m Ôöé gzip:   0.87 kB[22m
+[2mdist/[22m[35massets/HomePage-Dq_6rdzf.css                 [39m[1m[2m    9.88 kB[22m[1m[22m[2m Ôöé gzip:   2.66 kB[22m
+[2mdist/[22m[35massets/index-D1LZsw_Y.css                    [39m[1m[2m  394.62 kB[22m[1m[22m[2m Ôöé gzip:  72.96 kB[22m
+[2mdist/[22m[36massets/backgroundSync-BFYIGLTy.js            [39m[1m[2m    0.32 kB[22m[1m[22m[2m Ôöé gzip:   0.23 kB[22m
+[2mdist/[22m[36massets/audienceUrl-C9LqztaW.js               [39m[1m[2m    0.40 kB[22m[1m[22m[2m Ôöé gzip:   0.29 kB[22m
+[2mdist/[22m[36massets/SectionHeader-oechCh8h.js             [39m[1m[2m    0.44 kB[22m[1m[22m[2m Ôöé gzip:   0.27 kB[22m
+[2mdist/[22m[36massets/openMirrorScreen-BaPDQ3GZ.js          [39m[1m[2m    0.84 kB[22m[1m[22m[2m Ôöé gzip:   0.48 kB[22m
+[2mdist/[22m[36massets/LoungeLinkPage-BJEdYpV6.js            [39m[1m[2m    0.84 kB[22m[1m[22m[2m Ôöé gzip:   0.49 kB[22m
+[2mdist/[22m[36massets/QrLandingPage-CoeHh2u2.js             [39m[1m[2m    0.88 kB[22m[1m[22m[2m Ôöé gzip:   0.48 kB[22m
+[2mdist/[22m[36massets/useClipboardCopy-p_I2C-T6.js          [39m[1m[2m    0.94 kB[22m[1m[22m[2m Ôöé gzip:   0.49 kB[22m
+[2mdist/[22m[36massets/SpotifyCallbackPage-DDnVlz8B.js       [39m[1m[2m    1.14 kB[22m[1m[22m[2m Ôöé gzip:   0.64 kB[22m
+[2mdist/[22m[36massets/useGigActions-CxkYBJiA.js             [39m[1m[2m    1.28 kB[22m[1m[22m[2m Ôöé gzip:   0.59 kB[22m
+[2mdist/[22m[36massets/useAutosaveSaveLifecycle-B1rqlzwV.js  [39m[1m[2m    2.14 kB[22m[1m[22m[2m Ôöé gzip:   0.89 kB[22m
+[2mdist/[22m[36massets/AudioPlayer-T8rmhkMc.js               [39m[1m[2m    3.79 kB[22m[1m[22m[2m Ôöé gzip:   1.47 kB[22m
+[2mdist/[22m[36massets/ComingGigsPage-bbzKzcVP.js            [39m[1m[2m    5.46 kB[22m[1m[22m[2m Ôöé gzip:   2.29 kB[22m
+[2mdist/[22m[36massets/FeedPage-D2gurRzn.js                  [39m[1m[2m    5.88 kB[22m[1m[22m[2m Ôöé gzip:   2.43 kB[22m
+[2mdist/[22m[36massets/CrashTelemetryPage-Dvlpt5CY.js        [39m[1m[2m    7.78 kB[22m[1m[22m[2m Ôöé gzip:   2.58 kB[22m
+[2mdist/[22m[36massets/GigsPage-BspCfLaB.js                  [39m[1m[2m    8.72 kB[22m[1m[22m[2m Ôöé gzip:   3.14 kB[22m
+[2mdist/[22m[36massets/ReadinessPage-CQ-a5LVx.js             [39m[1m[2m    9.07 kB[22m[1m[22m[2m Ôöé gzip:   3.12 kB[22m
+[2mdist/[22m[36massets/HealthCheckPage-BU2mBRib.js           [39m[1m[2m   10.36 kB[22m[1m[22m[2m Ôöé gzip:   4.06 kB[22m
+[2mdist/[22m[36massets/HomePage-CXj2dEBZ.js                  [39m[1m[2m   15.03 kB[22m[1m[22m[2m Ôöé gzip:   5.43 kB[22m
+[2mdist/[22m[36massets/CreateGigPage-DE2S9rlq.js             [39m[1m[2m   17.06 kB[22m[1m[22m[2m Ôöé gzip:   5.37 kB[22m
+[2mdist/[22m[36massets/SettingsPage-CR9uhK8O.js              [39m[1m[2m   17.15 kB[22m[1m[22m[2m Ôöé gzip:   5.06 kB[22m
+[2mdist/[22m[36massets/AdminPage-QSdreFzL.js                 [39m[1m[2m   18.93 kB[22m[1m[22m[2m Ôöé gzip:   5.10 kB[22m
+[2mdist/[22m[36massets/LiveFeedPanel-DrkJB-qA.js             [39m[1m[2m   24.85 kB[22m[1m[22m[2m Ôöé gzip:   8.54 kB[22m
+[2mdist/[22m[36massets/SetlistLibraryPage-X8JW1A4b.js        [39m[1m[2m   25.16 kB[22m[1m[22m[2m Ôöé gzip:   8.10 kB[22m
+[2mdist/[22m[36massets/GigSettingsPage-C7lWysdJ.js           [39m[1m[2m   56.43 kB[22m[1m[22m[2m Ôöé gzip:  13.85 kB[22m
+[2mdist/[22m[36massets/MirrorPage-BZUT5na1.js                [39m[1m[2m   66.23 kB[22m[1m[22m[2m Ôöé gzip:  19.13 kB[22m
+[2mdist/[22m[36massets/GigControlPage-C_cZ0I3m.js            [39m[1m[2m   89.82 kB[22m[1m[22m[2m Ôöé gzip:  24.43 kB[22m
+[2mdist/[22m[36massets/index-CyZKf5k_.js                     [39m[1m[2m  712.92 kB[22m[1m[22m[2m Ôöé gzip: 209.80 kB[22m
+[2mdist/[22m[36massets/heic2any-_MGAjmsL.js                  [39m[1m[2m1,352.90 kB[22m[1m[22m[2m Ôöé gzip: 341.25 kB[22m
+[32mÔ£ô built in 4.00s[39m
+
+PWA v1.2.0
+mode      generateSW
+precache  68 entries (47644.49 KiB)
+files generated
+  dist/pwa-worker.js
+  dist/workbox-4f6fa108.js

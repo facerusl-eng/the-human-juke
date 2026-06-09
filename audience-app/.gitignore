@@ -1,0 +1,19 @@
+# dependencies
+node_modules
+
+# build outputs
+dist
+
+# local env
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+
+# tooling
+.vscode
+.idea
+.DS_Store
+.vercel

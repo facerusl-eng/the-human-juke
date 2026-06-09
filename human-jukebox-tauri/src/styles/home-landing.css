@@ -1,0 +1,700 @@
+.lp-shell {
+  width: min(100%, 1680px);
+  margin: 0 auto;
+  padding: clamp(1rem, 2.5vw, 2rem);
+  display: grid;
+  gap: clamp(1.2rem, 2.4vw, 2.2rem);
+}
+
+.lp-hero,
+.lp-section,
+.lp-cta,
+.lp-stats,
+.lp-mirror-preview {
+  border: 1px solid rgba(71, 95, 157, 0.42);
+  border-radius: 20px;
+  background:
+    linear-gradient(120deg, rgba(10, 14, 30, 0.60), rgba(10, 14, 30, 0.68)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center/cover no-repeat,
+    linear-gradient(170deg, rgba(28, 31, 53, 0.96), rgba(14, 20, 38, 0.96));
+  box-shadow: 0 24px 48px rgba(3, 8, 22, 0.52), 0 8px 16px rgba(3, 8, 22, 0.32);
+}
+
+.lp-shell > section,
+.lp-copy-block,
+.lp-feature-card,
+.lp-quote-card,
+.lp-hero-block-card,
+.lp-booking-form,
+.lp-signup {
+  position: relative;
+  overflow: hidden;
+}
+
+.lp-shell > section::before,
+.lp-copy-block::before,
+.lp-feature-card::before,
+.lp-quote-card::before,
+.lp-hero-block-card::before,
+.lp-booking-form::before,
+.lp-signup::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(120deg, rgba(10, 14, 30, 0.56), rgba(10, 14, 30, 0.72)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center/cover no-repeat;
+  opacity: 0.66;
+}
+
+.lp-shell > section > *,
+.lp-copy-block > *,
+.lp-feature-card > *,
+.lp-quote-card > *,
+.lp-hero-block-card > *,
+.lp-booking-form > *,
+.lp-signup > * {
+  position: relative;
+  z-index: 1;
+}
+
+.lp-hero,
+.lp-section,
+.lp-cta,
+.lp-mirror-preview {
+  padding: clamp(2rem, 3.8vw, 3.8rem);
+}
+
+.lp-hero {
+  background:
+    linear-gradient(120deg, rgba(10, 14, 30, 0.54), rgba(10, 14, 30, 0.62)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center/cover no-repeat,
+    radial-gradient(circle at 14% 18%, rgba(37, 99, 235, 0.24), transparent 38%),
+    radial-gradient(circle at 92% 5%, rgba(56, 189, 248, 0.2), transparent 32%),
+    linear-gradient(170deg, rgba(28, 31, 53, 0.98), rgba(16, 20, 40, 0.96));
+}
+
+.lp-hero-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
+  gap: clamp(1.2rem, 3vw, 2.8rem);
+  align-items: flex-start;
+}
+
+.lp-copy-block,
+.lp-hero-block-card {
+  border: 1px solid rgba(80, 113, 183, 0.45);
+  border-radius: 18px;
+  background: linear-gradient(165deg, rgba(30, 36, 62, 0.9), rgba(16, 20, 40, 0.9));
+  box-shadow: 0 20px 40px rgba(3, 8, 22, 0.48), 0 6px 12px rgba(3, 8, 22, 0.28);
+}
+
+.lp-copy-block {
+  padding: 1.1rem 1.05rem;
+}
+
+.lp-copy-block-lead {
+  margin-bottom: 0.95rem;
+}
+
+.lp-copy-block-actions {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 0.95rem;
+}
+
+.lp-hero-blocks {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.lp-hero-block-card {
+  padding: 1rem 1.05rem;
+}
+
+.lp-hero-block-card h2 {
+  margin: 0.35rem 0 0.45rem;
+  font-size: 1.15rem;
+  color: #eef4ff;
+}
+
+.lp-hero-block-card p {
+  margin: 0;
+  color: #b6c3df;
+  line-height: 1.58;
+}
+
+.lp-hero-block-label {
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8ec5ff;
+  font-weight: 700;
+}
+
+.lp-hero-copy {
+  text-align: left;
+}
+
+.lp-eyebrow {
+  margin: 0;
+  color: rgba(148, 190, 255, 0.96);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.lp-title {
+  margin: 0.9rem 0 1rem;
+  color: #f0f5ff;
+  font-size: clamp(2.5rem, 6vw, 4.8rem);
+  line-height: 1.03;
+  letter-spacing: -0.01em;
+}
+
+.lp-title span {
+  color: #60a5fa;
+}
+
+.lp-subtitle {
+  margin: 0 auto;
+  max-width: 70ch;
+  font-size: 1rem;
+  line-height: 1.72;
+  color: #b8c4dd;
+}
+
+.lp-lang-toggle {
+  margin-top: 1.25rem;
+  display: inline-flex;
+  gap: 0.45rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.lp-lang-btn {
+  height: 2rem;
+  min-width: 3.2rem;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #95a5c7;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.lp-lang-btn-active {
+  color: #eff5ff;
+  border-color: rgba(59, 130, 246, 0.6);
+  background: rgba(37, 99, 235, 0.28);
+}
+
+.lp-hero-cta {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.lp-booking-form {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.55rem;
+  max-width: 560px;
+  padding: 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.38);
+  background: rgba(10, 16, 32, 0.72);
+}
+
+.lp-booking-form-title {
+  margin: 0;
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: #e8f0ff;
+}
+
+.lp-booking-form-help {
+  margin: 0;
+  color: #9cb1d8;
+  font-size: 0.84rem;
+}
+
+.lp-booking-form input,
+.lp-booking-form select,
+.lp-booking-form textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(76, 103, 162, 0.7);
+  background: rgba(16, 21, 40, 0.84);
+  color: #ecf2ff;
+  padding: 0.58rem 0.72rem;
+  outline: none;
+}
+
+.lp-booking-date-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.lp-booking-date-picker-button {
+  border-radius: 10px;
+  border: 1px solid rgba(76, 103, 162, 0.7);
+  background: rgba(16, 21, 40, 0.84);
+  color: #ecf2ff;
+  padding: 0.58rem 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lp-booking-date-picker-button:hover {
+  border-color: rgba(96, 165, 250, 0.92);
+}
+
+.lp-booking-date-picker-button:focus-visible {
+  border-color: rgba(96, 165, 250, 0.92);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  outline: none;
+}
+
+.lp-booking-form input:focus,
+.lp-booking-form select:focus,
+.lp-booking-form textarea:focus {
+  border-color: rgba(96, 165, 250, 0.92);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.lp-booking-actions {
+  margin-top: 0.3rem;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.lp-booking-notice,
+.lp-booking-error {
+  margin: 0.7rem 0 0;
+  font-size: 0.9rem;
+}
+
+.lp-booking-notice {
+  color: #8cf4c7;
+}
+
+.lp-booking-error {
+  color: #ffb4b4;
+}
+
+.lp-admin-btn {
+  height: 2.65rem;
+  border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.75);
+  background: rgba(37, 99, 235, 0.2);
+  color: #ecf2ff;
+  padding: 0 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lp-admin-btn:hover {
+  background: rgba(37, 99, 235, 0.32);
+}
+
+.lp-hero-mirror {
+  border: 1px solid rgba(80, 113, 183, 0.55);
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(8, 12, 24, 0.82);
+  box-shadow: 0 22px 44px rgba(3, 8, 22, 0.56), 0 8px 16px rgba(3, 8, 22, 0.32);
+  min-height: 260px;
+}
+
+.lp-hero-mirror-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  background: #000;
+}
+
+.lp-hero-mirror-actions {
+  margin-top: 0.55rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.lp-mirror-preview {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(1rem, 2.6vw, 2rem);
+  align-items: center;
+}
+
+.lp-mirror-preview-copy {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.lp-mirror-preview-label {
+  margin: 0;
+  color: rgba(148, 190, 255, 0.96);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.lp-mirror-preview-copy h2 {
+  margin: 0;
+  color: #eff5ff;
+  font-size: clamp(1.5rem, 2.7vw, 2.1rem);
+  line-height: 1.12;
+}
+
+.lp-mirror-preview-copy p {
+  margin: 0;
+  color: #b8c4dd;
+  line-height: 1.6;
+}
+
+.lp-mirror-preview-desktop-action {
+  width: fit-content;
+}
+
+.lp-mirror-preview-frame-shell {
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(6, 10, 22, 0.88);
+  box-shadow: 0 26px 42px rgba(3, 8, 22, 0.56), 0 8px 20px rgba(3, 8, 22, 0.34);
+}
+
+.lp-mirror-preview-frame-viewport {
+  --lp-mirror-scale: 0.62;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  overflow: hidden;
+  background: #05070f;
+}
+
+.lp-mirror-preview-frame {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1440px;
+  height: 810px;
+  border: 0;
+  display: block;
+  background: #05070f;
+  transform-origin: top center;
+  transform: translateX(-50%) scale(var(--lp-mirror-scale));
+  pointer-events: none;
+}
+
+.lp-mirror-fullscreen-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.2rem;
+  border-radius: 10px;
+  border: 1px solid rgba(96, 165, 250, 0.75);
+  background: rgba(37, 99, 235, 0.22);
+  color: #edf4ff;
+  text-decoration: none;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 0 0.8rem;
+}
+
+.lp-mirror-fullscreen-link:hover {
+  background: rgba(37, 99, 235, 0.34);
+}
+
+.lp-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(120deg, rgba(10, 14, 30, 0.58), rgba(10, 14, 30, 0.68)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center/cover no-repeat,
+    linear-gradient(170deg, rgba(28, 31, 53, 0.96), rgba(14, 20, 38, 0.96));
+}
+
+.lp-stat-card {
+  padding: 1.45rem 1rem;
+  text-align: center;
+  border-right: 1px solid rgba(71, 95, 157, 0.42);
+}
+
+.lp-stat-card:last-child {
+  border-right: none;
+}
+
+.lp-stat-value {
+  margin: 0;
+  font-size: clamp(1.7rem, 3.1vw, 2.3rem);
+  line-height: 1;
+  font-weight: 800;
+  color: #60a5fa;
+}
+
+.lp-stat-label {
+  margin: 0.45rem 0 0;
+  color: #9aacce;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.lp-section-title {
+  margin: 0 0 1.15rem;
+  color: #f0f5ff;
+  font-size: clamp(1.5rem, 2.5vw, 2.1rem);
+  line-height: 1.15;
+}
+
+.lp-section-lead {
+  margin: -0.6rem 0 1.1rem;
+  max-width: 62ch;
+  color: #b6c3df;
+  line-height: 1.62;
+}
+
+.lp-features-grid,
+.lp-social-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.1rem;
+}
+
+.lp-feature-card,
+.lp-social-card {
+  border: 1px solid rgba(80, 113, 183, 0.45);
+  border-radius: 16px;
+  background: linear-gradient(165deg, rgba(30, 36, 62, 0.9), rgba(16, 20, 40, 0.9));
+  padding: 1.05rem;
+  box-shadow: 0 8px 16px rgba(3, 8, 22, 0.32), 0 2px 4px rgba(3, 8, 22, 0.16);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.lp-feature-card::before,
+.lp-social-card::before,
+.lp-quote-card::before {
+  opacity: 0.44;
+}
+
+.lp-feature-card:hover,
+.lp-social-card:hover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: rgba(96, 165, 250, 0.65);
+  box-shadow: 0 16px 36px rgba(8, 14, 32, 0.56), 0 6px 12px rgba(8, 14, 32, 0.32);
+}
+
+.lp-feature-card svg {
+  color: #60a5fa;
+}
+
+.lp-feature-card h3 {
+  margin: 0.75rem 0 0.42rem;
+  font-size: 1.12rem;
+  color: #e9efff;
+}
+
+.lp-feature-card p,
+.lp-social-card p,
+.lp-cta p {
+  margin: 0;
+  color: #aebad3;
+  line-height: 1.62;
+}
+
+.lp-quote {
+  font-size: 0.95rem;
+}
+
+.lp-author {
+  margin-top: 0.75rem !important;
+  color: #d7e2ff !important;
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+.lp-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.lp-signup {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(80, 113, 183, 0.45);
+  background: linear-gradient(165deg, rgba(30, 36, 62, 0.9), rgba(16, 20, 40, 0.9));
+  box-shadow: 0 12px 24px rgba(3, 8, 22, 0.4), 0 4px 8px rgba(3, 8, 22, 0.2);
+}
+
+.lp-signup label {
+  color: #cfdbf7;
+  font-size: 0.9rem;
+}
+
+.lp-signup-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.55rem;
+}
+
+.lp-signup-row input {
+  height: 2.65rem;
+  border-radius: 12px;
+  border: 1px solid rgba(76, 103, 162, 0.7);
+  background: rgba(16, 21, 40, 0.84);
+  color: #ecf2ff;
+  padding: 0 0.8rem;
+  outline: none;
+}
+
+.lp-signup-row input:focus {
+  border-color: rgba(96, 165, 250, 0.9);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.lp-signup-row input::placeholder {
+  color: #8496bb;
+}
+
+.lp-signup-error,
+.lp-signup-notice {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.lp-signup-error {
+  color: #ffb4b4;
+}
+
+.lp-signup-notice {
+  color: #8cf4c7;
+}
+
+.lp-signup-btn {
+  height: 2.65rem;
+  border-radius: 12px;
+  border: 1px solid rgba(96, 165, 250, 0.8);
+  background: #2563eb;
+  color: #f2f7ff;
+  padding: 0 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lp-cta-actions {
+  margin-top: 0.3rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+@media (max-width: 1024px) {
+  .lp-hero-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-mirror-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-hero-copy {
+    text-align: center;
+  }
+
+  .lp-hero-cta {
+    justify-content: center;
+  }
+
+  .lp-hero-mirror-actions {
+    justify-content: center;
+  }
+
+  .lp-cta {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-hero-blocks {
+    order: 2;
+  }
+
+  .lp-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-stat-card:nth-child(2n) {
+    border-right: none;
+  }
+
+  .lp-stat-card:nth-child(1),
+  .lp-stat-card:nth-child(2) {
+    border-bottom: 1px solid rgba(71, 95, 157, 0.42);
+  }
+}
+
+@media (max-width: 680px) {
+  .lp-shell {
+    padding: 0.8rem;
+    gap: 1rem;
+  }
+
+  .lp-hero,
+  .lp-section,
+  .lp-cta {
+    padding: 1.25rem;
+  }
+
+  .lp-title {
+    font-size: clamp(2rem, 12vw, 2.8rem);
+  }
+
+  .lp-hero-mirror {
+    min-height: 200px;
+  }
+
+  .lp-mirror-preview {
+    padding: 1.25rem;
+  }
+
+  .lp-mirror-preview-desktop-action {
+    display: none;
+  }
+
+  .lp-features-grid,
+  .lp-social-grid,
+  .lp-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-stat-card {
+    border-right: none;
+    border-bottom: 1px solid rgba(71, 95, 157, 0.42);
+  }
+
+  .lp-stat-card:last-child {
+    border-bottom: none;
+  }
+
+  .lp-signup-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,164 @@
+.cg-shell {
+  width: min(100%, 1280px);
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  display: grid;
+  gap: clamp(1rem, 2.5vw, 1.8rem);
+}
+
+.cg-hero,
+.cg-card,
+.cg-upcoming {
+  border: 1px solid rgba(71, 95, 157, 0.38);
+  border-radius: 18px;
+  background:
+    linear-gradient(120deg, rgba(10, 14, 30, 0.56), rgba(10, 14, 30, 0.72)),
+    url('/images/Human%20Jukebox%20Mirror%20background.png') center/cover no-repeat;
+  box-shadow: 0 14px 26px rgba(3, 8, 22, 0.32);
+}
+
+.cg-hero,
+.cg-upcoming {
+  padding: clamp(1.1rem, 2.6vw, 1.7rem);
+}
+
+.cg-lang-switcher {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.cg-lang-switcher button {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(71, 95, 157, 0.38);
+  border-radius: 6px;
+  background: rgba(10, 14, 30, 0.8);
+  color: #b7c3de;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cg-lang-switcher button:hover {
+  border-color: rgba(148, 190, 255, 0.6);
+  color: #eef4ff;
+}
+
+.cg-lang-switcher button.cg-lang-active {
+  background: rgba(148, 190, 255, 0.2);
+  border-color: rgba(148, 190, 255, 0.8);
+  color: #eef4ff;
+}
+
+.cg-eyebrow {
+  margin: 0 0 0.4rem;
+  color: rgba(148, 190, 255, 0.96);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.cg-hero h1,
+.cg-upcoming h2 {
+  margin: 0;
+  color: #eef4ff;
+}
+
+.cg-hero p,
+.cg-card p,
+.cg-upcoming-card p {
+  color: #b7c3de;
+  line-height: 1.62;
+}
+
+.cg-note {
+  margin-top: 0.8rem;
+  color: #8ec5ff;
+  font-weight: 600;
+}
+
+.cg-actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.cg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.cg-card {
+  padding: 1rem;
+}
+
+.cg-card h2 {
+  margin: 0.6rem 0 0.45rem;
+  color: #eef4ff;
+  font-size: 1.06rem;
+}
+
+.cg-card svg {
+  color: #7ab7ff;
+}
+
+.cg-upcoming-list {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.cg-upcoming-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.9rem;
+  align-items: start;
+  border: 1px solid rgba(80, 113, 183, 0.4);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: rgba(14, 20, 38, 0.72);
+}
+
+.cg-upcoming-date {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: start;
+  white-space: nowrap;
+  margin: 0;
+  color: #8ec5ff;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.cg-upcoming-card h3 {
+  grid-column: 2;
+  margin: 0.25rem 0 0.35rem;
+  color: #eef4ff;
+  font-size: 1rem;
+}
+
+.cg-upcoming-card p:not(.cg-upcoming-date) {
+  grid-column: 2;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .cg-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cg-upcoming-card {
+    grid-template-columns: 1fr;
+  }
+
+  .cg-upcoming-date,
+  .cg-upcoming-card h3,
+  .cg-upcoming-card p:not(.cg-upcoming-date) {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}

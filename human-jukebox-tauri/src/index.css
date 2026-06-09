@@ -1,0 +1,323 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  --canvas: #05040b;
+  --canvas-alt: #0b0715;
+  --panel: #100a1d;
+  --panel-alt: #16102a;
+  --panel-border: rgba(162, 89, 255, 0.36);
+  --ink: #edf3ff;
+  --ink-soft: #b5b2de;
+  --ink-strong: #f7f9ff;
+  --accent: #ff4f9a;
+  --focus: #00c2ff;
+  --chip-bg: rgba(255, 79, 154, 0.16);
+  --panel-shadow: 0 22px 44px rgba(6, 4, 16, 0.62);
+
+  /* Neon jukebox palette */
+  --neon-pink: #ff4f9a;
+  --neon-blue: #00c2ff;
+  --neon-purple: #a259ff;
+  --neon-red: #ff5a5f;
+  --neon-orange: #ff9f43;
+  --frame-border: rgba(255, 116, 175, 0.34);
+  --frame-border-soft: rgba(0, 194, 255, 0.28);
+  --stage-glow-pink: rgba(255, 79, 154, 0.22);
+  --stage-glow-blue: rgba(0, 194, 255, 0.2);
+  --stage-glow-purple: rgba(162, 89, 255, 0.2);
+
+  /* Spacing + radius scale */
+  --space-1: 0.375rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  /* Responsive breakpoint scale */
+  --bp-mobile-max: 600px;
+  --bp-tablet-min: 601px;
+  --bp-tablet-max: 1024px;
+  --bp-desktop-min: 1025px;
+
+  /* Typography scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.6rem;
+  --text-2xl: 2.2rem;
+
+  --font-body: 'Inter', 'Segoe UI', sans-serif;
+  --font-head: 'Montserrat', 'Inter', sans-serif;
+
+  /* Z-index scale
+   * --z-content:  1–10   Elevated content within a section
+   * --z-topbar:   40     Navigation bar
+   * --z-nav:      41–42  Nav items and dropdowns
+   * --z-menu:     90     Nav dropdown menus
+   * --z-loader:   200    Page logo loader overlay
+   * --z-overlay:  9999   Modals, toasts, and fullscreen prompts
+   * --z-ai-bg:    11999  AI manager background layer
+   * --z-ai:       12000  AI manager floating panel
+   */
+  --z-content: 10;
+  --z-topbar: 40;
+  --z-nav: 41;
+  --z-dropdown: 42;
+  --z-menu: 90;
+  --z-loader: 200;
+  --z-overlay: 9999;
+  --z-update-banner: 10000;
+  --z-ai-bg: 11999;
+  --z-ai: 12000;
+
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--ink);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Keep scroll behavior but hide scrollbar chrome globally. */
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 12% 8%, var(--stage-glow-pink) 0%, transparent 36%),
+    radial-gradient(circle at 86% 14%, var(--stage-glow-blue) 0%, transparent 35%),
+    radial-gradient(circle at 54% 112%, var(--stage-glow-purple) 0%, transparent 40%),
+    linear-gradient(160deg, #05040b 0%, #0b0918 52%, #07050f 100%);
+}
+
+:root[data-theme-preset='clean'] body {
+  background:
+    radial-gradient(circle at 10% 6%, rgba(120, 170, 255, 0.12) 0%, transparent 34%),
+    radial-gradient(circle at 92% 8%, rgba(26, 115, 232, 0.08) 0%, transparent 33%),
+    linear-gradient(165deg, #f7fbff 0%, #edf4ff 54%, #e5efff 100%);
+}
+
+:root[data-theme-preset='highcontrast'] body {
+  background: #000000;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+#app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay, 9999);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(74, 214, 255, 0.22) 0%, transparent 38%),
+    radial-gradient(circle at 85% 12%, rgba(255, 79, 152, 0.2) 0%, transparent 36%),
+    linear-gradient(160deg, #080b1f 0%, #0d1534 55%, #11122b 100%);
+  opacity: 1;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+#app-splash.splash-hidden {
+  opacity: 0;
+}
+
+#app-splash img {
+  width: 120px;
+  height: 120px;
+  border-radius: 24px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 24px rgba(74, 214, 255, 0.45)) drop-shadow(0 0 48px rgba(255, 79, 152, 0.3));
+  animation: splash-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes splash-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+#app-splash p {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(157, 176, 222, 0.7);
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1,
+h2 {
+  color: var(--ink-strong);
+}
+
+h1 {
+  font-family: var(--font-head);
+  font-size: clamp(2rem, 6vw, 4rem);
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.8rem;
+}
+
+h2 {
+  font-family: var(--font-head);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  letter-spacing: -0.005em;
+}
+
+@media (max-width: 720px) {
+  :root {
+    font-size: 16px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --panel-border: rgba(210, 156, 255, 0.72);
+    --focus: #7fe3ff;
+  }
+}
+
+/* App update notification banner */
+.app-update-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-update-banner);
+  background: linear-gradient(135deg, rgba(255, 79, 154, 0.24) 0%, rgba(162, 89, 255, 0.20) 50%, rgba(0, 194, 255, 0.16) 100%);
+  border-top: 2px solid rgba(255, 79, 154, 0.6);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  padding: 1rem;
+  animation: slideUpFromBottom 350ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.app-update-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  flex-wrap: wrap;
+}
+
+.app-update-banner-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.app-update-banner-title {
+  margin: 0 0 0.3rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #f7fbff;
+  letter-spacing: 0.02em;
+}
+
+.app-update-banner-message {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(240, 245, 255, 0.85);
+  line-height: 1.4;
+}
+
+.app-update-banner-button {
+  white-space: nowrap;
+  padding: 0.75rem 1.5rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes slideUpFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-update-banner {
+    padding: 0.85rem;
+  }
+
+  .app-update-banner-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .app-update-banner-button {
+    width: 100%;
+  }
+
+  .app-update-banner-text {
+    min-width: 100%;
+  }
+}

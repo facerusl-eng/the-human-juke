@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"node server/index.js\"",
+    "dev:apps": "concurrently \"npm --prefix human-jukebox-web run dev\" \"npm --prefix audience-app run dev\"",
+    "dev:web:app": "npm --prefix human-jukebox-web run dev",
+    "dev:audience:app": "npm --prefix audience-app run dev",
+    "build:apps": "npm --prefix human-jukebox-web run build && npm --prefix audience-app run build",
+    "install:apps": "npm --prefix human-jukebox-web install && npm --prefix audience-app install && npm --prefix human-jukebox-tauri install",
     "dev:web": "vite",
     "dev:api": "node server/index.js",
     "build": "tsc -b && vite build",

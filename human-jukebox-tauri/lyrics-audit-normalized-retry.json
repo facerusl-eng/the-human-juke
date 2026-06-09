@@ -1,0 +1,758 @@
+{
+  "summary": {
+    "generatedAt": "2026-05-29T08:52:08.146Z",
+    "initialFailures": 82,
+    "recoveredByNormalization": 2,
+    "stillMissing": 80
+  },
+  "recovered": [
+    {
+      "songId": "a35a1ff4-70f9-4c70-bc38-deccb101581d",
+      "originalTitle": "Blaze of Glory",
+      "originalArtist": "Jon Bon Jovi (Young Guns II)",
+      "matchedTitle": "Blaze of Glory",
+      "matchedArtist": "Jon Bon Jovi",
+      "source": "lyrics.ovh",
+      "lyricsLength": 1651,
+      "attempts": 2,
+      "setlists": [
+        "Karaoke"
+      ]
+    },
+    {
+      "songId": "6d701a49-416e-4da8-b6cc-11ba9f6a5524",
+      "originalTitle": "Hopelessly Devoted to You",
+      "originalArtist": "Grease (film)",
+      "matchedTitle": "Hopelessly Devoted to You",
+      "matchedArtist": "Grease",
+      "source": "lyrics.ovh",
+      "lyricsLength": 791,
+      "attempts": 2,
+      "setlists": [
+        "Karaoke"
+      ]
+    }
+  ],
+  "stillMissing": [
+    {
+      "songId": "ac60f1ba-6d98-4f92-8dc0-95e17a11d25a",
+      "title": "'74 '75",
+      "artist": "The Connells",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "13d5cb33-545b-4faa-b64a-1d2e2226d640",
+      "title": "Afgan",
+      "artist": "Bubbi Morthens",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "84b83452-81c0-4b25-a423-82fded960142",
+      "title": "Back in the U.S.S.R.",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "4ad07c35-9751-470e-bfa3-21c44f512866",
+      "title": "Blinding Lights (country version)",
+      "artist": "Tebey",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "cadbf239-965f-4978-9040-fa4b9d0e5398",
+      "title": "Blowing in the Wind",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "b96174a1-6abb-4f12-9739-8fefb33570f1",
+      "title": "Blue Moon of Kentucky",
+      "artist": "Dwight Yoakam",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "684cd5ff-c613-490a-82a7-358560e3c014",
+      "title": "Boing!",
+      "artist": "Nik & Jay",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "0d01e4c7-8ee2-49b6-8441-072967223d43",
+      "title": "Breakfast At Tiffany's",
+      "artist": "Deep Blue Something",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "532270d5-7276-4d83-9b48-3ebcb9873c52",
+      "title": "Despacito",
+      "artist": "Luis Fonsi & Daddy Yankee",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "8ceb0d89-57c3-4053-b7ed-4e1d38045222",
+      "title": "Det er Mig der står herude og banker på",
+      "artist": "Thomas Helmig",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "ad5db3f3-2379-45c5-baca-e432a3023012",
+      "title": "Dick in My Nightstand",
+      "artist": "Danae Hays",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "f883c0fa-e000-4144-b138-848453dab1fb",
+      "title": "Don't Be Cruel",
+      "artist": "Elvis Presley",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "e1f90fd1-e011-42c5-af41-ac63901ea057",
+      "title": "Don't Look Back in Anger (acoustic - live MTV Unplugged)",
+      "artist": "Oasis",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "f2ea1ac5-86cf-4f12-bfab-2aa8b88be18c",
+      "title": "Don't Speak",
+      "artist": "No Doubt",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "fd36855a-1d39-436e-b4f6-63a14857989e",
+      "title": "Don't Stop Me Now",
+      "artist": "Queen",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "6d7211dd-37c5-40e4-ad48-f51a7e9357d6",
+      "title": "Don't Worry, Be Happy",
+      "artist": "Bobby McFerrin",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "a7b50cbe-8008-46a5-9e30-d5729103c774",
+      "title": "Every Day I Have the Blues",
+      "artist": "Joe Williams & Count Basie Orchestra",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "5901ceea-08bb-4fa0-8fc1-b812c0240afc",
+      "title": "Ferðalok",
+      "artist": "Óðinn Valdimarsson",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "118073f4-9c4f-43b1-854d-bcc029e9cfd0",
+      "title": "Fisherman's Blues",
+      "artist": "The Waterboys",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "c2ac4cd3-7729-4fe1-b686-a1f0b8238e44",
+      "title": "Fram Á nótt",
+      "artist": "Nýdönsk",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "7946149d-3994-4cdf-a26c-278a8f75ef72",
+      "title": "Gimme Hope Jo'anna",
+      "artist": "Eddy Grant",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "473ff71c-8bd9-47f4-b6cd-43bd546f1b73",
+      "title": "Húsið Og Ég",
+      "artist": "Sssól",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "da14a26f-353b-4c49-be69-7443e64c22d6",
+      "title": "Hvorfor går Louise til bal",
+      "artist": "Bamses Venner",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "8bb37e47-7254-4faf-92a5-d74b49157f38",
+      "title": "I Don't Want To Talk About It (live)",
+      "artist": "Rod Stewart",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "e29fca2b-4ba6-4bcb-8a7c-a454b14f3751",
+      "title": "I en lille båd der gynger",
+      "artist": "Bamses Venner",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "127fdc27-2d3d-416a-9c93-78d563a39410",
+      "title": "I Got Stripes / Folsom Prison Blues / Ring of Fire",
+      "artist": "The Three Amigos",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "2ce1fbf2-40b9-4582-b854-c952692c33a3",
+      "title": "I'll Make a Man Out of You",
+      "artist": "Mulan (Donny Osmond)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "64f72456-fd56-4aa2-b3d5-75750f453280",
+      "title": "I'm a Believer",
+      "artist": "The Monkees",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "c3d5e32d-b34f-43b8-be62-69ca0782a418",
+      "title": "I'm Gonna Be (500 Miles)",
+      "artist": "The Proclaimers",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "8a037d0b-5601-407f-8840-ad5d5e35771a",
+      "title": "Komdu Í partí",
+      "artist": "Mannakorn",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "b9099da5-ec93-4356-81e6-8191c279fd42",
+      "title": "Lemon Tree",
+      "artist": "Fool's Garden",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "09103f85-45a5-45f0-ac46-069108bd4ce0",
+      "title": "Let Your Love Flow",
+      "artist": "The Bellamy Brothers",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "70edceb0-0412-4dbe-9449-79b0287ec6a5",
+      "title": "Listen to the Music",
+      "artist": "The Doobie Brothers",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "b3168954-b69e-4564-95c0-a23d8840f460",
+      "title": "Losing My Religion",
+      "artist": "R.E.M.",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "62bb2c37-9f7e-4cb1-a93e-3272c16aaf36",
+      "title": "Make Me Smile (Come Up And See Me)",
+      "artist": "Steve Harley And Cockney Rebel",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "362ffb52-6f51-4e85-85f5-004153af2e76",
+      "title": "Man on the Moon",
+      "artist": "R.E.M.",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "9fe108fa-1cb9-4a95-9bbd-1c17ee875c4c",
+      "title": "Manst ekki eftir mér",
+      "artist": "Stuðmenn",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "763c8804-e067-4dc8-bb11-b932ec993bc7",
+      "title": "Mary Jane's Last Dance",
+      "artist": "Tom Petty",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "015c5725-e512-4bb7-8664-e9e2e146d909",
+      "title": "Medley The Beatles (rock)",
+      "artist": "Medley Covers",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "e3509ffe-110f-4f15-ba5a-d3b35090f3a3",
+      "title": "Minning um mann",
+      "artist": "Logar",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "8b39e22e-ac8e-4b13-ab97-2bae91cb0e72",
+      "title": "Mustang Sally",
+      "artist": "The Commitments",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "e9ba3571-c4f7-42d3-b68f-4c53998bcc30",
+      "title": "New York, New York",
+      "artist": "Frank Sinatra",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "68f5407e-0027-4a69-aec9-e71eb4605a1e",
+      "title": "Now and Then",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "fdcbea85-37ac-4bd6-bc2f-c7e2680ed8e8",
+      "title": "Peaceful Easy Feeling (live)",
+      "artist": "Johnny Brady",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "e2e45e14-9154-4272-b584-9cff1b23bc8f",
+      "title": "Pokémon Theme",
+      "artist": "Pokémon (Jason Paige)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "40a7e7b1-c98f-41e1-9ccd-6e1a68757f01",
+      "title": "Reyndu aftur",
+      "artist": "Mannakorn",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "f84f346d-5cb2-4d60-ab06-be10239fc4ba",
+      "title": "Rómeo og Júlía",
+      "artist": "Bubbi Morthens",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "8a6d9d2f-b155-48fb-a09b-3044e1b2a093",
+      "title": "Så længe jeg lever",
+      "artist": "John Mogensen",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "53c21577-32d7-4d17-9a64-89d59367be70",
+      "title": "Seasons in the Sun",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "1efa46ee-44a7-42b1-a49f-30d23bf0fd60",
+      "title": "Shallow",
+      "artist": "A Star is Born (2018 film) (Lady Gaga & Bradley Cooper)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "ee02425d-27e9-437d-8f8b-d628a5d1cc16",
+      "title": "She's The One",
+      "artist": "Robbie Williams",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "a1c099f1-cd3f-465b-a04b-38ccfcd3b3aa",
+      "title": "Song Title",
+      "artist": "Artist Name",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "49a6c4b7-fc35-41fe-9fc6-efaec54ad3c8",
+      "title": "Song Title",
+      "artist": "Artist Name",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "730f47c0-eff0-4aea-94c2-18d00b7ce467",
+      "title": "Stál og hnífur",
+      "artist": "Bubbi Morthens",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "0dff14b6-62c3-498b-a02d-90c5fd369beb",
+      "title": "Summer of ‘69 (Little More Country Sessions)",
+      "artist": "Max Jackson",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "d4e2bdc4-55be-4c87-be59-86f5f8ebe494",
+      "title": "Sylvia's Mother",
+      "artist": "Dr. Hook & The Medicine Show",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "b738253f-3c60-4458-a326-c0d5f0cc3a6a",
+      "title": "Tænder på dig",
+      "artist": "Jakob Sveistrup (Eurovision Denmark)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "0ab2d31c-82bd-4943-bc47-87a1d574fbc2",
+      "title": "Tætum og tryllum",
+      "artist": "Stuðmenn",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "aa467104-24c9-4b44-8445-093b501c26cd",
+      "title": "The Cave",
+      "artist": "Mumford & Sons",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "3dbf0f85-7a1b-4cfe-8d16-7b8ea0b31316",
+      "title": "The Gambler",
+      "artist": "Johnny Brady",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "71a11857-be8e-4d07-8c54-4c1057a9f267",
+      "title": "The Grease Mega-Mix",
+      "artist": "Grease (film)",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "296e880d-88e4-48dd-9ec1-b939d80a78e2",
+      "title": "The House of the Rising Sun",
+      "artist": "The Animals",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "ee451808-b641-4005-8d7c-8698a2091ad7",
+      "title": "The Streets of London",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "13449c03-acbc-4fc1-9051-a3b5bc31a404",
+      "title": "The Wild Rover",
+      "artist": "The Dubliners",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "2629fe21-89b1-40ab-825d-bac4a5860954",
+      "title": "These Boots Are Made for Walkin'",
+      "artist": "Nancy Sinatra",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "da8e3e9d-c0d9-491e-bb6a-c066a34ddcb9",
+      "title": "Tie a Yellow Ribbon Round the Ole Oak Tree",
+      "artist": "Dean Martin",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "021f77a4-1950-4745-9163-35a9760b15ea",
+      "title": "Traustur Vinur",
+      "artist": "Upplyfting",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "f8c60c65-d9aa-4915-9a5c-7b5e2d67c95b",
+      "title": "Tulsa Time",
+      "artist": "Pistol Annies",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "a4ae5340-c52c-48cc-b902-e2581064ee9f",
+      "title": "Vågner i natten",
+      "artist": "Dodo & The Dodos",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "bca1ee2b-e6c3-4df7-a573-d0ff869ec878",
+      "title": "Vegbúi",
+      "artist": "KK",
+      "setlists": [
+        "Harald Spiller"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "19f19cc2-e53f-4242-8c2b-1bd603cba641",
+      "title": "Walk of Life (live)",
+      "artist": "Mike Denver (The Late Late Country Special)",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "09b1ab19-bbc4-44a8-a123-ac67fe11dba1",
+      "title": "What's Up?",
+      "artist": "4 Non Blondes",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "bf4264c6-4be6-4819-8acf-e7ea964448a9",
+      "title": "When I'm Sixty-Four",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "d6df4ef8-baa3-4703-bf06-fdad09fc534a",
+      "title": "Whiskey in the Jar (live)",
+      "artist": "Mike Denver",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "2500a9b0-f9ab-41b3-aea6-6658d888cef3",
+      "title": "Who'll Stop the Rain",
+      "artist": "Creedence Clearwater Revival",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "e3a33bf9-c1e8-4a86-890b-c5b857d6d72e",
+      "title": "Who'll Stop the Rain",
+      "artist": "John Fogerty",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "637eedd5-f5d0-417d-bbee-023bcc911e2c",
+      "title": "Will You Still Love Me Tomorrow?",
+      "artist": "Carole King",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "0ccb8386-ae1e-4523-b086-b42169f23dec",
+      "title": "You've Got a Friend",
+      "artist": "Carole King",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "c1051e3a-2146-4a98-a71a-ba638b8c0d2c",
+      "title": "You've Got a Friend",
+      "artist": "James Taylor",
+      "setlists": [
+        "Karaoke"
+      ],
+      "initialReason": "http_404"
+    },
+    {
+      "songId": "536e35e2-13a4-4767-929d-3adcd9dc5857",
+      "title": "You've Got to Hide Your Love Away",
+      "artist": "The Beatles",
+      "setlists": [
+        "The Human Jukebox"
+      ],
+      "initialReason": "http_404"
+    }
+  ]
+}

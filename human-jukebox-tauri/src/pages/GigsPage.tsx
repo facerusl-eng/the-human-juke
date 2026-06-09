@@ -1,0 +1,441 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useGigActions } from '../hooks/useGigActions'
+import { useQueueStore } from '../state/queueStore'
+
+function formatGigDate(createdAt: string) {
+  if (!createdAt) {
+    return 'Created recently'
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(createdAt))
+}
+
+function formatScheduledGigDate(gigDate: string | null, gigStartTime: string | null) {
+  if (!gigDate) {
+    return 'Not scheduled yet'
+  }
+
+  const normalizedTime = gigStartTime
+    ? (gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime)
+    : '18:00:00'
+
+  const scheduledAt = new Date(`${gigDate}T${normalizedTime}`)
+
+  if (Number.isNaN(scheduledAt.getTime())) {
+    return gigDate
+  }
+
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(scheduledAt)
+
+  if (!gigStartTime) {
+    return dateLabel
+  }
+
+  const timeLabel = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(scheduledAt)
+
+  return `${dateLabel} at ${timeLabel}`
+}
+
+function resolveGigVisualTheme(
+  eventType: 'halli-live' | 'karaoke' | 'build-self',
+  eventTheme: 'harald-live' | 'human-jukebox' | 'karaoke',
+) {
+  if (eventType === 'karaoke' || eventTheme === 'karaoke') {
+    return 'karaoke' as const
+  }
+
+  if (eventTheme === 'harald-live') {
+    return 'harald-live' as const
+  }
+
+  return 'human-jukebox' as const
+}
+
+function formatEventTypeLabel(
+  eventType: 'halli-live' | 'karaoke' | 'build-self',
+  eventTheme: 'harald-live' | 'human-jukebox' | 'karaoke',
+) {
+  const visualTheme = resolveGigVisualTheme(eventType, eventTheme)
+
+  if (visualTheme === 'karaoke') return 'Karaoke'
+  if (eventType === 'build-self') return 'Build Self Gig'
+  if (visualTheme === 'harald-live') return 'Harald Live'
+  return 'The Human Jukebox'
+}
+
+function getGigPlaylistImageUrl(
+  eventType: 'halli-live' | 'karaoke' | 'build-self',
+  eventTheme: 'harald-live' | 'human-jukebox' | 'karaoke',
+) {
+  const visualTheme = resolveGigVisualTheme(eventType, eventTheme)
+
+  if (visualTheme === 'karaoke') {
+    return '/images/Karaoke%20live%20playlist.png'
+  }
+
+  if (visualTheme === 'harald-live') {
+    return '/images/Harald%20Live%20playlist.png'
+  }
+
+  return '/images/Human%20jukebox%20Live%20playlist.png'
+}
+
+function resolveGigStartAt(gigDate: string | null, gigStartTime: string | null) {
+  if (!gigDate || !gigStartTime) {
+    return null
+  }
+
+  const normalizedTime = gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime
+  const startAt = new Date(`${gigDate}T${normalizedTime}`)
+  return Number.isNaN(startAt.getTime()) ? null : startAt
+}
+
+function GigsPage() {
+  const navigate = useNavigate()
+  const { event, hostEvents, setActiveEvent, endGig, deleteEvent, setEventAudienceNoGigVisibility } = useQueueStore()
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
+  const [bulkDeletingHiddenGigs, setBulkDeletingHiddenGigs] = useState(false)
+  const [endingEventId, setEndingEventId] = useState<string | null>(null)
+  const [togglingAudienceFallbackEventId, setTogglingAudienceFallbackEventId] = useState<string | null>(null)
+  const [errorText, setErrorText] = useState<string | null>(null)
+  const autoLiveInFlightRef = useRef(false)
+  const attemptedAutoLiveGigIdsRef = useRef<Set<string>>(new Set())
+  const gigActions = useGigActions({
+    setActiveEvent,
+    setErrorText,
+    errors: {
+      setActiveEvent: 'Failed to switch gig. Please try again.',
+    },
+  })
+
+  const sortedHostEvents = useMemo(() => {
+    const toCreatedTimestamp = (createdAt: string) => {
+      const createdTimestamp = new Date(createdAt).getTime()
+      return Number.isNaN(createdTimestamp) ? 0 : createdTimestamp
+    }
+
+    return [...hostEvents].sort((leftGig, rightGig) => {
+      const leftStartAt = resolveGigStartAt(leftGig.gigDate, leftGig.gigStartTime)?.getTime() ?? Number.POSITIVE_INFINITY
+      const rightStartAt = resolveGigStartAt(rightGig.gigDate, rightGig.gigStartTime)?.getTime() ?? Number.POSITIVE_INFINITY
+
+      if (leftStartAt !== rightStartAt) {
+        return leftStartAt - rightStartAt
+      }
+
+      return toCreatedTimestamp(rightGig.createdAt) - toCreatedTimestamp(leftGig.createdAt)
+    })
+  }, [hostEvents])
+
+  const chooseGig = async (gigId: string, goToControl = true) => {
+    const switched = await gigActions.switchActiveGig(gigId)
+
+    if (switched && goToControl) {
+      navigate('/admin/gig-control')
+    }
+  }
+
+  const removeGig = async (gigId: string, gigName: string) => {
+    const confirmed = window.confirm(`Delete "${gigName}"? This removes its queue, feed posts, and mirror state.`)
+
+    if (!confirmed) {
+      return
+    }
+
+    setErrorText(null)
+    setDeletingEventId(gigId)
+
+    try {
+      await deleteEvent(gigId)
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Failed to delete gig. Please try again.')
+    } finally {
+      setDeletingEventId(null)
+    }
+  }
+
+  const removeHiddenNoLiveGigs = async () => {
+    const hiddenNoLiveGigs = hostEvents.filter((hostEvent) => !hostEvent.showInAudienceNoGig && !hostEvent.isActive)
+
+    if (hiddenNoLiveGigs.length === 0) {
+      setErrorText('No hidden no-live gigs to delete.')
+      return
+    }
+
+    const previewNames = hiddenNoLiveGigs.slice(0, 5).map((hostEvent) => `- ${hostEvent.name}`).join('\n')
+    const moreCount = hiddenNoLiveGigs.length > 5 ? `\n...and ${hiddenNoLiveGigs.length - 5} more.` : ''
+    const confirmed = window.confirm(
+      `Delete ${hiddenNoLiveGigs.length} gig(s) hidden from the no-live audience page?\n\n${previewNames}${moreCount}\n\nThis removes queue, feed posts, and mirror state for each gig.`,
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setErrorText(null)
+    setBulkDeletingHiddenGigs(true)
+
+    try {
+      for (const hostEvent of hiddenNoLiveGigs) {
+        setDeletingEventId(hostEvent.id)
+        await deleteEvent(hostEvent.id)
+      }
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Failed while deleting hidden no-live gigs. Please try again.')
+    } finally {
+      setDeletingEventId(null)
+      setBulkDeletingHiddenGigs(false)
+    }
+  }
+
+  const endSavedGig = async (gigId: string, gigName: string) => {
+    const confirmed = window.confirm(`End "${gigName}" now? This will close audience access for this gig.`)
+
+    if (!confirmed) {
+      return
+    }
+
+    setErrorText(null)
+    setEndingEventId(gigId)
+
+    try {
+      await endGig(gigId)
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Failed to end gig. Please try again.')
+    } finally {
+      setEndingEventId(null)
+    }
+  }
+
+  const toggleAudienceFallbackVisibility = async (gigId: string, visible: boolean) => {
+    setErrorText(null)
+    setTogglingAudienceFallbackEventId(gigId)
+
+    try {
+      await setEventAudienceNoGigVisibility(gigId, visible)
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Failed to update audience no-live visibility. Please try again.')
+    } finally {
+      setTogglingAudienceFallbackEventId(null)
+    }
+  }
+
+  useEffect(() => {
+    const validGigIds = new Set(
+      hostEvents
+        .filter((hostEvent) => hostEvent.autoLiveEnabled && !hostEvent.isActive)
+        .map((hostEvent) => hostEvent.id),
+    )
+
+    attemptedAutoLiveGigIdsRef.current = new Set(
+      [...attemptedAutoLiveGigIdsRef.current].filter((gigId) => validGigIds.has(gigId)),
+    )
+  }, [hostEvents])
+
+  useEffect(() => {
+    const runAutoLiveCheck = async () => {
+      if (autoLiveInFlightRef.current) {
+        return
+      }
+
+      const now = Date.now()
+      const dueEvent = hostEvents.find((hostEvent) => {
+        if (hostEvent.isActive || !hostEvent.autoLiveEnabled) {
+          return false
+        }
+
+        if (attemptedAutoLiveGigIdsRef.current.has(hostEvent.id)) {
+          return false
+        }
+
+        const startAt = resolveGigStartAt(hostEvent.gigDate, hostEvent.gigStartTime)
+        return Boolean(startAt && startAt.getTime() <= now)
+      })
+
+      if (!dueEvent) {
+        return
+      }
+
+      autoLiveInFlightRef.current = true
+      attemptedAutoLiveGigIdsRef.current.add(dueEvent.id)
+
+      try {
+        const switched = await gigActions.switchActiveGig(dueEvent.id)
+
+        if (!switched) {
+          return
+        }
+      } finally {
+        autoLiveInFlightRef.current = false
+      }
+    }
+
+    void runAutoLiveCheck()
+    const timerId = window.setInterval(() => {
+      void runAutoLiveCheck()
+    }, 20_000)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [gigActions, hostEvents])
+
+  return (
+    <section className="gigs-shell" aria-label="Gig management">
+      <section className="hero-card gigs-hero-card">
+        <p className="eyebrow">Gig Manager</p>
+        <h1>Your Gigs</h1>
+        <p className="subcopy">
+          See every gig you have created, choose which one to control, and remove gigs you no longer want.
+        </p>
+        <div className="hero-actions no-margin-bottom">
+          <button type="button" className="primary-button" onClick={() => navigate('/admin/create-gig')}>
+            Create Gig
+          </button>
+          <button type="button" className="secondary-button" onClick={() => navigate('/admin')}>
+            Back to Dashboard
+          </button>
+        </div>
+      </section>
+
+      <section className="queue-panel gigs-list-panel" aria-label="Created gigs list">
+        <div className="panel-head">
+          <h2>Saved Gigs</h2>
+          <div className="hero-actions no-margin-bottom">
+            <span className="meta-badge">{hostEvents.length} total</span>
+            <button
+              type="button"
+              className="ghost-button danger-button"
+              disabled={bulkDeletingHiddenGigs || hostEvents.every((hostEvent) => hostEvent.showInAudienceNoGig || hostEvent.isActive)}
+              onClick={() => {
+                void removeHiddenNoLiveGigs()
+              }}
+            >
+              {bulkDeletingHiddenGigs ? 'Deleting Hidden Gigs…' : 'Delete Hidden No-Live Gigs'}
+            </button>
+          </div>
+        </div>
+
+        {hostEvents.length === 0 ? (
+          <p className="subcopy no-margin-bottom">No gigs yet. Create your first gig to start taking requests.</p>
+        ) : (
+          <ul className="gig-management-list">
+            {sortedHostEvents.map((hostEvent) => {
+              const isCurrentGig = event?.id === hostEvent.id
+              const isActivating = gigActions.activatingEventId === hostEvent.id
+              const isDeleting = deletingEventId === hostEvent.id
+              const isEnding = endingEventId === hostEvent.id
+              const isUpdatingNoLiveVisibility = togglingAudienceFallbackEventId === hostEvent.id
+              const isBusy = isActivating || isDeleting || isEnding || isUpdatingNoLiveVisibility || bulkDeletingHiddenGigs
+
+              return (
+                <li key={hostEvent.id} className="gig-management-entry">
+                  <div className="gig-management-image">
+                    <img
+                      src={getGigPlaylistImageUrl(hostEvent.eventType, hostEvent.eventTheme)}
+                      alt={`${formatEventTypeLabel(hostEvent.eventType, hostEvent.eventTheme)} playlist`}
+                      className="gig-playlist-thumbnail"
+                    />
+                  </div>
+                  <div className="gig-management-main">
+                    <div className="gig-management-title-row">
+                      <p className="gig-management-title">{hostEvent.name}</p>
+                      <span className="meta-badge">{formatEventTypeLabel(hostEvent.eventType, hostEvent.eventTheme)}</span>
+                      {hostEvent.isTestGig ? <span className="meta-badge">Test Gig (Private)</span> : null}
+                      {hostEvent.autoLiveEnabled ? <span className="meta-badge">Auto Live</span> : null}
+                      {hostEvent.isActive ? <span className="meta-badge">Live for audience</span> : null}
+                      {hostEvent.showInAudienceNoGig ? <span className="meta-badge">Shown when no live gig</span> : null}
+                      {isCurrentGig ? <span className="meta-badge">Open in control panel</span> : null}
+                    </div>
+                    <p className="gig-management-meta">{hostEvent.venue ?? 'No venue set'}</p>
+                    <p className="gig-management-meta">Gig date {formatScheduledGigDate(hostEvent.gigDate, hostEvent.gigStartTime)}</p>
+                    <p className="gig-management-meta">Created {formatGigDate(hostEvent.createdAt)}</p>
+                  </div>
+
+                  <div className="gig-management-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={isBusy}
+                      onClick={() => {
+                        if (isCurrentGig) {
+                          navigate('/admin/gig-control')
+                          return
+                        }
+
+                        void chooseGig(hostEvent.id)
+                      }}
+                    >
+                      {isCurrentGig ? 'Open Control' : isActivating ? 'Choosing…' : 'Choose Gig'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={hostEvent.isActive || isBusy || hostEvent.isTestGig}
+                      onClick={() => {
+                        void chooseGig(hostEvent.id, false)
+                      }}
+                    >
+                      {hostEvent.isTestGig ? 'Private Test' : hostEvent.isActive ? 'Live Now' : isActivating ? 'Switching…' : 'Set Live Only'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={!hostEvent.isActive || isBusy}
+                      onClick={() => {
+                        void endSavedGig(hostEvent.id, hostEvent.name)
+                      }}
+                    >
+                      {!hostEvent.isActive ? 'Ended' : isEnding ? 'Ending…' : 'End Gig'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={isBusy || hostEvent.isTestGig}
+                      onClick={() => {
+                        void toggleAudienceFallbackVisibility(hostEvent.id, !hostEvent.showInAudienceNoGig)
+                      }}
+                    >
+                      {isUpdatingNoLiveVisibility
+                        ? 'Saving…'
+                        : hostEvent.isTestGig
+                        ? 'Private Test'
+                        : hostEvent.showInAudienceNoGig
+                        ? 'Hide from No-Live Page'
+                        : 'Show on No-Live Page'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button danger-button"
+                      disabled={isBusy}
+                      onClick={() => {
+                        void removeGig(hostEvent.id, hostEvent.name)
+                      }}
+                    >
+                      {isDeleting ? 'Deleting…' : 'Delete Gig'}
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        {errorText ? <p className="error-text">{errorText}</p> : null}
+      </section>
+    </section>
+  )
+}
+
+export default GigsPage

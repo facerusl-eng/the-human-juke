@@ -1,0 +1,3839 @@
+   1:   // After gig time change, broadcast update for all screens
+   2:   useEffect(() => {
+   3:     if (!event) return;
+   4:     const channel = supabase.channel(`gig_time_broadcast:${event.id}`);
+   5:     channel.on('postgres_changes', {
+   6:       event: 'UPDATE',
+   7:       schema: 'public',
+   8:       table: 'events',
+   9:       filter: `id=eq.${event.id}`,
+  10:     }, (payload) => {
+  11:       // Force refresh state/countdown
+  12:       window.location.reload();
+  13:     }).subscribe();
+  14:     return () => { channel.unsubscribe(); };
+  15:   }, [event?.id]);
+  16: import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+  17: import { useLocation, useNavigate } from 'react-router-dom'
+  18: import AddSongTabs from '../components/actions/AddSongTabs'
+  19: import { ActionButtonGroup, type ActionButtonConfig } from '../components/actions/ActionButtonGroup'
+  20: import SpotifyPlayerWithSDK from '../components/SpotifyPlayerWithSDK.jsx'
+  21: import { useClipboardCopy } from '../hooks/useClipboardCopy'
+  22: import { useGigActions } from '../hooks/useGigActions'
+  23: import { getAudienceUrl } from '../lib/audienceUrl'
+  24: import { openMirrorScreen } from '../lib/openMirrorScreen'
+  25: import { registerBackgroundSync } from '../lib/backgroundSync'
+  26: import {
+  27:   captureQueueSnapshot,
+  28:   getLatestQueueSnapshot,
+  29:   getQueueSnapshots,
+  30:   getQueueSnapshotsFromDatabase,
+  31:   restoreQueueSnapshotInDatabase,
+  32:   saveQueueSnapshotToDatabase,
+  33: } from '../lib/queueSnapshots'
+  34: import { BETWEEN_SONG_QUOTES, LAST_SONG_SOON_OVERLAY_MESSAGE, isLastSongSoonOverlayMessage, readSharedPlaybackState, writeSharedPlaybackState } from '../lib/playbackState'
+  35: 
+  36: import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
+  37: import { supabase } from '../lib/supabase'
+  38: import { useAuthStore } from '../state/authStore'
+  39: import { useQueueStore } from '../state/queueStore'
+  40: import {
+  41:   INTRO_AUDIO_LOCK_STORAGE_KEY,
+  42:   INTRO_AUDIO_LOCK_TTL_MS,
+  43:   INTRO_AUDIO_PLAYBACK_VOLUME,
+  44:   SPOTIFY_ACCESS_TOKEN_STORAGE_KEY,
+  45:   SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY,
+  46:   GIG_CONTROL_AUTO_REDIRECT_SECONDS,
+  47:   GIG_CONTROL_LOADING_RECOVERY_MS,
+  48:   GIG_CONTROL_NOW_PLAYING_STORAGE_KEY,
+  49:   GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS,
+  50:   ROOM_STATE_ENSURE_MAX_ATTEMPTS,
+  51:   ROOM_STATE_ENSURE_RETRY_DELAY_MS,
+  52:   MIRROR_PREVIEW_TRANSITION_MS,
+  53:   SPACEBAR_ACTION_COOLDOWN_MS,
+  54:   MIRROR_LAUNCH_STATUS_DURATION_MS,
+  55:   AUTO_LIVE_RETRY_DELAY_MS,
+  56:   BACKGROUND_SYNC_TAG,
+  57: } from '../lib/constants'
+  58: // ...existing code...
+  59: const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
+  60: const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
+  61: const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
+  62: const BRB_MESSAGE_DICE_OPTIONS = [
+  63:   'Quick break in progress. Keep your requests coming and I will be right back.',
+  64:   'Bar check and sound check in one mission. Stay fabulous, I am back shortly.',
+  65:   'Intermission mode: I am refilling my pint and rebooting my dance energy. Back in a minute.',
+  66:   'Tiny backstage reset. Queue your songs and I will return before the next dramatic chorus.',
+  67:   'I am stretching, hydrating, and pretending to be professional. Right back.',
+  68:   'Break time. Scan the QR, claim your anthem, and I will be back before your crisps get lonely.',
+  69: ]
+  70: type SpotifyTransportMode = 'play' | 'pause' | 'toggle' | 'next' | 'previous'
+  71: type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
+  72: type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
+  73: 
+  74: type PersistedGigControlNowPlaying = {
+  75:   eventId: string
+  76:   currentSongId: string | null
+  77:   isNowPlayingStarted: boolean
+  78:   quoteIndex: number
+  79:   updatedAt: number
+  80: }
+  81: 
+  82: type PreflightIssueCode = 'offline' | 'session' | 'database' | 'realtime' | 'shareLinks' | 'keepwarm' | 'unknown'
+  83: 
+  84: type IntroAudioPlayLock = {
+  85:   eventId: string
+  86:   ownerId: string
+  87:   expiresAt: number
+  88: }
+  89: 
+  90: type PrimedIntroAudio = {
+  91:   eventId: string
+  92:   url: string
+  93:   element: HTMLAudioElement
+  94: }
+  95: 
+  96: function readIntroAudioPlayLock(eventId: string | null): IntroAudioPlayLock | null {
+  97:   if (typeof window === 'undefined' || !eventId) {
+  98:     return null
+  99:   }
+ 100: 
+ 101:   try {
+ 102:     const raw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+ 103: 
+ 104:     if (!raw) {
+ 105:       return null
+ 106:     }
+ 107: 
+ 108:     const parsed = JSON.parse(raw) as Partial<IntroAudioPlayLock>
+ 109:     const hasValidOwner = typeof parsed.ownerId === 'string' && parsed.ownerId.trim().length > 0
+ 110:     const hasValidExpiry = typeof parsed.expiresAt === 'number' && Number.isFinite(parsed.expiresAt)
+ 111: 
+ 112:     if (parsed.eventId !== eventId || !hasValidOwner || !hasValidExpiry) {
+ 113:       return null
+ 114:     }
+ 115: 
+ 116:     if ((parsed.expiresAt as number) <= Date.now()) {
+ 117:       return null
+ 118:     }
+ 119: 
+ 120:     return {
+ 121:       eventId,
+ 122:       ownerId: parsed.ownerId as string,
+ 123:       expiresAt: parsed.expiresAt as number,
+ 124:     }
+ 125:   } catch {
+ 126:     return null
+ 127:   }
+ 128: }
+ 129: 
+ 130: function acquireIntroAudioPlayLock(eventId: string): string | null {
+ 131:   if (typeof window === 'undefined') {
+ 132:     return null
+ 133:   }
+ 134: 
+ 135:   const now = Date.now()
+ 136:   const ownerId = `${eventId}:${now}:${Math.random().toString(36).slice(2)}`
+ 137: 
+ 138:   try {
+ 139:     const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+ 140: 
+ 141:     if (existingRaw) {
+ 142:       const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
+ 143:       const sameEvent = existingLock.eventId === eventId
+ 144:       const stillValid = typeof existingLock.expiresAt === 'number' && existingLock.expiresAt > now
+ 145: 
+ 146:       if (sameEvent && stillValid) {
+ 147:         return null
+ 148:       }
+ 149:     }
+ 150: 
+ 151:     const nextLock: IntroAudioPlayLock = {
+ 152:       eventId,
+ 153:       ownerId,
+ 154:       expiresAt: now + INTRO_AUDIO_LOCK_TTL_MS,
+ 155:     }
+ 156: 
+ 157:     window.localStorage.setItem(INTRO_AUDIO_LOCK_STORAGE_KEY, JSON.stringify(nextLock))
+ 158: 
+ 159:     const confirmationRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+ 160:     if (!confirmationRaw) {
+ 161:       return null
+ 162:     }
+ 163: 
+ 164:     const confirmation = JSON.parse(confirmationRaw) as Partial<IntroAudioPlayLock>
+ 165:     return confirmation.ownerId === ownerId && confirmation.eventId === eventId ? ownerId : null
+ 166:   } catch {
+ 167:     return ownerId
+ 168:   }
+ 169: }
+ 170: 
+ 171: function releaseIntroAudioPlayLock(eventId: string, ownerId: string) {
+ 172:   if (typeof window === 'undefined') {
+ 173:     return
+ 174:   }
+ 175: 
+ 176:   try {
+ 177:     const existingRaw = window.localStorage.getItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+ 178:     if (!existingRaw) {
+ 179:       return
+ 180:     }
+ 181: 
+ 182:     const existingLock = JSON.parse(existingRaw) as Partial<IntroAudioPlayLock>
+ 183:     if (existingLock.eventId === eventId && existingLock.ownerId === ownerId) {
+ 184:       window.localStorage.removeItem(INTRO_AUDIO_LOCK_STORAGE_KEY)
+ 185:     }
+ 186:   } catch {
+ 187:     // Best-effort lock release only.
+ 188:   }
+ 189: }
+ 190: 
+ 191: function parseRequesterNames(rawName: string | null | undefined) {
+ 192:   if (!rawName) {
+ 193:     return []
+ 194:   }
+ 195: 
+ 196:   return Array.from(new Set(
+ 197:     rawName
+ 198:       .split(/,|&|\band\b/gi)
+ 199:       .map((name) => name.trim())
+ 200:       .filter(Boolean),
+ 201:   ))
+ 202: }
+ 203: 
+ 204: function getSetlistBucketLabel(songTitle: string) {
+ 205:   const firstChar = songTitle.trim().charAt(0).toUpperCase()
+ 206: 
+ 207:   if (!firstChar) {
+ 208:     return 'A-E'
+ 209:   }
+ 210: 
+ 211:   if (/[0-9]/.test(firstChar)) {
+ 212:     return '0-9'
+ 213:   }
+ 214: 
+ 215:   if (firstChar >= 'A' && firstChar <= 'E') {
+ 216:     return 'A-E'
+ 217:   }
+ 218: 
+ 219:   if (firstChar >= 'F' && firstChar <= 'J') {
+ 220:     return 'F-J'
+ 221:   }
+ 222: 
+ 223:   if (firstChar >= 'K' && firstChar <= 'O') {
+ 224:     return 'K-O'
+ 225:   }
+ 226: 
+ 227:   if (firstChar >= 'P' && firstChar <= 'T') {
+ 228:     return 'P-T'
+ 229:   }
+ 230: 
+ 231:   return 'U-Z'
+ 232: }
+ 233: 
+ 234: function classifyPreflightIssue(error?: unknown): PreflightIssueCode {
+ 235:   void error
+ 236:   return 'unknown'
+ 237: }
+ 238: 
+ 239: function resolveGigStartAt(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
+ 240:   if (!gigDate || !gigStartTime) {
+ 241:     return null
+ 242:   }
+ 243: 
+ 244:   const normalizedTime = gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime
+ 245:   const startAt = new Date(`${gigDate}T${normalizedTime}`)
+ 246:   return Number.isNaN(startAt.getTime()) ? null : startAt
+ 247: }
+ 248: 
+ 249: function formatGigSwitcherDate(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
+ 250:   const startAt = resolveGigStartAt(gigDate, gigStartTime)
+ 251: 
+ 252:   if (!startAt) {
+ 253:     return gigDate ?? 'No date set'
+ 254:   }
+ 255: 
+ 256:   const dateLabel = new Intl.DateTimeFormat(undefined, {
+ 257:     month: 'short',
+ 258:     day: 'numeric',
+ 259:     year: 'numeric',
+ 260:   }).format(startAt)
+ 261: 
+ 262:   const timeLabel = new Intl.DateTimeFormat(undefined, {
+ 263:     hour: 'numeric',
+ 264:     minute: '2-digit',
+ 265:   }).format(startAt)
+ 266: 
+ 267:   return `${dateLabel} at ${timeLabel}`
+ 268: }
+ 269: 
+ 270: async function fetchServerClockOffsetMs(): Promise<number | null> {
+ 271:   if (typeof window === 'undefined') {
+ 272:     return null
+ 273:   }
+ 274: 
+ 275:   const requestStartedAt = Date.now()
+ 276: 
+ 277:   try {
+ 278:     const response = await fetch(`/api/keepwarm?clock-sync=${Date.now()}`, {
+ 279:       method: 'GET',
+ 280:       cache: 'no-store',
+ 281:     })
+ 282: 
+ 283:     if (!response.ok) {
+ 284:       return null
+ 285:     }
+ 286: 
+ 287:     const requestEndedAt = Date.now()
+ 288:     const serverDateHeader = response.headers.get('date')
+ 289: 
+ 290:     if (!serverDateHeader) {
+ 291:       return null
+ 292:     }
+ 293: 
+ 294:     const serverNowMs = Date.parse(serverDateHeader)
+ 295: 
+ 296:     if (!Number.isFinite(serverNowMs)) {
+ 297:       return null
+ 298:     }
+ 299: 
+ 300:     const estimatedClientNowMs = Math.round((requestStartedAt + requestEndedAt) / 2)
+ 301:     return serverNowMs - estimatedClientNowMs
+ 302:   } catch {
+ 303:     return null
+ 304:   }
+ 305: }
+ 306: 
+ 307: const SHARED_CLOCK_OFFSET_CACHE_KEY = 'human-jukebox-clock-offset-cache-v1'
+ 308: const SHARED_CLOCK_OFFSET_CACHE_MAX_AGE_MS = 1000 * 60 * 15
+ 309: 
+ 310: function readSharedClockOffsetCache(): number | null {
+ 311:   if (typeof window === 'undefined') {
+ 312:     return null
+ 313:   }
+ 314: 
+ 315:   try {
+ 316:     const rawCache = window.localStorage.getItem(SHARED_CLOCK_OFFSET_CACHE_KEY)
+ 317: 
+ 318:     if (!rawCache) {
+ 319:       return null
+ 320:     }
+ 321: 
+ 322:     const parsedCache = JSON.parse(rawCache) as { updatedAt?: unknown; offsetMs?: unknown }
+ 323:     const updatedAt = typeof parsedCache?.updatedAt === 'number' ? parsedCache.updatedAt : 0
+ 324:     const offsetMs = typeof parsedCache?.offsetMs === 'number' ? parsedCache.offsetMs : null
+ 325: 
+ 326:     if (offsetMs === null || !Number.isFinite(offsetMs)) {
+ 327:       return null
+ 328:     }
+ 329: 
+ 330:     if (!updatedAt || Date.now() - updatedAt > SHARED_CLOCK_OFFSET_CACHE_MAX_AGE_MS) {
+ 331:       return null
+ 332:     }
+ 333: 
+ 334:     return Math.round(offsetMs)
+ 335:   } catch {
+ 336:     return null
+ 337:   }
+ 338: }
+ 339: 
+ 340: function saveSharedClockOffsetCache(offsetMs: number) {
+ 341:   if (typeof window === 'undefined' || !Number.isFinite(offsetMs)) {
+ 342:     return
+ 343:   }
+ 344: 
+ 345:   try {
+ 346:     window.localStorage.setItem(SHARED_CLOCK_OFFSET_CACHE_KEY, JSON.stringify({
+ 347:       updatedAt: Date.now(),
+ 348:       offsetMs: Math.round(offsetMs),
+ 349:     }))
+ 350:   } catch {
+ 351:     // Ignore localStorage write failures.
+ 352:   }
+ 353: }
+ 354: 
+ 355: function getEmergencyOverlayMessage(preset: EmergencyOverlayPreset) {
+ 356:   if (preset === 'tech-issue') {
+ 357:     return 'Technical issue on stage. We will be back in about 2 minutes. Thank you for your patience.'
+ 358:   }
+ 359: 
+ 360:   if (preset === 'scan-qr') {
+ 361:     return 'Scan the QR now to join the queue and drop your requests.'
+ 362:   }
+ 363: 
+ 364:   return LAST_SONG_SOON_OVERLAY_MESSAGE
+ 365: }
+ 366: 
+ 367: function pickRandomBreakMessage(previousMessage: string | null | undefined) {
+ 368:   const normalizedPrevious = previousMessage?.trim().toLowerCase() || ''
+ 369:   const candidates = BRB_MESSAGE_DICE_OPTIONS.filter((message) => message.trim().toLowerCase() !== normalizedPrevious)
+ 370:   const pool = candidates.length > 0 ? candidates : BRB_MESSAGE_DICE_OPTIONS
+ 371:   return pool[Math.floor(Math.random() * pool.length)] ?? DEFAULT_BRB_MESSAGE
+ 372: }
+ 373: 
+ 374: type MirrorSyncHealthBadgeProps = {
+ 375:   audienceConnectionStatus: string
+ 376:   lastMirrorSyncAt: number
+ 377: }
+ 378: 
+ 379: function MirrorSyncHealthBadge({
+ 380:   audienceConnectionStatus,
+ 381:   lastMirrorSyncAt,
+ 382: }: MirrorSyncHealthBadgeProps) {
+ 383:   const [healthNow, setHealthNow] = useState<number>(() => Date.now())
+ 384: 
+ 385:   useEffect(() => {
+ 386:     const timerId = window.setInterval(() => {
+ 387:       setHealthNow(Date.now())
+ 388:     }, 1000)
+ 389: 
+ 390:     return () => {
+ 391:       window.clearInterval(timerId)
+ 392:     }
+ 393:   }, [])
+ 394: 
+ 395:   const secondsSinceMirrorSync = Math.max(0, Math.floor((healthNow - lastMirrorSyncAt) / 1000))
+ 396:   const mirrorHealthState = audienceConnectionStatus === 'connected'
+ 397:     ? (secondsSinceMirrorSync <= 20 ? 'ok' : 'delayed')
+ 398:     : (audienceConnectionStatus === 'reconnecting' || audienceConnectionStatus === 'connecting')
+ 399:       ? 'reconnecting'
+ 400:       : 'offline'
+ 401:   const mirrorHealthLabel = mirrorHealthState === 'ok'
+ 402:     ? `Sync OK ┬À ${secondsSinceMirrorSync}s ago`
+ 403:     : mirrorHealthState === 'delayed'
+ 404:       ? `Sync delayed ┬À ${secondsSinceMirrorSync}s`
+ 405:       : mirrorHealthState === 'reconnecting'
+ 406:         ? 'Reconnecting mirror sync...'
+ 407:         : 'Mirror sync offline'
+ 408: 
+ 409:   return <span className={`gig-mirror-health-badge is-${mirrorHealthState}`}>{mirrorHealthLabel}</span>
+ 410: }
+ 411: 
+ 412: async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
+ 413:   if (typeof window === 'undefined') {
+ 414:     return false
+ 415:   }
+ 416: 
+ 417:   const accessToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)?.trim()
+ 418:   if (!accessToken) {
+ 419:     return false
+ 420:   }
+ 421: 
+ 422:   const endpoint = mode === 'pause'
+ 423:     ? 'https://api.spotify.com/v1/me/player/pause'
+ 424:     : 'https://api.spotify.com/v1/me/player/play'
+ 425: 
+ 426:   try {
+ 427:     const response = await fetch(endpoint, {
+ 428:       method: 'PUT',
+ 429:       headers: {
+ 430:         Authorization: `Bearer ${accessToken}`,
+ 431:       },
+ 432:     })
+ 433: 
+ 434:     return response.ok
+ 435:   } catch {
+ 436:     return false
+ 437:   }
+ 438: }
+ 439: 
+ 440: function GigControlPage() {
+ 441:   const location = useLocation()
+ 442:   const navigate = useNavigate()
+ 443:   const { user } = useAuthStore()
+ 444:   const {
+ 445:     event,
+ 446:     hostEvents,
+ 447:     songs,
+ 448:     performedSongs,
+ 449:     loading,
+ 450:     addSong,
+ 451:     markPlayed,
+ 452:     unmarkPlayed,
+ 453:     removeSong,
+ 454:     moveSong,
+ 455:     reorderSong,
+ 456:     setActiveEvent,
+ 457:     setRoomOpen,
+ 458:     toggleRoomOpen,
+ 459:     toggleExplicitFilter,
+ 460:     deleteEvent,
+ 461:     forceFallbackMode,
+ 462:     audienceConnectionStatus,
+ 463:     queueOperatingMode,
+ 464:     queueHealthMessage,
+ 465:   } = useQueueStore()
+ 466: 
+ 467:   const [errorText, setErrorText] = useState<string | null>(null)
+ 468:   const [isNowPlayingStarted, setIsNowPlayingStarted] = useState(false)
+ 469:   const [spaceActionBusy, setSpaceActionBusy] = useState(false)
+ 470:   const [songActionBusyId, setSongActionBusyId] = useState<string | null>(null)
+ 471:   const [draggedSongId, setDraggedSongId] = useState<string | null>(null)
+ 472:   const [dragOverSongId, setDragOverSongId] = useState<string | null>(null)
+ 473:   const [isTouchInput, setIsTouchInput] = useState(false)
+ 474:   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
+ 475:   const [snapshotStatusText, setSnapshotStatusText] = useState<string | null>(null)
+ 476:   const [snapshotRestoreBusy, setSnapshotRestoreBusy] = useState(false)
+ 477:   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
+ 478:   const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
+ 479:   const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
+ 480:   const [spotifyAutoTransportEnabled, setSpotifyAutoTransportEnabled] = useState(true)
+ 481:   const [workerHeartbeatText, setWorkerHeartbeatText] = useState<string | null>(null)
+ 482:   const [activeAudienceCount, setActiveAudienceCount] = useState<number | null>(null)
+ 483:   const [preflightBusy, setPreflightBusy] = useState(false)
+ 484:   const [preflightStatusText, setPreflightStatusText] = useState<string | null>(null)
+ 485:   const [lastReadinessVerdict, setLastReadinessVerdict] = useState<'pass' | 'fail' | 'unknown'>(() => {
+ 486:     try {
+ 487:       const raw = window.sessionStorage.getItem('human-jukebox-readiness-verdict')
+ 488:       if (!raw) return 'unknown'
+ 489:       const parsed = JSON.parse(raw) as { verdict?: string }
+ 490:       return parsed.verdict === 'pass' ? 'pass' : parsed.verdict === 'fail' ? 'fail' : 'unknown'
+ 491:     } catch {
+ 492:       return 'unknown'
+ 493:     }
+ 494:   })
+ 495:   const [gigSummary, setGigSummary] = useState<{ totalPlayed: number; topSong: string | null; startedAt: number } | null>(null)
+ 496:   const gigStartedAtRef = useRef<number>(Date.now())
+ 497:   const [isBrbActive, setIsBrbActive] = useState(false)
+ 498:   const [isFinalSongSoonActive, setIsFinalSongSoonActive] = useState(false)
+ 499:   const [brbCustomMessage, setBrbCustomMessage] = useState('')
+ 500:   const [mirrorOverlayUpdateBusy, setMirrorOverlayUpdateBusy] = useState(false)
+ 501:   const [mirrorPreviewTransitionMessage, setMirrorPreviewTransitionMessage] = useState<string | null>(null)
+ 502:   const [mirrorPreviewTransitionTone, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
+ 503:   const [mirrorReadabilityCheckEnabled, setMirrorReadabilityCheckEnabled] = useState(false)
+ 504:   const [lastMirrorSyncAt, setLastMirrorSyncAt] = useState<number>(() => Date.now())
+ 505:   const [mirrorLaunchStatusText, setMirrorLaunchStatusText] = useState<string | null>(null)
+ 506:   const [restoreConfirmPayload, setRestoreConfirmPayload] = useState<{ snapshotId: string; queueCount: number; snapshotCount: number; reason: string; at: string; source: 'database' | 'local' } | null>(null)
+ 507:   const [endGigPromptEvent, setEndGigPromptEvent] = useState<{ id: string; name: string } | null>(null)
+ 508:   const [endGigDecisionBusy, setEndGigDecisionBusy] = useState<'keep-offline' | 'delete' | null>(null)
+ 509:   const [autoLiveCountdown, setAutoLiveCountdown] = useState<string | null>(null)
+ 510:   const [autoLiveLastError, setAutoLiveLastError] = useState<string | null>(null)
+ 511:   const [autoLiveLockBadgeText, setAutoLiveLockBadgeText] = useState<string | null>(null)
+ 512:   const [hostClockOffsetMs, setHostClockOffsetMs] = useState(() => readSharedClockOffsetCache() ?? 0)
+ 513:   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
+ 514:   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
+ 515:   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
+ 516:   const {
+ 517:     copied: copiedAudienceLink,
+ 518:     copyError,
+ 519:     setCopyError,
+ 520:     copyText,
+ 521:   } = useClipboardCopy({ successDurationMs: 1400 })
+ 522:   const gigActions = useGigActions({
+ 523:     setActiveEvent,
+ 524:     toggleRoomOpen: async () => {
+ 525:       try {
+ 526:         // If stopping gig, also disable autoLiveEnabled
+ 527:         if (event && event.roomOpen) {
+ 528:           await toggleRoomOpen();
+ 529:         } else if (event && !event.roomOpen) {
+ 530:           // Stopping gig: set roomOpen false and autoLiveEnabled false
+ 531:           await setRoomOpen(false);
+ 532:           await supabase
+ 533:             .from('events')
+ 534:             .update({ auto_live_enabled: false })
+ 535:             .eq('id', event.id);
+ 536:         }
+ 537:         setErrorText(null);
+ 538:       } catch (err) {
+ 539:         let msg = 'Failed to toggle room.';
+ 540:         if (err && typeof err === 'object' && 'message' in err) {
+ 541:           msg += ` ${(err as any).message}`;
+ 542:         }
+ 543:         setErrorText(msg);
+ 544:         // Log to console for debugging
+ 545:         // eslint-disable-next-line no-console
+ 546:         console.error('toggleRoomOpen error:', err);
+ 547:       }
+ 548:     },
+ 549:     toggleExplicitFilter,
+ 550:     setErrorText,
+ 551:     errors: {
+ 552:       setActiveEvent: 'Failed to switch gig.',
+ 553:       toggleRoomOpen: 'Failed to toggle room.',
+ 554:       toggleExplicitFilter: 'Failed to toggle filter.',
+ 555:     },
+ 556:   })
+ 557: 
+ 558:   // Show error message if present
+ 559:   useEffect(() => {
+ 560:     if (errorText) {
+ 561:       // Optionally, show a toast or alert here
+ 562:       // eslint-disable-next-line no-console
+ 563:       console.warn('GigControlPage error:', errorText);
+ 564:     }
+ 565:   }, [errorText]);
+ 566: 
+ 567:   const quoteIndexRef = useRef(0)
+ 568:   const lastSpaceActionAtRef = useRef(0)
+ 569:   const isNowPlayingStartedRef = useRef(isNowPlayingStarted)
+ 570:   const nowPlayingRef = useRef<typeof songs[number] | undefined>(undefined)
+ 571:   const songsRef = useRef(songs)
+ 572:   const spaceActionBusyRef = useRef(spaceActionBusy)
+ 573:   const previousSongIdRef = useRef<string | null>(null)
+ 574:   const previousRoomOpenRef = useRef<boolean | null>(null)
+ 575:   const playbackActionLockRef = useRef(false)
+ 576:   const gigWorkerRef = useRef<Worker | null>(null)
+ 577:   const liveHealthGuardLastRunAtRef = useRef(0)
+ 578:   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
+ 579:   const autoLiveNextRetryAtRef = useRef(0)
+ 580:   const autoLiveInFlightRef = useRef(false)
+ 581:   const hostClockOffsetRef = useRef(0)
+ 582:   const introAudioLockOwnerRef = useRef<string | null>(null)
+ 583:   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
+ 584:   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
+ 585:   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
+ 586:   const mirrorOverlayBusyRef = useRef(false)
+ 587:   const eventRef = useRef(event)
+ 588:     const getHostNowMs = useCallback(() => Date.now() + hostClockOffsetRef.current, [])
+ 589: 
+ 590:     useEffect(() => {
+ 591:       hostClockOffsetRef.current = hostClockOffsetMs
+ 592:     }, [hostClockOffsetMs])
+ 593: 
+ 594:     useEffect(() => {
+ 595:       saveSharedClockOffsetCache(hostClockOffsetMs)
+ 596:     }, [hostClockOffsetMs])
+ 597: 
+ 598:     useEffect(() => {
+ 599:       let isCurrent = true
+ 600: 
+ 601:       const syncClockOffset = async () => {
+ 602:         const nextOffsetMs = await fetchServerClockOffsetMs()
+ 603: 
+ 604:         if (!isCurrent || nextOffsetMs === null) {
+ 605:           return
+ 606:         }
+ 607: 
+ 608:         hostClockOffsetRef.current = nextOffsetMs
+ 609:         setHostClockOffsetMs(nextOffsetMs)
+ 610:       }
+ 611: 
+ 612:       void syncClockOffset()
+ 613: 
+ 614:       const timerId = window.setInterval(() => {
+ 615:         void syncClockOffset()
+ 616:       }, 120_000)
+ 617: 
+ 618:       return () => {
+ 619:         isCurrent = false
+ 620:         window.clearInterval(timerId)
+ 621:       }
+ 622:     }, [])
+ 623: 
+ 624:   // Tracks event IDs whose intro audio has already played this page session.
+ 625:   // Prevents the intro from replaying if the host pauses and re-opens the room.
+ 626:   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
+ 627: 
+ 628:   const nowPlaying = songs[0]
+ 629:   const mirroredCountdownTargetMs = useMemo(() => {
+ 630:     const target = resolveGigStartAt(event?.gigDate, event?.gigStartTime)
+ 631:     return target ? target.getTime() : null
+ 632:   }, [event?.gigDate, event?.gigStartTime])
+ 633:   const nowPlayingSetlistBucket = useMemo(() => {
+ 634:     if (!nowPlaying?.title) {
+ 635:       return 'A-E'
+ 636:     }
+ 637: 
+ 638:     return getSetlistBucketLabel(nowPlaying.title)
+ 639:   }, [nowPlaying?.title])
+ 640:   const setlistBucketHintText = useMemo(() => {
+ 641:     if (!nowPlaying?.title) {
+ 642:       return 'Setlist bucket: waiting for queue-head song.'
+ 643:     }
+ 644: 
+ 645:     const normalizedTitle = nowPlaying.title.trim() || nowPlaying.title
+ 646:     return `Setlist bucket: ${nowPlayingSetlistBucket} - ${normalizedTitle}`
+ 647:   }, [nowPlaying?.title, nowPlayingSetlistBucket])
+ 648:   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
+ 649:   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
+ 650:   const mirrorPreviewUpNext = useMemo(() => {
+ 651:     const candidateSongs = songs.slice(1)
+ 652: 
+ 653:     return [...candidateSongs].sort((songA, songB) => {
+ 654:       if (songB.votes_count !== songA.votes_count) {
+ 655:         return songB.votes_count - songA.votes_count
+ 656:       }
+ 657: 
+ 658:       const positionA = typeof songA.position === 'number' ? songA.position : Number.MAX_SAFE_INTEGER
+ 659:       const positionB = typeof songB.position === 'number' ? songB.position : Number.MAX_SAFE_INTEGER
+ 660:       return positionA - positionB
+ 661:     })
+ 662:   }, [songs])
+ 663:   const nextUpSong = upNext[0] ?? null
+ 664:   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
+ 665:   const queueAheadMinutesHintText = useMemo(() => {
+ 666:     if (queueEstMinutes <= 0) {
+ 667:       return 'Queue ahead: 0 min'
+ 668:     }
+ 669: 
+ 670:     return `Queue ahead: ~${queueEstMinutes} min`
+ 671:   }, [queueEstMinutes])
+ 672:   const nowPlayingRequesters = parseRequesterNames(nowPlaying?.createdByName)
+ 673:   const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
+ 674:   const isBeforeScheduledStart = Boolean(!event?.roomOpen && gigStartAt && gigStartAt.getTime() > getHostNowMs())
+ 675:   const mirrorStateLabel = isBrbActive
+ 676:     ? 'Mirror showing BRB screen'
+ 677:     : event?.roomOpen
+ 678:     ? isNowPlayingStarted
+ 679:       ? 'Mirror showing live now playing'
+ 680:       : 'Mirror showing between-song transition'
+ 681:     : isBeforeScheduledStart
+ 682:     ? 'Mirror showing pre-show waiting screen'
+ 683:     : 'Mirror showing paused waiting screen'
+ 684:   const liveModeLabel = event?.roomOpen
+ 685:     ? 'Live'
+ 686:     : isBrbActive
+ 687:     ? 'Break'
+ 688:     : isBeforeScheduledStart
+ 689:     ? 'Starting Soon'
+ 690:     : 'Paused'
+ 691:   const queueModeLabel = event?.roomOpen
+ 692:     ? 'Queue Open'
+ 693:     : isBeforeScheduledStart
+ 694:     ? 'Queue Opens Soon'
+ 695:     : 'Queue Paused'
+ 696:   const activeHostEvent = hostEvents.find((hostEvent) => hostEvent.id === event?.id) ?? null
+ 697:   const isCurrentTestGig = activeHostEvent?.isTestGig ?? event?.isTestGig ?? false
+ 698:   const qrTargetEventId = event?.id
+ 699:   const isQrTargetTestGig = isCurrentTestGig
+ 700:   const queuedLibrarySongIds = useMemo(() => (
+ 701:     new Set(
+ 702:       songs
+ 703:         .map((song) => song.library_song_id)
+ 704:         .filter((songId): songId is string => Boolean(songId)),
+ 705:     )
+ 706:   ), [songs])
+ 707:   const joinUrl = getAudienceUrl(qrTargetEventId, {
+ 708:     compact: true,
+ 709:     includeVersion: true,
+ 710:     mode: isQrTargetTestGig ? 'test' : 'public',
+ 711:   })
+ 712:   const testJoinUrl = getAudienceUrl(qrTargetEventId, {
+ 713:     compact: true,
+ 714:     includeVersion: true,
+ 715:     mode: 'test',
+ 716:   })
+ 717:   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
+ 718:   const betweenSongQuote = BETWEEN_SONG_QUOTES[betweenSongQuoteIndex]
+ 719:   const signedInEmail = user?.email?.trim() ?? ''
+ 720:   const isGigLoadFailureState = queueOperatingMode === 'degraded' || Boolean(queueHealthMessage)
+ 721:   const isFocusedGigControlWindow = useMemo(() => {
+ 722:     const searchParams = new URLSearchParams(location.search)
+ 723:     return searchParams.get('view') === 'focus'
+ 724:   }, [location.search])
+ 725:   const shouldAutoEnterFullscreenInFocusWindow = useMemo(() => {
+ 726:     const searchParams = new URLSearchParams(location.search)
+ 727:     return searchParams.get('fullscreen') === '1'
+ 728:   }, [location.search])
+ 729:   const shouldShowErrorText = useMemo(() => {
+ 730:     if (!errorText) {
+ 731:       return false
+ 732:     }
+ 733: 
+ 734:     if (isFocusedGigControlWindow) {
+ 735:       return false
+ 736:     }
+ 737: 
+ 738:     return true
+ 739:   }, [errorText, isFocusedGigControlWindow])
+ 740:   const focusCriticalErrorText = useMemo(() => {
+ 741:     if (!isFocusedGigControlWindow || !errorText) {
+ 742:       return null
+ 743:     }
+ 744: 
+ 745:     const normalizedError = errorText.toLowerCase()
+ 746:     if (normalizedError.includes('fullscreen')) {
+ 747:       return null
+ 748:     }
+ 749: 
+ 750:     const isCriticalError = /(failed|offline|timeout|degraded|reconnect|unavailable|issue|error|health guard|blocked)/i.test(normalizedError)
+ 751:     return isCriticalError ? errorText : null
+ 752:   }, [errorText, isFocusedGigControlWindow])
+ 753: 
+ 754:   useEffect(() => {
+ 755:     if (!isFocusedGigControlWindow || !shouldAutoEnterFullscreenInFocusWindow) {
+ 756:       return
+ 757:     }
+ 758: 
+ 759:     if (typeof document === 'undefined' || !document.documentElement.requestFullscreen) {
+ 760:       return
+ 761:     }
+ 762: 
+ 763:     if (document.fullscreenElement) {
+ 764:       return
+ 765:     }
+ 766: 
+ 767:     const timerId = window.setTimeout(() => {
+ 768:       void document.documentElement.requestFullscreen().catch(() => {
+ 769:         // Ignore blocked auto-fullscreen attempts in focus mode.
+ 770:       })
+ 771:     }, 120)
+ 772: 
+ 773:     return () => {
+ 774:       window.clearTimeout(timerId)
+ 775:     }
+ 776:   }, [isFocusedGigControlWindow, shouldAutoEnterFullscreenInFocusWindow])
+ 777: 
+ 778:   useEffect(() => {
+ 779:     if (typeof window === 'undefined' || !event?.id) {
+ 780:       setAutoLiveLockBadgeText(null)
+ 781:       introAudioLockOwnerRef.current = null
+ 782:       return
+ 783:     }
+ 784: 
+ 785:     const refreshAutoLiveLockBadge = () => {
+ 786:       const lock = readIntroAudioPlayLock(event.id)
+ 787: 
+ 788:       if (!lock) {
+ 789:         setAutoLiveLockBadgeText(null)
+ 790:         return
+ 791:       }
+ 792: 
+ 793:       const remainingSeconds = Math.max(1, Math.ceil((lock.expiresAt - Date.now()) / 1000))
+ 794:       const isOwnedByCurrentTab = introAudioLockOwnerRef.current === lock.ownerId
+ 795: 
+ 796:       setAutoLiveLockBadgeText(
+ 797:         isOwnedByCurrentTab
+ 798:           ? `Auto Live lock: this tab (${remainingSeconds}s)`
+ 799:           : `Auto Live lock active in another host tab (${remainingSeconds}s)`,
+ 800:       )
+ 801:     }
+ 802: 
+ 803:     refreshAutoLiveLockBadge()
+ 804: 
+ 805:     const timerId = window.setInterval(refreshAutoLiveLockBadge, 1000)
+ 806:     const onStorageUpdate = (storageEvent: StorageEvent) => {
+ 807:       if (storageEvent.key === INTRO_AUDIO_LOCK_STORAGE_KEY) {
+ 808:         refreshAutoLiveLockBadge()
+ 809:       }
+ 810:     }
+ 811: 
+ 812:     window.addEventListener('storage', onStorageUpdate)
+ 813: 
+ 814:     return () => {
+ 815:       window.clearInterval(timerId)
+ 816:       window.removeEventListener('storage', onStorageUpdate)
+ 817:     }
+ 818:   }, [event?.id])
+ 819: 
+ 820:   useEffect(() => {
+ 821:     const shouldAutoRedirect = !loading && !event && isGigLoadFailureState && !autoRedirectCancelled
+ 822: 
+ 823:     if (!shouldAutoRedirect) {
+ 824:       setAutoRedirectCountdown(null)
+ 825:       return
+ 826:     }
+ 827: 
+ 828:     setAutoRedirectCountdown(GIG_CONTROL_AUTO_REDIRECT_SECONDS)
+ 829: 
+ 830:     const intervalId = window.setInterval(() => {
+ 831:       setAutoRedirectCountdown((currentCount) => {
+ 832:         if (currentCount === null) {
+ 833:           return currentCount
+ 834:         }
+ 835: 
+ 836:         if (currentCount <= 1) {
+ 837:           window.clearInterval(intervalId)
+ 838:           navigate('/admin/gigs')
+ 839:           return 0
+ 840:         }
+ 841: 
+ 842:         return currentCount - 1
+ 843:       })
+ 844:     }, 1000)
+ 845: 
+ 846:     return () => {
+ 847:       window.clearInterval(intervalId)
+ 848:     }
+ 849:   }, [autoRedirectCancelled, event, isGigLoadFailureState, loading, navigate])
+ 850: 
+ 851:   useEffect(() => {
+ 852:     if (!loading && !event && isGigLoadFailureState) {
+ 853:       return
+ 854:     }
+ 855: 
+ 856:     setAutoRedirectCancelled(false)
+ 857:   }, [event, isGigLoadFailureState, loading])
+ 858: 
+ 859:   useEffect(() => {
+ 860:     if (!loading) {
+ 861:       setShowLoadingRecovery(false)
+ 862:       return
+ 863:     }
+ 864: 
+ 865:     const timerId = window.setTimeout(() => {
+ 866:       setShowLoadingRecovery(true)
+ 867:     }, GIG_CONTROL_LOADING_RECOVERY_MS)
+ 868: 
+ 869:     return () => {
+ 870:       window.clearTimeout(timerId)
+ 871:     }
+ 872:   }, [loading])
+ 873: 
+ 874:   const resolveCoverUrlForSong = useCallback((songId: string | null) => {
+ 875:     if (!songId) {
+ 876:       return null
+ 877:     }
+ 878: 
+ 879:     return songs.find((song) => song.id === songId)?.cover_url ?? null
+ 880:   }, [songs])
+ 881: 
+ 882:   useEffect(() => {
+ 883:     isNowPlayingStartedRef.current = isNowPlayingStarted
+ 884:   }, [isNowPlayingStarted])
+ 885: 
+ 886:   useEffect(() => {
+ 887:     if (audienceConnectionStatus === 'connected') {
+ 888:       setLastMirrorSyncAt(Date.now())
+ 889:     }
+ 890:   }, [audienceConnectionStatus])
+ 891: 
+ 892:   useEffect(() => {
+ 893:     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+ 894:       return
+ 895:     }
+ 896: 
+ 897:     const mediaQuery = window.matchMedia('(pointer: coarse)')
+ 898:     setIsTouchInput(mediaQuery.matches)
+ 899: 
+ 900:     const onChange = (event: MediaQueryListEvent) => {
+ 901:       setIsTouchInput(event.matches)
+ 902:     }
+ 903: 
+ 904:     mediaQuery.addEventListener('change', onChange)
+ 905:     return () => {
+ 906:       mediaQuery.removeEventListener('change', onChange)
+ 907:     }
+ 908:   }, [])
+ 909: 
+ 910:   const handleQueueDrop = useCallback(async (targetSongId: string) => {
+ 911:     if (!event || !draggedSongId || draggedSongId === targetSongId || songActionBusyId) {
+ 912:       return
+ 913:     }
+ 914: 
+ 915:     const sourceIndex = upNext.findIndex((song) => song.id === draggedSongId)
+ 916:     const targetIndex = upNext.findIndex((song) => song.id === targetSongId)
+ 917: 
+ 918:     if (sourceIndex === -1 || targetIndex === -1) {
+ 919:       setDraggedSongId(null)
+ 920:       setDragOverSongId(null)
+ 921:       return
+ 922:     }
+ 923: 
+ 924:     setSongActionBusyId(draggedSongId)
+ 925: 
+ 926:     try {
+ 927:       const queueStartIndex = isNowPlayingStarted ? 1 : 0
+ 928:       captureQueueSnapshot({
+ 929:         eventId: event.id,
+ 930:         eventName: event.name,
+ 931:         reason: 'before-reorder',
+ 932:         roomOpen: event.roomOpen,
+ 933:         explicitFilterEnabled: event.explicitFilterEnabled,
+ 934:         queue: songs,
+ 935:         performed: performedSongs,
+ 936:       })
+ 937:       await reorderSong(draggedSongId, targetIndex + queueStartIndex)
+ 938:       await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+ 939:     } catch (error) {
+ 940:       console.warn('GigControlPage: drag reorder failed', error)
+ 941:       setErrorText(error instanceof Error ? error.message : 'Failed to reorder queue.')
+ 942:     } finally {
+ 943:       setSongActionBusyId(null)
+ 944:       setDraggedSongId(null)
+ 945:       setDragOverSongId(null)
+ 946:     }
+ 947:   }, [draggedSongId, event, isNowPlayingStarted, performedSongs, reorderSong, songActionBusyId, songs, upNext])
+ 948: 
+ 949:   const sendSpotifyTransportCommand = useCallback((
+ 950:     mode: SpotifyTransportMode,
+ 951:     options?: { force?: boolean },
+ 952:   ) => {
+ 953:     if (!options?.force && !spotifyAutoTransportEnabled) {
+ 954:       return
+ 955:     }
+ 956: 
+ 957:     setSpotifyTransportCommand({ mode, nonce: Date.now() })
+ 958:   }, [spotifyAutoTransportEnabled])
+ 959: 
+ 960:   const sendManualSpotifyTransportCommand = useCallback((mode: SpotifyTransportMode) => {
+ 961:     if (!spotifyAccessToken) {
+ 962:       setErrorText('Connect Spotify first to use Spotify transport controls.')
+ 963:       return
+ 964:     }
+ 965: 
+ 966:     if (mode === 'play') {
+ 967:       setSpotifyStatusText('Sending Spotify play command...')
+ 968:     } else if (mode === 'next') {
+ 969:       setSpotifyStatusText('Sending Spotify next command...')
+ 970:     } else if (mode === 'previous') {
+ 971:       setSpotifyStatusText('Sending Spotify previous command...')
+ 972:     }
+ 973: 
+ 974:     setSpotifyTransportCommand({ mode, nonce: Date.now() })
+ 975:   }, [spotifyAccessToken])
+ 976: 
+ 977:   const primeIntroAudioPlayback = useCallback((eventId: string, introAudioUrl: string) => {
+ 978:     if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+ 979:       return
+ 980:     }
+ 981: 
+ 982:     const existingPrimedIntro = primedIntroAudioRef.current
+ 983:     if (existingPrimedIntro && existingPrimedIntro.eventId === eventId && existingPrimedIntro.url === introAudioUrl) {
+ 984:       return
+ 985:     }
+ 986: 
+ 987:     const primedElement = new Audio(introAudioUrl)
+ 988:     primedElement.preload = 'auto'
+ 989:     primedElement.muted = true
+ 990: 
+ 991:     // Prime playback inside the user gesture so later play() can succeed
+ 992:     // even after async preflight and network operations complete.
+ 993:     void primedElement.play()
+ 994:       .then(() => {
+ 995:         primedElement.pause()
+ 996:         primedElement.currentTime = 0
+ 997:       })
+ 998:       .catch(() => {
+ 999:         // Best-effort priming only.
+1000:       })
+1001: 
+1002:     primedIntroAudioRef.current = {
+1003:       eventId,
+1004:       url: introAudioUrl,
+1005:       element: primedElement,
+1006:     }
+1007:   }, [])
+1008: 
+1009:   const playIntroAudioWithSpotifyBridge = useCallback(async (introAudioUrl: string, primedAudioElement?: HTMLAudioElement | null) => {
+1010:     if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+1011:       return
+1012:     }
+1013: 
+1014:     const introAudio = primedAudioElement ?? new Audio(introAudioUrl)
+1015:     introAudio.muted = false
+1016:     introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
+1017:     introAudio.currentTime = 0
+1018:     introAudio.preload = 'auto'
+1019: 
+1020:     // Duck Spotify while the intro stinger runs. Keep it paused afterwards.
+1021:     sendSpotifyTransportCommand('pause', { force: true })
+1022:     void sendSpotifyWebApiTransportCommand('pause')
+1023: 
+1024:     const completionPromise = new Promise<void>((resolve) => {
+1025:       const cleanup = () => {
+1026:         introAudio.removeEventListener('ended', onEnded)
+1027:         introAudio.removeEventListener('error', onError)
+1028:       }
+1029: 
+1030:       const onEnded = () => {
+1031:         cleanup()
+1032:         resolve()
+1033:       }
+1034: 
+1035:       const onError = () => {
+1036:         cleanup()
+1037:         resolve()
+1038:       }
+1039: 
+1040:       introAudio.addEventListener('ended', onEnded, { once: true })
+1041:       introAudio.addEventListener('error', onError, { once: true })
+1042:     })
+1043: 
+1044:     await introAudio.play()
+1045: 
+1046:     await completionPromise
+1047:   }, [sendSpotifyTransportCommand])
+1048: 
+1049:   useEffect(() => {
+1050:     const storedToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)
+1051:     if (storedToken) {
+1052:       setSpotifyAccessToken(storedToken)
+1053:     }
+1054:     const storedAutoTransport = window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY)
+1055:     if (storedAutoTransport === '0') {
+1056:       setSpotifyAutoTransportEnabled(false)
+1057:     }
+1058:   }, [])
+1059: 
+1060:   useEffect(() => {
+1061:     window.localStorage.setItem(
+1062:       SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY,
+1063:       spotifyAutoTransportEnabled ? '1' : '0',
+1064:     )
+1065:   }, [spotifyAutoTransportEnabled])
+1066: 
+1067:   const refreshSpotifyAccessToken = useCallback(async () => {
+1068:     const response = await fetch('/api/spotify/token')
+1069:     const payload = await response.json().catch(() => ({}))
+1070: 
+1071:     if (!response.ok || typeof payload.access_token !== 'string') {
+1072:       throw new Error(payload.error || 'Spotify token refresh failed.')
+1073:     }
+1074: 
+1075:     window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
+1076:     setSpotifyAccessToken(payload.access_token)
+1077:     return payload.access_token as string
+1078:   }, [])
+1079: 
+1080:   useEffect(() => {
+1081:     if (!spotifyAccessToken) {
+1082:       return
+1083:     }
+1084: 
+1085:     let cancelled = false
+1086:     const refreshInterval = window.setInterval(() => {
+1087:       void (async () => {
+1088:         try {
+1089:           const token = await refreshSpotifyAccessToken()
+1090: 
+1091:           if (!cancelled) {
+1092:             setSpotifyStatusText(`Spotify session refreshed at ${new Date().toLocaleTimeString()}.`)
+1093:             setSpotifyAccessToken(token)
+1094:           }
+1095:         } catch (error) {
+1096:           if (!cancelled) {
+1097:             setSpotifyStatusText(error instanceof Error ? error.message : 'Spotify refresh failed.')
+1098:           }
+1099:         }
+1100:       })()
+1101:     }, 50 * 60 * 1000)
+1102: 
+1103:     return () => {
+1104:       cancelled = true
+1105:       window.clearInterval(refreshInterval)
+1106:     }
+1107:   }, [refreshSpotifyAccessToken, spotifyAccessToken])
+1108: 
+1109:   useEffect(() => {
+1110:     if (typeof window === 'undefined' || typeof Worker === 'undefined') {
+1111:       return
+1112:     }
+1113: 
+1114:     const worker = new Worker(new URL('../workers/gigWorker.js', import.meta.url), { type: 'module' })
+1115:     gigWorkerRef.current = worker
+1116: 
+1117:     worker.addEventListener('message', (event: MessageEvent<{ type?: string, tickCount?: number, tag?: string }>) => {
+1118:       const message = event.data
+1119: 
+1120:       if (message?.type === 'tick') {
+1121:         if ((message.tickCount ?? 0) >= 1) {
+1122:           setWorkerHeartbeatText('Background worker active.')
+1123:         }
+1124:         return
+1125:       }
+1126: 
+1127:       if (message?.type === 'sync-hint') {
+1128:         registerBackgroundSync(message.tag || BACKGROUND_SYNC_TAG).catch((error) => {
+1129:           console.warn('Failed to register background sync from worker hint', error)
+1130:         })
+1131:       }
+1132:     })
+1133: 
+1134:     worker.postMessage({ type: 'start' })
+1135: 
+1136:     const onVisibilityChange = () => {
+1137:       if (document.hidden) {
+1138:         worker.postMessage({ type: 'stop' })
+1139:         return
+1140:       }
+1141: 
+1142:       worker.postMessage({ type: 'start' })
+1143:       registerBackgroundSync(BACKGROUND_SYNC_TAG).catch((error) => {
+1144:         console.warn('Failed to register background sync on visibility change', error)
+1145:       })
+1146:     }
+1147: 
+1148:     document.addEventListener('visibilitychange', onVisibilityChange)
+1149: 
+1150:     return () => {
+1151:       document.removeEventListener('visibilitychange', onVisibilityChange)
+1152:       worker.postMessage({ type: 'stop' })
+1153:       worker.terminate()
+1154:       gigWorkerRef.current = null
+1155:     }
+1156:   }, [])
+1157: 
+1158:   // Re-read readiness verdict from sessionStorage when tab becomes visible
+1159:   useEffect(() => {
+1160:     const onFocus = () => {
+1161:       try {
+1162:         const raw = window.sessionStorage.getItem('human-jukebox-readiness-verdict')
+1163:         if (!raw) return
+1164:         const parsed = JSON.parse(raw) as { verdict?: string }
+1165:         setLastReadinessVerdict(
+1166:           parsed.verdict === 'pass' ? 'pass' : parsed.verdict === 'fail' ? 'fail' : 'unknown',
+1167:         )
+1168:       } catch {
+1169:         // non-critical
+1170:       }
+1171:     }
+1172:     document.addEventListener('visibilitychange', onFocus)
+1173:     return () => document.removeEventListener('visibilitychange', onFocus)
+1174:   }, [])
+1175: 
+1176:   const copyJoinUrl = async () => {
+1177:     const copiedSuccessfully = await copyText(
+1178:       joinUrl,
+1179:       'Copy failed. You can still select and copy the audience link manually.',
+1180:     )
+1181: 
+1182:     if (copiedSuccessfully) {
+1183:       setErrorText(null)
+1184:       setCopyError(null)
+1185:     }
+1186:   }
+1187: 
+1188:   const copyTestJoinUrl = async () => {
+1189:     const copiedSuccessfully = await copyText(
+1190:       testJoinUrl,
+1191:       'Copy failed. You can still select and copy the test audience link manually.',
+1192:     )
+1193: 
+1194:     if (copiedSuccessfully) {
+1195:       setErrorText(null)
+1196:       setCopyError(null)
+1197:     }
+1198:   }
+1199: 
+1200:   const connectSpotify = useCallback(async () => {
+1201:     try {
+1202:       const token = await refreshSpotifyAccessToken()
+1203:       setSpotifyStatusText(`Spotify connected from saved session at ${new Date().toLocaleTimeString()}.`)
+1204:       setSpotifyAccessToken(token)
+1205:       return
+1206:     } catch {
+1207:       window.location.assign('/api/spotify/login')
+1208:     }
+1209:   }, [refreshSpotifyAccessToken])
+1210: 
+1211:   const persistReadinessVerdict = useCallback((verdict: 'pass' | 'fail') => {
+1212:     setLastReadinessVerdict(verdict)
+1213: 
+1214:     try {
+1215:       window.sessionStorage.setItem(
+1216:         'human-jukebox-readiness-verdict',
+1217:         JSON.stringify({ verdict, at: new Date().toLocaleTimeString() }),
+1218:       )
+1219:     } catch {
+1220:       // non-critical
+1221:     }
+1222:   }, [])
+1223: 
+1224:   const runPreflightChecks = useCallback(async () => {
+1225:     if (!event) {
+1226:       throw new Error('No active gig selected for preflight.')
+1227:     }
+1228: 
+1229:     if (!navigator.onLine) {
+1230:       throw new Error('Device is offline. Connect to the internet before going live.')
+1231:     }
+1232: 
+1233:     const keepWarmController = new AbortController()
+1234:     const keepWarmTimeoutId = window.setTimeout(() => {
+1235:       keepWarmController.abort()
+1236:     }, 1800)
+1237: 
+1238:     const keepWarmPromise = fetch('/api/keepwarm', {
+1239:       method: 'GET',
+1240:       cache: 'no-store',
+1241:       signal: keepWarmController.signal,
+1242:     })
+1243:       .then((response) => response.ok)
+1244:       .catch(() => false)
+1245:       .finally(() => {
+1246:         window.clearTimeout(keepWarmTimeoutId)
+1247:       })
+1248: 
+1249:     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+1250:     if (sessionError) {
+1251:       throw new Error(`Session check failed: ${sessionError.message}`)
+1252:     }
+1253:     if (!sessionData.session?.user) {
+1254:       throw new Error('No active host session. Please sign in again before going live.')
+1255:     }
+1256: 
+1257:     const { error: dbReadError } = await supabase
+1258:       .from('events')
+1259:       .select('id, room_open')
+1260:       .eq('id', event.id)
+1261:       .single()
+1262: 
+1263:     if (dbReadError) {
+1264:       throw new Error(`Database read failed: ${dbReadError.message}`)
+1265:     }
+1266: 
+1267:     const testChannel = supabase.channel(`go-live-preflight-${Date.now()}`)
+1268:     const realtimeStatus = await new Promise<string>((resolve) => {
+1269:       const timeoutId = window.setTimeout(() => resolve('TIMED_OUT'), 1800)
+1270: 
+1271:       testChannel
+1272:         .on('postgres_changes', {
+1273:           event: '*',
+1274:           schema: 'public',
+1275:           table: 'events',
+1276:         }, () => {
+1277:           // no-op
+1278:         })
+1279:         .subscribe((status) => {
+1280:           if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+1281:             window.clearTimeout(timeoutId)
+1282:             resolve(status)
+1283:           }
+1284:         })
+1285:     })
+1286: 
+1287:     void supabase.removeChannel(testChannel)
+1288: 
+1289:     if (realtimeStatus !== 'SUBSCRIBED') {
+1290:       throw new Error(`Realtime subscription failed (${realtimeStatus}).`)
+1291:     }
+1292: 
+1293:     const nextJoinUrl = event.isTestGig
+1294:       ? getAudienceUrl(event.id, { compact: false, mode: 'test' })
+1295:       : getAudienceUrl(event.id, { compact: true })
+1296:     if (!nextJoinUrl.startsWith('http')) {
+1297:       throw new Error('Audience share link could not be generated.')
+1298:     }
+1299: 
+1300:     const keepWarmOk = await keepWarmPromise
+1301:     if (!keepWarmOk) {
+1302:       console.warn('GigControlPage: keepwarm preflight did not return OK, continuing with Go Live.')
+1303:     }
+1304:   }, [event])
+1305: 
+1306:   const attemptAutomaticHealthRepair = useCallback(async (issueCode: PreflightIssueCode) => {
+1307:     switch (issueCode) {
+1308:       case 'offline':
+1309:         return {
+1310:           fixed: false,
+1311:           detail: 'Auto-fix could not continue because this device is offline. Reconnect Wi-Fi or mobile data and try again.',
+1312:         }
+1313: 
+1314:       case 'session': {
+1315:         const { data, error } = await supabase.auth.refreshSession()
+1316:         return {
+1317:           fixed: Boolean(data.session) && !error,
+1318:           detail: error
+1319:             ? `Auto-fix could not refresh the host session: ${error.message}`
+1320:             : 'Auto-fix refreshed the host session. Retesting now...',
+1321:         }
+1322:       }
+1323: 
+1324:       case 'database':
+1325:       case 'keepwarm':
+1326:       case 'unknown': {
+1327:         await supabase.auth.refreshSession().catch(() => undefined)
+1328:         const keepWarmResponse = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' }).catch(() => null)
+1329: 
+1330:         return {
+1331:           fixed: Boolean(keepWarmResponse?.ok),
+1332:           detail: keepWarmResponse?.ok
+1333:             ? 'Auto-fix warmed the backend and refreshed auth. Retesting now...'
+1334:             : 'Auto-fix could not wake the backend automatically. Check connectivity and deployment health.',
+1335:         }
+1336:       }
+1337: 
+1338:       case 'realtime': {
+1339:         await supabase.auth.refreshSession().catch(() => undefined)
+1340:         const channels = supabase.getChannels()
+1341:         await Promise.allSettled(channels.map((channel) => supabase.removeChannel(channel)))
+1342: 
+1343:         return {
+1344:           fixed: true,
+1345:           detail: 'Auto-fix reset live channels and refreshed the session. Retesting now...',
+1346:         }
+1347:       }
+1348: 
+1349:       case 'shareLinks':
+1350:         return {
+1351:           fixed: Boolean(event?.id),
+1352:           detail: event?.id
+1353:             ? 'Auto-fix regenerated the audience share link. Retesting now...'
+1354:             : 'Auto-fix could not regenerate the audience link because no gig is selected.',
+1355:         }
+1356:     }
+1357:   }, [event?.id])
+1358: 
+1359:   const runGoLivePreflight = useCallback(async () => {
+1360:     if (!event) {
+1361:       throw new Error('No active gig selected for preflight.')
+1362:     }
+1363: 
+1364:     setPreflightBusy(true)
+1365:     setPreflightStatusText('Running preflight checks...')
+1366: 
+1367:     try {
+1368:       await runPreflightChecks()
+1369:       persistReadinessVerdict('pass')
+1370:       setPreflightStatusText(`Preflight passed at ${new Date().toLocaleTimeString()}.`)
+1371:     } catch (error) {
+1372:       const message = error instanceof Error ? error.message : 'Preflight failed.'
+1373:       const issueCode = classifyPreflightIssue(error)
+1374: 
+1375:       setPreflightStatusText(`${message} Auto-fix is checking what it can repair...`)
+1376: 
+1377:       const repairResult = await attemptAutomaticHealthRepair(issueCode)
+1378: 
+1379:       if (!repairResult.fixed) {
+1380:         persistReadinessVerdict('fail')
+1381:         const nextError = new Error(`${message} ${repairResult.detail}`)
+1382:         setPreflightStatusText(nextError.message)
+1383:         throw nextError
+1384:       }
+1385: 
+1386:       setPreflightStatusText(repairResult.detail)
+1387: 
+1388:       try {
+1389:         await runPreflightChecks()
+1390:         persistReadinessVerdict('pass')
+1391:         setPreflightStatusText(`Auto-fix succeeded. Ready at ${new Date().toLocaleTimeString()}.`)
+1392:       } catch (retryError) {
+1393:         const retryMessage = retryError instanceof Error ? retryError.message : 'Preflight failed after auto-fix.'
+1394:         persistReadinessVerdict('fail')
+1395:         setPreflightStatusText(`Auto-fix ran, but there is still a blocking issue: ${retryMessage}`)
+1396:         throw retryError
+1397:       }
+1398:     } finally {
+1399:       setPreflightBusy(false)
+1400:     }
+1401:   }, [attemptAutomaticHealthRepair, event, persistReadinessVerdict, runPreflightChecks])
+1402: 
+1403:   const ensureRoomOpenState = useCallback(async (targetRoomOpen: boolean) => {
+1404:     const wait = (ms: number) => new Promise<void>((resolve) => {
+1405:       window.setTimeout(resolve, ms)
+1406:     })
+1407: 
+1408:     for (let attempt = 1; attempt <= ROOM_STATE_ENSURE_MAX_ATTEMPTS; attempt += 1) {
+1409:       const currentEvent = eventRef.current
+1410:       if (!currentEvent?.id) {
+1411:         throw new Error('No active gig selected.')
+1412:       }
+1413: 
+1414:       if (currentEvent.roomOpen === targetRoomOpen) {
+1415:         return true
+1416:       }
+1417: 
+1418:       await setRoomOpen(targetRoomOpen)
+1419:       await wait(220)
+1420: 
+1421:       const latestEvent = eventRef.current
+1422:       if (latestEvent?.id === currentEvent.id && latestEvent.roomOpen === targetRoomOpen) {
+1423:         return true
+1424:       }
+1425: 
+1426:       if (attempt < ROOM_STATE_ENSURE_MAX_ATTEMPTS) {
+1427:         await wait(ROOM_STATE_ENSURE_RETRY_DELAY_MS * attempt)
+1428:       }
+1429:     }
+1430: 
+1431:     throw new Error(
+1432:       targetRoomOpen
+1433:         ? 'Could not open room after multiple retries. Please check connection and try again.'
+1434:         : 'Could not end gig after multiple retries. Please check connection and try again.',
+1435:     )
+1436:   }, [setRoomOpen])
+1437: 
+1438:   const playIntroAudioOnceSafely = useCallback(async (
+1439:     eventId: string,
+1440:     introAudioUrl: string,
+1441:     autoplayBlockedMessage: string,
+1442:     primedAudioElement?: HTMLAudioElement | null,
+1443:   ) => {
+1444:     if (introAudioPlayedEventIdsRef.current.has(eventId)) {
+1445:       return
+1446:     }
+1447: 
+1448:     const introAudioLockOwner = acquireIntroAudioPlayLock(eventId)
+1449:     if (!introAudioLockOwner) {
+1450:       return
+1451:     }
+1452: 
+1453:     introAudioLockOwnerRef.current = introAudioLockOwner
+1454: 
+1455:     try {
+1456:       await playIntroAudioWithSpotifyBridge(introAudioUrl, primedAudioElement)
+1457:       introAudioPlayedEventIdsRef.current.add(eventId)
+1458:     } catch {
+1459:       setErrorText(autoplayBlockedMessage)
+1460:     } finally {
+1461:       releaseIntroAudioPlayLock(eventId, introAudioLockOwner)
+1462:       if (introAudioLockOwnerRef.current === introAudioLockOwner) {
+1463:         introAudioLockOwnerRef.current = null
+1464:       }
+1465:     }
+1466:   }, [playIntroAudioWithSpotifyBridge])
+1467: 
+1468:   const toggleLiveState = useCallback(async () => {
+1469:     const currentEvent = eventRef.current
+1470:     if (!currentEvent?.id) {
+1471:       setErrorText('No active gig selected.')
+1472:       return
+1473:     }
+1474: 
+1475:     const isOpeningRoom = !currentEvent.roomOpen
+1476: 
+1477:     try {
+1478:       if (isOpeningRoom) {
+1479:         if (currentEvent.introAudioUrl) {
+1480:           primeIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl)
+1481:         }
+1482: 
+1483:         setAutoLiveLastError(null)
+1484:         await runGoLivePreflight()
+1485:       } else {
+1486:         setEndGigPromptEvent({
+1487:           id: currentEvent.id,
+1488:           name: currentEvent.name,
+1489:         })
+1490:         return
+1491:       }
+1492: 
+1493:       await ensureRoomOpenState(isOpeningRoom)
+1494:       setAutoLiveLastError(null)
+1495: 
+1496:       const latestEvent = eventRef.current
+1497:       if (!isOpeningRoom || !latestEvent?.id || latestEvent.id !== currentEvent.id) {
+1498:         return
+1499:       }
+1500: 
+1501:       if (latestEvent.introAudioUrl) {
+1502:         const primedIntroAudio = primedIntroAudioRef.current
+1503:         const primedElement =
+1504:           primedIntroAudio
+1505:           && primedIntroAudio.eventId === latestEvent.id
+1506:           && primedIntroAudio.url === latestEvent.introAudioUrl
+1507:             ? primedIntroAudio.element
+1508:             : null
+1509: 
+1510:         await playIntroAudioOnceSafely(
+1511:           latestEvent.id,
+1512:           latestEvent.introAudioUrl,
+1513:           'Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
+1514:           primedElement,
+1515:         )
+1516:       }
+1517: 
+1518:       await writeSharedPlaybackState(latestEvent.id, {
+1519:         currentSongId: nowPlaying?.id ?? null,
+1520:         currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
+1521:         isStarted: false,
+1522:         quoteIndex: quoteIndexRef.current,
+1523:         countdownTargetMs: mirroredCountdownTargetMs,
+1524:         brbActive: false,
+1525:         brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+1526:       })
+1527: 
+1528:       setIsNowPlayingStarted(false)
+1529:     } catch (error) {
+1530:       setErrorText(
+1531:         error instanceof Error
+1532:           ? error.message
+1533:           : isOpeningRoom
+1534:           ? 'Go Live preflight failed.'
+1535:           : 'Could not end gig. Please try again.',
+1536:       )
+1537:     }
+1538:   }, [
+1539:     ensureRoomOpenState,
+1540:     mirroredCountdownTargetMs,
+1541:     nowPlaying?.id,
+1542:     playIntroAudioOnceSafely,
+1543:     primeIntroAudioPlayback,
+1544:     resolveCoverUrlForSong,
+1545:     runGoLivePreflight,
+1546:   ])
+1547: 
+1548:   const runEndGigDecision = useCallback(async (decision: 'keep-offline' | 'delete') => {
+1549:     const targetEvent = endGigPromptEvent ?? eventRef.current
+1550: 
+1551:     if (!targetEvent?.id) {
+1552:       setErrorText('No active gig selected.')
+1553:       setEndGigPromptEvent(null)
+1554:       return
+1555:     }
+1556: 
+1557:     setErrorText(null)
+1558:     setEndGigDecisionBusy(decision)
+1559: 
+1560:     try {
+1561:       await ensureRoomOpenState(false)
+1562: 
+1563:       if (decision === 'delete') {
+1564:         await deleteEvent(targetEvent.id)
+1565:       }
+1566: 
+1567:       setAutoLiveLastError(null)
+1568:       setEndGigPromptEvent(null)
+1569:     } catch (error) {
+1570:       setErrorText(
+1571:         error instanceof Error
+1572:           ? error.message
+1573:           : decision === 'delete'
+1574:           ? 'Could not delete gig. Please try again.'
+1575:           : 'Could not end gig. Please try again.',
+1576:       )
+1577:     } finally {
+1578:       setEndGigDecisionBusy(null)
+1579:     }
+1580:   }, [deleteEvent, endGigPromptEvent, ensureRoomOpenState])
+1581: 
+1582:   const showMirrorPreviewTransition = useCallback((message: string, tone: MirrorPreviewTransitionTone) => {
+1583:     if (mirrorPreviewTransitionTimerRef.current !== null) {
+1584:       window.clearTimeout(mirrorPreviewTransitionTimerRef.current)
+1585:       mirrorPreviewTransitionTimerRef.current = null
+1586:     }
+1587: 
+1588:     setMirrorPreviewTransitionTone(tone)
+1589:     setMirrorPreviewTransitionMessage(message)
+1590: 
+1591:     mirrorPreviewTransitionTimerRef.current = window.setTimeout(() => {
+1592:       setMirrorPreviewTransitionMessage(null)
+1593:       mirrorPreviewTransitionTimerRef.current = null
+1594:     }, MIRROR_PREVIEW_TRANSITION_MS)
+1595:   }, [])
+1596: 
+1597:   const setMirrorOverlayMessage = useCallback(async (message: string | null) => {
+1598:     if (!event?.id || mirrorOverlayBusyRef.current) {
+1599:       return false
+1600:     }
+1601: 
+1602:     const normalizedMessage = message?.trim() ?? ''
+1603:     const nextFinalSongSoonActive = isLastSongSoonOverlayMessage(normalizedMessage)
+1604:     const nextBrbActive = Boolean(normalizedMessage) && !nextFinalSongSoonActive
+1605:     const previousBrbActive = isBrbActive
+1606:     const previousFinalSongSoonActive = isFinalSongSoonActive
+1607:     const previousBrbMessage = brbCustomMessage
+1608:     const resolvedMessage = normalizedMessage || null
+1609: 
+1610:     mirrorOverlayBusyRef.current = true
+1611:     setMirrorOverlayUpdateBusy(true)
+1612: 
+1613:     setIsBrbActive(nextBrbActive)
+1614:     setIsFinalSongSoonActive(nextFinalSongSoonActive)
+1615: 
+1616:     if (resolvedMessage && nextBrbActive) {
+1617:       setBrbCustomMessage(resolvedMessage)
+1618:     }
+1619: 
+1620:     try {
+1621:       const writeSucceeded = await writeSharedPlaybackState(event.id, {
+1622:         currentSongId: nowPlaying?.id ?? null,
+1623:         currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
+1624:         isStarted: isNowPlayingStarted,
+1625:         quoteIndex: quoteIndexRef.current,
+1626:         countdownTargetMs: mirroredCountdownTargetMs,
+1627:         brbActive: nextBrbActive,
+1628:         brbMessage: resolvedMessage,
+1629:       })
+1630: 
+1631:       if (!writeSucceeded) {
+1632:         throw new Error('Mirror overlay write did not persist.')
+1633:       }
+1634: 
+1635:       if (!nextBrbActive && previousBrbActive) {
+1636:         showMirrorPreviewTransition(BREAK_TRANSITION_BACK_MESSAGE, 'back-live')
+1637:       }
+1638: 
+1639:       return true
+1640:     } catch (error) {
+1641:       setIsBrbActive(previousBrbActive)
+1642:       setIsFinalSongSoonActive(previousFinalSongSoonActive)
+1643:       setBrbCustomMessage(previousBrbMessage)
+1644:       console.warn('GigControlPage: mirror overlay update failed', error)
+1645:       setErrorText('Failed to update mirror overlay.')
+1646:       return false
+1647:     } finally {
+1648:       mirrorOverlayBusyRef.current = false
+1649:       setMirrorOverlayUpdateBusy(false)
+1650:     }
+1651:   }, [
+1652:     brbCustomMessage,
+1653:     event?.id,
+1654:     isBrbActive,
+1655:     isFinalSongSoonActive,
+1656:     isNowPlayingStarted,
+1657:     mirroredCountdownTargetMs,
+1658:     nowPlaying?.id,
+1659:     resolveCoverUrlForSong,
+1660:     showMirrorPreviewTransition,
+1661:   ])
+1662: 
+1663:   const toggleLastSongSoonState = useCallback(async () => {
+1664:     await setMirrorOverlayMessage(isFinalSongSoonActive ? null : LAST_SONG_SOON_OVERLAY_MESSAGE)
+1665:   }, [isFinalSongSoonActive, setMirrorOverlayMessage])
+1666: 
+1667:   const toggleBrbState = useCallback(async () => {
+1668:     const nextBrb = !isBrbActive
+1669:     await setMirrorOverlayMessage(nextBrb ? (brbCustomMessage.trim() || DEFAULT_BRB_MESSAGE) : null)
+1670:   }, [brbCustomMessage, isBrbActive, setMirrorOverlayMessage])
+1671: 
+1672:   const rollBreakMessage = useCallback(async () => {
+1673:     const nextMessage = pickRandomBreakMessage(brbCustomMessage)
+1674:     setBrbCustomMessage(nextMessage)
+1675: 
+1676:     if (isBrbActive) {
+1677:       await setMirrorOverlayMessage(nextMessage)
+1678:     }
+1679:   }, [brbCustomMessage, isBrbActive, setMirrorOverlayMessage])
+1680: 
+1681:   const triggerEmergencyOverlay = useCallback(async (preset: EmergencyOverlayPreset) => {
+1682:     const message = getEmergencyOverlayMessage(preset)
+1683:     await setMirrorOverlayMessage(message)
+1684:   }, [setMirrorOverlayMessage])
+1685: 
+1686:   useEffect(() => {
+1687:     return () => {
+1688:       if (mirrorPreviewTransitionTimerRef.current !== null) {
+1689:         window.clearTimeout(mirrorPreviewTransitionTimerRef.current)
+1690:         mirrorPreviewTransitionTimerRef.current = null
+1691:       }
+1692:     }
+1693:   }, [])
+1694: 
+1695:   useEffect(() => {
+1696:     if (!event?.roomOpen || preflightBusy || audienceConnectionStatus === 'connected') {
+1697:       return
+1698:     }
+1699: 
+1700:     if (!navigator.onLine) {
+1701:       setPreflightStatusText('Live health guard detected offline mode. The app will retry auto-fix when the connection returns.')
+1702:       return
+1703:     }
+1704: 
+1705:     const now = Date.now()
+1706:     if (now - liveHealthGuardLastRunAtRef.current < 60_000) {
+1707:       return
+1708:     }
+1709: 
+1710:     const timerId = window.setTimeout(() => {
+1711:       liveHealthGuardLastRunAtRef.current = Date.now()
+1712:       void runGoLivePreflight().catch((error) => {
+1713:         setErrorText(error instanceof Error ? `Live health guard: ${error.message}` : 'Live health guard found an issue that could not be repaired automatically.')
+1714:       })
+1715:     }, audienceConnectionStatus === 'reconnecting' ? 8_000 : 1_500)
+1716: 
+1717:     return () => {
+1718:       window.clearTimeout(timerId)
+1719:     }
+1720:   }, [audienceConnectionStatus, event?.roomOpen, preflightBusy, runGoLivePreflight])
+1721: 
+1722:   const saveQueueSnapshot = useCallback((reason = 'manual', silent = false) => {
+1723:     if (!event) {
+1724:       if (!silent) {
+1725:         setSnapshotStatusText('No active gig to snapshot.')
+1726:       }
+1727:       return false
+1728:     }
+1729: 
+1730:     const snapshotPayload = {
+1731:       eventId: event.id,
+1732:       eventName: event.name,
+1733:       reason,
+1734:       roomOpen: event.roomOpen,
+1735:       explicitFilterEnabled: event.explicitFilterEnabled,
+1736:       queue: songs,
+1737:       performed: performedSongs,
+1738:     }
+1739: 
+1740:     captureQueueSnapshot(snapshotPayload)
+1741:     void saveQueueSnapshotToDatabase(snapshotPayload).catch((error) => {
+1742:       console.warn('GigControlPage: database snapshot save failed, using local snapshot fallback', error)
+1743:     })
+1744: 
+1745:     if (!silent) {
+1746:       setSnapshotStatusText(`Snapshot saved at ${new Date().toLocaleTimeString()}.`)
+1747:     }
+1748: 
+1749:     registerBackgroundSync(BACKGROUND_SYNC_TAG).catch((error) => {
+1750:       console.warn('Failed to register background sync after snapshot save', error)
+1751:     })
+1752: 
+1753:     return true
+1754:   }, [event, performedSongs, songs])
+1755: 
+1756:   const runWithSafetySnapshot = useCallback(async (reason: string, action: () => Promise<void>) => {
+1757:     saveQueueSnapshot(reason, true)
+1758:     await action()
+1759:   }, [saveQueueSnapshot])
+1760: 
+1761:   // Keep a stable ref so the 5-minute auto-interval useEffect below doesn't
+1762:   // restart every time the queue changes (which would reset the timer).
+1763:   const saveQueueSnapshotRef = useRef(saveQueueSnapshot)
+1764:   useEffect(() => {
+1765:     saveQueueSnapshotRef.current = saveQueueSnapshot
+1766:   }, [saveQueueSnapshot])
+1767: 
+1768:   const restoreLatestSnapshot = useCallback(async () => {
+1769:     if (!event) {
+1770:       setSnapshotStatusText('No active gig to restore.')
+1771:       return
+1772:     }
+1773: 
+1774:     let latestSnapshot = null
+1775:     let databaseSnapshotAvailable = false
+1776: 
+1777:     try {
+1778:       const dbSnapshots = await getQueueSnapshotsFromDatabase(event.id, 1)
+1779:       latestSnapshot = dbSnapshots[0] ?? null
+1780:       databaseSnapshotAvailable = Boolean(latestSnapshot)
+1781:     } catch (error) {
+1782:       console.warn('GigControlPage: failed to load database snapshots, falling back to local', error)
+1783:     }
+1784: 
+1785:     if (!latestSnapshot) {
+1786:       latestSnapshot = getLatestQueueSnapshot(event.id)
+1787:     }
+1788: 
+1789:     if (!latestSnapshot) {
+1790:       setSnapshotStatusText('No snapshot found yet. Save one first.')
+1791:       return
+1792:     }
+1793: 
+1794:     const snapshotQueueCount = latestSnapshot.queue.length
+1795:     const snapshotsForEvent = databaseSnapshotAvailable
+1796:       ? await getQueueSnapshotsFromDatabase(event.id, 20).catch(() => [])
+1797:       : getQueueSnapshots(event.id)
+1798:     const snapshotIndex = Math.max(1, snapshotsForEvent.findIndex((snapshot) => snapshot.id === latestSnapshot.id) + 1)
+1799:     setRestoreConfirmPayload({
+1800:       snapshotId: latestSnapshot.id,
+1801:       queueCount: snapshotQueueCount,
+1802:       snapshotCount: snapshotIndex,
+1803:       reason: latestSnapshot.reason,
+1804:       at: new Date(latestSnapshot.createdAt).toLocaleString(),
+1805:       source: databaseSnapshotAvailable ? 'database' : 'local',
+1806:     })
+1807:   }, [event])
+1808: 
+1809:   const confirmRestoreSnapshot = useCallback(async () => {
+1810:     if (!restoreConfirmPayload || !event) return
+1811:     setRestoreConfirmPayload(null)
+1812:     setSnapshotRestoreBusy(true)
+1813: 
+1814:     const databaseSnapshotAvailable = restoreConfirmPayload.source === 'database'
+1815: 
+1816:     const latestSnapshot = await (async () => {
+1817:       try {
+1818:         if (databaseSnapshotAvailable) {
+1819:           const dbSnapshots = await getQueueSnapshotsFromDatabase(event.id, 1)
+1820:           return dbSnapshots[0] ?? null
+1821:         }
+1822: 
+1823:         return getLatestQueueSnapshot(event.id)
+1824:       } catch {
+1825:         return getLatestQueueSnapshot(event.id)
+1826:       }
+1827:     })()
+1828: 
+1829:     if (!latestSnapshot) {
+1830:       setSnapshotStatusText('Snapshot not found. It may have expired.')
+1831:       setSnapshotRestoreBusy(false)
+1832:       return
+1833:     }
+1834: 
+1835:     try {
+1836:       saveQueueSnapshot('pre-restore-backup', true)
+1837: 
+1838:       if (databaseSnapshotAvailable) {
+1839:         const restored = await restoreQueueSnapshotInDatabase(latestSnapshot.id)
+1840:         setSnapshotStatusText(`Snapshot restored transactionally. Queue replaced with ${restored.restoredCount} songs.`)
+1841:         setSnapshotRestoreBusy(false)
+1842:         return
+1843:       }
+1844: 
+1845:       const { error: clearError } = await supabase
+1846:         .from('queue_songs')
+1847:         .update({ is_removed: true })
+1848:         .eq('event_id', event.id)
+1849:         .eq('is_removed', false)
+1850: 
+1851:       if (clearError) {
+1852:         throw clearError
+1853:       }
+1854: 
+1855:       const rows = latestSnapshot.queue.map((song, index) => ({
+1856:         event_id: event.id,
+1857:         title: song.title,
+1858:         artist: song.artist,
+1859:         votes_count: song.votes_count,
+1860:         is_explicit: song.is_explicit,
+1861:         voting_locked: song.voting_locked,
+1862:         is_removed: false,
+1863:         cover_url: song.cover_url,
+1864:         library_song_id: song.library_song_id,
+1865:         audience_sings: song.audience_sings,
+1866:         requester_name: song.createdByName,
+1867:         created_by: user?.id ?? null,
+1868:         position: index,
+1869:       }))
+1870: 
+1871:       if (rows.length > 0) {
+1872:         const { error: restoreError } = await supabase
+1873:           .from('queue_songs')
+1874:           .insert(rows)
+1875: 
+1876:         if (restoreError) {
+1877:           throw restoreError
+1878:         }
+1879:       }
+1880: 
+1881:       if (event.roomOpen !== latestSnapshot.roomOpen) {
+1882:         await setRoomOpen(latestSnapshot.roomOpen)
+1883:       }
+1884: 
+1885:       if (event.explicitFilterEnabled !== latestSnapshot.explicitFilterEnabled) {
+1886:         await gigActions.runToggleExplicitFilter()
+1887:       }
+1888: 
+1889:       setSnapshotStatusText(`Snapshot restored from local backup. Queue replaced with ${latestSnapshot.queue.length} songs.`)
+1890:     } catch (error) {
+1891:       console.warn('GigControlPage: snapshot restore failed', error)
+1892:       setSnapshotStatusText(error instanceof Error ? error.message : 'Snapshot restore failed. Try again.')
+1893:     } finally {
+1894:       setSnapshotRestoreBusy(false)
+1895:     }
+1896:   }, [event, gigActions, restoreConfirmPayload, saveQueueSnapshot, setRoomOpen, user?.id])
+1897: 
+1898:   useEffect(() => {
+1899:     if (!event?.id) {
+1900:       return
+1901:     }
+1902: 
+1903:     const timerId = window.setInterval(() => {
+1904:       saveQueueSnapshotRef.current('auto-interval', true)
+1905:     }, 5 * 60 * 1000)
+1906: 
+1907:     return () => {
+1908:       window.clearInterval(timerId)
+1909:     }
+1910:   }, [event?.id])
+1911: 
+1912:   const downloadLatestSnapshot = () => {
+1913:     if (!event) {
+1914:       setSnapshotStatusText('No active gig to export.')
+1915:       return
+1916:     }
+1917: 
+1918:     const latestSnapshot = getLatestQueueSnapshot(event.id)
+1919: 
+1920:     if (!latestSnapshot) {
+1921:       setSnapshotStatusText('No snapshot found yet. Save one first.')
+1922:       return
+1923:     }
+1924: 
+1925:     try {
+1926:       const blob = new Blob([JSON.stringify(latestSnapshot, null, 2)], { type: 'application/json' })
+1927:       const objectUrl = window.URL.createObjectURL(blob)
+1928:       const anchor = document.createElement('a')
+1929:       anchor.href = objectUrl
+1930:       anchor.download = `${event.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-queue-snapshot.json`
+1931:       document.body.appendChild(anchor)
+1932:       anchor.click()
+1933:       document.body.removeChild(anchor)
+1934:       window.URL.revokeObjectURL(objectUrl)
+1935:       setSnapshotStatusText('Latest snapshot downloaded.')
+1936:     } catch (error) {
+1937:       console.warn('GigControlPage: snapshot download failed', error)
+1938:       setSnapshotStatusText('Snapshot export failed. Try again.')
+1939:     }
+1940:   }
+1941: 
+1942:   useEffect(() => {
+1943:     if (copyError) {
+1944:       setErrorText(copyError)
+1945:     }
+1946:   }, [copyError])
+1947: 
+1948:   useEffect(() => {
+1949:     eventRef.current = event
+1950:   }, [event])
+1951: 
+1952:   useEffect(() => {
+1953:     return () => {
+1954:       if (mirrorLaunchStatusTimerRef.current) {
+1955:         window.clearTimeout(mirrorLaunchStatusTimerRef.current)
+1956:       }
+1957:     }
+1958:   }, [])
+1959: 
+1960:   useEffect(() => {
+1961:     if (!event) {
+1962:       previousRoomOpenRef.current = null
+1963:       return
+1964:     }
+1965: 
+1966:     const previousRoomOpen = previousRoomOpenRef.current
+1967:     const hasJustOpened = previousRoomOpen === false && event.roomOpen === true
+1968:     const hasJustEnded = previousRoomOpen === true && event.roomOpen === false
+1969: 
+1970:     if (hasJustOpened) {
+1971:       gigStartedAtRef.current = Date.now()
+1972:     }
+1973: 
+1974:     previousRoomOpenRef.current = event.roomOpen
+1975: 
+1976:     if (hasJustEnded) {
+1977:       introAudioPlayedEventIdsRef.current.delete(event.id)
+1978:       if (primedIntroAudioRef.current?.eventId === event.id) {
+1979:         primedIntroAudioRef.current = null
+1980:       }
+1981: 
+1982:       // Show post-gig summary.
+1983:       const topSong = performedSongs.length > 0
+1984:         ? [...performedSongs].sort((a, b) => b.votes_count - a.votes_count)[0]?.title ?? null
+1985:         : null
+1986:       setGigSummary({
+1987:         totalPlayed: performedSongs.length,
+1988:         topSong,
+1989:         startedAt: gigStartedAtRef.current,
+1990:       })
+1991:     }
+1992:   }, [event, performedSongs])
+1993: 
+1994:   useEffect(() => {
+1995:     if (!event?.id || !event.autoLiveEnabled) {
+1996:       autoLiveAttemptedEventIdRef.current = null
+1997:       autoLiveNextRetryAtRef.current = 0
+1998:       setAutoLiveLastError(null)
+1999:       return
+2000:     }
+2001:   }, [event?.id, event?.autoLiveEnabled])
+2002: 
+2003:   useEffect(() => {
+2004:     if (!event?.id || !event.autoLiveEnabled || !event.roomOpen) {
+2005:       return
+2006:     }
+2007: 
+2008:     const startAt = resolveGigStartAt(event.gigDate, event.gigStartTime)
+2009:     if (!startAt || startAt.getTime() > getHostNowMs()) {
+2010:       return
+2011:     }
+2012: 
+2013:     const scheduleKey = `${event.id}|${event.gigDate ?? ''}|${event.gigStartTime ?? ''}`
+2014:     autoLiveAttemptedEventIdRef.current = scheduleKey
+2015:     autoLiveNextRetryAtRef.current = 0
+2016:     setAutoLiveLastError(null)
+2017:   }, [event?.id, event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen, getHostNowMs])
+2018: 
+2019:   useEffect(() => {
+2020:     const runAutoLiveCountdownCheck = async () => {
+2021:       if (!event?.id || !event.autoLiveEnabled || event.roomOpen || autoLiveInFlightRef.current) {
+2022:         return
+2023:       }
+2024: 
+2025:       const nowMs = getHostNowMs()
+2026: 
+2027:       if (autoLiveNextRetryAtRef.current > nowMs) {
+2028:         return
+2029:       }
+2030: 
+2031:       const startAt = resolveGigStartAt(event.gigDate, event.gigStartTime)
+2032:       if (!startAt || startAt.getTime() > nowMs) {
+2033:         return
+2034:       }
+2035: 
+2036:       const scheduleKey = `${event.id}|${event.gigDate ?? ''}|${event.gigStartTime ?? ''}`
+2037:       if (autoLiveAttemptedEventIdRef.current === scheduleKey) {
+2038:         return
+2039:       }
+2040: 
+2041:       autoLiveInFlightRef.current = true
+2042: 
+2043:       try {
+2044:         await runGoLivePreflight().catch(() => {})
+2045:         await ensureRoomOpenState(true)
+2046: 
+2047:         const latestEvent = eventRef.current
+2048:         if (!latestEvent?.id || latestEvent.id !== event.id) {
+2049:           return
+2050:         }
+2051: 
+2052:         if (!latestEvent.roomOpen) {
+2053:           throw new Error('Auto Live could not confirm that the room opened. Retrying shortly.')
+2054:         }
+2055: 
+2056:         autoLiveAttemptedEventIdRef.current = scheduleKey
+2057:         autoLiveNextRetryAtRef.current = 0
+2058:         setAutoLiveLastError(null)
+2059: 
+2060:         if (latestEvent.introAudioUrl) {
+2061:           await playIntroAudioOnceSafely(
+2062:             latestEvent.id,
+2063:             latestEvent.introAudioUrl,
+2064:             'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
+2065:           )
+2066:         }
+2067: 
+2068:         await writeSharedPlaybackState(event.id, {
+2069:           currentSongId: nowPlaying?.id ?? null,
+2070:           currentSongCoverUrl: nowPlaying?.cover_url ?? null,
+2071:           isStarted: false,
+2072:           quoteIndex: quoteIndexRef.current,
+2073:           countdownTargetMs: startAt.getTime(),
+2074:           brbActive: false,
+2075:           brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+2076:         })
+2077: 
+2078:         setIsNowPlayingStarted(false)
+2079: 
+2080:         setPreflightStatusText('Auto Live triggered from scheduled countdown.')
+2081:       } catch (error) {
+2082:         autoLiveNextRetryAtRef.current = getHostNowMs() + AUTO_LIVE_RETRY_DELAY_MS
+2083:         const message = error instanceof Error ? error.message : 'Auto Live failed when countdown ended. Please use Go Live manually.'
+2084:         setAutoLiveLastError(message)
+2085:         setErrorText(message)
+2086:       } finally {
+2087:         autoLiveInFlightRef.current = false
+2088:       }
+2089:     }
+2090: 
+2091:     void runAutoLiveCountdownCheck()
+2092: 
+2093:     const timerId = window.setInterval(() => {
+2094:       void runAutoLiveCountdownCheck()
+2095:     }, 1000)
+2096: 
+2097:     const onHostWindowResume = () => {
+2098:       if (!document.hidden) {
+2099:         void runAutoLiveCountdownCheck()
+2100:       }
+2101:     }
+2102: 
+2103:     document.addEventListener('visibilitychange', onHostWindowResume)
+2104:     window.addEventListener('focus', onHostWindowResume)
+2105: 
+2106:     return () => {
+2107:       window.clearInterval(timerId)
+2108:       document.removeEventListener('visibilitychange', onHostWindowResume)
+2109:       window.removeEventListener('focus', onHostWindowResume)
+2110:     }
+2111:   }, [
+2112:     event?.id,
+2113:     event?.autoLiveEnabled,
+2114:     event?.roomOpen,
+2115:     event?.gigDate,
+2116:     event?.gigStartTime,
+2117:     event?.introAudioUrl,
+2118:     ensureRoomOpenState,
+2119:     getHostNowMs,
+2120:     nowPlaying?.cover_url,
+2121:     nowPlaying?.id,
+2122:     playIntroAudioOnceSafely,
+2123:     runGoLivePreflight,
+2124:   ])
+2125: 
+2126:   // Subscribe to audience presence channel to count active audience members
+2127:   useEffect(() => {
+2128:     const eventId = event?.id
+2129: 
+2130:     if (!eventId) {
+2131:       setActiveAudienceCount(null)
+2132:       return
+2133:     }
+2134: 
+2135:     const channel = supabase.channel(`audience-presence:${eventId}`)
+2136: 
+2137:     channel.on('presence', { event: 'sync' }, () => {
+2138:       const state = channel.presenceState()
+2139:       setActiveAudienceCount(Object.keys(state).length)
+2140:     })
+2141: 
+2142:     channel.subscribe()
+2143: 
+2144:     return () => {
+2145:       void supabase.removeChannel(channel)
+2146:     }
+2147:   }, [event?.id])
+2148: 
+2149:   // Auto Live countdown display
+2150:   useEffect(() => {
+2151:     if (!event?.autoLiveEnabled || event.roomOpen) {
+2152:       setAutoLiveCountdown(null)
+2153:       return
+2154:     }
+2155: 
+2156:     const scheduleKey = `${event.id ?? ''}|${event.gigDate ?? ''}|${event.gigStartTime ?? ''}`
+2157:     if (autoLiveAttemptedEventIdRef.current === scheduleKey) {
+2158:       setAutoLiveCountdown(null)
+2159:       return
+2160:     }
+2161: 
+2162:     const startAt = resolveGigStartAt(event.gigDate, event.gigStartTime)
+2163:     if (!startAt) {
+2164:       setAutoLiveCountdown(null)
+2165:       return
+2166:     }
+2167: 
+2168:     let rafId: number | null = null
+2169:     const tick = () => {
+2170:       const nowMs = getHostNowMs()
+2171:       const diffMs = startAt.getTime() - nowMs
+2172:       if (diffMs <= 0) {
+2173:         if (autoLiveInFlightRef.current) {
+2174:           setAutoLiveCountdown('Auto Live triggering...')
+2175:           return
+2176:         }
+2177:         if (autoLiveNextRetryAtRef.current > nowMs) {
+2178:           const retryInSeconds = Math.max(1, Math.ceil((autoLiveNextRetryAtRef.current - nowMs) / 1000))
+2179:           setAutoLiveCountdown(`Auto Live retry in ${retryInSeconds}s`)
+2180:           return
+2181:         }
+2182:         setAutoLiveCountdown('Auto Live triggering...')
+2183:         return
+2184:       }
+2185:       const totalSec = Math.floor(diffMs / 1000)
+2186:       const h = Math.floor(totalSec / 3600)
+2187:       const m = Math.floor((totalSec % 3600) / 60)
+2188:       const s = totalSec % 60
+2189:       const parts = h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`
+2190:       setAutoLiveCountdown(`Auto Live in ${parts}`)
+2191:       rafId = window.requestAnimationFrame(tick)
+2192:     }
+2193:     tick()
+2194:     return () => {
+2195:       if (rafId !== null) window.cancelAnimationFrame(rafId)
+2196:     }
+2197:   }, [event?.id, event?.autoLiveEnabled, event?.gigDate, event?.gigStartTime, event?.roomOpen, getHostNowMs])
+2198: 
+2199:   useEffect(() => {
+2200:     const activeEventId = event?.id
+2201: 
+2202:     playbackActionLockRef.current = false
+2203:     setSpaceActionBusy(false)
+2204: 
+2205:     if (!activeEventId) {
+2206:       setIsNowPlayingStarted(false)
+2207:       setIsFinalSongSoonActive(false)
+2208:       previousSongIdRef.current = null
+2209:       return
+2210:     }
+2211: 
+2212:     let isCurrent = true
+2213: 
+2214:     const initializePlaybackState = async () => {
+2215:       try {
+2216:         const sharedPlaybackState = await readSharedPlaybackState(activeEventId)
+2217:         const preservedCountdownTargetMs = sharedPlaybackState?.countdownTargetMs ?? mirroredCountdownTargetMs
+2218:         const preservedBrbActive = Boolean(sharedPlaybackState?.brbActive)
+2219:         const preservedBrbMessage = typeof sharedPlaybackState?.brbMessage === 'string'
+2220:           ? sharedPlaybackState.brbMessage
+2221:           : null
+2222: 
+2223:         if (!isCurrent) return
+2224: 
+2225:         if (!nowPlaying?.id) {
+2226:           setIsBrbActive(Boolean(sharedPlaybackState?.brbActive))
+2227:           setIsFinalSongSoonActive(isLastSongSoonOverlayMessage(sharedPlaybackState?.brbMessage))
+2228: 
+2229:           if (sharedPlaybackState?.brbActive && typeof sharedPlaybackState.brbMessage === 'string') {
+2230:             setBrbCustomMessage(sharedPlaybackState.brbMessage)
+2231:           }
+2232: 
+2233:           setIsNowPlayingStarted(false)
+2234:           previousSongIdRef.current = null
+2235: 
+2236:           await writeSharedPlaybackState(activeEventId, {
+2237:             currentSongId: null,
+2238:             currentSongCoverUrl: null,
+2239:             isStarted: false,
+2240:             quoteIndex: sharedPlaybackState?.quoteIndex ?? quoteIndexRef.current,
+2241:             countdownTargetMs: preservedCountdownTargetMs,
+2242:             brbActive: preservedBrbActive,
+2243:             brbMessage: preservedBrbMessage,
+2244:           })
+2245:           return
+2246:         }
+2247: 
+2248:         if (sharedPlaybackState) {
+2249:           const normalizedQuoteIndex = sharedPlaybackState.quoteIndex % BETWEEN_SONG_QUOTES.length
+2250:           quoteIndexRef.current = normalizedQuoteIndex
+2251:           setBetweenSongQuoteIndex(normalizedQuoteIndex)
+2252:           setIsBrbActive(Boolean(sharedPlaybackState.brbActive))
+2253:           setIsFinalSongSoonActive(isLastSongSoonOverlayMessage(sharedPlaybackState.brbMessage))
+2254: 
+2255:           if (sharedPlaybackState.brbActive && typeof sharedPlaybackState.brbMessage === 'string') {
+2256:             setBrbCustomMessage(sharedPlaybackState.brbMessage)
+2257:           }
+2258: 
+2259:           if (sharedPlaybackState.currentSongId === nowPlaying.id) {
+2260:             setIsNowPlayingStarted(sharedPlaybackState.isStarted)
+2261:             previousSongIdRef.current = nowPlaying.id
+2262:             return
+2263:           }
+2264:         } else {
+2265:           setIsBrbActive(false)
+2266:           setIsFinalSongSoonActive(false)
+2267:         }
+2268: 
+2269:         setIsNowPlayingStarted(false)
+2270:         await writeSharedPlaybackState(activeEventId, {
+2271:           currentSongId: nowPlaying.id,
+2272:           currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying.id),
+2273:           isStarted: false,
+2274:           quoteIndex: quoteIndexRef.current,
+2275:           countdownTargetMs: preservedCountdownTargetMs,
+2276:           brbActive: preservedBrbActive,
+2277:           brbMessage: preservedBrbMessage,
+2278:         })
+2279: 
+2280:         previousSongIdRef.current = nowPlaying.id
+2281:       } catch (error) {
+2282:         console.warn('GigControlPage: playback initialization failed', error)
+2283:         if (isCurrent) {
+2284:           setErrorText('Playback controls are reconnecting. Please try again.')
+2285:         }
+2286:       }
+2287:     }
+2288: 
+2289:     void initializePlaybackState()
+2290: 
+2291:     return () => {
+2292:       isCurrent = false
+2293:     }
+2294:   }, [event?.id, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong])
+2295: 
+2296:   const setQuoteIndex = (nextQuoteIndex: number) => {
+2297:     quoteIndexRef.current = nextQuoteIndex
+2298:     setBetweenSongQuoteIndex(nextQuoteIndex)
+2299:   }
+2300: 
+2301:   useEffect(() => {
+2302:     if (!event?.id || !nowPlaying?.id) {
+2303:       return
+2304:     }
+2305: 
+2306:     const snapshot = readFromLocalStorage<PersistedGigControlNowPlaying | null>(
+2307:       GIG_CONTROL_NOW_PLAYING_STORAGE_KEY,
+2308:       null,
+2309:     )
+2310: 
+2311:     if (!snapshot || snapshot.eventId !== event.id || snapshot.currentSongId !== nowPlaying.id) {
+2312:       return
+2313:     }
+2314: 
+2315:     const snapshotAge = Date.now() - (snapshot.updatedAt ?? 0)
+2316:     if (!Number.isFinite(snapshotAge) || snapshotAge > GIG_CONTROL_NOW_PLAYING_MAX_AGE_MS) {
+2317:       return
+2318:     }
+2319: 
+2320:     const normalizedQuoteIndex = Number.isFinite(snapshot.quoteIndex)
+2321:       ? snapshot.quoteIndex % BETWEEN_SONG_QUOTES.length
+2322:       : 0
+2323: 
+2324:     setQuoteIndex(normalizedQuoteIndex)
+2325:     setIsNowPlayingStarted(Boolean(snapshot.isNowPlayingStarted))
+2326:   }, [event?.id, nowPlaying?.id])
+2327: 
+2328:   useEffect(() => {
+2329:     if (!event?.id) {
+2330:       return
+2331:     }
+2332: 
+2333:     saveToLocalStorage(GIG_CONTROL_NOW_PLAYING_STORAGE_KEY, {
+2334:       eventId: event.id,
+2335:       currentSongId: nowPlaying?.id ?? null,
+2336:       isNowPlayingStarted,
+2337:       quoteIndex: quoteIndexRef.current,
+2338:       updatedAt: Date.now(),
+2339:     } satisfies PersistedGigControlNowPlaying)
+2340:   }, [event?.id, isNowPlayingStarted, nowPlaying?.id])
+2341: 
+2342:   const syncStartedState = useCallback(async (nextStarted: boolean, nextSongId?: string | null) => {
+2343:     const targetSongId = nextSongId ?? nowPlaying?.id ?? null
+2344:     setIsNowPlayingStarted(nextStarted)
+2345: 
+2346:     if (!event?.id) {
+2347:       return
+2348:     }
+2349: 
+2350:     try {
+2351:       await writeSharedPlaybackState(event.id, {
+2352:         currentSongId: targetSongId,
+2353:         currentSongCoverUrl: resolveCoverUrlForSong(targetSongId),
+2354:         isStarted: nextStarted,
+2355:         quoteIndex: quoteIndexRef.current,
+2356:         countdownTargetMs: mirroredCountdownTargetMs,
+2357:       })
+2358:     } catch (error) {
+2359:       console.warn('GigControlPage: playback sync write failed', error)
+2360:       // Do not block local playback controls if cross-screen sync is temporarily unavailable.
+2361:     }
+2362:   }, [event, mirroredCountdownTargetMs, nowPlaying?.id, resolveCoverUrlForSong])
+2363: 
+2364:   const beginBetweenSongsTransition = useCallback(async () => {
+2365:     const previousQuoteIndex = quoteIndexRef.current
+2366:     const nextQuoteIndex = (previousQuoteIndex + 1) % BETWEEN_SONG_QUOTES.length
+2367:     const nextSongId = songsRef.current[1]?.id ?? null
+2368: 
+2369:     setQuoteIndex(nextQuoteIndex)
+2370:     await syncStartedState(false, nextSongId)
+2371: 
+2372:     return previousQuoteIndex
+2373:   }, [syncStartedState])
+2374: 
+2375:   const restoreStartedSong = useCallback(async (previousQuoteIndex: number) => {
+2376:     setQuoteIndex(previousQuoteIndex)
+2377:     await syncStartedState(true, nowPlaying?.id ?? null)
+2378:   }, [nowPlaying?.id, syncStartedState])
+2379: 
+2380:   const runPlaybackAction = useCallback(async (
+2381:     action: () => Promise<void>,
+2382:     options?: { includeTransition?: boolean },
+2383:   ) => {
+2384:     if (playbackActionLockRef.current) {
+2385:       return false
+2386:     }
+2387: 
+2388:     playbackActionLockRef.current = true
+2389:     setSpaceActionBusy(true)
+2390: 
+2391:     const includeTransition = options?.includeTransition ?? true
+2392:     let previousQuoteIndex = quoteIndexRef.current
+2393: 
+2394:     try {
+2395:       if (includeTransition) {
+2396:         previousQuoteIndex = await beginBetweenSongsTransition()
+2397:       }
+2398: 
+2399:       await action()
+2400:       await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+2401:       setErrorText(null)
+2402:       return true
+2403:     } catch (error) {
+2404:       if (includeTransition) {
+2405:         try {
+2406:           await restoreStartedSong(previousQuoteIndex)
+2407:         } catch {
+2408:           // Keep controls responsive even if playback-state rollback fails.
+2409:         }
+2410:       }
+2411: 
+2412:       throw error
+2413:     } finally {
+2414:       playbackActionLockRef.current = false
+2415:       setSpaceActionBusy(false)
+2416:     }
+2417:   }, [beginBetweenSongsTransition, restoreStartedSong])
+2418: 
+2419:   const startCurrentSong = useCallback(async () => {
+2420:     const started = await runPlaybackAction(async () => {
+2421:       await syncStartedState(true)
+2422:     }, { includeTransition: false })
+2423: 
+2424:     if (started) {
+2425:       sendSpotifyTransportCommand('pause')
+2426:     }
+2427:   }, [runPlaybackAction, sendSpotifyTransportCommand, syncStartedState])
+2428: 
+2429:   const runQueueTogglePlayShortcut = useCallback(async () => {
+2430:     const currentNowPlaying = nowPlayingRef.current
+2431:     const currentlyStarted = isNowPlayingStartedRef.current
+2432: 
+2433:     // Rely on the ref-based lock only ÔÇö spaceActionBusy state can lag by one render
+2434:     if (!currentNowPlaying || playbackActionLockRef.current) {
+2435:       return
+2436:     }
+2437: 
+2438:     if (!currentlyStarted) {
+2439:       await startCurrentSong()
+2440:       return
+2441:     }
+2442: 
+2443:     const finishedSong = await runPlaybackAction(async () => {
+2444:       await runWithSafetySnapshot('before-mark-played', async () => {
+2445:         await markPlayed()
+2446:       })
+2447:     })
+2448: 
+2449:     if (finishedSong) {
+2450:       sendSpotifyTransportCommand('play')
+2451:     }
+2452:   }, [markPlayed, runPlaybackAction, runWithSafetySnapshot, sendSpotifyTransportCommand, startCurrentSong])
+2453: 
+2454:   useEffect(() => {
+2455:     nowPlayingRef.current = nowPlaying
+2456:   }, [nowPlaying])
+2457: 
+2458:   useEffect(() => {
+2459:     songsRef.current = songs
+2460:   }, [songs])
+2461: 
+2462:   useEffect(() => {
+2463:     spaceActionBusyRef.current = spaceActionBusy
+2464:   }, [spaceActionBusy])
+2465: 
+2466:   // Stable ref to the shortcut so the keydown listener never needs re-registering
+2467:   const runQueueTogglePlayShortcutRef = useRef(runQueueTogglePlayShortcut)
+2468:   useEffect(() => {
+2469:     runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
+2470:   }, [runQueueTogglePlayShortcut])
+2471: 
+2472:   useEffect(() => {
+2473:     const onKeyDown = async (event: KeyboardEvent) => {
+2474:       if (!event.isTrusted || event.defaultPrevented) {
+2475:         return
+2476:       }
+2477: 
+2478:       const isSpaceKey = event.code === 'Space' || event.key === ' ' || event.key === 'Spacebar'
+2479:       if (!isSpaceKey) {
+2480:         return
+2481:       }
+2482: 
+2483:       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+2484:         return
+2485:       }
+2486: 
+2487:       if (event.repeat) {
+2488:         event.preventDefault()
+2489:         return
+2490:       }
+2491: 
+2492:       // Block if a playback action is already running (use ref ÔÇö always current, no stale closure)
+2493:       if (playbackActionLockRef.current || spaceActionBusyRef.current) {
+2494:         event.preventDefault()
+2495:         return
+2496:       }
+2497: 
+2498:       const target = event.target as HTMLElement | null
+2499:       const activeElement = document.activeElement as HTMLElement | null
+2500:       const interactiveTarget = target?.closest('input, textarea, select, [contenteditable="true"], [role="textbox"], [aria-multiline="true"], [data-spacebar-ignore="true"]')
+2501:       const isTypingTarget = Boolean(interactiveTarget || activeElement?.isContentEditable)
+2502: 
+2503:       if (isTypingTarget) {
+2504:         return
+2505:       }
+2506: 
+2507:       if (!nowPlayingRef.current) {
+2508:         return
+2509:       }
+2510: 
+2511:       const now = Date.now()
+2512:       if (now - lastSpaceActionAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
+2513:         event.preventDefault()
+2514:         return
+2515:       }
+2516: 
+2517:       event.preventDefault()
+2518:       lastSpaceActionAtRef.current = now
+2519: 
+2520:       try {
+2521:         await runQueueTogglePlayShortcutRef.current()
+2522:       } catch (error) {
+2523:         console.warn('GigControlPage: spacebar playback action failed', error)
+2524:         setErrorText('Playback control failed. Please try again.')
+2525:       }
+2526:     }
+2527: 
+2528:     // Registered once ÔÇö never torn down and re-added, eliminating the brief gap
+2529:     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
+2530:     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
+2531:   }, [])
+2532: 
+2533:   const openMirrorFromGigControl = useCallback(() => {
+2534:     const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
+2535: 
+2536:     if (mirrorLaunchStatusTimerRef.current) {
+2537:       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
+2538:     }
+2539: 
+2540:     const statusMessage = openedInNewTabWindow
+2541:       ? 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
+2542:       : blockedByPopup
+2543:       ? 'Mirror was blocked by pop-up settings. Gig Control stays open here. Allow pop-ups and try again.'
+2544:       : 'Could not open Mirror. Please try again.'
+2545: 
+2546:     setMirrorLaunchStatusText(statusMessage)
+2547:     mirrorLaunchStatusTimerRef.current = window.setTimeout(() => {
+2548:       setMirrorLaunchStatusText(null)
+2549:       mirrorLaunchStatusTimerRef.current = null
+2550:     }, MIRROR_LAUNCH_STATUS_DURATION_MS)
+2551:   }, [event?.id])
+2552: 
+2553:   const openFocusedGigControlWindow = useCallback(() => {
+2554:     const searchParams = new URLSearchParams()
+2555:     searchParams.set('view', 'focus')
+2556:     searchParams.set('fullscreen', '1')
+2557: 
+2558:     if (event?.id) {
+2559:       searchParams.set('event', event.id)
+2560:     }
+2561: 
+2562:     navigate(`/admin/gig-control?${searchParams.toString()}`)
+2563:     setErrorText(null)
+2564:   }, [event?.id, navigate])
+2565: 
+2566:   const handleGoBackToGigControl = useCallback(() => {
+2567:     navigate('/admin/gig-control')
+2568:   }, [navigate])
+2569: 
+2570:   const handleEnterFocusFullscreen = useCallback(() => {
+2571:     if (typeof document === 'undefined' || !document.documentElement.requestFullscreen) {
+2572:       setErrorText('Fullscreen is not available in this browser window.')
+2573:       return
+2574:     }
+2575: 
+2576:     void document.documentElement.requestFullscreen().catch(() => {
+2577:       setErrorText('Could not enter fullscreen. Try browser fullscreen (F11).')
+2578:     })
+2579:   }, [])
+2580: 
+2581:   const headerActions: ActionButtonConfig[] = [
+2582:     {
+2583:       id: 'connect-spotify',
+2584:       label: spotifyAccessToken ? 'Reconnect Spotify' : 'Connect Spotify',
+2585:       title: spotifyAccessToken ? 'Reconnect your Spotify account for playback control' : 'Connect Spotify to enable play/pause and track controls',
+2586:       onClick: async () => {
+2587:         await connectSpotify()
+2588:       },
+2589:       variant: spotifyAccessToken ? 'ghost' : 'primary',
+2590:     },
+2591:     {
+2592:       id: 'toggle-room-open',
+2593:       label: gigActions.roomToggleBusy
+2594:         ? 'Updating...'
+2595:         : event?.roomOpen
+2596:         ? 'Pause Live'
+2597:         : lastReadinessVerdict === 'fail'
+2598:         ? 'Go Live + Auto Fix'
+2599:         : 'Go Live',
+2600:       onClick: toggleLiveState,
+2601:       title: event?.roomOpen ? 'Pause the live event ÔÇö the audience will see a waiting screen' : 'Run health checks and open the room so the audience can join',
+2602:       disabled: gigActions.quickActionBusy || preflightBusy || endGigDecisionBusy !== null,
+2603:       variant: event?.roomOpen ? 'secondary' : lastReadinessVerdict === 'fail' ? 'secondary' : 'primary',
+2604:     },
+2605:     {
+2606:       id: 'run-warmup',
+2607:       label: preflightBusy ? 'Warming up...' : 'Warm Up Now',
+2608:       title: 'Run a pre-gig health check and warm up realtime connections before going live',
+2609:       onClick: async () => {
+2610:         try {
+2611:           await runGoLivePreflight()
+2612:           setErrorText(null)
+2613:         } catch (error) {
+2614:           setErrorText(error instanceof Error ? error.message : 'Warm-up check failed.')
+2615:         }
+2616:       },
+2617:       disabled: preflightBusy,
+2618:       variant: 'ghost',
+2619:     },
+2620:     {
+2621:       id: 'force-fallback-mode',
+2622:       label: queueOperatingMode === 'degraded' ? 'Fallback Enabled' : 'Force Fallback Mode',
+2623:       title: 'Keep Gig Control usable with a local fallback shell while live queue data retries in the background',
+2624:       onClick: async () => {
+2625:         try {
+2626:           await forceFallbackMode()
+2627:           setErrorText(null)
+2628:         } catch (error) {
+2629:           setErrorText(error instanceof Error ? error.message : 'Failed to enable fallback mode.')
+2630:         }
+2631:       },
+2632:       disabled: queueOperatingMode === 'degraded',
+2633:       variant: 'ghost',
+2634:     },
+2635:     {
+2636:       id: 'toggle-explicit-filter',
+2637:       label: gigActions.explicitToggleBusy ? 'Updating...' : event?.explicitFilterEnabled ? 'Allow Explicit' : 'Block Explicit',
+2638:       title: event?.explicitFilterEnabled ? 'Currently blocking explicit songs ÔÇö click to allow them' : 'Currently allowing explicit songs ÔÇö click to block them',
+2639:       onClick: async () => {
+2640:         await gigActions.runToggleExplicitFilter()
+2641:       },
+2642:       disabled: gigActions.quickActionBusy,
+2643:     },
+2644:     {
+2645:       id: 'host-readiness',
+2646:       label: 'Readiness Check',
+2647:       title: 'Open the pre-gig health check page to verify all systems are working',
+2648:       onClick: () => navigate('/admin/readiness'),
+2649:       variant: 'ghost',
+2650:     },
+2651:     {
+2652:       id: 'brb-toggle',
+2653:       label: isBrbActive ? 'Cancel BRB' : 'BRB Screen',
+2654:       title: isBrbActive ? 'Cancel BRB ÔÇö return to the normal live screen' : 'Show a "Be Right Back" screen to the audience while you take a break',
+2655:       onClick: toggleBrbState,
+2656:       disabled: mirrorOverlayUpdateBusy,
+2657:       variant: 'ghost' as const,
+2658:     },
+2659:     {
+2660:       id: 'open-gig-settings',
+2661:       label: 'Gig Settings',
+2662:       title: 'Edit gig details, playlists, tip links, social links and more',
+2663:       onClick: () => navigate('/admin/gig-settings'),
+2664:       variant: 'ghost',
+2665:     },
+2666:     {
+2667:       id: 'open-mirror-screen',
+2668:       label: 'Open Mirror Screen',
+2669:       title: 'Open the audience-facing mirror display in a new browser tab, then cast from Edge menu',
+2670:       onClick: openMirrorFromGigControl,
+2671:       variant: 'ghost',
+2672:     },
+2673:     {
+2674:       id: 'play-spotify-shortcut',
+2675:       label: 'Play Spotify Playlist',
+2676:       title: 'Start or resume the Spotify between-song playlist without pausing it',
+2677:       onClick: () => {
+2678:         sendManualSpotifyTransportCommand('play')
+2679:       },
+2680:       disabled: !spotifyAccessToken,
+2681:       variant: 'ghost',
+2682:     },
+2683:   ]
+2684:   const focusActionIds = new Set([
+2685:     'connect-spotify',
+2686:     'toggle-room-open',
+2687:     'toggle-explicit-filter',
+2688:     'brb-toggle',
+2689:     'open-gig-settings',
+2690:     'open-mirror-screen',
+2691:     'play-spotify-shortcut',
+2692:   ])
+2693:   const visibleHeaderActions = isFocusedGigControlWindow
+2694:     ? headerActions.filter((action) => focusActionIds.has(action.id))
+2695:     : headerActions
+2696: 
+2697:   if (loading) {
+2698:     if (showLoadingRecovery) {
+2699:       return (
+2700:         <section className="gig-control-shell" aria-label="Gig control recovery">
+2701:           <section className="queue-panel" role="status" aria-live="polite">
+2702:             <p className="eyebrow">Live Control</p>
+2703:             <h1>Reconnecting live controls...</h1>
+2704:             <p className="subcopy">
+2705:               {queueHealthMessage
+2706:                 ?? 'The live queue is taking longer than expected to load. We are still retrying in the background.'}
+2707:             </p>
+2708:             {signedInEmail ? (
+2709:               <p className="meta-badge" aria-live="polite">Signed in as {signedInEmail}</p>
+2710:             ) : null}
+2711:             <p className="subcopy">
+2712:               Mode: {queueOperatingMode === 'degraded' ? 'Degraded (fallback retries active)' : 'Normal'}
+2713:             </p>
+2714:             <div className="hero-actions no-margin-bottom">
+2715:               <button
+2716:                 type="button"
+2717:                 className="primary-button"
+2718:                 onClick={() => {
+2719:                   window.location.reload()
+2720:                 }}
+2721:               >
+2722:                 Retry Now
+2723:               </button>
+2724:               <button
+2725:                 type="button"
+2726:                 className="secondary-button"
+2727:                 onClick={() => {
+2728:                   navigate('/admin/gigs')
+2729:                 }}
+2730:               >
+2731:                 Open Gig List
+2732:               </button>
+2733:               <button
+2734:                 type="button"
+2735:                 className="ghost-button"
+2736:                 onClick={() => {
+2737:                   navigate('/audience')
+2738:                 }}
+2739:               >
+2740:                 Open Audience
+2741:               </button>
+2742:             </div>
+2743:           </section>
+2744:         </section>
+2745:       )
+2746:     }
+2747: 
+2748:     return (
+2749:       <section className="gig-control-shell" aria-label="Gig control loading">
+2750:         <section className="queue-panel gig-control-loading" role="status" aria-live="polite">
+2751:           <p className="eyebrow">Live Control</p>
+2752:           <div className="loading-skeleton loading-skeleton-title" aria-hidden="true"></div>
+2753:           <div className="loading-skeleton loading-skeleton-line" aria-hidden="true"></div>
+2754:           <div className="loading-skeleton loading-skeleton-line loading-skeleton-line-short" aria-hidden="true"></div>
+2755:         </section>
+2756:       </section>
+2757:     )
+2758:   }
+2759: 
+2760:   if (!event) {
+2761:     return (
+2762:       <section className="gig-control-shell" aria-label="Gig control">
+2763:         <section className="hero-card admin-card">
+2764:           <p className="eyebrow">{isGigLoadFailureState ? 'Live Control Recovery' : 'No active gig'}</p>
+2765:           <h1>{isGigLoadFailureState ? 'Could Not Load Gig Control' : 'No Gig Running'}</h1>
+2766:           <p className="subcopy">
+2767:             {isGigLoadFailureState
+2768:               ? (queueHealthMessage ?? 'Live data is temporarily unavailable. Retry now or open Gig List while the service recovers.')
+2769:               : hostEvents.length === 0
+2770:               ? 'No gigs were found for the currently signed-in host account.'
+2771:               : 'Could not load a live gig for this account right now.'}
+2772:           </p>
+2773:           {signedInEmail ? (
+2774:             <p className="meta-badge" aria-live="polite">Signed in as {signedInEmail}</p>
+2775:           ) : null}
+2776:           <p className="subcopy">
+2777:             If this is the wrong account, sign out and sign in with the host account that created your gigs.
+2778:           </p>
+2779:           {!autoRedirectCancelled && autoRedirectCountdown !== null ? (
+2780:             <p className="subcopy">
+2781:               Opening Gig List automatically in {autoRedirectCountdown}s so you can continue operating.
+2782:             </p>
+2783:           ) : null}
+2784:           <div className="hero-actions">
+2785:             <button
+2786:               type="button"
+2787:               className="primary-button"
+2788:               onClick={() => {
+2789:                 window.location.reload()
+2790:               }}
+2791:             >
+2792:               Retry Now
+2793:             </button>
+2794:             <button type="button" className="secondary-button" onClick={() => navigate('/admin/gigs')}>
+2795:               Open Gig List
+2796:             </button>
+2797:             {hostEvents.length > 0 ? (
+2798:               <button
+2799:                 type="button"
+2800:                 className="ghost-button"
+2801:                 onClick={() => {
+2802:                   void forceFallbackMode().catch((error) => {
+2803:                     setErrorText(error instanceof Error ? error.message : 'Failed to enable fallback mode.')
+2804:                   })
+2805:                 }}
+2806:               >
+2807:                 Force Fallback Mode
+2808:               </button>
+2809:             ) : null}
+2810:             {!autoRedirectCancelled && autoRedirectCountdown !== null ? (
+2811:               <button type="button" className="ghost-button" onClick={() => setAutoRedirectCancelled(true)}>
+2812:                 Stay Here
+2813:               </button>
+2814:             ) : null}
+2815:             <button type="button" className="ghost-button" onClick={() => navigate('/admin/create-gig')}>
+2816:               Create Gig
+2817:             </button>
+2818:             <button type="button" className="ghost-button" onClick={() => navigate('/admin')}>
+2819:               Go to Admin Sign In
+2820:             </button>
+2821:           </div>
+2822:         </section>
+2823:       </section>
+2824:     )
+2825:   }
+2826: 
+2827:   return (
+2828:     <section className={`gig-control-shell${isFocusedGigControlWindow ? ' gig-control-shell-focus' : ''}`} aria-label="Gig control panel">
+2829:       {/* Gig header */}
+2830:       {endGigPromptEvent ? (
+2831:         <section className="queue-panel admin-inline-confirm-banner" role="alertdialog" aria-label="End gig options">
+2832:           <p className="subcopy">End "{endGigPromptEvent.name}" now. Keep it offline, or delete it entirely from the app and Gig Control?</p>
+2833:           <div className="hero-actions no-margin-bottom">
+2834:             <button
+2835:               type="button"
+2836:               className="secondary-button"
+2837:               onClick={() => {
+2838:                 void runEndGigDecision('keep-offline')
+2839:               }}
+2840:               disabled={endGigDecisionBusy !== null}
+2841:             >
+2842:               {endGigDecisionBusy === 'keep-offline' ? 'Ending Gig...' : 'Keep Offline'}
+2843:             </button>
+2844:             <button
+2845:               type="button"
+2846:               className="primary-button"
+2847:               onClick={() => {
+2848:                 void runEndGigDecision('delete')
+2849:               }}
+2850:               disabled={endGigDecisionBusy !== null}
+2851:             >
+2852:               {endGigDecisionBusy === 'delete' ? 'Deleting Gig...' : 'Delete Gig'}
+2853:             </button>
+2854:             <button
+2855:               type="button"
+2856:               className="ghost-button"
+2857:               onClick={() => setEndGigPromptEvent(null)}
+2858:               disabled={endGigDecisionBusy !== null}
+2859:             >
+2860:               Cancel
+2861:             </button>
+2862:           </div>
+2863:         </section>
+2864:       ) : null}
+2865: 
+2866:       {isFocusedGigControlWindow ? (
+2867:         <section className="queue-panel gig-control-focus-toolbar" aria-label="Focus window actions">
+2868:           <div className="hero-actions no-margin-bottom">
+2869:             <button type="button" className="secondary-button" onClick={handleGoBackToGigControl}>
+2870:               Go Back to Gig Control
+2871:             </button>
+2872:             <button type="button" className="ghost-button" onClick={handleEnterFocusFullscreen}>
+2873:               Enter Fullscreen
+2874:             </button>
+2875:           </div>
+2876:           <div className="hero-actions no-margin-bottom gig-focus-spotify-actions">
+2877:             <button
+2878:               type="button"
+2879:               className="ghost-button"
+2880:               onClick={() => {
+2881:                 sendManualSpotifyTransportCommand('previous')
+2882:               }}
+2883:               disabled={!spotifyAccessToken}
+2884:             >
+2885:               Spotify Previous
+2886:             </button>
+2887:             <button
+2888:               type="button"
+2889:               className="secondary-button"
+2890:               onClick={() => {
+2891:                 sendManualSpotifyTransportCommand('play')
+2892:               }}
+2893:               disabled={!spotifyAccessToken}
+2894:             >
+2895:               Spotify Play
+2896:             </button>
+2897:             <button
+2898:               type="button"
+2899:               className="ghost-button"
+2900:               onClick={() => {
+2901:                 sendManualSpotifyTransportCommand('next')
+2902:               }}
+2903:               disabled={!spotifyAccessToken}
+2904:             >
+2905:               Spotify Next
+2906:             </button>
+2907:           </div>
+2908:           {spotifyStatusText ? <p className="meta-badge gig-focus-spotify-status" role="status" aria-live="polite">{spotifyStatusText}</p> : null}
+2909:         </section>
+2910:       ) : null}
+2911: 
+2912:       {isFocusedGigControlWindow && spotifyAccessToken ? (
+2913:         <section className="gig-focus-spotify-driver" aria-hidden="true">
+2914:           <SpotifyPlayerWithSDK
+2915:             accessToken={spotifyAccessToken}
+2916:             onRefreshToken={refreshSpotifyAccessToken}
+2917:             transportCommand={spotifyTransportCommand}
+2918:             onStatusTextChange={setSpotifyStatusText}
+2919:           />
+2920:         </section>
+2921:       ) : null}
+2922: 
+2923:       <section className="queue-panel gig-performer-cockpit" aria-label="Performer live cockpit">
+2924:         <div className="gig-performer-cockpit-top">
+2925:           <p className="gig-control-card-label no-margin-bottom">Performer Live Cockpit</p>
+2926:           <div className="gig-performer-status-row" role="status" aria-live="polite">
+2927:             <span className={`gig-performer-status-pill ${event.roomOpen ? 'is-live' : 'is-paused'}`}>{liveModeLabel}</span>
+2928:             <span className="gig-performer-status-pill is-neutral">{mirrorStateLabel}</span>
+2929:             <span className="gig-performer-status-pill is-neutral">Audience {activeAudienceCount ?? 0}</span>
+2930:           </div>
+2931:         </div>
+2932:         <div className="gig-performer-controls">
+2933:           <button
+2934:             type="button"
+2935:             className="primary-button"
+2936:             disabled={gigActions.quickActionBusy || preflightBusy || endGigDecisionBusy !== null}
+2937:             onClick={async () => {
+2938:               await toggleLiveState()
+2939:             }}
+2940:           >
+2941:             {event.roomOpen ? 'Stop Live Concert' : 'Set Live'}
+2942:           </button>
+2943:           <button
+2944:             type="button"
+2945:             className="secondary-button"
+2946:             disabled={mirrorOverlayUpdateBusy}
+2947:             onClick={async () => {
+2948:               await toggleBrbState()
+2949:             }}
+2950:           >
+2951:             {isBrbActive ? 'Resume From Break' : 'Go on Break'}
+2952:           </button>
+2953:           <button type="button" className="ghost-button" onClick={openMirrorFromGigControl}>
+2954:             Open Mirror
+2955:           </button>
+2956:           {!isFocusedGigControlWindow ? (
+2957:             <button type="button" className="ghost-button" onClick={openFocusedGigControlWindow}>
+2958:               Open Fullscreen Control Board (Same Window)
+2959:             </button>
+2960:           ) : null}
+2961:           <button type="button" className="ghost-button" onClick={() => navigate('/admin/gig-settings')}>
+2962:             Gig Settings
+2963:           </button>
+2964:         </div>
+2965:       </section>
+2966: 
+2967:       <section className="gig-control-top-grid">
+2968:         <article className="gig-control-header gig-control-main-card">
+2969:           <div>
+2970:             <p className="gig-control-card-label">Live Control</p>
+2971:             {hostEvents.length > 1 ? (
+2972:               <div className="gig-switcher">
+2973:                 <label htmlFor="gig-switcher" className="gig-switcher-label">Choose gig</label>
+2974:                 <select
+2975:                   id="gig-switcher"
+2976:                   className="gig-switcher-select"
+2977:                   value={event.id}
+2978:                   disabled={Boolean(gigActions.activatingEventId)}
+2979:                   onChange={async (changeEvent) => {
+2980:                     const nextGigId = changeEvent.target.value
+2981: 
+2982:                     if (!nextGigId || nextGigId === event.id) {
+2983:                       return
+2984:                     }
+2985: 
+2986:                     await gigActions.switchActiveGig(nextGigId)
+2987:                   }}
+2988:                 >
+2989:                   {hostEvents.map((hostEvent) => (
+2990:                     <option
+2991:                       key={hostEvent.id}
+2992:                       value={hostEvent.id}
+2993:                       title={`${hostEvent.isTestGig ? '[TEST] ' : ''}${formatGigSwitcherDate(hostEvent.gigDate, hostEvent.gigStartTime)} - ${hostEvent.name}${hostEvent.venue ? ` - ${hostEvent.venue}` : ''}`}
+2994:                     >
+2995:                       {`${hostEvent.isTestGig ? '[TEST] ' : ''}${formatGigSwitcherDate(hostEvent.gigDate, hostEvent.gigStartTime)} ┬À ${hostEvent.name}${hostEvent.venue ? ` ┬À ${hostEvent.venue}` : ''}`}
+2996:                     </option>
+2997:                   ))}
+2998:                 </select>
+2999:               </div>
+3000:             ) : null}
+3001:             <h1>{event.name}</h1>
+3002:             {isCurrentTestGig ? <p className="meta-badge">Test Gig (Private)</p> : null}
+3003:             {event.venue ? <p className="subcopy no-margin">{event.venue}</p> : null}
+3004:             {event.subtitle ? <p className="subcopy gig-event-subtitle">{event.subtitle}</p> : null}
+3005:             <p className="gig-audience-count-badge" aria-live="polite">
+3006:               <span className="gig-audience-count-dot" aria-hidden="true" />
+3007:               {activeAudienceCount === null
+3008:                 ? 'Audience online: connectingÔÇª'
+3009:                 : activeAudienceCount === 0
+3010:                 ? 'No audience members online yet'
+3011:                 : `${activeAudienceCount} audience member${activeAudienceCount === 1 ? '' : 's'} online`}
+3012:             </p>
+3013:             {!isFocusedGigControlWindow && preflightStatusText ? (
+3014:               <p className="meta-badge" aria-live="polite">{preflightStatusText}</p>
+3015:             ) : null}
+3016:             {!isFocusedGigControlWindow && mirrorLaunchStatusText ? (
+3017:               <p className="meta-badge" aria-live="polite">{mirrorLaunchStatusText}</p>
+3018:             ) : null}
+3019:             {autoLiveCountdown ? (
+3020:               <p className="meta-badge gig-auto-live-countdown" aria-live="polite">ÔÅ▒ {autoLiveCountdown}</p>
+3021:             ) : null}
+3022:             {!isFocusedGigControlWindow && autoLiveLockBadgeText ? (
+3023:               <p className="meta-badge" aria-live="polite">{autoLiveLockBadgeText}</p>
+3024:             ) : null}
+3025:             {!isFocusedGigControlWindow && autoLiveLastError ? (
+3026:               <p className="meta-badge" aria-live="polite">Auto Live issue: {autoLiveLastError}</p>
+3027:             ) : null}
+3028:             {nextUpSong ? (
+3029:               <p className="subcopy gig-next-up-hint" aria-live="polite">
+3030:                 Next up: <strong>{nextUpSong.title}</strong> ÔÇö {nextUpSong.artist}
+3031:                 {nextUpSong.createdByName ? ` ┬À requested by ${nextUpSong.createdByName}` : ''}
+3032:                 {queueEstMinutes > 0 ? ` ┬À ~${queueEstMinutes} min queue` : ''}
+3033:               </p>
+3034:             ) : null}
+3035:             <p className="subcopy gig-playback-note">
+3036:               Playback is controlled from this screen. Press Space to start the current song, then Space again to
+3037:               move to the quote transition before the next request.
+3038:             </p>
+3039:           </div>
+3040:           <ActionButtonGroup actions={visibleHeaderActions} layoutClassName="gig-control-actions gig-control-primary-actions" />
+3041:           {!isFocusedGigControlWindow ? (
+3042:             <div className="gig-brb-input-block">
+3043:               <div className="gig-brb-input-head">
+3044:                 <label htmlFor="gig-brb-message" className="gig-switcher-label">BRB message (shown on mirror while paused)</label>
+3045:                 <button
+3046:                   type="button"
+3047:                   className="ghost-button gig-brb-roll-button"
+3048:                   onClick={() => {
+3049:                     void rollBreakMessage()
+3050:                   }}
+3051:                   disabled={mirrorOverlayUpdateBusy}
+3052:                 >
+3053:                   ­ƒÄ▓ Roll Message
+3054:                 </button>
+3055:               </div>
+3056:               <input
+3057:                 id="gig-brb-message"
+3058:                 className="gig-switcher-select"
+3059:                 value={brbCustomMessage}
+3060:                 onChange={(changeEvent) => {
+3061:                   setBrbCustomMessage(changeEvent.target.value)
+3062:                 }}
+3063:                 placeholder={DEFAULT_BRB_MESSAGE}
+3064:               />
+3065:               <p className="field-hint">Tip: click Roll Message for a random break line before you go on break.</p>
+3066:             </div>
+3067:           ) : null}
+3068:         </article>
+3069: 
+3070:         <article className="gig-mirror-preview-card" aria-label="Live mirror preview">
+3071:           <p className="gig-control-card-label">Live Mirror Preview</p>
+3072:           <div className="gig-mirror-preview-toolbar" role="status" aria-live="polite">
+3073:             <MirrorSyncHealthBadge
+3074:               audienceConnectionStatus={audienceConnectionStatus}
+3075:               lastMirrorSyncAt={lastMirrorSyncAt}
+3076:             />
+3077:             <button
+3078:               type="button"
+3079:               className={`ghost-button gig-mirror-readability-toggle ${mirrorReadabilityCheckEnabled ? 'is-active' : ''}`}
+3080:               onClick={() => {
+3081:                 setMirrorReadabilityCheckEnabled((currentValue) => !currentValue)
+3082:               }}
+3083:             >
+3084:               {mirrorReadabilityCheckEnabled ? 'Readability Check: On' : 'Readability Check'}
+3085:             </button>
+3086:           </div>
+3087:           <p className="meta-badge" role="status" aria-live="polite">{setlistBucketHintText}</p>
+3088:           <p className="meta-badge" role="status" aria-live="polite">{queueAheadMinutesHintText}</p>
+3089:           <div className="gig-mirror-preview-emergency-actions">
+3090:             <button
+3091:               type="button"
+3092:               className="secondary-button"
+3093:               disabled={mirrorOverlayUpdateBusy}
+3094:               onClick={() => {
+3095:                 void triggerEmergencyOverlay('tech-issue')
+3096:               }}
+3097:             >
+3098:               Tech Issue (2m)
+3099:             </button>
+3100:             <button
+3101:               type="button"
+3102:               className="ghost-button"
+3103:               disabled={mirrorOverlayUpdateBusy}
+3104:               onClick={() => {
+3105:                 void triggerEmergencyOverlay('scan-qr')
+3106:               }}
+3107:             >
+3108:               Scan QR Now
+3109:             </button>
+3110:             <button
+3111:               type="button"
+3112:               className={isFinalSongSoonActive ? 'secondary-button' : 'ghost-button'}
+3113:               disabled={mirrorOverlayUpdateBusy}
+3114:               onClick={() => {
+3115:                 void toggleLastSongSoonState()
+3116:               }}
+3117:             >
+3118:               {isFinalSongSoonActive ? 'Last Song: On (Turn Off)' : 'Last Song: Off (Turn On)'}
+3119:             </button>
+3120:             <button
+3121:               type="button"
+3122:               className="ghost-button"
+3123:               disabled={!isBrbActive || mirrorOverlayUpdateBusy}
+3124:               onClick={() => {
+3125:                 void setMirrorOverlayMessage(null)
+3126:               }}
+3127:             >
+3128:               Clear Overlay
+3129:             </button>
+3130:           </div>
+3131:           <div className="gig-mirror-preview-frame" role="img" aria-label="Mirror screen preview">
+3132:             <div className="gig-mirror-preview-scale-shell">
+3133:               <div className={`gig-mirror-preview-scale-canvas ${mirrorReadabilityCheckEnabled ? 'is-readability-check' : ''}`}>
+3134:                 {isBrbActive ? (
+3135:                   <div className="gig-mirror-preview-brb-overlay" aria-live="polite" role="status">
+3136:                     <p className="gig-mirror-preview-brb-icon" aria-hidden="true">­ƒì║</p>
+3137:                     <p className="gig-mirror-preview-brb-heading">On Break</p>
+3138:                     <p className="gig-mirror-preview-brb-message">{brbCustomMessage.trim() || DEFAULT_BRB_MESSAGE}</p>
+3139:                   </div>
+3140:                 ) : null}
+3141:                 {mirrorPreviewTransitionMessage && !isBrbActive ? (
+3142:                   <div className={`gig-mirror-preview-transition-toast is-${mirrorPreviewTransitionTone}`} aria-live="polite" role="status">
+3143:                     <p>{mirrorPreviewTransitionMessage}</p>
+3144:                   </div>
+3145:                 ) : null}
+3146:                 <div className="gig-mirror-preview-top">
+3147:                   <div className="gig-mirror-preview-brand-shell">
+3148:                     {event.venueLogoUrl ? (
+3149:                       <img
+3150:                         src={event.venueLogoUrl}
+3151:                         alt={`${event.venue || 'Venue'} logo`}
+3152:                         className="gig-mirror-preview-venue-logo"
+3153:                         onError={(errorEvent) => {
+3154:                           errorEvent.currentTarget.style.display = 'none'
+3155:                         }}
+3156:                       />
+3157:                     ) : null}
+3158:                     <span className="gig-mirror-preview-brand">Human Jukebox</span>
+3159:                   </div>
+3160:                   <span className={`gig-mirror-preview-state ${event.roomOpen ? 'is-live' : 'is-paused'}`}>
+3161:                     {event.roomOpen ? 'Live' : isBeforeScheduledStart ? 'Starting Soon' : 'Paused'}
+3162:                   </span>
+3163:                 </div>
+3164:                 <p className="gig-mirror-preview-label">Now Playing</p>
+3165:                 <div className="gig-mirror-preview-now-playing-stage">
+3166:                   {!isNowPlayingStarted ? (
+3167:                     <div className="gig-mirror-preview-quote-shell">
+3168:                       <p className="gig-mirror-preview-quote">{betweenSongQuote}</p>
+3169:                     </div>
+3170:                   ) : (
+3171:                     <div className="gig-mirror-preview-now-playing-row">
+3172:                       {nowPlaying?.cover_url ? (
+3173:                         <img
+3174:                           src={nowPlaying.cover_url}
+3175:                           alt={`Cover art for ${nowPlaying.title}`}
+3176:                           className="gig-mirror-preview-now-playing-cover"
+3177:                         />
+3178:                       ) : null}
+3179:                       <div>
+3180:                         <p className="gig-mirror-preview-song">{nowPlaying?.title ?? 'Waiting for requests from brave volunteers...'}</p>
+3181:                         <p className="gig-mirror-preview-artist">{nowPlaying?.artist ?? 'Queue currently calm, suspiciously so'}</p>
+3182:                         {nowPlaying?.audience_sings ? (
+3183:                           <div className="gig-mirror-preview-karafun-block">
+3184:                             <span className="gig-mirror-preview-karafun-title">KaraFun Request</span>
+3185:                             <span className="gig-mirror-preview-karafun-meta">
+3186:                               {nowPlaying?.createdByName ? `Chosen by ${nowPlaying.createdByName}` : 'Chosen from karaoke list'}
+3187:                             </span>
+3188:                           </div>
+3189:                         ) : null}
+3190:                         {nowPlaying?.createdByName ? (
+3191:                           <span className="gig-mirror-preview-requested-by">
+3192:                             <span className="gig-mirror-preview-requested-by-label">Wished by:</span> {nowPlaying.createdByName}
+3193:                           </span>
+3194:                         ) : null}
+3195:                       </div>
+3196:                     </div>
+3197:                   )}
+3198:                 </div>
+3199:                 <p className="gig-mirror-preview-label">Up Next</p>
+3200:                 <ul className="gig-mirror-preview-list">
+3201:                   {mirrorPreviewUpNext.slice(0, 3).map((song) => {
+3202:                     const chosenBy = song.createdByName?.trim() ?? ''
+3203: 
+3204:                     return (
+3205:                     <li key={song.id}>
+3206:                       <div className="gig-mirror-preview-list-main">
+3207:                         {song.cover_url ? (
+3208:                           <img
+3209:                             src={song.cover_url}
+3210:                             alt={`Cover art for ${song.title}`}
+3211:                             className="gig-mirror-preview-list-cover"
+3212:                           />
+3213:                         ) : null}
+3214:                         <div className="gig-mirror-preview-list-copy">
+3215:                           <span className="gig-mirror-preview-list-song">{song.title}</span>
+3216:                           <span className="gig-mirror-preview-list-artist">{song.artist || 'Unknown Artist'}</span>
+3217:                           {song.audience_sings ? (
+3218:                             <div className="gig-mirror-preview-list-karafun-block">
+3219:                               <span className="gig-mirror-preview-list-karafun-title">KaraFun Request</span>
+3220:                               <span className="gig-mirror-preview-list-karafun-meta">
+3221:                                 {chosenBy ? `Chosen by ${chosenBy}` : 'Chosen from karaoke list'}
+3222:                               </span>
+3223:                             </div>
+3224:                           ) : null}
+3225:                           {chosenBy ? (
+3226:                             <span className="gig-mirror-preview-list-chosen-by">
+3227:                               <span className="gig-mirror-preview-list-chosen-by-label">Wished by:</span> {chosenBy}
+3228:                             </span>
+3229:                           ) : null}
+3230:                         </div>
+3231:                       </div>
+3232:                       <span>+{song.votes_count}</span>
+3233:                     </li>
+3234:                     )
+3235:                   })}
+3236:                   {mirrorPreviewUpNext.length === 0 ? <li><span>No songs queued</span><span>+0</span></li> : null}
+3237:                 </ul>
+3238:               </div>
+3239:             </div>
+3240:           </div>
+3241:         </article>
+3242: 
+3243:         {!isFocusedGigControlWindow ? (
+3244:           <article className="qr-card gig-control-qr-card" aria-label="Audience join tools">
+3245:             <p className="gig-control-card-label">{isQrTargetTestGig ? 'Test Audience QR' : 'Audience Join QR'}</p>
+3246:             {hostEvents.length > 1 ? (
+3247:               <p className="subcopy">QR target follows the active mirror gig automatically.</p>
+3248:             ) : null}
+3249:             <div className="gig-control-qr-frame">
+3250:               <img src={qrUrl} alt={isQrTargetTestGig ? 'QR code for test audience page' : 'QR code for audience join page'} className="qr-image" />
+3251:             </div>
+3252:             <p className="subcopy">
+3253:               {isQrTargetTestGig
+3254:                 ? 'Private test mode: use this Test Audience page while signed in as host.'
+3255:                 : 'Show this on your mirror screen so guests can scan and join.'}
+3256:             </p>
+3257:             <button
+3258:               type="button"
+3259:               className="secondary-button"
+3260:               title={isQrTargetTestGig ? 'Copy the test audience link for host preview' : 'Copy the audience join link to share with your guests'}
+3261:               onClick={async () => {
+3262:                 await copyJoinUrl()
+3263:               }}
+3264:             >
+3265:               {copiedAudienceLink ? 'Copied!' : isQrTargetTestGig ? 'Copy Test Audience Link' : 'Copy Audience Link'}
+3266:             </button>
+3267:             <button
+3268:               type="button"
+3269:               className="ghost-button"
+3270:               title="Open the host-only Test Audience page for this gig"
+3271:               onClick={() => {
+3272:                 window.open(testJoinUrl, '_blank', 'noopener,noreferrer')
+3273:               }}
+3274:             >
+3275:               Open Test Audience Page
+3276:             </button>
+3277:             {!isQrTargetTestGig ? (
+3278:               <button
+3279:                 type="button"
+3280:                 className="ghost-button"
+3281:                 title="Copy the host-only Test Audience link"
+3282:                 onClick={async () => {
+3283:                   await copyTestJoinUrl()
+3284:                 }}
+3285:               >
+3286:                 Copy Test Audience Link
+3287:               </button>
+3288:             ) : null}
+3289:             <div className="hero-actions no-margin-bottom">
+3290:               <button
+3291:                 type="button"
+3292:                 className="secondary-button"
+3293:                 title="Save a backup of the current queue to local storage"
+3294:                 onClick={() => {
+3295:                   saveQueueSnapshot()
+3296:                 }}
+3297:               >
+3298:                 Save Queue Snapshot
+3299:               </button>
+3300:               <button
+3301:                 type="button"
+3302:                 className="primary-button gig-snapshot-restore-button"
+3303:                 title="Restore the most recent snapshot with a confirmation preview"
+3304:                 onClick={() => {
+3305:                   void restoreLatestSnapshot()
+3306:                 }}
+3307:                 disabled={snapshotRestoreBusy}
+3308:               >
+3309:                 {snapshotRestoreBusy ? 'RestoringÔÇª' : 'Restore Latest Snapshot'}
+3310:               </button>
+3311:               <button type="button" className="ghost-button" title="Download the last saved queue snapshot as a JSON file" onClick={downloadLatestSnapshot}>
+3312:                 Download Latest Snapshot
+3313:               </button>
+3314:             </div>
+3315:             {snapshotStatusText ? <p className="subcopy no-margin">{snapshotStatusText}</p> : null}
+3316:             {workerHeartbeatText ? <p className="subcopy no-margin">{workerHeartbeatText}</p> : null}
+3317:             {restoreConfirmPayload ? (
+3318:               <div className="admin-inline-confirm" role="alertdialog" aria-label="Confirm snapshot restore">
+3319:                 <p className="subcopy">
+3320:                   Restore snapshot #{restoreConfirmPayload.snapshotCount} from {restoreConfirmPayload.at}?
+3321:                   {' '}This replaces the current queue ({restoreConfirmPayload.queueCount} songs).
+3322:                   {restoreConfirmPayload.reason ? ` Reason: ${restoreConfirmPayload.reason}.` : ''}
+3323:                   {' '}Source: {restoreConfirmPayload.source === 'database' ? 'Database (transactional)' : 'Local backup'}.
+3324:                 </p>
+3325:                 <div className="hero-actions no-margin-bottom">
+3326:                   <button type="button" className="primary-button" onClick={() => { void confirmRestoreSnapshot() }}>
+3327:                     Confirm Restore
+3328:                   </button>
+3329:                   <button type="button" className="ghost-button" onClick={() => setRestoreConfirmPayload(null)}>
+3330:                     Cancel
+3331:                   </button>
+3332:                 </div>
+3333:               </div>
+3334:             ) : null}
+3335:           </article>
+3336:         ) : null}
+3337:       </section>
+3338: 
+3339:       {!isFocusedGigControlWindow ? (
+3340:         <>
+3341: 
+3342:       <section className="queue-panel gig-shortcuts-panel" aria-label="Keyboard shortcuts">
+3343:         <details>
+3344:           <summary className="gig-shortcuts-summary">
+3345:             <span>Ôî¿ Keyboard Shortcuts</span>
+3346:             <span className="meta-badge">Host cheatsheet</span>
+3347:           </summary>
+3348:           <ul className="gig-shortcuts-list">
+3349:             <li><kbd>Space</kbd> Start song / mark as played</li>
+3350:             <li><kbd>ÔåÉ</kbd> Move top song up in queue</li>
+3351:             <li><kbd>ÔåÆ</kbd> Move top song down in queue</li>
+3352:           </ul>
+3353:         </details>
+3354:       </section>
+3355: 
+3356:       <section className="queue-panel gig-manual-add-panel" aria-label="Admin add song controls">
+3357:         <div className="panel-head">
+3358:           <h2>Add Song to Queue</h2>
+3359:           <span className="meta-badge">Playlist + Custom</span>
+3360:         </div>
+3361:         <AddSongTabs
+3362:           eventId={event.id}
+3363:           userId={user?.id ?? null}
+3364:           addSong={addSong}
+3365:           queuedLibrarySongIds={queuedLibrarySongIds}
+3366:         />
+3367:       </section>
+3368: 
+3369:       {spotifyAccessToken ? (
+3370:         <>
+3371:           <section className="queue-panel" aria-label="Spotify automation setting">
+3372:             <div className="panel-head">
+3373:               <h2>Spotify Automation</h2>
+3374:               <span className="meta-badge">{spotifyAutoTransportEnabled ? 'On' : 'Off'}</span>
+3375:             </div>
+3376:             <label htmlFor="spotify-auto-transport-toggle" className="gig-switcher-label gig-spotify-status-label">
+3377:               <span className="admin-spotify-status-dot admin-spotify-connected" aria-label="Spotify Connected" />
+3378:               <input
+3379:                 id="spotify-auto-transport-toggle"
+3380:                 type="checkbox"
+3381:                 checked={spotifyAutoTransportEnabled}
+3382:                 onChange={(changeEvent) => {
+3383:                   setSpotifyAutoTransportEnabled(changeEvent.target.checked)
+3384:                 }}
+3385:               />{' '}
+3386:               Auto play between-song Spotify on finish, and auto pause on start
+3387:             </label>
+3388:           </section>
+3389: 
+3390:           <SpotifyPlayerWithSDK
+3391:             accessToken={spotifyAccessToken}
+3392:             onRefreshToken={refreshSpotifyAccessToken}
+3393:             transportCommand={spotifyTransportCommand}
+3394:             onStatusTextChange={setSpotifyStatusText}
+3395:           />
+3396:         </>
+3397:       ) : (
+3398:         <section className="queue-panel" aria-label="Spotify login prompt">
+3399:           <div className="panel-head">
+3400:             <h2>Spotify Web Playback SDK</h2>
+3401:             <span className="meta-badge gig-spotify-status-label">
+3402:               <span className="admin-spotify-status-dot admin-spotify-disconnected" aria-hidden="true" />
+3403:               Disconnected
+3404:             </span>
+3405:           </div>
+3406:           <p className="subcopy">Connect Spotify to enable play/pause and track skipping from Gig Control.</p>
+3407:           <div className="hero-actions no-margin-bottom">
+3408:             <button
+3409:               type="button"
+3410:               className="primary-button"
+3411:               onClick={async () => {
+3412:                 await connectSpotify()
+3413:               }}
+3414:             >
+3415:               Connect Spotify
+3416:             </button>
+3417:           </div>
+3418:         </section>
+3419:       )}
+3420: 
+3421:       {spotifyStatusText ? <p className="subcopy no-margin">{spotifyStatusText}</p> : null}
+3422: 
+3423:       {/* Now Playing */}
+3424:       <section className="gig-now-playing">
+3425:         <article className={`now-playing-card ${isNowPlayingStarted ? 'gig-now-playing-active' : ''}`}>
+3426:           <p className="eyebrow">Now Playing</p>
+3427:           {queueEstMinutes > 0 ? <p className="subcopy no-margin">~{queueEstMinutes} min queue ahead</p> : null}
+3428:           {nowPlaying && isNowPlayingStarted ? (
+3429:             <>
+3430:               <div className="now-playing-media">
+3431:                 {nowPlaying.cover_url ? (
+3432:                   <img src={nowPlaying.cover_url} alt={`Cover art for ${nowPlaying.title}`} className="song-cover song-cover-large" />
+3433:                 ) : null}
+3434:                 <div>
+3435:                   <h2>{nowPlaying.title}</h2>
+3436:                   <p className="artist">{nowPlaying.artist}</p>
+3437:                   <div className="gig-song-flag-row">
+3438:                     {nowPlaying.audience_sings ? <span className="karaoke-tag">Karaoke</span> : <span className="gig-live-mode-tag">Live Request</span>}
+3439:                     {nowPlaying.is_explicit ? <span className="explicit-tag">E</span> : null}
+3440:                   </div>
+3441:                   {nowPlayingRequesters.length > 0 ? (
+3442:                     <div className="gig-requester-chip-row" aria-label="Song requesters">
+3443:                       <span className="gig-requester-label">Wished by</span>
+3444:                       {nowPlayingRequesters.map((requesterName) => (
+3445:                         <span key={requesterName} className="gig-requester-chip">{requesterName}</span>
+3446:                       ))}
+3447:                     </div>
+3448:                   ) : null}
+3449:                 </div>
+3450:               </div>
+3451:               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
+3452:                 <button
+3453:                   type="button"
+3454:                   className="primary-button"
+3455:                   title="Mark this song as played and move to the next one (Space)"
+3456:                   disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
+3457:                   onClick={async () => {
+3458:                     if (spaceActionBusy || playbackActionLockRef.current || songActionBusyId === nowPlaying.id) {
+3459:                       return
+3460:                     }
+3461: 
+3462:                     setSongActionBusyId(nowPlaying.id)
+3463: 
+3464:                     try {
+3465:                       const finishedSong = await runPlaybackAction(async () => {
+3466:                         await runWithSafetySnapshot('before-mark-played', async () => {
+3467:                           await markPlayed()
+3468:                         })
+3469:                       })
+3470: 
+3471:                       if (finishedSong) {
+3472:                         sendSpotifyTransportCommand('play')
+3473:                       }
+3474:                     } catch (error) {
+3475:                       console.warn('GigControlPage: mark played failed', error)
+3476:                       setErrorText('Failed to mark as played.')
+3477:                     } finally {
+3478:                       setSongActionBusyId(null)
+3479:                     }
+3480:                   }}
+3481:                 >
+3482:                   Ô£ô Mark as Played
+3483:                 </button>
+3484:                 <button
+3485:                   type="button"
+3486:                   className="secondary-button"
+3487:                   title="Remove this song from the queue without marking it as played"
+3488:                   disabled={spaceActionBusy || songActionBusyId === nowPlaying.id}
+3489:                   onClick={async () => {
+3490:                     if (spaceActionBusy || playbackActionLockRef.current || songActionBusyId === nowPlaying.id) {
+3491:                       return
+3492:                     }
+3493: 
+3494:                     setSongActionBusyId(nowPlaying.id)
+3495: 
+3496:                     try {
+3497:                       await runPlaybackAction(async () => {
+3498:                         await runWithSafetySnapshot('before-remove-song', async () => {
+3499:                           await removeSong(nowPlaying.id)
+3500:                         })
+3501:                       })
+3502:                     } catch (error) {
+3503:                       console.warn('GigControlPage: skip song failed', error)
+3504:                       setErrorText('Failed to skip song.')
+3505:                     } finally {
+3506:                       setSongActionBusyId(null)
+3507:                     }
+3508:                   }}
+3509:                 >
+3510:                   Ô£ò Skip
+3511:                 </button>
+3512:               </div>
+3513:               <p className="subcopy no-margin">
+3514:                 Playing now. Press Space again to mark as played.
+3515:               </p>
+3516:             </>
+3517:           ) : nowPlaying ? (
+3518:             <>
+3519:               <div className="gig-between-songs-state">
+3520:                 <p className="gig-between-songs-quote">{betweenSongQuote}</p>
+3521:                 <p className="subcopy gig-between-songs-hint">Tap to start, or press Space.</p>
+3522:               </div>
+3523:               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
+3524:                 <button
+3525:                   type="button"
+3526:                   className="primary-button"
+3527:                   title="Mark this song as started ÔÇö it will show as now playing on the mirror screen (Space)"
+3528:                   disabled={spaceActionBusy}
+3529:                   onClick={async () => {
+3530:                     if (spaceActionBusy || playbackActionLockRef.current) return
+3531:                     try {
+3532:                       await startCurrentSong()
+3533:                     } catch (error) {
+3534:                       console.warn('GigControlPage: start song failed', error)
+3535:                       setErrorText('Failed to start song. Please try again.')
+3536:                     }
+3537:                   }}
+3538:                 >
+3539:                   {spaceActionBusy ? 'StartingÔÇª' : 'ÔûÂ Start Song'}
+3540:                 </button>
+3541:               </div>
+3542:             </>
+3543:           ) : (
+3544:             <>
+3545:               <h2>Queue is empty</h2>
+3546:               <p className="artist">Waiting for requests from the audience, ideally with excellent taste and mild chaos.</p>
+3547:             </>
+3548:           )}
+3549:         </article>
+3550:       </section>
+3551: 
+3552:       {/* Queue */}
+3553:       <section className="queue-panel gig-queue-panel">
+3554:         <div className="panel-head">
+3555:           <h2>Up Next ({upNext.length} tracks)</h2>
+3556:           <span className="meta-badge">{queueModeLabel}</span>
+3557:         </div>
+3558:         {upNext.length === 0 ? (
+3559:           <p className="subcopy queue-empty-note">No more songs in queue.</p>
+3560:         ) : (
+3561:           <>
+3562:             <p className="subcopy queue-reorder-note">
+3563:               {isTouchInput ? 'Use Move Up / Move Down to reorder.' : 'Drag songs to reorder the queue.'}
+3564:             </p>
+3565:             <ol className="queue-list gig-control-queue">
+3566:             {upNext.map((song, index) => (
+3567:               <li
+3568:                 key={song.id}
+3569:                 className={`gig-control-row${draggedSongId === song.id ? ' is-dragging' : ''}${dragOverSongId === song.id && draggedSongId !== song.id ? ' is-drop-target' : ''}`}
+3570:                 onDragOver={(event) => {
+3571:                   event.preventDefault()
+3572:                   if (!songActionBusyId) {
+3573:                     setDragOverSongId(song.id)
+3574:                   }
+3575:                 }}
+3576:                 onDragLeave={() => {
+3577:                   if (dragOverSongId === song.id) {
+3578:                     setDragOverSongId(null)
+3579:                   }
+3580:                 }}
+3581:                 onDrop={async (event) => {
+3582:                   event.preventDefault()
+3583:                   await handleQueueDrop(song.id)
+3584:                 }}
+3585:               >
+3586:                 <span
+3587:                   className="queue-drag-handle"
+3588:                   draggable={!songActionBusyId && !isTouchInput}
+3589:                   title="Drag to reorder"
+3590:                   onDragStart={(event) => {
+3591:                     if (songActionBusyId || isTouchInput) {
+3592:                       event.preventDefault()
+3593:                       return
+3594:                     }
+3595: 
+3596:                     event.dataTransfer.effectAllowed = 'move'
+3597:                     event.dataTransfer.setData('text/plain', song.id)
+3598:                     setDraggedSongId(song.id)
+3599:                     setDragOverSongId(song.id)
+3600:                   }}
+3601:                   onDragEnd={() => {
+3602:                     setDraggedSongId(null)
+3603:                     setDragOverSongId(null)
+3604:                   }}
+3605:                   aria-label="Drag handle"
+3606:                 >
+3607:                   Ôï«Ôï«
+3608:                 </span>
+3609:                 <span className="queue-pos">{index + upNextStartPosition}</span>
+3610:                 <div className="gig-song-info">
+3611:                   {song.cover_url ? (
+3612:                     <img src={song.cover_url} alt={`Cover art for ${song.title}`} className="song-cover" />
+3613:                   ) : null}
+3614:                   <div>
+3615:                     <p className="song">{song.title}</p>
+3616:                     <p className="artist">{song.artist}</p>
+3617:                     <div className="gig-song-flag-row">
+3618:                       {song.audience_sings ? <span className="karaoke-tag">Karaoke Wish</span> : <span className="gig-live-mode-tag">Live Request</span>}
+3619:                       {song.is_explicit ? <span className="explicit-tag">E</span> : null}
+3620:                     </div>
+3621:                     {song.createdByName ? (
+3622:                       <div className="gig-requester-chip-row">
+3623:                         <span className="gig-requester-label">Wished by</span>
+3624:                         {parseRequesterNames(song.createdByName).map((requesterName) => (
+3625:                           <span key={`${song.id}-${requesterName}`} className="gig-requester-chip">{requesterName}</span>
+3626:                         ))}
+3627:                       </div>
+3628:                     ) : null}
+3629:                   </div>
+3630:                 </div>
+3631:                 <span className="votes">+{song.votes_count}</span>
+3632:                 <div className="queue-actions gig-control-row-actions">
+3633:                   <button
+3634:                     type="button"
+3635:                     className="secondary-button"
+3636:                     title="Set this song as the last song (encore)"
+3637:                     disabled={songActionBusyId === song.id || upNext.length < 1}
+3638:                     onClick={async () => {
+3639:                       if (songActionBusyId === song.id) return;
+3640:                       setSongActionBusyId(song.id);
+3641:                       try {
+3642:                         // Move song to end and activate last-song mode
+3643:                         await reorderSong(song.id, songs.length - 1);
+3644:                         if (!isFinalSongSoonActive) await toggleLastSongSoonState();
+3645:                       } catch {
+3646:                         setErrorText('Failed to set as last song.');
+3647:                       } finally {
+3648:                         setSongActionBusyId(null);
+3649:                       }
+3650:                     }}
+3651:                   >
+3652:                     ­ƒÄÁ Set as Last Song
+3653:                   </button>
+3654:                   {isTouchInput ? (
+3655:                     <>
+3656:                       <button
+3657:                         type="button"
+3658:                         className="secondary-button"
+3659:                         title="Move this song up in the queue"
+3660:                         disabled={songActionBusyId === song.id || index === 0}
+3661:                         onClick={async () => {
+3662:                           if (songActionBusyId) {
+3663:                             return
+3664:                           }
+3665: 
+3666:                           setSongActionBusyId(song.id)
+3667: 
+3668:                           try {
+3669:                             await runWithSafetySnapshot('before-move-song-up', async () => {
+3670:                               await moveSong(song.id, 'up')
+3671:                             })
+3672:                             await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+3673:                           } catch (error) {
+3674:                             console.warn('GigControlPage: move song up failed', error)
+3675:                             setErrorText(error instanceof Error ? error.message : 'Failed to move song.')
+3676:                           } finally {
+3677:                             setSongActionBusyId(null)
+3678:                           }
+3679:                         }}
+3680:                       >
+3681:                         Ôåæ Move Up
+3682:                       </button>
+3683:                       <button
+3684:                         type="button"
+3685:                         className="secondary-button"
+3686:                         title="Move this song down in the queue"
+3687:                         disabled={songActionBusyId === song.id || index === upNext.length - 1}
+3688:                         onClick={async () => {
+3689:                           if (songActionBusyId) {
+3690:                             return
+3691:                           }
+3692: 
+3693:                           setSongActionBusyId(song.id)
+3694: 
+3695:                           try {
+3696:                             await runWithSafetySnapshot('before-move-song-down', async () => {
+3697:                               await moveSong(song.id, 'down')
+3698:                             })
+3699:                             await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+3700:                           } catch (error) {
+3701:                             console.warn('GigControlPage: move song down failed', error)
+3702:                             setErrorText(error instanceof Error ? error.message : 'Failed to move song.')
+3703:                           } finally {
+3704:                             setSongActionBusyId(null)
+3705:                           }
+3706:                         }}
+3707:                       >
+3708:                         Ôåô Move Down
+3709:                       </button>
+3710:                     </>
+3711:                   ) : null}
+3712:                   <button
+3713:                     type="button"
+3714:                     className="vote-button danger-button"
+3715:                     title="Remove this song from the queue"
+3716:                     disabled={songActionBusyId === song.id}
+3717:                     onClick={async () => {
+3718:                       if (songActionBusyId === song.id) {
+3719:                         return
+3720:                       }
+3721: 
+3722:                       setSongActionBusyId(song.id)
+3723: 
+3724:                       try {
+3725:                         await runWithSafetySnapshot('before-remove-song', async () => {
+3726:                           await removeSong(song.id)
+3727:                         })
+3728:                         await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+3729:                       } catch {
+3730:                         setErrorText('Failed to remove.')
+3731:                       } finally {
+3732:                         setSongActionBusyId(null)
+3733:                       }
+3734:                     }}
+3735:                   >
+3736:                     {songActionBusyId === song.id ? 'RemovingÔÇª' : 'Remove'}
+3737:                   </button>
+3738:                 </div>
+3739:               </li>
+3740:             ))}
+3741:             </ol>
+3742:           </>
+3743:         )}
+3744:       </section>
+3745: 
+3746:       <section className="queue-panel gig-performed-panel" aria-label="Performed songs">
+3747:         <div className="panel-head">
+3748:           <h2>Performed Songs ({performedSongs.length})</h2>
+3749:           <span className="meta-badge">Live set history</span>
+3750:         </div>
+3751:         {performedSongs.length === 0 ? (
+3752:           <p className="subcopy queue-empty-note">Played songs will appear here.</p>
+3753:         ) : (
+3754:           <ol className="queue-list gig-performed-list">
+3755:             {performedSongs.map((song, index) => (
+3756:               <li key={`${song.id}-${song.performedAt}`}>
+3757:                 <span className="queue-pos">{index + 1}</span>
+3758:                 <div className="gig-song-info">
+3759:                   {song.cover_url ? (
+3760:                     <img src={song.cover_url} alt={`Cover art for ${song.title}`} className="song-cover" />
+3761:                   ) : null}
+3762:                   <div>
+3763:                     <p className="song">{song.title}</p>
+3764:                     <p className="artist">{song.artist}</p>
+3765:                   </div>
+3766:                 </div>
+3767:                 <button
+3768:                   type="button"
+3769:                   className="ghost-button gig-undo-played-button"
+3770:                   title="Undo ÔÇö move back to queue"
+3771:                   aria-label={`Undo mark played for ${song.title}`}
+3772:                   disabled={Boolean(songActionBusyId)}
+3773:                   onClick={async () => {
+3774:                     if (songActionBusyId) return
+3775:                     setSongActionBusyId(song.id)
+3776:                     try {
+3777:                       await unmarkPlayed(song.id)
+3778:                     } catch (err) {
+3779:                       console.warn('GigControlPage: unmark played failed', err)
+3780:                       setErrorText('Failed to undo mark played.')
+3781:                     } finally {
+3782:                       setSongActionBusyId(null)
+3783:                     }
+3784:                   }}
+3785:                 >
+3786:                   Ôå® Undo
+3787:                 </button>
+3788:               </li>
+3789:             ))}
+3790:           </ol>
+3791:         )}
+3792:       </section>
+3793: 
+3794:         </>
+3795:       ) : null}
+3796: 
+3797:       {shouldShowErrorText ? <p className="error-text gig-control-error-text" role="alert">{errorText}</p> : null}
+3798:       {focusCriticalErrorText ? <p className="gig-focus-error-toast" role="alert">{focusCriticalErrorText}</p> : null}
+3799: 
+3800:       {gigSummary ? (
+3801:         <div className="gig-summary-modal-overlay" role="dialog" aria-modal="true" aria-label="Gig summary">
+3802:           <div className="gig-summary-modal">
+3803:             <h2 className="gig-summary-title">­ƒÄñ Gig Wrapped</h2>
+3804:             <p className="gig-summary-stat">
+3805:               <span className="gig-summary-label">Songs played</span>
+3806:               <span className="gig-summary-value">{gigSummary.totalPlayed}</span>
+3807:             </p>
+3808:             {gigSummary.topSong ? (
+3809:               <p className="gig-summary-stat">
+3810:                 <span className="gig-summary-label">Top requested</span>
+3811:                 <span className="gig-summary-value">{gigSummary.topSong}</span>
+3812:               </p>
+3813:             ) : null}
+3814:             <p className="gig-summary-stat">
+3815:               <span className="gig-summary-label">Gig duration</span>
+3816:               <span className="gig-summary-value">
+3817:                 {(() => {
+3818:                   const mins = Math.round((Date.now() - gigSummary.startedAt) / 60_000)
+3819:                   return mins >= 60
+3820:                     ? `${Math.floor(mins / 60)}h ${mins % 60}m`
+3821:                     : `${mins} min`
+3822:                 })()}
+3823:               </span>
+3824:             </p>
+3825:             <button
+3826:               type="button"
+3827:               className="primary-button gig-summary-close"
+3828:               onClick={() => setGigSummary(null)}
+3829:             >
+3830:               Close
+3831:             </button>
+3832:           </div>
+3833:         </div>
+3834:       ) : null}
+3835:     </section>
+3836:   )
+3837: }
+3838: 
+3839: export default GigControlPage
