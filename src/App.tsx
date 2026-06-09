@@ -18,6 +18,7 @@ import MirrorPage from './pages/MirrorPage'
 import HomePage from './pages/HomePage'
 import JamzoneLyricsPage from './pages/JamzoneLyricsPage'
 import LyricsBoardPage from './pages/LyricsBoardPage'
+import IpadControllerPage from './pages/IpadControllerPage'
 const LyricsPage = lazyWithChunkReload(() => import('./pages/LyricsPage'))
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
@@ -248,6 +249,10 @@ const router = createBrowserRouter([
       {
         path: 'lyrics-board',
         element: withSuspense(withCrashBoundary('Lyrics Board', <LyricsBoardPage />)),
+      },
+      {
+        path: 'ipad-controller',
+        element: withSuspense(withCrashBoundary('iPad Controller', <IpadControllerPage />)),
       },
       {
         path: 'feed',
