@@ -9,6 +9,9 @@
   "tickResolution": 24,
   "heartbeatMs": 1200,
   "minWriteIntervalMs": 120,
+  "statusPort": 3217,
+  "statusHost": "127.0.0.1",
+  "consoleSummaryIntervalMs": 5000,
   "midiInputName": "Your MIDI Device Name",
   "songProgramMap": {
     "0": {

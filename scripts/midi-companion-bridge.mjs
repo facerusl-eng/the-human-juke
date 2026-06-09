@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { createServer } from 'node:http'
 import process from 'node:process'
 import midi from 'midi'
 import { createClient } from '@supabase/supabase-js'
@@ -127,6 +128,13 @@ async function main() {
   const tickResolution = Number.isFinite(Number(config.tickResolution)) ? Number(config.tickResolution) : 24
   const heartbeatMs = Number.isFinite(Number(config.heartbeatMs)) ? Number(config.heartbeatMs) : 1200
   const minWriteIntervalMs = Number.isFinite(Number(config.minWriteIntervalMs)) ? Number(config.minWriteIntervalMs) : 120
+  const statusPort = Number.isFinite(Number(config.statusPort)) ? Number(config.statusPort) : 0
+  const statusHost = typeof config.statusHost === 'string' && config.statusHost.trim().length > 0
+    ? config.statusHost.trim()
+    : '127.0.0.1'
+  const consoleSummaryIntervalMs = Number.isFinite(Number(config.consoleSummaryIntervalMs))
+    ? Math.max(1000, Number(config.consoleSummaryIntervalMs))
+    : 5000
 
   let bpm = defaultBpm
   let isPlaying = false
@@ -136,6 +144,10 @@ async function main() {
   let lastTickAt = Date.now()
   let lastWriteAt = 0
   let lastWriteSignature = ''
+  let lastMessageAt = 0
+  let totalWrites = 0
+  let totalWriteErrors = 0
+  let lastWriteError = null
 
   const mtcNibbles = new Array(8).fill(null)
   let lastMtcAt = 0
@@ -151,6 +163,43 @@ async function main() {
     }
 
     return (Date.now() - lastMtcAt) <= mtcTimeoutMs
+  }
+
+  const getEffectiveMode = () => {
+    if (timeSourceMode === 'auto') {
+      return shouldUseMtcClock() ? 'mtc' : 'clock'
+    }
+
+    return timeSourceMode
+  }
+
+  const buildStatusSnapshot = () => {
+    const now = Date.now()
+    return {
+      sourceId,
+      sourceType,
+      eventId,
+      configuredMode: timeSourceMode,
+      effectiveMode: getEffectiveMode(),
+      mtcFps,
+      isPlaying,
+      bpm: Number(bpm.toFixed(3)),
+      currentTimeSeconds: Number(currentTimeSeconds.toFixed(3)),
+      currentSong,
+      sequenceNumber,
+      totalWrites,
+      totalWriteErrors,
+      lastWriteAtMs: lastWriteAt || null,
+      lastWriteAgeMs: lastWriteAt ? now - lastWriteAt : null,
+      lastWriteError,
+      lastMidiMessageAtMs: lastMessageAt || null,
+      lastMidiMessageAgeMs: lastMessageAt ? now - lastMessageAt : null,
+      lastMtcAtMs: lastMtcAt || null,
+      mtcAgeMs: lastMtcAt ? now - lastMtcAt : null,
+      heartbeatMs,
+      minWriteIntervalMs,
+      generatedAt: new Date(now).toISOString(),
+    }
   }
 
   const writeState = async (force = false) => {
@@ -193,10 +242,14 @@ async function main() {
       .upsert(payload, { onConflict: 'event_id' })
 
     if (error) {
+      totalWriteErrors += 1
+      lastWriteError = error.message
       console.error(`[midi-companion] write failed: ${error.message}`)
       return
     }
 
+    totalWrites += 1
+    lastWriteError = null
     lastWriteAt = now
     lastWriteSignature = signature
   }
@@ -220,6 +273,9 @@ async function main() {
   console.log(`[midi-companion] listening on '${availablePorts[selectedPortIndex]}'`)
   console.log(`[midi-companion] writing to event ${eventId} (${sourceId})`)
   console.log(`[midi-companion] time source mode: ${timeSourceMode}`)
+  if (statusPort > 0) {
+    console.log(`[midi-companion] status endpoint: http://${statusHost}:${statusPort}/status`)
+  }
 
   const seekCc = Number(controls.seekCc)
   const seekMaxSeconds = Number.isFinite(Number(controls.seekMaxSeconds)) ? Number(controls.seekMaxSeconds) : 720
@@ -231,6 +287,7 @@ async function main() {
   const nudgeSeconds = Number.isFinite(Number(controls.nudgeSeconds)) ? Number(controls.nudgeSeconds) : 1
 
   input.on('message', (_deltaTime, message) => {
+    lastMessageAt = Date.now()
     const status = message[0] ?? 0
     const data1 = message[1] ?? 0
     const data2 = message[2] ?? 0
@@ -360,8 +417,36 @@ async function main() {
     void writeState(true)
   }, heartbeatMs)
 
+  const summaryTimer = setInterval(() => {
+    const snapshot = buildStatusSnapshot()
+    console.log(
+      `[midi-companion] mode=${snapshot.effectiveMode} play=${snapshot.isPlaying} t=${snapshot.currentTimeSeconds.toFixed(2)}s song=${snapshot.currentSong?.artist ?? '-'} / ${snapshot.currentSong?.title ?? '-'} writes=${snapshot.totalWrites} errors=${snapshot.totalWriteErrors} lastWriteAgeMs=${snapshot.lastWriteAgeMs ?? 'n/a'}`,
+    )
+  }, consoleSummaryIntervalMs)
+
+  let statusServer = null
+  if (statusPort > 0) {
+    statusServer = createServer((req, res) => {
+      if ((req.url ?? '') !== '/status') {
+        res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' })
+        res.end(JSON.stringify({ ok: false, error: 'not_found' }))
+        return
+      }
+
+      const snapshot = buildStatusSnapshot()
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' })
+      res.end(JSON.stringify({ ok: true, status: snapshot }))
+    })
+
+    statusServer.listen(statusPort, statusHost)
+  }
+
   const cleanup = () => {
     clearInterval(heartbeatTimer)
+    clearInterval(summaryTimer)
+    if (statusServer) {
+      statusServer.close()
+    }
     try {
       input.closePort()
     } catch {

@@ -32,6 +32,7 @@ Set:
 - `sourceId`
 - `midiInputName` (must match `--list` output)
 - `timeSourceMode` (`clock`, `mtc`, or `auto`)
+- `statusPort` (set `0` to disable local HTTP status endpoint)
 - `songProgramMap`
 - optional CC mappings
 
@@ -76,6 +77,30 @@ Recommended for live shows:
 - If your source provides stable MTC, use `mtc`.
 - If your source may drop MTC briefly, use `auto`.
 - Keep `clock` for classic tempo-clock setups.
+
+## 7) Live health monitoring
+
+The companion now publishes health in two ways:
+
+- Console summary every `consoleSummaryIntervalMs`
+- Local HTTP JSON endpoint at `/status` when `statusPort > 0`
+
+Example:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3217/status | ConvertTo-Json -Depth 6
+```
+
+Useful status fields:
+
+- `effectiveMode` (`clock` or `mtc`)
+- `mtcFps`
+- `currentTimeSeconds`
+- `isPlaying`
+- `currentSong`
+- `lastWriteAgeMs`
+- `lastMidiMessageAgeMs`
+- `totalWriteErrors`
 
 ## Notes
 
