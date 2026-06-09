@@ -3243,21 +3243,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    if (nowPlayingTypeRef.current === 'spotify') {
-      const didToggleSpotify = await toggleSpotifyPlayPause()
-
-      if (!didToggleSpotify) {
-        await toggleQueuePlayPause()
-        setSpotifyStatusText('Spotify unavailable. Spacebar used queue play/pause fallback.')
-      }
-
-      return
-    }
-
-    if (nowPlayingTypeRef.current === 'queue') {
-      await toggleQueuePlayPause()
-    }
-  }, [toggleQueuePlayPause, toggleSpotifyPlayPause])
+    await runQueueTogglePlayShortcutRef.current({
+      skipIntroAudio: false,
+      countdownMs: SPACEBAR_START_COUNTDOWN_MS,
+    })
+  }, [])
 
 
   /**
