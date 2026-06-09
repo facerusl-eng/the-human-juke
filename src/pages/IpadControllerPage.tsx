@@ -252,7 +252,8 @@ export default function IpadControllerPage() {
   }, [channelName, channelReconnectNonce])
 
   useEffect(() => {
-    if (!channelName || channelConnected) {
+    const shouldRetry = channelStatus === 'CHANNEL_ERROR' || channelStatus === 'TIMED_OUT' || channelStatus === 'CLOSED' || channelStatus === 'disconnected'
+    if (!channelName || channelConnected || !shouldRetry) {
       return
     }
 
@@ -263,7 +264,7 @@ export default function IpadControllerPage() {
     return () => {
       window.clearTimeout(retryTimer)
     }
-  }, [channelConnected, channelName, channelReconnectNonce])
+  }, [channelConnected, channelName, channelReconnectNonce, channelStatus])
 
   useEffect(() => {
     if (!remoteBridgeChannelRef.current) {

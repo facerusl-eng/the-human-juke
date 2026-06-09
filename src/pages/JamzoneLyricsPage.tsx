@@ -138,7 +138,8 @@ export default function JamzoneLyricsPage() {
   }, [remoteChannelName, remoteReconnectNonce])
 
   useEffect(() => {
-    if (!remoteChannelName || remoteBridgeConnected) {
+    const shouldRetry = remoteChannelStatus === 'CHANNEL_ERROR' || remoteChannelStatus === 'TIMED_OUT' || remoteChannelStatus === 'CLOSED' || remoteChannelStatus === 'disconnected'
+    if (!remoteChannelName || remoteBridgeConnected || !shouldRetry) {
       return
     }
 
@@ -149,7 +150,7 @@ export default function JamzoneLyricsPage() {
     return () => {
       window.clearTimeout(retryTimer)
     }
-  }, [remoteBridgeConnected, remoteChannelName, remoteReconnectNonce])
+  }, [remoteBridgeConnected, remoteChannelName, remoteReconnectNonce, remoteChannelStatus])
 
   useEffect(() => {
     if (!hasJamzoneBridge || !remoteBridgeChannelRef.current) {
