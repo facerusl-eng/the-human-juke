@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getJamzoneBridge, getJamzoneCurrentSong, getJamzoneCurrentTimeSeconds } from '../lib/jamzoneBridge'
+import { readSharedPlaybackState } from '../lib/playbackState'
 import { useAuthStore } from '../state/authStore'
 
 const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
@@ -27,9 +28,9 @@ export default function IpadControllerPage() {
   const [autoFallbackEnabled, setAutoFallbackEnabled] = useState(true)
 
   const [manualMode, setManualMode] = useState(false)
-  const [manualSongId, setManualSongId] = useState('manual-song')
-  const [manualSongTitle, setManualSongTitle] = useState('Manual Song')
-  const [manualSongArtist, setManualSongArtist] = useState('Manual Artist')
+  const [manualSongId, setManualSongId] = useState('')
+  const [manualSongTitle, setManualSongTitle] = useState('')
+  const [manualSongArtist, setManualSongArtist] = useState('')
   const [manualTimeSeconds, setManualTimeSeconds] = useState(0)
   const [manualRunning, setManualRunning] = useState(false)
   const [manualPlayPulse, setManualPlayPulse] = useState(0)
@@ -225,6 +226,49 @@ export default function IpadControllerPage() {
   }, [manualMode, manualRunning, autoFallbackEnabled, hasJamzoneBridge])
 
   useEffect(() => {
+    if (!manualSourceActive || !eventId.trim()) {
+      return
+    }
+
+    let cancelled = false
+
+    const syncFromSharedPlaybackState = async () => {
+      const sharedPlayback = await readSharedPlaybackState(eventId.trim())
+      if (cancelled || !sharedPlayback?.currentSongId) {
+        return
+      }
+
+      const { data: librarySong } = await supabase
+        .from('library_songs')
+        .select('id, artist, title')
+        .eq('id', sharedPlayback.currentSongId)
+        .maybeSingle()
+
+      if (cancelled || !librarySong) {
+        return
+      }
+
+      setManualSongId(librarySong.id)
+      setManualSongArtist((librarySong.artist ?? '').trim())
+      setManualSongTitle((librarySong.title ?? '').trim())
+
+      if (sharedPlayback.isStarted) {
+        setManualRunning(true)
+      }
+    }
+
+    void syncFromSharedPlaybackState()
+    const timerId = window.setInterval(() => {
+      void syncFromSharedPlaybackState()
+    }, 3000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timerId)
+    }
+  }, [eventId, manualSourceActive])
+
+  useEffect(() => {
     if (!manualSourceActive || !channelConnected || manualRunning || manualTimeSeconds > 0 || autoStartTriggeredRef.current) {
       return
     }
@@ -303,9 +347,9 @@ export default function IpadControllerPage() {
 
       const currentSong = useManualSource
         ? {
-            id: manualSongId.trim() || 'manual-song',
-            title: manualSongTitle.trim() || 'Manual Song',
-            artist: manualSongArtist.trim() || 'Manual Artist',
+            id: manualSongId.trim() || 'manual-fallback',
+            title: manualSongTitle.trim() || 'Fallback Song',
+            artist: manualSongArtist.trim() || 'Fallback Artist',
           }
         : getJamzoneCurrentSong()
 
