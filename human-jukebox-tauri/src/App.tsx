@@ -7,7 +7,7 @@ import './components/ui/ui.css'
 import './styles/mirror.css'
 import './styles/qr-landing.css'
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { Navigate, RouterProvider, createBrowserRouter, isRouteErrorResponse, useRouteError, useParams } from 'react-router-dom'
+import { Navigate, RouterProvider, createBrowserRouter, createHashRouter, isRouteErrorResponse, useRouteError, useParams } from 'react-router-dom'
 import AppCrashBoundary from './components/AppCrashBoundary'
 import RequireHost from './components/RequireHost'
 import ShellLayout from './components/ShellLayout'
@@ -27,6 +27,25 @@ const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
 const ROUTE_LOADING_STARTED_AT_STORAGE_KEY = 'human-jukebox-route-loading-started-at'
 const ROUTE_LOADING_RECOVERY_TIMEOUT_MS = 12_000
 const ROUTE_IMPORT_TIMEOUT_MS = 18_000
+
+function isTauriDesktopRuntime() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.protocol === 'tauri:'
+    || window.location.protocol === 'file:'
+    || '__TAURI_INTERNALS__' in (window as unknown as Record<string, unknown>)
+}
+
+function resolveAppPath(path: string) {
+  if (!isTauriDesktopRuntime()) {
+    return path
+  }
+
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `#${normalizedPath}`
+}
 
 function isChunkLoadFailure(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)
@@ -153,7 +172,7 @@ function RouteLoading() {
               type="button"
               className="secondary-button"
               onClick={() => {
-                window.location.assign('/audience')
+                window.location.assign(resolveAppPath('/audience'))
               }}
             >
               Open Audience
@@ -204,7 +223,9 @@ function withCrashBoundary(areaLabel: string, element: React.ReactNode) {
   return <AppCrashBoundary areaLabel={areaLabel}>{element}</AppCrashBoundary>
 }
 
-const router = createBrowserRouter([
+const createAppRouter = isTauriDesktopRuntime() ? createHashRouter : createBrowserRouter
+
+const router = createAppRouter([
   {
     path: '/',
     element: withCrashBoundary(

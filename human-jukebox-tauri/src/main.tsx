@@ -34,6 +34,16 @@ function isAdminRoute() {
   return window.location.pathname.startsWith('/admin')
 }
 
+function isDesktopRuntime() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.protocol === 'tauri:'
+    || window.location.protocol === 'file:'
+    || '__TAURI_INTERNALS__' in (window as unknown as Record<string, unknown>)
+}
+
 function shouldRenderAnalytics() {
   if (!import.meta.env.PROD || typeof window === 'undefined') {
     return false
@@ -317,7 +327,7 @@ async function cleanupLegacyServiceWorkers() {
 }
 
 async function registerProductionServiceWorker() {
-  if (!import.meta.env.PROD || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+  if (!import.meta.env.PROD || typeof window === 'undefined' || !('serviceWorker' in navigator) || isDesktopRuntime()) {
     return
   }
 
@@ -393,7 +403,7 @@ async function registerProductionServiceWorker() {
 }
 
 function setupBuildUpdateRefresh() {
-  if (!import.meta.env.PROD || typeof window === 'undefined') {
+  if (!import.meta.env.PROD || typeof window === 'undefined' || isDesktopRuntime()) {
     return
   }
 
@@ -590,8 +600,10 @@ function scheduleNonCriticalStartupTasks() {
     return
   }
 
-  // Start build freshness checks immediately so stale startup tabs self-heal fast.
-  setupBuildUpdateRefresh()
+  if (!isDesktopRuntime()) {
+    // Start build freshness checks immediately so stale startup tabs self-heal fast.
+    setupBuildUpdateRefresh()
+  }
 
   const run = () => {
     if (isIOSLikeDevice() && !shouldBypassServiceWorkerCachingOnIOS()) {
