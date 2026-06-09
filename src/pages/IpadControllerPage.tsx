@@ -13,6 +13,7 @@ type PublishStatus = 'idle' | 'publishing' | 'waiting-bridge' | 'waiting-event'
 export default function IpadControllerPage() {
   const location = useLocation()
   const { profile } = useAuthStore()
+  const activeGigEventId = (profile?.active_event_id ?? '').trim()
 
   const [eventIdDraft, setEventIdDraft] = useState('')
   const [eventId, setEventId] = useState('')
@@ -32,6 +33,7 @@ export default function IpadControllerPage() {
   const [manualTimeSeconds, setManualTimeSeconds] = useState(0)
   const [manualRunning, setManualRunning] = useState(true)
   const [eventIdSource, setEventIdSource] = useState<'url' | 'active-gig' | 'local' | 'manual' | 'none'>('none')
+  const isLockedToActiveGig = eventIdSource === 'active-gig'
 
   const sourceIdRef = useRef(`ipad-${Math.random().toString(36).slice(2)}`)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -40,7 +42,7 @@ export default function IpadControllerPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const fromUrl = (params.get('event') ?? params.get('eventId') ?? '').trim()
-    const fromProfile = (profile?.active_event_id ?? '').trim()
+    const fromProfile = activeGigEventId
     const fromStorage = typeof window !== 'undefined'
       ? (window.localStorage.getItem(IPAD_EVENT_STORAGE_KEY) ?? '').trim()
       : ''
@@ -59,12 +61,12 @@ export default function IpadControllerPage() {
     } else {
       setEventIdSource('none')
     }
-  }, [location.search, profile?.active_event_id])
+  }, [location.search, activeGigEventId])
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const fromUrl = (params.get('event') ?? params.get('eventId') ?? '').trim()
-    const fromProfile = (profile?.active_event_id ?? '').trim()
+    const fromProfile = activeGigEventId
 
     // Keep event id synced to active gig unless URL explicitly pins a different event.
     if (!fromUrl && fromProfile && eventIdSource !== 'manual' && eventId !== fromProfile) {
@@ -72,7 +74,7 @@ export default function IpadControllerPage() {
       setEventIdDraft(fromProfile)
       setEventIdSource('active-gig')
     }
-  }, [location.search, profile?.active_event_id, eventId, eventIdSource])
+  }, [location.search, activeGigEventId, eventId, eventIdSource])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -241,6 +243,22 @@ export default function IpadControllerPage() {
     setCopyFeedback(normalizedEventId ? 'Event ID confirmed.' : 'Event ID cleared.')
   }
 
+  const enableManualEventOverride = () => {
+    setEventIdSource('manual')
+    setCopyFeedback('Manual Event ID override enabled.')
+  }
+
+  const reenableActiveGigSync = () => {
+    if (!activeGigEventId) {
+      return
+    }
+
+    setEventId(activeGigEventId)
+    setEventIdDraft(activeGigEventId)
+    setEventIdSource('active-gig')
+    setCopyFeedback('Active gig sync restored.')
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: '#050711', color: '#d5dcff', padding: '1rem' }}>
       <section style={{ maxWidth: '860px', margin: '0 auto', display: 'grid', gap: '0.9rem' }}>
@@ -258,30 +276,67 @@ export default function IpadControllerPage() {
             value={eventIdDraft}
             onChange={(event) => setEventIdDraft(event.target.value)}
             placeholder="Paste event id"
+            disabled={isLockedToActiveGig}
             style={{
               minHeight: '52px',
               padding: '0.75rem 0.9rem',
               fontSize: '1rem',
               borderRadius: '10px',
               border: '1px solid #3d4a86',
-              background: '#101832',
+              background: isLockedToActiveGig ? '#0d142b' : '#101832',
               color: '#e5ebff',
+              opacity: isLockedToActiveGig ? 0.8 : 1,
             }}
           />
           <button
             type="button"
             onClick={confirmEventId}
+            disabled={isLockedToActiveGig}
             style={{
               minHeight: '52px',
               borderRadius: '10px',
               border: '1px solid #44d6a2',
-              background: '#123f35',
+              background: isLockedToActiveGig ? '#26433d' : '#123f35',
               color: '#defff4',
               fontWeight: 700,
+              opacity: isLockedToActiveGig ? 0.75 : 1,
+              cursor: isLockedToActiveGig ? 'not-allowed' : 'pointer',
             }}
           >
             Confirm Event ID
           </button>
+          {isLockedToActiveGig ? (
+            <button
+              type="button"
+              onClick={enableManualEventOverride}
+              style={{
+                minHeight: '52px',
+                borderRadius: '10px',
+                border: '1px solid #efb956',
+                background: '#33260f',
+                color: '#fff3dd',
+                fontWeight: 700,
+              }}
+            >
+              Use Manual Event ID Override
+            </button>
+          ) : null}
+          {!isLockedToActiveGig && eventIdSource === 'manual' && activeGigEventId ? (
+            <button
+              type="button"
+              onClick={reenableActiveGigSync}
+              style={{
+                minHeight: '52px',
+                borderRadius: '10px',
+                border: '1px solid #55d9aa',
+                background: '#123f35',
+                color: '#defff4',
+                fontWeight: 700,
+              }}
+            >
+              Re-enable Active Gig Sync
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
