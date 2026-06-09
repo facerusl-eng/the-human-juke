@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { useAuthStore } from '../state/authStore'
+import { supabase } from '../lib/supabase'
 
 const HOST_GATE_LOADING_TIMEOUT_MS = 2500
 const HOST_SIGN_IN_UI_TIMEOUT_MS = 30_000
@@ -156,9 +157,7 @@ function RequireHost({ children }: PropsWithChildren) {
             setResetStatus(null);
             setResetBusy(true);
             try {
-              const { error } = await import('../lib/supabase').then(({ supabase }) =>
-                supabase.auth.resetPasswordForEmail(resetEmail.trim())
-              );
+              const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim())
               if (error) {
                 setResetStatus(error.message || 'Failed to send reset email.');
               } else {

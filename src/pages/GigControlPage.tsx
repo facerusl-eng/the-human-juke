@@ -3624,7 +3624,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     const artist = nowPlaying.artist ?? ''
-    prefetchAndCacheLyrics(nowPlaying.title, artist)
+    prefetchAndCacheLyrics(nowPlaying.title, artist, nowPlaying.library_song_id ?? null)
 
     const searchParams = new URLSearchParams({
       title: nowPlaying.title,

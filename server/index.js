@@ -3,6 +3,15 @@ import { spawn } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import express from 'express'
 import path from 'path'
+import {
+  createMidiLyricSectionListener,
+  getLyricSectionNavigatorState,
+  onLyricSectionError,
+  onLyricSectionState,
+  registerLyricSections,
+  restoreLyricSectionNavigatorState,
+  setLyricSectionActions,
+} from './midiLyricSectionListener.mjs'
 
 // Import the keepwarm handler for local API routing
 import keepwarmHandler from '../api/keepwarm.js'
@@ -29,7 +38,218 @@ const fallbackBookingWebhookUrls = [
   'https://book-jukebox.base44.app/api/webhook/receiveExternalBooking',
 ]
 
+const midiLyricSectionListenerEnabled =
+  process.env.MIDI_LYRIC_SECTION_LISTENER === '1' ||
+  Boolean(process.env.MIDI_LYRIC_SECTION_INPUT_NAME?.trim()) ||
+  Boolean(process.env.MIDI_LYRIC_SECTION_INPUT_PORT_INDEX?.trim())
+const midiLyricSectionPersistenceEventId = process.env.MIDI_LYRIC_SECTION_EVENT_ID?.trim() ?? ''
+const midiLyricSectionPersistenceSourceId = process.env.MIDI_LYRIC_SECTION_SOURCE_ID?.trim() || 'midi-lyric-section-listener'
+const midiLyricSectionSupabaseUrl = process.env.SUPABASE_URL?.trim() || process.env.VITE_SUPABASE_URL?.trim() || ''
+const midiLyricSectionSupabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || ''
+const midiLyricSectionPersistenceEnabled = Boolean(
+  midiLyricSectionPersistenceEventId
+  && midiLyricSectionSupabaseUrl
+  && midiLyricSectionSupabaseServiceRoleKey,
+)
+
 let latestRefreshToken = process.env.SPOTIFY_REFRESH_TOKEN ?? null
+let midiLyricSectionListener = null
+let midiLyricSectionListenerShutdownHookInstalled = false
+let midiLyricSectionPersistenceSubscriptionInstalled = false
+
+function parseMidiLyricSectionsFromEnv() {
+  const rawSections = process.env.MIDI_LYRIC_SECTIONS_JSON?.trim()
+
+  if (!rawSections) {
+    return null
+  }
+
+  try {
+    const parsedSections = JSON.parse(rawSections)
+    return Array.isArray(parsedSections) ? parsedSections : null
+  } catch (error) {
+    console.error('Invalid MIDI_LYRIC_SECTIONS_JSON value.', error)
+    return null
+  }
+}
+
+function getMidiLyricSectionStateApiUrl() {
+  if (!midiLyricSectionPersistenceEnabled) {
+    return null
+  }
+
+  return `${midiLyricSectionSupabaseUrl.replace(/\/$/, '')}/rest/v1/midi_lyric_section_state`
+}
+
+function getMidiLyricSectionStateHeaders() {
+  if (!midiLyricSectionPersistenceEnabled) {
+    return null
+  }
+
+  return {
+    apikey: midiLyricSectionSupabaseServiceRoleKey,
+    Authorization: `Bearer ${midiLyricSectionSupabaseServiceRoleKey}`,
+    'Content-Type': 'application/json',
+    Prefer: 'resolution=merge-duplicates,return=minimal',
+  }
+}
+
+async function persistMidiLyricSectionState(state) {
+  const apiUrl = getMidiLyricSectionStateApiUrl()
+  const headers = getMidiLyricSectionStateHeaders()
+
+  if (!apiUrl || !headers) {
+    return null
+  }
+
+  const currentSectionId = state?.currentSection?.id ?? null
+  const payload = {
+    event_id: midiLyricSectionPersistenceEventId,
+    source_id: midiLyricSectionPersistenceSourceId,
+    sections: Array.isArray(state?.sections) ? state.sections : [],
+    current_index: typeof state?.currentIndex === 'number' && Number.isFinite(state.currentIndex)
+      ? Math.floor(state.currentIndex)
+      : -1,
+    current_section_id: typeof currentSectionId === 'string' && currentSectionId.trim().length > 0
+      ? currentSectionId.trim()
+      : null,
+    is_playing: Boolean(state?.isPlaying),
+    updated_at: new Date().toISOString(),
+  }
+
+  const response = await fetch(`${apiUrl}?on_conflict=event_id`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify([payload]),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to persist MIDI lyric section state: ${response.status} ${errorText}`)
+  }
+
+  return payload
+}
+
+async function loadPersistedMidiLyricSectionState() {
+  const apiUrl = getMidiLyricSectionStateApiUrl()
+  const headers = getMidiLyricSectionStateHeaders()
+
+  if (!apiUrl || !headers) {
+    return null
+  }
+
+  const response = await fetch(
+    `${apiUrl}?event_id=eq.${encodeURIComponent(midiLyricSectionPersistenceEventId)}&select=*&limit=1`,
+    {
+      method: 'GET',
+      headers,
+    },
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to load MIDI lyric section state: ${response.status} ${errorText}`)
+  }
+
+  const rows = await response.json()
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+}
+
+function installMidiLyricSectionStatePersistence() {
+  if (midiLyricSectionPersistenceSubscriptionInstalled || !midiLyricSectionPersistenceEnabled) {
+    return
+  }
+
+  midiLyricSectionPersistenceSubscriptionInstalled = true
+
+  onLyricSectionState((state) => {
+    void persistMidiLyricSectionState(state).catch((error) => {
+      console.error('Failed to persist MIDI lyric section state', error)
+    })
+  })
+}
+
+export { getLyricSectionNavigatorState, registerLyricSections, setLyricSectionActions }
+
+export async function startMidiLyricSectionListener() {
+  if (!midiLyricSectionListenerEnabled || midiLyricSectionListener?.isRunning) {
+    return midiLyricSectionListener
+  }
+
+  const inputPortIndex = process.env.MIDI_LYRIC_SECTION_INPUT_PORT_INDEX?.trim()
+  const listener = await createMidiLyricSectionListener({
+    inputName: process.env.MIDI_LYRIC_SECTION_INPUT_NAME?.trim() || undefined,
+    inputPortIndex: inputPortIndex ? Number(inputPortIndex) : undefined,
+    channel: process.env.MIDI_LYRIC_SECTION_CHANNEL?.trim() ? Number(process.env.MIDI_LYRIC_SECTION_CHANNEL) : undefined,
+    noteVelocityThreshold: process.env.MIDI_LYRIC_SECTION_VELOCITY_THRESHOLD?.trim()
+      ? Number(process.env.MIDI_LYRIC_SECTION_VELOCITY_THRESHOLD)
+      : undefined,
+    queueBatchDelayMs: process.env.MIDI_LYRIC_SECTION_QUEUE_BATCH_DELAY_MS?.trim()
+      ? Number(process.env.MIDI_LYRIC_SECTION_QUEUE_BATCH_DELAY_MS)
+      : undefined,
+  })
+
+  const envSections = parseMidiLyricSectionsFromEnv()
+  if (envSections) {
+    registerLyricSections(envSections)
+  }
+
+  if (midiLyricSectionPersistenceEnabled) {
+    installMidiLyricSectionStatePersistence()
+
+    try {
+      const persistedState = await loadPersistedMidiLyricSectionState()
+      if (persistedState) {
+        restoreLyricSectionNavigatorState({
+          sections: persistedState.sections,
+          currentIndex: persistedState.current_index,
+          isPlaying: persistedState.is_playing,
+        })
+      }
+    } catch (error) {
+      console.error('Failed to restore MIDI lyric section state', error)
+    }
+  }
+
+  onLyricSectionError((error) => {
+    console.error('MIDI lyric section listener error', error)
+  })
+
+  await listener.start()
+  midiLyricSectionListener = listener
+
+  console.log('MIDI lyric section listener started')
+  return listener
+}
+
+export async function stopMidiLyricSectionListener() {
+  if (!midiLyricSectionListener) {
+    return null
+  }
+
+  const listener = midiLyricSectionListener
+  midiLyricSectionListener = null
+  await listener.stop()
+  return listener
+}
+
+function installMidiLyricSectionListenerShutdownHook() {
+  if (midiLyricSectionListenerShutdownHookInstalled) {
+    return
+  }
+
+  midiLyricSectionListenerShutdownHookInstalled = true
+
+  const shutdown = () => {
+    void stopMidiLyricSectionListener().catch((error) => {
+      console.error('Failed to stop MIDI lyric section listener cleanly', error)
+    })
+  }
+
+  process.once('SIGINT', shutdown)
+  process.once('SIGTERM', shutdown)
+}
 
 app.use(express.json())
 
@@ -41,6 +261,26 @@ app.all('/api/keepwarm', (req, res) => {
   // For compatibility, ensure req.method is set and pass req/res directly
   // If using TypeScript, you may need to adjust types
   keepwarmHandler(req, res)
+})
+
+app.get('/api/midi/lyric-sections/state', (_req, res) => {
+  res.json(getLyricSectionNavigatorState())
+})
+
+app.post('/api/midi/lyric-sections', (req, res) => {
+  const nextSections = Array.isArray(req.body?.sections) ? req.body.sections : []
+  const nextState = registerLyricSections(nextSections)
+
+  if (midiLyricSectionPersistenceEnabled) {
+    void persistMidiLyricSectionState(nextState).catch((error) => {
+      console.error('Failed to persist MIDI lyric section state after registration', error)
+    })
+  }
+
+  res.status(200).json({
+    success: true,
+    state: nextState,
+  })
 })
 
 async function runMixerRepairScript() {
@@ -934,6 +1174,13 @@ app.post('/api/mixer/auto-fix', async (_req, res) => {
     })
   }
 })
+
+if (midiLyricSectionListenerEnabled) {
+  installMidiLyricSectionListenerShutdownHook()
+  void startMidiLyricSectionListener().catch((error) => {
+    console.error('Failed to start MIDI lyric section listener', error)
+  })
+}
 
 app.listen(port, () => {
   console.log(`Spotify API server running on http://localhost:${port}`)

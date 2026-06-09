@@ -92,6 +92,10 @@ function getMtcFps(rateBits) {
   return 30
 }
 
+function isPlaceholderMidiInputName(value) {
+  return typeof value === 'string' && value.trim().toLowerCase() === 'your midi device name'
+}
+
 async function main() {
   if (hasArg('--list')) {
     const ports = listMidiPorts()
@@ -260,6 +264,10 @@ async function main() {
 
   if (!selectedPortName) {
     throw new Error(`config.midiInputName is required in ${configPath}`)
+  }
+
+  if (isPlaceholderMidiInputName(selectedPortName)) {
+    throw new Error(`config.midiInputName is still set to the example placeholder in ${configPath}. Run "node scripts/midi-companion-bridge.mjs --list" and replace it with the exact MIDI input port name before starting the bridge.`)
   }
 
   const selectedPortIndex = availablePorts.findIndex((name) => name.toLowerCase() === selectedPortName.toLowerCase())

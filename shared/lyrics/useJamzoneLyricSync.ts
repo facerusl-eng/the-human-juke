@@ -10,6 +10,7 @@ type UseJamzoneLyricSyncResult = {
   window: LyricWindow
   isLoading: boolean
   loadError: string | null
+  songDurationSeconds: number | null
 }
 
 function emptyWindow(): LyricWindow {
@@ -29,6 +30,7 @@ export function useJamzoneLyricSync(
   const [windowState, setWindowState] = useState<LyricWindow>(emptyWindow)
   const [isLoading, setIsLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [songDurationSeconds, setSongDurationSeconds] = useState<number | null>(null)
 
   const engine = useMemo(() => new LyricEngine(), [])
   const lastSongKey = useRef<string | null>(null)
@@ -46,6 +48,7 @@ export function useJamzoneLyricSync(
       setWindowState(emptyWindow())
       setLoadError(null)
       setIsLoading(false)
+      setSongDurationSeconds(null)
       return
     }
 
@@ -68,10 +71,12 @@ export function useJamzoneLyricSync(
       if (!result.ok) {
         setLoadError(result.error ?? 'Lyrics file was not found.')
         setWindowState(emptyWindow())
+        setSongDurationSeconds(null)
         return
       }
 
       setWindowState(engine.getCurrentLyricLine(getCurrentTime()))
+      setSongDurationSeconds(engine.getDurationSeconds())
     })()
 
     return () => {
@@ -94,6 +99,7 @@ export function useJamzoneLyricSync(
     window: windowState,
     isLoading,
     loadError,
+    songDurationSeconds,
   }
 
   return result

@@ -5,7 +5,7 @@ import { createLocalLyricSyncTransport, type LyricSongRef, type LyricWindow } fr
 import { useJamzoneLyricSync } from '../../shared/lyrics/useJamzoneLyricSync'
 import { supabase } from '../lib/supabase'
 import { getJamzoneClockDisplayTimeSeconds, useJamzoneClockState } from '../lib/jamzoneClock'
-import type { JamzoneSong } from '../lib/jamzoneBridge'
+import { getJamzoneCurrentTimeSeconds, type JamzoneSong } from '../lib/jamzoneBridge'
 import { useAuthStore } from '../state/authStore'
 
 const LOCAL_LYRIC_SYNC_CHANNEL = 'human-jukebox-live-lyrics'
@@ -57,6 +57,7 @@ function emptyWindow(): LyricWindow {
 export default function LyricsBoardPage() {
   const location = useLocation()
   const { profile } = useAuthStore()
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(false)
   const [windowState, setWindowState] = useState<LyricWindow>(emptyWindow)
   const [remoteSong, setRemoteSong] = useState<JamzoneSong | null>(null)
   const [remoteBridgeConnected, setRemoteBridgeConnected] = useState(false)
@@ -105,6 +106,7 @@ export default function LyricsBoardPage() {
   }, [durableClockSnapshot])
 
   const useDurableClock = Boolean(syncEventId && durableClockSnapshot)
+  const useRemoteSnapshot = Boolean(syncEventId && !useDurableClock && remoteBridgeConnected && remoteSong)
 
   const remoteSongRef = useMemo<LyricSongRef | null>(() => {
     const activeSong = useDurableClock ? durableClockSong : remoteSong
@@ -119,7 +121,7 @@ export default function LyricsBoardPage() {
     }
   }, [durableClockSong, remoteSong, useDurableClock])
 
-  const { window: remoteLyricWindow, loadError: remoteLyricLoadError } = useJamzoneLyricSync(
+  const { window: remoteLyricWindow, loadError: remoteLyricLoadError, songDurationSeconds } = useJamzoneLyricSync(
     remoteSongRef,
     () => {
       if (useDurableClock && durableClockSnapshot) {
@@ -131,6 +133,27 @@ export default function LyricsBoardPage() {
     },
     { updateIntervalMs: 80 },
   )
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.repeat) {
+        return
+      }
+
+      const target = event.target as HTMLElement | null
+      const tagName = target?.tagName?.toUpperCase()
+      if (target?.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+        return
+      }
+
+      setAutoScrollEnabled((value) => !value)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [])
 
   useEffect(() => {
     if (!remoteChannelName || useDurableClock) {
@@ -235,6 +258,9 @@ export default function LyricsBoardPage() {
           LRC file missing for current song. Showing live fallback.
         </p>
       ) : null}
+      <p style={{ margin: 0, padding: '0.45rem 1rem', color: '#d4dcff', opacity: 0.84 }}>
+        Auto scroll: {autoScrollEnabled ? 'on' : 'off'}{songDurationSeconds ? `, song length ${songDurationSeconds.toFixed(1)}s` : ''}. Press Enter to toggle.
+      </p>
       <KaraokeLyrics
         mode="board"
         current={activeWindow.current}
@@ -243,6 +269,13 @@ export default function LyricsBoardPage() {
         next2={activeWindow.upcoming[1]}
         isBeforeFirstLine={activeWindow.isBeforeFirstLine}
         isAfterLastLine={activeWindow.isAfterLastLine}
+        autoScrollEnabled={autoScrollEnabled}
+        autoScrollCurrentTimeSeconds={useDurableClock && durableClockSnapshot
+          ? getJamzoneClockDisplayTimeSeconds(durableClockSnapshot)
+          : (useRemoteSnapshot
+            ? remoteSnapshotRef.current.currentTimeSeconds + Math.max(0, (Date.now() - remoteSnapshotRef.current.updatedAtMs) / 1000)
+            : getJamzoneCurrentTimeSeconds())}
+        autoScrollDurationSeconds={songDurationSeconds}
       />
     </main>
   )

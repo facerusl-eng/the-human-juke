@@ -11,6 +11,9 @@ export type KaraokeLyricsProps = {
   isAfterLastLine?: boolean
   mode?: 'main' | 'audience' | 'board'
   className?: string
+  autoScrollEnabled?: boolean
+  autoScrollCurrentTimeSeconds?: number | null
+  autoScrollDurationSeconds?: number | null
 }
 
 function lineKey(line: LyricLine | null | undefined) {
@@ -30,6 +33,9 @@ export default function KaraokeLyrics({
   isAfterLastLine = false,
   mode = 'main',
   className = '',
+  autoScrollEnabled = false,
+  autoScrollCurrentTimeSeconds = null,
+  autoScrollDurationSeconds = null,
 }: KaraokeLyricsProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -44,9 +50,31 @@ export default function KaraokeLyrics({
 
   const currentKey = lineKey(current)
 
+  const autoScrollProgress = useMemo(() => {
+    if (!autoScrollEnabled) {
+      return null
+    }
+
+    if (!Number.isFinite(autoScrollCurrentTimeSeconds ?? NaN) || !Number.isFinite(autoScrollDurationSeconds ?? NaN)) {
+      return null
+    }
+
+    if ((autoScrollDurationSeconds ?? 0) <= 0) {
+      return null
+    }
+
+    return Math.min(1, Math.max(0, (autoScrollCurrentTimeSeconds ?? 0) / (autoScrollDurationSeconds ?? 1)))
+  }, [autoScrollCurrentTimeSeconds, autoScrollDurationSeconds, autoScrollEnabled])
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) {
+      return
+    }
+
+    if (autoScrollProgress !== null) {
+      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
+      container.scrollTop = maxScrollTop * autoScrollProgress
       return
     }
 
@@ -59,7 +87,7 @@ export default function KaraokeLyrics({
       behavior: 'smooth',
       block: 'center',
     })
-  }, [currentKey])
+  }, [autoScrollProgress, currentKey])
 
   const statusText = isBeforeFirstLine
     ? 'Waiting for song start...'
@@ -69,7 +97,7 @@ export default function KaraokeLyrics({
 
   return (
     <section className={stageClassName} aria-live="polite" aria-atomic="true">
-      <div className="karaoke-stage__inner" ref={containerRef}>
+      <div className="karaoke-stage__inner" ref={containerRef} data-auto-scroll={autoScrollEnabled ? 'true' : 'false'}>
         {statusText ? <p className="karaoke-stage__status">{statusText}</p> : null}
 
         {previous ? (

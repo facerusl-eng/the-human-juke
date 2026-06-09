@@ -32,10 +32,17 @@
   position: relative;
   z-index: 1;
   height: 100%;
+  overflow-y: auto;
   padding: clamp(16px, 3.2vw, 40px);
   display: grid;
   align-content: center;
   gap: clamp(12px, 2vh, 20px);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.karaoke-stage__inner::-webkit-scrollbar {
+  display: none;
 }
 
 .karaoke-line {

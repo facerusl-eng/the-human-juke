@@ -167,7 +167,17 @@ export class LyricEngine {
       sourcePath: this.activeSourcePath,
       lastError: this.lastError,
       metadata: this.activeLyrics?.metadata ?? {},
+      durationSeconds: this.getDurationSeconds(),
     }
+  }
+
+  getDurationSeconds() {
+    if (!this.activeLyrics || this.activeLyrics.lines.length === 0) {
+      return null
+    }
+
+    const lastLine = this.activeLyrics.lines[this.activeLyrics.lines.length - 1]
+    return Math.max(0, lastLine.timeSeconds + this.activeLyrics.offsetSeconds)
   }
 
   private clear(error: string) {

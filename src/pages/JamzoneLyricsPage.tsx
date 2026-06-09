@@ -54,6 +54,7 @@ function buildMissingLyricsFallbackWindow(song: JamzoneSong, currentTimeSeconds:
 export default function JamzoneLyricsPage() {
   const location = useLocation()
   const { profile } = useAuthStore()
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(false)
   const [hasJamzoneBridge, setHasJamzoneBridge] = useState(false)
   const [bridgeSong, setBridgeSong] = useState<JamzoneSong | null>(null)
   const [remoteSong, setRemoteSong] = useState<JamzoneSong | null>(null)
@@ -127,6 +128,27 @@ export default function JamzoneLyricsPage() {
 
     return () => {
       window.clearInterval(timerId)
+    }
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.repeat) {
+        return
+      }
+
+      const target = event.target as HTMLElement | null
+      const tagName = target?.tagName?.toUpperCase()
+      if (target?.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
+        return
+      }
+
+      setAutoScrollEnabled((value) => !value)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
     }
   }, [])
 
@@ -256,7 +278,7 @@ export default function JamzoneLyricsPage() {
     }
   }, [activeSong])
 
-  const { window: lyricWindow, isLoading, loadError } = useJamzoneLyricSync(
+  const { window: lyricWindow, isLoading, loadError, songDurationSeconds } = useJamzoneLyricSync(
     songRef,
     () => {
       if (useDurableClock && durableClockSnapshot) {
@@ -338,6 +360,10 @@ export default function JamzoneLyricsPage() {
           {syncEventId && durableClockConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Durable clock: active</p> : null}
           {syncEventId && !useDurableClock && remoteBridgeConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Legacy remote bridge: active</p> : null}
           {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote channel status: {remoteChannelStatus}</p> : null}
+          <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>
+            Auto scroll: {autoScrollEnabled ? 'on' : 'off'}{songDurationSeconds ? `, song length ${songDurationSeconds.toFixed(1)}s` : ''}
+          </p>
+          <p style={{ marginTop: '0.2rem', opacity: 0.7 }}>Press Enter to toggle auto scroll.</p>
           {syncEventId ? (
             <button
               type="button"
@@ -373,6 +399,9 @@ export default function JamzoneLyricsPage() {
             next2={displayWindow.upcoming[1]}
             isBeforeFirstLine={displayWindow.isBeforeFirstLine}
             isAfterLastLine={displayWindow.isAfterLastLine}
+            autoScrollEnabled={autoScrollEnabled}
+            autoScrollCurrentTimeSeconds={activeTimeSeconds}
+            autoScrollDurationSeconds={songDurationSeconds}
           />
         </section>
 

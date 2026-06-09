@@ -1,10 +1,11 @@
 
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { demoMode } from '../demo/demoMode';
 import { useAuthStore } from '../state/authStore';
 import { supabase } from '../lib/supabase';
 import { cacheFoundLyrics, getAutoCachedLyrics, getLyricsPrefetchStatus, markLyricsNotFound } from '../lib/lyricsPrefetch';
+import { useMidiLyricSectionState } from '../lib/midiLyricSectionState';
 import { normalizeAudienceLocale, readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity';
 import {
   PLAYBACK_STATE_BROADCAST_CHANNEL,
@@ -151,13 +152,51 @@ function parseHeadingLine(line: string) {
     return heading ? `${heading}${numberMatch ? ` ${numberMatch[1]}` : ''}:` : null;
   }
 
-  const plainHeading = trimmedLine.match(/^(verse|chorus|bridge|solo|instrumental|hook|refrain)(?:\s+(\d+))?\s*[:\-]?$/i);
+  const plainHeading = trimmedLine.match(/^(verse|chorus|bridge|solo|instrumental|hook|refrain)(?:\s+(\d+))?\s*[:-]?$/i);
   if (plainHeading) {
     const heading = normalizeSectionHeading(plainHeading[0]);
     return heading ? `${heading}${plainHeading[2] ? ` ${plainHeading[2]}` : ''}:` : null;
   }
 
   return null;
+}
+
+function parseSectionCueLabel(value: string | null | undefined) {
+  const normalized = (value ?? '').trim().replace(/:$/, '')
+
+  if (!normalized) {
+    return null
+  }
+
+  const heading = normalizeSectionHeading(normalized)
+  if (!heading) {
+    return { heading: normalized.toLowerCase(), number: null }
+  }
+
+  const numberMatch = normalized.match(/\b(\d+)\b/)
+  return {
+    heading: heading.toLowerCase(),
+    number: numberMatch ? Number(numberMatch[1]) : null,
+  }
+}
+
+function isMatchingSectionHeading(headingText: string | null | undefined, cueLabel: string | null | undefined) {
+  const cue = parseSectionCueLabel(cueLabel)
+  const heading = parseSectionCueLabel(headingText)
+
+  if (!cue || !heading) {
+    return false
+  }
+
+  if (cue.heading !== heading.heading) {
+    return false
+  }
+
+  if (cue.number === null || heading.number === null) {
+    return true
+  }
+
+  return cue.number === heading.number
 }
 
 function annotateLyricsSections(rawLyrics: string) {
@@ -520,7 +559,7 @@ function buildLyricsQueries(title: string, artist: string) {
 export default function LyricsPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const searchParams = new URLSearchParams(location.search);
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const routeState = (location.state as {
     title?: string;
     artist?: string;
@@ -543,6 +582,7 @@ export default function LyricsPage() {
   const librarySongId = normalizeLyricsInput(stateLibrarySongId || searchParams.get('songId'));
   const { isHost } = useAuthStore();
   const [lyrics, setLyrics] = useState<string | null>(null);
+  const [lyricsSource, setLyricsSource] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lyricsNotFound, setLyricsNotFound] = useState(false);
@@ -557,6 +597,7 @@ export default function LyricsPage() {
   const [pedalDeviceName, setPedalDeviceName] = useState<string | null>(null);
   const [pedalStatusText, setPedalStatusText] = useState<string | null>(null);
   const [pedalConnecting, setPedalConnecting] = useState(false);
+  const lyricsTimelineRef = useRef<HTMLDivElement | null>(null);
 
   const formattedLyrics = useMemo(() => {
     if (!lyrics) {
@@ -610,6 +651,23 @@ export default function LyricsPage() {
     () => resolveEventIdForLyrics(searchParams, returnToPath),
     [returnToPath, searchParams],
   );
+
+  const midiLyricSectionState = useMidiLyricSectionState(isStageMode ? lyricsEventId : null);
+  const midiLyricSectionLabel = midiLyricSectionState.currentSectionLabel;
+
+  useEffect(() => {
+    if (!isStageMode || !midiLyricSectionLabel) {
+      return;
+    }
+
+    const timelineRoot = lyricsTimelineRef.current;
+    if (!timelineRoot) {
+      return;
+    }
+
+    const activeHeading = timelineRoot.querySelector<HTMLElement>('[data-midi-active-heading="true"]');
+    activeHeading?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [isStageMode, midiLyricSectionLabel, midiLyricSectionState.state?.updatedAt]);
 
   useEffect(() => {
     if (!isStageMode || !lyricsEventId) {
@@ -834,6 +892,7 @@ export default function LyricsPage() {
     setLoading(true);
     setError(null);
     setLyrics(null);
+    setLyricsSource(null);
     setLyricsNotFound(false);
     setManualSaveMessage(null);
     setManualLyricsInput('');
@@ -851,8 +910,9 @@ export default function LyricsPage() {
           const songManualLyrics = typeof data?.manual_lyrics === 'string' ? data.manual_lyrics.trim() : '';
 
           if (!fetchSongError && songManualLyrics) {
-            cacheFoundLyrics(title, artist, songManualLyrics);
+            cacheFoundLyrics(title, artist, songManualLyrics, librarySongId);
             setLyrics(songManualLyrics);
+            setLyricsSource('now playing song lyrics saved on the library record');
             setLoading(false);
             return;
           }
@@ -862,9 +922,10 @@ export default function LyricsPage() {
       }
 
       // Check lyrics that were pre-fetched when the song was added to the queue.
-    const autoCached = getAutoCachedLyrics(title, artist);
+      const autoCached = getAutoCachedLyrics(title, artist, librarySongId);
     if (autoCached) {
       setLyrics(autoCached.trim());
+        setLyricsSource('pre-fetched lyrics for the now playing song');
       setLyricsNotFound(false);
       setLoading(false);
       return;
@@ -872,7 +933,7 @@ export default function LyricsPage() {
 
     // If prefetch previously failed, still retry now because provider/API
     // availability can change between queue-time and sing-along-time.
-    const prefetchStatus = getLyricsPrefetchStatus(title, artist);
+    const prefetchStatus = getLyricsPrefetchStatus(title, artist, librarySongId);
     void prefetchStatus;
 
       const tryAllSources = async () => {
@@ -895,8 +956,9 @@ export default function LyricsPage() {
           const resolvedLyrics = typeof data?.lyrics === 'string' ? data.lyrics.trim() : '';
 
           if (resolvedLyrics.length > 0) {
-            cacheFoundLyrics(title, artist, resolvedLyrics);
+            cacheFoundLyrics(title, artist, resolvedLyrics, librarySongId);
             setLyrics(resolvedLyrics);
+            setLyricsSource(typeof data?.source === 'string' ? `fetched from ${data.source}` : 'fetched from lyrics API');
             setLyricsNotFound(false);
             setLoading(false);
             return;
@@ -906,8 +968,9 @@ export default function LyricsPage() {
         }
       }
 
-      markLyricsNotFound(title, artist);
+      markLyricsNotFound(title, artist, librarySongId);
       setLyrics(buildFallbackLyricsText(title, artist));
+      setLyricsSource('no automatic lyrics match found');
       setLyricsNotFound(true);
       setLoading(false);
     };
@@ -928,7 +991,7 @@ export default function LyricsPage() {
 
     setSavingManualLyrics(true);
 
-    cacheFoundLyrics(title, artist, normalizedLyrics);
+    cacheFoundLyrics(title, artist, normalizedLyrics, librarySongId);
 
     if (librarySongId && !demoMode) {
       try {
@@ -950,6 +1013,7 @@ export default function LyricsPage() {
     }
 
     setLyrics(normalizedLyrics);
+    setLyricsSource('manual lyrics saved on this song');
     setLyricsNotFound(false);
     setSavingManualLyrics(false);
   };
@@ -967,6 +1031,7 @@ export default function LyricsPage() {
           <div className="lyrics-stage-heading-block">
             <h1 className="audience-lyrics-title">{title} - {displayArtist}</h1>
             <p className="audience-lyrics-subtitle">Stage lyrics view</p>
+            <p className="lyrics-stage-source">Lyrics source: {lyricsSource ?? 'resolving now playing song'}</p>
             <div className="lyrics-pedal-controls" aria-label="Lyrics pedal controls">
               <div className="lyrics-pedal-row">
                 <button type="button" className="primary-button lyrics-pedal-connect" onClick={() => { void connectBluetoothPedal(); }} disabled={pedalConnecting}>
@@ -1043,12 +1108,24 @@ export default function LyricsPage() {
               ? [...timedKaraokeLines.slice(0, activeLineIndex)].reverse().find((line) => line.isHeading)?.headingText ?? null
               : null
 
+            const statusLabel = midiLyricSectionState.status === 'loading'
+              ? 'Loading MIDI section state'
+              : midiLyricSectionState.status === 'error'
+                ? 'MIDI section state unavailable'
+                : midiLyricSectionLabel
+                  ? `${midiLyricSectionLabel}${midiLyricSectionState.state?.isPlaying ? ' • Playing' : ' • Paused'}`
+                  : null
+
             if (!activeLine || activeLine.isHeading) {
-              return <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
+              return <div className="lyrics-stage-focus">
+                {statusLabel ? <p className="subcopy no-margin">MIDI cue: {statusLabel}</p> : null}
+                {renderKaraokeFocusBlocks(formattedLyrics)}
+              </div>
             }
 
             return (
               <div className="lyrics-stage-focus lyrics-stage-focus-timed">
+                {statusLabel ? <p className="subcopy no-margin">MIDI cue: {statusLabel}</p> : null}
                 {headingForActiveLine ? <div className="lyrics-focus-heading">{headingForActiveLine}</div> : null}
                 <article className="lyrics-focus-card is-active">
                   <p className="lyrics-focus-label">Now</p>
@@ -1056,11 +1133,18 @@ export default function LyricsPage() {
                   <p className="lyrics-focus-label">Next</p>
                   <p className="lyrics-focus-secondary">{nextLine?.text ?? '...'}</p>
                 </article>
-                <section className="lyrics-stage-full-timeline" aria-label="Full lyrics timeline">
+                <section className="lyrics-stage-full-timeline" aria-label="Full lyrics timeline" ref={lyricsTimelineRef}>
                   {timedKaraokeLines.map((line, index) => {
                     if (line.isHeading) {
+                      const isMidiActiveHeading = isMatchingSectionHeading(line.headingText, midiLyricSectionLabel)
                       return (
-                        <p key={`timeline-heading-${index}`} className="lyrics-timeline-heading">{line.headingText}</p>
+                        <p
+                          key={`timeline-heading-${index}`}
+                          className={`lyrics-timeline-heading${isMidiActiveHeading ? ' is-midi-active' : ''}`}
+                          data-midi-active-heading={isMidiActiveHeading ? 'true' : undefined}
+                        >
+                          {line.headingText}
+                        </p>
                       )
                     }
 

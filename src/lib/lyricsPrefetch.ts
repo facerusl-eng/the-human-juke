@@ -13,7 +13,16 @@ function normalizePart(value: string): string {
   return value.replace(/\s+/g, ' ').trim().toLowerCase()
 }
 
-export function lyricsPrefetchCacheKey(title: string, artist: string): string {
+function normalizeSongId(value: string | null | undefined): string {
+  return normalizePart(value ?? '')
+}
+
+export function lyricsPrefetchCacheKey(title: string, artist: string, songId?: string | null): string {
+  const normalizedSongId = normalizeSongId(songId)
+  if (normalizedSongId) {
+    return `song:${normalizedSongId}`
+  }
+
   return `${normalizePart(title)}::${normalizePart(artist)}`
 }
 
@@ -83,24 +92,28 @@ function buildQueryVariants(title: string, artist: string): Array<{ t: string; a
   return Array.from(new Map(pairs.map((pair) => [`${pair.t}::${pair.a}`, pair])).values())
 }
 
-export function getLyricsPrefetchStatus(title: string, artist: string): PrefetchStatus | null {
+export function getLyricsPrefetchStatus(title: string, artist: string, songId?: string | null): PrefetchStatus | null {
   try {
     const raw = localStorage.getItem(STATUS_KEY)
     if (!raw) return null
     const map = JSON.parse(raw) as StatusMap
-    return map[lyricsPrefetchCacheKey(title, artist)] ?? null
+    const primaryKey = lyricsPrefetchCacheKey(title, artist, songId)
+    return map[primaryKey] ?? map[lyricsPrefetchCacheKey(title, artist)] ?? null
   } catch {
     return null
   }
 }
 
-export function getAutoCachedLyrics(title: string, artist: string): string | null {
+export function getAutoCachedLyrics(title: string, artist: string, songId?: string | null): string | null {
   try {
     const raw = localStorage.getItem(AUTO_CACHE_KEY)
     if (!raw) return null
     const cache = JSON.parse(raw) as CacheMap
-    const primaryKey = lyricsPrefetchCacheKey(title, artist)
+    const primaryKey = lyricsPrefetchCacheKey(title, artist, songId)
     if (cache[primaryKey]) return cache[primaryKey]
+
+    const fallbackKey = lyricsPrefetchCacheKey(title, artist)
+    if (cache[fallbackKey]) return cache[fallbackKey]
 
     for (const { t, a } of buildQueryVariants(title, artist)) {
       const variantKey = lyricsPrefetchCacheKey(t, a)
@@ -113,17 +126,19 @@ export function getAutoCachedLyrics(title: string, artist: string): string | nul
   }
 }
 
-export function cacheFoundLyrics(title: string, artist: string, lyrics: string): void {
+export function cacheFoundLyrics(title: string, artist: string, lyrics: string, songId?: string | null): void {
   const normalizedLyrics = lyrics.trim()
   if (!normalizedLyrics) {
     return
   }
 
   const primaryKey = lyricsPrefetchCacheKey(title, artist)
+  const songKey = lyricsPrefetchCacheKey(title, artist, songId)
 
   try {
     const cache: CacheMap = JSON.parse(localStorage.getItem(AUTO_CACHE_KEY) ?? '{}')
     cache[primaryKey] = normalizedLyrics
+    cache[songKey] = normalizedLyrics
     localStorage.setItem(AUTO_CACHE_KEY, JSON.stringify(cache))
   } catch {
     // Non-blocking.
@@ -132,18 +147,21 @@ export function cacheFoundLyrics(title: string, artist: string, lyrics: string):
   try {
     const statuses: StatusMap = JSON.parse(localStorage.getItem(STATUS_KEY) ?? '{}')
     statuses[primaryKey] = 'found'
+    statuses[songKey] = 'found'
     localStorage.setItem(STATUS_KEY, JSON.stringify(statuses))
   } catch {
     // Non-blocking.
   }
 }
 
-export function markLyricsNotFound(title: string, artist: string): void {
+export function markLyricsNotFound(title: string, artist: string, songId?: string | null): void {
   const primaryKey = lyricsPrefetchCacheKey(title, artist)
+  const songKey = lyricsPrefetchCacheKey(title, artist, songId)
 
   try {
     const statuses: StatusMap = JSON.parse(localStorage.getItem(STATUS_KEY) ?? '{}')
     statuses[primaryKey] = 'not_found'
+    statuses[songKey] = 'not_found'
     localStorage.setItem(STATUS_KEY, JSON.stringify(statuses))
   } catch {
     // Non-blocking.
@@ -152,9 +170,9 @@ export function markLyricsNotFound(title: string, artist: string): void {
 
 // Fire-and-forget. Call after a song is successfully added to the queue.
 // Skips silently if the song was already checked.
-export function prefetchAndCacheLyrics(title: string, artist: string): void {
+export function prefetchAndCacheLyrics(title: string, artist: string, songId?: string | null): void {
   if (typeof window === 'undefined') return
-  if (getLyricsPrefetchStatus(title, artist) !== null) return
+  if (getLyricsPrefetchStatus(title, artist, songId) !== null) return
 
   const variants = buildQueryVariants(title, artist)
 
@@ -170,7 +188,7 @@ export function prefetchAndCacheLyrics(title: string, artist: string): void {
         const lyricsText = typeof data?.lyrics === 'string' ? data.lyrics.trim() : ''
 
         if (lyricsText.length > 0) {
-          cacheFoundLyrics(title, artist, lyricsText)
+          cacheFoundLyrics(title, artist, lyricsText, songId)
           return
         }
       } catch {
@@ -179,6 +197,6 @@ export function prefetchAndCacheLyrics(title: string, artist: string): void {
     }
 
     // All variants exhausted.
-    markLyricsNotFound(title, artist)
+    markLyricsNotFound(title, artist, songId)
   })()
 }
