@@ -31,6 +31,7 @@ Set:
 - `eventId`
 - `sourceId`
 - `midiInputName` (must match `--list` output)
+- `timeSourceMode` (`clock`, `mtc`, or `auto`)
 - `songProgramMap`
 - optional CC mappings
 
@@ -60,8 +61,21 @@ npm run midi:bridge
 - Continue (`0xFB`): play true.
 - Stop (`0xFC`): play false.
 - Clock tick (`0xF8`): advances time via BPM and resolution.
+- MTC Quarter Frame (`0xF1`): updates absolute timeline and fps.
 - Program Change: selects song from `songProgramMap` and resets time.
 - Optional CC controls: seek, tempo, nudge backward, nudge forward.
+
+## 6) Time source modes
+
+- `clock`: use MIDI Start/Stop/Clock timing only.
+- `mtc`: use MTC absolute timeline as the primary clock.
+- `auto`: prefer MTC while it is active, fall back to clock when MTC is stale.
+
+Recommended for live shows:
+
+- If your source provides stable MTC, use `mtc`.
+- If your source may drop MTC briefly, use `auto`.
+- Keep `clock` for classic tempo-clock setups.
 
 ## Notes
 

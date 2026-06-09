@@ -67,6 +67,30 @@ function listMidiPorts() {
   return ports
 }
 
+function parseTimeSourceMode(value) {
+  if (value === 'clock' || value === 'mtc' || value === 'auto') {
+    return value
+  }
+
+  return 'auto'
+}
+
+function getMtcFps(rateBits) {
+  if (rateBits === 0) {
+    return 24
+  }
+
+  if (rateBits === 1) {
+    return 25
+  }
+
+  if (rateBits === 2) {
+    return 29.97
+  }
+
+  return 30
+}
+
 async function main() {
   if (hasArg('--list')) {
     const ports = listMidiPorts()
@@ -96,6 +120,9 @@ async function main() {
     : {}
 
   const controls = config.controls && typeof config.controls === 'object' ? config.controls : {}
+  const timeSourceMode = parseTimeSourceMode(config.timeSourceMode)
+  const mtcTimeoutMs = Number.isFinite(Number(config.mtcTimeoutMs)) ? Number(config.mtcTimeoutMs) : 1400
+  const mtcTreatAsPlaying = config.mtcTreatAsPlaying !== false
   const defaultBpm = Number.isFinite(Number(config.defaultBpm)) ? Number(config.defaultBpm) : 120
   const tickResolution = Number.isFinite(Number(config.tickResolution)) ? Number(config.tickResolution) : 24
   const heartbeatMs = Number.isFinite(Number(config.heartbeatMs)) ? Number(config.heartbeatMs) : 1200
@@ -110,6 +137,22 @@ async function main() {
   let lastWriteAt = 0
   let lastWriteSignature = ''
 
+  const mtcNibbles = new Array(8).fill(null)
+  let lastMtcAt = 0
+  let mtcFps = 30
+
+  const shouldUseMtcClock = () => {
+    if (timeSourceMode === 'mtc') {
+      return true
+    }
+
+    if (timeSourceMode === 'clock') {
+      return false
+    }
+
+    return (Date.now() - lastMtcAt) <= mtcTimeoutMs
+  }
+
   const writeState = async (force = false) => {
     const now = Date.now()
     if (!force && now - lastWriteAt < minWriteIntervalMs) {
@@ -121,6 +164,9 @@ async function main() {
       currentTimeSeconds: Number(currentTimeSeconds.toFixed(3)),
       songId: currentSong?.id ?? null,
       bpm: Number(bpm.toFixed(3)),
+      mtcFps,
+      timeSourceMode,
+      useMtc: shouldUseMtcClock(),
     })
 
     if (!force && signature === lastWriteSignature) {
@@ -173,6 +219,7 @@ async function main() {
 
   console.log(`[midi-companion] listening on '${availablePorts[selectedPortIndex]}'`)
   console.log(`[midi-companion] writing to event ${eventId} (${sourceId})`)
+  console.log(`[midi-companion] time source mode: ${timeSourceMode}`)
 
   const seekCc = Number(controls.seekCc)
   const seekMaxSeconds = Number.isFinite(Number(controls.seekMaxSeconds)) ? Number(controls.seekMaxSeconds) : 720
@@ -191,8 +238,38 @@ async function main() {
 
     const now = Date.now()
 
+    // MTC quarter frame: use absolute timeline when in mtc mode or auto with active MTC.
+    if (status === 0xf1) {
+      const type = (data1 >> 4) & 0x07
+      const value = data1 & 0x0f
+      mtcNibbles[type] = value
+      lastMtcAt = now
+
+      if (type === 7) {
+        const rateBits = (value >> 1) & 0x03
+        mtcFps = getMtcFps(rateBits)
+
+        const frames = ((mtcNibbles[1] ?? 0) << 4) | (mtcNibbles[0] ?? 0)
+        const seconds = ((mtcNibbles[3] ?? 0) << 4) | (mtcNibbles[2] ?? 0)
+        const minutes = ((mtcNibbles[5] ?? 0) << 4) | (mtcNibbles[4] ?? 0)
+        const hours = ((value & 0x01) << 4) | (mtcNibbles[6] ?? 0)
+
+        currentTimeSeconds = Math.max(0, (hours * 3600) + (minutes * 60) + seconds + (frames / mtcFps))
+        lastTickAt = now
+
+        if (mtcTreatAsPlaying && (timeSourceMode === 'mtc' || timeSourceMode === 'auto')) {
+          isPlaying = true
+        }
+
+        if (shouldUseMtcClock()) {
+          void writeState(false)
+        }
+      }
+      return
+    }
+
     // MIDI realtime clock tick.
-    if (status === 0xf8 && isPlaying) {
+    if (status === 0xf8 && isPlaying && !shouldUseMtcClock()) {
       const secondsPerTick = 60 / (bpm * tickResolution)
       currentTimeSeconds = Math.max(0, currentTimeSeconds + secondsPerTick)
       lastTickAt = now
@@ -229,7 +306,9 @@ async function main() {
       const mappedSong = sanitizeSong(songProgramMap[String(data1)])
       if (mappedSong) {
         currentSong = mappedSong
-        currentTimeSeconds = 0
+        if (config.resetTimeOnProgramChange !== false) {
+          currentTimeSeconds = 0
+        }
         void writeState(true)
       }
       return
@@ -268,8 +347,8 @@ async function main() {
   })
 
   const heartbeatTimer = setInterval(() => {
-    // Backfill clock when MIDI clock messages are sparse or briefly interrupted.
-    if (isPlaying) {
+    // Backfill clock when MIDI realtime ticks are sparse and no fresh MTC is present.
+    if (isPlaying && !shouldUseMtcClock()) {
       const now = Date.now()
       const elapsed = Math.max(0, (now - lastTickAt) / 1000)
       if (elapsed > 0 && elapsed < 2.5) {
