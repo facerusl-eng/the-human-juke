@@ -159,6 +159,9 @@ export default function JamzoneLyricsPage() {
 
   const useRemoteSnapshot = Boolean(syncEventId && remoteBridgeConnected && remoteSong)
   const activeSong = useRemoteSnapshot ? remoteSong : bridgeSong
+  const bridgeStatusLabel = hasJamzoneBridge
+    ? 'detected'
+    : (useRemoteSnapshot ? 'not detected (using iPad remote source)' : 'not detected')
 
   const songRef = useMemo<LyricSongRef | null>(() => {
     if (!activeSong) {
@@ -220,10 +223,11 @@ export default function JamzoneLyricsPage() {
           </p>
           {activeSong ? <p style={{ marginTop: '0.55rem' }}>Now playing: {activeSong.artist} - {activeSong.title}</p> : null}
           {!activeSong ? <p style={{ marginTop: '0.55rem', opacity: 0.85 }}>Waiting for Jamzone song metadata...</p> : null}
-          {!hasJamzoneBridge ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Jamzone bridge is not registered yet.</p> : null}
+          {!hasJamzoneBridge && !useRemoteSnapshot ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Jamzone bridge is not registered yet.</p> : null}
           {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Sync event: {syncEventId}</p> : null}
           {!syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
           {syncEventId && remoteBridgeConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote bridge: active</p> : null}
+          <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Native bridge: {bridgeStatusLabel}</p>
           {useRemoteSnapshot ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Lyric source: iPad remote snapshot</p> : null}
           <p style={{ marginTop: '0.35rem' }}>
             Fullscreen board: <a href={boardHref} target="_blank" rel="noreferrer">open lyrics board</a>

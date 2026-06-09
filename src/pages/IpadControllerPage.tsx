@@ -35,6 +35,10 @@ export default function IpadControllerPage() {
   const [manualPlayPulse, setManualPlayPulse] = useState(0)
   const [eventIdSource, setEventIdSource] = useState<'url' | 'active-gig' | 'local' | 'manual' | 'none'>('none')
   const isLockedToActiveGig = eventIdSource === 'active-gig'
+  const manualSourceActive = manualMode || (autoFallbackEnabled && !hasJamzoneBridge)
+  const bridgeStatusLabel = hasJamzoneBridge
+    ? 'detected'
+    : (manualSourceActive ? 'not detected (manual fallback active)' : 'not detected')
 
   const sourceIdRef = useRef(`ipad-${Math.random().toString(36).slice(2)}`)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -105,7 +109,6 @@ export default function IpadControllerPage() {
   }, [])
 
   useEffect(() => {
-    const manualSourceActive = manualMode || (autoFallbackEnabled && !hasJamzoneBridge)
     if (!manualSourceActive || !manualRunning) {
       return
     }
@@ -378,7 +381,7 @@ export default function IpadControllerPage() {
             />
             Auto fallback to manual source when bridge is missing
           </label>
-          <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {hasJamzoneBridge ? 'detected' : 'not detected'}</p>
+          <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {bridgeStatusLabel}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Publish status: {publishStatus}</p>
         </section>
@@ -462,11 +465,11 @@ export default function IpadControllerPage() {
 
         <section style={{ padding: '1rem', border: '1px solid #2b345f', borderRadius: '14px', background: '#0b1020' }}>
           <h2 style={{ marginTop: 0 }}>Live Source Snapshot</h2>
-          <p style={{ margin: '0.2rem 0' }}>Source: {(manualMode || (autoFallbackEnabled && !hasJamzoneBridge)) ? 'manual fallback' : 'Jamzone bridge'}</p>
-          <p style={{ margin: '0.2rem 0' }}>Song: {(manualMode || (autoFallbackEnabled && !hasJamzoneBridge))
+          <p style={{ margin: '0.2rem 0' }}>Source: {manualSourceActive ? 'manual fallback' : 'Jamzone bridge'}</p>
+          <p style={{ margin: '0.2rem 0' }}>Song: {manualSourceActive
             ? `${manualSongArtist || 'Manual Artist'} - ${manualSongTitle || 'Manual Song'}`
             : (currentSongArtist && currentSongTitle ? `${currentSongArtist} - ${currentSongTitle}` : 'No song metadata yet')}</p>
-          <p style={{ margin: '0.2rem 0' }}>Time: {((manualMode || (autoFallbackEnabled && !hasJamzoneBridge)) ? manualTimeSeconds : currentTimeSeconds).toFixed(2)}s</p>
+          <p style={{ margin: '0.2rem 0' }}>Time: {(manualSourceActive ? manualTimeSeconds : currentTimeSeconds).toFixed(2)}s</p>
         </section>
 
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
