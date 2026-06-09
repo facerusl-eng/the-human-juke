@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import KaraokeLyrics from '../components/KaraokeLyrics'
 import { useJamzoneLyricSync } from '../../shared/lyrics/useJamzoneLyricSync'
 import { createLocalLyricSyncTransport, type LyricSongRef } from '../../shared/lyrics'
@@ -7,16 +8,45 @@ import {
   getJamzoneBridge,
   getJamzoneCurrentSong,
   getJamzoneCurrentTimeSeconds,
+  pushJamzoneSnapshot,
   type JamzoneSong,
 } from '../lib/jamzoneBridge'
+import { useAuthStore } from '../state/authStore'
+
+const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
+const JAMZONE_REMOTE_CHANNEL_PREFIX = 'jamzone-bridge'
 
 const LOCAL_LYRIC_SYNC_CHANNEL = 'human-jukebox-live-lyrics'
 
 export default function JamzoneLyricsPage() {
+  const location = useLocation()
+  const { profile } = useAuthStore()
   const [hasJamzoneBridge, setHasJamzoneBridge] = useState(false)
   const [song, setSong] = useState<JamzoneSong | null>(null)
+  const [remoteBridgeConnected, setRemoteBridgeConnected] = useState(false)
+  const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const sourceIdRef = useRef(`lyrics-${Math.random().toString(36).slice(2)}`)
 
   const localSyncTransport = useMemo(() => createLocalLyricSyncTransport(LOCAL_LYRIC_SYNC_CHANNEL), [])
+  const syncEventId = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    const fromUrl = params.get('event') ?? params.get('eventId')
+
+    if (fromUrl && fromUrl.trim().length > 0) {
+      return fromUrl.trim()
+    }
+
+    const profileEvent = profile?.active_event_id
+    return profileEvent && profileEvent.trim().length > 0 ? profileEvent : null
+  }, [location.search, profile?.active_event_id])
+
+  const remoteChannelName = useMemo(() => {
+    if (!syncEventId) {
+      return null
+    }
+
+    return `${JAMZONE_REMOTE_CHANNEL_PREFIX}:${syncEventId}`
+  }, [syncEventId])
 
   useEffect(() => {
     const updateFromBridge = () => {
@@ -32,6 +62,71 @@ export default function JamzoneLyricsPage() {
       window.clearInterval(timerId)
     }
   }, [])
+
+  useEffect(() => {
+    if (!remoteChannelName) {
+      setRemoteBridgeConnected(false)
+      return
+    }
+
+    const channel = supabase
+      .channel(remoteChannelName)
+      .on('broadcast', { event: JAMZONE_REMOTE_EVENT }, ({ payload }) => {
+        const data = payload as {
+          sourceId?: string
+          currentTimeSeconds?: number
+          currentSong?: JamzoneSong | null
+          updatedAtMs?: number
+        }
+
+        if (!data || data.sourceId === sourceIdRef.current) {
+          return
+        }
+
+        pushJamzoneSnapshot({
+          currentTimeSeconds: data.currentTimeSeconds,
+          currentSong: data.currentSong,
+        })
+
+        setRemoteBridgeConnected(true)
+      })
+
+    remoteBridgeChannelRef.current = channel
+    channel.subscribe((status) => {
+      setRemoteBridgeConnected(status === 'SUBSCRIBED')
+    })
+
+    return () => {
+      remoteBridgeChannelRef.current = null
+      setRemoteBridgeConnected(false)
+      void supabase.removeChannel(channel)
+    }
+  }, [remoteChannelName])
+
+  useEffect(() => {
+    if (!hasJamzoneBridge || !remoteBridgeChannelRef.current) {
+      return
+    }
+
+    const publishTimer = window.setInterval(() => {
+      const currentSong = getJamzoneCurrentSong()
+
+      void remoteBridgeChannelRef.current?.send({
+        type: 'broadcast',
+        event: JAMZONE_REMOTE_EVENT,
+        payload: {
+          sourceId: sourceIdRef.current,
+          currentTimeSeconds: getJamzoneCurrentTimeSeconds(),
+          currentSong,
+          updatedAtMs: Date.now(),
+        },
+      })
+    }, 180)
+
+    return () => {
+      window.clearInterval(publishTimer)
+    }
+  }, [hasJamzoneBridge])
 
   const songRef = useMemo<LyricSongRef | null>(() => {
     if (!song) {
@@ -85,6 +180,9 @@ export default function JamzoneLyricsPage() {
           {song ? <p style={{ marginTop: '0.55rem' }}>Now playing: {song.artist} - {song.title}</p> : null}
           {!song ? <p style={{ marginTop: '0.55rem', opacity: 0.85 }}>Waiting for Jamzone song metadata...</p> : null}
           {!hasJamzoneBridge ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Jamzone bridge is not registered yet.</p> : null}
+          {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Sync event: {syncEventId}</p> : null}
+          {!syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
+          {syncEventId && remoteBridgeConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote bridge: active</p> : null}
           <p style={{ marginTop: '0.35rem' }}>
             Fullscreen board: <a href="/lyrics-board" target="_blank" rel="noreferrer">open lyrics board</a>
           </p>
