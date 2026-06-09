@@ -4,6 +4,7 @@ import KaraokeLyrics from '../components/KaraokeLyrics'
 import { useJamzoneLyricSync } from '../../shared/lyrics/useJamzoneLyricSync'
 import { createLocalLyricSyncTransport, type LyricSongRef, type LyricWindow } from '../../shared/lyrics'
 import { supabase } from '../lib/supabase'
+import { getJamzoneClockDisplayTimeSeconds, useJamzoneClockState } from '../lib/jamzoneClock'
 import {
   getJamzoneBridge,
   getJamzoneCurrentSong,
@@ -16,6 +17,10 @@ const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
 const JAMZONE_REMOTE_CHANNEL_PREFIX = 'jamzone-bridge'
 
 const LOCAL_LYRIC_SYNC_CHANNEL = 'human-jukebox-live-lyrics'
+
+function buildSongIdFallback(title: string, artist: string) {
+  return `clock:${artist.toLowerCase().replace(/\s+/g, '-')}::${title.toLowerCase().replace(/\s+/g, '-')}`
+}
 
 function buildMissingLyricsFallbackWindow(song: JamzoneSong, currentTimeSeconds: number): LyricWindow {
   return {
@@ -83,6 +88,24 @@ export default function JamzoneLyricsPage() {
 
     return `${JAMZONE_REMOTE_CHANNEL_PREFIX}:${syncEventId}`
   }, [syncEventId])
+  const {
+    snapshot: durableClockSnapshot,
+    status: durableClockStatus,
+    isConnected: durableClockConnected,
+  } = useJamzoneClockState(syncEventId)
+
+  const durableClockSong = useMemo<JamzoneSong | null>(() => {
+    if (!durableClockSnapshot?.currentSongTitle || !durableClockSnapshot.currentSongArtist) {
+      return null
+    }
+
+    return {
+      id: durableClockSnapshot.currentSongId
+        ?? buildSongIdFallback(durableClockSnapshot.currentSongTitle, durableClockSnapshot.currentSongArtist),
+      title: durableClockSnapshot.currentSongTitle,
+      artist: durableClockSnapshot.currentSongArtist,
+    }
+  }, [durableClockSnapshot])
 
   const boardHref = useMemo(() => {
     if (!syncEventId) {
@@ -206,8 +229,9 @@ export default function JamzoneLyricsPage() {
     }
   }, [hasJamzoneBridge])
 
-  const useRemoteSnapshot = Boolean(syncEventId && remoteBridgeConnected && remoteSong)
-  const activeSong = useRemoteSnapshot ? remoteSong : bridgeSong
+  const useDurableClock = Boolean(syncEventId && durableClockSnapshot && durableClockSong)
+  const useRemoteSnapshot = Boolean(syncEventId && !useDurableClock && remoteBridgeConnected && remoteSong)
+  const activeSong = useDurableClock ? durableClockSong : (useRemoteSnapshot ? remoteSong : bridgeSong)
   const bridgeStatusLabel = hasJamzoneBridge
     ? 'detected'
     : (useRemoteSnapshot ? 'not detected (using iPad remote source)' : 'not detected')
@@ -227,6 +251,10 @@ export default function JamzoneLyricsPage() {
   const { window: lyricWindow, isLoading, loadError } = useJamzoneLyricSync(
     songRef,
     () => {
+      if (useDurableClock) {
+        return getJamzoneClockDisplayTimeSeconds(durableClockSnapshot)
+      }
+
       if (!useRemoteSnapshot) {
         return getJamzoneCurrentTimeSeconds()
       }
@@ -243,8 +271,12 @@ export default function JamzoneLyricsPage() {
       return remoteSnapshotRef.current.currentTimeSeconds + elapsedSeconds
     }
 
+    if (useDurableClock) {
+      return getJamzoneClockDisplayTimeSeconds(durableClockSnapshot)
+    }
+
     return getJamzoneCurrentTimeSeconds()
-  }, [useRemoteSnapshot, lyricWindow.current, lyricWindow.next])
+  }, [durableClockSnapshot, lyricWindow.current, lyricWindow.next, useDurableClock, useRemoteSnapshot])
 
   const displayWindow = useMemo(() => {
     if (!activeSong || !loadError) {
@@ -292,6 +324,8 @@ export default function JamzoneLyricsPage() {
           {!hasJamzoneBridge && !useRemoteSnapshot ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Jamzone bridge is not registered yet.</p> : null}
           {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Sync event: {syncEventId}</p> : null}
           {!syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
+          {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Durable clock status: {durableClockStatus}</p> : null}
+          {syncEventId && durableClockConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Durable clock: active</p> : null}
           {syncEventId && remoteBridgeConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote bridge: active</p> : null}
           {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote channel status: {remoteChannelStatus}</p> : null}
           {syncEventId ? (
@@ -313,7 +347,8 @@ export default function JamzoneLyricsPage() {
             </button>
           ) : null}
           <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Native bridge: {bridgeStatusLabel}</p>
-          {useRemoteSnapshot ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Lyric source: iPad remote snapshot</p> : null}
+          {useDurableClock ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Lyric source: durable Jamzone clock</p> : null}
+          {useRemoteSnapshot ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Lyric source: iPad remote snapshot fallback</p> : null}
           <p style={{ marginTop: '0.35rem' }}>
             Fullscreen board: <a href={boardHref} target="_blank" rel="noreferrer">open lyrics board</a>
           </p>

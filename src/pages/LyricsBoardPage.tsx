@@ -4,12 +4,17 @@ import KaraokeLyrics from '../components/KaraokeLyrics'
 import { createLocalLyricSyncTransport, type LyricSongRef, type LyricWindow } from '../../shared/lyrics'
 import { useJamzoneLyricSync } from '../../shared/lyrics/useJamzoneLyricSync'
 import { supabase } from '../lib/supabase'
+import { getJamzoneClockDisplayTimeSeconds, useJamzoneClockState } from '../lib/jamzoneClock'
 import type { JamzoneSong } from '../lib/jamzoneBridge'
 import { useAuthStore } from '../state/authStore'
 
 const LOCAL_LYRIC_SYNC_CHANNEL = 'human-jukebox-live-lyrics'
 const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
 const JAMZONE_REMOTE_CHANNEL_PREFIX = 'jamzone-bridge'
+
+function buildSongIdFallback(title: string, artist: string) {
+  return `clock:${artist.toLowerCase().replace(/\s+/g, '-')}::${title.toLowerCase().replace(/\s+/g, '-')}`
+}
 
 function buildMissingLyricsFallbackWindow(song: JamzoneSong, currentTimeSeconds: number): LyricWindow {
   return {
@@ -80,22 +85,47 @@ export default function LyricsBoardPage() {
 
     return `${JAMZONE_REMOTE_CHANNEL_PREFIX}:${syncEventId}`
   }, [syncEventId])
+  const {
+    snapshot: durableClockSnapshot,
+    status: durableClockStatus,
+    isConnected: durableClockConnected,
+  } = useJamzoneClockState(syncEventId)
 
-  const remoteSongRef = useMemo<LyricSongRef | null>(() => {
-    if (!remoteSong) {
+  const durableClockSong = useMemo<JamzoneSong | null>(() => {
+    if (!durableClockSnapshot?.currentSongTitle || !durableClockSnapshot.currentSongArtist) {
       return null
     }
 
     return {
-      songId: remoteSong.id,
-      title: remoteSong.title,
-      artist: remoteSong.artist,
+      id: durableClockSnapshot.currentSongId
+        ?? buildSongIdFallback(durableClockSnapshot.currentSongTitle, durableClockSnapshot.currentSongArtist),
+      title: durableClockSnapshot.currentSongTitle,
+      artist: durableClockSnapshot.currentSongArtist,
     }
-  }, [remoteSong])
+  }, [durableClockSnapshot])
+
+  const useDurableClock = Boolean(syncEventId && durableClockSnapshot && durableClockSong)
+
+  const remoteSongRef = useMemo<LyricSongRef | null>(() => {
+    const activeSong = useDurableClock ? durableClockSong : remoteSong
+    if (!activeSong) {
+      return null
+    }
+
+    return {
+      songId: activeSong.id,
+      title: activeSong.title,
+      artist: activeSong.artist,
+    }
+  }, [durableClockSong, remoteSong, useDurableClock])
 
   const { window: remoteLyricWindow, loadError: remoteLyricLoadError } = useJamzoneLyricSync(
     remoteSongRef,
     () => {
+      if (useDurableClock) {
+        return getJamzoneClockDisplayTimeSeconds(durableClockSnapshot)
+      }
+
       const elapsedSeconds = Math.max(0, (Date.now() - remoteSnapshotRef.current.updatedAtMs) / 1000)
       return remoteSnapshotRef.current.currentTimeSeconds + elapsedSeconds
     },
@@ -103,7 +133,7 @@ export default function LyricsBoardPage() {
   )
 
   useEffect(() => {
-    if (!remoteChannelName) {
+    if (!remoteChannelName || useDurableClock) {
       setRemoteBridgeConnected(false)
       return
     }
@@ -149,7 +179,7 @@ export default function LyricsBoardPage() {
       setRemoteBridgeConnected(false)
       void supabase.removeChannel(channel)
     }
-  }, [remoteChannelName])
+  }, [remoteChannelName, useDurableClock])
 
   useEffect(() => {
     if (syncEventId) {
@@ -172,20 +202,32 @@ export default function LyricsBoardPage() {
       return windowState
     }
 
-    if (remoteSong && remoteLyricLoadError) {
+    const activeSong = useDurableClock ? durableClockSong : remoteSong
+
+    if (activeSong && remoteLyricLoadError) {
+      if (useDurableClock) {
+        const currentTimeSeconds = getJamzoneClockDisplayTimeSeconds(durableClockSnapshot)
+        return buildMissingLyricsFallbackWindow(activeSong, currentTimeSeconds)
+      }
+
       const elapsedSeconds = Math.max(0, (Date.now() - remoteSnapshotRef.current.updatedAtMs) / 1000)
       const currentTimeSeconds = remoteSnapshotRef.current.currentTimeSeconds + elapsedSeconds
-      return buildMissingLyricsFallbackWindow(remoteSong, currentTimeSeconds)
+      return buildMissingLyricsFallbackWindow(activeSong, currentTimeSeconds)
     }
 
     return remoteLyricWindow
-  }, [remoteLyricLoadError, remoteLyricWindow, remoteSong, syncEventId, windowState])
+  }, [durableClockSnapshot, durableClockSong, remoteLyricLoadError, remoteLyricWindow, remoteSong, syncEventId, useDurableClock, windowState])
 
   return (
     <main style={{ width: '100vw', height: '100vh', background: '#02030a' }}>
-      {syncEventId && !remoteBridgeConnected ? (
+      {syncEventId && !useDurableClock && !remoteBridgeConnected ? (
         <p style={{ margin: 0, padding: '0.65rem 1rem', color: '#d4dcff', opacity: 0.84 }}>
           Waiting for iPad bridge on event {syncEventId}...
+        </p>
+      ) : null}
+      {syncEventId && useDurableClock ? (
+        <p style={{ margin: 0, padding: '0.65rem 1rem', color: '#d4dcff', opacity: 0.84 }}>
+          Durable clock active ({durableClockStatus}{durableClockConnected ? ', connected' : ''})
         </p>
       ) : null}
       {syncEventId && remoteLyricLoadError ? (

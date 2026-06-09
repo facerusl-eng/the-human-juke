@@ -1,0 +1,27 @@
+{
+  "eventId": "00000000-0000-0000-0000-000000000000",
+  "sourceId": "midi-companion-main",
+  "sourceType": "companion",
+  "defaultBpm": 120,
+  "tickResolution": 24,
+  "heartbeatMs": 1200,
+  "minWriteIntervalMs": 120,
+  "midiInputName": "Your MIDI Device Name",
+  "songProgramMap": {
+    "0": {
+      "id": "song-1",
+      "title": "Song Title",
+      "artist": "Artist"
+    }
+  },
+  "controls": {
+    "seekCc": 20,
+    "seekMaxSeconds": 720,
+    "tempoCc": 21,
+    "tempoMinBpm": 70,
+    "tempoMaxBpm": 190,
+    "nudgeBackCc": 22,
+    "nudgeForwardCc": 23,
+    "nudgeSeconds": 1
+  }
+}
