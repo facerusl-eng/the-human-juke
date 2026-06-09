@@ -47,13 +47,15 @@
     "jszip": "^3.10.1",
     "lodash.isequal": "^4.5.0",
     "lucide-react": "^1.14.0",
-    "midi": "^2.0.0",
     "node-osc": "^11.4.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
     "react-window": "^2.2.7"
+  },
+  "optionalDependencies": {
+    "midi": "^2.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
