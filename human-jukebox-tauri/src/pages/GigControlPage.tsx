@@ -3166,7 +3166,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   const toggleSpotifyPlayPause = useCallback(async () => {
     if (!event?.roomOpen) {
       setErrorText('Spacebar playback is disabled until the gig is live.')
-      return
+      return false
     }
 
     let token = spotifyAccessToken
@@ -3178,19 +3178,20 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         const message = error instanceof Error ? error.message : 'Spotify token refresh failed.'
         setSpotifyStatusText(message)
         setErrorText('Connect Spotify first to use Spotify transport controls.')
-        return
+        return false
       }
     }
 
     if (!token) {
       setErrorText('Connect Spotify first to use Spotify transport controls.')
-      return
+      return false
     }
 
     setSpotifyStatusText('Sending Spotify play/pause command...')
     spotifyTransportNonceRef.current += 1
     setSpotifyTransportCommand({ mode: 'toggle', nonce: spotifyTransportNonceRef.current })
     setErrorText(null)
+    return true
   }, [event?.roomOpen, refreshSpotifyAccessToken, spotifyAccessToken])
 
   const toggleQueuePlayPause = useCallback(async () => {
@@ -3243,7 +3244,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     if (nowPlayingTypeRef.current === 'spotify') {
-      await toggleSpotifyPlayPause()
+      const didToggleSpotify = await toggleSpotifyPlayPause()
+
+      if (!didToggleSpotify) {
+        await toggleQueuePlayPause()
+        setSpotifyStatusText('Spotify unavailable. Spacebar used queue play/pause fallback.')
+      }
+
       return
     }
 
