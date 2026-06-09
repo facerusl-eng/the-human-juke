@@ -645,6 +645,9 @@ function GigControlPage() {
   const mirrorOverlayBusyRef = useRef(false)
   const mirrorPreviewIframeRef = useRef<HTMLIFrameElement | null>(null)
   const lastSpacebarHandledAtRef = useRef(0)
+  const spacebarPressActiveRef = useRef(false)
+  const spacebarHandledOnKeyDownRef = useRef(false)
+  const spacebarSkipUntilKeyUpRef = useRef(false)
   const eventRef = useRef(event)
     const getHostNowMs = useCallback(() => Date.now() + hostClockOffsetRef.current, [])
 
@@ -3360,6 +3363,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      spacebarSkipUntilKeyUpRef.current = true
       return
     }
 
@@ -3375,6 +3379,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     )
 
     if (isTypingTarget) {
+      spacebarSkipUntilKeyUpRef.current = true
       return
     }
 
@@ -3386,6 +3391,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     if (event.repeat) {
       return
     }
+
+    if (spacebarPressActiveRef.current && spacebarHandledOnKeyDownRef.current) {
+      return
+    }
+
+    spacebarPressActiveRef.current = true
+    spacebarHandledOnKeyDownRef.current = true
+    spacebarSkipUntilKeyUpRef.current = false
 
     const now = Date.now()
     if (now - lastSpacebarHandledAtRef.current < 120) {
@@ -3415,6 +3428,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      spacebarPressActiveRef.current = false
+      spacebarHandledOnKeyDownRef.current = false
+      spacebarSkipUntilKeyUpRef.current = false
       return
     }
 
@@ -3430,12 +3446,33 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     )
 
     if (isTypingTarget) {
+      spacebarPressActiveRef.current = false
+      spacebarHandledOnKeyDownRef.current = false
+      spacebarSkipUntilKeyUpRef.current = false
+      return
+    }
+
+    if (spacebarSkipUntilKeyUpRef.current) {
+      spacebarPressActiveRef.current = false
+      spacebarHandledOnKeyDownRef.current = false
+      spacebarSkipUntilKeyUpRef.current = false
       return
     }
 
     event.preventDefault()
     event.stopPropagation()
     event.stopImmediatePropagation()
+
+    const hadKeyDown = spacebarPressActiveRef.current
+    const handledOnKeyDown = spacebarHandledOnKeyDownRef.current
+
+    spacebarPressActiveRef.current = false
+    spacebarHandledOnKeyDownRef.current = false
+    spacebarSkipUntilKeyUpRef.current = false
+
+    if (hadKeyDown && handledOnKeyDown) {
+      return
+    }
 
     const now = Date.now()
     if (now - lastSpacebarHandledAtRef.current < 120) {
