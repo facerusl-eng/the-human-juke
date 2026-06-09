@@ -644,6 +644,7 @@ function GigControlPage() {
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
   const mirrorPreviewIframeRef = useRef<HTMLIFrameElement | null>(null)
+  const lastSpacebarHandledAtRef = useRef(0)
   const eventRef = useRef(event)
     const getHostNowMs = useCallback(() => Date.now() + hostClockOffsetRef.current, [])
 
@@ -3374,6 +3375,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
+    const now = Date.now()
+    if (now - lastSpacebarHandledAtRef.current < 120) {
+      return
+    }
+    lastSpacebarHandledAtRef.current = now
+
     try {
       await handleSpacebarAction()
     } catch (error) {
@@ -3382,17 +3389,71 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
   }, [handleSpacebarAction])
 
+  const handleGlobalSpacebarKeyUp = useCallback(async (event: KeyboardEvent) => {
+    const normalizedKey = typeof event.key === 'string' ? event.key.trim().toLowerCase() : ''
+    const isSpaceKey = event.code === 'Space'
+      || event.key === ' '
+      || event.key === 'Space'
+      || event.key === 'Spacebar'
+      || normalizedKey === 'space'
+      || (event as unknown as { keyCode?: number; which?: number }).keyCode === 32
+      || (event as unknown as { keyCode?: number; which?: number }).which === 32
+    if (!isSpaceKey) {
+      return
+    }
+
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return
+    }
+
+    const target = event.target as HTMLElement | null
+    const activeElement = document.activeElement as HTMLElement | null
+    const interactiveSelector = 'input, textarea, select, [contenteditable], [role="textbox"], [aria-multiline="true"], [data-spacebar-ignore="true"]'
+    const interactiveTarget = target?.closest(interactiveSelector)
+    const interactiveActiveElement = activeElement?.closest(interactiveSelector)
+    const isTypingTarget = Boolean(
+      interactiveTarget
+      || interactiveActiveElement
+      || activeElement?.isContentEditable,
+    )
+
+    if (isTypingTarget) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    event.stopImmediatePropagation()
+
+    const now = Date.now()
+    if (now - lastSpacebarHandledAtRef.current < 120) {
+      return
+    }
+    lastSpacebarHandledAtRef.current = now
+
+    try {
+      await handleSpacebarAction()
+    } catch (error) {
+      console.warn('GigControlPage: spacebar playback action (keyup) failed', error)
+      setErrorText('Playback toggle failed. Please try again.')
+    }
+  }, [handleSpacebarAction])
+
   useEffect(() => {
-    const listener = handleGlobalSpacebarKeyDown as unknown as EventListener
-    document.addEventListener('keydown', listener, true)
-    window.addEventListener('keydown', listener, true)
+    const keyDownListener = handleGlobalSpacebarKeyDown as unknown as EventListener
+    const keyUpListener = handleGlobalSpacebarKeyUp as unknown as EventListener
+    document.addEventListener('keydown', keyDownListener, true)
+    window.addEventListener('keydown', keyDownListener, true)
+    document.addEventListener('keyup', keyUpListener, true)
+    window.addEventListener('keyup', keyUpListener, true)
 
     let iframeDocument: Document | null = null
     const bindMirrorIframeListener = () => {
       try {
         const iframe = mirrorPreviewIframeRef.current
         iframeDocument = iframe?.contentWindow?.document ?? null
-        iframeDocument?.addEventListener('keydown', listener, true)
+        iframeDocument?.addEventListener('keydown', keyDownListener, true)
+        iframeDocument?.addEventListener('keyup', keyUpListener, true)
       } catch {
         iframeDocument = null
       }
@@ -3401,11 +3462,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     bindMirrorIframeListener()
 
     return () => {
-      document.removeEventListener('keydown', listener, true)
-      window.removeEventListener('keydown', listener, true)
-      iframeDocument?.removeEventListener('keydown', listener, true)
+      document.removeEventListener('keydown', keyDownListener, true)
+      window.removeEventListener('keydown', keyDownListener, true)
+      document.removeEventListener('keyup', keyUpListener, true)
+      window.removeEventListener('keyup', keyUpListener, true)
+      iframeDocument?.removeEventListener('keydown', keyDownListener, true)
+      iframeDocument?.removeEventListener('keyup', keyUpListener, true)
     }
-  }, [handleGlobalSpacebarKeyDown, mirrorMonitorUrl])
+  }, [handleGlobalSpacebarKeyDown, handleGlobalSpacebarKeyUp, mirrorMonitorUrl])
 
   useEffect(() => {
     if (!isFocusedGigControlWindow) {
