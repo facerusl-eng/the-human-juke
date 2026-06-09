@@ -24,8 +24,16 @@ export default function IpadControllerPage() {
   const [publishStatus, setPublishStatus] = useState<PublishStatus>('idle')
   const [copyFeedback, setCopyFeedback] = useState('')
 
+  const [manualMode, setManualMode] = useState(false)
+  const [manualSongId, setManualSongId] = useState('manual-song')
+  const [manualSongTitle, setManualSongTitle] = useState('Manual Song')
+  const [manualSongArtist, setManualSongArtist] = useState('Manual Artist')
+  const [manualTimeSeconds, setManualTimeSeconds] = useState(0)
+  const [manualRunning, setManualRunning] = useState(false)
+
   const sourceIdRef = useRef(`ipad-${Math.random().toString(36).slice(2)}`)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const manualLastTickAtRef = useRef(Date.now())
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -66,6 +74,25 @@ export default function IpadControllerPage() {
       window.clearInterval(timerId)
     }
   }, [])
+
+  useEffect(() => {
+    if (!manualMode || !manualRunning) {
+      return
+    }
+
+    manualLastTickAtRef.current = Date.now()
+
+    const timerId = window.setInterval(() => {
+      const now = Date.now()
+      const elapsedSeconds = (now - manualLastTickAtRef.current) / 1000
+      manualLastTickAtRef.current = now
+      setManualTimeSeconds((seconds) => Math.max(0, seconds + elapsedSeconds))
+    }, 180)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [manualMode, manualRunning])
 
   const channelName = useMemo(() => {
     const normalizedEventId = eventId.trim()
@@ -108,19 +135,27 @@ export default function IpadControllerPage() {
     }
 
     const publishTick = () => {
-      if (!getJamzoneBridge()) {
+      const currentSong = manualMode
+        ? {
+            id: manualSongId.trim() || 'manual-song',
+            title: manualSongTitle.trim() || 'Manual Song',
+            artist: manualSongArtist.trim() || 'Manual Artist',
+          }
+        : getJamzoneCurrentSong()
+
+      const nextTimeSeconds = manualMode ? manualTimeSeconds : getJamzoneCurrentTimeSeconds()
+
+      if (!manualMode && !getJamzoneBridge()) {
         setPublishStatus('waiting-bridge')
         return
       }
-
-      const currentSong = getJamzoneCurrentSong()
 
       void remoteBridgeChannelRef.current?.send({
         type: 'broadcast',
         event: JAMZONE_REMOTE_EVENT,
         payload: {
           sourceId: sourceIdRef.current,
-          currentTimeSeconds: getJamzoneCurrentTimeSeconds(),
+          currentTimeSeconds: nextTimeSeconds,
           currentSong,
           updatedAtMs: Date.now(),
         },
@@ -135,7 +170,7 @@ export default function IpadControllerPage() {
     return () => {
       window.clearInterval(timerId)
     }
-  }, [eventId])
+  }, [eventId, manualMode, manualSongArtist, manualSongId, manualSongTitle, manualTimeSeconds])
 
   const lyricsUrl = useMemo(() => {
     if (!eventId.trim()) {
@@ -239,10 +274,81 @@ export default function IpadControllerPage() {
           <p style={{ margin: 0, opacity: 0.8 }}>Publish status: {publishStatus}</p>
         </section>
 
+        <section style={{ padding: '1rem', border: '1px solid #2b345f', borderRadius: '14px', background: '#0b1020', display: 'grid', gap: '0.7rem' }}>
+          <h2 style={{ marginTop: 0 }}>Emergency Manual Source</h2>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+            <input
+              type="checkbox"
+              checked={manualMode}
+              onChange={(event) => {
+                setManualMode(event.target.checked)
+                if (!event.target.checked) {
+                  setManualRunning(false)
+                }
+              }}
+            />
+            Enable manual source when Jamzone bridge is unavailable
+          </label>
+
+          {manualMode ? (
+            <>
+              <input
+                value={manualSongTitle}
+                onChange={(event) => setManualSongTitle(event.target.value)}
+                placeholder="Manual song title"
+                style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #3d4a86', background: '#101832', color: '#e5ebff', padding: '0.6rem 0.8rem' }}
+              />
+              <input
+                value={manualSongArtist}
+                onChange={(event) => setManualSongArtist(event.target.value)}
+                placeholder="Manual artist"
+                style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #3d4a86', background: '#101832', color: '#e5ebff', padding: '0.6rem 0.8rem' }}
+              />
+              <input
+                value={manualSongId}
+                onChange={(event) => setManualSongId(event.target.value)}
+                placeholder="Manual song id"
+                style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #3d4a86', background: '#101832', color: '#e5ebff', padding: '0.6rem 0.8rem' }}
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(120px, 1fr))', gap: '0.6rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualRunning((running) => !running)
+                    manualLastTickAtRef.current = Date.now()
+                  }}
+                  style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #4b66ce', background: '#182a5e', color: '#e7eeff', fontWeight: 700 }}
+                >
+                  {manualRunning ? 'Pause' : 'Start'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setManualTimeSeconds((seconds) => Math.max(0, seconds - 5))}
+                  style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #4b66ce', background: '#182a5e', color: '#e7eeff', fontWeight: 700 }}
+                >
+                  -5s
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setManualTimeSeconds((seconds) => seconds + 5)}
+                  style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #4b66ce', background: '#182a5e', color: '#e7eeff', fontWeight: 700 }}
+                >
+                  +5s
+                </button>
+              </div>
+              <p style={{ margin: 0, opacity: 0.82 }}>Manual timer: {manualTimeSeconds.toFixed(1)}s</p>
+            </>
+          ) : null}
+        </section>
+
         <section style={{ padding: '1rem', border: '1px solid #2b345f', borderRadius: '14px', background: '#0b1020' }}>
-          <h2 style={{ marginTop: 0 }}>Live Jamzone Snapshot</h2>
-          <p style={{ margin: '0.2rem 0' }}>Song: {currentSongArtist && currentSongTitle ? `${currentSongArtist} - ${currentSongTitle}` : 'No song metadata yet'}</p>
-          <p style={{ margin: '0.2rem 0' }}>Time: {currentTimeSeconds.toFixed(2)}s</p>
+          <h2 style={{ marginTop: 0 }}>Live Source Snapshot</h2>
+          <p style={{ margin: '0.2rem 0' }}>Source: {manualMode ? 'manual fallback' : 'Jamzone bridge'}</p>
+          <p style={{ margin: '0.2rem 0' }}>Song: {manualMode
+            ? `${manualSongArtist || 'Manual Artist'} - ${manualSongTitle || 'Manual Song'}`
+            : (currentSongArtist && currentSongTitle ? `${currentSongArtist} - ${currentSongTitle}` : 'No song metadata yet')}</p>
+          <p style={{ margin: '0.2rem 0' }}>Time: {(manualMode ? manualTimeSeconds : currentTimeSeconds).toFixed(2)}s</p>
         </section>
 
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
