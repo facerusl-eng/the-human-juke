@@ -2840,7 +2840,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    const nextBrbMessage = getPreservedOverlayMessage(syncedPlaybackState)
+    const currentBrbMessage = syncedPlaybackState?.brbMessage ?? null
+    // Never carry transition payloads into normal quote/now-playing toggles.
+    const nextBrbMessage = Boolean(syncedPlaybackState?.brbActive)
+      || isLastSongSoonOverlayMessage(currentBrbMessage)
+      ? currentBrbMessage
+      : null
 
     try {
       await writeSharedPlaybackState(event.id, {
@@ -2875,6 +2880,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
       const transitionState = getSharedPlaybackTransitionState(syncedPlaybackState)
       if (!transitionState || transitionState.transitionId !== transitionId) {
+        return
+      }
+
+      if (transitionState.songId && transitionState.songId !== currentSong.id) {
         return
       }
 
@@ -2992,6 +3001,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     const currentSong = nowPlayingRef.current
 
     if (!currentEvent?.id || !currentSong?.id) {
+      return
+    }
+
+    if (playbackTransitionState.songId && playbackTransitionState.songId !== currentSong.id) {
       return
     }
 
