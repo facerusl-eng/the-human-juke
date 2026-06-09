@@ -304,6 +304,8 @@ export default function LyricsBoardPage() {
         previous={activeWindow.previous}
         next={activeWindow.next}
         next2={activeWindow.upcoming[1]}
+        allLines={activeWindow.allLines}
+        currentIndex={activeWindow.currentIndex}
         isBeforeFirstLine={activeWindow.isBeforeFirstLine}
         isAfterLastLine={activeWindow.isAfterLastLine}
         autoScrollEnabled={autoScrollEnabled}

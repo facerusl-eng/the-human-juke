@@ -420,6 +420,8 @@ export default function JamzoneLyricsPage() {
             previous={displayWindow.previous}
             next={displayWindow.next}
             next2={displayWindow.upcoming[1]}
+            allLines={displayWindow.allLines}
+            currentIndex={displayWindow.currentIndex}
             isBeforeFirstLine={displayWindow.isBeforeFirstLine}
             isAfterLastLine={displayWindow.isAfterLastLine}
             autoScrollEnabled={autoScrollEnabled}

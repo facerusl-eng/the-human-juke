@@ -7,6 +7,8 @@ export type KaraokeLyricsProps = {
   previous?: LyricLine | null
   next?: LyricLine | null
   next2?: LyricLine | null
+  allLines?: LyricLine[]
+  currentIndex?: number
   isBeforeFirstLine?: boolean
   isAfterLastLine?: boolean
   mode?: 'main' | 'audience' | 'board'
@@ -29,6 +31,8 @@ export default function KaraokeLyrics({
   previous,
   next,
   next2,
+  allLines = [],
+  currentIndex = -1,
   isBeforeFirstLine = false,
   isAfterLastLine = false,
   mode = 'main',
@@ -49,6 +53,7 @@ export default function KaraokeLyrics({
   }, [className, mode])
 
   const currentKey = lineKey(current)
+  const hasFullAutoScrollLines = autoScrollEnabled && allLines.length > 0
 
   const autoScrollProgress = useMemo(() => {
     if (!autoScrollEnabled) {
@@ -87,7 +92,7 @@ export default function KaraokeLyrics({
       behavior: 'smooth',
       block: 'center',
     })
-  }, [autoScrollProgress, currentKey])
+  }, [autoScrollProgress, currentIndex, currentKey])
 
   const statusText = isBeforeFirstLine
     ? 'Waiting for song start...'
@@ -104,7 +109,27 @@ export default function KaraokeLyrics({
           <p className="karaoke-line karaoke-line--previous karaoke-line--muted">{previous.text}</p>
         ) : null}
 
-        {current ? (
+        {hasFullAutoScrollLines ? (
+          allLines.map((line, lineIndex) => {
+            const isCurrentLine = lineIndex === currentIndex
+            const isPreviousLine = lineIndex < currentIndex
+            const lineClassName = isCurrentLine
+              ? 'karaoke-line karaoke-line--current'
+              : (isPreviousLine
+                ? 'karaoke-line karaoke-line--previous karaoke-line--muted'
+                : 'karaoke-line karaoke-line--next')
+
+            return (
+              <p
+                key={`${line.sourceLineNumber}:${line.timeSeconds}:${line.text}`}
+                className={lineClassName}
+                data-karaoke-current={isCurrentLine ? 'true' : undefined}
+              >
+                {line.text}
+              </p>
+            )
+          })
+        ) : current ? (
           <p className="karaoke-line karaoke-line--current" data-karaoke-current="true">{current.text}</p>
         ) : (
           <p className="karaoke-line karaoke-line--current karaoke-line--muted" data-karaoke-current="true">

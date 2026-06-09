@@ -17,6 +17,8 @@ export type LyricWindow = {
   upcoming: LyricLine[]
   isBeforeFirstLine: boolean
   isAfterLastLine: boolean
+  allLines?: LyricLine[]
+  currentIndex?: number
 }
 
 export type LyricSongRef = {

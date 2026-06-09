@@ -34,6 +34,8 @@ function emptyLyricWindow(): LyricWindow {
     upcoming: [],
     isBeforeFirstLine: true,
     isAfterLastLine: false,
+    allLines: [],
+    currentIndex: -1,
   }
 }
 
@@ -224,6 +226,8 @@ export class LyricEngine {
         upcoming: lines.slice(0, 2),
         isBeforeFirstLine: true,
         isAfterLastLine: false,
+        allLines: lines,
+        currentIndex: -1,
       }
     }
 
@@ -239,6 +243,8 @@ export class LyricEngine {
       upcoming: nextTwo,
       isBeforeFirstLine: false,
       isAfterLastLine: activeIndex >= lines.length - 1,
+      allLines: lines,
+      currentIndex: activeIndex,
     }
   }
 
