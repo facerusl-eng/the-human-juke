@@ -41,6 +41,7 @@ export default function IpadControllerPage() {
   const [lastPublishAgoSeconds, setLastPublishAgoSeconds] = useState<number | null>(null)
   const [channelStatus, setChannelStatus] = useState('idle')
   const [channelReconnectNonce, setChannelReconnectNonce] = useState(0)
+  const [lastPublishAck, setLastPublishAck] = useState('none')
   const isLockedToActiveGig = eventIdSource === 'active-gig'
   const manualSourceActive = manualMode || (autoFallbackEnabled && !hasJamzoneBridge)
   const bridgeStatusLabel = hasJamzoneBridge
@@ -295,20 +296,31 @@ export default function IpadControllerPage() {
         return
       }
 
-      void remoteBridgeChannelRef.current?.send({
-        type: 'broadcast',
-        event: JAMZONE_REMOTE_EVENT,
-        payload: {
-          sourceId: sourceIdRef.current,
-          currentTimeSeconds: nextTimeSeconds,
-          currentSong,
-          playPulse: manualPlayPulse,
-          updatedAtMs: Date.now(),
-        },
-      })
+      void (async () => {
+        const ack = await remoteBridgeChannelRef.current?.send({
+          type: 'broadcast',
+          event: JAMZONE_REMOTE_EVENT,
+          payload: {
+            sourceId: sourceIdRef.current,
+            currentTimeSeconds: nextTimeSeconds,
+            currentSong,
+            playPulse: manualPlayPulse,
+            updatedAtMs: Date.now(),
+          },
+        })
 
-      setPublishStatus('publishing')
-      lastPublishAtMsRef.current = Date.now()
+        const ackLabel = typeof ack === 'string' ? ack : JSON.stringify(ack ?? 'unknown')
+        setLastPublishAck(ackLabel)
+
+        if (ackLabel.toLowerCase().includes('ok')) {
+          setChannelConnected(true)
+          setPublishStatus('publishing')
+          lastPublishAtMsRef.current = Date.now()
+          return
+        }
+
+        setPublishStatus('waiting-event')
+      })()
     }
 
     publishTick()
@@ -494,7 +506,9 @@ export default function IpadControllerPage() {
           <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {bridgeStatusLabel}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Channel status: {channelStatus}</p>
+          <p style={{ margin: 0, opacity: 0.8 }}>Channel name: {channelName ?? 'none'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Publish status: {publishStatus}</p>
+          <p style={{ margin: 0, opacity: 0.8 }}>Last publish ack: {lastPublishAck}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Last publish: {lastPublishAgoSeconds !== null ? `${lastPublishAgoSeconds.toFixed(1)}s ago` : 'not yet'}</p>
           <button
             type="button"
