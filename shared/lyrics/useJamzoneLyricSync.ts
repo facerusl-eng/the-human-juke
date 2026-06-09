@@ -34,6 +34,11 @@ export function useJamzoneLyricSync(
 
   const engine = useMemo(() => new LyricEngine(), [])
   const lastSongKey = useRef<string | null>(null)
+  const getCurrentTimeRef = useRef(getCurrentTime)
+
+  useEffect(() => {
+    getCurrentTimeRef.current = getCurrentTime
+  }, [getCurrentTime])
 
   useEffect(() => {
     let cancelled = false
@@ -82,18 +87,18 @@ export function useJamzoneLyricSync(
     return () => {
       cancelled = true
     }
-  }, [engine, getCurrentTime, song])
+  }, [engine, song])
 
   useEffect(() => {
     const updateIntervalMs = options.updateIntervalMs ?? 80
     const timerId = window.setInterval(() => {
-      setWindowState(engine.getCurrentLyricLine(getCurrentTime()))
+      setWindowState(engine.getCurrentLyricLine(getCurrentTimeRef.current()))
     }, updateIntervalMs)
 
     return () => {
       window.clearInterval(timerId)
     }
-  }, [engine, getCurrentTime, options.updateIntervalMs])
+  }, [engine, options.updateIntervalMs])
 
   const result: UseJamzoneLyricSyncResult = {
     window: windowState,
