@@ -14,6 +14,7 @@ export default function IpadControllerPage() {
   const location = useLocation()
   const { profile } = useAuthStore()
 
+  const [eventIdDraft, setEventIdDraft] = useState('')
   const [eventId, setEventId] = useState('')
   const [hasJamzoneBridge, setHasJamzoneBridge] = useState(false)
   const [currentSongTitle, setCurrentSongTitle] = useState('')
@@ -34,7 +35,9 @@ export default function IpadControllerPage() {
       : ''
     const fromProfile = (profile?.active_event_id ?? '').trim()
 
-    setEventId(fromUrl || fromStorage || fromProfile)
+    const initialEventId = fromUrl || fromStorage || fromProfile
+    setEventId(initialEventId)
+    setEventIdDraft(initialEventId)
   }, [location.search, profile?.active_event_id])
 
   useEffect(() => {
@@ -166,6 +169,12 @@ export default function IpadControllerPage() {
     }
   }
 
+  const confirmEventId = () => {
+    const normalizedEventId = eventIdDraft.trim()
+    setEventId(normalizedEventId)
+    setCopyFeedback(normalizedEventId ? 'Event ID confirmed.' : 'Event ID cleared.')
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: '#050711', color: '#d5dcff', padding: '1rem' }}>
       <section style={{ maxWidth: '860px', margin: '0 auto', display: 'grid', gap: '0.9rem' }}>
@@ -180,8 +189,8 @@ export default function IpadControllerPage() {
           <label htmlFor="ipad-event-id" style={{ fontWeight: 600 }}>Event ID for sync</label>
           <input
             id="ipad-event-id"
-            value={eventId}
-            onChange={(event) => setEventId(event.target.value)}
+            value={eventIdDraft}
+            onChange={(event) => setEventIdDraft(event.target.value)}
             placeholder="Paste event id"
             style={{
               minHeight: '52px',
@@ -193,6 +202,20 @@ export default function IpadControllerPage() {
               color: '#e5ebff',
             }}
           />
+          <button
+            type="button"
+            onClick={confirmEventId}
+            style={{
+              minHeight: '52px',
+              borderRadius: '10px',
+              border: '1px solid #44d6a2',
+              background: '#123f35',
+              color: '#defff4',
+              fontWeight: 700,
+            }}
+          >
+            Confirm Event ID
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -210,6 +233,7 @@ export default function IpadControllerPage() {
             Copy Event ID
           </button>
           {copyFeedback ? <p style={{ margin: 0, opacity: 0.85 }}>{copyFeedback}</p> : null}
+          <p style={{ margin: 0, opacity: 0.8 }}>Active event ID: {eventId || 'none'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {hasJamzoneBridge ? 'detected' : 'not detected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Publish status: {publishStatus}</p>
