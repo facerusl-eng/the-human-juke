@@ -60,7 +60,6 @@ const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const GO_LIVE_COUNTDOWN_LOCK_MESSAGE = 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
 const SONG_START_COUNTDOWN_MS = 10_000
-const SPACEBAR_START_COUNTDOWN_MS = 250
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
 const PLAYBACK_ACTION_LOCK_MAX_MS = 20_000
@@ -76,6 +75,7 @@ const BRB_MESSAGE_DICE_OPTIONS = [
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle' | 'next' | 'previous'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
 type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
+type NowPlayingType = 'spotify' | 'queue' | 'none'
 type SpotifyPlaylistMeta = {
   name?: string
   uri?: string
@@ -684,6 +684,14 @@ function GigControlPage() {
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
 
   const nowPlaying = songs[0]
+  const nowPlayingType = useMemo<NowPlayingType>(() => {
+    if (!nowPlaying) {
+      return 'none'
+    }
+
+    return isNowPlayingStarted ? 'queue' : 'spotify'
+  }, [isNowPlayingStarted, nowPlaying])
+  const spotifyToggle = nowPlayingType === 'spotify'
   const globalActionCheckEnabled = event?.globalActionCheckEnabled ?? true
   const globalActionCheckBlockedText = 'Global Action Check is OFF. Enable it in Gig Settings before using Gig Control actions.'
   const ensureGlobalActionCheckEnabled = useCallback((actionLabel: string) => {
@@ -3147,41 +3155,90 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     spaceActionBusyRef.current = spaceActionBusy
   }, [spaceActionBusy])
 
+  const nowPlayingTypeRef = useRef<NowPlayingType>(nowPlayingType)
+  useEffect(() => {
+    nowPlayingTypeRef.current = nowPlayingType
+  }, [nowPlayingType])
+
   // Stable ref to the shortcut so the keydown listener never needs re-registering
   const runQueueTogglePlayShortcutRef = useRef(runQueueTogglePlayShortcut)
   useEffect(() => {
     runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
   }, [runQueueTogglePlayShortcut])
 
-
-  // Only allow spacebar playback when gig is live
-  const runQueueTogglePlayWithSpacebarRule = useCallback(async (options?: { skipIntroAudio?: boolean; countdownMs?: number }) => {
+  const toggleSpotifyPlayPause = useCallback(async () => {
     if (!event?.roomOpen) {
-      setErrorText('Spacebar playback is disabled until the gig is live.');
-      return;
+      setErrorText('Spacebar playback is disabled until the gig is live.')
+      return
     }
-    if (!nowPlayingRef.current) {
-      return;
+
+    if (!spotifyAccessToken) {
+      setErrorText('Connect Spotify first to use Spotify transport controls.')
+      return
     }
-    const now = Date.now();
+
+    sendManualSpotifyTransportCommand('toggle')
+    setErrorText(null)
+  }, [event?.roomOpen, sendManualSpotifyTransportCommand, spotifyAccessToken])
+
+  const toggleQueuePlayPause = useCallback(async () => {
+    if (!event?.roomOpen) {
+      setErrorText('Spacebar playback is disabled until the gig is live.')
+      return
+    }
+
+    const currentSong = nowPlayingRef.current
+    if (!currentSong) {
+      return
+    }
+
+    const now = Date.now()
     if (
-      playbackActionLockRef.current &&
-      playbackActionLockStartedAtRef.current > 0 &&
-      now - playbackActionLockStartedAtRef.current > PLAYBACK_ACTION_LOCK_MAX_MS
+      playbackActionLockRef.current
+      && playbackActionLockStartedAtRef.current > 0
+      && now - playbackActionLockStartedAtRef.current > PLAYBACK_ACTION_LOCK_MAX_MS
     ) {
-      playbackActionLockRef.current = false;
-      playbackActionLockStartedAtRef.current = 0;
-      spaceActionBusyRef.current = false;
-      setSpaceActionBusy(false);
+      playbackActionLockRef.current = false
+      playbackActionLockStartedAtRef.current = 0
+      spaceActionBusyRef.current = false
+      setSpaceActionBusy(false)
     }
+
     if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
-      return;
+      return
     }
-    await runQueueTogglePlayShortcutRef.current({
-      skipIntroAudio: options?.skipIntroAudio === true,
-      countdownMs: options?.countdownMs,
-    });
-  }, [event?.roomOpen]);
+
+    try {
+      const nextStarted = !isNowPlayingStartedRef.current
+      await syncStartedState(nextStarted, currentSong.id)
+      await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+
+      if (spotifyAccessToken) {
+        sendSpotifyTransportCommand('pause', { force: true })
+      }
+
+      setErrorText(null)
+    } catch (error) {
+      console.warn('GigControlPage: queue play/pause toggle failed', error)
+      setErrorText('Playback toggle failed. Please try again.')
+    }
+  }, [event?.roomOpen, sendSpotifyTransportCommand, spotifyAccessToken, syncStartedState])
+
+  const handleSpacebarAction = useCallback(async () => {
+    if (!nowPlayingRef.current) {
+      setErrorText('No song in queue yet. Add a song, then press Space.')
+      return
+    }
+
+    if (nowPlayingTypeRef.current === 'spotify') {
+      await toggleSpotifyPlayPause()
+      return
+    }
+
+    if (nowPlayingTypeRef.current === 'queue') {
+      await toggleQueuePlayPause()
+    }
+  }, [toggleQueuePlayPause, toggleSpotifyPlayPause])
 
   /**
    * GLOBAL MODE SWITCH: QUOTE ↔ NOW PLAYING
@@ -3279,11 +3336,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     runGlobalToggleQuoteNowPlayingRef.current = runGlobalToggleQuoteNowPlaying
   }, [runGlobalToggleQuoteNowPlaying])
 
-  const runQueueTogglePlayWithSpacebarRuleRef = useRef(runQueueTogglePlayWithSpacebarRule)
-  useEffect(() => {
-    runQueueTogglePlayWithSpacebarRuleRef.current = runQueueTogglePlayWithSpacebarRule
-  }, [runQueueTogglePlayWithSpacebarRule])
-
   const handleGlobalSpacebarKeyDown = useCallback(async (event: KeyboardEvent) => {
     const normalizedKey = typeof event.key === 'string' ? event.key.trim().toLowerCase() : ''
     const isSpaceKey = event.code === 'Space'
@@ -3325,21 +3377,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    if (!nowPlayingRef.current) {
-      setErrorText('No song in queue yet. Add a song, then press Space.')
-      return
-    }
-
     try {
-      await runQueueTogglePlayWithSpacebarRuleRef.current({
-        skipIntroAudio: false,
-        countdownMs: SPACEBAR_START_COUNTDOWN_MS,
-      })
+      await handleSpacebarAction()
     } catch (error) {
       console.warn('GigControlPage: spacebar playback action failed', error)
       setErrorText('Playback toggle failed. Please try again.')
     }
-  }, [])
+  }, [handleSpacebarAction])
 
   useEffect(() => {
     document.addEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
@@ -3833,6 +3877,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                   Spotify Next
                 </button>
               </div>
+              <p className="subcopy no-margin">
+                Spotify Toggle: <strong>{spotifyToggle ? 'On (Now Playing = Spotify)' : 'Off (Now Playing = Queue)'}</strong>
+              </p>
               <p className="subcopy no-margin">
                 Selected Spotify playlist: <strong>{selectedSpotifyPlaylistLabel}</strong>
                 {selectedSpotifyPlaylistOwnerText ? ` by ${selectedSpotifyPlaylistOwnerText}` : ''}
@@ -4380,7 +4427,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 </button>
               </div>
               <p className="subcopy no-margin">
-                Playing now. {event?.roomOpen ? 'Press Space to toggle Quote / Now Playing.' : 'Spacebar is disabled until gig is live.'}
+                Playing now. {event?.roomOpen ? 'Press Space to toggle queue play/pause for this song.' : 'Spacebar is disabled until gig is live.'}
               </p>
             </>
           ) : nowPlaying ? (
@@ -4389,7 +4436,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 <p className="gig-between-songs-quote">{betweenSongQuote}</p>
                 <p className="subcopy gig-between-songs-hint">
                   {'Tap Go Live or '}
-                  {event?.roomOpen ? 'press Space to go live.' : 'Spacebar is disabled until gig is live.'}
+                  {event?.roomOpen ? 'press Space to play/pause Spotify only.' : 'Spacebar is disabled until gig is live.'}
                 </p>
               </div>
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
