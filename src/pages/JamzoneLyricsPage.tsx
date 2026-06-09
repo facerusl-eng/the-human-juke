@@ -23,6 +23,20 @@ function buildSongIdFallback(title: string, artist: string) {
   return `clock:${artist.toLowerCase().replace(/\s+/g, '-')}::${title.toLowerCase().replace(/\s+/g, '-')}`
 }
 
+function isPlaceholderSong(song: JamzoneSong | null | undefined) {
+  if (!song) {
+    return false
+  }
+
+  const title = song.title.trim().toLowerCase()
+  const artist = song.artist.trim().toLowerCase()
+  const id = song.id.trim().toLowerCase()
+
+  return title === 'fallback song'
+    || artist === 'fallback artist'
+    || id === 'manual-fallback'
+}
+
 function buildMissingLyricsFallbackWindow(song: JamzoneSong, currentTimeSeconds: number): LyricWindow {
   return {
     current: {
@@ -276,7 +290,10 @@ export default function JamzoneLyricsPage() {
 
   const useDurableClock = Boolean(syncEventId && durableClockSnapshot)
   const useRemoteSnapshot = Boolean(syncEventId && !useDurableClock && remoteBridgeConnected && remoteSong)
-  const activeSong = (useDurableClock ? durableClockSong : (useRemoteSnapshot ? remoteSong : bridgeSong)) ?? urlSong
+  const sourceSong = useDurableClock ? durableClockSong : (useRemoteSnapshot ? remoteSong : bridgeSong)
+  const activeSong = sourceSong && !isPlaceholderSong(sourceSong)
+    ? sourceSong
+    : urlSong
   const bridgeStatusLabel = hasJamzoneBridge
     ? 'detected'
     : (useRemoteSnapshot ? 'not detected (using iPad remote source)' : 'not detected')

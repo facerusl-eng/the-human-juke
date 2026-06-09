@@ -17,6 +17,20 @@ function buildSongIdFallback(title: string, artist: string) {
   return `clock:${artist.toLowerCase().replace(/\s+/g, '-')}::${title.toLowerCase().replace(/\s+/g, '-')}`
 }
 
+function isPlaceholderSong(song: JamzoneSong | null | undefined) {
+  if (!song) {
+    return false
+  }
+
+  const title = song.title.trim().toLowerCase()
+  const artist = song.artist.trim().toLowerCase()
+  const id = song.id.trim().toLowerCase()
+
+  return title === 'fallback song'
+    || artist === 'fallback artist'
+    || id === 'manual-fallback'
+}
+
 function buildMissingLyricsFallbackWindow(song: JamzoneSong, currentTimeSeconds: number): LyricWindow {
   return {
     current: {
@@ -126,7 +140,10 @@ export default function LyricsBoardPage() {
   const useRemoteSnapshot = Boolean(syncEventId && !useDurableClock && remoteBridgeConnected && remoteSong)
 
   const remoteSongRef = useMemo<LyricSongRef | null>(() => {
-    const activeSong = (useDurableClock ? durableClockSong : remoteSong) ?? urlSong
+    const sourceSong = useDurableClock ? durableClockSong : remoteSong
+    const activeSong = sourceSong && !isPlaceholderSong(sourceSong)
+      ? sourceSong
+      : urlSong
     if (!activeSong) {
       return null
     }
@@ -242,7 +259,10 @@ export default function LyricsBoardPage() {
       return windowState
     }
 
-    const activeSong = useDurableClock ? durableClockSong : remoteSong
+    const sourceSong = useDurableClock ? durableClockSong : remoteSong
+    const activeSong = sourceSong && !isPlaceholderSong(sourceSong)
+      ? sourceSong
+      : urlSong
 
     if (activeSong && remoteLyricLoadError) {
       if (useDurableClock && durableClockSnapshot) {
