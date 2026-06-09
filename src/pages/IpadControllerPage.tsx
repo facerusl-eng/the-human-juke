@@ -347,11 +347,13 @@ export default function IpadControllerPage() {
       const useManualSource = manualMode || (autoFallbackEnabled && !bridgeAvailable)
 
       const currentSong = useManualSource
-        ? {
-            id: manualSongId.trim() || 'manual-fallback',
-            title: manualSongTitle.trim() || 'Fallback Song',
-            artist: manualSongArtist.trim() || 'Fallback Artist',
-          }
+        ? ((manualSongTitle.trim() && manualSongArtist.trim())
+          ? {
+              id: manualSongId.trim() || `manual:${manualSongArtist.trim().toLowerCase().replace(/\s+/g, '-')}::${manualSongTitle.trim().toLowerCase().replace(/\s+/g, '-')}`,
+              title: manualSongTitle.trim(),
+              artist: manualSongArtist.trim(),
+            }
+          : null)
         : getJamzoneCurrentSong()
 
       const nextTimeSeconds = useManualSource ? manualTimeSeconds : getJamzoneCurrentTimeSeconds()
