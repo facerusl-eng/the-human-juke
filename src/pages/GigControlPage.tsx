@@ -643,6 +643,7 @@ function GigControlPage() {
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
+  const mirrorPreviewIframeRef = useRef<HTMLIFrameElement | null>(null)
   const eventRef = useRef(event)
     const getHostNowMs = useCallback(() => Date.now() + hostClockOffsetRef.current, [])
 
@@ -3382,11 +3383,29 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [handleSpacebarAction])
 
   useEffect(() => {
-    document.addEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
-    return () => {
-      document.removeEventListener('keydown', handleGlobalSpacebarKeyDown as unknown as EventListener, true)
+    const listener = handleGlobalSpacebarKeyDown as unknown as EventListener
+    document.addEventListener('keydown', listener, true)
+    window.addEventListener('keydown', listener, true)
+
+    let iframeDocument: Document | null = null
+    const bindMirrorIframeListener = () => {
+      try {
+        const iframe = mirrorPreviewIframeRef.current
+        iframeDocument = iframe?.contentWindow?.document ?? null
+        iframeDocument?.addEventListener('keydown', listener, true)
+      } catch {
+        iframeDocument = null
+      }
     }
-  }, [handleGlobalSpacebarKeyDown])
+
+    bindMirrorIframeListener()
+
+    return () => {
+      document.removeEventListener('keydown', listener, true)
+      window.removeEventListener('keydown', listener, true)
+      iframeDocument?.removeEventListener('keydown', listener, true)
+    }
+  }, [handleGlobalSpacebarKeyDown, mirrorMonitorUrl])
 
   useEffect(() => {
     if (!isFocusedGigControlWindow) {
@@ -4123,6 +4142,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
           </div>
           <div className="gig-mirror-preview-frame" role="img" aria-label="Mirror screen preview">
             <iframe
+              ref={mirrorPreviewIframeRef}
               key={mirrorMonitorUrl}
               title="Live mirror monitor"
               src={mirrorMonitorUrl}
