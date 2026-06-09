@@ -75,7 +75,6 @@
   margin-bottom: 0.25em;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  break-after: avoid-column;
 }
 
 .lyrics-stage-text .karaoke-heading {
@@ -155,8 +154,6 @@
   column-count: 2;
   column-gap: 34px;
   column-fill: auto;
-  orphans: 2;
-  widows: 2;
 }
 
 .lyrics-stage-text-auto-fit {

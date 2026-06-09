@@ -958,7 +958,6 @@ function CreateGigPage() {
                 type="button"
                 className="create-gig-event-type-trigger"
                 aria-haspopup="listbox"
-                aria-expanded={eventTypePickerOpen}
                 onClick={() => setEventTypePickerOpen((isOpen) => !isOpen)}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
@@ -976,7 +975,6 @@ function CreateGigPage() {
                       key={option.value}
                       type="button"
                       role="option"
-                      aria-selected={eventType === option.value}
                       className={`create-gig-event-type-option${eventType === option.value ? ' is-selected' : ''}`}
                       onClick={() => {
                         setEventType(option.value)
