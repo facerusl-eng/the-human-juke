@@ -48,6 +48,14 @@ export default function JamzoneLyricsPage() {
     return `${JAMZONE_REMOTE_CHANNEL_PREFIX}:${syncEventId}`
   }, [syncEventId])
 
+  const boardHref = useMemo(() => {
+    if (!syncEventId) {
+      return '/lyrics-board'
+    }
+
+    return `/lyrics-board?event=${encodeURIComponent(syncEventId)}`
+  }, [syncEventId])
+
   useEffect(() => {
     const updateFromBridge = () => {
       const bridge = getJamzoneBridge()
@@ -184,7 +192,7 @@ export default function JamzoneLyricsPage() {
           {!syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
           {syncEventId && remoteBridgeConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote bridge: active</p> : null}
           <p style={{ marginTop: '0.35rem' }}>
-            Fullscreen board: <a href="/lyrics-board" target="_blank" rel="noreferrer">open lyrics board</a>
+            Fullscreen board: <a href={boardHref} target="_blank" rel="noreferrer">open lyrics board</a>
           </p>
         </header>
 
