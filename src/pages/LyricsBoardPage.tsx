@@ -104,7 +104,7 @@ export default function LyricsBoardPage() {
     }
   }, [durableClockSnapshot])
 
-  const useDurableClock = Boolean(syncEventId && durableClockSnapshot && durableClockSong)
+  const useDurableClock = Boolean(syncEventId && durableClockSnapshot)
 
   const remoteSongRef = useMemo<LyricSongRef | null>(() => {
     const activeSong = useDurableClock ? durableClockSong : remoteSong
@@ -122,7 +122,7 @@ export default function LyricsBoardPage() {
   const { window: remoteLyricWindow, loadError: remoteLyricLoadError } = useJamzoneLyricSync(
     remoteSongRef,
     () => {
-      if (useDurableClock) {
+      if (useDurableClock && durableClockSnapshot) {
         return getJamzoneClockDisplayTimeSeconds(durableClockSnapshot)
       }
 
@@ -205,7 +205,7 @@ export default function LyricsBoardPage() {
     const activeSong = useDurableClock ? durableClockSong : remoteSong
 
     if (activeSong && remoteLyricLoadError) {
-      if (useDurableClock) {
+      if (useDurableClock && durableClockSnapshot) {
         const currentTimeSeconds = getJamzoneClockDisplayTimeSeconds(durableClockSnapshot)
         return buildMissingLyricsFallbackWindow(activeSong, currentTimeSeconds)
       }
@@ -222,7 +222,7 @@ export default function LyricsBoardPage() {
     <main style={{ width: '100vw', height: '100vh', background: '#02030a' }}>
       {syncEventId && !useDurableClock && !remoteBridgeConnected ? (
         <p style={{ margin: 0, padding: '0.65rem 1rem', color: '#d4dcff', opacity: 0.84 }}>
-          Waiting for iPad bridge on event {syncEventId}...
+          Waiting for legacy iPad bridge fallback on event {syncEventId}...
         </p>
       ) : null}
       {syncEventId && useDurableClock ? (
