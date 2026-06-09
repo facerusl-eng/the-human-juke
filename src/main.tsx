@@ -5,6 +5,7 @@ import './App.css'
 import App from './App.tsx'
 import { logCrashTelemetry } from './lib/crashTelemetry'
 import { AppUpdateNotification } from './components/AppUpdateNotification'
+import { initializeJamzoneBridgeRuntime } from './lib/jamzoneBridge'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const GLOBAL_RUNTIME_DIAGNOSTIC_EVENT = 'human-jukebox-runtime-diagnostic'
@@ -16,6 +17,8 @@ const IOS_SW_BYPASS_STORAGE_KEY = 'human-jukebox-ios-sw-cache-bypass'
 const MOBILE_ZOOM_UNLOCK_STORAGE_KEY = 'human-jukebox-mobile-zoom-unlock'
 const MOBILE_ZOOM_PREF_EVENT = 'human-jukebox-mobile-zoom-preference-changed'
 const VIEWPORT_CONTENT_ACCESSIBLE = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
+
+initializeJamzoneBridgeRuntime()
 
 function isLocalPreviewHost() {
   if (typeof window === 'undefined') {
