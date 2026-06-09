@@ -123,6 +123,88 @@ function annotateLyricsSections(rawLyrics: string) {
     .trim();
 }
 
+function renderKaraokeLyrics(text: string) {
+  return text.split('\n').map((line, index) => {
+    if (line.trim() === '') {
+      return <br key={`br-${index}`} />;
+    }
+    const isHeading = line.trim().endsWith(':') && line.length < 40;
+    return (
+      <div key={`line-${index}`} className={isHeading ? 'karaoke-heading' : 'karaoke-line'}>
+        {line}
+      </div>
+    );
+  });
+}
+
+type KaraokeFocusBlock =
+  | { kind: 'heading'; heading: string }
+  | { kind: 'lyrics'; nowLine: string; nextLine: string | null }
+
+function buildKaraokeFocusBlocks(text: string): KaraokeFocusBlock[] {
+  const lines = text.split('\n')
+  const blocks: KaraokeFocusBlock[] = []
+  let pairBuffer: string[] = []
+
+  const flushPairBuffer = () => {
+    if (pairBuffer.length === 0) {
+      return
+    }
+
+    for (let index = 0; index < pairBuffer.length; index += 2) {
+      const nowLine = pairBuffer[index]
+      const nextLine = pairBuffer[index + 1] ?? null
+      blocks.push({ kind: 'lyrics', nowLine, nextLine })
+    }
+
+    pairBuffer = []
+  }
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+
+    if (!line) {
+      flushPairBuffer()
+      continue
+    }
+
+    const isHeading = line.endsWith(':') && line.length < 40
+    if (isHeading) {
+      flushPairBuffer()
+      blocks.push({ kind: 'heading', heading: line })
+      continue
+    }
+
+    pairBuffer.push(rawLine)
+  }
+
+  flushPairBuffer()
+  return blocks
+}
+
+function renderKaraokeFocusBlocks(text: string) {
+  const blocks = buildKaraokeFocusBlocks(text)
+
+  return blocks.map((block, index) => {
+    if (block.kind === 'heading') {
+      return (
+        <div key={`focus-heading-${index}`} className="lyrics-focus-heading" aria-hidden="true">
+          {block.heading}
+        </div>
+      )
+    }
+
+    return (
+      <article key={`focus-lyrics-${index}`} className="lyrics-focus-card">
+        <p className="lyrics-focus-label">Now</p>
+        <p className="lyrics-focus-primary">{block.nowLine}</p>
+        <p className="lyrics-focus-label">Next</p>
+        <p className="lyrics-focus-secondary">{block.nextLine ?? '...'}</p>
+      </article>
+    )
+  })
+}
+
 function sanitizeReturnPath(value: string | null | undefined) {
   const trimmedValue = (value ?? '').trim();
 
@@ -469,7 +551,15 @@ export default function LyricsPage() {
         </section>
       ) : null}
 
-      {formattedLyrics ? <pre className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}` : ''}`}>{formattedLyrics}</pre> : null}
+      {formattedLyrics ? (
+        <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}` : ''}`}>
+          {isStageMode ? (
+            <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
+          ) : (
+            renderKaraokeLyrics(formattedLyrics)
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
