@@ -57,6 +57,7 @@ export default function IpadControllerPage() {
   const manualLastTickAtRef = useRef(Date.now())
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const lastPublishAtMsRef = useRef<number | null>(null)
+  const autoStartTriggeredRef = useRef(false)
 
   const requestWakeLock = async () => {
     if (!wakeLockEnabled || typeof navigator === 'undefined' || !('wakeLock' in navigator)) {
@@ -222,6 +223,21 @@ export default function IpadControllerPage() {
       window.clearInterval(timerId)
     }
   }, [manualMode, manualRunning, autoFallbackEnabled, hasJamzoneBridge])
+
+  useEffect(() => {
+    if (!manualSourceActive || !channelConnected || manualRunning || manualTimeSeconds > 0 || autoStartTriggeredRef.current) {
+      return
+    }
+
+    autoStartTriggeredRef.current = true
+    manualLastTickAtRef.current = Date.now()
+    setManualPlayPulse((pulse) => pulse + 1)
+    setManualRunning(true)
+  }, [channelConnected, manualRunning, manualSourceActive, manualTimeSeconds])
+
+  useEffect(() => {
+    autoStartTriggeredRef.current = false
+  }, [eventId])
 
   const channelName = useMemo(() => {
     const normalizedEventId = eventId.trim()
