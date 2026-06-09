@@ -6,7 +6,16 @@ import { useAuthStore } from '../state/authStore';
 import { supabase } from '../lib/supabase';
 import { cacheFoundLyrics, getAutoCachedLyrics, getLyricsPrefetchStatus, markLyricsNotFound } from '../lib/lyricsPrefetch';
 import { normalizeAudienceLocale, readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity';
+import {
+  PLAYBACK_STATE_BROADCAST_CHANNEL,
+  PLAYBACK_STATE_EVENT,
+  PLAYBACK_STATE_STORAGE_KEY,
+  readSharedPlaybackState,
+  type SharedPlaybackState,
+} from '../lib/playbackState';
 import '../audience-karafun.css';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function normalizeLyricsInput(value: string | null | undefined) {
   return (value ?? '').replace(/\s+/g, ' ').trim();
@@ -388,6 +397,26 @@ function sanitizeReturnPath(value: string | null | undefined) {
   return trimmedValue;
 }
 
+function resolveEventIdForLyrics(searchParams: URLSearchParams, returnToPath: string | null) {
+  const directEventId = (searchParams.get('event') ?? '').trim();
+  if (UUID_PATTERN.test(directEventId)) {
+    return directEventId;
+  }
+
+  const returnPath = (returnToPath ?? '').trim();
+  if (!returnPath.startsWith('/')) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(returnPath, window.location.origin);
+    const returnEventId = (parsedUrl.searchParams.get('event') ?? '').trim();
+    return UUID_PATTERN.test(returnEventId) ? returnEventId : null;
+  } catch {
+    return null;
+  }
+}
+
 function buildLyricsQueries(title: string, artist: string) {
   const normalizeQuotes = (value: string) => value
     .replace(/[\u2018\u2019\u2032]/g, "'")
@@ -484,6 +513,8 @@ export default function LyricsPage() {
   const [manualSaveMessage, setManualSaveMessage] = useState<string | null>(null);
   const [savingManualLyrics, setSavingManualLyrics] = useState(false);
   const [timedElapsedMs, setTimedElapsedMs] = useState(0);
+  const [playbackIsStarted, setPlaybackIsStarted] = useState<boolean | null>(null);
+  const [playbackStartedAtMs, setPlaybackStartedAtMs] = useState<number | null>(null);
 
   const formattedLyrics = useMemo(() => {
     if (!lyrics) {
@@ -528,6 +559,87 @@ export default function LyricsPage() {
     return '';
   }, [formattedLyrics, isStageMode]);
 
+  const lyricsEventId = useMemo(
+    () => resolveEventIdForLyrics(searchParams, returnToPath),
+    [returnToPath, searchParams],
+  );
+
+  useEffect(() => {
+    if (!isStageMode || !lyricsEventId) {
+      setPlaybackIsStarted(null);
+      setPlaybackStartedAtMs(null);
+      return;
+    }
+
+    let isCurrent = true;
+    let playbackChannel: BroadcastChannel | null = null;
+
+    const applyPlaybackState = (nextState: SharedPlaybackState | null | undefined) => {
+      if (!isCurrent || !nextState) {
+        return;
+      }
+
+      if (nextState.isStarted) {
+        setPlaybackIsStarted(true);
+        setPlaybackStartedAtMs((previousValue) => previousValue ?? Date.now());
+      } else {
+        setPlaybackIsStarted(false);
+        setPlaybackStartedAtMs(null);
+      }
+    };
+
+    const syncFromDb = async () => {
+      const nextState = await readSharedPlaybackState(lyricsEventId);
+      applyPlaybackState(nextState);
+    };
+
+    const onPlaybackStateEvent = (nextEvent: Event) => {
+      const detail = (nextEvent as CustomEvent<{ eventId?: string; state?: SharedPlaybackState }>).detail;
+      if (!detail || detail.eventId !== lyricsEventId) {
+        return;
+      }
+      applyPlaybackState(detail.state ?? null);
+    };
+
+    const onStorageEvent = (nextEvent: StorageEvent) => {
+      if (nextEvent.key !== PLAYBACK_STATE_STORAGE_KEY || !nextEvent.newValue) {
+        return;
+      }
+
+      try {
+        const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState };
+        if (detail.eventId !== lyricsEventId) {
+          return;
+        }
+        applyPlaybackState(detail.state ?? null);
+      } catch {
+        // Ignore malformed cross-tab playback sync payloads.
+      }
+    };
+
+    void syncFromDb();
+    window.addEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener);
+    window.addEventListener('storage', onStorageEvent);
+
+    if ('BroadcastChannel' in window) {
+      playbackChannel = new BroadcastChannel(PLAYBACK_STATE_BROADCAST_CHANNEL);
+      playbackChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
+        const detail = messageEvent.data;
+        if (detail?.eventId !== lyricsEventId) {
+          return;
+        }
+        applyPlaybackState(detail.state ?? null);
+      };
+    }
+
+    return () => {
+      isCurrent = false;
+      window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener);
+      window.removeEventListener('storage', onStorageEvent);
+      playbackChannel?.close();
+    };
+  }, [isStageMode, lyricsEventId]);
+
   useEffect(() => {
     if (!isStageMode || !hasTimedKaraoke) {
       setTimedElapsedMs(0)
@@ -540,13 +652,23 @@ export default function LyricsPage() {
     setTimedElapsedMs(firstTimedLineStartMs)
 
     const timerId = window.setInterval(() => {
+      if (playbackIsStarted === false) {
+        setTimedElapsedMs(firstTimedLineStartMs)
+        return
+      }
+
+      if (playbackIsStarted === true && playbackStartedAtMs) {
+        setTimedElapsedMs(firstTimedLineStartMs + (Date.now() - playbackStartedAtMs))
+        return
+      }
+
       setTimedElapsedMs(firstTimedLineStartMs + (Date.now() - startedAt))
     }, 120)
 
     return () => {
       window.clearInterval(timerId)
     }
-  }, [hasTimedKaraoke, isStageMode, timedKaraokeLines])
+  }, [hasTimedKaraoke, isStageMode, timedKaraokeLines, playbackIsStarted, playbackStartedAtMs])
 
   const backButtonLabel = useMemo(() => {
     if (!isGigControlReturnPath) {
@@ -750,7 +872,7 @@ export default function LyricsPage() {
       ) : null}
 
       {formattedLyrics ? (
-        <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}` : ''}`}>
+        <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}${hasTimedKaraoke ? ' lyrics-stage-text-timed' : ''}` : ''}`}>
           {isStageMode ? (() => {
             if (!hasTimedKaraoke) {
               return <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
@@ -780,6 +902,27 @@ export default function LyricsPage() {
                   <p className="lyrics-focus-label">Next</p>
                   <p className="lyrics-focus-secondary">{nextLine?.text ?? '...'}</p>
                 </article>
+                <section className="lyrics-stage-full-timeline" aria-label="Full lyrics timeline">
+                  {timedKaraokeLines.map((line, index) => {
+                    if (line.isHeading) {
+                      return (
+                        <p key={`timeline-heading-${index}`} className="lyrics-timeline-heading">{line.headingText}</p>
+                      )
+                    }
+
+                    const isActive = index === activeLineIndex
+                    const isSung = index < activeLineIndex
+
+                    return (
+                      <p
+                        key={`timeline-line-${index}`}
+                        className={`lyrics-timeline-line${isActive ? ' is-active' : ''}${isSung ? ' is-sung' : ''}`}
+                      >
+                        {isActive ? renderTimedWords(line, timedElapsedMs) : line.text}
+                      </p>
+                    )
+                  })}
+                </section>
               </div>
             )
           })() : (

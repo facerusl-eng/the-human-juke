@@ -150,10 +150,12 @@
   min-height: 0;
   padding: 14px 18px 18px 18px;
   margin-bottom: 0;
-  overflow: hidden;
-  column-count: 2;
-  column-gap: 34px;
-  column-fill: auto;
+  overflow-y: auto;
+  column-count: 1;
+}
+
+.lyrics-stage-text-timed {
+  padding-right: 12px;
 }
 
 .lyrics-stage-focus {
@@ -235,6 +237,43 @@
   line-height: 1.28;
   font-weight: 600;
   color: rgba(227, 238, 255, 0.9);
+}
+
+.lyrics-stage-full-timeline {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(6, 10, 20, 0.5);
+}
+
+.lyrics-timeline-heading {
+  margin: 8px 0 2px;
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5dd7ff;
+  text-align: left;
+}
+
+.lyrics-timeline-line {
+  margin: 0;
+  font-size: clamp(0.88rem, 1.04vw, 1.05rem);
+  line-height: 1.32;
+  color: rgba(229, 236, 250, 0.85);
+  text-align: left;
+}
+
+.lyrics-timeline-line.is-sung {
+  color: rgba(188, 201, 225, 0.62);
+}
+
+.lyrics-timeline-line.is-active {
+  color: #ffffff;
+  font-weight: 700;
 }
 
 .lyrics-stage-text-auto-fit {
