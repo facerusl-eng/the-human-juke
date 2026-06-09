@@ -30,6 +30,7 @@ export default function JamzoneLyricsPage() {
     currentTimeSeconds: 0,
     updatedAtMs: Date.now(),
   })
+  const lastPlayPulseRef = useRef(0)
 
   const localSyncTransport = useMemo(() => createLocalLyricSyncTransport(LOCAL_LYRIC_SYNC_CHANNEL), [])
   const syncEventId = useMemo(() => {
@@ -88,6 +89,7 @@ export default function JamzoneLyricsPage() {
           sourceId?: string
           currentTimeSeconds?: number
           currentSong?: JamzoneSong | null
+          playPulse?: number
           updatedAtMs?: number
         }
 
@@ -99,6 +101,15 @@ export default function JamzoneLyricsPage() {
           remoteSnapshotRef.current = {
             currentTimeSeconds: Math.max(0, Number(data.currentTimeSeconds)),
             updatedAtMs: Number.isFinite(data.updatedAtMs) ? Number(data.updatedAtMs) : Date.now(),
+          }
+        }
+
+        if (Number.isFinite(data.playPulse) && Number(data.playPulse) > lastPlayPulseRef.current) {
+          lastPlayPulseRef.current = Number(data.playPulse)
+          // Force a minimal positive tick so lyrics can transition immediately on Play.
+          remoteSnapshotRef.current = {
+            currentTimeSeconds: Math.max(0.02, remoteSnapshotRef.current.currentTimeSeconds),
+            updatedAtMs: Date.now(),
           }
         }
 

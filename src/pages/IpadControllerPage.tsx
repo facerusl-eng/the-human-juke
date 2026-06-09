@@ -31,7 +31,8 @@ export default function IpadControllerPage() {
   const [manualSongTitle, setManualSongTitle] = useState('Manual Song')
   const [manualSongArtist, setManualSongArtist] = useState('Manual Artist')
   const [manualTimeSeconds, setManualTimeSeconds] = useState(0)
-  const [manualRunning, setManualRunning] = useState(true)
+  const [manualRunning, setManualRunning] = useState(false)
+  const [manualPlayPulse, setManualPlayPulse] = useState(0)
   const [eventIdSource, setEventIdSource] = useState<'url' | 'active-gig' | 'local' | 'manual' | 'none'>('none')
   const isLockedToActiveGig = eventIdSource === 'active-gig'
 
@@ -189,6 +190,7 @@ export default function IpadControllerPage() {
           sourceId: sourceIdRef.current,
           currentTimeSeconds: nextTimeSeconds,
           currentSong,
+          playPulse: manualPlayPulse,
           updatedAtMs: Date.now(),
         },
       })
@@ -202,7 +204,7 @@ export default function IpadControllerPage() {
     return () => {
       window.clearInterval(timerId)
     }
-  }, [eventId, manualMode, manualSongArtist, manualSongId, manualSongTitle, manualTimeSeconds, autoFallbackEnabled])
+  }, [eventId, manualMode, manualSongArtist, manualSongId, manualSongTitle, manualTimeSeconds, autoFallbackEnabled, manualPlayPulse, manualRunning])
 
   const lyricsUrl = useMemo(() => {
     if (!eventId.trim()) {
@@ -422,7 +424,16 @@ export default function IpadControllerPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setManualRunning((running) => !running)
+                    setManualRunning((running) => {
+                      const nextRunning = !running
+                      if (nextRunning) {
+                        setManualPlayPulse((pulse) => pulse + 1)
+                        if (manualTimeSeconds <= 0) {
+                          setManualTimeSeconds(0.02)
+                        }
+                      }
+                      return nextRunning
+                    })
                     manualLastTickAtRef.current = Date.now()
                   }}
                   style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #4b66ce', background: '#182a5e', color: '#e7eeff', fontWeight: 700 }}
