@@ -3169,14 +3169,29 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    if (!spotifyAccessToken) {
+    let token = spotifyAccessToken
+
+    if (!token) {
+      try {
+        token = await refreshSpotifyAccessToken()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Spotify token refresh failed.'
+        setSpotifyStatusText(message)
+        setErrorText('Connect Spotify first to use Spotify transport controls.')
+        return
+      }
+    }
+
+    if (!token) {
       setErrorText('Connect Spotify first to use Spotify transport controls.')
       return
     }
 
-    sendManualSpotifyTransportCommand('toggle')
+    setSpotifyStatusText('Sending Spotify play/pause command...')
+    spotifyTransportNonceRef.current += 1
+    setSpotifyTransportCommand({ mode: 'toggle', nonce: spotifyTransportNonceRef.current })
     setErrorText(null)
-  }, [event?.roomOpen, sendManualSpotifyTransportCommand, spotifyAccessToken])
+  }, [event?.roomOpen, refreshSpotifyAccessToken, spotifyAccessToken])
 
   const toggleQueuePlayPause = useCallback(async () => {
     if (!event?.roomOpen) {
