@@ -8,7 +8,7 @@
     "dev:web": "vite",
     "dev:api": "node server/index.js",
     "build": "tsc -b && vite build",
-    "tauri": "tauri",
+    "tauri": "node scripts/tauri-with-shortcut.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:responsive": "node scripts/responsive-smoke.mjs",
