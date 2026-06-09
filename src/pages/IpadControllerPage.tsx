@@ -47,6 +47,10 @@ export default function IpadControllerPage() {
   const bridgeStatusLabel = hasJamzoneBridge
     ? 'detected'
     : (manualSourceActive ? 'not detected (manual fallback active)' : 'not detected')
+  const publishAckOk = lastPublishAck.toLowerCase().includes('ok')
+  const syncHealthLabel = publishAckOk
+    ? 'live (publishing to remote bridge)'
+    : (channelConnected ? 'connecting (waiting for publish ack)' : 'offline (channel disconnected)')
 
   const sourceIdRef = useRef(`ipad-${Math.random().toString(36).slice(2)}`)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -504,6 +508,7 @@ export default function IpadControllerPage() {
             Auto fallback to manual source when bridge is missing
           </label>
           <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {bridgeStatusLabel}</p>
+          <p style={{ margin: 0, opacity: 0.92, color: publishAckOk ? '#86f5c7' : '#ffd58a' }}>Sync health: {syncHealthLabel}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Channel status: {channelStatus}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Channel name: {channelName ?? 'none'}</p>
