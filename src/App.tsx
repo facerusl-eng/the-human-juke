@@ -16,6 +16,8 @@ import EventPage from './pages/EventPage'
 import AudienceSongListPage from './pages/AudienceSongListPage'
 import MirrorPage from './pages/MirrorPage'
 import HomePage from './pages/HomePage'
+import JamzoneLyricsPage from './pages/JamzoneLyricsPage'
+import LyricsBoardPage from './pages/LyricsBoardPage'
 const LyricsPage = lazyWithChunkReload(() => import('./pages/LyricsPage'))
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
@@ -235,10 +237,18 @@ const router = createBrowserRouter([
         path: 'audience/song-list',
         element: withSuspense(withCrashBoundary('Audience', <AudienceSongListPage />)),
       },
-        {
-          path: 'lyrics',
-          element: withSuspense(withCrashBoundary('Audience', <LyricsPage />)),
-        },
+      {
+        path: 'lyrics',
+        element: withSuspense(withCrashBoundary('Jamzone Lyrics', <JamzoneLyricsPage />)),
+      },
+      {
+        path: 'lyrics-legacy',
+        element: withSuspense(withCrashBoundary('Audience', <LyricsPage />)),
+      },
+      {
+        path: 'lyrics-board',
+        element: withSuspense(withCrashBoundary('Lyrics Board', <LyricsBoardPage />)),
+      },
       {
         path: 'feed',
         element: withSuspense(withCrashBoundary('Audience', <FeedPage />)),
