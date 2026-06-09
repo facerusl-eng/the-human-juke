@@ -501,10 +501,15 @@ export default function IpadControllerPage() {
                 }
               }}
             />
-            Enable manual source when Jamzone bridge is unavailable
+            Force manual source (even if native bridge appears)
           </label>
+          {!manualMode && manualSourceActive ? (
+            <p style={{ margin: 0, opacity: 0.82 }}>
+              Auto fallback is active because native bridge is missing. Press Start to run timer.
+            </p>
+          ) : null}
 
-          {manualMode ? (
+          {manualSourceActive ? (
             <>
               <input
                 value={manualSongTitle}
