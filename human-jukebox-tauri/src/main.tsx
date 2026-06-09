@@ -117,7 +117,9 @@ function isChunkLoadFailure(error: unknown): boolean {
 }
 
 function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
-  if (!import.meta.env.PROD || typeof window === 'undefined' || !isChunkLoadFailure(error)) {
+  const allowRecovery = import.meta.env.PROD || isDesktopRuntime()
+
+  if (!allowRecovery || typeof window === 'undefined' || !isChunkLoadFailure(error)) {
     return false
   }
 
@@ -125,7 +127,9 @@ function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
   const previousAttempt = Number(window.sessionStorage.getItem(CHUNK_RECOVERY_LAST_ATTEMPT_KEY) ?? '0')
 
   if (Number.isFinite(previousAttempt) && now - previousAttempt < CHUNK_RECOVERY_THROTTLE_MS) {
-    return false
+    // The same chunk mismatch can fire multiple global errors in quick succession.
+    // Treat throttled repeats as handled to avoid noisy duplicate diagnostics.
+    return true
   }
 
   window.sessionStorage.setItem(CHUNK_RECOVERY_LAST_ATTEMPT_KEY, `${now}`)
