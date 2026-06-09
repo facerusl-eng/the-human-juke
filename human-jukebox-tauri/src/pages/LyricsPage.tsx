@@ -137,6 +137,171 @@ function renderKaraokeLyrics(text: string) {
   });
 }
 
+type TimedKaraokeWord = {
+  text: string
+  startMs: number | null
+}
+
+type TimedKaraokeLine = {
+  text: string
+  isHeading: boolean
+  headingText: string | null
+  lineStartMs: number | null
+  words: TimedKaraokeWord[]
+}
+
+function parseTimestampToMs(rawValue: string | null | undefined) {
+  const normalizedValue = (rawValue ?? '').trim()
+  if (!normalizedValue) {
+    return null
+  }
+
+  const match = normalizedValue.match(/^(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?$/)
+  if (!match) {
+    return null
+  }
+
+  const minutes = Number(match[1])
+  const seconds = Number(match[2])
+  const fractionalRaw = match[3] ?? '0'
+  const fractionMultiplier = fractionalRaw.length === 3 ? 1 : 10
+  const fractionMs = Number(fractionalRaw) * fractionMultiplier
+
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || !Number.isFinite(fractionMs)) {
+    return null
+  }
+
+  return Math.max(0, Math.round((minutes * 60 + seconds) * 1000 + fractionMs))
+}
+
+function parseTimedKaraokeLines(text: string) {
+  return text.split('\n').map<TimedKaraokeLine>((rawLine) => {
+    const headingText = parseHeadingLine(rawLine)
+    const normalizedRawLine = rawLine.replace(/\r/g, '')
+
+    if (headingText) {
+      return {
+        text: headingText,
+        isHeading: true,
+        headingText,
+        lineStartMs: null,
+        words: [],
+      }
+    }
+
+    let workingLine = normalizedRawLine
+    let lineStartMs: number | null = null
+    const leadingTimeMatches = Array.from(workingLine.matchAll(/^\[([^\]]+)\]/g))
+
+    if (leadingTimeMatches.length > 0) {
+      const firstLeadingTimestamp = parseTimestampToMs(leadingTimeMatches[0][1])
+      if (firstLeadingTimestamp !== null) {
+        lineStartMs = firstLeadingTimestamp
+      }
+
+      workingLine = workingLine.replace(/^(\[[^\]]+\])+\s*/, '')
+    }
+
+    const wordsWithTiming: TimedKaraokeWord[] = []
+    const inlineTimedWordPattern = /<(\d{1,2}:\d{2}(?:[.:]\d{1,3})?)>\s*([^<]+)/g
+    const inlineTimedWords = Array.from(workingLine.matchAll(inlineTimedWordPattern))
+
+    if (inlineTimedWords.length > 0) {
+      for (const timedWord of inlineTimedWords) {
+        const timestampMs = parseTimestampToMs(timedWord[1])
+        const wordText = timedWord[2].trim()
+        if (!wordText) {
+          continue
+        }
+        wordsWithTiming.push({
+          text: wordText,
+          startMs: timestampMs,
+        })
+      }
+
+      if (lineStartMs === null) {
+        lineStartMs = wordsWithTiming[0]?.startMs ?? null
+      }
+
+      const cleanLineText = wordsWithTiming.map((word) => word.text).join(' ').trim()
+      return {
+        text: cleanLineText,
+        isHeading: false,
+        headingText: null,
+        lineStartMs,
+        words: wordsWithTiming,
+      }
+    }
+
+    const plainWords = workingLine.trim().split(/\s+/).filter(Boolean).map((word) => ({
+      text: word,
+      startMs: null,
+    }))
+
+    return {
+      text: workingLine.trim(),
+      isHeading: false,
+      headingText: null,
+      lineStartMs,
+      words: plainWords,
+    }
+  })
+}
+
+function getActiveTimedLyricsLineIndex(lines: TimedKaraokeLine[], elapsedMs: number) {
+  const lyricLines = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => !line.isHeading && line.text.length > 0)
+
+  if (lyricLines.length === 0) {
+    return -1
+  }
+
+  const timedLyricsLines = lyricLines.filter(({ line }) => Number.isFinite(line.lineStartMs))
+  if (timedLyricsLines.length === 0) {
+    return lyricLines[0].index
+  }
+
+  for (let index = timedLyricsLines.length - 1; index >= 0; index -= 1) {
+    const currentLine = timedLyricsLines[index]
+    const currentStart = currentLine.line.lineStartMs ?? 0
+    const nextStart = timedLyricsLines[index + 1]?.line.lineStartMs ?? Number.POSITIVE_INFINITY
+
+    if (elapsedMs >= currentStart && elapsedMs < nextStart) {
+      return currentLine.index
+    }
+  }
+
+  return elapsedMs < (timedLyricsLines[0].line.lineStartMs ?? 0)
+    ? timedLyricsLines[0].index
+    : timedLyricsLines[timedLyricsLines.length - 1].index
+}
+
+function renderTimedWords(line: TimedKaraokeLine, elapsedMs: number) {
+  const hasWordTiming = line.words.some((word) => Number.isFinite(word.startMs))
+
+  if (!hasWordTiming) {
+    return line.text
+  }
+
+  return line.words.map((word, index) => {
+    const wordStart = word.startMs ?? Number.POSITIVE_INFINITY
+    const nextWordStart = line.words[index + 1]?.startMs ?? Number.POSITIVE_INFINITY
+    const isSung = elapsedMs >= wordStart
+    const isCurrent = elapsedMs >= wordStart && elapsedMs < nextWordStart
+
+    return (
+      <span
+        key={`timed-word-${index}-${word.text}`}
+        className={`lyrics-word${isSung ? ' is-sung' : ''}${isCurrent ? ' is-current' : ''}`}
+      >
+        {word.text}
+        {index < line.words.length - 1 ? ' ' : ''}
+      </span>
+    )
+  })
+}
+
 type KaraokeFocusBlock =
   | { kind: 'heading'; heading: string }
   | { kind: 'lyrics'; nowLine: string; nextLine: string | null }
@@ -318,6 +483,7 @@ export default function LyricsPage() {
   const [manualLyricsInput, setManualLyricsInput] = useState('');
   const [manualSaveMessage, setManualSaveMessage] = useState<string | null>(null);
   const [savingManualLyrics, setSavingManualLyrics] = useState(false);
+  const [timedElapsedMs, setTimedElapsedMs] = useState(0);
 
   const formattedLyrics = useMemo(() => {
     if (!lyrics) {
@@ -326,6 +492,18 @@ export default function LyricsPage() {
 
     return annotateLyricsSections(lyrics);
   }, [lyrics]);
+
+  const timedKaraokeLines = useMemo(() => {
+    if (!formattedLyrics) {
+      return [] as TimedKaraokeLine[]
+    }
+
+    return parseTimedKaraokeLines(formattedLyrics)
+  }, [formattedLyrics])
+
+  const hasTimedKaraoke = useMemo(() => (
+    timedKaraokeLines.some((line) => Number.isFinite(line.lineStartMs))
+  ), [timedKaraokeLines])
 
   const stageLyricsDensityClass = useMemo(() => {
     if (!isStageMode || !formattedLyrics) {
@@ -349,6 +527,26 @@ export default function LyricsPage() {
 
     return '';
   }, [formattedLyrics, isStageMode]);
+
+  useEffect(() => {
+    if (!isStageMode || !hasTimedKaraoke) {
+      setTimedElapsedMs(0)
+      return
+    }
+
+    const firstTimedLineStartMs = timedKaraokeLines.find((line) => Number.isFinite(line.lineStartMs))?.lineStartMs ?? 0
+    const startedAt = Date.now()
+
+    setTimedElapsedMs(firstTimedLineStartMs)
+
+    const timerId = window.setInterval(() => {
+      setTimedElapsedMs(firstTimedLineStartMs + (Date.now() - startedAt))
+    }, 120)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [hasTimedKaraoke, isStageMode, timedKaraokeLines])
 
   const backButtonLabel = useMemo(() => {
     if (!isGigControlReturnPath) {
@@ -553,9 +751,38 @@ export default function LyricsPage() {
 
       {formattedLyrics ? (
         <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}` : ''}`}>
-          {isStageMode ? (
-            <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
-          ) : (
+          {isStageMode ? (() => {
+            if (!hasTimedKaraoke) {
+              return <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
+            }
+
+            const activeLineIndex = getActiveTimedLyricsLineIndex(timedKaraokeLines, timedElapsedMs)
+            const activeLine = activeLineIndex >= 0 ? timedKaraokeLines[activeLineIndex] : null
+
+            const nextLine = activeLineIndex >= 0
+              ? timedKaraokeLines.slice(activeLineIndex + 1).find((line) => !line.isHeading && line.text.length > 0) ?? null
+              : null
+
+            const headingForActiveLine = activeLineIndex > 0
+              ? [...timedKaraokeLines.slice(0, activeLineIndex)].reverse().find((line) => line.isHeading)?.headingText ?? null
+              : null
+
+            if (!activeLine || activeLine.isHeading) {
+              return <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
+            }
+
+            return (
+              <div className="lyrics-stage-focus lyrics-stage-focus-timed">
+                {headingForActiveLine ? <div className="lyrics-focus-heading">{headingForActiveLine}</div> : null}
+                <article className="lyrics-focus-card is-active">
+                  <p className="lyrics-focus-label">Now</p>
+                  <p className="lyrics-focus-primary is-timed">{renderTimedWords(activeLine, timedElapsedMs)}</p>
+                  <p className="lyrics-focus-label">Next</p>
+                  <p className="lyrics-focus-secondary">{nextLine?.text ?? '...'}</p>
+                </article>
+              </div>
+            )
+          })() : (
             renderKaraokeLyrics(formattedLyrics)
           )}
         </div>
