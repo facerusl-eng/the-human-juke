@@ -4531,7 +4531,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 <p className="gig-between-songs-quote">{betweenSongQuote}</p>
                 <p className="subcopy gig-between-songs-hint">
                   {'Tap Go Live or '}
-                  {event?.roomOpen ? 'press Space to play/pause Spotify only.' : 'Spacebar is disabled until gig is live.'}
+                  {event?.roomOpen ? 'press Space to start the next queued song.' : 'Spacebar is disabled until gig is live.'}
                 </p>
               </div>
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
