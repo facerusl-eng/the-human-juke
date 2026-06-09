@@ -123,6 +123,20 @@ function annotateLyricsSections(rawLyrics: string) {
     .trim();
 }
 
+function renderKaraokeLyrics(text: string) {
+  return text.split('\n').map((line, index) => {
+    if (line.trim() === '') {
+      return <br key={`br-${index}`} />;
+    }
+    const isHeading = line.trim().endsWith(':') && line.length < 40;
+    return (
+      <div key={`line-${index}`} className={isHeading ? 'karaoke-heading' : 'karaoke-line'}>
+        {line}
+      </div>
+    );
+  });
+}
+
 function sanitizeReturnPath(value: string | null | undefined) {
   const trimmedValue = (value ?? '').trim();
 
@@ -469,7 +483,7 @@ export default function LyricsPage() {
         </section>
       ) : null}
 
-      {formattedLyrics ? <pre className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}` : ''}`}>{formattedLyrics}</pre> : null}
+      {formattedLyrics ? <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}` : ''}`}>{renderKaraokeLyrics(formattedLyrics)}</div> : null}
     </div>
   );
 }
