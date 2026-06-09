@@ -8,7 +8,6 @@ import {
   getJamzoneBridge,
   getJamzoneCurrentSong,
   getJamzoneCurrentTimeSeconds,
-  pushJamzoneSnapshot,
   type JamzoneSong,
 } from '../lib/jamzoneBridge'
 import { useAuthStore } from '../state/authStore'
@@ -22,10 +21,15 @@ export default function JamzoneLyricsPage() {
   const location = useLocation()
   const { profile } = useAuthStore()
   const [hasJamzoneBridge, setHasJamzoneBridge] = useState(false)
-  const [song, setSong] = useState<JamzoneSong | null>(null)
+  const [bridgeSong, setBridgeSong] = useState<JamzoneSong | null>(null)
+  const [remoteSong, setRemoteSong] = useState<JamzoneSong | null>(null)
   const [remoteBridgeConnected, setRemoteBridgeConnected] = useState(false)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const sourceIdRef = useRef(`lyrics-${Math.random().toString(36).slice(2)}`)
+  const remoteSnapshotRef = useRef<{ currentTimeSeconds: number; updatedAtMs: number }>({
+    currentTimeSeconds: 0,
+    updatedAtMs: Date.now(),
+  })
 
   const localSyncTransport = useMemo(() => createLocalLyricSyncTransport(LOCAL_LYRIC_SYNC_CHANNEL), [])
   const syncEventId = useMemo(() => {
@@ -60,7 +64,7 @@ export default function JamzoneLyricsPage() {
     const updateFromBridge = () => {
       const bridge = getJamzoneBridge()
       setHasJamzoneBridge(Boolean(bridge))
-      setSong(getJamzoneCurrentSong())
+      setBridgeSong(getJamzoneCurrentSong())
     }
 
     updateFromBridge()
@@ -91,10 +95,16 @@ export default function JamzoneLyricsPage() {
           return
         }
 
-        pushJamzoneSnapshot({
-          currentTimeSeconds: data.currentTimeSeconds,
-          currentSong: data.currentSong,
-        })
+        if (Number.isFinite(data.currentTimeSeconds)) {
+          remoteSnapshotRef.current = {
+            currentTimeSeconds: Math.max(0, Number(data.currentTimeSeconds)),
+            updatedAtMs: Number.isFinite(data.updatedAtMs) ? Number(data.updatedAtMs) : Date.now(),
+          }
+        }
+
+        if (data.currentSong?.id && data.currentSong?.title && data.currentSong?.artist) {
+          setRemoteSong(data.currentSong)
+        }
 
         setRemoteBridgeConnected(true)
       })
@@ -136,32 +146,44 @@ export default function JamzoneLyricsPage() {
     }
   }, [hasJamzoneBridge])
 
+  const useRemoteSnapshot = Boolean(syncEventId && remoteBridgeConnected && remoteSong)
+  const activeSong = useRemoteSnapshot ? remoteSong : bridgeSong
+
   const songRef = useMemo<LyricSongRef | null>(() => {
-    if (!song) {
+    if (!activeSong) {
       return null
     }
 
     return {
-      songId: song.id,
-      artist: song.artist,
-      title: song.title,
+      songId: activeSong.id,
+      artist: activeSong.artist,
+      title: activeSong.title,
     }
-  }, [song])
+  }, [activeSong])
 
   const { window: lyricWindow, isLoading, loadError } = useJamzoneLyricSync(
     songRef,
-    () => getJamzoneCurrentTimeSeconds(),
+    () => {
+      if (!useRemoteSnapshot) {
+        return getJamzoneCurrentTimeSeconds()
+      }
+
+      const elapsedSeconds = Math.max(0, (Date.now() - remoteSnapshotRef.current.updatedAtMs) / 1000)
+      return remoteSnapshotRef.current.currentTimeSeconds + elapsedSeconds
+    },
     { updateIntervalMs: 80 },
   )
 
   useEffect(() => {
-    if (!song) {
+    if (!activeSong) {
       return
     }
 
     const payload = {
-      songId: song.id,
-      jamzoneTimeSeconds: getJamzoneCurrentTimeSeconds(),
+      songId: activeSong.id,
+      jamzoneTimeSeconds: useRemoteSnapshot
+        ? remoteSnapshotRef.current.currentTimeSeconds
+        : getJamzoneCurrentTimeSeconds(),
       current: lyricWindow.current,
       next: lyricWindow.next,
       next2: lyricWindow.upcoming[1],
@@ -175,7 +197,7 @@ export default function JamzoneLyricsPage() {
       event: 'lyrics-frame',
       payload,
     })
-  }, [localSyncTransport, lyricWindow.current, lyricWindow.next, lyricWindow.upcoming, song])
+  }, [activeSong, localSyncTransport, lyricWindow.current, lyricWindow.next, lyricWindow.upcoming, useRemoteSnapshot])
 
   return (
     <main style={{ minHeight: '100vh', background: '#02030a', padding: '1rem' }}>
@@ -185,12 +207,13 @@ export default function JamzoneLyricsPage() {
           <p style={{ margin: 0, opacity: 0.85 }}>
             This view reads Jamzone playback time only. Lyrics advance automatically without manual stepping.
           </p>
-          {song ? <p style={{ marginTop: '0.55rem' }}>Now playing: {song.artist} - {song.title}</p> : null}
-          {!song ? <p style={{ marginTop: '0.55rem', opacity: 0.85 }}>Waiting for Jamzone song metadata...</p> : null}
+          {activeSong ? <p style={{ marginTop: '0.55rem' }}>Now playing: {activeSong.artist} - {activeSong.title}</p> : null}
+          {!activeSong ? <p style={{ marginTop: '0.55rem', opacity: 0.85 }}>Waiting for Jamzone song metadata...</p> : null}
           {!hasJamzoneBridge ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Jamzone bridge is not registered yet.</p> : null}
           {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Sync event: {syncEventId}</p> : null}
           {!syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
           {syncEventId && remoteBridgeConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote bridge: active</p> : null}
+          {useRemoteSnapshot ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Lyric source: iPad remote snapshot</p> : null}
           <p style={{ marginTop: '0.35rem' }}>
             Fullscreen board: <a href={boardHref} target="_blank" rel="noreferrer">open lyrics board</a>
           </p>
