@@ -30,6 +30,7 @@ export default function LyricsBoardPage() {
     currentTimeSeconds: 0,
     updatedAtMs: Date.now(),
   })
+  const lastPlayPulseRef = useRef(0)
   const transport = useMemo(() => createLocalLyricSyncTransport(LOCAL_LYRIC_SYNC_CHANNEL), [])
   const syncEventId = useMemo(() => {
     const params = new URLSearchParams(location.search)
@@ -84,6 +85,7 @@ export default function LyricsBoardPage() {
         const data = payload as {
           currentTimeSeconds?: number
           currentSong?: JamzoneSong | null
+          playPulse?: number
           updatedAtMs?: number
         }
 
@@ -94,6 +96,15 @@ export default function LyricsBoardPage() {
         remoteSnapshotRef.current = {
           currentTimeSeconds: Math.max(0, Number(data.currentTimeSeconds)),
           updatedAtMs: Number.isFinite(data.updatedAtMs) ? Number(data.updatedAtMs) : Date.now(),
+        }
+
+        if (Number.isFinite(data.playPulse) && Number(data.playPulse) > lastPlayPulseRef.current) {
+          lastPlayPulseRef.current = Number(data.playPulse)
+          // Ensure lyrics can move instantly after iPad Play is pressed.
+          remoteSnapshotRef.current = {
+            currentTimeSeconds: Math.max(0.02, remoteSnapshotRef.current.currentTimeSeconds),
+            updatedAtMs: Date.now(),
+          }
         }
 
         if (data.currentSong && data.currentSong.id && data.currentSong.title && data.currentSong.artist) {
