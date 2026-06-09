@@ -70,6 +70,22 @@ export default function JamzoneLyricsPage() {
   const lastPlayPulseRef = useRef(0)
 
   const localSyncTransport = useMemo(() => createLocalLyricSyncTransport(LOCAL_LYRIC_SYNC_CHANNEL), [])
+  const urlSong = useMemo<JamzoneSong | null>(() => {
+    const params = new URLSearchParams(location.search)
+    const title = (params.get('title') ?? '').trim()
+    const artist = (params.get('artist') ?? '').trim()
+
+    if (!title || !artist) {
+      return null
+    }
+
+    return {
+      id: (params.get('songId') ?? '').trim() || buildSongIdFallback(title, artist),
+      title,
+      artist,
+    }
+  }, [location.search])
+
   const syncEventId = useMemo(() => {
     const params = new URLSearchParams(location.search)
     const fromUrl = params.get('event') ?? params.get('eventId')
@@ -259,9 +275,7 @@ export default function JamzoneLyricsPage() {
 
   const useDurableClock = Boolean(syncEventId && durableClockSnapshot)
   const useRemoteSnapshot = Boolean(syncEventId && !useDurableClock && remoteBridgeConnected && remoteSong)
-  const activeSong = useDurableClock
-    ? (durableClockSong ?? null)
-    : (useRemoteSnapshot ? remoteSong : bridgeSong)
+  const activeSong = (useDurableClock ? durableClockSong : (useRemoteSnapshot ? remoteSong : bridgeSong)) ?? urlSong
   const bridgeStatusLabel = hasJamzoneBridge
     ? 'detected'
     : (useRemoteSnapshot ? 'not detected (using iPad remote source)' : 'not detected')

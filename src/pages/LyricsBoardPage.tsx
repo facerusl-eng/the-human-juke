@@ -67,6 +67,22 @@ export default function LyricsBoardPage() {
   })
   const lastPlayPulseRef = useRef(0)
   const transport = useMemo(() => createLocalLyricSyncTransport(LOCAL_LYRIC_SYNC_CHANNEL), [])
+  const urlSong = useMemo<JamzoneSong | null>(() => {
+    const params = new URLSearchParams(location.search)
+    const title = (params.get('title') ?? '').trim()
+    const artist = (params.get('artist') ?? '').trim()
+
+    if (!title || !artist) {
+      return null
+    }
+
+    return {
+      id: (params.get('songId') ?? '').trim() || buildSongIdFallback(title, artist),
+      title,
+      artist,
+    }
+  }, [location.search])
+
   const syncEventId = useMemo(() => {
     const params = new URLSearchParams(location.search)
     const fromUrl = params.get('event') ?? params.get('eventId')
@@ -109,7 +125,7 @@ export default function LyricsBoardPage() {
   const useRemoteSnapshot = Boolean(syncEventId && !useDurableClock && remoteBridgeConnected && remoteSong)
 
   const remoteSongRef = useMemo<LyricSongRef | null>(() => {
-    const activeSong = useDurableClock ? durableClockSong : remoteSong
+    const activeSong = (useDurableClock ? durableClockSong : remoteSong) ?? urlSong
     if (!activeSong) {
       return null
     }
@@ -119,7 +135,7 @@ export default function LyricsBoardPage() {
       title: activeSong.title,
       artist: activeSong.artist,
     }
-  }, [durableClockSong, remoteSong, useDurableClock])
+  }, [durableClockSong, remoteSong, urlSong, useDurableClock])
 
   const { window: remoteLyricWindow, loadError: remoteLyricLoadError, songDurationSeconds } = useJamzoneLyricSync(
     remoteSongRef,
