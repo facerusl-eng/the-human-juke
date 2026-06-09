@@ -11,6 +11,35 @@ const LOCAL_LYRIC_SYNC_CHANNEL = 'human-jukebox-live-lyrics'
 const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
 const JAMZONE_REMOTE_CHANNEL_PREFIX = 'jamzone-bridge'
 
+function buildMissingLyricsFallbackWindow(song: JamzoneSong, currentTimeSeconds: number): LyricWindow {
+  return {
+    current: {
+      timeSeconds: currentTimeSeconds,
+      text: `${song.artist} - ${song.title}`,
+      sourceLineNumber: 0,
+    },
+    previous: {
+      timeSeconds: Math.max(0, currentTimeSeconds - 0.01),
+      text: 'Live sync active',
+      sourceLineNumber: 0,
+    },
+    next: {
+      timeSeconds: currentTimeSeconds + 0.01,
+      text: `No LRC match yet (t=${currentTimeSeconds.toFixed(1)}s)`,
+      sourceLineNumber: 0,
+    },
+    upcoming: [
+      {
+        timeSeconds: currentTimeSeconds + 0.02,
+        text: 'Set manual song/artist to a file that exists in /lyrics',
+        sourceLineNumber: 0,
+      },
+    ],
+    isBeforeFirstLine: false,
+    isAfterLastLine: false,
+  }
+}
+
 function emptyWindow(): LyricWindow {
   return {
     current: null,
@@ -64,7 +93,7 @@ export default function LyricsBoardPage() {
     }
   }, [remoteSong])
 
-  const { window: remoteLyricWindow } = useJamzoneLyricSync(
+  const { window: remoteLyricWindow, loadError: remoteLyricLoadError } = useJamzoneLyricSync(
     remoteSongRef,
     () => {
       const elapsedSeconds = Math.max(0, (Date.now() - remoteSnapshotRef.current.updatedAtMs) / 1000)
@@ -138,13 +167,30 @@ export default function LyricsBoardPage() {
     })
   }, [syncEventId, transport])
 
-  const activeWindow = syncEventId ? remoteLyricWindow : windowState
+  const activeWindow = useMemo(() => {
+    if (!syncEventId) {
+      return windowState
+    }
+
+    if (remoteSong && remoteLyricLoadError) {
+      const elapsedSeconds = Math.max(0, (Date.now() - remoteSnapshotRef.current.updatedAtMs) / 1000)
+      const currentTimeSeconds = remoteSnapshotRef.current.currentTimeSeconds + elapsedSeconds
+      return buildMissingLyricsFallbackWindow(remoteSong, currentTimeSeconds)
+    }
+
+    return remoteLyricWindow
+  }, [remoteLyricLoadError, remoteLyricWindow, remoteSong, syncEventId, windowState])
 
   return (
     <main style={{ width: '100vw', height: '100vh', background: '#02030a' }}>
       {syncEventId && !remoteBridgeConnected ? (
         <p style={{ margin: 0, padding: '0.65rem 1rem', color: '#d4dcff', opacity: 0.84 }}>
           Waiting for iPad bridge on event {syncEventId}...
+        </p>
+      ) : null}
+      {syncEventId && remoteLyricLoadError ? (
+        <p style={{ margin: 0, padding: '0.45rem 1rem', color: '#ffd58a', opacity: 0.9 }}>
+          LRC file missing for current song. Showing live fallback.
         </p>
       ) : null}
       <KaraokeLyrics

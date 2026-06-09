@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import KaraokeLyrics from '../components/KaraokeLyrics'
 import { useJamzoneLyricSync } from '../../shared/lyrics/useJamzoneLyricSync'
-import { createLocalLyricSyncTransport, type LyricSongRef } from '../../shared/lyrics'
+import { createLocalLyricSyncTransport, type LyricSongRef, type LyricWindow } from '../../shared/lyrics'
 import { supabase } from '../lib/supabase'
 import {
   getJamzoneBridge,
@@ -16,6 +16,35 @@ const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
 const JAMZONE_REMOTE_CHANNEL_PREFIX = 'jamzone-bridge'
 
 const LOCAL_LYRIC_SYNC_CHANNEL = 'human-jukebox-live-lyrics'
+
+function buildMissingLyricsFallbackWindow(song: JamzoneSong, currentTimeSeconds: number): LyricWindow {
+  return {
+    current: {
+      timeSeconds: currentTimeSeconds,
+      text: `${song.artist} - ${song.title}`,
+      sourceLineNumber: 0,
+    },
+    previous: {
+      timeSeconds: Math.max(0, currentTimeSeconds - 0.01),
+      text: 'Live sync active',
+      sourceLineNumber: 0,
+    },
+    next: {
+      timeSeconds: currentTimeSeconds + 0.01,
+      text: `No LRC match yet (t=${currentTimeSeconds.toFixed(1)}s)`,
+      sourceLineNumber: 0,
+    },
+    upcoming: [
+      {
+        timeSeconds: currentTimeSeconds + 0.02,
+        text: 'Set manual song/artist to a file that exists in /lyrics',
+        sourceLineNumber: 0,
+      },
+    ],
+    isBeforeFirstLine: false,
+    isAfterLastLine: false,
+  }
+}
 
 export default function JamzoneLyricsPage() {
   const location = useLocation()
@@ -208,6 +237,23 @@ export default function JamzoneLyricsPage() {
     { updateIntervalMs: 80 },
   )
 
+  const activeTimeSeconds = useMemo(() => {
+    if (useRemoteSnapshot) {
+      const elapsedSeconds = Math.max(0, (Date.now() - remoteSnapshotRef.current.updatedAtMs) / 1000)
+      return remoteSnapshotRef.current.currentTimeSeconds + elapsedSeconds
+    }
+
+    return getJamzoneCurrentTimeSeconds()
+  }, [useRemoteSnapshot, lyricWindow.current, lyricWindow.next])
+
+  const displayWindow = useMemo(() => {
+    if (!activeSong || !loadError) {
+      return lyricWindow
+    }
+
+    return buildMissingLyricsFallbackWindow(activeSong, activeTimeSeconds)
+  }, [activeSong, activeTimeSeconds, loadError, lyricWindow])
+
   useEffect(() => {
     if (!activeSong) {
       return
@@ -276,17 +322,17 @@ export default function JamzoneLyricsPage() {
         <section style={{ height: '72vh' }}>
           <KaraokeLyrics
             mode="main"
-            current={lyricWindow.current}
-            previous={lyricWindow.previous}
-            next={lyricWindow.next}
-            next2={lyricWindow.upcoming[1]}
-            isBeforeFirstLine={lyricWindow.isBeforeFirstLine}
-            isAfterLastLine={lyricWindow.isAfterLastLine}
+            current={displayWindow.current}
+            previous={displayWindow.previous}
+            next={displayWindow.next}
+            next2={displayWindow.upcoming[1]}
+            isBeforeFirstLine={displayWindow.isBeforeFirstLine}
+            isAfterLastLine={displayWindow.isAfterLastLine}
           />
         </section>
 
         {isLoading ? <p style={{ color: '#8bd8ff' }}>Loading LRC file...</p> : null}
-        {loadError ? <p style={{ color: '#ff98c7' }}>Lyric error: {loadError}</p> : null}
+        {loadError ? <p style={{ color: '#ffd58a' }}>Lyric file missing, fallback mode active: {loadError}</p> : null}
       </section>
     </main>
   )
