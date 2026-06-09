@@ -37,6 +37,70 @@ function emptyLyricWindow(): LyricWindow {
   }
 }
 
+function formatLrcTimestamp(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds)
+  const minutes = Math.floor(safeSeconds / 60)
+  const seconds = Math.floor(safeSeconds % 60)
+  const centiseconds = Math.floor((safeSeconds - Math.floor(safeSeconds)) * 100)
+
+  const mm = String(minutes).padStart(2, '0')
+  const ss = String(seconds).padStart(2, '0')
+  const cc = String(centiseconds).padStart(2, '0')
+  return `${mm}:${ss}.${cc}`
+}
+
+function hasLrcTimestamps(content: string) {
+  return /\[\d{1,3}:\d{2}(?:\.\d{1,3})?\]/.test(content)
+}
+
+function toSyntheticLrc(content: string) {
+  const lines = content
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length === 0) {
+    return ''
+  }
+
+  const intervalSeconds = 4
+  return lines
+    .map((line, index) => `[${formatLrcTimestamp(index * intervalSeconds)}]${line}`)
+    .join('\n')
+}
+
+async function fetchApiLyrics(song: LyricSongRef): Promise<string | null> {
+  const title = (song.title ?? '').trim()
+  const artist = (song.artist ?? '').trim()
+
+  if (!title) {
+    return null
+  }
+
+  const params = new URLSearchParams({ song: title })
+  if (artist) {
+    params.set('artist', artist)
+  }
+
+  try {
+    const response = await fetch(`/api/lyrics-genius?${params.toString()}`)
+    if (!response.ok) {
+      return null
+    }
+
+    const payload = await response.json() as { lyrics?: unknown }
+    const lyricsText = typeof payload.lyrics === 'string' ? payload.lyrics.trim() : ''
+    if (!lyricsText) {
+      return null
+    }
+
+    return hasLrcTimestamps(lyricsText) ? lyricsText : toSyntheticLrc(lyricsText)
+  } catch {
+    return null
+  }
+}
+
 export class LyricEngine {
   private readonly basePath: string
 
@@ -101,6 +165,25 @@ export class LyricEngine {
         ok: true,
         pathTried: candidatePaths,
         loadedPath: path,
+      }
+    }
+
+    const apiLyrics = await fetchApiLyrics(song)
+    if (apiLyrics) {
+      const parsed = parseLrc(apiLyrics)
+      if (parsed.lines.length > 0) {
+        const virtualPath = `api:lyrics-genius:${songKey}`
+        this.parseCache.set(virtualPath, parsed)
+        this.activeLyrics = parsed
+        this.activeSongKey = songKey
+        this.activeSourcePath = virtualPath
+        this.lastError = null
+
+        return {
+          ok: true,
+          pathTried: [...candidatePaths, '/api/lyrics-genius'],
+          loadedPath: virtualPath,
+        }
       }
     }
 
