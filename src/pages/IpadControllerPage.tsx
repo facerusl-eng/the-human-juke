@@ -34,6 +34,11 @@ export default function IpadControllerPage() {
   const [manualRunning, setManualRunning] = useState(false)
   const [manualPlayPulse, setManualPlayPulse] = useState(0)
   const [eventIdSource, setEventIdSource] = useState<'url' | 'active-gig' | 'local' | 'manual' | 'none'>('none')
+  const [isAppleMobile, setIsAppleMobile] = useState(false)
+  const [wakeLockSupported, setWakeLockSupported] = useState(false)
+  const [wakeLockEnabled, setWakeLockEnabled] = useState(true)
+  const [wakeLockActive, setWakeLockActive] = useState(false)
+  const [lastPublishAgoSeconds, setLastPublishAgoSeconds] = useState<number | null>(null)
   const isLockedToActiveGig = eventIdSource === 'active-gig'
   const manualSourceActive = manualMode || (autoFallbackEnabled && !hasJamzoneBridge)
   const bridgeStatusLabel = hasJamzoneBridge
@@ -43,6 +48,90 @@ export default function IpadControllerPage() {
   const sourceIdRef = useRef(`ipad-${Math.random().toString(36).slice(2)}`)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const manualLastTickAtRef = useRef(Date.now())
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const lastPublishAtMsRef = useRef<number | null>(null)
+
+  const requestWakeLock = async () => {
+    if (!wakeLockEnabled || typeof navigator === 'undefined' || !('wakeLock' in navigator)) {
+      return
+    }
+
+    try {
+      wakeLockRef.current = await navigator.wakeLock.request('screen')
+      setWakeLockActive(true)
+      wakeLockRef.current.addEventListener('release', () => {
+        setWakeLockActive(false)
+      })
+    } catch {
+      setWakeLockActive(false)
+    }
+  }
+
+  const releaseWakeLock = async () => {
+    if (!wakeLockRef.current) {
+      return
+    }
+
+    try {
+      await wakeLockRef.current.release()
+    } catch {
+      // no-op: release can fail when the browser already released it
+    } finally {
+      wakeLockRef.current = null
+      setWakeLockActive(false)
+    }
+  }
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined') {
+      return
+    }
+
+    const ua = navigator.userAgent || ''
+    const appleMobile = /iPhone|iPad|iPod/i.test(ua)
+    setIsAppleMobile(appleMobile)
+    setWakeLockSupported('wakeLock' in navigator)
+  }, [])
+
+  useEffect(() => {
+    if (!wakeLockEnabled || !manualSourceActive || !manualRunning) {
+      void releaseWakeLock()
+      return
+    }
+
+    void requestWakeLock()
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && manualRunning && manualSourceActive) {
+        manualLastTickAtRef.current = Date.now()
+        setManualPlayPulse((pulse) => pulse + 1)
+        void requestWakeLock()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      void releaseWakeLock()
+    }
+  }, [manualRunning, manualSourceActive, wakeLockEnabled])
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      const lastPublish = lastPublishAtMsRef.current
+      if (!lastPublish) {
+        setLastPublishAgoSeconds(null)
+        return
+      }
+
+      setLastPublishAgoSeconds(Math.max(0, (Date.now() - lastPublish) / 1000))
+    }, 500)
+
+    return () => {
+      window.clearInterval(timerId)
+    }
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -199,6 +288,7 @@ export default function IpadControllerPage() {
       })
 
       setPublishStatus('publishing')
+      lastPublishAtMsRef.current = Date.now()
     }
 
     publishTick()
@@ -384,6 +474,18 @@ export default function IpadControllerPage() {
           <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {bridgeStatusLabel}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Publish status: {publishStatus}</p>
+          <p style={{ margin: 0, opacity: 0.8 }}>Last publish: {lastPublishAgoSeconds !== null ? `${lastPublishAgoSeconds.toFixed(1)}s ago` : 'not yet'}</p>
+          {isAppleMobile ? <p style={{ margin: 0, opacity: 0.82 }}>Apple mobile detected. Keep this page in foreground during performance.</p> : null}
+          {wakeLockSupported ? (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+              <input
+                type="checkbox"
+                checked={wakeLockEnabled}
+                onChange={(event) => setWakeLockEnabled(event.target.checked)}
+              />
+              Keep screen awake during manual source ({wakeLockActive ? 'active' : 'inactive'})
+            </label>
+          ) : null}
         </section>
 
         <section style={{ padding: '1rem', border: '1px solid #2b345f', borderRadius: '14px', background: '#0b1020', display: 'grid', gap: '0.7rem' }}>
