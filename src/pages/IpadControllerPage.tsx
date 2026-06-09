@@ -23,13 +23,14 @@ export default function IpadControllerPage() {
   const [channelConnected, setChannelConnected] = useState(false)
   const [publishStatus, setPublishStatus] = useState<PublishStatus>('idle')
   const [copyFeedback, setCopyFeedback] = useState('')
+  const [autoFallbackEnabled, setAutoFallbackEnabled] = useState(true)
 
   const [manualMode, setManualMode] = useState(false)
   const [manualSongId, setManualSongId] = useState('manual-song')
   const [manualSongTitle, setManualSongTitle] = useState('Manual Song')
   const [manualSongArtist, setManualSongArtist] = useState('Manual Artist')
   const [manualTimeSeconds, setManualTimeSeconds] = useState(0)
-  const [manualRunning, setManualRunning] = useState(false)
+  const [manualRunning, setManualRunning] = useState(true)
 
   const sourceIdRef = useRef(`ipad-${Math.random().toString(36).slice(2)}`)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -76,7 +77,8 @@ export default function IpadControllerPage() {
   }, [])
 
   useEffect(() => {
-    if (!manualMode || !manualRunning) {
+    const manualSourceActive = manualMode || (autoFallbackEnabled && !hasJamzoneBridge)
+    if (!manualSourceActive || !manualRunning) {
       return
     }
 
@@ -92,7 +94,7 @@ export default function IpadControllerPage() {
     return () => {
       window.clearInterval(timerId)
     }
-  }, [manualMode, manualRunning])
+  }, [manualMode, manualRunning, autoFallbackEnabled, hasJamzoneBridge])
 
   const channelName = useMemo(() => {
     const normalizedEventId = eventId.trim()
@@ -135,7 +137,10 @@ export default function IpadControllerPage() {
     }
 
     const publishTick = () => {
-      const currentSong = manualMode
+      const bridgeAvailable = Boolean(getJamzoneBridge())
+      const useManualSource = manualMode || (autoFallbackEnabled && !bridgeAvailable)
+
+      const currentSong = useManualSource
         ? {
             id: manualSongId.trim() || 'manual-song',
             title: manualSongTitle.trim() || 'Manual Song',
@@ -143,9 +148,9 @@ export default function IpadControllerPage() {
           }
         : getJamzoneCurrentSong()
 
-      const nextTimeSeconds = manualMode ? manualTimeSeconds : getJamzoneCurrentTimeSeconds()
+      const nextTimeSeconds = useManualSource ? manualTimeSeconds : getJamzoneCurrentTimeSeconds()
 
-      if (!manualMode && !getJamzoneBridge()) {
+      if (!useManualSource && !bridgeAvailable) {
         setPublishStatus('waiting-bridge')
         return
       }
@@ -170,7 +175,7 @@ export default function IpadControllerPage() {
     return () => {
       window.clearInterval(timerId)
     }
-  }, [eventId, manualMode, manualSongArtist, manualSongId, manualSongTitle, manualTimeSeconds])
+  }, [eventId, manualMode, manualSongArtist, manualSongId, manualSongTitle, manualTimeSeconds, autoFallbackEnabled])
 
   const lyricsUrl = useMemo(() => {
     if (!eventId.trim()) {
@@ -269,6 +274,14 @@ export default function IpadControllerPage() {
           </button>
           {copyFeedback ? <p style={{ margin: 0, opacity: 0.85 }}>{copyFeedback}</p> : null}
           <p style={{ margin: 0, opacity: 0.8 }}>Active event ID: {eventId || 'none'}</p>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+            <input
+              type="checkbox"
+              checked={autoFallbackEnabled}
+              onChange={(event) => setAutoFallbackEnabled(event.target.checked)}
+            />
+            Auto fallback to manual source when bridge is missing
+          </label>
           <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {hasJamzoneBridge ? 'detected' : 'not detected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Publish status: {publishStatus}</p>
@@ -344,11 +357,11 @@ export default function IpadControllerPage() {
 
         <section style={{ padding: '1rem', border: '1px solid #2b345f', borderRadius: '14px', background: '#0b1020' }}>
           <h2 style={{ marginTop: 0 }}>Live Source Snapshot</h2>
-          <p style={{ margin: '0.2rem 0' }}>Source: {manualMode ? 'manual fallback' : 'Jamzone bridge'}</p>
-          <p style={{ margin: '0.2rem 0' }}>Song: {manualMode
+          <p style={{ margin: '0.2rem 0' }}>Source: {(manualMode || (autoFallbackEnabled && !hasJamzoneBridge)) ? 'manual fallback' : 'Jamzone bridge'}</p>
+          <p style={{ margin: '0.2rem 0' }}>Song: {(manualMode || (autoFallbackEnabled && !hasJamzoneBridge))
             ? `${manualSongArtist || 'Manual Artist'} - ${manualSongTitle || 'Manual Song'}`
             : (currentSongArtist && currentSongTitle ? `${currentSongArtist} - ${currentSongTitle}` : 'No song metadata yet')}</p>
-          <p style={{ margin: '0.2rem 0' }}>Time: {(manualMode ? manualTimeSeconds : currentTimeSeconds).toFixed(2)}s</p>
+          <p style={{ margin: '0.2rem 0' }}>Time: {((manualMode || (autoFallbackEnabled && !hasJamzoneBridge)) ? manualTimeSeconds : currentTimeSeconds).toFixed(2)}s</p>
         </section>
 
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
