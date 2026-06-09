@@ -21,6 +21,7 @@ export default function IpadControllerPage() {
   const [currentTimeSeconds, setCurrentTimeSeconds] = useState(0)
   const [channelConnected, setChannelConnected] = useState(false)
   const [publishStatus, setPublishStatus] = useState<PublishStatus>('idle')
+  const [copyFeedback, setCopyFeedback] = useState('')
 
   const sourceIdRef = useRef(`ipad-${Math.random().toString(36).slice(2)}`)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -149,6 +150,22 @@ export default function IpadControllerPage() {
     return `/lyrics-board?event=${encodeURIComponent(eventId.trim())}`
   }, [eventId])
 
+  const copyEventId = async () => {
+    const normalizedEventId = eventId.trim()
+
+    if (!normalizedEventId) {
+      setCopyFeedback('Add an event ID first, then copy.')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(normalizedEventId)
+      setCopyFeedback('Event ID copied to clipboard.')
+    } catch {
+      setCopyFeedback('Clipboard failed. Select the Event ID field and copy manually.')
+    }
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: '#050711', color: '#d5dcff', padding: '1rem' }}>
       <section style={{ maxWidth: '860px', margin: '0 auto', display: 'grid', gap: '0.9rem' }}>
@@ -176,6 +193,23 @@ export default function IpadControllerPage() {
               color: '#e5ebff',
             }}
           />
+          <button
+            type="button"
+            onClick={() => {
+              void copyEventId()
+            }}
+            style={{
+              minHeight: '52px',
+              borderRadius: '10px',
+              border: '1px solid #4b66ce',
+              background: '#182a5e',
+              color: '#e7eeff',
+              fontWeight: 700,
+            }}
+          >
+            Copy Event ID
+          </button>
+          {copyFeedback ? <p style={{ margin: 0, opacity: 0.85 }}>{copyFeedback}</p> : null}
           <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {hasJamzoneBridge ? 'detected' : 'not detected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Publish status: {publishStatus}</p>
