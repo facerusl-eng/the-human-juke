@@ -31,6 +31,7 @@ export default function IpadControllerPage() {
   const [manualSongArtist, setManualSongArtist] = useState('Manual Artist')
   const [manualTimeSeconds, setManualTimeSeconds] = useState(0)
   const [manualRunning, setManualRunning] = useState(true)
+  const [eventIdSource, setEventIdSource] = useState<'url' | 'active-gig' | 'local' | 'manual' | 'none'>('none')
 
   const sourceIdRef = useRef(`ipad-${Math.random().toString(36).slice(2)}`)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -39,15 +40,39 @@ export default function IpadControllerPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const fromUrl = (params.get('event') ?? params.get('eventId') ?? '').trim()
+    const fromProfile = (profile?.active_event_id ?? '').trim()
     const fromStorage = typeof window !== 'undefined'
       ? (window.localStorage.getItem(IPAD_EVENT_STORAGE_KEY) ?? '').trim()
       : ''
-    const fromProfile = (profile?.active_event_id ?? '').trim()
 
-    const initialEventId = fromUrl || fromStorage || fromProfile
+    // Prefer explicit URL, then active gig, then local storage fallback.
+    const initialEventId = fromUrl || fromProfile || fromStorage
     setEventId(initialEventId)
     setEventIdDraft(initialEventId)
+
+    if (fromUrl) {
+      setEventIdSource('url')
+    } else if (fromProfile) {
+      setEventIdSource('active-gig')
+    } else if (fromStorage) {
+      setEventIdSource('local')
+    } else {
+      setEventIdSource('none')
+    }
   }, [location.search, profile?.active_event_id])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const fromUrl = (params.get('event') ?? params.get('eventId') ?? '').trim()
+    const fromProfile = (profile?.active_event_id ?? '').trim()
+
+    // Keep event id synced to active gig unless URL explicitly pins a different event.
+    if (!fromUrl && fromProfile && eventIdSource !== 'manual' && eventId !== fromProfile) {
+      setEventId(fromProfile)
+      setEventIdDraft(fromProfile)
+      setEventIdSource('active-gig')
+    }
+  }, [location.search, profile?.active_event_id, eventId, eventIdSource])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -212,6 +237,7 @@ export default function IpadControllerPage() {
   const confirmEventId = () => {
     const normalizedEventId = eventIdDraft.trim()
     setEventId(normalizedEventId)
+    setEventIdSource(normalizedEventId ? 'manual' : 'none')
     setCopyFeedback(normalizedEventId ? 'Event ID confirmed.' : 'Event ID cleared.')
   }
 
@@ -274,6 +300,19 @@ export default function IpadControllerPage() {
           </button>
           {copyFeedback ? <p style={{ margin: 0, opacity: 0.85 }}>{copyFeedback}</p> : null}
           <p style={{ margin: 0, opacity: 0.8 }}>Active event ID: {eventId || 'none'}</p>
+          <p style={{ margin: 0, opacity: 0.8 }}>
+            Event source: {
+              eventIdSource === 'active-gig'
+                ? 'active gig (auto)'
+                : eventIdSource === 'url'
+                  ? 'url parameter'
+                  : eventIdSource === 'local'
+                    ? 'saved local value'
+                    : eventIdSource === 'manual'
+                      ? 'manual override'
+                      : 'none'
+            }
+          </p>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
             <input
               type="checkbox"
