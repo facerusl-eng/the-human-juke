@@ -16,6 +16,43 @@ import {
 import '../audience-karafun.css';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const LYRICS_NUDGE_STORAGE_KEY = 'human-jukebox:lyrics-nudge-ms';
+const LYRICS_NUDGE_MIN_MS = -2500;
+const LYRICS_NUDGE_MAX_MS = 2500;
+
+function clampLyricsNudgeMs(value: number) {
+  return Math.max(LYRICS_NUDGE_MIN_MS, Math.min(LYRICS_NUDGE_MAX_MS, Math.round(value)));
+}
+
+function readLyricsNudgeMs() {
+  if (typeof window === 'undefined') {
+    return 0;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(LYRICS_NUDGE_STORAGE_KEY);
+    if (!rawValue) {
+      return 0;
+    }
+
+    const parsedValue = Number(rawValue);
+    return Number.isFinite(parsedValue) ? clampLyricsNudgeMs(parsedValue) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveLyricsNudgeMs(value: number) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(LYRICS_NUDGE_STORAGE_KEY, String(clampLyricsNudgeMs(value)));
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 function normalizeLyricsInput(value: string | null | undefined) {
   return (value ?? '').replace(/\s+/g, ' ').trim();
@@ -515,6 +552,11 @@ export default function LyricsPage() {
   const [timedElapsedMs, setTimedElapsedMs] = useState(0);
   const [playbackIsStarted, setPlaybackIsStarted] = useState<boolean | null>(null);
   const [playbackStartedAtMs, setPlaybackStartedAtMs] = useState<number | null>(null);
+  const [lyricsNudgeMs, setLyricsNudgeMs] = useState(() => readLyricsNudgeMs());
+  const [pedalConnected, setPedalConnected] = useState(false);
+  const [pedalDeviceName, setPedalDeviceName] = useState<string | null>(null);
+  const [pedalStatusText, setPedalStatusText] = useState<string | null>(null);
+  const [pedalConnecting, setPedalConnecting] = useState(false);
 
   const formattedLyrics = useMemo(() => {
     if (!lyrics) {
@@ -535,6 +577,11 @@ export default function LyricsPage() {
   const hasTimedKaraoke = useMemo(() => (
     timedKaraokeLines.some((line) => Number.isFinite(line.lineStartMs))
   ), [timedKaraokeLines])
+
+  const effectiveTimedElapsedMs = useMemo(
+    () => Math.max(0, timedElapsedMs + lyricsNudgeMs),
+    [timedElapsedMs, lyricsNudgeMs],
+  );
 
   const stageLyricsDensityClass = useMemo(() => {
     if (!isStageMode || !formattedLyrics) {
@@ -669,6 +716,91 @@ export default function LyricsPage() {
       window.clearInterval(timerId)
     }
   }, [hasTimedKaraoke, isStageMode, timedKaraokeLines, playbackIsStarted, playbackStartedAtMs])
+
+  useEffect(() => {
+    saveLyricsNudgeMs(lyricsNudgeMs);
+  }, [lyricsNudgeMs]);
+
+  const applyLyricsNudge = useCallback((deltaMs: number) => {
+    setLyricsNudgeMs((currentValue) => clampLyricsNudgeMs(currentValue + deltaMs));
+  }, []);
+
+  const resetLyricsNudge = useCallback(() => {
+    setLyricsNudgeMs(0);
+  }, []);
+
+  const tapSyncLyrics = useCallback(() => {
+    setPlaybackStartedAtMs(Date.now());
+    setPlaybackIsStarted(true);
+    setPedalStatusText('Lyrics synced to now.');
+  }, []);
+
+  useEffect(() => {
+    if (!isStageMode) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const normalizedKey = (event.key ?? '').toLowerCase().trim();
+
+      if (normalizedKey === 'arrowleft' || normalizedKey === 'j') {
+        event.preventDefault();
+        applyLyricsNudge(-100);
+        return;
+      }
+
+      if (normalizedKey === 'arrowright' || normalizedKey === 'l') {
+        event.preventDefault();
+        applyLyricsNudge(100);
+        return;
+      }
+
+      if (normalizedKey === 'arrowdown' || normalizedKey === 'k') {
+        event.preventDefault();
+        tapSyncLyrics();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [applyLyricsNudge, isStageMode, tapSyncLyrics]);
+
+  const connectBluetoothPedal = useCallback(async () => {
+    if (typeof navigator === 'undefined' || !('hid' in navigator)) {
+      setPedalStatusText('WebHID not available. Pair pedal as keyboard and use ArrowLeft/ArrowRight/Tap-Sync hotkeys.');
+      return;
+    }
+
+    const hidApi = (navigator as unknown as { hid: { requestDevice: (options: { filters: Array<Record<string, unknown>> }) => Promise<Array<{ productName?: string; opened?: boolean; open?: () => Promise<void> }>> } }).hid;
+    setPedalConnecting(true);
+
+    try {
+      const devices = await hidApi.requestDevice({ filters: [] });
+      const firstDevice = devices[0];
+
+      if (!firstDevice) {
+        setPedalStatusText('No pedal selected.');
+        return;
+      }
+
+      if (!firstDevice.opened && typeof firstDevice.open === 'function') {
+        await firstDevice.open();
+      }
+
+      setPedalConnected(true);
+      setPedalDeviceName(firstDevice.productName ?? 'Bluetooth pedal');
+      setPedalStatusText('Pedal connected. Use pedal keys (ArrowLeft / ArrowRight / ArrowDown) to control lyric timing.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not connect pedal.';
+      setPedalStatusText(message);
+      setPedalConnected(false);
+      setPedalDeviceName(null);
+    } finally {
+      setPedalConnecting(false);
+    }
+  }, []);
 
   const backButtonLabel = useMemo(() => {
     if (!isGigControlReturnPath) {
@@ -835,6 +967,28 @@ export default function LyricsPage() {
           <div className="lyrics-stage-heading-block">
             <h1 className="audience-lyrics-title">{title} - {displayArtist}</h1>
             <p className="audience-lyrics-subtitle">Stage lyrics view</p>
+            <div className="lyrics-pedal-controls" aria-label="Lyrics pedal controls">
+              <div className="lyrics-pedal-row">
+                <button type="button" className="primary-button lyrics-pedal-connect" onClick={() => { void connectBluetoothPedal(); }} disabled={pedalConnecting}>
+                  {pedalConnecting ? 'Connecting pedal...' : 'Connect Bluetooth Pedal'}
+                </button>
+                <span className={`lyrics-pedal-state${pedalConnected ? ' is-connected' : ''}`}>
+                  {pedalConnected ? `Connected: ${pedalDeviceName ?? 'Pedal'}` : 'Not connected'}
+                </span>
+              </div>
+              <div className="lyrics-pedal-row lyrics-nudge-row">
+                <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-250)}>-250ms</button>
+                <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-100)}>-100ms</button>
+                <button type="button" className="primary-button lyrics-nudge-btn" onClick={tapSyncLyrics}>Tap Sync</button>
+                <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(100)}>+100ms</button>
+                <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(250)}>+250ms</button>
+                <button type="button" className="primary-button lyrics-nudge-btn" onClick={resetLyricsNudge}>Reset</button>
+              </div>
+              <p className="lyrics-pedal-hint">
+                Offset: {lyricsNudgeMs >= 0 ? '+' : ''}{lyricsNudgeMs}ms. Hotkeys: ArrowLeft/ArrowRight nudge, ArrowDown tap sync.
+              </p>
+              {pedalStatusText ? <p className="lyrics-pedal-hint">{pedalStatusText}</p> : null}
+            </div>
           </div>
         </div>
       ) : (
@@ -878,7 +1032,7 @@ export default function LyricsPage() {
               return <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
             }
 
-            const activeLineIndex = getActiveTimedLyricsLineIndex(timedKaraokeLines, timedElapsedMs)
+            const activeLineIndex = getActiveTimedLyricsLineIndex(timedKaraokeLines, effectiveTimedElapsedMs)
             const activeLine = activeLineIndex >= 0 ? timedKaraokeLines[activeLineIndex] : null
 
             const nextLine = activeLineIndex >= 0
@@ -898,7 +1052,7 @@ export default function LyricsPage() {
                 {headingForActiveLine ? <div className="lyrics-focus-heading">{headingForActiveLine}</div> : null}
                 <article className="lyrics-focus-card is-active">
                   <p className="lyrics-focus-label">Now</p>
-                  <p className="lyrics-focus-primary is-timed">{renderTimedWords(activeLine, timedElapsedMs)}</p>
+                  <p className="lyrics-focus-primary is-timed">{renderTimedWords(activeLine, effectiveTimedElapsedMs)}</p>
                   <p className="lyrics-focus-label">Next</p>
                   <p className="lyrics-focus-secondary">{nextLine?.text ?? '...'}</p>
                 </article>
@@ -918,7 +1072,7 @@ export default function LyricsPage() {
                         key={`timeline-line-${index}`}
                         className={`lyrics-timeline-line${isActive ? ' is-active' : ''}${isSung ? ' is-sung' : ''}`}
                       >
-                        {isActive ? renderTimedWords(line, timedElapsedMs) : line.text}
+                        {isActive ? renderTimedWords(line, effectiveTimedElapsedMs) : line.text}
                       </p>
                     )
                   })}

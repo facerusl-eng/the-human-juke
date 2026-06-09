@@ -140,6 +140,41 @@
   min-width: 0;
 }
 
+.lyrics-pedal-controls {
+  margin-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.lyrics-pedal-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.lyrics-pedal-connect,
+.lyrics-nudge-btn {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
+.lyrics-pedal-state {
+  font-size: 0.78rem;
+  color: rgba(232, 237, 246, 0.82);
+}
+
+.lyrics-pedal-state.is-connected {
+  color: #5dd7ff;
+}
+
+.lyrics-pedal-hint {
+  margin: 0;
+  font-size: 0.74rem;
+  color: rgba(232, 237, 246, 0.8);
+}
+
 .lyrics-stage-text {
   width: 100%;
   font-size: clamp(1.22rem, 1.46vw, 1.62rem);
@@ -323,6 +358,16 @@
   .lyrics-stage-toolbar {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .lyrics-nudge-row {
+    gap: 4px;
+  }
+
+  .lyrics-nudge-btn,
+  .lyrics-pedal-connect {
+    font-size: 0.76rem;
+    padding: 6px 8px;
   }
 
   .lyrics-stage-view .lyrics-back-hint {
