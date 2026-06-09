@@ -12,6 +12,7 @@ import {
   type JamzoneSong,
 } from '../lib/jamzoneBridge'
 import { useAuthStore } from '../state/authStore'
+import './liveLyricsPages.css'
 
 const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
 const JAMZONE_REMOTE_CHANNEL_PREFIX = 'jamzone-bridge'
@@ -358,53 +359,44 @@ export default function JamzoneLyricsPage() {
   }, [activeSong, durableClockSnapshot, localSyncTransport, lyricWindow.current, lyricWindow.next, lyricWindow.upcoming, useDurableClock, useRemoteSnapshot])
 
   return (
-    <main style={{ minHeight: '100vh', background: '#02030a', padding: '1rem' }}>
-      <section style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gap: '1rem' }}>
-        <header style={{ color: '#d5dcff' }}>
-          <h1 style={{ marginBottom: '0.4rem' }}>Jamzone Synced Karaoke</h1>
-          <p style={{ margin: 0, opacity: 0.85 }}>
+    <main className="live-lyrics-page live-lyrics-page--jamzone">
+      <section className="live-lyrics-shell">
+        <header className="live-lyrics-header">
+          <h1 className="live-lyrics-title">Jamzone Synced Karaoke</h1>
+          <p className="live-lyrics-copy">
             This view reads Jamzone playback time only. Lyrics advance automatically without manual stepping.
           </p>
-          {activeSong ? <p style={{ marginTop: '0.55rem' }}>Now playing: {activeSong.artist} - {activeSong.title}</p> : null}
-          {!activeSong ? <p style={{ marginTop: '0.55rem', opacity: 0.85 }}>Waiting for song metadata from the active clock source...</p> : null}
-          {!hasJamzoneBridge && !useRemoteSnapshot ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Jamzone bridge is not registered yet.</p> : null}
-          {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Sync event: {syncEventId}</p> : null}
-          {!syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
-          {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Durable clock status: {durableClockStatus}</p> : null}
-          {syncEventId && durableClockConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Durable clock: active</p> : null}
-          {syncEventId && !useDurableClock && remoteBridgeConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Legacy remote bridge: active</p> : null}
-          {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote channel status: {remoteChannelStatus}</p> : null}
-          <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>
+          {activeSong ? <p className="live-lyrics-status">Now playing: {activeSong.artist} - {activeSong.title}</p> : null}
+          {!activeSong ? <p className="live-lyrics-status">Waiting for song metadata from the active clock source...</p> : null}
+          {!hasJamzoneBridge && !useRemoteSnapshot ? <p className="live-lyrics-muted">Jamzone bridge is not registered yet.</p> : null}
+          {syncEventId ? <p className="live-lyrics-muted">Sync event: {syncEventId}</p> : null}
+          {!syncEventId ? <p className="live-lyrics-muted">Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
+          {syncEventId ? <p className="live-lyrics-status">Durable clock status: {durableClockStatus}</p> : null}
+          {syncEventId && durableClockConnected ? <p className="live-lyrics-status">Durable clock: active</p> : null}
+          {syncEventId && !useDurableClock && remoteBridgeConnected ? <p className="live-lyrics-status">Legacy remote bridge: active</p> : null}
+          {syncEventId ? <p className="live-lyrics-status">Remote channel status: {remoteChannelStatus}</p> : null}
+          <p className="live-lyrics-status">
             Auto scroll: {autoScrollEnabled ? 'on' : 'off'}{songDurationSeconds ? `, song length ${songDurationSeconds.toFixed(1)}s` : ''}
           </p>
-          <p style={{ marginTop: '0.2rem', opacity: 0.7 }}>Press Enter to toggle auto scroll.</p>
+          <p className="live-lyrics-note">Press Enter to toggle auto scroll.</p>
           {syncEventId ? (
             <button
               type="button"
               onClick={() => setRemoteReconnectNonce((value) => value + 1)}
-              style={{
-                marginTop: '0.35rem',
-                minHeight: '40px',
-                borderRadius: '10px',
-                border: '1px solid #4b66ce',
-                background: '#182a5e',
-                color: '#e7eeff',
-                fontWeight: 700,
-                padding: '0 0.9rem',
-              }}
+              className="live-lyrics-button"
             >
               Reconnect Remote Bridge
             </button>
           ) : null}
-          <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Native bridge: {bridgeStatusLabel}</p>
-          {useDurableClock ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Lyric source: durable Jamzone clock</p> : null}
-          {useRemoteSnapshot ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Lyric source: legacy iPad snapshot fallback</p> : null}
-          <p style={{ marginTop: '0.35rem' }}>
-            Fullscreen board: <a href={boardHref} target="_blank" rel="noreferrer">open lyrics board</a>
+          <p className="live-lyrics-status">Native bridge: {bridgeStatusLabel}</p>
+          {useDurableClock ? <p className="live-lyrics-status">Lyric source: durable Jamzone clock</p> : null}
+          {useRemoteSnapshot ? <p className="live-lyrics-status">Lyric source: legacy iPad snapshot fallback</p> : null}
+          <p className="live-lyrics-link-row">
+            Fullscreen board: <a className="live-lyrics-link" href={boardHref} target="_blank" rel="noreferrer">open lyrics board</a>
           </p>
         </header>
 
-        <section style={{ height: '72vh' }}>
+        <section className="live-lyrics-stage">
           <KaraokeLyrics
             mode="main"
             current={displayWindow.current}
@@ -419,8 +411,8 @@ export default function JamzoneLyricsPage() {
           />
         </section>
 
-        {isLoading ? <p style={{ color: '#8bd8ff' }}>Loading LRC file...</p> : null}
-        {loadError ? <p style={{ color: '#ffd58a' }}>Lyric file missing, fallback mode active: {loadError}</p> : null}
+        {isLoading ? <p className="live-lyrics-loading">Loading LRC file...</p> : null}
+        {loadError ? <p className="live-lyrics-warning-text">Lyric file missing, fallback mode active: {loadError}</p> : null}
       </section>
     </main>
   )

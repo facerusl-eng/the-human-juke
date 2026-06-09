@@ -32,7 +32,7 @@ export default function JamzoneMainLyricsExample({ jamzone }: JamzoneMainLyricsE
   const { window, isLoading, loadError } = useJamzoneLyricSync(songRef, jamzone.getCurrentTime)
 
   return (
-    <section aria-label="Main app karaoke lyrics" style={{ minHeight: '70vh' }}>
+    <section aria-label="Main app karaoke lyrics">
       <KaraokeLyrics
         mode="main"
         current={window.current}

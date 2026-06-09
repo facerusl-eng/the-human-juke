@@ -7,7 +7,7 @@ type FullscreenLyricsBoardExampleProps = {
 
 export default function FullscreenLyricsBoardExample({ lyricWindow }: FullscreenLyricsBoardExampleProps) {
   return (
-    <main style={{ width: '100vw', height: '100vh', background: '#04040a' }}>
+    <main>
       <KaraokeLyrics
         mode="board"
         current={lyricWindow.current}

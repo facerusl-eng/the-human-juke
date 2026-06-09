@@ -43,7 +43,7 @@ export default function AudienceLyricsExample() {
   }, [])
 
   return (
-    <section style={{ minHeight: '100vh', background: '#020308' }} aria-label="Audience karaoke lyrics">
+    <section aria-label="Audience karaoke lyrics">
       <KaraokeLyrics
         mode="audience"
         current={windowState.current}

@@ -1,0 +1,174 @@
+.ipad-controller-page {
+  min-height: 100vh;
+  background: #050711;
+  color: #d5dcff;
+  padding: 1rem;
+}
+
+.ipad-controller-shell {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0 auto;
+  max-width: 860px;
+}
+
+.ipad-controller-panel {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid #2b345f;
+  border-radius: 14px;
+  background: #0b1020;
+}
+
+.ipad-controller-panel--compact {
+  gap: 0.7rem;
+}
+
+.ipad-controller-header {
+  padding: 1rem;
+}
+
+.ipad-controller-title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.ipad-controller-copy {
+  margin: 0.45rem 0 0;
+  opacity: 0.86;
+}
+
+.ipad-controller-label {
+  font-weight: 600;
+}
+
+.ipad-controller-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.ipad-controller-input,
+.ipad-controller-button,
+.ipad-controller-link {
+  min-height: 52px;
+  border-radius: 10px;
+  font: inherit;
+}
+
+.ipad-controller-input {
+  padding: 0.75rem 0.9rem;
+  font-size: 1rem;
+  border: 1px solid #3d4a86;
+  background: #101832;
+  color: #e5ebff;
+}
+
+.ipad-controller-input--locked {
+  background: #0d142b;
+  opacity: 0.8;
+}
+
+.ipad-controller-button {
+  border: 1px solid #4b66ce;
+  background: #182a5e;
+  color: #e7eeff;
+  font-weight: 700;
+}
+
+.ipad-controller-button--primary {
+  border-color: #44d6a2;
+  background: #123f35;
+  color: #defff4;
+}
+
+.ipad-controller-button--warning {
+  border-color: #efb956;
+  background: #33260f;
+  color: #fff3dd;
+}
+
+.ipad-controller-button--success {
+  border-color: #55d9aa;
+  background: #123f35;
+  color: #defff4;
+}
+
+.ipad-controller-button--full {
+  width: 100%;
+}
+
+.ipad-controller-button--secondary {
+  min-height: 44px;
+}
+
+.ipad-controller-note,
+.ipad-controller-meta {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.ipad-controller-note--muted {
+  opacity: 0.82;
+}
+
+.ipad-controller-meta--accent {
+  opacity: 0.92;
+  color: #86f5c7;
+}
+
+.ipad-controller-meta--warning {
+  opacity: 0.92;
+  color: #ffd58a;
+}
+
+.ipad-controller-grid-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 0.6rem;
+}
+
+.ipad-controller-grid-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.7rem;
+}
+
+.ipad-controller-link {
+  display: grid;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 700;
+  min-height: 56px;
+  border-radius: 12px;
+}
+
+.ipad-controller-link--lyrics {
+  border: 1px solid #30b1ff;
+  background: #092338;
+  color: #ddf4ff;
+}
+
+.ipad-controller-link--board {
+  border: 1px solid #45dfb8;
+  background: #092e2a;
+  color: #dcfff2;
+}
+
+.ipad-controller-live-snapshot {
+  padding: 1rem;
+  border: 1px solid #2b345f;
+  border-radius: 14px;
+  background: #0b1020;
+}
+
+.ipad-controller-live-title {
+  margin-top: 0;
+}
+
+.ipad-controller-live-line {
+  margin: 0.2rem 0;
+}

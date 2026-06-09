@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { getJamzoneBridge, getJamzoneCurrentSong, getJamzoneCurrentTimeSeconds } from '../lib/jamzoneBridge'
 import { readSharedPlaybackState } from '../lib/playbackState'
 import { useAuthStore } from '../state/authStore'
+import './IpadControllerPage.css'
 
 const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
 const JAMZONE_REMOTE_CHANNEL_PREFIX = 'jamzone-bridge'
@@ -451,48 +452,30 @@ export default function IpadControllerPage() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#050711', color: '#d5dcff', padding: '1rem' }}>
-      <section style={{ maxWidth: '860px', margin: '0 auto', display: 'grid', gap: '0.9rem' }}>
-        <header style={{ padding: '1rem', border: '1px solid #2b345f', borderRadius: '14px', background: '#0b1020' }}>
-          <h1 style={{ margin: 0, fontSize: '1.5rem' }}>iPad Jamzone Controller</h1>
-          <p style={{ marginTop: '0.45rem', marginBottom: 0, opacity: 0.86 }}>
+    <main className="ipad-controller-page">
+      <section className="ipad-controller-shell">
+        <header className="ipad-controller-panel ipad-controller-header">
+          <h1 className="ipad-controller-title">iPad Jamzone Controller</h1>
+          <p className="ipad-controller-copy">
             This page is part of Human Jukebox and is designed to run on your iPad as the Jamzone timing source.
           </p>
         </header>
 
-        <section style={{ padding: '1rem', border: '1px solid #2b345f', borderRadius: '14px', background: '#0b1020', display: 'grid', gap: '0.8rem' }}>
-          <label htmlFor="ipad-event-id" style={{ fontWeight: 600 }}>Event ID for sync</label>
+        <section className="ipad-controller-panel">
+          <label htmlFor="ipad-event-id" className="ipad-controller-label">Event ID for sync</label>
           <input
             id="ipad-event-id"
             value={eventIdDraft}
             onChange={(event) => setEventIdDraft(event.target.value)}
             placeholder="Paste event id"
             disabled={isLockedToActiveGig}
-            style={{
-              minHeight: '52px',
-              padding: '0.75rem 0.9rem',
-              fontSize: '1rem',
-              borderRadius: '10px',
-              border: '1px solid #3d4a86',
-              background: isLockedToActiveGig ? '#0d142b' : '#101832',
-              color: '#e5ebff',
-              opacity: isLockedToActiveGig ? 0.8 : 1,
-            }}
+            className={isLockedToActiveGig ? 'ipad-controller-input ipad-controller-input--locked' : 'ipad-controller-input'}
           />
           <button
             type="button"
             onClick={confirmEventId}
             disabled={isLockedToActiveGig}
-            style={{
-              minHeight: '52px',
-              borderRadius: '10px',
-              border: '1px solid #44d6a2',
-              background: isLockedToActiveGig ? '#26433d' : '#123f35',
-              color: '#defff4',
-              fontWeight: 700,
-              opacity: isLockedToActiveGig ? 0.75 : 1,
-              cursor: isLockedToActiveGig ? 'not-allowed' : 'pointer',
-            }}
+            className="ipad-controller-button ipad-controller-button--primary"
           >
             Confirm Event ID
           </button>
@@ -500,14 +483,7 @@ export default function IpadControllerPage() {
             <button
               type="button"
               onClick={enableManualEventOverride}
-              style={{
-                minHeight: '52px',
-                borderRadius: '10px',
-                border: '1px solid #efb956',
-                background: '#33260f',
-                color: '#fff3dd',
-                fontWeight: 700,
-              }}
+              className="ipad-controller-button ipad-controller-button--warning"
             >
               Use Manual Event ID Override
             </button>
@@ -516,14 +492,7 @@ export default function IpadControllerPage() {
             <button
               type="button"
               onClick={reenableActiveGigSync}
-              style={{
-                minHeight: '52px',
-                borderRadius: '10px',
-                border: '1px solid #55d9aa',
-                background: '#123f35',
-                color: '#defff4',
-                fontWeight: 700,
-              }}
+              className="ipad-controller-button ipad-controller-button--success"
             >
               Re-enable Active Gig Sync
             </button>
@@ -533,20 +502,13 @@ export default function IpadControllerPage() {
             onClick={() => {
               void copyEventId()
             }}
-            style={{
-              minHeight: '52px',
-              borderRadius: '10px',
-              border: '1px solid #4b66ce',
-              background: '#182a5e',
-              color: '#e7eeff',
-              fontWeight: 700,
-            }}
+            className="ipad-controller-button"
           >
             Copy Event ID
           </button>
-          {copyFeedback ? <p style={{ margin: 0, opacity: 0.85 }}>{copyFeedback}</p> : null}
-          <p style={{ margin: 0, opacity: 0.8 }}>Active event ID: {eventId || 'none'}</p>
-          <p style={{ margin: 0, opacity: 0.8 }}>
+          {copyFeedback ? <p className="ipad-controller-note">{copyFeedback}</p> : null}
+          <p className="ipad-controller-meta">Active event ID: {eventId || 'none'}</p>
+          <p className="ipad-controller-meta">
             Event source: {
               eventIdSource === 'active-gig'
                 ? 'active gig (auto)'
@@ -559,7 +521,7 @@ export default function IpadControllerPage() {
                       : 'none'
             }
           </p>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+          <label className="ipad-controller-label-row">
             <input
               type="checkbox"
               checked={autoFallbackEnabled}
@@ -567,31 +529,24 @@ export default function IpadControllerPage() {
             />
             Auto fallback to manual source when bridge is missing
           </label>
-          <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {bridgeStatusLabel}</p>
-          <p style={{ margin: 0, opacity: 0.92, color: publishAckOk ? '#86f5c7' : '#ffd58a' }}>Sync health: {syncHealthLabel}</p>
-          <p style={{ margin: 0, opacity: 0.8 }}>Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
-          <p style={{ margin: 0, opacity: 0.8 }}>Channel status: {channelStatus}</p>
-          <p style={{ margin: 0, opacity: 0.8 }}>Channel name: {channelName ?? 'none'}</p>
-          <p style={{ margin: 0, opacity: 0.8 }}>Publish status: {publishStatus}</p>
-          <p style={{ margin: 0, opacity: 0.8 }}>Last publish ack: {lastPublishAck}</p>
-          <p style={{ margin: 0, opacity: 0.8 }}>Last publish: {lastPublishAgoSeconds !== null ? `${lastPublishAgoSeconds.toFixed(1)}s ago` : 'not yet'}</p>
+          <p className="ipad-controller-meta">Bridge: {bridgeStatusLabel}</p>
+          <p className={publishAckOk ? 'ipad-controller-meta ipad-controller-meta--accent' : 'ipad-controller-meta ipad-controller-meta--warning'}>Sync health: {syncHealthLabel}</p>
+          <p className="ipad-controller-meta">Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
+          <p className="ipad-controller-meta">Channel status: {channelStatus}</p>
+          <p className="ipad-controller-meta">Channel name: {channelName ?? 'none'}</p>
+          <p className="ipad-controller-meta">Publish status: {publishStatus}</p>
+          <p className="ipad-controller-meta">Last publish ack: {lastPublishAck}</p>
+          <p className="ipad-controller-meta">Last publish: {lastPublishAgoSeconds !== null ? `${lastPublishAgoSeconds.toFixed(1)}s ago` : 'not yet'}</p>
           <button
             type="button"
             onClick={() => setChannelReconnectNonce((value) => value + 1)}
-            style={{
-              minHeight: '44px',
-              borderRadius: '10px',
-              border: '1px solid #4b66ce',
-              background: '#182a5e',
-              color: '#e7eeff',
-              fontWeight: 700,
-            }}
+            className="ipad-controller-button ipad-controller-button--secondary"
           >
             Reconnect Bridge Channel
           </button>
-          {isAppleMobile ? <p style={{ margin: 0, opacity: 0.82 }}>Apple mobile detected. Keep this page in foreground during performance.</p> : null}
+          {isAppleMobile ? <p className="ipad-controller-note ipad-controller-note--muted">Apple mobile detected. Keep this page in foreground during performance.</p> : null}
           {wakeLockSupported ? (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+            <label className="ipad-controller-label-row">
               <input
                 type="checkbox"
                 checked={wakeLockEnabled}
@@ -602,9 +557,9 @@ export default function IpadControllerPage() {
           ) : null}
         </section>
 
-        <section style={{ padding: '1rem', border: '1px solid #2b345f', borderRadius: '14px', background: '#0b1020', display: 'grid', gap: '0.7rem' }}>
-          <h2 style={{ marginTop: 0 }}>Emergency Manual Source</h2>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+        <section className="ipad-controller-panel ipad-controller-panel--compact">
+          <h2 className="ipad-controller-live-title">Emergency Manual Source</h2>
+          <label className="ipad-controller-label-row">
             <input
               type="checkbox"
               checked={manualMode}
@@ -618,7 +573,7 @@ export default function IpadControllerPage() {
             Force manual source (even if native bridge appears)
           </label>
           {!manualMode && manualSourceActive ? (
-            <p style={{ margin: 0, opacity: 0.82 }}>
+            <p className="ipad-controller-note ipad-controller-note--muted">
               Auto fallback is active because native bridge is missing. Press Start to run timer.
             </p>
           ) : null}
@@ -629,22 +584,22 @@ export default function IpadControllerPage() {
                 value={manualSongTitle}
                 onChange={(event) => setManualSongTitle(event.target.value)}
                 placeholder="Manual song title"
-                style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #3d4a86', background: '#101832', color: '#e5ebff', padding: '0.6rem 0.8rem' }}
+                className="ipad-controller-input"
               />
               <input
                 value={manualSongArtist}
                 onChange={(event) => setManualSongArtist(event.target.value)}
                 placeholder="Manual artist"
-                style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #3d4a86', background: '#101832', color: '#e5ebff', padding: '0.6rem 0.8rem' }}
+                className="ipad-controller-input"
               />
               <input
                 value={manualSongId}
                 onChange={(event) => setManualSongId(event.target.value)}
                 placeholder="Manual song id"
-                style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #3d4a86', background: '#101832', color: '#e5ebff', padding: '0.6rem 0.8rem' }}
+                className="ipad-controller-input"
               />
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(120px, 1fr))', gap: '0.6rem' }}>
+              <div className="ipad-controller-grid-three">
                 <button
                   type="button"
                   onClick={() => {
@@ -660,54 +615,43 @@ export default function IpadControllerPage() {
                     })
                     manualLastTickAtRef.current = Date.now()
                   }}
-                  style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #4b66ce', background: '#182a5e', color: '#e7eeff', fontWeight: 700 }}
+                  className="ipad-controller-button"
                 >
                   {manualRunning ? 'Pause' : 'Start'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setManualTimeSeconds((seconds) => Math.max(0, seconds - 5))}
-                  style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #4b66ce', background: '#182a5e', color: '#e7eeff', fontWeight: 700 }}
+                  className="ipad-controller-button"
                 >
                   -5s
                 </button>
                 <button
                   type="button"
                   onClick={() => setManualTimeSeconds((seconds) => seconds + 5)}
-                  style={{ minHeight: '48px', borderRadius: '10px', border: '1px solid #4b66ce', background: '#182a5e', color: '#e7eeff', fontWeight: 700 }}
+                  className="ipad-controller-button"
                 >
                   +5s
                 </button>
               </div>
-              <p style={{ margin: 0, opacity: 0.82 }}>Manual timer: {manualTimeSeconds.toFixed(1)}s</p>
+              <p className="ipad-controller-note ipad-controller-note--muted">Manual timer: {manualTimeSeconds.toFixed(1)}s</p>
             </>
           ) : null}
         </section>
 
-        <section style={{ padding: '1rem', border: '1px solid #2b345f', borderRadius: '14px', background: '#0b1020' }}>
-          <h2 style={{ marginTop: 0 }}>Live Source Snapshot</h2>
-          <p style={{ margin: '0.2rem 0' }}>Source: {manualSourceActive ? 'manual fallback' : 'Jamzone bridge'}</p>
-          <p style={{ margin: '0.2rem 0' }}>Song: {manualSourceActive
+        <section className="ipad-controller-live-snapshot">
+          <h2 className="ipad-controller-live-title">Live Source Snapshot</h2>
+          <p className="ipad-controller-live-line">Source: {manualSourceActive ? 'manual fallback' : 'Jamzone bridge'}</p>
+          <p className="ipad-controller-live-line">Song: {manualSourceActive
             ? `${manualSongArtist || 'Manual Artist'} - ${manualSongTitle || 'Manual Song'}`
             : (currentSongArtist && currentSongTitle ? `${currentSongArtist} - ${currentSongTitle}` : 'No song metadata yet')}</p>
-          <p style={{ margin: '0.2rem 0' }}>Time: {(manualSourceActive ? manualTimeSeconds : currentTimeSeconds).toFixed(2)}s</p>
+          <p className="ipad-controller-live-line">Time: {(manualSourceActive ? manualTimeSeconds : currentTimeSeconds).toFixed(2)}s</p>
         </section>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
+        <section className="ipad-controller-grid-links">
           <a
             href={lyricsUrl}
-            style={{
-              textAlign: 'center',
-              textDecoration: 'none',
-              minHeight: '56px',
-              borderRadius: '12px',
-              border: '1px solid #30b1ff',
-              background: '#092338',
-              color: '#ddf4ff',
-              display: 'grid',
-              alignItems: 'center',
-              fontWeight: 700,
-            }}
+            className="ipad-controller-link ipad-controller-link--lyrics"
           >
             Open Lyrics View
           </a>
@@ -715,18 +659,7 @@ export default function IpadControllerPage() {
             href={boardUrl}
             target="_blank"
             rel="noreferrer"
-            style={{
-              textAlign: 'center',
-              textDecoration: 'none',
-              minHeight: '56px',
-              borderRadius: '12px',
-              border: '1px solid #45dfb8',
-              background: '#092e2a',
-              color: '#dcfff2',
-              display: 'grid',
-              alignItems: 'center',
-              fontWeight: 700,
-            }}
+            className="ipad-controller-link ipad-controller-link--board"
           >
             Open Lyrics Board
           </a>

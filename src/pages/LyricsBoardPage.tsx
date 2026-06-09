@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { getJamzoneClockDisplayTimeSeconds, useJamzoneClockState } from '../lib/jamzoneClock'
 import { getJamzoneCurrentTimeSeconds, type JamzoneSong } from '../lib/jamzoneBridge'
 import { useAuthStore } from '../state/authStore'
+import './liveLyricsPages.css'
 
 const LOCAL_LYRIC_SYNC_CHANNEL = 'human-jukebox-live-lyrics'
 const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
@@ -258,23 +259,23 @@ export default function LyricsBoardPage() {
   }, [durableClockSnapshot, durableClockSong, remoteLyricLoadError, remoteLyricWindow, remoteSong, syncEventId, useDurableClock, windowState])
 
   return (
-    <main style={{ width: '100vw', height: '100vh', background: '#02030a' }}>
+    <main className="live-lyrics-page live-lyrics-page--board">
       {syncEventId && !useDurableClock && !remoteBridgeConnected ? (
-        <p style={{ margin: 0, padding: '0.65rem 1rem', color: '#d4dcff', opacity: 0.84 }}>
+        <p className="live-lyrics-status live-lyrics-status--pad-lg">
           Waiting for legacy iPad bridge fallback on event {syncEventId}...
         </p>
       ) : null}
       {syncEventId && useDurableClock ? (
-        <p style={{ margin: 0, padding: '0.65rem 1rem', color: '#d4dcff', opacity: 0.84 }}>
+        <p className="live-lyrics-status live-lyrics-status--pad-lg">
           Durable clock active ({durableClockStatus}{durableClockConnected ? ', connected' : ''})
         </p>
       ) : null}
       {syncEventId && remoteLyricLoadError ? (
-        <p style={{ margin: 0, padding: '0.45rem 1rem', color: '#ffd58a', opacity: 0.9 }}>
+        <p className="live-lyrics-warning-text live-lyrics-status--pad-sm">
           LRC file missing for current song. Showing live fallback.
         </p>
       ) : null}
-      <p style={{ margin: 0, padding: '0.45rem 1rem', color: '#d4dcff', opacity: 0.84 }}>
+      <p className="live-lyrics-status live-lyrics-status--pad-sm">
         Auto scroll: {autoScrollEnabled ? 'on' : 'off'}{songDurationSeconds ? `, song length ${songDurationSeconds.toFixed(1)}s` : ''}. Press Enter to toggle.
       </p>
       <KaraokeLyrics

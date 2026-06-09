@@ -1,0 +1,98 @@
+.live-lyrics-page {
+  min-height: 100vh;
+  background: #02030a;
+  color: #d5dcff;
+}
+
+.live-lyrics-page--jamzone,
+.live-lyrics-page--board {
+  display: block;
+}
+
+.live-lyrics-shell {
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: 1rem;
+}
+
+.live-lyrics-shell--board {
+  max-width: none;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+.live-lyrics-header {
+  display: grid;
+  gap: 0.35rem;
+  color: #d5dcff;
+}
+
+.live-lyrics-title {
+  margin: 0 0 0.4rem;
+}
+
+.live-lyrics-copy,
+.live-lyrics-status,
+.live-lyrics-note,
+.live-lyrics-warning,
+.live-lyrics-link-row,
+.live-lyrics-source {
+  margin: 0;
+}
+
+.live-lyrics-status--pad-lg {
+  padding: 0.65rem 1rem;
+}
+
+.live-lyrics-status--pad-sm {
+  padding: 0.45rem 1rem;
+}
+
+.live-lyrics-copy,
+.live-lyrics-status,
+.live-lyrics-note,
+.live-lyrics-source {
+  opacity: 0.85;
+}
+
+.live-lyrics-note {
+  opacity: 0.7;
+}
+
+.live-lyrics-warning {
+  color: #ffd58a;
+}
+
+.live-lyrics-muted {
+  opacity: 0.75;
+}
+
+.live-lyrics-button {
+  margin-top: 0.35rem;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid #4b66ce;
+  background: #182a5e;
+  color: #e7eeff;
+  font-weight: 700;
+  padding: 0 0.9rem;
+}
+
+.live-lyrics-stage {
+  height: 72vh;
+}
+
+.live-lyrics-loading {
+  color: #8bd8ff;
+}
+
+.live-lyrics-warning-text {
+  color: #ffd58a;
+}
+
+.live-lyrics-link {
+  color: inherit;
+}
