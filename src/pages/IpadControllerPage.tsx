@@ -39,6 +39,8 @@ export default function IpadControllerPage() {
   const [wakeLockEnabled, setWakeLockEnabled] = useState(true)
   const [wakeLockActive, setWakeLockActive] = useState(false)
   const [lastPublishAgoSeconds, setLastPublishAgoSeconds] = useState<number | null>(null)
+  const [channelStatus, setChannelStatus] = useState('idle')
+  const [channelReconnectNonce, setChannelReconnectNonce] = useState(0)
   const isLockedToActiveGig = eventIdSource === 'active-gig'
   const manualSourceActive = manualMode || (autoFallbackEnabled && !hasJamzoneBridge)
   const bridgeStatusLabel = hasJamzoneBridge
@@ -228,6 +230,7 @@ export default function IpadControllerPage() {
   useEffect(() => {
     if (!channelName) {
       setChannelConnected(false)
+      setChannelStatus('waiting-event')
       setPublishStatus('waiting-event')
       return
     }
@@ -236,15 +239,31 @@ export default function IpadControllerPage() {
     remoteBridgeChannelRef.current = channel
 
     channel.subscribe((status) => {
+      setChannelStatus(status)
       setChannelConnected(status === 'SUBSCRIBED')
     })
 
     return () => {
       remoteBridgeChannelRef.current = null
       setChannelConnected(false)
+      setChannelStatus('disconnected')
       void supabase.removeChannel(channel)
     }
-  }, [channelName])
+  }, [channelName, channelReconnectNonce])
+
+  useEffect(() => {
+    if (!channelName || channelConnected) {
+      return
+    }
+
+    const retryTimer = window.setTimeout(() => {
+      setChannelReconnectNonce((value) => value + 1)
+    }, 4500)
+
+    return () => {
+      window.clearTimeout(retryTimer)
+    }
+  }, [channelConnected, channelName, channelReconnectNonce])
 
   useEffect(() => {
     if (!remoteBridgeChannelRef.current) {
@@ -473,8 +492,23 @@ export default function IpadControllerPage() {
           </label>
           <p style={{ margin: 0, opacity: 0.8 }}>Bridge: {bridgeStatusLabel}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Realtime channel: {channelConnected ? 'connected' : 'disconnected'}</p>
+          <p style={{ margin: 0, opacity: 0.8 }}>Channel status: {channelStatus}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Publish status: {publishStatus}</p>
           <p style={{ margin: 0, opacity: 0.8 }}>Last publish: {lastPublishAgoSeconds !== null ? `${lastPublishAgoSeconds.toFixed(1)}s ago` : 'not yet'}</p>
+          <button
+            type="button"
+            onClick={() => setChannelReconnectNonce((value) => value + 1)}
+            style={{
+              minHeight: '44px',
+              borderRadius: '10px',
+              border: '1px solid #4b66ce',
+              background: '#182a5e',
+              color: '#e7eeff',
+              fontWeight: 700,
+            }}
+          >
+            Reconnect Bridge Channel
+          </button>
           {isAppleMobile ? <p style={{ margin: 0, opacity: 0.82 }}>Apple mobile detected. Keep this page in foreground during performance.</p> : null}
           {wakeLockSupported ? (
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>

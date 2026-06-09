@@ -24,6 +24,8 @@ export default function JamzoneLyricsPage() {
   const [bridgeSong, setBridgeSong] = useState<JamzoneSong | null>(null)
   const [remoteSong, setRemoteSong] = useState<JamzoneSong | null>(null)
   const [remoteBridgeConnected, setRemoteBridgeConnected] = useState(false)
+  const [remoteChannelStatus, setRemoteChannelStatus] = useState('idle')
+  const [remoteReconnectNonce, setRemoteReconnectNonce] = useState(0)
   const remoteBridgeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const sourceIdRef = useRef(`lyrics-${Math.random().toString(36).slice(2)}`)
   const remoteSnapshotRef = useRef<{ currentTimeSeconds: number; updatedAtMs: number }>({
@@ -79,6 +81,7 @@ export default function JamzoneLyricsPage() {
   useEffect(() => {
     if (!remoteChannelName) {
       setRemoteBridgeConnected(false)
+      setRemoteChannelStatus('waiting-event')
       return
     }
 
@@ -122,15 +125,31 @@ export default function JamzoneLyricsPage() {
 
     remoteBridgeChannelRef.current = channel
     channel.subscribe((status) => {
+      setRemoteChannelStatus(status)
       setRemoteBridgeConnected(status === 'SUBSCRIBED')
     })
 
     return () => {
       remoteBridgeChannelRef.current = null
       setRemoteBridgeConnected(false)
+      setRemoteChannelStatus('disconnected')
       void supabase.removeChannel(channel)
     }
-  }, [remoteChannelName])
+  }, [remoteChannelName, remoteReconnectNonce])
+
+  useEffect(() => {
+    if (!remoteChannelName || remoteBridgeConnected) {
+      return
+    }
+
+    const retryTimer = window.setTimeout(() => {
+      setRemoteReconnectNonce((value) => value + 1)
+    }, 4500)
+
+    return () => {
+      window.clearTimeout(retryTimer)
+    }
+  }, [remoteBridgeConnected, remoteChannelName, remoteReconnectNonce])
 
   useEffect(() => {
     if (!hasJamzoneBridge || !remoteBridgeChannelRef.current) {
@@ -227,6 +246,25 @@ export default function JamzoneLyricsPage() {
           {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Sync event: {syncEventId}</p> : null}
           {!syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.75 }}>Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
           {syncEventId && remoteBridgeConnected ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote bridge: active</p> : null}
+          {syncEventId ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Remote channel status: {remoteChannelStatus}</p> : null}
+          {syncEventId ? (
+            <button
+              type="button"
+              onClick={() => setRemoteReconnectNonce((value) => value + 1)}
+              style={{
+                marginTop: '0.35rem',
+                minHeight: '40px',
+                borderRadius: '10px',
+                border: '1px solid #4b66ce',
+                background: '#182a5e',
+                color: '#e7eeff',
+                fontWeight: 700,
+                padding: '0 0.9rem',
+              }}
+            >
+              Reconnect Remote Bridge
+            </button>
+          ) : null}
           <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Native bridge: {bridgeStatusLabel}</p>
           {useRemoteSnapshot ? <p style={{ marginTop: '0.35rem', opacity: 0.85 }}>Lyric source: iPad remote snapshot</p> : null}
           <p style={{ marginTop: '0.35rem' }}>
