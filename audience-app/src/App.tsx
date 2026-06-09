@@ -30,10 +30,17 @@ export default function App() {
   }, [])
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', margin: '2rem auto', maxWidth: 760, lineHeight: 1.5 }}>
-      <h1>Human Jukebox Audience App</h1>
-      <p>{status}</p>
-      <p>This deployment is isolated from the host app but uses the same Supabase project and auth pipeline.</p>
+    <main className="audience-shell">
+      <section className="audience-card" aria-label="Audience app status">
+        <h1 className="audience-title">Human Jukebox Audience App</h1>
+        <p className="audience-status">{status}</p>
+        <p className="audience-copy">
+          This deployment is isolated from the host app but uses the same Supabase project and auth pipeline.
+        </p>
+        <div className="audience-actions">
+          <button type="button" className="audience-button">Open Audience Flow</button>
+        </div>
+      </section>
     </main>
   )
 }

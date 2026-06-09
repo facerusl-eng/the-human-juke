@@ -780,7 +780,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           })
           setPlaylistMetaError(null)
         })
-      }).catch((error) => {
+      })().catch((error) => {
         if (cancelled) {
           return
         }

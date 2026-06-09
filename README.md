@@ -114,8 +114,21 @@ Without anonymous auth enabled, new audience users on phones may remain stuck ou
 - `npm run dev`
 - `npm run build`
 - `npm run preview`
+- `npm run sync:variants` (copy shared host logic and UI files from `src/` to `human-jukebox-web/src/` and `human-jukebox-tauri/src/`)
+- `npm run sync:variants:check` (fail if root/web/tauri shared files drift)
+- `npm run verify:consistency` (checks audience Supabase client sharing and mobile CSS baselines)
+- `npm run ship:update -- "your message"` (sync + verify + build apps + git add/commit/push to `main`)
 - `npm run test:responsive` (requires the app running at `BASE_URL`, default `http://127.0.0.1:5173`)
 - `npm run send:updates -- --subject "Your update" --message "Line 1\nLine 2"` (sends a broadcast to all contacts in `RESEND_UPDATES_AUDIENCE_ID`)
+
+## Multi-App Sync Rules
+
+- Root `src/` is the source of truth for shared host logic (Now Playing, queue, Spotify toggle, spacebar behavior, playback, Supabase flow).
+- Before shipping, run `npm run sync:variants` to propagate shared files to:
+	- `human-jukebox-web/src/`
+	- `human-jukebox-tauri/src/`
+- Keep `audience-app` connected through `shared/supabase/supabaseClient` so it uses the same Supabase project.
+- Use `npm run ship:update -- "message"` for one-command stage/commit/push and automatic Vercel redeploy on push.
 
 ## Sending Updates To Subscribers
 

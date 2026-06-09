@@ -60,6 +60,7 @@ const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const GO_LIVE_COUNTDOWN_LOCK_MESSAGE = 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
 const SONG_START_COUNTDOWN_MS = 10_000
+const SPACEBAR_START_COUNTDOWN_MS = 250
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
 const PLAYBACK_ACTION_LOCK_MAX_MS = 20_000
@@ -73,9 +74,9 @@ const BRB_MESSAGE_DICE_OPTIONS = [
   'Break time. Scan the QR, claim your anthem, and I will be back before your crisps get lonely.',
 ]
 type SpotifyTransportMode = 'play' | 'pause' | 'toggle' | 'next' | 'previous'
+type NowPlayingType = 'spotify' | 'queue' | 'none'
 type EmergencyOverlayPreset = 'tech-issue' | 'scan-qr' | 'closing-soon'
 type MirrorPreviewTransitionTone = 'on-break' | 'back-live'
-type NowPlayingType = 'spotify' | 'queue' | 'none'
 type SpotifyPlaylistMeta = {
   name?: string
   uri?: string
@@ -1334,22 +1335,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     )
   }, [spotifyAutoTransportEnabled])
 
-  const resolveSpotifyApiUrl = useCallback((path: '/api/spotify/token' | '/api/spotify/login') => {
-    const isLocalHttpDev = (
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-      && window.location.protocol === 'http:'
-    )
-
-    if (isLocalHttpDev) {
-      return path
-    }
-
-    const spotifyApiOrigin = (import.meta.env.VITE_SPOTIFY_API_ORIGIN?.trim() || 'https://www.the-human-jukebox.org').replace(/\/$/, '')
-    return `${spotifyApiOrigin}${path}`
-  }, [])
-
   const refreshSpotifyAccessToken = useCallback(async () => {
-    const response = await fetch(resolveSpotifyApiUrl('/api/spotify/token'))
+    const response = await fetch('/api/spotify/token')
     const payload = await response.json().catch(() => ({}))
 
     if (!response.ok || typeof payload.access_token !== 'string') {
@@ -1359,7 +1346,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
     setSpotifyAccessToken(payload.access_token)
     return payload.access_token as string
-  }, [resolveSpotifyApiUrl])
+  }, [])
 
   useEffect(() => {
     if (!spotifyAccessToken) {
@@ -1488,9 +1475,17 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       setSpotifyAccessToken(token)
       return
     } catch {
-      window.location.assign(resolveSpotifyApiUrl('/api/spotify/login'))
+      const isLocalHttpDev = (
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        && window.location.protocol === 'http:'
+      )
+      const loginUrl = isLocalHttpDev
+        ? 'https://www.the-human-jukebox.org/api/spotify/login'
+        : '/api/spotify/login'
+
+      window.location.assign(loginUrl)
     }
-  }, [refreshSpotifyAccessToken, resolveSpotifyApiUrl])
+  }, [refreshSpotifyAccessToken])
 
   const persistReadinessVerdict = useCallback((verdict: 'pass' | 'fail') => {
     setLastReadinessVerdict(verdict)
@@ -3240,6 +3235,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
   }, [toggleQueuePlayPause, toggleSpotifyPlayPause])
 
+
   /**
    * GLOBAL MODE SWITCH: QUOTE ↔ NOW PLAYING
    * One call = instant state flip broadcast to all clients.
@@ -4276,6 +4272,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               <h2>Spotify Automation</h2>
               <span className="meta-badge">{spotifyAutoTransportEnabled ? 'On' : 'Off'}</span>
             </div>
+            <p className="subcopy no-margin">
+              Spotify Toggle: <strong>{spotifyToggle ? 'On (Now Playing = Spotify)' : 'Off (Now Playing = Queue)'}</strong>
+            </p>
             <label htmlFor="spotify-auto-transport-toggle" className="gig-switcher-label gig-spotify-status-label">
               <span className="admin-spotify-status-dot admin-spotify-connected" aria-label="Spotify Connected" />
               <input
