@@ -160,12 +160,26 @@ export function getSpotifyRedirectUri(req) {
       return spotifyRedirectUriDev
     }
 
+    const host = req?.headers?.['x-forwarded-host'] ?? req?.headers?.host
+    const protocolHeader = req?.headers?.['x-forwarded-proto']
+    const forwardedProtocol = typeof protocolHeader === 'string' && protocolHeader.length > 0
+      ? protocolHeader.split(',')[0].trim().toLowerCase()
+      : ''
+    const requestProtocol = typeof req?.protocol === 'string' && req.protocol.length > 0
+      ? req.protocol.trim().toLowerCase()
+      : ''
+
+    if (typeof host === 'string' && host.length > 0) {
+      const protocol = forwardedProtocol || requestProtocol || (/(^|:)(localhost|127\.0\.0\.1)/i.test(host) ? 'http' : 'https')
+      return `${protocol}://${host}/callback`
+    }
+
     const devPublicOrigin = process.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
     if (devPublicOrigin) {
       return `${devPublicOrigin.replace(/\/$/, '')}/callback`
     }
 
-    return 'https://the-human-jukebox.org/callback'
+    return 'https://www.the-human-jukebox.org/callback'
   }
 
   if (spotifyRedirectUriOverride) {
@@ -184,7 +198,7 @@ export function getSpotifyRedirectUri(req) {
     return `${protocol}://${host}/callback`
   }
 
-  return 'https://the-human-jukebox.org/callback'
+  return 'https://www.the-human-jukebox.org/callback'
 }
 
 export function getAuthorizeUrl(req, res) {
