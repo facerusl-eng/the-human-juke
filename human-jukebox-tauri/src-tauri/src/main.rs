@@ -1,0 +1,50 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+use tauri::Manager;
+
+fn main() {
+    tauri::Builder::default()
+        .setup(|app| {
+            let refresh_item = MenuItemBuilder::with_id("refresh", "Refresh")
+                .accelerator("CmdOrCtrl+R")
+                .build(app)?;
+
+            let update_item = MenuItemBuilder::with_id("update", "Update")
+                .accelerator("CmdOrCtrl+U")
+                .build(app)?;
+
+            let quit_item = MenuItemBuilder::with_id("quit", "Quit")
+                .accelerator("CmdOrCtrl+Q")
+                .build(app)?;
+
+            let app_submenu = SubmenuBuilder::new(app, "App")
+                .item(&refresh_item)
+                .item(&update_item)
+                .item(&quit_item)
+                .build()?;
+
+            let menu = MenuBuilder::new(app).item(&app_submenu).build()?;
+            app.set_menu(menu)?;
+
+            Ok(())
+        })
+        .on_menu_event(|app, event| {
+            match event.id().as_ref() {
+                "refresh" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.eval("window.location.reload()") ;
+                    }
+                }
+                "update" => {
+                    app.restart();
+                }
+                "quit" => {
+                    app.exit(0);
+                }
+                _ => {}
+            }
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
