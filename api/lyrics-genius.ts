@@ -116,6 +116,15 @@ function stripTitleNoise(value: string) {
   );
 }
 
+function stripCommonTitleSuffixes(value: string) {
+  return normalizeText(
+    value
+      .replace(/\s*-\s*(live|acoustic|karaoke|instrumental|remaster(?:ed)?(?:\s*\d{2,4})?|radio\s*edit|mono|stereo)\b.*$/i, ' ')
+      .replace(/\b(live|acoustic|karaoke|instrumental|remaster(?:ed)?(?:\s*\d{2,4})?|radio\s*edit)\b/gi, ' ')
+      .replace(/\b(from|original\s+motion\s+picture|motion\s+picture\s+soundtrack)\b.*$/i, ' '),
+  );
+}
+
 function stripArtistNoise(value: string) {
   return normalizeText(
     value
@@ -206,6 +215,8 @@ function buildVariants(song: string, artist: string) {
     new Set([
       songBase,
       stripTitleNoise(songBase),
+      stripCommonTitleSuffixes(songBase),
+      stripCommonTitleSuffixes(stripTitleNoise(songBase)),
       stripBrackets(songBase),
       splitPrimary(stripTitleNoise(songBase)),
     ].filter(Boolean)),
@@ -441,7 +452,7 @@ export async function findLyrics(title: string, artist: string): Promise<GeniusL
   const cleanedTitle = cleanTitle(title);
   const cleanedArtist = cleanArtist(artist);
   const queries = buildGeniusQueries(title, artist);
-  let bestHit: { hit: GeniusSearchHit; score: number; query: string; queryIndex: number } | null = null;
+  const scoredHits: Array<{ hit: GeniusSearchHit; score: number; query: string; queryIndex: number }> = [];
 
   for (let queryIndex = 0; queryIndex < queries.length; queryIndex += 1) {
     const query = queries[queryIndex];
@@ -449,35 +460,61 @@ export async function findLyrics(title: string, artist: string): Promise<GeniusL
 
     for (const hit of hits) {
       const weightedScore = scoreGeniusResult(hit, cleanedTitle, cleanedArtist) - (queryIndex * 2.5);
+      scoredHits.push({ hit, score: weightedScore, query, queryIndex });
+    }
+  }
 
-      if (!bestHit || weightedScore > bestHit.score) {
-        bestHit = { hit, score: weightedScore, query, queryIndex };
+  const bestCandidates = scoredHits
+    .sort((left, right) => right.score - left.score)
+    .filter((candidate) => candidate.score >= 22);
+
+  if (bestCandidates.length === 0) {
+    return null;
+  }
+
+  const uniqueCandidates: Array<{ hit: GeniusSearchHit; score: number; query: string; queryIndex: number }> = [];
+  const seenUrls = new Set<string>();
+
+  for (const candidate of bestCandidates) {
+    const songUrl = candidate.hit.result?.url;
+    if (!songUrl || seenUrls.has(songUrl)) {
+      continue;
+    }
+
+    seenUrls.add(songUrl);
+    uniqueCandidates.push(candidate);
+
+    if (uniqueCandidates.length >= 4) {
+      break;
+    }
+  }
+
+  for (const candidate of uniqueCandidates) {
+    const songUrl = candidate.hit.result?.url;
+    if (!songUrl) {
+      continue;
+    }
+
+    try {
+      const response = await fetchWithRetry(() => axios.get(songUrl, { timeout: 9000 }), 1);
+      const lyrics = extractLyricsFromHtml(String(response.data ?? ''));
+
+      if (!lyrics) {
+        continue;
       }
+
+      return {
+        lyrics,
+        songUrl,
+        query: candidate.query,
+        score: candidate.score,
+      };
+    } catch {
+      // Try the next best Genius candidate.
     }
   }
 
-  const songUrl = bestHit?.hit.result?.url;
-  if (!songUrl || (bestHit?.score ?? -999) < 22) {
-    return null;
-  }
-
-  try {
-    const response = await fetchWithRetry(() => axios.get(songUrl, { timeout: 9000 }), 1);
-    const lyrics = extractLyricsFromHtml(String(response.data ?? ''));
-
-    if (!lyrics) {
-      return null;
-    }
-
-    return {
-      lyrics,
-      songUrl,
-      query: bestHit?.query ?? '',
-      score: bestHit?.score ?? 0,
-    };
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 async function fetchLyricsOvh(title: string, artist: string): Promise<string | null> {
