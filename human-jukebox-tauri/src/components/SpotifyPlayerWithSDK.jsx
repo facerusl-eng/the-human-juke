@@ -1315,13 +1315,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
               return
             }
 
-            if (playlistInput.trim()) {
-              await startPlaylistPlayback(playlistInput)
-              setPlayerStatus('Spotify playlist playback started from Gig Control toggle shortcut.')
-              return
-            }
-
-            throw new Error('Set a Between Songs Playlist first, then use Toggle Spotify Playlist.')
+            throw new Error('No active Spotify context to toggle. Start playback in Spotify first, then use Toggle.')
           }
 
           const currentState = await playerRef.current.getCurrentState?.()
@@ -1334,16 +1328,10 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
                 return
               }
             } catch {
-              // Fall through to playlist start when there is no resumable context.
+              // Fall through to explicit no-context guidance.
             }
 
-            if (playlistInput.trim()) {
-              await startPlaylistPlayback(playlistInput)
-              setPlayerStatus('Spotify playlist playback started from Gig Control toggle shortcut.')
-              return
-            }
-
-            throw new Error('Set a Between Songs Playlist first, then use Toggle Spotify Playlist.')
+            throw new Error('No active Spotify context to toggle. Start playback in Spotify first, then use Toggle.')
           }
 
           try {
@@ -1358,14 +1346,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
                   return
                 }
               } catch {
-                // fall through to playlist start
+                // fall through to explicit no-context guidance
               }
-              if (playlistInput.trim()) {
-                await startPlaylistPlayback(playlistInput)
-                setPlayerStatus('Started playlist (no previous context to resume).')
-                return
-              }
-              throw new Error('No track loaded yet. Set a Between Songs Playlist and press Play Playlist Between Songs first.')
+              throw new Error('No active Spotify context to toggle. Start playback in Spotify first, then use Toggle.')
             }
             throw toggleError
           }
