@@ -1008,6 +1008,7 @@ function SetlistLibraryPage() {
       await addSong(song.title, song.artist, song.is_explicit, {
         coverUrl: song.cover_url,
         librarySongId: song.id,
+        performerMode: selectedPlaylist?.playlist_type === 'karaoke' ? 'audience' : 'performer',
         bypassEventRules: true,
       })
     } catch (error) {
