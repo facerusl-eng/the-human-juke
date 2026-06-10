@@ -454,32 +454,32 @@
 .mirror-ticker-bar {
   grid-row: 3;
   width: 100%;
-  min-height: clamp(2.8rem, 5.6dvh, 4rem);
+  min-height: clamp(3.2rem, 6.6dvh, 4.8rem);
   overflow: hidden;
   background: linear-gradient(90deg, rgba(63, 24, 0, 0.96) 0%, rgba(36, 12, 0, 0.96) 100%);
   border-top: 2px solid rgba(255, 194, 84, 0.95);
   border-bottom: 2px solid rgba(255, 194, 84, 0.95);
-  padding: 0.56rem 0;
+  padding: 0.68rem 0;
   flex-shrink: 0;
 }
 
 .mirror-ticker-track {
   display: flex;
   width: max-content;
-  animation: mirror-ticker-scroll 28s linear infinite;
+  animation: mirror-ticker-scroll 36s linear infinite;
 }
 
 .mirror-ticker-content {
   white-space: nowrap;
-  font-size: clamp(2.1rem, 3.5vw, 3.1rem);
+  font-size: clamp(2.35rem, 4vw, 3.7rem);
   font-weight: 900;
-  line-height: 1.08;
-  letter-spacing: 0.02em;
+  line-height: 1.02;
+  letter-spacing: 0.01em;
   color: #fff6d8;
-  -webkit-text-stroke: 0.6px rgba(28, 11, 0, 0.9);
+  -webkit-text-stroke: 0.9px rgba(28, 11, 0, 0.95);
   text-shadow:
-    0 1px 1px rgba(0, 0, 0, 0.9),
-    0 3px 10px rgba(0, 0, 0, 0.75);
+    0 1px 1px rgba(0, 0, 0, 0.95),
+    0 4px 12px rgba(0, 0, 0, 0.8);
   padding-right: 5rem;
 }
 
