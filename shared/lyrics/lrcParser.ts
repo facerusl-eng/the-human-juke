@@ -184,7 +184,7 @@ export function buildLrcCandidatePaths(song: {
 }
 
 export async function fetchLrc(path: string): Promise<string | null> {
-  const requestTimeoutMs = 4000
+  const requestTimeoutMs = 1400
 
   try {
     const controller = new AbortController()

@@ -9,6 +9,7 @@ const EVENT_NAME = 'lyric-display-state'
 const SECTION_LABEL_RE = /^(verse|chorus|pre-chorus|bridge|hook|refrain|intro|outro)\b/i
 const SECTION_GAP_SECONDS = 12
 const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
+const STATUS_KEY = 'lyrics_prefetch_status_v1'
 
 function sanitizeLineText(value: string) {
   return value
@@ -77,6 +78,130 @@ function parseBlocksFromPlainLyrics(rawLyrics: string) {
   return blocks
 }
 
+function normalizeQueryValue(value: string) {
+  return value
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function buildSongQueryVariants(song: LyricSongRef) {
+  const stripTitle = (value: string) => normalizeQueryValue(value)
+    .replace(/\(.*?\)/g, ' ')
+    .replace(/\[.*?\]/g, ' ')
+    .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+    .replace(/\b(remix|version|edit|live|acoustic)\b/gi, ' ')
+    .replace(/\s*[-|/]\s*(official|lyrics?|video).*$/i, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const stripArtist = (value: string) => normalizeQueryValue(value)
+    .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+    .split(/\s(?:&|x|with|and)\s|,|\//i)[0]
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const titleCandidates = [
+    normalizeQueryValue(song.title),
+    stripTitle(song.title),
+  ].filter(Boolean)
+
+  const artistCandidates = [
+    normalizeQueryValue(song.artist),
+    stripArtist(song.artist),
+  ].filter(Boolean)
+
+  const variants: Array<{ title: string; artist: string }> = []
+  for (const title of titleCandidates) {
+    for (const artist of artistCandidates) {
+      variants.push({ title, artist })
+    }
+  }
+
+  const unique = new Map<string, { title: string; artist: string }>()
+  for (const variant of variants) {
+    unique.set(`${variant.title}::${variant.artist}`, variant)
+  }
+
+  return [...unique.values()]
+}
+
+function writeLyricsCache(song: LyricSongRef, lyrics: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const normalizedLyrics = lyrics.trim()
+  if (!normalizedLyrics) {
+    return
+  }
+
+  const normalizedTitle = song.title.trim().toLowerCase()
+  const normalizedArtist = song.artist.trim().toLowerCase()
+  const songKey = `song:${song.id.trim().toLowerCase()}`
+  const pairKey = `${normalizedTitle}::${normalizedArtist}`
+
+  try {
+    const cache = JSON.parse(window.localStorage.getItem(AUTO_CACHE_KEY) ?? '{}') as Record<string, string>
+    cache[songKey] = normalizedLyrics
+    cache[pairKey] = normalizedLyrics
+    window.localStorage.setItem(AUTO_CACHE_KEY, JSON.stringify(cache))
+  } catch {
+    // Best effort cache write.
+  }
+
+  try {
+    const status = JSON.parse(window.localStorage.getItem(STATUS_KEY) ?? '{}') as Record<string, string>
+    status[songKey] = 'found'
+    status[pairKey] = 'found'
+    window.localStorage.setItem(STATUS_KEY, JSON.stringify(status))
+  } catch {
+    // Best effort status write.
+  }
+}
+
+async function fetchOnlineLyrics(song: LyricSongRef) {
+  const variants = buildSongQueryVariants(song)
+
+  for (const variant of variants) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        controller.abort()
+      }, 5000)
+
+      const response = await fetch(
+        `/api/lyrics-genius?song=${encodeURIComponent(variant.title)}&artist=${encodeURIComponent(variant.artist)}`,
+        { signal: controller.signal },
+      )
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        continue
+      }
+
+      const payload = await response.json() as Record<string, unknown>
+      const rawLyrics = typeof payload.lyrics === 'string' ? payload.lyrics.trim() : ''
+      if (!rawLyrics) {
+        continue
+      }
+
+      writeLyricsCache(song, rawLyrics)
+
+      const blocks = parseBlocksFromPlainLyrics(rawLyrics)
+      if (blocks.length > 0) {
+        return blocks
+      }
+    } catch {
+      // Continue to next query variant.
+    }
+  }
+
+  return [] as string[]
+}
+
 function readAutoCachedLyrics(song: LyricSongRef) {
   if (typeof window === 'undefined') {
     return null
@@ -116,7 +241,7 @@ async function loadBlocksForSong(song: LyricSongRef) {
     artist: song.artist,
   })
 
-  for (const candidatePath of candidates) {
+  for (const candidatePath of candidates.slice(0, 20)) {
     const lrcText = await fetchLrc(candidatePath)
     if (!lrcText) {
       continue
@@ -134,6 +259,11 @@ async function loadBlocksForSong(song: LyricSongRef) {
     if (cachedBlocks.length > 0) {
       return cachedBlocks
     }
+  }
+
+  const onlineBlocks = await fetchOnlineLyrics(song)
+  if (onlineBlocks.length > 0) {
+    return onlineBlocks
   }
 
   return [`No lyric blocks found for ${song.artist} - ${song.title}`]
