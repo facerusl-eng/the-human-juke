@@ -55,6 +55,32 @@ export default function KaraokeLyrics({
   const currentKey = lineKey(current)
   const hasFullAutoScrollLines = autoScrollEnabled && allLines.length > 0
 
+  const lineProgress = useMemo(() => {
+    if (!current || !next) {
+      return null
+    }
+
+    if (!Number.isFinite(autoScrollCurrentTimeSeconds ?? NaN)) {
+      return null
+    }
+
+    const segmentDuration = next.timeSeconds - current.timeSeconds
+    if (!Number.isFinite(segmentDuration) || segmentDuration <= 0) {
+      return null
+    }
+
+    const elapsed = (autoScrollCurrentTimeSeconds ?? 0) - current.timeSeconds
+    return Math.min(1, Math.max(0, elapsed / segmentDuration))
+  }, [autoScrollCurrentTimeSeconds, current, next])
+
+  const secondsToNextLine = useMemo(() => {
+    if (!next || !Number.isFinite(autoScrollCurrentTimeSeconds ?? NaN)) {
+      return null
+    }
+
+    return Math.max(0, next.timeSeconds - (autoScrollCurrentTimeSeconds ?? 0))
+  }, [autoScrollCurrentTimeSeconds, next])
+
   const autoScrollProgress = useMemo(() => {
     if (!autoScrollEnabled) {
       return null
@@ -77,13 +103,22 @@ export default function KaraokeLyrics({
       return
     }
 
+    const activeLine = container.querySelector('[data-karaoke-current="true"]')
+
+    if (hasFullAutoScrollLines && activeLine) {
+      activeLine.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+      return
+    }
+
     if (autoScrollProgress !== null) {
       const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
       container.scrollTop = maxScrollTop * autoScrollProgress
       return
     }
 
-    const activeLine = container.querySelector('[data-karaoke-current="true"]')
     if (!activeLine) {
       return
     }
@@ -92,7 +127,7 @@ export default function KaraokeLyrics({
       behavior: 'smooth',
       block: 'center',
     })
-  }, [autoScrollProgress, currentIndex, currentKey])
+  }, [autoScrollProgress, currentIndex, currentKey, hasFullAutoScrollLines])
 
   const statusText = isBeforeFirstLine
     ? 'Waiting for song start...'
@@ -103,6 +138,13 @@ export default function KaraokeLyrics({
   return (
     <section className={stageClassName} aria-live="polite" aria-atomic="true">
       <div className="karaoke-stage__inner" ref={containerRef} data-auto-scroll={autoScrollEnabled ? 'true' : 'false'}>
+        {secondsToNextLine !== null ? (
+          <div className="karaoke-stage__cue" aria-live="off">
+            <span className="karaoke-stage__cue-label">Next line in {secondsToNextLine.toFixed(1)}s</span>
+            <progress className="karaoke-stage__line-progress" max={1} value={lineProgress ?? 0} />
+          </div>
+        ) : null}
+
         {statusText ? <p className="karaoke-stage__status">{statusText}</p> : null}
 
         {previous ? (

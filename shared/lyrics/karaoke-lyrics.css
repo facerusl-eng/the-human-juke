@@ -102,6 +102,45 @@
   opacity: 0.9;
 }
 
+.karaoke-stage__cue {
+  display: grid;
+  gap: 8px;
+  margin-bottom: clamp(4px, 1vh, 10px);
+}
+
+.karaoke-stage__cue-label {
+  font-size: clamp(0.85rem, 1.8vw, 1.25rem);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #b7c6ff;
+  opacity: 0.92;
+}
+
+.karaoke-stage__line-progress {
+  width: 100%;
+  height: 10px;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.karaoke-stage__line-progress::-webkit-progress-bar {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+
+.karaoke-stage__line-progress::-webkit-progress-value {
+  background: linear-gradient(90deg, #4bd7ff 0%, #7df7e9 100%);
+  border-radius: 999px;
+}
+
+.karaoke-stage__line-progress::-moz-progress-bar {
+  background: linear-gradient(90deg, #4bd7ff 0%, #7df7e9 100%);
+  border-radius: 999px;
+}
+
 @media (max-width: 640px) {
   .karaoke-stage {
     border-radius: 12px;
