@@ -644,6 +644,7 @@ function GigControlPage() {
   const hostClockOffsetRef = useRef(0)
   const introAudioLockOwnerRef = useRef<string | null>(null)
   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
+  const activeIntroAudioElementRef = useRef<HTMLAudioElement | null>(null)
   const spotifyTransportNonceRef = useRef(0)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
@@ -1292,6 +1293,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   introAudioLock = true
   try {
     const introAudio = primedAudioElement ?? new Audio(introAudioUrl)
+    activeIntroAudioElementRef.current = introAudio
     introAudio.muted = false
     introAudio.volume = INTRO_AUDIO_PLAYBACK_VOLUME
     introAudio.currentTime = 0
@@ -1305,11 +1307,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       const cleanup = () => {
         introAudio.removeEventListener('ended', onEnded)
         introAudio.removeEventListener('error', onError)
+        introAudio.removeEventListener('pause', onPause)
       }
       const onEnded = () => { cleanup(); resolve(undefined) }
       const onError = () => { cleanup(); resolve(undefined) }
+      const onPause = () => { cleanup(); resolve(undefined) }
       introAudio.addEventListener('ended', onEnded, { once: true })
       introAudio.addEventListener('error', onError, { once: true })
+      introAudio.addEventListener('pause', onPause, { once: true })
     })
 
     try {
@@ -1325,13 +1330,37 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     await completionPromise
+    if (isNowPlayingStartedRef.current) {
+      return
+    }
     // Resume Spotify after intro so between-song playlist comes back automatically.
     await sendSpotifyTransportCommand('play', { force: true })
     await sendSpotifyWebApiTransportCommand('play')
   } finally {
+    if (activeIntroAudioElementRef.current) {
+      activeIntroAudioElementRef.current = null
+    }
     introAudioLock = false
   }
 }
+
+  const stopActiveIntroAudioPlayback = useCallback(() => {
+    const activeIntroAudio = activeIntroAudioElementRef.current
+
+    if (!activeIntroAudio) {
+      return
+    }
+
+    try {
+      activeIntroAudio.pause()
+      activeIntroAudio.currentTime = 0
+    } catch {
+      // Best-effort emergency stop only.
+    }
+
+    activeIntroAudioElementRef.current = null
+    introAudioLock = false
+  }, [])
 
   useEffect(() => {
     const storedToken = window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY)
@@ -1772,6 +1801,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         return
       }
 
+      if (isNowPlayingStartedRef.current) {
+        return
+      }
+
       const requestKey = `${request.eventId}:${request.requestedAt}`
       if (lastIntroPlaybackRequestRef.current === requestKey) {
         return
@@ -1786,6 +1819,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
           'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
         )
 
+        if (isNowPlayingStartedRef.current) {
+          return
+        }
+
         await writeSharedPlaybackState(event.id, {
           currentSongId: nowPlayingRef.current?.id ?? null,
           currentSongCoverUrl: resolveCoverUrlForSong(nowPlayingRef.current?.id ?? null),
@@ -1798,6 +1835,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
         setIsNowPlayingStarted(false)
         setPreflightStatusText('Auto Live intro triggered from countdown.')
+
+        try {
+          window.localStorage.removeItem(INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY)
+        } catch {
+          // Ignore storage cleanup failures.
+        }
       })().catch((error) => {
         console.warn('GigControlPage: intro playback request handling failed', error)
       })
@@ -2912,6 +2955,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
   const syncStartedState = useCallback(async (nextStarted: boolean, nextSongId?: string | null) => {
     const targetSongId = nextSongId ?? nowPlaying?.id ?? null
+
+    if (nextStarted) {
+      stopActiveIntroAudioPlayback()
+    }
+
     setIsNowPlayingStarted(nextStarted)
 
     if (!event?.id) {
@@ -3380,6 +3428,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
     if (!currentlyStarted) {
       // QUOTE → NOW PLAYING: instant switch
+      stopActiveIntroAudioPlayback()
       setIsNowPlayingStarted(true);
       isNowPlayingStartedRef.current = true;
 
@@ -3435,7 +3484,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         setErrorText('Playback toggle failed. Please try again.');
       }
     }
-  }, [globalActionCheckEnabled, globalActionCheckBlockedText, resolveCoverUrlForSong, sendSpotifyTransportCommand, syncedPlaybackState?.brbActive, getHostNowMs]);
+  }, [globalActionCheckEnabled, globalActionCheckBlockedText, resolveCoverUrlForSong, sendSpotifyTransportCommand, syncedPlaybackState?.brbActive, getHostNowMs, stopActiveIntroAudioPlayback]);
 
   const runGlobalToggleQuoteNowPlayingRef = useRef(runGlobalToggleQuoteNowPlaying)
   useEffect(() => {
