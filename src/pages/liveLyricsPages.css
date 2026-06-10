@@ -13,8 +13,9 @@
   display: grid;
   gap: 1rem;
   margin: 0 auto;
-  max-width: 1200px;
-  padding: 1rem;
+  max-width: none;
+  width: 100vw;
+  padding: clamp(0.5rem, 1.6vw, 1.2rem);
 }
 
 .live-lyrics-shell--board {
@@ -28,6 +29,13 @@
   display: grid;
   gap: 0.35rem;
   color: #d5dcff;
+}
+
+.live-lyrics-header--compact {
+  gap: 0.2rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(8, 12, 26, 0.82), rgba(6, 10, 20, 0.66));
 }
 
 .live-lyrics-title {
@@ -82,7 +90,13 @@
 }
 
 .live-lyrics-stage {
-  height: 72vh;
+  height: calc(100vh - 132px);
+}
+
+@media (max-width: 900px) {
+  .live-lyrics-stage {
+    height: calc(100vh - 148px);
+  }
 }
 
 .live-lyrics-loading {
@@ -95,4 +109,29 @@
 
 .live-lyrics-link {
   color: inherit;
+}
+
+.live-lyrics-diagnostics {
+  margin-top: 0.35rem;
+  border: 1px solid rgba(102, 128, 210, 0.5);
+  border-radius: 10px;
+  background: rgba(10, 16, 36, 0.65);
+}
+
+.live-lyrics-diagnostics-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.45rem 0.65rem;
+  font-weight: 700;
+  color: #d9e4ff;
+}
+
+.live-lyrics-diagnostics-summary::-webkit-details-marker {
+  display: none;
+}
+
+.live-lyrics-diagnostics-body {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0 0.65rem 0.65rem;
 }

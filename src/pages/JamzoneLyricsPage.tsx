@@ -147,6 +147,12 @@ export default function JamzoneLyricsPage() {
     return `/lyrics-board?event=${encodeURIComponent(syncEventId)}`
   }, [syncEventId])
 
+  const showDiagnostics = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    const debugValue = (params.get('debug') ?? params.get('diagnostics') ?? '').trim().toLowerCase()
+    return debugValue === '1' || debugValue === 'true' || debugValue === 'yes'
+  }, [location.search])
+
   useEffect(() => {
     const updateFromBridge = () => {
       const bridge = getJamzoneBridge()
@@ -378,39 +384,42 @@ export default function JamzoneLyricsPage() {
   return (
     <main className="live-lyrics-page live-lyrics-page--jamzone">
       <section className="live-lyrics-shell">
-        <header className="live-lyrics-header">
-          <h1 className="live-lyrics-title">Jamzone Synced Karaoke</h1>
-          <p className="live-lyrics-copy">
-            This view reads Jamzone playback time only. Lyrics advance automatically without manual stepping.
-          </p>
+        <header className="live-lyrics-header live-lyrics-header--compact">
           {activeSong ? <p className="live-lyrics-status">Now playing: {activeSong.artist} - {activeSong.title}</p> : null}
           {!activeSong ? <p className="live-lyrics-status">Waiting for song metadata from the active clock source...</p> : null}
-          {!hasJamzoneBridge && !useRemoteSnapshot ? <p className="live-lyrics-muted">Jamzone bridge is not registered yet.</p> : null}
-          {syncEventId ? <p className="live-lyrics-muted">Sync event: {syncEventId}</p> : null}
-          {!syncEventId ? <p className="live-lyrics-muted">Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
-          {syncEventId ? <p className="live-lyrics-status">Durable clock status: {durableClockStatus}</p> : null}
-          {syncEventId && durableClockConnected ? <p className="live-lyrics-status">Durable clock: active</p> : null}
-          {syncEventId && !useDurableClock && remoteBridgeConnected ? <p className="live-lyrics-status">Legacy remote bridge: active</p> : null}
-          {syncEventId ? <p className="live-lyrics-status">Remote channel status: {remoteChannelStatus}</p> : null}
           <p className="live-lyrics-status">
             Auto scroll: {autoScrollEnabled ? 'on' : 'off'}{songDurationSeconds ? `, song length ${songDurationSeconds.toFixed(1)}s` : ''}
           </p>
           <p className="live-lyrics-note">Press Enter to toggle auto scroll.</p>
-          {syncEventId ? (
-            <button
-              type="button"
-              onClick={() => setRemoteReconnectNonce((value) => value + 1)}
-              className="live-lyrics-button"
-            >
-              Reconnect Remote Bridge
-            </button>
-          ) : null}
-          <p className="live-lyrics-status">Native bridge: {bridgeStatusLabel}</p>
-          {useDurableClock ? <p className="live-lyrics-status">Lyric source: durable Jamzone clock</p> : null}
-          {useRemoteSnapshot ? <p className="live-lyrics-status">Lyric source: legacy iPad snapshot fallback</p> : null}
           <p className="live-lyrics-link-row">
             Fullscreen board: <a className="live-lyrics-link" href={boardHref} target="_blank" rel="noreferrer">open lyrics board</a>
           </p>
+          {showDiagnostics ? (
+            <details className="live-lyrics-diagnostics">
+              <summary className="live-lyrics-diagnostics-summary">Connection diagnostics</summary>
+              <div className="live-lyrics-diagnostics-body">
+                {!hasJamzoneBridge && !useRemoteSnapshot ? <p className="live-lyrics-muted">Jamzone bridge is not registered yet.</p> : null}
+                {syncEventId ? <p className="live-lyrics-muted">Sync event: {syncEventId}</p> : null}
+                {!syncEventId ? <p className="live-lyrics-muted">Tip: add ?event=YOUR_EVENT_ID to sync with your iPad controller.</p> : null}
+                {syncEventId ? <p className="live-lyrics-status">Durable clock status: {durableClockStatus}</p> : null}
+                {syncEventId && durableClockConnected ? <p className="live-lyrics-status">Durable clock: active</p> : null}
+                {syncEventId && !useDurableClock && remoteBridgeConnected ? <p className="live-lyrics-status">Legacy remote bridge: active</p> : null}
+                {syncEventId ? <p className="live-lyrics-status">Remote channel status: {remoteChannelStatus}</p> : null}
+                {syncEventId ? (
+                  <button
+                    type="button"
+                    onClick={() => setRemoteReconnectNonce((value) => value + 1)}
+                    className="live-lyrics-button"
+                  >
+                    Reconnect Remote Bridge
+                  </button>
+                ) : null}
+                <p className="live-lyrics-status">Native bridge: {bridgeStatusLabel}</p>
+                {useDurableClock ? <p className="live-lyrics-status">Lyric source: durable Jamzone clock</p> : null}
+                {useRemoteSnapshot ? <p className="live-lyrics-status">Lyric source: legacy iPad snapshot fallback</p> : null}
+              </div>
+            </details>
+          ) : null}
         </header>
 
         <section className="live-lyrics-stage">
