@@ -1393,7 +1393,11 @@ function MirrorPageContent() {
     }
   }, [event?.id])
   const { user, isHost } = useAuthStore()
-  const { state: sharedLyricState } = useSharedLyricState(supabase, 'mirror')
+  const {
+    state: sharedLyricState,
+    nextBlock: nextSharedLyricBlock,
+    previousBlock: previousSharedLyricBlock,
+  } = useSharedLyricState(supabase, 'mirror')
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [funFacts, setFunFacts] = useState<string[]>([])
   const [currentFactIndex, setCurrentFactIndex] = useState(0)
@@ -4117,7 +4121,13 @@ function MirrorPageContent() {
   }
 
   if (sharedLyricState.showOnMirror && sharedLyricState.activeView === 'lyric') {
-    return <MirrorScreenLyricView state={sharedLyricState} />
+    return (
+      <MirrorScreenLyricView
+        state={sharedLyricState}
+        onNextBlock={nextSharedLyricBlock}
+        onPreviousBlock={previousSharedLyricBlock}
+      />
+    )
   }
 
   return (
