@@ -1289,7 +1289,15 @@ function playShutterSound() {
 }
 
 function MirrorPageContent() {
-  const { event, hostEvents, songs, loading, setRoomOpen } = useQueueStore()
+  const { event, hostEvents, songs, loading, setRoomOpen, setActiveEvent } = useQueueStore()
+  const requestedEventIdFromQuery = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    const rawValue = new URLSearchParams(window.location.search).get('event')?.trim() ?? ''
+    return UUID_PATTERN.test(rawValue) ? rawValue : null
+  }, [])
   const [liveMirrorEventSettings, setLiveMirrorEventSettings] = useState(() => ({
     gigDate: event?.gigDate ?? null,
     gigStartTime: event?.gigStartTime ?? null,
@@ -1325,6 +1333,24 @@ function MirrorPageContent() {
     event?.mirrorCountdownQrText,
     event?.mirrorCountdownQrFlashVenue,
   ])
+
+  useEffect(() => {
+    if (!requestedEventIdFromQuery) {
+      return
+    }
+
+    if (event?.id === requestedEventIdFromQuery) {
+      return
+    }
+
+    if (!hostEvents.some((hostEvent) => hostEvent.id === requestedEventIdFromQuery)) {
+      return
+    }
+
+    void setActiveEvent(requestedEventIdFromQuery).catch(() => {
+      // Ignore query-activation errors and keep current event.
+    })
+  }, [event?.id, hostEvents, requestedEventIdFromQuery, setActiveEvent])
 
   useEffect(() => {
     const currentEventId = event?.id

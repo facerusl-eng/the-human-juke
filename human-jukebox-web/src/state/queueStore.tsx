@@ -1268,7 +1268,6 @@ async function fetchLatestMirrorEventId() {
     supabase
       .from('events')
       .select('id')
-      .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -2783,7 +2782,8 @@ function QueueProvider({ children }: PropsWithChildren) {
         const requestedEventId = readRequestedEventIdFromUrl()
         const runAsHostSession = isHostSession && !isAudienceRoutePath()
         const isHostGigsRoute = runAsHostSession && isAdminGigsRoutePath()
-        const resolveLatestPublicEventId = async () => (isMirrorRoutePath()
+        const preferNewestCountdownEvent = isMirrorRoutePath() || isAudienceRoutePath()
+        const resolveLatestPublicEventId = async () => (preferNewestCountdownEvent
           ? fetchLatestMirrorEventId()
           : fetchLatestActiveEventId())
         setAudienceConnectionStatus(runAsHostSession ? 'connected' : 'connecting')
@@ -2832,8 +2832,8 @@ function QueueProvider({ children }: PropsWithChildren) {
             ? requestedEventId
             : null
           const liveHostEventId = isMirrorRoutePath()
-            ? await withTransientRetry(() => fetchLatestHostActiveEventId(user.id), 2).catch(() => null)
-            : null
+            ? nextHostEvents[0]?.id ?? null
+            : await withTransientRetry(() => fetchLatestHostActiveEventId(user.id), 2).catch(() => null)
 
           if (isCurrent) {
             setHostEvents(nextHostEvents)
