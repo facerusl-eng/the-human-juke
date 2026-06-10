@@ -64,7 +64,7 @@ import {
   BETWEEN_SONG_QUOTES,
 } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
-import { useQueueStore, type QueueSong, type VenueLogoAppearance } from '../state/queueStore'
+import { useQueueStore, type EventState, type QueueSong, type VenueLogoAppearance } from '../state/queueStore'
 import { useAuthStore } from '../state/authStore'
 import { setGigOGTags, resetOGTags } from '../lib/metaTags'
 import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHandling'
@@ -78,6 +78,82 @@ type FeedImageSpotlight = {
   imageDataUrl: string
   authorName: string
   caption: string
+}
+
+type MirrorCountdownSettings = {
+  eventId: string | null
+  venue: string | null
+  gigDate: string | null
+  gigStartTime: string | null
+  mirrorCountdownEnabled: boolean | null
+  mirrorCountdownShowQrLink: boolean | null
+  mirrorCountdownQrLink: string | null
+  mirrorCountdownQrCustomEnabled: boolean | null
+  mirrorCountdownQrCustomUrl: string | null
+  mirrorBreakQrEnabled: boolean | null
+  mirrorBreakQrCustomUrl: string | null
+  mirrorCountdownQrText: string | null
+  mirrorCountdownQrFlashVenue: string | null
+}
+
+const EMPTY_MIRROR_COUNTDOWN_SETTINGS: MirrorCountdownSettings = {
+  eventId: null,
+  venue: null,
+  gigDate: null,
+  gigStartTime: null,
+  mirrorCountdownEnabled: null,
+  mirrorCountdownShowQrLink: null,
+  mirrorCountdownQrLink: null,
+  mirrorCountdownQrCustomEnabled: null,
+  mirrorCountdownQrCustomUrl: null,
+  mirrorBreakQrEnabled: null,
+  mirrorBreakQrCustomUrl: null,
+  mirrorCountdownQrText: null,
+  mirrorCountdownQrFlashVenue: null,
+}
+
+function getMirrorCountdownSettingsFromEvent(event: EventState | null | undefined): MirrorCountdownSettings {
+  if (!event) {
+    return EMPTY_MIRROR_COUNTDOWN_SETTINGS
+  }
+
+  return {
+    eventId: event.id ?? null,
+    venue: event.venue ?? null,
+    gigDate: event.gigDate ?? null,
+    gigStartTime: event.gigStartTime ?? null,
+    mirrorCountdownEnabled: event.mirrorCountdownEnabled,
+    mirrorCountdownShowQrLink: event.mirrorCountdownShowQrLink,
+    mirrorCountdownQrLink: event.mirrorCountdownQrLink ?? null,
+    mirrorCountdownQrCustomEnabled: event.mirrorCountdownQrCustomEnabled,
+    mirrorCountdownQrCustomUrl: event.mirrorCountdownQrCustomUrl ?? null,
+    mirrorBreakQrEnabled: event.mirrorBreakQrEnabled,
+    mirrorBreakQrCustomUrl: event.mirrorBreakQrCustomUrl ?? null,
+    mirrorCountdownQrText: event.mirrorCountdownQrText ?? null,
+    mirrorCountdownQrFlashVenue: event.mirrorCountdownQrFlashVenue ?? null,
+  }
+}
+
+function getMirrorCountdownSettingsFromRow(row: Record<string, unknown> | null | undefined): MirrorCountdownSettings {
+  if (!row) {
+    return EMPTY_MIRROR_COUNTDOWN_SETTINGS
+  }
+
+  return {
+    eventId: typeof row.id === 'string' ? row.id : null,
+    venue: typeof row.venue === 'string' ? row.venue : null,
+    gigDate: typeof row.gig_date === 'string' ? row.gig_date : null,
+    gigStartTime: typeof row.gig_start_time === 'string' ? row.gig_start_time : null,
+    mirrorCountdownEnabled: typeof row.mirror_countdown_enabled === 'boolean' ? row.mirror_countdown_enabled : null,
+    mirrorCountdownShowQrLink: typeof row.mirror_countdown_show_qr_link === 'boolean' ? row.mirror_countdown_show_qr_link : null,
+    mirrorCountdownQrLink: typeof row.mirror_brb_qr_link === 'string' ? row.mirror_brb_qr_link : null,
+    mirrorCountdownQrCustomEnabled: typeof row.mirror_countdown_qr_custom_enabled === 'boolean' ? row.mirror_countdown_qr_custom_enabled : null,
+    mirrorCountdownQrCustomUrl: typeof row.mirror_countdown_qr_custom_url === 'string' ? row.mirror_countdown_qr_custom_url : null,
+    mirrorBreakQrEnabled: typeof row.mirror_break_qr_enabled === 'boolean' ? row.mirror_break_qr_enabled : null,
+    mirrorBreakQrCustomUrl: typeof row.mirror_break_qr_custom_url === 'string' ? row.mirror_break_qr_custom_url : null,
+    mirrorCountdownQrText: typeof row.mirror_countdown_qr_text === 'string' ? row.mirror_countdown_qr_text : null,
+    mirrorCountdownQrFlashVenue: typeof row.mirror_countdown_qr_flash_venue === 'string' ? row.mirror_countdown_qr_flash_venue : null,
+  }
 }
 
 const SPOTLIGHT_CAPTION_BUILDERS = [
@@ -1298,33 +1374,18 @@ function MirrorPageContent() {
     const rawValue = new URLSearchParams(window.location.search).get('event')?.trim() ?? ''
     return UUID_PATTERN.test(rawValue) ? rawValue : null
   }, [])
-  const [liveMirrorEventSettings, setLiveMirrorEventSettings] = useState(() => ({
-    gigDate: event?.gigDate ?? null,
-    gigStartTime: event?.gigStartTime ?? null,
-    mirrorCountdownQrLink: event?.mirrorCountdownQrLink ?? null,
-    mirrorCountdownQrCustomEnabled: event?.mirrorCountdownQrCustomEnabled ?? false,
-    mirrorCountdownQrCustomUrl: event?.mirrorCountdownQrCustomUrl ?? null,
-    mirrorBreakQrEnabled: event?.mirrorBreakQrEnabled ?? false,
-    mirrorBreakQrCustomUrl: event?.mirrorBreakQrCustomUrl ?? null,
-    mirrorCountdownQrText: event?.mirrorCountdownQrText ?? null,
-    mirrorCountdownQrFlashVenue: event?.mirrorCountdownQrFlashVenue ?? null,
-  }))
+  const [liveMirrorEventSettings, setLiveMirrorEventSettings] = useState<MirrorCountdownSettings>(() => getMirrorCountdownSettingsFromEvent(event))
+  const [fallbackMirrorEventSettings, setFallbackMirrorEventSettings] = useState<MirrorCountdownSettings>(EMPTY_MIRROR_COUNTDOWN_SETTINGS)
 
   useEffect(() => {
-    setLiveMirrorEventSettings({
-      gigDate: event?.gigDate ?? null,
-      gigStartTime: event?.gigStartTime ?? null,
-      mirrorCountdownQrLink: event?.mirrorCountdownQrLink ?? null,
-      mirrorCountdownQrCustomEnabled: event?.mirrorCountdownQrCustomEnabled ?? false,
-      mirrorCountdownQrCustomUrl: event?.mirrorCountdownQrCustomUrl ?? null,
-      mirrorBreakQrEnabled: event?.mirrorBreakQrEnabled ?? false,
-      mirrorBreakQrCustomUrl: event?.mirrorBreakQrCustomUrl ?? null,
-      mirrorCountdownQrText: event?.mirrorCountdownQrText ?? null,
-      mirrorCountdownQrFlashVenue: event?.mirrorCountdownQrFlashVenue ?? null,
-    })
+    setLiveMirrorEventSettings(getMirrorCountdownSettingsFromEvent(event))
   }, [
+    event?.id,
+    event?.venue,
     event?.gigDate,
     event?.gigStartTime,
+    event?.mirrorCountdownEnabled,
+    event?.mirrorCountdownShowQrLink,
     event?.mirrorCountdownQrLink,
     event?.mirrorCountdownQrCustomEnabled,
     event?.mirrorCountdownQrCustomUrl,
@@ -1333,6 +1394,76 @@ function MirrorPageContent() {
     event?.mirrorCountdownQrText,
     event?.mirrorCountdownQrFlashVenue,
   ])
+
+  useEffect(() => {
+    if (event?.id) {
+      setFallbackMirrorEventSettings(EMPTY_MIRROR_COUNTDOWN_SETTINGS)
+      return
+    }
+
+    let isCurrent = true
+
+    const fetchMirrorCountdownFallback = async () => {
+      const selectFields = [
+        'id',
+        'venue',
+        'gig_date',
+        'gig_start_time',
+        'mirror_countdown_enabled',
+        'mirror_countdown_show_qr_link',
+        'mirror_brb_qr_link',
+        'mirror_countdown_qr_custom_enabled',
+        'mirror_countdown_qr_custom_url',
+        'mirror_break_qr_enabled',
+        'mirror_break_qr_custom_url',
+        'mirror_countdown_qr_text',
+        'mirror_countdown_qr_flash_venue',
+      ].join(', ')
+
+      const baseQuery = supabase
+        .from('events')
+        .select(selectFields)
+
+      const query = requestedEventIdFromQuery
+        ? baseQuery.eq('id', requestedEventIdFromQuery).maybeSingle()
+        : baseQuery.order('created_at', { ascending: false }).limit(1).maybeSingle()
+
+      const { data, error } = await query
+
+      if (!isCurrent) {
+        return
+      }
+
+      if (error) {
+        console.warn('MirrorPage: fallback countdown event fetch failed', error)
+        return
+      }
+
+      setFallbackMirrorEventSettings(getMirrorCountdownSettingsFromRow((data ?? null) as Record<string, unknown> | null))
+    }
+
+    void fetchMirrorCountdownFallback()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [event?.id, requestedEventIdFromQuery])
+
+  const resolvedMirrorEventSettings = useMemo<MirrorCountdownSettings>(() => ({
+    eventId: liveMirrorEventSettings.eventId ?? fallbackMirrorEventSettings.eventId,
+    venue: liveMirrorEventSettings.venue ?? fallbackMirrorEventSettings.venue,
+    gigDate: liveMirrorEventSettings.gigDate ?? fallbackMirrorEventSettings.gigDate,
+    gigStartTime: liveMirrorEventSettings.gigStartTime ?? fallbackMirrorEventSettings.gigStartTime,
+    mirrorCountdownEnabled: liveMirrorEventSettings.mirrorCountdownEnabled ?? fallbackMirrorEventSettings.mirrorCountdownEnabled,
+    mirrorCountdownShowQrLink: liveMirrorEventSettings.mirrorCountdownShowQrLink ?? fallbackMirrorEventSettings.mirrorCountdownShowQrLink,
+    mirrorCountdownQrLink: liveMirrorEventSettings.mirrorCountdownQrLink ?? fallbackMirrorEventSettings.mirrorCountdownQrLink,
+    mirrorCountdownQrCustomEnabled: liveMirrorEventSettings.mirrorCountdownQrCustomEnabled ?? fallbackMirrorEventSettings.mirrorCountdownQrCustomEnabled,
+    mirrorCountdownQrCustomUrl: liveMirrorEventSettings.mirrorCountdownQrCustomUrl ?? fallbackMirrorEventSettings.mirrorCountdownQrCustomUrl,
+    mirrorBreakQrEnabled: liveMirrorEventSettings.mirrorBreakQrEnabled ?? fallbackMirrorEventSettings.mirrorBreakQrEnabled,
+    mirrorBreakQrCustomUrl: liveMirrorEventSettings.mirrorBreakQrCustomUrl ?? fallbackMirrorEventSettings.mirrorBreakQrCustomUrl,
+    mirrorCountdownQrText: liveMirrorEventSettings.mirrorCountdownQrText ?? fallbackMirrorEventSettings.mirrorCountdownQrText,
+    mirrorCountdownQrFlashVenue: liveMirrorEventSettings.mirrorCountdownQrFlashVenue ?? fallbackMirrorEventSettings.mirrorCountdownQrFlashVenue,
+  }), [fallbackMirrorEventSettings, liveMirrorEventSettings])
 
   useEffect(() => {
     if (!requestedEventIdFromQuery) {
@@ -1381,8 +1512,15 @@ function MirrorPageContent() {
 
           setLiveMirrorEventSettings((previousValue) => ({
             ...previousValue,
+            venue: typeof row.venue === 'string' ? row.venue : previousValue.venue,
             gigDate: nextGigDate ?? previousValue.gigDate,
             gigStartTime: nextGigStartTime ?? previousValue.gigStartTime,
+            mirrorCountdownEnabled: typeof row.mirror_countdown_enabled === 'boolean'
+              ? row.mirror_countdown_enabled
+              : previousValue.mirrorCountdownEnabled,
+            mirrorCountdownShowQrLink: typeof row.mirror_countdown_show_qr_link === 'boolean'
+              ? row.mirror_countdown_show_qr_link
+              : previousValue.mirrorCountdownShowQrLink,
             mirrorCountdownQrLink: typeof row.mirror_brb_qr_link === 'string' ? row.mirror_brb_qr_link : previousValue.mirrorCountdownQrLink,
             mirrorCountdownQrCustomEnabled: typeof row.mirror_countdown_qr_custom_enabled === 'boolean'
               ? row.mirror_countdown_qr_custom_enabled
@@ -1673,19 +1811,20 @@ function MirrorPageContent() {
       return null
     }
   }, [audienceUrl])
-  const legacyCountdownQrLink = liveMirrorEventSettings.mirrorCountdownQrLink?.trim() || ''
-  const customCountdownQrLink = liveMirrorEventSettings.mirrorCountdownQrCustomUrl?.trim() || ''
-  const customBreakQrLink = liveMirrorEventSettings.mirrorBreakQrCustomUrl?.trim() || ''
-  const configuredCountdownQrText = liveMirrorEventSettings.mirrorCountdownQrText?.trim() || ''
-  const customQrFlashVenueName = liveMirrorEventSettings.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || ''
+  const countdownEventId = eventId ?? resolvedMirrorEventSettings.eventId
+  const legacyCountdownQrLink = resolvedMirrorEventSettings.mirrorCountdownQrLink?.trim() || ''
+  const customCountdownQrLink = resolvedMirrorEventSettings.mirrorCountdownQrCustomUrl?.trim() || ''
+  const customBreakQrLink = resolvedMirrorEventSettings.mirrorBreakQrCustomUrl?.trim() || ''
+  const configuredCountdownQrText = resolvedMirrorEventSettings.mirrorCountdownQrText?.trim() || ''
+  const customQrFlashVenueName = resolvedMirrorEventSettings.mirrorCountdownQrFlashVenue?.trim() || event?.venue?.trim() || resolvedMirrorEventSettings.venue?.trim() || ''
   const appOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const linkCountdownTarget = getMirrorCountdownTarget(
-    liveMirrorEventSettings.gigDate ?? null,
-    liveMirrorEventSettings.gigStartTime ?? null,
+    resolvedMirrorEventSettings.gigDate ?? null,
+    resolvedMirrorEventSettings.gigStartTime ?? null,
   )
   const buildCountdownLandingUrl = (customUrl: string | null, qrContext: 'countdown' | 'break' | null = null) => buildQrLandingUrl({
     origin: appOrigin,
-    eventId,
+    eventId: countdownEventId,
     isTestGig: isTestGigAudienceMode,
     countdownTargetMs: linkCountdownTarget?.getTime() ?? null,
     audienceLinkVersion: audienceUrlVersion,
@@ -1697,8 +1836,8 @@ function MirrorPageContent() {
   const countdownQrDestination = buildCountdownLandingUrl(null)
   
   // Custom QR code logic for countdown and break screens
-  const useCustomCountdownQr = liveMirrorEventSettings.mirrorCountdownQrCustomEnabled && customCountdownQrLink.length > 0
-  const useCustomBreakQr = liveMirrorEventSettings.mirrorBreakQrEnabled && customBreakQrLink.length > 0
+  const useCustomCountdownQr = resolvedMirrorEventSettings.mirrorCountdownQrCustomEnabled === true && customCountdownQrLink.length > 0
+  const useCustomBreakQr = resolvedMirrorEventSettings.mirrorBreakQrEnabled === true && customBreakQrLink.length > 0
 
   const countdownQrCodeUrl = useCustomCountdownQr
     ? buildCountdownLandingUrl(customCountdownQrLink, 'countdown')
@@ -2054,8 +2193,8 @@ function MirrorPageContent() {
       }
   // Use live-updating gig settings for countdown
   const fallbackCountdownTarget = useMemo(
-    () => getMirrorCountdownTarget(liveMirrorEventSettings.gigDate ?? null, liveMirrorEventSettings.gigStartTime ?? null),
-    [liveMirrorEventSettings.gigDate, liveMirrorEventSettings.gigStartTime],
+    () => getMirrorCountdownTarget(resolvedMirrorEventSettings.gigDate ?? null, resolvedMirrorEventSettings.gigStartTime ?? null),
+    [resolvedMirrorEventSettings.gigDate, resolvedMirrorEventSettings.gigStartTime],
   )
   const activeFallbackCountdownTarget = useMemo(() => {
     if (!fallbackCountdownTarget) {
@@ -2097,7 +2236,7 @@ function MirrorPageContent() {
     ? null
     : Math.max(0, countdownRemainingMs)
   const showCountdown = !isLive && Boolean(countdownTarget) && countdownRemainingMs !== null && countdownRemainingMs > 0
-  const showCountdownQrLink = event?.mirrorCountdownShowQrLink ?? true
+  const showCountdownQrLink = resolvedMirrorEventSettings.mirrorCountdownShowQrLink ?? true
   const countdownLabel = showCountdown && countdownDisplayRemainingMs !== null
     ? formatMirrorCountdownLabel(countdownDisplayRemainingMs)
     : null
@@ -4143,7 +4282,7 @@ function MirrorPageContent() {
                   <p className="mirror-countdown-value">{countdownLabel}</p>
                   {countdownStartLabel ? <p className="mirror-countdown-meta">{countdownCopy.scheduledPrefix} {countdownStartLabel}</p> : null}
                 </div>
-              ) : (event?.mirrorCountdownEnabled ?? true) && countdownStartLabel ? (
+              ) : (resolvedMirrorEventSettings.mirrorCountdownEnabled ?? true) && countdownStartLabel ? (
                 <div className="mirror-countdown-card mirror-countdown-card-muted" aria-label="Scheduled show start">
                   <p className="mirror-countdown-label">{countdownCopy.scheduledStart}</p>
                   <p className="mirror-countdown-value mirror-countdown-value-compact">{countdownStartLabel}</p>
