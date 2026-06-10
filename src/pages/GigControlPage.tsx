@@ -3797,7 +3797,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    void lyricStateController.openLyricForSong(nowPlayingLyricSong, `${location.pathname}${location.search}`)
+    void (async () => {
+      const shouldKeepMirrorVisible = lyricStateController.state.showOnMirror
+      await lyricStateController.openLyricForSong(nowPlayingLyricSong, `${location.pathname}${location.search}`)
+      lyricStateController.setActiveView('lyric')
+      if (shouldKeepMirrorVisible) {
+        lyricStateController.setShowOnMirror(true)
+      }
+    })()
   }, [location.pathname, location.search, lyricStateController, nowPlayingLyricSong])
 
   const openNowPlayingLyrics = useCallback(async () => {
@@ -3822,8 +3829,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     if (nowPlayingLyricSong) {
+      const shouldKeepMirrorVisible = lyricStateController.state.showOnMirror
       await lyricStateController.openLyricForSong(nowPlayingLyricSong, `${location.pathname}${location.search}`)
       lyricStateController.setActiveView('lyric')
+      if (shouldKeepMirrorVisible) {
+        lyricStateController.setShowOnMirror(true)
+      }
     }
 
     navigate(`/lyrics?${searchParams.toString()}`, {
@@ -3836,6 +3847,24 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       },
     })
   }, [location.pathname, location.search, lyricStateController, navigate, nowPlaying, nowPlayingLyricSong])
+
+  const toggleMirrorLyricsFromGigControl = useCallback(async () => {
+    if (!nowPlayingLyricSong) {
+      setErrorText('No now-playing song is available for mirror lyrics yet.')
+      return
+    }
+
+    const enableMirrorLyrics = !lyricStateController.state.showOnMirror
+
+    if (enableMirrorLyrics) {
+      await lyricStateController.openLyricForSong(nowPlayingLyricSong, `${location.pathname}${location.search}`)
+      lyricStateController.setActiveView('lyric')
+      lyricStateController.setShowOnMirror(true)
+      return
+    }
+
+    lyricStateController.setShowOnMirror(false)
+  }, [location.pathname, location.search, lyricStateController, nowPlayingLyricSong])
 
   const handleEnterFocusFullscreen = useCallback(() => {
     if (typeof document === 'undefined' || !document.documentElement.requestFullscreen) {
@@ -4408,6 +4437,17 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               title={nowPlaying?.title ? 'Open lyrics for the now-playing song on a stage-friendly screen' : 'Start a song to enable lyrics screen'}
             >
               Show Lyrics
+            </button>
+            <button
+              type="button"
+              className={`ghost-button${lyricStateController.state.showOnMirror ? ' is-active-toggle' : ''}`}
+              onClick={() => {
+                void toggleMirrorLyricsFromGigControl()
+              }}
+              disabled={!nowPlaying?.title}
+              title={lyricStateController.state.showOnMirror ? 'Hide lyrics on Mirror screen' : 'Show lyrics on Mirror screen'}
+            >
+              {lyricStateController.state.showOnMirror ? 'Hide Lyrics on Mirror' : 'Show Lyrics on Mirror'}
             </button>
             <button
               type="button"
