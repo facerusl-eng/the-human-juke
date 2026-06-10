@@ -114,7 +114,7 @@ const CHOSEN_BY_ACCENT_CLASSES = [
   'mirror-picker-accent-7',
   'mirror-picker-accent-8',
 ]
-const HOST_PICKED_BY_FALLBACK = 'Picked by The Host'
+const HOST_PICKED_BY_FALLBACK = 'Picked by Host'
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 
 const SPOTLIGHT_DURATION_MS = 10000

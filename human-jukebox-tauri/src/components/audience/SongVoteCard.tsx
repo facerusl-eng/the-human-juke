@@ -29,10 +29,10 @@ function SongVoteCard({
 }: SongVoteCardProps) {
   const isHostPick = Boolean(hostId && song.creatorId && song.creatorId === hostId)
   const chosenByLabel = isHostPick
-    ? 'Picked by host'
+    ? 'Picked by Host'
     : (song.createdByName ? `♡ ${song.createdByName}` : null)
   const infoChosenByLabel = isHostPick
-    ? 'Picked by host'
+    ? 'Picked by Host'
     : (song.createdByName ? `♡ Requested by ${song.createdByName}` : null)
   const voteHeatPercent = useMemo(() => (
     hottestVoteCount > 0
@@ -104,7 +104,7 @@ function SongVoteCard({
               {song.voting_locked ? ' - Voting Locked' : ''}
             </p>
             {chosenByLabel ? (
-              <p className="audience-song-chosen-by" title={isHostPick ? 'Picked by host' : (song.createdByName ?? undefined)}>{chosenByLabel}</p>
+              <p className="audience-song-chosen-by" title={isHostPick ? 'Picked by Host' : (song.createdByName ?? undefined)}>{chosenByLabel}</p>
             ) : null}
           </div>
         </div>

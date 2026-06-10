@@ -1,5 +1,5 @@
 export const BETWEEN_SONG_QUOTES = [
-  'Remain calm. The next number has been approved by a committee of poor decisions.',
+  'Welcome to The Human Jukebox — step in, sing out, and let the room come alive.',
   'Do stay. I am moments away from either brilliance or a formal apology.',
   'Nobody panic, the entertainment is simply changing hats.',
   'Please hold your position. The next tune is almost suspiciously competent.',
