@@ -71,7 +71,6 @@ import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHan
 import { buildQrLandingUrl } from '../lib/qrLandingUrl'
 import { demoMode, homeMirrorPreviewMode } from '../demo/demoMode'
 import { DEMO_NOW_PLAYING_FACTS } from '../demo/demoNowPlaying'
-import KaraokeLyrics from '../components/KaraokeLyrics'
 import { useJamzoneLyricSync } from '../../shared/lyrics/useJamzoneLyricSync'
 import type { LyricSongRef } from '../../shared/lyrics'
 
@@ -1868,16 +1867,16 @@ function MirrorPageContent() {
     : 'More requests on deck'
 
   useEffect(() => {
-    if (!activeSong?.audience_sings || !isNowPlayingStarted) {
+    if (!isAudienceKaraokeActive) {
       setKaraokeSongStartedAtMs(null)
       return
     }
 
     setKaraokeSongStartedAtMs(Date.now())
-  }, [activeSong?.audience_sings, activeSong?.id, isNowPlayingStarted])
+  }, [activeSong?.id, isAudienceKaraokeActive])
 
   const mirrorKaraokeSongRef = useMemo<LyricSongRef | null>(() => {
-    if (!activeSong?.audience_sings) {
+    if (!isAudienceKaraokeActive || !activeSong) {
       return null
     }
 
@@ -1886,7 +1885,7 @@ function MirrorPageContent() {
       title: activeSong.title,
       artist: activeSong.artist,
     }
-  }, [activeSong?.artist, activeSong?.audience_sings, activeSong?.id, activeSong?.title])
+  }, [activeSong, isAudienceKaraokeActive])
 
   const {
     window: mirrorKaraokeWindow,
@@ -1903,6 +1902,43 @@ function MirrorPageContent() {
     { updateIntervalMs: 120 },
   )
   const karaokeElapsedSeconds = mirrorKaraokeWindow.current?.timeSeconds ?? 0
+  const mirrorKaraokeLines = useMemo(() => {
+    if (mirrorKaraokeWindow.allLines && mirrorKaraokeWindow.allLines.length > 0) {
+      return mirrorKaraokeWindow.allLines
+    }
+
+    const fallbackLines = [
+      mirrorKaraokeWindow.previous,
+      mirrorKaraokeWindow.current,
+      mirrorKaraokeWindow.next,
+      ...mirrorKaraokeWindow.upcoming,
+    ].filter((line): line is NonNullable<typeof mirrorKaraokeWindow.current> => Boolean(line))
+
+    const seenLineKeys = new Set<string>()
+    return fallbackLines.filter((line) => {
+      const lineKey = `${line.timeSeconds}:${line.text}`
+      if (seenLineKeys.has(lineKey)) {
+        return false
+      }
+
+      seenLineKeys.add(lineKey)
+      return true
+    })
+  }, [mirrorKaraokeWindow.allLines, mirrorKaraokeWindow.current, mirrorKaraokeWindow.next, mirrorKaraokeWindow.previous, mirrorKaraokeWindow.upcoming])
+
+  const mirrorKaraokeCurrentIndex = useMemo(() => {
+    if (typeof mirrorKaraokeWindow.currentIndex === 'number' && mirrorKaraokeWindow.currentIndex >= 0) {
+      return mirrorKaraokeWindow.currentIndex
+    }
+
+    if (!mirrorKaraokeWindow.current) {
+      return -1
+    }
+
+    return mirrorKaraokeLines.findIndex(
+      (line) => line.timeSeconds === mirrorKaraokeWindow.current?.timeSeconds && line.text === mirrorKaraokeWindow.current?.text,
+    )
+  }, [mirrorKaraokeLines, mirrorKaraokeWindow.current, mirrorKaraokeWindow.currentIndex])
 
   useEffect(() => {
     const activeSongIds = new Set(safeSongs.map((song) => song.id))
@@ -4319,20 +4355,34 @@ function MirrorPageContent() {
                   <div className={`mirror-now-playing-track ${isAudienceKaraokeActive ? 'mirror-now-playing-track-karaoke' : ''}`.trim()}>
                     {isAudienceKaraokeActive ? (
                       <div className="mirror-karaoke-lyrics-panel" aria-label="Audience karaoke lyrics">
-                        <KaraokeLyrics
-                          mode="board"
-                          current={mirrorKaraokeWindow.current}
-                          previous={mirrorKaraokeWindow.previous}
-                          next={mirrorKaraokeWindow.next}
-                          next2={mirrorKaraokeWindow.upcoming[1]}
-                          allLines={mirrorKaraokeWindow.allLines}
-                          currentIndex={mirrorKaraokeWindow.currentIndex}
-                          isBeforeFirstLine={mirrorKaraokeWindow.isBeforeFirstLine}
-                          isAfterLastLine={mirrorKaraokeWindow.isAfterLastLine}
-                          autoScrollEnabled
-                          autoScrollCurrentTimeSeconds={karaokeElapsedSeconds}
-                          autoScrollDurationSeconds={mirrorKaraokeDurationSeconds}
-                        />
+                        <p className="mirror-karaoke-flash-banner" aria-live="polite">
+                          {activeQrFlashText ?? 'Sing along with the chorus'}
+                        </p>
+                        <div className="mirror-karaoke-sheet" role="log" aria-live="polite" aria-atomic="false">
+                          {mirrorKaraokeLines.length === 0 ? (
+                            <p className="mirror-karaoke-line mirror-karaoke-line-muted">Loading lyrics...</p>
+                          ) : (
+                            mirrorKaraokeLines.map((line, index) => {
+                              const isCurrentLine = index === mirrorKaraokeCurrentIndex
+                              const isPastLine = mirrorKaraokeCurrentIndex >= 0 && index < mirrorKaraokeCurrentIndex
+                              const lineClassName = isCurrentLine
+                                ? 'mirror-karaoke-line mirror-karaoke-line-current'
+                                : (isPastLine
+                                  ? 'mirror-karaoke-line mirror-karaoke-line-past'
+                                  : 'mirror-karaoke-line mirror-karaoke-line-upcoming')
+
+                              return (
+                                <p
+                                  key={`${line.sourceLineNumber}:${line.timeSeconds}:${line.text}:${index}`}
+                                  className={lineClassName}
+                                >
+                                  {line.text}
+                                </p>
+                              )
+                            })
+                          )}
+                        </div>
+                        <p className="mirror-karaoke-progress">{karaokeElapsedSeconds.toFixed(1)}s / {(mirrorKaraokeDurationSeconds ?? 0).toFixed(1)}s</p>
                       </div>
                     ) : (
                       <>
