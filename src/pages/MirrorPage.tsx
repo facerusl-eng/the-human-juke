@@ -2450,6 +2450,7 @@ function MirrorPageContent() {
     ? Math.ceil(countdownRemainingMs / 1000)
     : null
   const showFinalCountdownOverlay = finalCountdownSeconds !== null
+  const isCriticalFinalCountdown = showFinalCountdownOverlay && finalCountdownSeconds !== null && finalCountdownSeconds <= 3
   const countdownStartLabel = countdownTarget ? formatMirrorCountdownStartTime(countdownTarget, audienceLocale) : null
   const activeVenueLogoLayoutPreview = venueLogoLayoutPreview?.eventId === eventId
     ? venueLogoLayoutPreview
@@ -4512,9 +4513,18 @@ function MirrorPageContent() {
           >
 
             {showFinalCountdownOverlay ? (
-              <div className="mirror-final-countdown-overlay" aria-live="assertive" aria-label="Final countdown">
+              <div
+                className={`mirror-final-countdown-overlay ${isCriticalFinalCountdown ? 'mirror-final-countdown-overlay-critical' : ''}`.trim()}
+                aria-live="assertive"
+                aria-label="Final countdown"
+              >
                 <p className="mirror-final-countdown-label">{countdownCopy.startingIn}</p>
-                <p className="mirror-final-countdown-number">{finalCountdownSeconds}</p>
+                <p
+                  key={`final-countdown-${finalCountdownSeconds}`}
+                  className={`mirror-final-countdown-number ${isCriticalFinalCountdown ? 'mirror-final-countdown-number-critical' : ''}`.trim()}
+                >
+                  {finalCountdownSeconds}
+                </p>
                 <p className="mirror-final-countdown-subtitle">
                   {countdownStartLabel ? `${countdownCopy.scheduledPrefix} ${countdownStartLabel}` : countdownCopy.scheduledStart}
                 </p>
