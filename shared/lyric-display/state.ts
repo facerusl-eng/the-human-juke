@@ -12,6 +12,9 @@ const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
 const STATUS_KEY = 'lyrics_prefetch_status_v1'
 const LRC_MISS_CACHE_TTL_MS = 15 * 60 * 1000
 const lrcMissCache = new Map<string, number>()
+const SONG_BLOCK_CACHE_TTL_MS = 20 * 60 * 1000
+const songBlocksCache = new Map<string, { cachedAt: number; blocks: string[] }>()
+const pendingSongLoads = new Map<string, Promise<string[]>>()
 
 function sanitizeLineText(value: string) {
   return value
@@ -263,6 +266,17 @@ function readAutoCachedLyrics(song: LyricSongRef) {
 
 async function loadBlocksForSong(song: LyricSongRef) {
   const identityKey = songIdentityKey(song)
+  const cachedSongBlocks = songBlocksCache.get(identityKey)
+  if (cachedSongBlocks && Date.now() - cachedSongBlocks.cachedAt < SONG_BLOCK_CACHE_TTL_MS) {
+    return cachedSongBlocks.blocks
+  }
+
+  const pendingLoad = pendingSongLoads.get(identityKey)
+  if (pendingLoad) {
+    return pendingLoad
+  }
+
+  const loadPromise = (async () => {
   const missCachedAt = lrcMissCache.get(identityKey)
   const shouldSkipLrcProbe = typeof missCachedAt === 'number' && Date.now() - missCachedAt < LRC_MISS_CACHE_TTL_MS
 
@@ -302,7 +316,21 @@ async function loadBlocksForSong(song: LyricSongRef) {
     return onlineBlocks
   }
 
-  return [`No lyric blocks found for ${song.artist} - ${song.title}`]
+    return [`No lyric blocks found for ${song.artist} - ${song.title}`]
+  })()
+
+  pendingSongLoads.set(identityKey, loadPromise)
+
+  try {
+    const blocks = await loadPromise
+    songBlocksCache.set(identityKey, {
+      cachedAt: Date.now(),
+      blocks,
+    })
+    return blocks
+  } finally {
+    pendingSongLoads.delete(identityKey)
+  }
 }
 
 function defaultState(sourceId: string): LyricDisplayState {
