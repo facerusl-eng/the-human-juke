@@ -958,45 +958,45 @@ export default function LyricsPage() {
     <div className={`audience-lyrics-page${isStageMode ? ' lyrics-stage-view' : ''}`}>
       {isStageMode ? (
         <div className="lyrics-stage-toolbar">
-          <div className="lyrics-stage-back-block">
-            <button className="primary-button lyrics-stage-back-button" onClick={handleBackNavigation}>
-              {backButtonLabel}
-            </button>
-            {backButtonHint ? <p className="lyrics-back-hint">{backButtonHint}</p> : null}
-          </div>
+          {isHost ? (
+            <div className="lyrics-stage-back-block">
+              <button className="primary-button lyrics-stage-back-button" onClick={handleBackNavigation}>
+                {backButtonLabel}
+              </button>
+              {backButtonHint ? <p className="lyrics-back-hint">{backButtonHint}</p> : null}
+            </div>
+          ) : null}
           <div className="lyrics-stage-heading-block">
             <h1 className="audience-lyrics-title">{title} - {displayArtist}</h1>
             <p className="audience-lyrics-subtitle">Stage lyrics view</p>
-            <div className="lyrics-pedal-controls" aria-label="Lyrics pedal controls">
-              <div className="lyrics-pedal-row">
-                <button type="button" className="primary-button lyrics-pedal-connect" onClick={() => { void connectBluetoothPedal(); }} disabled={pedalConnecting}>
-                  {pedalConnecting ? 'Connecting pedal...' : 'Connect Bluetooth Pedal'}
-                </button>
-                <span className={`lyrics-pedal-state${pedalConnected ? ' is-connected' : ''}`}>
-                  {pedalConnected ? `Connected: ${pedalDeviceName ?? 'Pedal'}` : 'Not connected'}
-                </span>
+            {isHost ? (
+              <div className="lyrics-pedal-controls" aria-label="Lyrics pedal controls">
+                <div className="lyrics-pedal-row">
+                  <button type="button" className="primary-button lyrics-pedal-connect" onClick={() => { void connectBluetoothPedal(); }} disabled={pedalConnecting}>
+                    {pedalConnecting ? 'Connecting pedal...' : 'Connect Bluetooth Pedal'}
+                  </button>
+                  <span className={`lyrics-pedal-state${pedalConnected ? ' is-connected' : ''}`}>
+                    {pedalConnected ? `Connected: ${pedalDeviceName ?? 'Pedal'}` : 'Not connected'}
+                  </span>
+                </div>
+                <div className="lyrics-pedal-row lyrics-nudge-row">
+                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-250)}>-250ms</button>
+                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-100)}>-100ms</button>
+                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={tapSyncLyrics}>Tap Sync</button>
+                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(100)}>+100ms</button>
+                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(250)}>+250ms</button>
+                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={resetLyricsNudge}>Reset</button>
+                </div>
+                <p className="lyrics-pedal-hint">
+                  Offset: {lyricsNudgeMs >= 0 ? '+' : ''}{lyricsNudgeMs}ms. Hotkeys: ArrowLeft/ArrowRight nudge, ArrowDown tap sync.
+                </p>
+                {pedalStatusText ? <p className="lyrics-pedal-hint">{pedalStatusText}</p> : null}
               </div>
-              <div className="lyrics-pedal-row lyrics-nudge-row">
-                <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-250)}>-250ms</button>
-                <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-100)}>-100ms</button>
-                <button type="button" className="primary-button lyrics-nudge-btn" onClick={tapSyncLyrics}>Tap Sync</button>
-                <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(100)}>+100ms</button>
-                <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(250)}>+250ms</button>
-                <button type="button" className="primary-button lyrics-nudge-btn" onClick={resetLyricsNudge}>Reset</button>
-              </div>
-              <p className="lyrics-pedal-hint">
-                Offset: {lyricsNudgeMs >= 0 ? '+' : ''}{lyricsNudgeMs}ms. Hotkeys: ArrowLeft/ArrowRight nudge, ArrowDown tap sync.
-              </p>
-              {pedalStatusText ? <p className="lyrics-pedal-hint">{pedalStatusText}</p> : null}
-            </div>
+            ) : null}
           </div>
         </div>
       ) : (
         <>
-          <button className="primary-button" onClick={handleBackNavigation}>
-            {backButtonLabel}
-          </button>
-          {backButtonHint ? <p className="lyrics-back-hint">{backButtonHint}</p> : null}
           <h1 className="audience-lyrics-title">{copy.singAlongTitlePrefix} {title} - {displayArtist}</h1>
           <p className="audience-lyrics-subtitle">{copy.lyricsSubtitle}</p>
         </>
