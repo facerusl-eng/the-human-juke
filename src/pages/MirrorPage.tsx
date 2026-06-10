@@ -1743,7 +1743,10 @@ function MirrorPageContent() {
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
     : Boolean(playbackState?.isStarted && playbackState.currentSongId)
-  const isAudienceKaraokeActive = Boolean(activeSong && isNowPlayingStarted && (activeSong.audience_sings || forceLyricsMode))
+  const isAudienceKaraokeActive = Boolean(
+    activeSong
+      && ((isNowPlayingStarted && activeSong.audience_sings) || forceLyricsMode),
+  )
   const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)
   const isQuoteModeActive = (demoMode && forceQuoteMode) || isBetweenSongs || !activeSong
   const isGoLiveWelcomeActive = goLiveWelcomeUntilMs !== null && countdownNow < goLiveWelcomeUntilMs
