@@ -2283,7 +2283,8 @@ function MirrorPageContent() {
   const venueLogoOffsetX = Math.min(100, Math.max(-100, activeVenueLogoLayoutPreview?.venueLogoOffsetX ?? event?.venueLogoOffsetX ?? 0))
   const venueLogoOffsetY = Math.min(100, Math.max(-100, activeVenueLogoLayoutPreview?.venueLogoOffsetY ?? event?.venueLogoOffsetY ?? 0))
   const venueLogoAppearance = normalizeVenueLogoAppearance(activeVenueLogoLayoutPreview?.venueLogoAppearance ?? event?.venueLogoAppearance)
-  const shouldShowPreShow = !isLive
+  const hasLiveMirrorSignal = Boolean(nowPlaying?.id) || Boolean(playbackTransitionState)
+  const shouldShowPreShow = !isLive && !hasLiveMirrorSignal
   const isLastSongSoonMode = isLastSongSoonOverlayMessage(playbackState?.brbMessage)
   const encoreCandidateSong = upNext[0] ?? null
   const showEncoreVoteOverlay = isLive
@@ -2347,6 +2348,7 @@ function MirrorPageContent() {
   const mirrorDebugRows = [
     `event=${event?.id ?? 'null'}`,
     `roomOpen=${String(isLive)}`,
+    `liveSignal=${String(hasLiveMirrorSignal)}`,
     `countdownEnabled=${String(event?.mirrorCountdownEnabled ?? true)}`,
     `preShow=${String(shouldShowPreShow)}`,
     `showCountdown=${String(showCountdown)}`,
