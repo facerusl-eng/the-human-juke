@@ -2789,7 +2789,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         setAudienceConnectionStatus(runAsHostSession ? 'connected' : 'connecting')
 
         const syncAudienceActiveEventId = async (nextEventId: string) => {
-          if (runAsHostSession) {
+          if (runAsHostSession || isMirrorRoutePath()) {
             return
           }
 
@@ -3043,7 +3043,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           markSnapshotSuccess()
         } catch (error) {
           markSnapshotFailure(error)
-          const canFallbackToLatestActive = !runAsHostSession && !requestedEventId
+          const canFallbackToLatestActive = !runAsHostSession && (!requestedEventId || isMirrorRoutePath())
 
           if (!canFallbackToLatestActive) {
             console.warn('queueStore: failed to load requested event snapshot', error)
