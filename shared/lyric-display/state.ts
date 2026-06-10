@@ -10,6 +10,8 @@ const SECTION_LABEL_RE = /^(verse|chorus|pre-chorus|bridge|hook|refrain|intro|ou
 const SECTION_GAP_SECONDS = 12
 const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
 const STATUS_KEY = 'lyrics_prefetch_status_v1'
+const LRC_MISS_CACHE_TTL_MS = 15 * 60 * 1000
+const lrcMissCache = new Map<string, number>()
 
 function sanitizeLineText(value: string) {
   return value
@@ -85,6 +87,31 @@ function normalizeQueryValue(value: string) {
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function normalizeSongIdentityValue(value: string | null | undefined) {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+}
+
+function songIdentityKey(song: LyricSongRef) {
+  const title = normalizeSongIdentityValue(song.title)
+  const artist = normalizeSongIdentityValue(song.artist)
+  const songId = normalizeSongIdentityValue(song.id)
+  return `${songId}::${artist}::${title}`
+}
+
+function sameSongContent(left: LyricSongRef | null | undefined, right: LyricSongRef | null | undefined) {
+  if (!left || !right) {
+    return false
+  }
+
+  return (
+    normalizeSongIdentityValue(left.title) === normalizeSongIdentityValue(right.title)
+    && normalizeSongIdentityValue(left.artist) === normalizeSongIdentityValue(right.artist)
+  )
 }
 
 function buildSongQueryVariants(song: LyricSongRef) {
@@ -235,22 +262,31 @@ function readAutoCachedLyrics(song: LyricSongRef) {
 }
 
 async function loadBlocksForSong(song: LyricSongRef) {
+  const identityKey = songIdentityKey(song)
+  const missCachedAt = lrcMissCache.get(identityKey)
+  const shouldSkipLrcProbe = typeof missCachedAt === 'number' && Date.now() - missCachedAt < LRC_MISS_CACHE_TTL_MS
+
   const candidates = buildLrcCandidatePaths({
     songId: song.id,
     title: song.title,
     artist: song.artist,
   })
 
-  for (const candidatePath of candidates.slice(0, 20)) {
-    const lrcText = await fetchLrc(candidatePath)
-    if (!lrcText) {
-      continue
+  if (!shouldSkipLrcProbe) {
+    for (const candidatePath of candidates.slice(0, 8)) {
+      const lrcText = await fetchLrc(candidatePath)
+      if (!lrcText) {
+        continue
+      }
+
+      const blocks = parseBlocksFromLrcText(lrcText)
+      if (blocks.length > 0) {
+        lrcMissCache.delete(identityKey)
+        return blocks
+      }
     }
 
-    const blocks = parseBlocksFromLrcText(lrcText)
-    if (blocks.length > 0) {
-      return blocks
-    }
+    lrcMissCache.set(identityKey, Date.now())
   }
 
   const autoCachedLyrics = readAutoCachedLyrics(song)
@@ -411,6 +447,15 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
   }, [state])
 
   const openLyricForSong = useCallback(async (song: LyricSongRef, returnToPath: string) => {
+    if (sameSongContent(stateRef.current.song, song) && stateRef.current.blocks.length > 0) {
+      applyPatch({
+        song,
+        activeView: 'lyric',
+        returnToPath,
+      })
+      return
+    }
+
     latestOpenRequestIdRef.current += 1
     const requestId = latestOpenRequestIdRef.current
 
