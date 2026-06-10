@@ -137,7 +137,7 @@ export default function MirrorScreenLyricView({
       </div>
       <article className="lyric-dark-neon-stage" aria-live="polite" aria-atomic="true">
         <p className="lyric-dark-neon-copy lyric-dark-neon-copy-control lyric-dark-neon-copy-active">{currentBlock}</p>
-        <p className="lyric-dark-neon-meta lyric-dark-neon-meta-mirror">
+        <p className="lyric-dark-neon-meta">
           {state.song ? `${state.song.artist} - ${state.song.title}` : 'No song selected'}
           {' • '}
           Block {currentBlockNumber}/{totalBlocks}

@@ -135,11 +135,6 @@
   font-size: 0.95rem;
 }
 
-.lyric-dark-neon-meta-mirror {
-  font-size: clamp(18px, 1.7vw, 24px);
-  opacity: 0.88;
-}
-
 .lyric-dark-neon-mirror-flash {
   position: fixed;
   inset: 0;
