@@ -4513,8 +4513,10 @@ function MirrorPageContent() {
     )
   }
 
-  const allowLyricTakeoverView = typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).get('mirrorLyrics') === '1'
+  const mirrorLyricsQueryValue = typeof window !== 'undefined'
+    ? (new URLSearchParams(window.location.search).get('mirrorLyrics') ?? '').trim().toLowerCase()
+    : ''
+  const allowLyricTakeoverView = mirrorLyricsQueryValue !== '0' && mirrorLyricsQueryValue !== 'false' && mirrorLyricsQueryValue !== 'off'
 
   const sharedLyricSong = sharedLyricState.song
   const isSharedLyricSongMatchingActiveSong = Boolean(
