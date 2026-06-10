@@ -2031,6 +2031,15 @@ function MirrorPageContent() {
     () => getMirrorCountdownTarget(liveMirrorEventSettings.gigDate ?? null, liveMirrorEventSettings.gigStartTime ?? null),
     [liveMirrorEventSettings.gigDate, liveMirrorEventSettings.gigStartTime],
   )
+  const activeFallbackCountdownTarget = useMemo(() => {
+    if (!fallbackCountdownTarget) {
+      return null
+    }
+
+    return isCountdownTargetActive(fallbackCountdownTarget.getTime(), getMirrorNowMs())
+      ? fallbackCountdownTarget
+      : null
+  }, [fallbackCountdownTarget, getMirrorNowMs])
   const mirroredCountdownTarget = useMemo(() => {
     const targetMs = playbackState?.countdownTargetMs
     if (!isCountdownTargetActive(targetMs, getMirrorNowMs())) {
@@ -2043,7 +2052,7 @@ function MirrorPageContent() {
     () => getSharedPlaybackTransitionState(playbackState),
     [playbackState],
   )
-  const countdownTarget = fallbackCountdownTarget ?? mirroredCountdownTarget
+  const countdownTarget = mirroredCountdownTarget ?? activeFallbackCountdownTarget
   const countdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : null
   const playbackTransitionRemainingMs = playbackTransitionState?.phase === 'countdown'
     && playbackTransitionState.countdownTargetMs !== null
