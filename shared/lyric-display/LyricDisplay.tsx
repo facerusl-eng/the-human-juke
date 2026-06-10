@@ -1,9 +1,59 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useSharedLyricState } from './state'
 import type { LyricSongRef } from './types'
 import './dark-neon-karaoke.css'
+
+const PEDAL_ACTION_DEBOUNCE_MS = 140
+
+type LyricPedalAction = 'next' | 'previous'
+
+type BluetoothRequestDevice = (options: {
+  acceptAllDevices?: boolean
+  optionalServices?: string[]
+}) => Promise<{
+  name?: string
+  gatt?: {
+    connected?: boolean
+    connect?: () => Promise<unknown>
+  }
+}>
+
+function resolveLyricActionFromKey(keyEvent: KeyboardEvent): LyricPedalAction | null {
+  if (keyEvent.altKey || keyEvent.ctrlKey || keyEvent.metaKey) {
+    return null
+  }
+
+  const key = keyEvent.key
+  const code = keyEvent.code
+
+  if (code === 'Space') {
+    return keyEvent.shiftKey ? 'previous' : 'next'
+  }
+
+  if (
+    key === 'Enter' ||
+    code === 'NumpadEnter' ||
+    key === 'ArrowRight' ||
+    key === 'ArrowDown' ||
+    key === 'PageDown' ||
+    key === 'MediaTrackNext'
+  ) {
+    return 'next'
+  }
+
+  if (
+    key === 'ArrowLeft' ||
+    key === 'ArrowUp' ||
+    key === 'PageUp' ||
+    key === 'MediaTrackPrevious'
+  ) {
+    return 'previous'
+  }
+
+  return null
+}
 
 type LyricDisplayProps = {
   supabase: SupabaseClient
@@ -19,6 +69,9 @@ export default function LyricDisplay({
   autoOpenOnMount = false,
 }: LyricDisplayProps) {
   const navigate = useNavigate()
+  const [pedalStatus, setPedalStatus] = useState('Pedal: keyboard fallback ready')
+  const [isPairingPedal, setIsPairingPedal] = useState(false)
+  const lastPedalActionAtRef = useRef(0)
   const {
     state,
     setActiveView,
@@ -65,12 +118,24 @@ export default function LyricDisplay({
         return
       }
 
-      if (keyEvent.code !== 'Space' || keyEvent.altKey || keyEvent.ctrlKey || keyEvent.metaKey) {
+      const action = resolveLyricActionFromKey(keyEvent)
+      if (!action) {
         return
       }
 
+      if (keyEvent.repeat) {
+        return
+      }
+
+      const now = Date.now()
+      if (now - lastPedalActionAtRef.current < PEDAL_ACTION_DEBOUNCE_MS) {
+        return
+      }
+      lastPedalActionAtRef.current = now
+
       keyEvent.preventDefault()
-      if (keyEvent.shiftKey) {
+
+      if (action === 'previous') {
         previousBlock()
       } else {
         nextBlock()
@@ -97,6 +162,49 @@ export default function LyricDisplay({
     navigate(state.returnToPath || returnToPath, { replace: false })
   }
 
+  const connectBluetoothPedal = async () => {
+    if (typeof navigator === 'undefined') {
+      setPedalStatus('Pedal: browser does not expose device pairing here')
+      return
+    }
+
+    const bluetooth = (navigator as Navigator & {
+      bluetooth?: {
+        requestDevice?: BluetoothRequestDevice
+      }
+    }).bluetooth
+
+    if (!bluetooth?.requestDevice) {
+      setPedalStatus('Pedal: Bluetooth pairing unavailable in this browser')
+      return
+    }
+
+    setIsPairingPedal(true)
+    setPedalStatus('Pedal: pairing... use your browser chooser')
+
+    try {
+      const device = await bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ['battery_service', 'device_information'],
+      })
+
+      if (device.gatt?.connect && !device.gatt.connected) {
+        try {
+          await device.gatt.connect()
+        } catch {
+          // Some pedals pair at OS level and do not expose GATT data.
+        }
+      }
+
+      const label = device.name?.trim() || 'Pedal connected'
+      setPedalStatus(`Pedal: ${label}`)
+    } catch {
+      setPedalStatus('Pedal: pairing canceled or failed')
+    } finally {
+      setIsPairingPedal(false)
+    }
+  }
+
   return (
     <section className="lyric-dark-neon-shell" aria-label="Lyric display">
       <div className="lyric-dark-neon-controls" data-spacebar-ignore="true">
@@ -112,9 +220,18 @@ export default function LyricDisplay({
             Show in Mirror Screen
           </button>
         ) : null}
+        <button
+          type="button"
+          className="lyric-dark-neon-button"
+          onClick={connectBluetoothPedal}
+          disabled={isPairingPedal}
+        >
+          {isPairingPedal ? 'Pairing Pedal...' : 'Connect Bluetooth Pedal'}
+        </button>
         <button type="button" className="lyric-dark-neon-button" onClick={goBack}>
           Back to Control Room / Gig Control
         </button>
+        <p className="lyric-dark-neon-pedal-status">{pedalStatus}</p>
       </div>
 
       <article className="lyric-dark-neon-stage" aria-live="polite" aria-atomic="true">
@@ -124,7 +241,7 @@ export default function LyricDisplay({
           {' • '}
           Block {Math.min(state.currentBlockIndex + 1, Math.max(1, state.blocks.length))}/{Math.max(1, state.blocks.length)}
           {' • '}
-          Space next, Shift+Space previous
+          Space/Enter/PageDown next, Shift+Space/PageUp previous
         </p>
       </article>
     </section>

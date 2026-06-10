@@ -81,6 +81,19 @@
   letter-spacing: 0.03em;
 }
 
+.lyric-dark-neon-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.lyric-dark-neon-pedal-status {
+  flex-basis: 100%;
+  margin: 0;
+  text-align: center;
+  color: var(--lyric-text-secondary);
+  font-size: 0.85rem;
+}
+
 .lyric-dark-neon-meta {
   margin-top: 0.9rem;
   color: var(--lyric-text-secondary);
