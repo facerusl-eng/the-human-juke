@@ -1848,12 +1848,13 @@ function MirrorPageContent() {
     && typeof song.artist === 'string'
   )), [songs])
 
-  const topVotedSongs = useMemo(() => (
-    [...safeSongs]
-      .filter((s) => !s.is_removed && s.votes_count > 0)
-      .sort((a, b) => b.votes_count - a.votes_count)
+  const topVotedSongs = useMemo(() => {
+    if (!Array.isArray(safeSongs) || safeSongs.length === 0) return []
+    return [...safeSongs]
+      .filter((s) => !s.is_removed && (s.votes_count ?? 0) > 0)
+      .sort((a, b) => (b.votes_count ?? 0) - (a.votes_count ?? 0))
       .slice(0, 8)
-  ), [safeSongs])
+  }, [safeSongs])
 
   useEffect(() => {
     const previousVotes = previousVoteCountBySongIdRef.current
@@ -5233,7 +5234,7 @@ function MirrorPageContent() {
           <div className="mirror-top-voted-panel">
             <p className="mirror-top-voted-eyebrow">★ Top Voted Tonight</p>
             <ol className="mirror-top-voted-list">
-              {topVotedSongs.map((song, index) => (
+              {topVotedSongs?.map((song, index) => (
                 <li key={song.id} className="mirror-top-voted-item">
                   <span className="mirror-top-voted-pos">#{index + 1}</span>
                   {song.cover_url ? <img src={song.cover_url} alt="" className="mirror-top-voted-cover" /> : null}
@@ -5241,9 +5242,9 @@ function MirrorPageContent() {
                     <span className="mirror-top-voted-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
                     <span className="mirror-top-voted-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
                   </div>
-                  <span className="mirror-top-voted-votes">+{song.votes_count}</span>
+                  <span className="mirror-top-voted-votes">+{song.votes_count ?? 0}</span>
                 </li>
-              ))}
+              )) ?? null}
             </ol>
             {safeSongs.every((s) => s.votes_count === 0) ? (
               <p className="mirror-top-voted-empty">No votes yet — audience is choosing!</p>
