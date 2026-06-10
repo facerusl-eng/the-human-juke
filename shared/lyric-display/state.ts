@@ -92,6 +92,54 @@ function normalizeQueryValue(value: string) {
     .trim()
 }
 
+function normalizeComparableValue(value: string) {
+  return normalizeQueryValue(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function tokenOverlapScore(expected: string, actual: string) {
+  const expectedTokens = new Set(normalizeComparableValue(expected).split(' ').filter(Boolean))
+  const actualTokens = new Set(normalizeComparableValue(actual).split(' ').filter(Boolean))
+
+  if (expectedTokens.size === 0 || actualTokens.size === 0) {
+    return 0
+  }
+
+  let overlapCount = 0
+  for (const token of expectedTokens) {
+    if (actualTokens.has(token)) {
+      overlapCount += 1
+    }
+  }
+
+  return overlapCount / Math.max(expectedTokens.size, actualTokens.size)
+}
+
+function onlineResultMatchesSong(song: LyricSongRef, payload: Record<string, unknown>) {
+  const payloadVariant = payload.variant
+  if (!payloadVariant || typeof payloadVariant !== 'object') {
+    return true
+  }
+
+  const variant = payloadVariant as Record<string, unknown>
+  const variantTitle = typeof variant.title === 'string' ? variant.title : ''
+  const variantArtist = typeof variant.artist === 'string' ? variant.artist : ''
+
+  if (!variantTitle) {
+    return true
+  }
+
+  const titleMatch = tokenOverlapScore(song.title, variantTitle)
+  const artistMatch = variantArtist ? tokenOverlapScore(song.artist, variantArtist) : 1
+
+  return titleMatch >= 0.55 && artistMatch >= 0.4
+}
+
 function normalizeSongIdentityValue(value: string | null | undefined) {
   return (value ?? '')
     .trim()
@@ -213,6 +261,10 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
       }
 
       const payload = await response.json() as Record<string, unknown>
+      if (!onlineResultMatchesSong(song, payload)) {
+        continue
+      }
+
       const rawLyrics = typeof payload.lyrics === 'string' ? payload.lyrics.trim() : ''
       if (!rawLyrics) {
         continue
