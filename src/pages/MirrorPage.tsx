@@ -143,6 +143,8 @@ const MIRROR_LAYOUT_STATE_PROFILE_COLUMN = 'default_mirror_layout_state'
 const MIRROR_WARNING_MIN_VISIBLE_MS = 2600
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const QR_FLASH_ROTATE_INTERVAL_MS = 5000
+const KARAOKE_SECTION_GAP_SECONDS = 12
+const KARAOKE_SECTION_LABEL_REGEX = /^(verse|chorus|pre-chorus|bridge|hook|refrain|intro|outro)\b/i
 const QR_FLASH_BASE_LINES = [
   'Thirsty?',
   'The Bar Got Options',
@@ -1468,6 +1470,8 @@ function MirrorPageContent() {
   const [forceQuoteMode, setForceQuoteMode] = useState(false)
   const [qrFlashTextIndex, setQrFlashTextIndex] = useState(0)
   const [karaokeSongStartedAtMs, setKaraokeSongStartedAtMs] = useState<number | null>(null)
+  const [manualKaraokeSectionIndex, setManualKaraokeSectionIndex] = useState(-1)
+  const karaokeSheetRef = useRef<HTMLDivElement | null>(null)
   const quoteIndexRef = useRef(0)
   const wasLiveRef = useRef(false)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
@@ -1942,6 +1946,104 @@ function MirrorPageContent() {
       (line) => line.timeSeconds === mirrorKaraokeWindow.current?.timeSeconds && line.text === mirrorKaraokeWindow.current?.text,
     )
   }, [mirrorKaraokeLines, mirrorKaraokeWindow.current, mirrorKaraokeWindow.currentIndex])
+
+  const mirrorKaraokeSectionStarts = useMemo(() => {
+    if (mirrorKaraokeLines.length === 0) {
+      return [] as number[]
+    }
+
+    const starts: number[] = [0]
+
+    for (let index = 1; index < mirrorKaraokeLines.length; index += 1) {
+      const previousLine = mirrorKaraokeLines[index - 1]
+      const line = mirrorKaraokeLines[index]
+      const normalizedText = line.text
+        .trim()
+        .replace(/^[\[(\s-]+|[\])\s:.-]+$/g, '')
+
+      const timeGap = line.timeSeconds - previousLine.timeSeconds
+      const isSectionLabel = KARAOKE_SECTION_LABEL_REGEX.test(normalizedText)
+
+      if (isSectionLabel || timeGap >= KARAOKE_SECTION_GAP_SECONDS) {
+        starts.push(index)
+      }
+    }
+
+    return starts
+  }, [mirrorKaraokeLines])
+
+  const mirrorKaraokeSectionStartSet = useMemo(() => {
+    return new Set(mirrorKaraokeSectionStarts)
+  }, [mirrorKaraokeSectionStarts])
+
+  const resolvedKaraokeSectionIndex = useMemo(() => {
+    if (mirrorKaraokeSectionStarts.length === 0) {
+      return -1
+    }
+
+    if (manualKaraokeSectionIndex >= 0) {
+      return Math.min(manualKaraokeSectionIndex, mirrorKaraokeSectionStarts.length - 1)
+    }
+
+    if (mirrorKaraokeCurrentIndex < 0) {
+      return 0
+    }
+
+    for (let index = mirrorKaraokeSectionStarts.length - 1; index >= 0; index -= 1) {
+      if (mirrorKaraokeSectionStarts[index] <= mirrorKaraokeCurrentIndex) {
+        return index
+      }
+    }
+
+    return 0
+  }, [manualKaraokeSectionIndex, mirrorKaraokeCurrentIndex, mirrorKaraokeSectionStarts])
+
+  const activeKaraokeSectionStart = resolvedKaraokeSectionIndex >= 0
+    ? mirrorKaraokeSectionStarts[resolvedKaraokeSectionIndex] ?? -1
+    : -1
+  const activeKaraokeSectionEnd = resolvedKaraokeSectionIndex >= 0
+    ? (mirrorKaraokeSectionStarts[resolvedKaraokeSectionIndex + 1] ?? mirrorKaraokeLines.length)
+    : -1
+
+  useEffect(() => {
+    if (!isAudienceKaraokeActive) {
+      setManualKaraokeSectionIndex(-1)
+      return
+    }
+
+    setManualKaraokeSectionIndex(-1)
+  }, [activeSong?.id, isAudienceKaraokeActive])
+
+  useEffect(() => {
+    if (manualKaraokeSectionIndex < 0 || mirrorKaraokeSectionStarts.length === 0) {
+      return
+    }
+
+    if (manualKaraokeSectionIndex >= mirrorKaraokeSectionStarts.length) {
+      setManualKaraokeSectionIndex(mirrorKaraokeSectionStarts.length - 1)
+    }
+  }, [manualKaraokeSectionIndex, mirrorKaraokeSectionStarts.length])
+
+  useEffect(() => {
+    if (!isAudienceKaraokeActive || activeKaraokeSectionStart < 0) {
+      return
+    }
+
+    const karaokeSheet = karaokeSheetRef.current
+    if (!karaokeSheet) {
+      return
+    }
+
+    const targetLine = karaokeSheet.querySelector<HTMLElement>(`[data-karaoke-line-index="${activeKaraokeSectionStart}"]`)
+    if (!targetLine) {
+      return
+    }
+
+    targetLine.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }, [activeKaraokeSectionStart, isAudienceKaraokeActive])
 
   useEffect(() => {
     const activeSongIds = new Set(safeSongs.map((song) => song.id))
@@ -3015,7 +3117,7 @@ function MirrorPageContent() {
         return
       }
 
-      if (keyEvent.altKey || keyEvent.ctrlKey || keyEvent.metaKey || keyEvent.shiftKey) {
+      if (keyEvent.altKey || keyEvent.ctrlKey || keyEvent.metaKey) {
         return
       }
 
@@ -3032,6 +3134,24 @@ function MirrorPageContent() {
 
       keyEvent.preventDefault()
       lastSpacebarActionAtRef.current = now
+
+      if (isAudienceKaraokeActive && mirrorKaraokeSectionStarts.length > 0) {
+        const lastSectionIndex = mirrorKaraokeSectionStarts.length - 1
+        setManualKaraokeSectionIndex((currentIndex) => {
+          const baseIndex = currentIndex >= 0 ? currentIndex : Math.max(0, resolvedKaraokeSectionIndex)
+          if (keyEvent.shiftKey) {
+            return Math.max(0, baseIndex - 1)
+          }
+
+          return Math.min(lastSectionIndex, baseIndex + 1)
+        })
+        return
+      }
+
+      if (keyEvent.shiftKey) {
+        return
+      }
+
       // --- Advance queue on spacebar if gig is live ---
       // TODO: Implement queue advancement logic here if needed, using available store/actions.
       // ---
@@ -3039,7 +3159,7 @@ function MirrorPageContent() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [launchCastToScreen, layoutEditMode])
+  }, [isAudienceKaraokeActive, launchCastToScreen, layoutEditMode, mirrorKaraokeSectionStarts.length, resolvedKaraokeSectionIndex])
 
   useEffect(() => {
     if (!isHost || isEmbeddedPreview) {
@@ -4361,15 +4481,19 @@ function MirrorPageContent() {
                         <p className="mirror-karaoke-flash-banner" aria-live="polite">
                           {activeQrFlashText ?? 'Sing along with the chorus'}
                         </p>
-                        <div className="mirror-karaoke-sheet" role="log" aria-live="polite" aria-atomic="false">
+                        <div className="mirror-karaoke-sheet mirror-karaoke-sheet-ready" role="log" aria-live="polite" aria-atomic="false" ref={karaokeSheetRef}>
                           {mirrorKaraokeLines.length === 0 ? (
                             <p className="mirror-karaoke-line mirror-karaoke-line-muted">Loading lyrics...</p>
                           ) : (
                             mirrorKaraokeLines.map((line, index) => {
                               const isCurrentLine = index === mirrorKaraokeCurrentIndex
                               const isPastLine = mirrorKaraokeCurrentIndex >= 0 && index < mirrorKaraokeCurrentIndex
+                              const isInsideActiveSection = activeKaraokeSectionStart >= 0
+                                && activeKaraokeSectionEnd > activeKaraokeSectionStart
+                                && index >= activeKaraokeSectionStart
+                                && index < activeKaraokeSectionEnd
                               const lineClassName = isCurrentLine
-                                ? 'mirror-karaoke-line mirror-karaoke-line-current'
+                                ? 'mirror-karaoke-line mirror-karaoke-line-current mirror-karaoke-line-active-section'
                                 : (isPastLine
                                   ? 'mirror-karaoke-line mirror-karaoke-line-past'
                                   : 'mirror-karaoke-line mirror-karaoke-line-upcoming')
@@ -4377,7 +4501,9 @@ function MirrorPageContent() {
                               return (
                                 <p
                                   key={`${line.sourceLineNumber}:${line.timeSeconds}:${line.text}:${index}`}
-                                  className={lineClassName}
+                                  className={`${lineClassName}${isInsideActiveSection ? ' mirror-karaoke-line-active-section' : ' mirror-karaoke-line-outside-section'}`}
+                                  data-karaoke-line-index={index}
+                                  data-karaoke-section-start={mirrorKaraokeSectionStartSet.has(index) ? 'true' : undefined}
                                 >
                                   {line.text}
                                 </p>
@@ -4385,7 +4511,7 @@ function MirrorPageContent() {
                             })
                           )}
                         </div>
-                        <p className="mirror-karaoke-progress">{karaokeElapsedSeconds.toFixed(1)}s / {(mirrorKaraokeDurationSeconds ?? 0).toFixed(1)}s</p>
+                        <p className="mirror-karaoke-progress">{karaokeElapsedSeconds.toFixed(1)}s / {(mirrorKaraokeDurationSeconds ?? 0).toFixed(1)}s • Space next section • Shift+Space previous</p>
                       </div>
                     ) : (
                       <>
