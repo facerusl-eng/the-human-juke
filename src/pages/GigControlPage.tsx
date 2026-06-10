@@ -649,6 +649,7 @@ function GigControlPage() {
   const spacebarPressActiveRef = useRef(false)
   const spacebarHandledOnKeyDownRef = useRef(false)
   const spacebarSkipUntilKeyUpRef = useRef(false)
+  const skipNextQuoteSpotifyAutoplayRef = useRef(false)
   const eventRef = useRef(event)
     const getHostNowMs = useCallback(() => Date.now() + hostClockOffsetRef.current, [])
 
@@ -1205,6 +1206,11 @@ function GigControlPage() {
     }
 
     if (!event?.roomOpen || !spotifyAccessToken) {
+      return
+    }
+
+    if (skipNextQuoteSpotifyAutoplayRef.current) {
+      skipNextQuoteSpotifyAutoplayRef.current = false
       return
     }
 
@@ -3331,6 +3337,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       }
     } else {
       // NOW PLAYING → QUOTE: instant switch without queue advancement
+      skipNextQuoteSpotifyAutoplayRef.current = true;
       setIsNowPlayingStarted(false);
       isNowPlayingStartedRef.current = false;
 
@@ -3350,6 +3357,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         setErrorText(null);
       } catch (error) {
         // Roll back local state on failure
+        skipNextQuoteSpotifyAutoplayRef.current = false;
         setIsNowPlayingStarted(true);
         isNowPlayingStartedRef.current = true;
         console.warn('GigControlPage: quote toggle via spacebar failed', error);
