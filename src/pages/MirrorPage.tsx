@@ -4516,11 +4516,25 @@ function MirrorPageContent() {
   const allowLyricTakeoverView = typeof window !== 'undefined'
     && new URLSearchParams(window.location.search).get('mirrorLyrics') === '1'
 
+  const sharedLyricSong = sharedLyricState.song
+  const isSharedLyricSongMatchingActiveSong = Boolean(
+    activeSong
+    && sharedLyricSong
+    && (
+      sharedLyricSong.id === activeSong.id
+      || (
+        sharedLyricSong.title.trim().toLowerCase() === activeSong.title.trim().toLowerCase()
+        && sharedLyricSong.artist.trim().toLowerCase() === activeSong.artist.trim().toLowerCase()
+      )
+    ),
+  )
+
   const shouldShowSharedLyricMirrorView = Boolean(
     allowLyricTakeoverView
     &&
     sharedLyricState.showOnMirror
     && sharedLyricState.activeView === 'lyric'
+    && isSharedLyricSongMatchingActiveSong
     && isNowPlayingStarted
     && isAudienceKaraokeActive
     && activeSong,
