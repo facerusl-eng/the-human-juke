@@ -209,6 +209,7 @@ const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_BANNER_STORAGE_KEY = 'human-jukebox-mirror-banner-text'
 const MIRROR_LAYOUT_EDIT_STORAGE_KEY = 'human-jukebox-mirror-layout-edit-mode'
 const MIRROR_LAYOUT_STATE_STORAGE_KEY = 'human-jukebox-mirror-layout-state'
+const MIRROR_TOP_VOTED_KEY = 'human-jukebox-mirror-top-voted'
 const INTRO_AUDIO_LOCK_STORAGE_KEY = 'human-jukebox-intro-audio-play-lock'
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL = 'human-jukebox-mirror-venue-logo-layout-preview'
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY = 'human-jukebox-mirror-venue-logo-layout-preview'
@@ -622,8 +623,6 @@ function MirrorLayoutEditorPage() {
       }
 
       const deltaX = ((pointerEvent.clientX - interaction.startX) / interaction.shellWidth) * 100
-          createdByName: activeSong.createdByName ?? null,
-          audience_sings: activeSong.audience_sings ?? null,
       const deltaY = ((pointerEvent.clientY - interaction.startY) / interaction.shellHeight) * 100
 
       setLayoutState((currentState) => {
