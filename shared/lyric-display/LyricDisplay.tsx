@@ -95,6 +95,12 @@ export default function LyricDisplay({
       return isAdminReturnPath
     }
 
+    const isMobileViewport = window.matchMedia('(max-width: 900px)').matches
+    const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches
+    if (isMobileViewport || hasCoarsePointer) {
+      return false
+    }
+
     const searchParams = new URLSearchParams(window.location.search)
     const isStageMode = searchParams.get('stage') === '1'
     return !isStageMode
