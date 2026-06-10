@@ -8,6 +8,7 @@ const CHANNEL_NAME = 'human-jukebox-lyric-display-v1'
 const EVENT_NAME = 'lyric-display-state'
 const SECTION_LABEL_RE = /^(verse|chorus|pre-chorus|bridge|hook|refrain|intro|outro)\b/i
 const SECTION_GAP_SECONDS = 12
+const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
 
 function sanitizeLineText(value: string) {
   return value
@@ -18,7 +19,7 @@ function sanitizeLineText(value: string) {
 function parseBlocksFromLrcText(lrcText: string) {
   const parsed = parseLrc(lrcText)
   if (!parsed.lines.length) {
-    return []
+    return parseBlocksFromPlainLyrics(lrcText)
   }
 
   const blocks: string[] = []
@@ -48,6 +49,66 @@ function parseBlocksFromLrcText(lrcText: string) {
   return blocks
 }
 
+function parseBlocksFromPlainLyrics(rawLyrics: string) {
+  const normalized = rawLyrics
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+
+  const blocks: string[] = []
+  let currentBlockLines: string[] = []
+
+  for (const line of normalized) {
+    if (!line) {
+      if (currentBlockLines.length > 0) {
+        blocks.push(currentBlockLines.join('\n'))
+        currentBlockLines = []
+      }
+      continue
+    }
+
+    currentBlockLines.push(line)
+  }
+
+  if (currentBlockLines.length > 0) {
+    blocks.push(currentBlockLines.join('\n'))
+  }
+
+  return blocks
+}
+
+function readAutoCachedLyrics(song: LyricSongRef) {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const rawCache = window.localStorage.getItem(AUTO_CACHE_KEY)
+    if (!rawCache) {
+      return null
+    }
+
+    const parsedCache = JSON.parse(rawCache) as Record<string, string>
+    const normalizedTitle = song.title.trim().toLowerCase()
+    const normalizedArtist = song.artist.trim().toLowerCase()
+    const songKeys = [
+      `song:${song.id.trim().toLowerCase()}`,
+      `${normalizedTitle}::${normalizedArtist}`,
+    ]
+
+    for (const songKey of songKeys) {
+      const hit = parsedCache[songKey]
+      if (typeof hit === 'string' && hit.trim().length > 0) {
+        return hit
+      }
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
 async function loadBlocksForSong(song: LyricSongRef) {
   const candidates = buildLrcCandidatePaths({
     songId: song.id,
@@ -64,6 +125,14 @@ async function loadBlocksForSong(song: LyricSongRef) {
     const blocks = parseBlocksFromLrcText(lrcText)
     if (blocks.length > 0) {
       return blocks
+    }
+  }
+
+  const autoCachedLyrics = readAutoCachedLyrics(song)
+  if (autoCachedLyrics) {
+    const cachedBlocks = parseBlocksFromPlainLyrics(autoCachedLyrics)
+    if (cachedBlocks.length > 0) {
+      return cachedBlocks
     }
   }
 
@@ -120,12 +189,18 @@ export type SharedLyricStateController = {
 
 export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: string): SharedLyricStateController {
   const sourceIdRef = useRef(`${sourcePrefix}-${Math.random().toString(36).slice(2)}`)
+  const latestOpenRequestIdRef = useRef(0)
   const [state, setState] = useState<LyricDisplayState>(() => {
     const storedState = readStoredState()
     return storedState ?? defaultState(sourceIdRef.current)
   })
 
+  const stateRef = useRef(state)
   const channelRef = useRef<RealtimeChannel | null>(null)
+
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
 
   const applyPatch = useCallback((patch: LyricDisplayPatch) => {
     setState((currentState) => {
@@ -153,6 +228,10 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
           return
         }
 
+        if (nextState.updatedAt <= (stateRef.current.updatedAt ?? 0)) {
+          return
+        }
+
         setState(nextState)
       })
       .subscribe()
@@ -167,6 +246,10 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
       try {
         const nextState = JSON.parse(storageEvent.newValue) as LyricDisplayState
         if (nextState.updatedBy === sourceIdRef.current) {
+          return
+        }
+
+        if (nextState.updatedAt <= (stateRef.current.updatedAt ?? 0)) {
           return
         }
 
@@ -198,7 +281,14 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
   }, [state])
 
   const openLyricForSong = useCallback(async (song: LyricSongRef, returnToPath: string) => {
+    latestOpenRequestIdRef.current += 1
+    const requestId = latestOpenRequestIdRef.current
+
     const blocks = await loadBlocksForSong(song)
+
+    if (requestId !== latestOpenRequestIdRef.current) {
+      return
+    }
 
     applyPatch({
       song,

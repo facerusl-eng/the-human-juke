@@ -14,6 +14,50 @@ function normalizeIdFragment(value: string) {
     .replace(/^-|-$/g, '')
 }
 
+function normalizeSearchValue(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['"`]/g, '')
+    .replace(/\(.*?\)|\[.*?\]/g, ' ')
+    .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+    .replace(/[.,!?:;()\[\]{}]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function buildTitleVariants(value: string | null | undefined) {
+  if (!value) {
+    return [] as string[]
+  }
+
+  const normalized = normalizeSearchValue(value)
+  const variants = [
+    value.trim(),
+    normalized,
+    normalized.replace(/\s-\s.*$/, '').trim(),
+  ]
+
+  return [...new Set(variants.filter(Boolean).map(normalizeIdFragment).filter(Boolean))]
+}
+
+function buildArtistVariants(value: string | null | undefined) {
+  if (!value) {
+    return [] as string[]
+  }
+
+  const normalized = normalizeSearchValue(value)
+  const variants = [
+    value.trim(),
+    normalized,
+    normalized.split(/\s(?:&|x|with|and)\s|,|\//i)[0]?.trim() ?? '',
+  ]
+
+  return [...new Set(variants.filter(Boolean).map(normalizeIdFragment).filter(Boolean))]
+}
+
 export function parseLrcTimestampToSeconds(timestamp: string): number | null {
   const normalized = timestamp.trim()
   const match = normalized.match(/^(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?$/)
@@ -105,26 +149,52 @@ export function buildLrcCandidatePaths(song: {
   }
 
   if (song.songId) {
+    const normalizedSongId = song.songId.trim()
+    const normalizedSongIdFragment = normalizeIdFragment(song.songId)
+
+    if (normalizedSongId.length > 0) {
+      candidates.push(`${basePath}/${normalizedSongId}.lrc`)
+      candidates.push(`${basePath}/${encodeURIComponent(normalizedSongId)}.lrc`)
+    }
+
+    if (normalizedSongIdFragment.length > 0) {
+      candidates.push(`${basePath}/${normalizedSongIdFragment}.lrc`)
+    }
+
     candidates.push(`${basePath}/${encodeURIComponent(song.songId)}.lrc`)
   }
 
-  const normalizedTitle = song.title ? normalizeIdFragment(song.title) : ''
-  const normalizedArtist = song.artist ? normalizeIdFragment(song.artist) : ''
+  const titleVariants = buildTitleVariants(song.title)
+  const artistVariants = buildArtistVariants(song.artist)
 
-  if (normalizedArtist && normalizedTitle) {
-    candidates.push(`${basePath}/${normalizedArtist}-${normalizedTitle}.lrc`)
+  for (const titleVariant of titleVariants) {
+    candidates.push(`${basePath}/${titleVariant}.lrc`)
   }
 
-  if (normalizedTitle) {
-    candidates.push(`${basePath}/${normalizedTitle}.lrc`)
+  for (const artistVariant of artistVariants) {
+    for (const titleVariant of titleVariants) {
+      candidates.push(`${basePath}/${artistVariant}-${titleVariant}.lrc`)
+      candidates.push(`${basePath}/${titleVariant}-${artistVariant}.lrc`)
+      candidates.push(`${basePath}/${artistVariant}_${titleVariant}.lrc`)
+      candidates.push(`${basePath}/${titleVariant}_${artistVariant}.lrc`)
+    }
   }
 
-  return [...new Set(candidates)]
+  return [...new Set(candidates.filter(Boolean))]
 }
 
 export async function fetchLrc(path: string): Promise<string | null> {
+  const requestTimeoutMs = 4000
+
   try {
-    const response = await fetch(path)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+    }, requestTimeoutMs)
+
+    const response = await fetch(path, { signal: controller.signal })
+    clearTimeout(timeoutId)
+
     if (!response.ok) {
       return null
     }
