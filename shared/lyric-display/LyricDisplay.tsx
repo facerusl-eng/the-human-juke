@@ -88,7 +88,17 @@ export default function LyricDisplay({
     previousBlock,
   } = useSharedLyricState(supabase, 'control')
 
-  const adminControlsVisible = useMemo(() => /\/admin\b/i.test(returnToPath), [returnToPath])
+  const adminControlsVisible = useMemo(() => {
+    const isAdminReturnPath = /\/admin\b/i.test(returnToPath)
+
+    if (!isAdminReturnPath || typeof window === 'undefined') {
+      return isAdminReturnPath
+    }
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const isStageMode = searchParams.get('stage') === '1'
+    return !isStageMode
+  }, [returnToPath])
 
   const currentBlock = useMemo(() => {
     if (!state.blocks.length) {
