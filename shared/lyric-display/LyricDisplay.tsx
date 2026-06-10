@@ -73,6 +73,8 @@ export default function LyricDisplay({
   const lastAutoOpenedSongKeyRef = useRef<string | null>(null)
   const [pedalStatus, setPedalStatus] = useState('Pedal: keyboard fallback ready')
   const [isPairingPedal, setIsPairingPedal] = useState(false)
+  const [isEditingLyric, setIsEditingLyric] = useState(false)
+  const [draftLyricText, setDraftLyricText] = useState('')
   const lastPedalActionAtRef = useRef(0)
   const lastPedalActionTypeRef = useRef<LyricPedalAction | null>(null)
   const {
@@ -80,10 +82,13 @@ export default function LyricDisplay({
     setActiveView,
     openLyricForSong,
     closeLyric,
+    setBlocks,
     setShowOnMirror,
     nextBlock,
     previousBlock,
   } = useSharedLyricState(supabase, 'control')
+
+  const adminControlsVisible = useMemo(() => /\/admin\b/i.test(returnToPath), [returnToPath])
 
   const currentBlock = useMemo(() => {
     if (!state.blocks.length) {
@@ -233,8 +238,34 @@ export default function LyricDisplay({
     }
   }
 
+  const openLyricEditor = () => {
+    setDraftLyricText(state.blocks.join('\n\n'))
+    setIsEditingLyric(true)
+  }
+
+  const cancelLyricEditor = () => {
+    setIsEditingLyric(false)
+    setDraftLyricText('')
+  }
+
+  const saveEditedLyric = () => {
+    const normalized = draftLyricText.replace(/\r\n/g, '\n')
+    const nextBlocks = normalized
+      .split(/\n{2,}/)
+      .map((block) => block.trim())
+      .filter(Boolean)
+
+    if (nextBlocks.length === 0) {
+      return
+    }
+
+    setBlocks(nextBlocks)
+    setIsEditingLyric(false)
+  }
+
   return (
     <section className="lyric-dark-neon-shell" aria-label="Lyric display">
+      {adminControlsVisible ? (
       <div className="lyric-dark-neon-controls" data-spacebar-ignore="true">
         <button type="button" className="lyric-dark-neon-button" onClick={openLyric}>
           Show Lyric
@@ -248,6 +279,9 @@ export default function LyricDisplay({
             Show in Mirror Screen
           </button>
         ) : null}
+        <button type="button" className="lyric-dark-neon-button" onClick={openLyricEditor}>
+          Edit Lyric
+        </button>
         <button
           type="button"
           className="lyric-dark-neon-button"
@@ -261,6 +295,25 @@ export default function LyricDisplay({
         </button>
         <p className="lyric-dark-neon-pedal-status">{pedalStatus}</p>
       </div>
+      ) : null}
+
+      {adminControlsVisible && isEditingLyric ? (
+        <section className="lyric-dark-neon-editor" data-spacebar-ignore="true" aria-label="Edit lyric">
+          <p className="lyric-dark-neon-editor-title">Edit lyric text (separate sections with blank lines)</p>
+          <textarea
+            className="lyric-dark-neon-editor-textarea"
+            value={draftLyricText}
+            onChange={(event) => setDraftLyricText(event.target.value)}
+            spellCheck={false}
+            aria-label="Lyric editor"
+            placeholder="Paste or edit full lyric text here"
+          />
+          <div className="lyric-dark-neon-editor-actions">
+            <button type="button" className="lyric-dark-neon-button" onClick={saveEditedLyric}>Save Lyric</button>
+            <button type="button" className="lyric-dark-neon-button" onClick={cancelLyricEditor}>Cancel</button>
+          </div>
+        </section>
+      ) : null}
 
       <article className="lyric-dark-neon-stage" aria-live="polite" aria-atomic="true">
         <p className="lyric-dark-neon-copy lyric-dark-neon-copy-control lyric-dark-neon-copy-active">{currentBlock}</p>

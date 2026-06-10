@@ -95,6 +95,40 @@
   font-size: 0.85rem;
 }
 
+.lyric-dark-neon-editor {
+  width: min(92vw, 920px);
+  margin-top: 4.5rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(76, 201, 255, 0.35);
+  border-radius: 14px;
+  background: rgba(5, 10, 18, 0.82);
+}
+
+.lyric-dark-neon-editor-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+  color: var(--lyric-text-secondary);
+}
+
+.lyric-dark-neon-editor-textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  border-radius: 10px;
+  border: 1px solid rgba(76, 201, 255, 0.35);
+  background: #050a12;
+  color: #dff7ff;
+  padding: 0.7rem;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.lyric-dark-neon-editor-actions {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
 .lyric-dark-neon-meta {
   margin-top: 0.9rem;
   color: var(--lyric-text-secondary);

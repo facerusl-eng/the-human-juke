@@ -428,6 +428,7 @@ export type SharedLyricStateController = {
   setActiveView: (activeView: LyricViewName) => void
   openLyricForSong: (song: LyricSongRef, returnToPath: string) => Promise<void>
   closeLyric: () => void
+  setBlocks: (blocks: string[]) => void
   setShowOnMirror: (enabled: boolean) => void
   nextBlock: () => void
   previousBlock: () => void
@@ -567,6 +568,18 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
     })
   }, [applyPatch])
 
+  const setBlocks = useCallback((blocks: string[]) => {
+    const normalizedBlocks = blocks
+      .map((block) => block.replace(/\r\n/g, '\n').trim())
+      .filter(Boolean)
+
+    applyPatch({
+      blocks: normalizedBlocks.length > 0 ? normalizedBlocks : ['No lyric loaded.'],
+      currentBlockIndex: 0,
+      activeView: 'lyric',
+    })
+  }, [applyPatch])
+
   const setShowOnMirror = useCallback((enabled: boolean) => {
     applyPatch({
       showOnMirror: enabled,
@@ -591,8 +604,9 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
     setActiveView,
     openLyricForSong,
     closeLyric,
+    setBlocks,
     setShowOnMirror,
     nextBlock,
     previousBlock,
-  }), [closeLyric, nextBlock, openLyricForSong, previousBlock, setActiveView, setShowOnMirror, state])
+  }), [closeLyric, nextBlock, openLyricForSong, previousBlock, setActiveView, setBlocks, setShowOnMirror, state])
 }
