@@ -214,6 +214,31 @@ function AdminDashboardContent({
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const autoLiveInFlightRef = useRef(false)
   const attemptedAutoLiveGigIdsRef = useRef<Set<string>>(new Set())
+  const autoLivePrimedIntroAudioRef = useRef<{ url: string; element: HTMLAudioElement } | null>(null)
+
+  const primeAutoLiveIntroAudio = useCallback((introAudioUrl: string) => {
+    const existingPrimedIntro = autoLivePrimedIntroAudioRef.current
+
+    if (existingPrimedIntro?.url === introAudioUrl) {
+      return
+    }
+
+    const primedElement = new Audio(introAudioUrl)
+    primedElement.preload = 'auto'
+    primedElement.muted = true
+
+    void primedElement.play().then(() => {
+      primedElement.pause()
+      primedElement.currentTime = 0
+      primedElement.muted = false
+      autoLivePrimedIntroAudioRef.current = {
+        url: introAudioUrl,
+        element: primedElement,
+      }
+    }).catch(() => {
+      // Priming is best effort and depends on browser autoplay policy.
+    })
+  }, [])
 
   const activeGigActions = useGigActions({
     setActiveEvent,
@@ -303,6 +328,26 @@ function AdminDashboardContent({
   }, [hostEvents])
 
   useEffect(() => {
+    const onUserGesture = () => {
+      const introAudioUrl = event?.introAudioUrl
+      if (introAudioUrl) {
+        primeAutoLiveIntroAudio(introAudioUrl)
+      }
+
+      window.removeEventListener('pointerdown', onUserGesture)
+      window.removeEventListener('keydown', onUserGesture)
+    }
+
+    window.addEventListener('pointerdown', onUserGesture)
+    window.addEventListener('keydown', onUserGesture)
+
+    return () => {
+      window.removeEventListener('pointerdown', onUserGesture)
+      window.removeEventListener('keydown', onUserGesture)
+    }
+  }, [event?.introAudioUrl, primeAutoLiveIntroAudio])
+
+  useEffect(() => {
     const runAutoLiveCheck = async () => {
       if (autoLiveInFlightRef.current) {
         return
@@ -355,7 +400,11 @@ function AdminDashboardContent({
         }
 
         if (dueEvent.introAudioUrl) {
-          const introAudio = new Audio(dueEvent.introAudioUrl)
+          const primedIntro = autoLivePrimedIntroAudioRef.current
+          const introAudio = primedIntro && primedIntro.url === dueEvent.introAudioUrl
+            ? primedIntro.element
+            : new Audio(dueEvent.introAudioUrl)
+
           introAudio.preload = 'auto'
           void introAudio.play().catch(() => {
             // Autoplay may be blocked until user interaction; keep Auto Live successful.
