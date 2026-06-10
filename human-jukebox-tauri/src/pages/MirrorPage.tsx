@@ -1565,9 +1565,14 @@ function MirrorPageContent() {
   const [flyInSong, setFlyInSong] = useState<QueueSong | null>(null)
   const [queueRankChanges, setQueueRankChanges] = useState<Array<{ songId: string; delta: number }>>([]) 
   const [isQueueStageVisible, setIsQueueStageVisible] = useState(false)
-  const [showTopVotedOnMirror, setShowTopVotedOnMirror] = useState(() => {
-    try { return localStorage.getItem(MIRROR_TOP_VOTED_KEY) === '1' } catch { return false }
-  })
+  const readShowTopVotedFromStorage = useCallback(() => {
+    try {
+      return localStorage.getItem(MIRROR_TOP_VOTED_KEY) === '1'
+    } catch {
+      return false
+    }
+  }, [])
+  const [showTopVotedOnMirror, setShowTopVotedOnMirror] = useState(readShowTopVotedFromStorage)
   const [, setAutoLiveLockDebugText] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
@@ -1801,18 +1806,33 @@ function MirrorPageContent() {
   }, [])
 
   useEffect(() => {
+    const syncFromStorage = () => {
+      setShowTopVotedOnMirror(readShowTopVotedFromStorage())
+    }
+
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === MIRROR_TOP_VOTED_KEY) {
-        setShowTopVotedOnMirror(e.newValue === '1')
+      if (e.key !== MIRROR_TOP_VOTED_KEY) {
+        return
       }
+      if (e.newValue === '1' || e.newValue === '0') {
+        setShowTopVotedOnMirror(e.newValue === '1')
+        return
+      }
+      syncFromStorage()
     }
 
     window.addEventListener('storage', handleStorage)
+    window.addEventListener('focus', syncFromStorage)
+    window.addEventListener('pageshow', syncFromStorage)
+    document.addEventListener('visibilitychange', syncFromStorage)
 
     return () => {
       window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('focus', syncFromStorage)
+      window.removeEventListener('pageshow', syncFromStorage)
+      document.removeEventListener('visibilitychange', syncFromStorage)
     }
-  }, [])
+  }, [readShowTopVotedFromStorage])
 
   const safeSongs = useMemo(() => songs.filter((song) => (
     song
