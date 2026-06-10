@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useSharedLyricState } from './state'
@@ -98,6 +98,11 @@ export default function LyricDisplay({
     return state.blocks[state.currentBlockIndex] ?? state.blocks[0]
   }, [state.blocks, state.currentBlockIndex])
 
+  const goBack = useCallback(() => {
+    closeLyric()
+    navigate(state.returnToPath || returnToPath, { replace: false })
+  }, [closeLyric, navigate, returnToPath, state.returnToPath])
+
   useEffect(() => {
     if (!autoOpenOnMount || !activeSong) {
       return
@@ -132,6 +137,19 @@ export default function LyricDisplay({
       const textEntryTarget = target?.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')
       if (textEntryTarget) {
         return
+      }
+
+      if (adminControlsVisible) {
+        const backKey = keyEvent.key === 'ArrowLeft'
+          || keyEvent.key === 'PageUp'
+          || keyEvent.key === 'MediaTrackPrevious'
+
+        if (backKey && !keyEvent.repeat) {
+          keyEvent.preventDefault()
+          keyEvent.stopPropagation()
+          goBack()
+          return
+        }
       }
 
       const action = resolveLyricActionFromKey(keyEvent)
@@ -174,7 +192,7 @@ export default function LyricDisplay({
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [nextBlock, previousBlock, state.activeView])
+  }, [adminControlsVisible, goBack, nextBlock, previousBlock, state.activeView])
 
   const openLyric = async () => {
     if (state.activeView === 'lyric' && state.blocks.length > 0) {
@@ -188,11 +206,6 @@ export default function LyricDisplay({
 
     setActiveView('lyric')
     await openLyricForSong(songToOpen, returnToPath)
-  }
-
-  const goBack = () => {
-    closeLyric()
-    navigate(state.returnToPath || returnToPath, { replace: false })
   }
 
   const connectBluetoothPedal = async () => {
