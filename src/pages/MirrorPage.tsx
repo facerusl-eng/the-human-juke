@@ -1864,7 +1864,7 @@ function MirrorPageContent() {
         })
 
         delete voteSparkleTimerBySongIdRef.current[songId]
-      }, 950)
+      }, 1400)
     })
   }, [safeSongs])
 
