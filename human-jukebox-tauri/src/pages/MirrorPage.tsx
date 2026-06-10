@@ -58,6 +58,7 @@ import {
   isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
   normalizeCountdownTargetMs,
+  requestSharedIntroAudioPlayback,
   readSharedPlaybackState,
   writeSharedPlaybackState,
   type SharedPlaybackState,
@@ -2620,6 +2621,11 @@ function MirrorPageContent() {
 
       try {
         await setRoomOpen(true)
+        const introAudioUrl = event.introAudioUrl?.trim() ?? ''
+
+        if (introAudioUrl) {
+          requestSharedIntroAudioPlayback(event.id, introAudioUrl, 'mirror-auto-live-countdown')
+        }
 
         await writeSharedPlaybackState(event.id, {
           currentSongId: nowPlaying?.id ?? null,
@@ -2630,6 +2636,8 @@ function MirrorPageContent() {
           brbActive: false,
           brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
         })
+
+        setGoLiveWelcomeUntilMs(Date.now() + GO_LIVE_WELCOME_DURATION_MS)
 
         setMirrorWarningMessage('Auto Live started from scheduled countdown.')
       } catch {

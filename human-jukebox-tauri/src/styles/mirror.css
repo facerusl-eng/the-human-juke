@@ -1380,7 +1380,7 @@
 
 .mirror-final-countdown-number {
   margin: 0;
-  font-size: clamp(6.5rem, 28vw, 13rem);
+  font-size: clamp(8.5rem, 36vw, 16rem);
   line-height: 1;
   font-weight: 900;
   letter-spacing: 0.02em;
@@ -1415,7 +1415,7 @@
   }
 
   .mirror-final-countdown-number {
-    font-size: clamp(5.8rem, 34vw, 10rem);
+    font-size: clamp(7.2rem, 42vw, 12rem);
   }
 
   .mirror-final-countdown-subtitle {

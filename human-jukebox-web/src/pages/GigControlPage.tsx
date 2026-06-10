@@ -19,6 +19,8 @@ import {
 } from '../lib/queueSnapshots';
 import {
   BETWEEN_SONG_QUOTES,
+  INTRO_AUDIO_PLAY_REQUEST_EVENT,
+  INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY,
   LAST_SONG_SOON_OVERLAY_MESSAGE,
   PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
@@ -28,6 +30,7 @@ import {
   getSharedPlaybackTransitionState,
   isLastSongSoonOverlayMessage,
   normalizeCountdownTargetMs,
+  parseIntroAudioPlaybackRequest,
   type SharedPlaybackState,
   readSharedPlaybackState,
   writeSharedPlaybackState,
@@ -636,6 +639,7 @@ function GigControlPage() {
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
   const autoLiveNextRetryAtRef = useRef(0)
   const autoLiveInFlightRef = useRef(false)
+  const lastIntroPlaybackRequestRef = useRef<string | null>(null)
   const hostClockOffsetRef = useRef(0)
   const introAudioLockOwnerRef = useRef<string | null>(null)
   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
@@ -1754,6 +1758,73 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       }
     }
   }, [playIntroAudioWithSpotifyBridge])
+
+  useEffect(() => {
+    if (!event?.id) {
+      return
+    }
+
+    const handleSerializedIntroRequest = (serializedRequest: string | null | undefined) => {
+      const request = parseIntroAudioPlaybackRequest(serializedRequest)
+
+      if (!request || request.eventId !== event.id) {
+        return
+      }
+
+      const requestKey = `${request.eventId}:${request.requestedAt}`
+      if (lastIntroPlaybackRequestRef.current === requestKey) {
+        return
+      }
+
+      lastIntroPlaybackRequestRef.current = requestKey
+
+      void (async () => {
+        await playIntroAudioOnceSafely(
+          event.id,
+          request.introAudioUrl,
+          'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
+        )
+
+        await writeSharedPlaybackState(event.id, {
+          currentSongId: nowPlayingRef.current?.id ?? null,
+          currentSongCoverUrl: resolveCoverUrlForSong(nowPlayingRef.current?.id ?? null),
+          isStarted: false,
+          quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: mirroredCountdownTargetMs,
+          brbActive: false,
+          brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+        })
+
+        setIsNowPlayingStarted(false)
+        setPreflightStatusText('Auto Live intro triggered from countdown.')
+      })().catch((error) => {
+        console.warn('GigControlPage: intro playback request handling failed', error)
+      })
+    }
+
+    const onIntroRequestEvent = (nextEvent: Event) => {
+      const serializedRequest = (nextEvent as CustomEvent<string>).detail
+      handleSerializedIntroRequest(serializedRequest)
+    }
+
+    const onIntroRequestStorage = (storageEvent: StorageEvent) => {
+      if (storageEvent.key !== INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY || !storageEvent.newValue) {
+        return
+      }
+
+      handleSerializedIntroRequest(storageEvent.newValue)
+    }
+
+    window.addEventListener(INTRO_AUDIO_PLAY_REQUEST_EVENT, onIntroRequestEvent as EventListener)
+    window.addEventListener('storage', onIntroRequestStorage)
+
+    handleSerializedIntroRequest(window.localStorage.getItem(INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY))
+
+    return () => {
+      window.removeEventListener(INTRO_AUDIO_PLAY_REQUEST_EVENT, onIntroRequestEvent as EventListener)
+      window.removeEventListener('storage', onIntroRequestStorage)
+    }
+  }, [event?.id, mirroredCountdownTargetMs, playIntroAudioOnceSafely, resolveCoverUrlForSong])
 
   const toggleLiveState = useCallback(async () => {
     if (!ensureGlobalActionCheckEnabled('changing live state')) {
