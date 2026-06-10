@@ -2,7 +2,6 @@ import { memo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { AudienceLocale } from '../../lib/audienceIdentity'
 import { PrimaryButton } from '../ui'
-import AudienceFullscreenToggleButton from './AudienceFullscreenToggleButton'
 
 type AudienceFixedHeaderProps = {
   eventName: string
@@ -21,7 +20,7 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en', shar
     ? {
         headerLabel: 'Eventheader',
         logoAlt: 'Eventlogo',
-        kicker: 'Live event',
+      kicker: 'Nu live',
         backLabel: 'Tilbage til startsiden',
         backText: 'Tilbage',
         signOutLabel: 'Log ud',
@@ -33,7 +32,7 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en', shar
     ? {
         headerLabel: 'Vidhburdarhaus',
         logoAlt: 'Vidhburdarlogo',
-        kicker: 'Live Viðburður',
+      kicker: 'I beinni',
         backLabel: 'Til baka a forsidu',
         backText: 'Til baka',
         signOutLabel: 'Skrá Út',
@@ -44,7 +43,7 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en', shar
     : {
         headerLabel: 'Event header',
         logoAlt: 'Event logo',
-        kicker: 'Live Event',
+      kicker: 'Now Live',
         backLabel: 'Back to home',
         backText: 'Back',
         signOutLabel: 'Sign Out',
@@ -96,7 +95,6 @@ function AudienceFixedHeader({ eventName, subtitle, logoSrc, locale = 'en', shar
         </div>
       </div>
       <div className="audience-fixed-actions">
-        <AudienceFullscreenToggleButton locale={locale} />
         {shareUrl ? (
           <PrimaryButton type="button" variant="tertiary" onClick={() => { void handleShare() }} aria-label={copy.shareLabel} title={copy.shareLabel}>
             {shareCopied ? copy.shareCopied : `🔗 ${copy.shareLabel}`}
