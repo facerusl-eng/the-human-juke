@@ -37,6 +37,7 @@ type AddSongOptions = {
   librarySongId?: string | null
   performerMode?: 'performer' | 'audience'
   bypassEventRules?: boolean
+  requesterName?: string | null
 }
 
 type EventTheme = 'harald-live' | 'human-jukebox' | 'karaoke'
@@ -3526,6 +3527,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         const shouldBypassRules = options?.bypassEventRules || isHostSession
 
         const queuePendingRequest = async () => {
+          const fallbackRequesterName = readCommittedAudienceName().trim()
+          const overrideRequesterName = options?.requesterName?.trim() ?? ''
+          const requesterName = overrideRequesterName || fallbackRequesterName
+
           const pendingSong: PendingOfflineSong = {
             id: crypto.randomUUID(),
             eventId: targetEventId,
@@ -3535,7 +3540,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             coverUrl: options?.coverUrl ?? null,
             librarySongId: options?.librarySongId ?? null,
             performerMode: options?.performerMode,
-            requesterName: readCommittedAudienceName().trim(),
+            requesterName,
             createdAt: Date.now(),
           }
 
@@ -3747,7 +3752,9 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
-        const requesterName = readCommittedAudienceName().trim()
+        const fallbackRequesterName = readCommittedAudienceName().trim()
+        const overrideRequesterName = options?.requesterName?.trim() ?? ''
+        const requesterName = overrideRequesterName || fallbackRequesterName
 
         // Keep audience profile display_name in sync with the chosen audience identity
         // so picker names can be resolved in queue/mirror views.

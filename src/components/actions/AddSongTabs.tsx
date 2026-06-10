@@ -11,6 +11,7 @@ type AddSongOptions = {
   librarySongId?: string | null
   performerMode?: 'performer' | 'audience'
   bypassEventRules?: boolean
+  requesterName?: string | null
 }
 
 type AddSongTabsProps = {
@@ -33,6 +34,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
   const [addingSongId, setAddingSongId] = useState<string | null>(null)
   const [addingRandomCount, setAddingRandomCount] = useState<number | null>(null)
   const [toastState, setToastState] = useState<ToastState>(null)
+  const [hostRequesterName, setHostRequesterName] = useState('')
 
   const canUseCustomSongs = useMemo(() => Boolean(userId), [userId])
 
@@ -110,6 +112,9 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
     setToastState({ message, tone })
   }
 
+  const normalizedRequesterName = hostRequesterName.trim()
+  const requesterNameOption = normalizedRequesterName.length > 0 ? normalizedRequesterName : null
+
   const addPlaylistSongToQueue = async (song: PlaylistSong) => {
     if (addingSongId) {
       return
@@ -123,6 +128,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
         coverUrl: song.cover_url,
         performerMode: song.playlist_type === 'karaoke' ? 'audience' : 'performer',
         bypassEventRules: true,
+        requesterName: requesterNameOption,
       })
       prefetchAndCacheLyrics(song.title, song.artist)
       showToast(`${song.title} added to queue.`, 'success')
@@ -145,6 +151,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
         coverUrl: song.cover_url,
         performerMode: 'performer',
         bypassEventRules: true,
+        requesterName: requesterNameOption,
       })
       prefetchAndCacheLyrics(song.title, song.artist?.trim() || 'Unknown Artist')
       showToast(`${song.title} added to queue.`, 'success')
@@ -191,6 +198,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
           coverUrl: song.cover_url,
           performerMode: song.playlist_type === 'karaoke' ? 'audience' : 'performer',
           bypassEventRules: true,
+          requesterName: requesterNameOption,
         })
         prefetchAndCacheLyrics(song.title, song.artist)
         addedCount += 1
@@ -226,6 +234,18 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
         title="Add Songs"
         subtitle="Choose from Human Jukebox, Karaoke, or save custom songs for quick reuse."
       />
+      <label className="gig-add-song-requester-field" htmlFor="gig-control-picked-by">
+        <span className="gig-add-song-requester-label">Picked by name (optional)</span>
+        <input
+          id="gig-control-picked-by"
+          type="text"
+          maxLength={40}
+          value={hostRequesterName}
+          onChange={(event) => setHostRequesterName(event.target.value)}
+          placeholder="Host, table, or guest name"
+          className="gig-add-song-requester-input"
+        />
+      </label>
       <div className="gig-add-song-tab-switcher" aria-label="Song source tabs">
         <PrimaryButton
           variant="secondary"

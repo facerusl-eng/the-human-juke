@@ -6740,6 +6740,32 @@ body.audience-immersive-mode {
   gap: 24px;
 }
 
+.gig-add-song-requester-field {
+  display: grid;
+  gap: 8px;
+}
+
+.gig-add-song-requester-label {
+  font-size: 0.85rem;
+  color: rgba(213, 231, 255, 0.86);
+}
+
+.gig-add-song-requester-input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(120, 156, 202, 0.44);
+  background: rgba(8, 13, 24, 0.72);
+  color: #f3f9ff;
+  padding: 0.72rem 0.85rem;
+  font: inherit;
+}
+
+.gig-add-song-requester-input:focus {
+  outline: none;
+  border-color: rgba(93, 215, 255, 0.9);
+  box-shadow: 0 0 0 2px rgba(93, 215, 255, 0.2);
+}
+
 .gig-add-song-tab-switcher {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
