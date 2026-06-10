@@ -1561,6 +1561,7 @@ function MirrorPageContent() {
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [mirrorWarning, setMirrorWarning] = useState<string | null>(null)
   const [voteSparkleSongIdMap, setVoteSparkleSongIdMap] = useState<Record<string, boolean>>({})
+  const [flyInSong, setFlyInSong] = useState<QueueSong | null>(null)
   const [, setAutoLiveLockDebugText] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
@@ -1649,6 +1650,8 @@ function MirrorPageContent() {
   const lastChosenByPhraseIndexRef = useRef<number | null>(null)
   const previousVoteCountBySongIdRef = useRef<Record<string, number>>({})
   const voteSparkleTimerBySongIdRef = useRef<Record<string, number>>({})
+  const previousSongIdsRef = useRef<Set<string>>(new Set())
+  const flyInTimerRef = useRef<number | null>(null)
   const funFactsCacheRef = useRef<FunFactsCache>({})
   const funFactsInFlightRef = useRef<Partial<Record<string, Promise<string[]>>>>({})
   const mirrorLayoutStateRef = useRef(mirrorLayoutState)
@@ -1776,6 +1779,11 @@ function MirrorPageContent() {
       })
 
       voteSparkleTimerBySongIdRef.current = {}
+
+      if (flyInTimerRef.current !== null) {
+        window.clearTimeout(flyInTimerRef.current)
+        flyInTimerRef.current = null
+      }
     }
   }, [])
 
@@ -1839,6 +1847,33 @@ function MirrorPageContent() {
         delete voteSparkleTimerBySongIdRef.current[songId]
       }, 1400)
     })
+  }, [safeSongs])
+
+  useEffect(() => {
+    const previousIds = previousSongIdsRef.current
+    const currentIds = new Set(safeSongs.map((s) => s.id))
+    const newSongs = previousIds.size > 0
+      ? safeSongs.filter((s) => !previousIds.has(s.id))
+      : []
+
+    previousSongIdsRef.current = currentIds
+
+    if (newSongs.length === 0) {
+      return
+    }
+
+    const incomingSong = newSongs[0]
+
+    if (flyInTimerRef.current !== null) {
+      window.clearTimeout(flyInTimerRef.current)
+    }
+
+    setFlyInSong(incomingSong)
+
+    flyInTimerRef.current = window.setTimeout(() => {
+      setFlyInSong(null)
+      flyInTimerRef.current = null
+    }, 2200)
   }, [safeSongs])
 
   const nowPlaying = safeSongs[0]
@@ -4772,6 +4807,24 @@ function MirrorPageContent() {
             <p key={row}>{row}</p>
           ))}
         </aside>
+      ) : null}
+
+      {flyInSong ? (
+        <div className="mirror-song-fly-in-overlay" aria-live="polite" aria-label={`New request: ${flyInSong.title}`}>
+          <div className="mirror-song-fly-in-card">
+            <p className="mirror-song-fly-in-label">♪ New Request</p>
+            {flyInSong.cover_url ? (
+              <img src={flyInSong.cover_url} alt={`Cover for ${flyInSong.title}`} className="mirror-song-fly-in-cover" />
+            ) : null}
+            <div className="mirror-song-fly-in-info">
+              <span className="mirror-song-fly-in-title">{normalizeMirrorText(flyInSong.title, 'Untitled Song')}</span>
+              <span className="mirror-song-fly-in-artist">{normalizeMirrorText(flyInSong.artist, 'Unknown Artist')}</span>
+              {flyInSong.createdByName ? (
+                <span className="mirror-song-fly-in-picker">Requested by {flyInSong.createdByName}</span>
+              ) : null}
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   )

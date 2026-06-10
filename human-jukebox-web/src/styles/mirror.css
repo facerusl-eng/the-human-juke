@@ -3175,6 +3175,117 @@
   86%       { transform: translateX(2px) rotate(0.5deg) scale(1); }
 }
 
+/* ---- Song fly-in overlay ---- */
+
+.mirror-song-fly-in-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.mirror-song-fly-in-card {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  padding: 1.6rem 2.2rem;
+  border-radius: 22px;
+  background: rgba(4, 10, 26, 0.94);
+  border: 2px solid rgba(254, 240, 138, 0.85);
+  box-shadow:
+    0 0 0 4px rgba(254, 240, 138, 0.22),
+    0 0 70px rgba(254, 240, 138, 0.45),
+    0 28px 72px rgba(3, 8, 22, 0.75);
+  min-width: min(560px, 80vw);
+  max-width: min(720px, 90vw);
+  animation: mirror-fly-in-card 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.mirror-song-fly-in-cover {
+  width: 130px;
+  height: 130px;
+  min-width: 130px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 0 30px rgba(254, 240, 138, 0.35);
+  animation: mirror-fly-in-cover-pulse 2.2s ease forwards;
+}
+
+.mirror-song-fly-in-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.mirror-song-fly-in-label {
+  margin: 0 0 0.5rem;
+  font-size: clamp(0.68rem, 1.1vw, 0.86rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #fef08a;
+  text-shadow: 0 0 12px rgba(254, 240, 138, 0.8);
+  animation: mirror-fly-in-label-flash 0.5s ease 0.12s both;
+}
+
+.mirror-song-fly-in-title {
+  display: block;
+  font-size: clamp(1.5rem, 3.4vw, 2.6rem);
+  font-weight: 900;
+  color: #f8faff;
+  line-height: 1.08;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mirror-song-fly-in-artist {
+  display: block;
+  font-size: clamp(0.95rem, 1.9vw, 1.5rem);
+  font-weight: 600;
+  color: rgba(184, 210, 255, 0.92);
+  margin-top: 0.28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mirror-song-fly-in-picker {
+  display: block;
+  font-size: clamp(0.75rem, 1.3vw, 1rem);
+  color: rgba(254, 240, 138, 0.8);
+  margin-top: 0.6rem;
+  font-weight: 600;
+}
+
+@keyframes mirror-fly-in-card {
+  0%   { opacity: 0; transform: scale(0.25) translateY(20px); }
+  10%  { opacity: 1; transform: scale(1.05) translateY(-4px); }
+  17%  { transform: scale(0.97) translateY(0); }
+  24%  { transform: scale(1.01) translateY(0); }
+  65%  { opacity: 1; transform: scale(1) translateY(0); }
+  80%  { opacity: 0.9; transform: scale(0.8) translate(10vw, -4vh); }
+  100% { opacity: 0; transform: scale(0.05) translate(36vw, -28vh); }
+}
+
+@keyframes mirror-fly-in-cover-pulse {
+  0%   { box-shadow: 0 0 30px rgba(254, 240, 138, 0.35); }
+  15%  { box-shadow: 0 0 55px rgba(254, 240, 138, 0.8), 0 0 90px rgba(254, 240, 138, 0.4); }
+  65%  { box-shadow: 0 0 40px rgba(254, 240, 138, 0.5); }
+  100% { box-shadow: none; }
+}
+
+@keyframes mirror-fly-in-label-flash {
+  0%   { opacity: 0; letter-spacing: 0.06em; }
+  60%  { opacity: 1; letter-spacing: 0.22em; }
+  100% { letter-spacing: 0.18em; }
+}
+
 @media (max-width: 1240px) {
   .mirror-header-kiosk-row {
     grid-template-columns: minmax(0, 1fr);
