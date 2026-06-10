@@ -58,6 +58,8 @@ import { readFromLocalStorage, saveToLocalStorage } from './saveHandling'
 export const PLAYBACK_STATE_EVENT = 'human-jukebox:playback-state'
 export const PLAYBACK_STATE_STORAGE_KEY = 'human-jukebox:playback-state-sync'
 export const PLAYBACK_STATE_BROADCAST_CHANNEL = 'human-jukebox:playback-state'
+export const INTRO_AUDIO_PLAY_REQUEST_EVENT = 'human-jukebox:intro-audio-play-request'
+export const INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY = 'human-jukebox:intro-audio-play-request'
 export const LAST_SONG_SOON_OVERLAY_MESSAGE = 'We are nearing the end of the show, so there is no room for more song requests right now. You can still post in Live Feed.'
 export const LAST_SONG_SOON_OVERLAY_MESSAGE_DA = 'Vi nærmer os slutningen af showet, så der er ikke plads til flere sangønsker lige nu. Du kan stadig skrive i Live Feed.'
 export const LAST_SONG_SOON_OVERLAY_MESSAGE_IS = 'Síðasta lag kvöldsins kemur bráðum. Nýjar lagabeiðnir eru nú lokaðar. Kjósið í live-feedinu ef þið viljið aukalag, og haldið áfram að kjósa lögin í röðinni.'
@@ -94,6 +96,88 @@ export type SharedPlaybackTransitionState = {
   countdownTargetMs: number | null
   introStartedAtMs: number | null
   introAudioUrl: string | null
+}
+
+export type IntroAudioPlaybackRequest = {
+  eventId: string
+  introAudioUrl: string
+  requestedAt: number
+  source: string | null
+}
+
+function normalizeIntroAudioPlaybackRequest(value: unknown): IntroAudioPlaybackRequest | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const candidate = value as {
+    eventId?: unknown
+    introAudioUrl?: unknown
+    requestedAt?: unknown
+    source?: unknown
+  }
+
+  const eventId = typeof candidate.eventId === 'string' ? candidate.eventId.trim() : ''
+  const introAudioUrl = typeof candidate.introAudioUrl === 'string' ? candidate.introAudioUrl.trim() : ''
+  const requestedAt = normalizeCountdownTargetMs(candidate.requestedAt)
+
+  if (!eventId || !introAudioUrl || requestedAt === null) {
+    return null
+  }
+
+  return {
+    eventId,
+    introAudioUrl,
+    requestedAt,
+    source: typeof candidate.source === 'string' && candidate.source.trim().length > 0
+      ? candidate.source.trim()
+      : null,
+  }
+}
+
+export function parseIntroAudioPlaybackRequest(value: string | null | undefined) {
+  const normalizedValue = value?.trim() ?? ''
+
+  if (!normalizedValue) {
+    return null
+  }
+
+  try {
+    return normalizeIntroAudioPlaybackRequest(JSON.parse(normalizedValue))
+  } catch {
+    return null
+  }
+}
+
+export function requestSharedIntroAudioPlayback(eventId: string, introAudioUrl: string, source?: string | null) {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const normalizedRequest = normalizeIntroAudioPlaybackRequest({
+    eventId,
+    introAudioUrl,
+    requestedAt: Date.now(),
+    source: source ?? null,
+  })
+
+  if (!normalizedRequest) {
+    return null
+  }
+
+  const serializedRequest = JSON.stringify(normalizedRequest)
+
+  try {
+    window.localStorage.setItem(INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY, serializedRequest)
+  } catch {
+    // Ignore storage failures; the custom event below still helps same-tab listeners.
+  }
+
+  window.dispatchEvent(new CustomEvent<string>(INTRO_AUDIO_PLAY_REQUEST_EVENT, {
+    detail: serializedRequest,
+  }))
+
+  return normalizedRequest
 }
 
 function normalizeSharedPlaybackTransitionState(value: unknown): SharedPlaybackTransitionState | null {
