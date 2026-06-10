@@ -1968,7 +1968,23 @@ function MirrorPageContent() {
       ? safeSongs.filter((song) => song.id !== activeSong?.id)
       : safeSongs
 
-    return candidateSongs
+    return [...candidateSongs].sort((leftSong, rightSong) => {
+      const leftVotes = Number(leftSong.votes_count ?? 0)
+      const rightVotes = Number(rightSong.votes_count ?? 0)
+
+      if (rightVotes !== leftVotes) {
+        return rightVotes - leftVotes
+      }
+
+      const leftPosition = typeof leftSong.position === 'number' ? leftSong.position : Number.MAX_SAFE_INTEGER
+      const rightPosition = typeof rightSong.position === 'number' ? rightSong.position : Number.MAX_SAFE_INTEGER
+
+      if (leftPosition !== rightPosition) {
+        return leftPosition - rightPosition
+      }
+
+      return leftSong.id.localeCompare(rightSong.id)
+    })
   }, [safeSongs, isNowPlayingStarted, activeSong?.id])
   const hostUpcomingEvent = useMemo<MirrorUpcomingEvent | null>(() => {
     const nowMs = getMirrorNowMs()
