@@ -2979,6 +2979,10 @@
   font-weight: 800;
 }
 
+.mirror-song-queue-frame .mirror-queue-item-vote-sparkle {
+  animation: mirror-queue-item-vote-flash 0.9s ease-out;
+}
+
 .mirror-song-queue-frame .mirror-queue-votes-sparkle {
   position: relative;
   animation: mirror-vote-sparkle-pop 0.72s cubic-bezier(0.2, 0.85, 0.2, 1);
@@ -3061,6 +3065,29 @@
   100% {
     transform: scale(1);
     text-shadow: 0 0 0 rgba(254, 240, 138, 0);
+  }
+}
+
+@keyframes mirror-queue-item-vote-flash {
+  0% {
+    transform: translateX(0);
+    border-color: rgba(59, 130, 246, 0.22);
+    box-shadow: 0 10px 24px rgba(3, 8, 22, 0.36);
+  }
+
+  40% {
+    transform: translateX(-2px);
+    border-color: rgba(254, 240, 138, 0.85);
+    box-shadow:
+      0 0 0 2px rgba(254, 240, 138, 0.35),
+      0 0 24px rgba(254, 240, 138, 0.48),
+      0 12px 26px rgba(3, 8, 22, 0.4);
+  }
+
+  100% {
+    transform: translateX(0);
+    border-color: rgba(59, 130, 246, 0.22);
+    box-shadow: 0 10px 24px rgba(3, 8, 22, 0.36);
   }
 }
 

@@ -4928,10 +4928,12 @@ function MirrorPageContent() {
                         const queuePickedByText = queueChosenByLine ?? (isHostPick(song) ? HOST_PICKED_BY_FALLBACK : 'Picked by audience')
                         const queueChosenByAccentClass = getChosenByAccentClass(song.id)
                         const queuePickerClassName = `mirror-queue-picker mirror-queue-artist-picker${queueChosenByLine ? ` ${queueChosenByAccentClass}` : ''}`
-                        const voteSparkleClassName = voteSparkleSongIdMap[song.id] ? 'mirror-queue-votes-sparkle' : ''
+                        const isVoteSparkling = Boolean(voteSparkleSongIdMap[song.id])
+                        const voteSparkleClassName = isVoteSparkling ? 'mirror-queue-votes-sparkle' : ''
+                        const queueItemClassName = `mirror-queue-item ${index === 0 ? 'mirror-queue-item-next' : ''}${isVoteSparkling ? ' mirror-queue-item-vote-sparkle' : ''}`.trim()
 
                         return (
-                          <li key={song.id} className={`mirror-queue-item ${index === 0 ? 'mirror-queue-item-next' : ''}`.trim()}>
+                          <li key={song.id} className={queueItemClassName}>
                             <span className="mirror-queue-pos">{index + 1}</span>
                             {song.cover_url && !failedCoverUrls[song.cover_url] ? (
                               <img
