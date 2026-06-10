@@ -1350,13 +1350,13 @@ function MirrorPageContent() {
           }
 
           const row = (payload?.new ?? {}) as Record<string, unknown>
-          const nextGigDate = typeof row.gig_date === 'string' ? row.gig_date : null
-          const nextGigStartTime = typeof row.gig_start_time === 'string' ? row.gig_start_time : null
+          const nextGigDate = typeof row.gig_date === 'string' ? row.gig_date : undefined
+          const nextGigStartTime = typeof row.gig_start_time === 'string' ? row.gig_start_time : undefined
 
           setLiveMirrorEventSettings((previousValue) => ({
             ...previousValue,
-            gigDate: nextGigDate,
-            gigStartTime: nextGigStartTime,
+            gigDate: nextGigDate ?? previousValue.gigDate,
+            gigStartTime: nextGigStartTime ?? previousValue.gigStartTime,
             mirrorCountdownQrLink: typeof row.mirror_brb_qr_link === 'string' ? row.mirror_brb_qr_link : previousValue.mirrorCountdownQrLink,
             mirrorCountdownQrCustomEnabled: typeof row.mirror_countdown_qr_custom_enabled === 'boolean'
               ? row.mirror_countdown_qr_custom_enabled
