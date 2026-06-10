@@ -3385,7 +3385,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     await runQueueTogglePlayShortcutRef.current({
-      skipIntroAudio: false,
+      skipIntroAudio: true,
       countdownMs: SPACEBAR_START_COUNTDOWN_MS,
     })
   }, [])
@@ -4207,15 +4207,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
           <button type="button" className="ghost-button" onClick={openMirrorFromGigControl}>
             Open Mirror
           </button>
-          <button
-            type="button"
-            className="ghost-button"
-            onClick={openNowPlayingLyrics}
-            disabled={!nowPlaying?.title}
-            title={nowPlaying?.title ? 'Open lyrics for the now-playing song on a stage-friendly screen' : 'Start a song to enable lyrics screen'}
-          >
-            🎤 Open Lyrics Screen
-          </button>
           {!isFocusedGigControlWindow ? (
             <button type="button" className="ghost-button" onClick={openFocusedGigControlWindow}>
               Open Fullscreen Control Board (Same Window)
@@ -4348,6 +4339,15 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               }}
             >
               Reload Monitor
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={openNowPlayingLyrics}
+              disabled={!nowPlaying?.title}
+              title={nowPlaying?.title ? 'Open lyrics for the now-playing song on a stage-friendly screen' : 'Start a song to enable lyrics screen'}
+            >
+              Show Lyrics
             </button>
           </div>
           <p className="meta-badge" role="status" aria-live="polite">{setlistBucketHintText}</p>
