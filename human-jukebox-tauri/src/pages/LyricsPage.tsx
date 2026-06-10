@@ -86,6 +86,8 @@ function getLyricsPageCopy(locale: AudienceLocale) {
       manualFallbackAria: 'Manuel sangtekst fallback',
       manualFallbackTitle: 'Admin fallback: Indsaet sangtekst manuelt',
       manualFallbackCopy: 'API returnerede ikke sangtekst for denne sang. Indsaet og gem for at fortsaette.',
+      manualEditTitle: 'Rediger sangtekst',
+      manualEditCopy: 'Som host kan du redigere/tilfoje sangtekst her og gemme til senere.',
       manualFallbackPlaceholder: 'Indsaet sangtekst her...',
       saving: 'Gemmer…',
       saveManualLyrics: 'Gem manuel sangtekst',
@@ -109,6 +111,8 @@ function getLyricsPageCopy(locale: AudienceLocale) {
     manualFallbackAria: 'Manual lyrics fallback',
     manualFallbackTitle: 'Admin fallback: Paste lyrics manually',
     manualFallbackCopy: 'API did not return lyrics for this song. Paste and save to continue.',
+    manualEditTitle: 'Edit lyrics',
+    manualEditCopy: 'As host, you can edit or add lyrics here and save them for later.',
     manualFallbackPlaceholder: 'Paste lyrics here...',
     saving: 'Saving…',
     saveManualLyrics: 'Save Manual Lyrics',
@@ -541,7 +545,7 @@ export default function LyricsPage() {
   const artist = normalizeLyricsInput(stateArtist || searchParams.get('artist'));
   const displayArtist = artist || copy.unknownArtist;
   const librarySongId = normalizeLyricsInput(stateLibrarySongId || searchParams.get('songId'));
-  const { isHost } = useAuthStore();
+  const { user, isHost } = useAuthStore();
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -853,8 +857,41 @@ export default function LyricsPage() {
           if (!fetchSongError && songManualLyrics) {
             cacheFoundLyrics(title, artist, songManualLyrics);
             setLyrics(songManualLyrics);
+            setManualLyricsInput(songManualLyrics);
             setLoading(false);
             return;
+          }
+        } catch {
+          // Continue with cache/API fallback.
+        }
+      }
+
+      // Then look for any previously saved manual lyrics for matching song metadata.
+      if (!demoMode && title) {
+        try {
+          let metadataQuery = supabase
+            .from('library_songs')
+            .select('manual_lyrics')
+            .not('manual_lyrics', 'is', null)
+            .ilike('title', `%${title}%`)
+            .limit(1)
+
+          if (artist) {
+            metadataQuery = metadataQuery.ilike('artist', `%${artist}%`)
+          }
+
+          const { data: metadataRows, error: metadataError } = await metadataQuery
+          const metadataManualLyrics = typeof metadataRows?.[0]?.manual_lyrics === 'string'
+            ? metadataRows[0].manual_lyrics.trim()
+            : ''
+
+          if (!metadataError && metadataManualLyrics) {
+            cacheFoundLyrics(title, artist, metadataManualLyrics)
+            setLyrics(metadataManualLyrics)
+            setManualLyricsInput(metadataManualLyrics)
+            setLyricsNotFound(false)
+            setLoading(false)
+            return
           }
         } catch {
           // Continue with cache/API fallback.
@@ -864,7 +901,9 @@ export default function LyricsPage() {
       // Check lyrics that were pre-fetched when the song was added to the queue.
     const autoCached = getAutoCachedLyrics(title, artist);
     if (autoCached) {
-      setLyrics(autoCached.trim());
+      const normalizedAutoCached = autoCached.trim();
+      setLyrics(normalizedAutoCached);
+      setManualLyricsInput(normalizedAutoCached);
       setLyricsNotFound(false);
       setLoading(false);
       return;
@@ -875,34 +914,50 @@ export default function LyricsPage() {
     const prefetchStatus = getLyricsPrefetchStatus(title, artist);
     void prefetchStatus;
 
+      const fetchLyricsCandidate = async (query: { t: string; a: string }) => {
+        const params = new URLSearchParams({ song: query.t })
+        if (query.a) {
+          params.set('artist', query.a)
+        }
+
+        const controller = new AbortController()
+        const timeoutId = window.setTimeout(() => controller.abort(), 7000)
+
+        try {
+          const response = await fetch(`/api/lyrics-genius?${params.toString()}`, {
+            signal: controller.signal,
+            cache: 'no-store',
+          })
+
+          if (!response.ok) {
+            return null
+          }
+
+          const data = await response.json()
+          const resolvedLyrics = typeof data?.lyrics === 'string' ? data.lyrics.trim() : ''
+          return resolvedLyrics.length > 0 ? resolvedLyrics : null
+        } catch {
+          return null
+        } finally {
+          window.clearTimeout(timeoutId)
+        }
+      }
+
       const tryAllSources = async () => {
       const queries = buildLyricsQueries(title, artist);
 
-      for (const q of queries) {
-        try {
-          const params = new URLSearchParams({ song: q.t });
-          if (q.a) {
-            params.set('artist', q.a);
-          }
+      for (let startIndex = 0; startIndex < queries.length; startIndex += 3) {
+        const batch = queries.slice(startIndex, startIndex + 3)
+        const results = await Promise.all(batch.map((query) => fetchLyricsCandidate(query)))
+        const resolvedLyrics = results.find((result): result is string => typeof result === 'string' && result.trim().length > 0)
 
-          const res = await fetch(`/api/lyrics-genius?${params.toString()}`);
-
-          if (!res.ok) {
-            continue;
-          }
-
-          const data = await res.json();
-          const resolvedLyrics = typeof data?.lyrics === 'string' ? data.lyrics.trim() : '';
-
-          if (resolvedLyrics.length > 0) {
-            cacheFoundLyrics(title, artist, resolvedLyrics);
-            setLyrics(resolvedLyrics);
-            setLyricsNotFound(false);
-            setLoading(false);
-            return;
-          }
-        } catch {
-          // Continue trying variants.
+        if (resolvedLyrics) {
+          cacheFoundLyrics(title, artist, resolvedLyrics);
+          setLyrics(resolvedLyrics);
+          setManualLyricsInput(resolvedLyrics);
+          setLyricsNotFound(false);
+          setLoading(false);
+          return;
         }
       }
 
@@ -930,28 +985,49 @@ export default function LyricsPage() {
 
     cacheFoundLyrics(title, artist, normalizedLyrics);
 
-    if (librarySongId && !demoMode) {
-      try {
+    try {
+      let persistedSongId: string | null = librarySongId || null
+
+      if (!persistedSongId && !demoMode && title) {
+        let findSongQuery = supabase
+          .from('library_songs')
+          .select('id')
+          .ilike('title', `%${title}%`)
+          .limit(1)
+
+        if (artist) {
+          findSongQuery = findSongQuery.ilike('artist', `%${artist}%`)
+        }
+
+        if (user?.id) {
+          findSongQuery = findSongQuery.eq('host_id', user.id)
+        }
+
+        const { data: songRows } = await findSongQuery
+        persistedSongId = typeof songRows?.[0]?.id === 'string' ? songRows[0].id : null
+      }
+
+      if (persistedSongId && !demoMode) {
         const { error: updateSongError } = await supabase
           .from('library_songs')
           .update({ manual_lyrics: normalizedLyrics })
-          .eq('id', librarySongId);
+          .eq('id', persistedSongId)
 
         if (updateSongError) {
-          setManualSaveMessage(copy.savedLocalNotPersisted);
+          setManualSaveMessage(copy.savedLocalNotPersisted)
         } else {
-          setManualSaveMessage(copy.manualSavedToSong);
+          setManualSaveMessage(copy.manualSavedToSong)
         }
-      } catch {
-        setManualSaveMessage(copy.localSaveFailed);
+      } else {
+        setManualSaveMessage(copy.manualSavedLocal)
       }
-    } else {
-      setManualSaveMessage(copy.manualSavedLocal);
+    } catch {
+      setManualSaveMessage(copy.localSaveFailed)
+    } finally {
+      setLyrics(normalizedLyrics)
+      setLyricsNotFound(false)
+      setSavingManualLyrics(false)
     }
-
-    setLyrics(normalizedLyrics);
-    setLyricsNotFound(false);
-    setSavingManualLyrics(false);
   };
 
   return (
@@ -1007,10 +1083,10 @@ export default function LyricsPage() {
         <p className="error-text">{copy.noLyricsAuto}</p>
       ) : null}
 
-      {isHost && lyricsNotFound ? (
+      {isHost && (lyricsNotFound || lyrics) ? (
         <section className="lyrics-manual-entry" aria-label={copy.manualFallbackAria}>
-          <h2>{copy.manualFallbackTitle}</h2>
-          <p className="subcopy">{copy.manualFallbackCopy}</p>
+          <h2>{lyricsNotFound ? copy.manualFallbackTitle : copy.manualEditTitle}</h2>
+          <p className="subcopy">{lyricsNotFound ? copy.manualFallbackCopy : copy.manualEditCopy}</p>
           <textarea
             className="lyrics-manual-entry-input"
             value={manualLyricsInput}
