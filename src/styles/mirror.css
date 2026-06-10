@@ -3286,6 +3286,175 @@
   100% { letter-spacing: 0.18em; }
 }
 
+/* ---- Queue ranking stage overlay (Eurovision scoreboard effect) ---- */
+
+.mirror-queue-stage-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgba(4, 10, 26, 0.58);
+  animation: mirror-stage-bg 2.2s ease forwards;
+}
+
+.mirror-queue-stage-panel {
+  background: rgba(4, 10, 26, 0.97);
+  border: 2px solid rgba(93, 215, 255, 0.5);
+  border-radius: 20px;
+  padding: 1.4rem 1.8rem;
+  min-width: min(560px, 84vw);
+  max-width: min(700px, 92vw);
+  max-height: 75vh;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 4px rgba(93, 215, 255, 0.1),
+    0 0 60px rgba(93, 215, 255, 0.22),
+    0 32px 80px rgba(3, 8, 22, 0.82);
+  animation: mirror-stage-panel 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.mirror-queue-stage-eyebrow {
+  margin: 0 0 1rem;
+  font-size: clamp(0.72rem, 1.1vw, 0.9rem);
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #fef08a;
+  text-shadow: 0 0 10px rgba(254, 240, 138, 0.7);
+  text-align: center;
+}
+
+.mirror-queue-stage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.48rem;
+}
+
+.mirror-queue-stage-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(93, 215, 255, 0.18);
+  background: rgba(8, 22, 45, 0.72);
+}
+
+.mirror-queue-stage-item-up {
+  border-color: rgba(74, 254, 158, 0.65);
+  background: rgba(74, 254, 158, 0.07);
+  animation: mirror-rank-jump-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.38s both;
+}
+
+.mirror-queue-stage-pos {
+  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+  font-weight: 900;
+  color: rgba(184, 210, 255, 0.7);
+  min-width: 2.6rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.mirror-queue-stage-badge {
+  font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+  font-weight: 900;
+  color: #4afe9e;
+  text-shadow: 0 0 8px rgba(74, 254, 158, 0.75);
+  min-width: 2.2rem;
+  text-align: center;
+  flex-shrink: 0;
+  animation: mirror-badge-pop 0.4s ease 0.5s both;
+}
+
+.mirror-queue-stage-badge-spacer {
+  min-width: 2.2rem;
+  flex-shrink: 0;
+}
+
+.mirror-queue-stage-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.mirror-queue-stage-cover {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.mirror-queue-stage-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mirror-queue-stage-title {
+  display: block;
+  font-size: clamp(0.88rem, 1.6vw, 1.18rem);
+  font-weight: 800;
+  color: #f8faff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mirror-queue-stage-artist {
+  display: block;
+  font-size: clamp(0.72rem, 1.2vw, 0.92rem);
+  color: rgba(184, 210, 255, 0.78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mirror-queue-stage-votes {
+  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+  font-weight: 900;
+  color: #ec4899;
+  min-width: 2.8rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+@keyframes mirror-stage-bg {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  72%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes mirror-stage-panel {
+  0%   { opacity: 0; transform: scale(0.86) translateY(22px); }
+  13%  { opacity: 1; transform: scale(1.02) translateY(-3px); }
+  20%  { transform: scale(0.99) translateY(0); }
+  26%  { transform: scale(1) translateY(0); }
+  70%  { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.92) translateY(-14px); }
+}
+
+@keyframes mirror-rank-jump-up {
+  0%   { transform: translateY(var(--rank-entry-offset, 84px)); opacity: 0.25; filter: blur(3px); }
+  50%  { filter: none; opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes mirror-badge-pop {
+  0%   { transform: scale(0); opacity: 0; }
+  65%  { transform: scale(1.35); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 @media (max-width: 1240px) {
   .mirror-header-kiosk-row {
     grid-template-columns: minmax(0, 1fr);

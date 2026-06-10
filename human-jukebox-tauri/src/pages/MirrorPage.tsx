@@ -1562,6 +1562,8 @@ function MirrorPageContent() {
   const [mirrorWarning, setMirrorWarning] = useState<string | null>(null)
   const [voteSparkleSongIdMap, setVoteSparkleSongIdMap] = useState<Record<string, boolean>>({})
   const [flyInSong, setFlyInSong] = useState<QueueSong | null>(null)
+  const [queueRankChanges, setQueueRankChanges] = useState<Array<{ songId: string; delta: number }>>([]) 
+  const [isQueueStageVisible, setIsQueueStageVisible] = useState(false)
   const [, setAutoLiveLockDebugText] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
@@ -1652,6 +1654,8 @@ function MirrorPageContent() {
   const voteSparkleTimerBySongIdRef = useRef<Record<string, number>>({})
   const previousSongIdsRef = useRef<Set<string>>(new Set())
   const flyInTimerRef = useRef<number | null>(null)
+  const previousQueueOrderRef = useRef<string[]>([])
+  const queueStageTimerRef = useRef<number | null>(null)
   const funFactsCacheRef = useRef<FunFactsCache>({})
   const funFactsInFlightRef = useRef<Partial<Record<string, Promise<string[]>>>>({})
   const mirrorLayoutStateRef = useRef(mirrorLayoutState)
@@ -1783,6 +1787,11 @@ function MirrorPageContent() {
       if (flyInTimerRef.current !== null) {
         window.clearTimeout(flyInTimerRef.current)
         flyInTimerRef.current = null
+      }
+
+      if (queueStageTimerRef.current !== null) {
+        window.clearTimeout(queueStageTimerRef.current)
+        queueStageTimerRef.current = null
       }
     }
   }, [])
@@ -2019,6 +2028,55 @@ function MirrorPageContent() {
       return leftSong.id.localeCompare(rightSong.id)
     })
   }, [safeSongs, isNowPlayingStarted, activeSong?.id])
+
+  useEffect(() => {
+    const previousOrder = previousQueueOrderRef.current
+    const currentOrder = upNext.map((s) => s.id)
+
+    if (previousOrder.length === 0) {
+      previousQueueOrderRef.current = currentOrder
+      return
+    }
+
+    const previousSet = new Set(previousOrder)
+    const sameSet =
+      previousOrder.length === currentOrder.length &&
+      currentOrder.every((id) => previousSet.has(id))
+
+    previousQueueOrderRef.current = currentOrder
+
+    if (!sameSet) {
+      return
+    }
+
+    const changes: Array<{ songId: string; delta: number }> = []
+
+    currentOrder.forEach((id, newIndex) => {
+      const oldIndex = previousOrder.indexOf(id)
+
+      if (oldIndex !== newIndex) {
+        changes.push({ songId: id, delta: oldIndex - newIndex })
+      }
+    })
+
+    if (changes.length === 0) {
+      return
+    }
+
+    if (queueStageTimerRef.current !== null) {
+      window.clearTimeout(queueStageTimerRef.current)
+    }
+
+    setQueueRankChanges(changes)
+    setIsQueueStageVisible(true)
+
+    queueStageTimerRef.current = window.setTimeout(() => {
+      setIsQueueStageVisible(false)
+      setQueueRankChanges([])
+      queueStageTimerRef.current = null
+    }, 2200)
+  }, [upNext])
+
   const hostUpcomingEvent = useMemo<MirrorUpcomingEvent | null>(() => {
     const nowMs = getMirrorNowMs()
 
@@ -4823,6 +4881,38 @@ function MirrorPageContent() {
                 <span className="mirror-song-fly-in-picker">Requested by {flyInSong.createdByName}</span>
               ) : null}
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isQueueStageVisible ? (
+        <div className="mirror-queue-stage-overlay" aria-live="polite">
+          <div className="mirror-queue-stage-panel">
+            <p className="mirror-queue-stage-eyebrow">★ Live Ranking</p>
+            <ol className="mirror-queue-stage-list">
+              {upNext.slice(0, 8).map((song, index) => {
+                const change = queueRankChanges.find((c) => c.songId === song.id)
+                const delta = change?.delta ?? 0
+                return (
+                  <li
+                    key={song.id}
+                    className={`mirror-queue-stage-item${delta > 0 ? ' mirror-queue-stage-item-up' : ''}`}
+                    style={delta !== 0 ? ({ '--rank-entry-offset': `${delta * 84}px` } as React.CSSProperties) : undefined}
+                  >
+                    <span className="mirror-queue-stage-pos">#{index + 1}</span>
+                    {delta > 0 ? <span className="mirror-queue-stage-badge">▲{delta}</span> : <span className="mirror-queue-stage-badge-spacer" />}
+                    <div className="mirror-queue-stage-info">
+                      {song.cover_url ? <img src={song.cover_url} alt="" className="mirror-queue-stage-cover" /> : null}
+                      <div className="mirror-queue-stage-text">
+                        <span className="mirror-queue-stage-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                        <span className="mirror-queue-stage-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                      </div>
+                    </div>
+                    <span className="mirror-queue-stage-votes">+{song.votes_count}</span>
+                  </li>
+                )
+              })}
+            </ol>
           </div>
         </div>
       ) : null}
