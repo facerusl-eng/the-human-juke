@@ -730,12 +730,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     const registerCandidate = (lyrics: string, source: ProviderName, confidenceScore: number) => {
+      const titleOverlap = calculateTokenOverlapScore(song, variant.title);
+      const artistOverlap = artist ? calculateTokenOverlapScore(artist, variant.artist) : 1;
+
+      // Reject weak title/artist matches early to prevent wrong-song lyric snaps.
+      if (titleOverlap < 0.5) {
+        return false;
+      }
+
+      if (artist && artistOverlap < 0.28 && titleOverlap < 0.75) {
+        return false;
+      }
+
+      const relevanceBoost = Math.round((titleOverlap * 22) + (artistOverlap * 14));
       const candidate: LyricsCandidate = {
         lyrics,
         source,
         variant,
         qualityScore: scoreLyricsQuality(lyrics),
-        confidenceScore,
+        confidenceScore: confidenceScore + relevanceBoost,
       };
 
       if (!bestCandidateRef.current || scoreCandidate(candidate) > scoreCandidate(bestCandidateRef.current)) {

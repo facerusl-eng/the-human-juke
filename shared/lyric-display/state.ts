@@ -235,7 +235,7 @@ function onlineResultMatchesSong(song: LyricSongRef, payload: Record<string, unk
   const titleMatch = tokenOverlapScore(song.title, variantTitle)
   const artistMatch = variantArtist ? tokenOverlapScore(song.artist, variantArtist) : 1
 
-  return titleMatch >= 0.55 && artistMatch >= 0.4
+  return titleMatch >= 0.7 && artistMatch >= 0.55
 }
 
 function normalizeSongIdentityValue(value: string | null | undefined) {
