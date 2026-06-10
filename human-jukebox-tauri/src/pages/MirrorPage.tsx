@@ -1560,6 +1560,7 @@ function MirrorPageContent() {
   const [queuedSpotlightCount, setQueuedSpotlightCount] = useState(0)
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [mirrorWarning, setMirrorWarning] = useState<string | null>(null)
+  const [voteSparkleSongIdMap, setVoteSparkleSongIdMap] = useState<Record<string, boolean>>({})
   const [, setAutoLiveLockDebugText] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
@@ -1646,6 +1647,8 @@ function MirrorPageContent() {
   } | null>(null)
   const chosenByPhraseIndexBySongIdRef = useRef<Record<string, number>>({})
   const lastChosenByPhraseIndexRef = useRef<number | null>(null)
+  const previousVoteCountBySongIdRef = useRef<Record<string, number>>({})
+  const voteSparkleTimerBySongIdRef = useRef<Record<string, number>>({})
   const funFactsCacheRef = useRef<FunFactsCache>({})
   const funFactsInFlightRef = useRef<Partial<Record<string, Promise<string[]>>>>({})
   const mirrorLayoutStateRef = useRef(mirrorLayoutState)
@@ -1767,6 +1770,12 @@ function MirrorPageContent() {
         window.clearTimeout(mirrorWarningClearTimerRef.current)
         mirrorWarningClearTimerRef.current = null
       }
+
+      Object.values(voteSparkleTimerBySongIdRef.current).forEach((timerId) => {
+        window.clearTimeout(timerId)
+      })
+
+      voteSparkleTimerBySongIdRef.current = {}
     }
   }, [])
 
@@ -1776,6 +1785,62 @@ function MirrorPageContent() {
     && typeof song.title === 'string'
     && typeof song.artist === 'string'
   )), [songs])
+
+  useEffect(() => {
+    const previousVotes = previousVoteCountBySongIdRef.current
+    const nextVotes: Record<string, number> = {}
+    const votedSongIds: string[] = []
+
+    safeSongs.forEach((song) => {
+      const nextVoteCount = Number(song.votes_count ?? 0)
+      const previousVoteCount = previousVotes[song.id]
+
+      nextVotes[song.id] = nextVoteCount
+
+      if (typeof previousVoteCount === 'number' && nextVoteCount > previousVoteCount) {
+        votedSongIds.push(song.id)
+      }
+    })
+
+    previousVoteCountBySongIdRef.current = nextVotes
+
+    if (votedSongIds.length === 0) {
+      return
+    }
+
+    setVoteSparkleSongIdMap((currentMap) => {
+      const nextMap = { ...currentMap }
+
+      votedSongIds.forEach((songId) => {
+        nextMap[songId] = true
+      })
+
+      return nextMap
+    })
+
+    votedSongIds.forEach((songId) => {
+      const activeTimerId = voteSparkleTimerBySongIdRef.current[songId]
+
+      if (activeTimerId) {
+        window.clearTimeout(activeTimerId)
+      }
+
+      voteSparkleTimerBySongIdRef.current[songId] = window.setTimeout(() => {
+        setVoteSparkleSongIdMap((currentMap) => {
+          if (!currentMap[songId]) {
+            return currentMap
+          }
+
+          const nextMap = { ...currentMap }
+          delete nextMap[songId]
+          return nextMap
+        })
+
+        delete voteSparkleTimerBySongIdRef.current[songId]
+      }, 950)
+    })
+  }, [safeSongs])
+
   const nowPlaying = safeSongs[0]
   const isLive = event?.roomOpen ?? false
   const isEmbeddedPreview =
@@ -4562,6 +4627,7 @@ function MirrorPageContent() {
                         const queuePickedByText = queueChosenByLine ?? (isHostPick(song) ? HOST_PICKED_BY_FALLBACK : 'Picked by audience')
                         const queueChosenByAccentClass = getChosenByAccentClass(song.id)
                         const queuePickerClassName = `mirror-queue-picker mirror-queue-artist-picker${queueChosenByLine ? ` ${queueChosenByAccentClass}` : ''}`
+                        const voteSparkleClassName = voteSparkleSongIdMap[song.id] ? 'mirror-queue-votes-sparkle' : ''
 
                         return (
                           <li key={song.id} className={`mirror-queue-item ${index === 0 ? 'mirror-queue-item-next' : ''}`.trim()}>
@@ -4587,7 +4653,7 @@ function MirrorPageContent() {
                               </span>
                               <span className={queuePickerClassName}>{queuePickedByText}</span>
                             </div>
-                            <span className="mirror-queue-votes">+{song.votes_count}</span>
+                            <span className={`mirror-queue-votes ${voteSparkleClassName}`.trim()}>+{song.votes_count}</span>
                           </li>
                         )
                       })}
