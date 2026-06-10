@@ -2865,6 +2865,25 @@ function QueueProvider({ children }: PropsWithChildren) {
           setAudienceRefreshTick((currentTick) => currentTick + 1)
         }
 
+        const replaceRequestedEventIdInUrl = (nextEventId: string) => {
+          if (typeof window === 'undefined') {
+            return
+          }
+
+          try {
+            const url = new URL(window.location.href)
+
+            if (url.searchParams.get('event') === nextEventId) {
+              return
+            }
+
+            url.searchParams.set('event', nextEventId)
+            window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+          } catch {
+            // Non-blocking: URL sync should never break queue loading.
+          }
+        }
+
         const scheduleAudiencePoll = (callback: () => void, delayMs: number) => {
           clearAudiencePollTimer()
 
@@ -3004,6 +3023,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 return
               }
               targetEventId = latestActiveEventId
+              replaceRequestedEventIdInUrl(latestActiveEventId)
               // Best-effort sync for the fallback event — don't block on it.
               void syncAudienceActiveEventId(latestActiveEventId).catch(() => {})
             }
