@@ -4093,6 +4093,31 @@
   color: #d7ecff;
 }
 
+.mirror-kiosk-columns-karaoke {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mirror-now-playing-karaoke-mode {
+  min-height: 78vh;
+}
+
+.mirror-now-playing-track-karaoke {
+  display: block;
+  min-height: 70vh;
+}
+
+.mirror-karaoke-lyrics-panel {
+  height: 70vh;
+  border-radius: 20px;
+  border: 1px solid rgba(125, 247, 233, 0.3);
+  background: rgba(6, 10, 24, 0.7);
+  overflow: hidden;
+}
+
+.mirror-karaoke-lyrics-panel .karaoke-stage {
+  border-radius: 0;
+}
+
 .mirror-song-queue-frame .mirror-queue-song-info {
   min-width: 0;
   display: grid;

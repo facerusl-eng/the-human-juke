@@ -71,6 +71,9 @@ import { readTextFromLocalStorage, saveTextToLocalStorage } from '../lib/saveHan
 import { buildQrLandingUrl } from '../lib/qrLandingUrl'
 import { demoMode, homeMirrorPreviewMode } from '../demo/demoMode'
 import { DEMO_NOW_PLAYING_FACTS } from '../demo/demoNowPlaying'
+import KaraokeLyrics from '../components/KaraokeLyrics'
+import { useJamzoneLyricSync } from '../../shared/lyrics/useJamzoneLyricSync'
+import type { LyricSongRef } from '../../shared/lyrics'
 
 type FeedImageSpotlight = {
   id: string
@@ -1451,6 +1454,7 @@ function MirrorPageContent() {
   const [hasStartedSongDuringLastSongMode, setHasStartedSongDuringLastSongMode] = useState(false)
   const [forceQuoteMode, setForceQuoteMode] = useState(false)
   const [qrFlashTextIndex, setQrFlashTextIndex] = useState(0)
+  const [karaokeSongStartedAtMs, setKaraokeSongStartedAtMs] = useState<number | null>(null)
   const quoteIndexRef = useRef(0)
   const wasLiveRef = useRef(false)
   const autoLiveAttemptedEventIdRef = useRef<string | null>(null)
@@ -1726,6 +1730,7 @@ function MirrorPageContent() {
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
     : Boolean(playbackState?.isStarted && playbackState.currentSongId)
+  const isAudienceKaraokeActive = Boolean(activeSong?.audience_sings && isNowPlayingStarted)
   const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)
   const isQuoteModeActive = (demoMode && forceQuoteMode) || isBetweenSongs || !activeSong
   const isGoLiveWelcomeActive = goLiveWelcomeUntilMs !== null && countdownNow < goLiveWelcomeUntilMs
@@ -1847,6 +1852,43 @@ function MirrorPageContent() {
   const nowPlayingComingUpText = nowPlayingComingUpSong
     ? normalizeMirrorText(nowPlayingComingUpSong.title, 'More requests on deck')
     : 'More requests on deck'
+
+  useEffect(() => {
+    if (!activeSong?.audience_sings || !isNowPlayingStarted) {
+      setKaraokeSongStartedAtMs(null)
+      return
+    }
+
+    setKaraokeSongStartedAtMs(Date.now())
+  }, [activeSong?.audience_sings, activeSong?.id, isNowPlayingStarted])
+
+  const mirrorKaraokeSongRef = useMemo<LyricSongRef | null>(() => {
+    if (!activeSong?.audience_sings) {
+      return null
+    }
+
+    return {
+      songId: activeSong.id,
+      title: activeSong.title,
+      artist: activeSong.artist,
+    }
+  }, [activeSong?.artist, activeSong?.audience_sings, activeSong?.id, activeSong?.title])
+
+  const {
+    window: mirrorKaraokeWindow,
+    songDurationSeconds: mirrorKaraokeDurationSeconds,
+  } = useJamzoneLyricSync(
+    mirrorKaraokeSongRef,
+    () => {
+      if (!isAudienceKaraokeActive || !karaokeSongStartedAtMs) {
+        return 0
+      }
+
+      return Math.max(0, (Date.now() - karaokeSongStartedAtMs) / 1000)
+    },
+    { updateIntervalMs: 120 },
+  )
+  const karaokeElapsedSeconds = mirrorKaraokeWindow.current?.timeSeconds ?? 0
 
   useEffect(() => {
     const activeSongIds = new Set(safeSongs.map((song) => song.id))
@@ -4186,10 +4228,11 @@ function MirrorPageContent() {
             ) : null}
             <section
               ref={layoutEditMode ? mirrorLayoutStageRef : undefined}
-              className={`mirror-kiosk-columns ${layoutEditMode ? 'mirror-layout-edit-canvas' : ''}`}
+              className={`mirror-kiosk-columns ${layoutEditMode ? 'mirror-layout-edit-canvas' : ''} ${isAudienceKaraokeActive ? 'mirror-kiosk-columns-karaoke' : ''}`.trim()}
               aria-label="Now playing and live queue/feed"
             >
               <div className="mirror-now-playing-column">
+                {!isAudienceKaraokeActive ? (
                 <section className="mirror-now-playing-banner-block mirror-frame" aria-label="Now playing crowd reaction banner">
                   <div className="mirror-now-playing-roller-track">
                     <span className="mirror-now-playing-roller-content">
@@ -4212,9 +4255,10 @@ function MirrorPageContent() {
                     </span>
                   </div>
                 </section>
+                ) : null}
 
                 <section
-                  className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isQuoteModeActive ? 'mirror-now-playing-between' : ''} ${layoutEditMode ? 'mirror-layout-edit-panel' : ''}`}
+                  className={`mirror-now-playing mirror-frame mirror-frame-now-playing ${isLive ? 'mirror-now-playing-live' : ''} ${isQuoteModeActive ? 'mirror-now-playing-between' : ''} ${layoutEditMode ? 'mirror-layout-edit-panel' : ''} ${isAudienceKaraokeActive ? 'mirror-now-playing-karaoke-mode' : ''}`.trim()}
                   data-mirror-layout-panel={layoutEditMode ? 'nowPlaying' : undefined}
                 >
                   {layoutEditMode ? (
@@ -4228,7 +4272,7 @@ function MirrorPageContent() {
                       Move
                     </button>
                   ) : null}
-                  <p className="mirror-now-playing-band-label">Now Playing / Quote Mode</p>
+                  <p className="mirror-now-playing-band-label">{isAudienceKaraokeActive ? 'Karaoke Lyrics' : 'Now Playing / Quote Mode'}</p>
                   {isQuoteModeActive ? (
                   <div className="mirror-now-playing-track mirror-now-playing-track-idle" aria-label="Between songs">
                     <div className="mirror-now-playing-meta">
@@ -4237,7 +4281,26 @@ function MirrorPageContent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mirror-now-playing-track">
+                  <div className={`mirror-now-playing-track ${isAudienceKaraokeActive ? 'mirror-now-playing-track-karaoke' : ''}`.trim()}>
+                    {isAudienceKaraokeActive ? (
+                      <div className="mirror-karaoke-lyrics-panel" aria-label="Audience karaoke lyrics">
+                        <KaraokeLyrics
+                          mode="board"
+                          current={mirrorKaraokeWindow.current}
+                          previous={mirrorKaraokeWindow.previous}
+                          next={mirrorKaraokeWindow.next}
+                          next2={mirrorKaraokeWindow.upcoming[1]}
+                          allLines={mirrorKaraokeWindow.allLines}
+                          currentIndex={mirrorKaraokeWindow.currentIndex}
+                          isBeforeFirstLine={mirrorKaraokeWindow.isBeforeFirstLine}
+                          isAfterLastLine={mirrorKaraokeWindow.isAfterLastLine}
+                          autoScrollEnabled
+                          autoScrollCurrentTimeSeconds={karaokeElapsedSeconds}
+                          autoScrollDurationSeconds={mirrorKaraokeDurationSeconds}
+                        />
+                      </div>
+                    ) : (
+                      <>
                     <div className="mirror-now-playing-artwork-slot">
                       {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
                         <img
@@ -4290,9 +4353,11 @@ function MirrorPageContent() {
                         </p>
                       </div>
                     </div>
+                      </>
+                    )}
                   </div>
                 )}
-                  {!layoutEditMode ? (
+                  {!layoutEditMode && !isAudienceKaraokeActive ? (
                     <a
                       className="mirror-now-playing-qr-panel"
                       href={audienceUrl}
@@ -4315,6 +4380,7 @@ function MirrorPageContent() {
                 </section>
               </div>
 
+              {!isAudienceKaraokeActive ? (
               <section
                 className="mirror-kiosk-right"
                 aria-label="Queue and community feed"
@@ -4431,6 +4497,7 @@ function MirrorPageContent() {
                   ) : null}
                 </section>
               </section>
+              ) : null}
             </section>
           </>
         )}
