@@ -1566,6 +1566,9 @@ function MirrorPageContent() {
   const [flyInSong, setFlyInSong] = useState<QueueSong | null>(null)
   const [queueRankChanges, setQueueRankChanges] = useState<Array<{ songId: string; delta: number }>>([]) 
   const [isQueueStageVisible, setIsQueueStageVisible] = useState(false)
+  const [showTopVotedOnMirror, setShowTopVotedOnMirror] = useState(() => {
+    try { return localStorage.getItem(MIRROR_TOP_VOTED_KEY) === '1' } catch { return false }
+  })
   const [, setAutoLiveLockDebugText] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
@@ -1795,6 +1798,20 @@ function MirrorPageContent() {
         window.clearTimeout(queueStageTimerRef.current)
         queueStageTimerRef.current = null
       }
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === MIRROR_TOP_VOTED_KEY) {
+        setShowTopVotedOnMirror(e.newValue === '1')
+      }
+    }
+
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      window.removeEventListener('storage', handleStorage)
     }
   }, [])
 
@@ -4915,6 +4932,34 @@ function MirrorPageContent() {
                 )
               })}
             </ol>
+          </div>
+        </div>
+      ) : null}
+
+      {showTopVotedOnMirror ? (
+        <div className="mirror-top-voted-overlay" aria-live="polite">
+          <div className="mirror-top-voted-panel">
+            <p className="mirror-top-voted-eyebrow">★ Top Voted Tonight</p>
+            <ol className="mirror-top-voted-list">
+              {[...safeSongs]
+                .filter((s) => !s.is_removed && s.votes_count > 0)
+                .sort((a, b) => b.votes_count - a.votes_count)
+                .slice(0, 8)
+                .map((song, index) => (
+                  <li key={song.id} className="mirror-top-voted-item">
+                    <span className="mirror-top-voted-pos">#{index + 1}</span>
+                    {song.cover_url ? <img src={song.cover_url} alt="" className="mirror-top-voted-cover" /> : null}
+                    <div className="mirror-top-voted-text">
+                      <span className="mirror-top-voted-title">{normalizeMirrorText(song.title, 'Untitled Song')}</span>
+                      <span className="mirror-top-voted-artist">{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                    </div>
+                    <span className="mirror-top-voted-votes">+{song.votes_count}</span>
+                  </li>
+                ))}
+            </ol>
+            {safeSongs.every((s) => s.votes_count === 0) ? (
+              <p className="mirror-top-voted-empty">No votes yet — audience is choosing!</p>
+            ) : null}
           </div>
         </div>
       ) : null}

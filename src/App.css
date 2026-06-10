@@ -12926,6 +12926,123 @@ body.audience-immersive-mode {
   flex: 1;
 }
 
+/* ---- Audience Top Voted tab ---- */
+
+.audience-top-voted-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.audience-top-voted-tab {
+  flex: 1;
+  padding: 0.52rem 0.9rem;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.audience-top-voted-tab.is-active {
+  background: rgba(254, 240, 138, 0.14);
+  border-color: rgba(254, 240, 138, 0.6);
+  color: #fef08a;
+}
+
+.audience-top-voted-panel {
+  padding: 0 1rem 1.4rem;
+}
+
+.audience-top-voted-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #fef08a;
+  margin: 0 0 0.9rem;
+}
+
+.audience-top-voted-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.52rem;
+}
+
+.audience-top-voted-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.62rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(254, 240, 138, 0.18);
+}
+
+.audience-top-voted-rank {
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: rgba(254, 240, 138, 0.7);
+  min-width: 2rem;
+  flex-shrink: 0;
+}
+
+.audience-top-voted-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.audience-top-voted-title {
+  font-size: 0.93rem;
+  font-weight: 700;
+  color: #f8faff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audience-top-voted-artist {
+  font-size: 0.78rem;
+  color: rgba(184, 210, 255, 0.78);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audience-top-voted-votes {
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: #ec4899;
+  flex-shrink: 0;
+}
+
+/* ---- GigControl: end-time warning + active-toggle ---- */
+
+.gig-end-time-warning {
+  color: #fbbf24 !important;
+  background: rgba(251, 191, 36, 0.1) !important;
+  border: 1px solid rgba(251, 191, 36, 0.3) !important;
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  font-weight: 700;
+}
+
+.is-active-toggle {
+  background: rgba(254, 240, 138, 0.12) !important;
+  border-color: rgba(254, 240, 138, 0.55) !important;
+  color: #fef08a !important;
+}
+
 .audience-queued-banner-dismiss {
   background: none;
   border: none;

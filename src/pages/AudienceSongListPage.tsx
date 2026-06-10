@@ -308,6 +308,7 @@ function AudienceSongListPage() {
   } = useQueueStore()
 
   const [curatedSongs, setCuratedSongs] = useState<CuratedSong[]>([])
+  const [showTopVoted, setShowTopVoted] = useState(false)
   const [hasKaraokePlaylist, setHasKaraokePlaylist] = useState(false)
   const [hasHumanJukeboxPlaylist, setHasHumanJukeboxPlaylist] = useState(false)
   const [songSearchQuery, setSongSearchQuery] = useState('')
@@ -327,6 +328,11 @@ function AudienceSongListPage() {
   const audienceName = readCommittedAudienceName()
   const audienceLocale = readCommittedAudienceLocale()
   const performerDisplayName = 'Performer'
+
+  const topVotedSongs = useMemo(
+    () => [...songs].filter((s) => !s.is_removed && s.votes_count > 0).sort((a, b) => b.votes_count - a.votes_count),
+    [songs],
+  )
   const copy = audienceLocale === 'da'
     ? {
         back: 'Tilbage',
@@ -1151,6 +1157,24 @@ function AudienceSongListPage() {
           <h1>{showPlaylistPicker ? copy.pickPlaylist : effectiveSetlist === 'karaoke' ? 'Karaoke' : 'Human Jukebox'}</h1>
           <p className="subcopy">{copy.greeting} {audienceName || copy.guest} — {showPlaylistPicker ? copy.choosePlaylistFirst : copy.chooseRequest}</p>
         </div>
+        {topVotedSongs.length > 0 ? (
+          <div className="audience-top-voted-tabs">
+            <button
+              type="button"
+              className={`audience-top-voted-tab${!showTopVoted ? ' is-active' : ''}`}
+              onClick={() => setShowTopVoted(false)}
+            >
+              ♪ Song List
+            </button>
+            <button
+              type="button"
+              className={`audience-top-voted-tab${showTopVoted ? ' is-active' : ''}`}
+              onClick={() => setShowTopVoted(true)}
+            >
+              ★ Top Voted
+            </button>
+          </div>
+        ) : null}
       </header>
 
       <section className="audience-song-list-live-diagnostics" aria-label="Live sync diagnostics" role="status" aria-live="polite">
@@ -1164,7 +1188,30 @@ function AudienceSongListPage() {
         {queueHealthMessage ? <p className="subcopy audience-song-list-live-diagnostics-message">{queueHealthMessage}</p> : null}
       </section>
 
-      {loadingSongs ? (
+      {/* ── Top Voted view ── */}
+      {showTopVoted ? (
+        <div className="audience-top-voted-panel">
+          <p className="audience-top-voted-eyebrow">★ Most voted tonight</p>
+          {topVotedSongs.length === 0 ? (
+            <p className="subcopy">No votes yet — cast yours below!</p>
+          ) : (
+            <ol className="audience-top-voted-list">
+              {topVotedSongs.map((song, index) => (
+                <li key={song.id} className="audience-top-voted-item">
+                  <span className="audience-top-voted-rank">#{index + 1}</span>
+                  <div className="audience-top-voted-info">
+                    <span className="audience-top-voted-title">{song.title}</span>
+                    <span className="audience-top-voted-artist">{song.artist}</span>
+                  </div>
+                  <span className="audience-top-voted-votes">+{song.votes_count}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      ) : null}
+
+      {!showTopVoted && loadingSongs ? (
         <div className="audience-song-list-logo-loader" role="status" aria-live="polite" aria-label={copy.loadingSongs}>
           <img className="page-logo-loader" src="/the-human-jukebox-logo.png" alt="" width="72" height="72" />
         </div>
@@ -1174,7 +1221,7 @@ function AudienceSongListPage() {
       {errorText ? <p className={`request-error-inline${isLastSongSoonOverlayMessage(errorText) ? ' audience-requests-closed-notice' : ' error-text'}`}>{errorText}</p> : null}
 
       {/* ── Playlist picker ── */}
-      {showPlaylistPicker ? (
+      {!showTopVoted && showPlaylistPicker ? (
         <div className="audience-playlist-picker">
           {event?.requestInstructions ? <p className="subcopy audience-song-list-note">{event.requestInstructions}</p> : null}
           <button
@@ -1207,7 +1254,7 @@ function AudienceSongListPage() {
       ) : null}
 
       {/* ── Song list ── */}
-      {!loadingSongs && !showPlaylistPicker ? (
+      {!showTopVoted && !loadingSongs && !showPlaylistPicker ? (
         <>
           <section className="audience-song-list-search">
             <label htmlFor="audience-song-list-search-input">{copy.searchSongs}</label>

@@ -550,6 +550,9 @@ function GigControlPage() {
   const [isFinalSongSoonActive, setIsFinalSongSoonActive] = useState(false)
   const [brbCustomMessage, setBrbCustomMessage] = useState('')
   const [mirrorOverlayUpdateBusy, setMirrorOverlayUpdateBusy] = useState(false)
+  const [showMirrorTopVoted, setShowMirrorTopVoted] = useState(() => {
+    try { return localStorage.getItem('human-jukebox-mirror-top-voted') === '1' } catch { return false }
+  })
   const [mirrorPreviewTransitionMessage, setMirrorPreviewTransitionMessage] = useState<string | null>(null)
   const [mirrorPreviewTransitionTone, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
   const [mirrorMonitorRefreshNonce, setMirrorMonitorRefreshNonce] = useState(0)
@@ -792,6 +795,11 @@ function GigControlPage() {
 
     return `Queue ahead: ~${queueEstMinutes} min`
   }, [queueEstMinutes])
+  const gigEndAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigEndTime ?? null)
+  const minutesToGigEnd = gigEndAt ? Math.round((gigEndAt.getTime() - getHostNowMs()) / 60000) : null
+  const endTimeWarningText = (event?.roomOpen && minutesToGigEnd !== null && minutesToGigEnd >= 0 && minutesToGigEnd <= 10)
+    ? `⚠️ ${minutesToGigEnd} min until end time — ~${queueEstMinutes} min queue remaining`
+    : null
   const nowPlayingRequesters = parseRequesterNames(nowPlaying?.createdByName)
   const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
   const isBeforeScheduledStart = Boolean(!event?.roomOpen && gigStartAt && gigStartAt.getTime() > getHostNowMs())
@@ -4401,9 +4409,24 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             >
               Show Lyrics
             </button>
+            <button
+              type="button"
+              className={`ghost-button${showMirrorTopVoted ? ' is-active-toggle' : ''}`}
+              onClick={() => {
+                const next = !showMirrorTopVoted
+                setShowMirrorTopVoted(next)
+                try { localStorage.setItem('human-jukebox-mirror-top-voted', next ? '1' : '0') } catch { /* noop */ }
+              }}
+              title="Show or hide the Top Voted leaderboard on the Mirror Screen"
+            >
+              {showMirrorTopVoted ? 'Hide Top Voted' : 'Top Voted on Mirror'}
+            </button>
           </div>
           <p className="meta-badge" role="status" aria-live="polite">{setlistBucketHintText}</p>
           <p className="meta-badge" role="status" aria-live="polite">{queueAheadMinutesHintText}</p>
+          {endTimeWarningText ? (
+            <p className="meta-badge gig-end-time-warning" role="alert" aria-live="assertive">{endTimeWarningText}</p>
+          ) : null}
           <div className="gig-mirror-preview-emergency-actions">
             <button
               type="button"
