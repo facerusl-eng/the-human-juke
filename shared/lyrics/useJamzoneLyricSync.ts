@@ -62,6 +62,11 @@ export function useJamzoneLyricSync(
     }
 
     lastSongKey.current = nextSongKey
+    // Clear previous song lyrics immediately so mirror never shows stale lines
+    // while the next song's lyrics are being resolved.
+    engine.unload()
+    setWindowState(emptyWindow())
+    setSongDurationSeconds(null)
     setIsLoading(true)
     setLoadError(null)
 
