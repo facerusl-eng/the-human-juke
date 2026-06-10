@@ -11,6 +11,8 @@ const SECTION_GAP_SECONDS = 12
 const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
 const STATUS_KEY = 'lyrics_prefetch_status_v1'
 const LRC_MISS_CACHE_TTL_MS = 15 * 60 * 1000
+const MAX_BLOCK_LINES = 2
+const MAX_BLOCK_CHARS = 110
 const lrcMissCache = new Map<string, number>()
 const SONG_BLOCK_CACHE_TTL_MS = 20 * 60 * 1000
 const songBlocksCache = new Map<string, { cachedAt: number; blocks: string[] }>()
@@ -20,6 +22,102 @@ function sanitizeLineText(value: string) {
   return value
     .trim()
     .replace(/^[\[(\s-]+|[\])\s:.-]+$/g, '')
+}
+
+function splitLongLine(line: string) {
+  const normalizedLine = line.trim()
+  if (normalizedLine.length <= MAX_BLOCK_CHARS) {
+    return [normalizedLine]
+  }
+
+  const midpoint = Math.floor(normalizedLine.length / 2)
+  const breakRegex = /[,;:.!?]|\s+and\s+|\s+but\s+|\s+or\s+/gi
+  const breakPoints: number[] = []
+  let match: RegExpExecArray | null = breakRegex.exec(normalizedLine)
+
+  while (match) {
+    breakPoints.push(match.index + match[0].length)
+    match = breakRegex.exec(normalizedLine)
+  }
+
+  let splitAt = -1
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const point of breakPoints) {
+    if (point <= 18 || point >= normalizedLine.length - 18) {
+      continue
+    }
+
+    const distance = Math.abs(point - midpoint)
+    if (distance < bestDistance) {
+      splitAt = point
+      bestDistance = distance
+    }
+  }
+
+  if (splitAt < 0) {
+    const words = normalizedLine.split(/\s+/)
+    const firstHalf: string[] = []
+    const secondHalf: string[] = []
+    let firstLength = 0
+
+    for (const word of words) {
+      const projectedLength = firstLength === 0 ? word.length : firstLength + 1 + word.length
+      if (projectedLength <= midpoint || firstHalf.length === 0) {
+        firstHalf.push(word)
+        firstLength = projectedLength
+      } else {
+        secondHalf.push(word)
+      }
+    }
+
+    const firstLine = firstHalf.join(' ').trim()
+    const secondLine = secondHalf.join(' ').trim()
+    return [firstLine, secondLine].filter(Boolean)
+  }
+
+  const firstPart = normalizedLine.slice(0, splitAt).trim()
+  const secondPart = normalizedLine.slice(splitAt).trim()
+  return [firstPart, secondPart].filter(Boolean)
+}
+
+function normalizeLyricBlocks(rawBlocks: string[]) {
+  const normalizedBlocks: string[] = []
+
+  for (const rawBlock of rawBlocks) {
+    const rawLines = rawBlock
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    if (rawLines.length === 0) {
+      continue
+    }
+
+    const expandedLines = rawLines.flatMap((line) => splitLongLine(line))
+    let currentLines: string[] = []
+    let currentChars = 0
+
+    for (const line of expandedLines) {
+      const nextChars = currentChars === 0 ? line.length : currentChars + 1 + line.length
+      const shouldFlush = currentLines.length >= MAX_BLOCK_LINES || nextChars > MAX_BLOCK_CHARS
+
+      if (shouldFlush && currentLines.length > 0) {
+        normalizedBlocks.push(currentLines.join('\n'))
+        currentLines = []
+        currentChars = 0
+      }
+
+      currentLines.push(line)
+      currentChars = currentChars === 0 ? line.length : currentChars + 1 + line.length
+    }
+
+    if (currentLines.length > 0) {
+      normalizedBlocks.push(currentLines.join('\n'))
+    }
+  }
+
+  return normalizedBlocks
 }
 
 function parseBlocksFromLrcText(lrcText: string) {
@@ -52,7 +150,7 @@ function parseBlocksFromLrcText(lrcText: string) {
     blocks.push(currentBlockLines.join('\n'))
   }
 
-  return blocks
+  return normalizeLyricBlocks(blocks)
 }
 
 function parseBlocksFromPlainLyrics(rawLyrics: string) {
@@ -80,7 +178,7 @@ function parseBlocksFromPlainLyrics(rawLyrics: string) {
     blocks.push(currentBlockLines.join('\n'))
   }
 
-  return blocks
+  return normalizeLyricBlocks(blocks)
 }
 
 function normalizeQueryValue(value: string) {
@@ -569,9 +667,9 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
   }, [applyPatch])
 
   const setBlocks = useCallback((blocks: string[]) => {
-    const normalizedBlocks = blocks
+    const normalizedBlocks = normalizeLyricBlocks(blocks
       .map((block) => block.replace(/\r\n/g, '\n').trim())
-      .filter(Boolean)
+      .filter(Boolean))
 
     applyPatch({
       blocks: normalizedBlocks.length > 0 ? normalizedBlocks : ['No lyric loaded.'],

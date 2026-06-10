@@ -102,6 +102,12 @@ export default function LyricDisplay({
       return false
     }
 
+    // Gig Control opens lyric mode with stage=1 for performer layout,
+    // but this should still keep admin controls visible in admin context.
+    if (isAdminReturnPath) {
+      return true
+    }
+
     const searchParams = new URLSearchParams(window.location.search)
     const isStageMode = searchParams.get('stage') === '1'
     return !isStageMode
