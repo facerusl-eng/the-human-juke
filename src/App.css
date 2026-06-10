@@ -6860,6 +6860,37 @@ body.audience-immersive-mode {
   color: #9dbcf0;
 }
 
+.gig-song-search-field {
+  display: grid;
+  gap: 8px;
+}
+
+.gig-song-search-label {
+  font-size: 0.85rem;
+  color: rgba(213, 231, 255, 0.86);
+}
+
+.gig-song-search-input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(120, 156, 202, 0.44);
+  background: rgba(8, 13, 24, 0.72);
+  color: #f3f9ff;
+  padding: 0.72rem 0.85rem;
+  font: inherit;
+}
+
+.gig-song-search-input:focus {
+  outline: none;
+  border-color: rgba(93, 215, 255, 0.9);
+  box-shadow: 0 0 0 2px rgba(93, 215, 255, 0.2);
+}
+
+.gig-song-search-results-count {
+  font-size: 0.82rem;
+  color: #9bc2f4;
+}
+
 .gig-song-picker-random-wrap {
   position: relative;
 }

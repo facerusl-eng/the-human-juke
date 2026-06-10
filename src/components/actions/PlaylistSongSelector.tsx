@@ -79,6 +79,7 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
   const [isRandomMenuOpen, setIsRandomMenuOpen] = useState(false)
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [songSearchQuery, setSongSearchQuery] = useState('')
   const songPickerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -198,7 +199,22 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
     }
   }, [eventId, playlistTypeFilter])
 
-  const availableSongs = useMemo(() => songs, [songs])
+  const availableSongs = useMemo(() => {
+    const normalizedQuery = songSearchQuery.trim().toLowerCase()
+    if (!normalizedQuery) {
+      return songs
+    }
+
+    const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean)
+
+    return songs.filter((song) => {
+      const songTitle = song.title.toLowerCase()
+      const songArtist = song.artist.toLowerCase()
+      const searchableText = `${songTitle} ${songArtist}`
+
+      return queryTokens.every((token) => searchableText.includes(token))
+    })
+  }, [songSearchQuery, songs])
 
   useEffect(() => {
     if (availableSongs.length === 0) {
@@ -240,6 +256,17 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
     <section className="gig-add-song-tab-content" aria-label="Playlist songs">
       <p className="subcopy no-margin">Showing songs from: <strong>{playlistName}</strong></p>
       <p className="gig-song-picker-hint no-margin">Pick a track, then send it straight to queue.</p>
+      <label className="gig-song-search-field" htmlFor={`gig-control-song-search-${playlistTypeFilter}`}>
+        <span className="gig-song-search-label">Search by song or artist</span>
+        <input
+          id={`gig-control-song-search-${playlistTypeFilter}`}
+          type="text"
+          value={songSearchQuery}
+          onChange={(event) => setSongSearchQuery(event.target.value)}
+          placeholder="Type title or artist name"
+          className="gig-song-search-input"
+        />
+      </label>
 
       <div className="field-row no-margin-bottom" ref={songPickerRef}>
         <div className="gig-song-picker-label-row">
@@ -345,6 +372,11 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
 
       {loadingSongs ? <p className="meta-badge" role="status" aria-live="polite">Loading playlist songs...</p> : null}
       {errorText ? <p className="error-text" role="alert">{errorText}</p> : null}
+      {!loadingSongs && !errorText ? (
+        <p className="gig-song-search-results-count no-margin" aria-live="polite">
+          Showing {availableSongs.length} of {songs.length} songs
+        </p>
+      ) : null}
 
       {!loadingSongs && selectedSong ? (
         <article className="gig-add-song-item gig-add-song-selected-card" aria-label="Selected playlist song">
@@ -382,7 +414,11 @@ function PlaylistSongSelector({ eventId, playlistTypeFilter, queuedLibrarySongId
       ) : null}
 
       {!loadingSongs && !selectedSong && !errorText ? (
-        <p className="subcopy no-margin-bottom">No songs found in the selected {playlistTypeFilter === 'karaoke' ? 'karaoke' : 'Human Jukebox'} playlist.</p>
+        <p className="subcopy no-margin-bottom">
+          {songs.length > 0
+            ? 'No songs match your search. Try a different title or artist.'
+            : `No songs found in the selected ${playlistTypeFilter === 'karaoke' ? 'karaoke' : 'Human Jukebox'} playlist.`}
+        </p>
       ) : null}
     </section>
   )
