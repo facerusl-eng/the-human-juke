@@ -3636,11 +3636,28 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [nowPlaying])
 
   useEffect(() => {
-    if (lyricStateController.state.activeView !== 'lyric' || !nowPlayingLyricSong) {
+    if (!nowPlayingLyricSong) {
       return
     }
 
-    if (lyricStateController.state.song?.id === nowPlayingLyricSong.id) {
+    const lyricSessionActive = (
+      lyricStateController.state.activeView === 'lyric'
+      || lyricStateController.state.showOnMirror
+      || lyricStateController.state.song !== null
+    )
+
+    if (!lyricSessionActive) {
+      return
+    }
+
+    const currentSong = lyricStateController.state.song
+    const sameSongById = currentSong?.id === nowPlayingLyricSong.id
+    const sameSongByTitleArtist = (
+      (currentSong?.title ?? '').trim().toLowerCase() === nowPlayingLyricSong.title.trim().toLowerCase()
+      && (currentSong?.artist ?? '').trim().toLowerCase() === nowPlayingLyricSong.artist.trim().toLowerCase()
+    )
+
+    if (sameSongById || sameSongByTitleArtist) {
       return
     }
 
