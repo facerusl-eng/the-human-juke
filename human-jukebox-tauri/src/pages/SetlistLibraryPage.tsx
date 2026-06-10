@@ -419,6 +419,8 @@ function SetlistLibraryPage() {
     return songs.filter((song) => `${song.title} ${song.artist}`.toLowerCase().includes(normalizedQuery))
   }, [deferredSearchText, songs])
 
+  const isKaraokeSelectedPlaylist = selectedPlaylist?.playlist_type === 'karaoke'
+
   useEffect(() => {
     if (!userId) {
       return
@@ -1325,7 +1327,10 @@ function SetlistLibraryPage() {
                     <td>{song.title}</td>
                     <td>{song.artist}</td>
                     <td>
-                      <span className="setlist-status">{song.is_explicit ? 'Explicit' : 'Ready'}</span>
+                      <span className="setlist-status">
+                        {song.is_explicit ? 'Explicit' : 'Ready'}
+                        {isKaraokeSelectedPlaylist ? ' • Karaoke Wish' : ''}
+                      </span>
                     </td>
                     <td>
                       <div className="setlist-row-actions">
@@ -1335,7 +1340,11 @@ function SetlistLibraryPage() {
                           onClick={async () => { await onAddSongToLiveQueue(song) }}
                           disabled={!event || busyAction === `queue-song-${song.id}`}
                         >
-                          {busyAction === `queue-song-${song.id}` ? 'Queueing...' : 'Add to Queue'}
+                          {busyAction === `queue-song-${song.id}`
+                            ? 'Queueing...'
+                            : isKaraokeSelectedPlaylist
+                              ? 'Add Karaoke Wish to Queue'
+                              : 'Add to Queue'}
                         </button>
                         <button
                           type="button"
