@@ -124,8 +124,8 @@ export default function LyricDisplay({
       }
 
       const target = keyEvent.target as HTMLElement | null
-      const interactiveTarget = target?.closest('input, textarea, select, button, a, [contenteditable="true"], [role="button"], [role="textbox"]')
-      if (interactiveTarget) {
+      const textEntryTarget = target?.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')
+      if (textEntryTarget) {
         return
       }
 
@@ -153,7 +153,10 @@ export default function LyricDisplay({
       lastPedalActionAtRef.current = now
       lastPedalActionTypeRef.current = action
 
+      // Pedals commonly emit Enter/Space that can also trigger focused buttons.
+      // Block default behavior early so lyric controls do not reopen stale route songs.
       keyEvent.preventDefault()
+      keyEvent.stopPropagation()
 
       if (action === 'previous') {
         previousBlock()
@@ -162,9 +165,9 @@ export default function LyricDisplay({
       }
     }
 
-    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
     return () => {
-      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keydown', onKeyDown, true)
     }
   }, [nextBlock, previousBlock, state.activeView])
 
