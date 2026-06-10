@@ -79,8 +79,6 @@ export default function MirrorScreenLyricView({
 }: MirrorScreenLyricViewProps) {
   const currentBlock = state.blocks[state.currentBlockIndex] ?? state.blocks[0] ?? 'No lyric loaded.'
   const emojis = pickMirrorEmojiSet(state)
-  const totalBlocks = Math.max(1, state.blocks.length)
-  const currentBlockNumber = Math.min(state.currentBlockIndex + 1, totalBlocks)
   const lastPedalActionAtRef = useRef(0)
   const lastPedalActionTypeRef = useRef<LyricPedalAction | null>(null)
 
@@ -139,8 +137,6 @@ export default function MirrorScreenLyricView({
         <p className="lyric-dark-neon-copy lyric-dark-neon-copy-control lyric-dark-neon-copy-active">{currentBlock}</p>
         <p className="lyric-dark-neon-meta">
           {state.song ? `${state.song.artist} - ${state.song.title}` : 'No song selected'}
-          {' • '}
-          Block {currentBlockNumber}/{totalBlocks}
         </p>
       </article>
     </section>

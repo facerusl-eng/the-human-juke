@@ -348,10 +348,14 @@ export default function LyricDisplay({
         <p className="lyric-dark-neon-copy lyric-dark-neon-copy-control lyric-dark-neon-copy-active">{currentBlock}</p>
         <p className="lyric-dark-neon-meta">
           {state.song ? `${state.song.artist} - ${state.song.title}` : 'No song selected'}
-          {' • '}
-          Block {Math.min(state.currentBlockIndex + 1, Math.max(1, state.blocks.length))}/{Math.max(1, state.blocks.length)}
-          {' • '}
-          Space/Enter/PageDown next, Shift+Space/PageUp previous
+          {adminControlsVisible ? (
+            <>
+              {' • '}
+              Block {Math.min(state.currentBlockIndex + 1, Math.max(1, state.blocks.length))}/{Math.max(1, state.blocks.length)}
+              {' • '}
+              Space/Enter/PageDown next, Shift+Space/PageUp previous
+            </>
+          ) : null}
         </p>
       </article>
     </section>
