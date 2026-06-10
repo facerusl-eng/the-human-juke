@@ -135,6 +135,7 @@ const MIRROR_VENUE_MODE_STORAGE_KEY = 'human-jukebox-mirror-venue-mode'
 const MIRROR_BANNER_STORAGE_KEY = 'human-jukebox-mirror-banner-text'
 const MIRROR_LAYOUT_EDIT_STORAGE_KEY = 'human-jukebox-mirror-layout-edit-mode'
 const MIRROR_LAYOUT_STATE_STORAGE_KEY = 'human-jukebox-mirror-layout-state'
+const MIRROR_FORCE_LYRICS_MODE_STORAGE_KEY = 'human-jukebox-mirror-force-lyrics-mode'
 const INTRO_AUDIO_LOCK_STORAGE_KEY = 'human-jukebox-intro-audio-play-lock'
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_BROADCAST_CHANNEL = 'human-jukebox-mirror-venue-logo-layout-preview'
 const MIRROR_VENUE_LOGO_LAYOUT_PREVIEW_STORAGE_KEY = 'human-jukebox-mirror-venue-logo-layout-preview'
@@ -1424,6 +1425,19 @@ function MirrorPageContent() {
     const persistedEnabled = readTextFromLocalStorage(MIRROR_LAYOUT_EDIT_STORAGE_KEY) === '1'
     return queryEnabled || persistedEnabled
   })
+  const [forceLyricsMode, setForceLyricsMode] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const queryValue = (searchParams.get('lyricsMode') ?? searchParams.get('lyrics') ?? '').trim().toLowerCase()
+    if (queryValue === '1' || queryValue === 'true' || queryValue === 'on') {
+      return true
+    }
+
+    return readTextFromLocalStorage(MIRROR_FORCE_LYRICS_MODE_STORAGE_KEY) === '1'
+  })
   const [mirrorLayoutState, setMirrorLayoutState] = useState<MirrorLayoutState>(() => {
     if (typeof window === 'undefined') {
       return DEFAULT_MIRROR_LAYOUT_STATE
@@ -1730,7 +1744,7 @@ function MirrorPageContent() {
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
     : Boolean(playbackState?.isStarted && playbackState.currentSongId)
-  const isAudienceKaraokeActive = Boolean(activeSong?.audience_sings && isNowPlayingStarted)
+  const isAudienceKaraokeActive = Boolean(activeSong && isNowPlayingStarted && (activeSong.audience_sings || forceLyricsMode))
   const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)
   const isQuoteModeActive = (demoMode && forceQuoteMode) || isBetweenSongs || !activeSong
   const isGoLiveWelcomeActive = goLiveWelcomeUntilMs !== null && countdownNow < goLiveWelcomeUntilMs
@@ -2453,6 +2467,10 @@ function MirrorPageContent() {
   }
 
   useEffect(() => {
+    void saveTextToLocalStorage(MIRROR_FORCE_LYRICS_MODE_STORAGE_KEY, forceLyricsMode ? '1' : '0')
+  }, [forceLyricsMode])
+
+  useEffect(() => {
     if (layoutEditMode) {
       return
     }
@@ -2945,6 +2963,12 @@ function MirrorPageContent() {
       if (keyEvent.key.toLowerCase() === 'c' && !keyEvent.altKey && !keyEvent.ctrlKey && !keyEvent.metaKey) {
         keyEvent.preventDefault()
         void launchCastToScreen()
+        return
+      }
+
+      if (keyEvent.key.toLowerCase() === 'l' && !keyEvent.altKey && !keyEvent.ctrlKey && !keyEvent.metaKey) {
+        keyEvent.preventDefault()
+        setForceLyricsMode((currentMode) => !currentMode)
         return
       }
 
@@ -4042,6 +4066,17 @@ function MirrorPageContent() {
             </button>
             <button
               type="button"
+              className={`mirror-contrast-button ${forceLyricsMode ? 'mirror-control-button-active' : ''}`.trim()}
+              aria-label="Toggle manual lyrics mode"
+              title="Keyboard shortcut: L"
+              aria-keyshortcuts="L"
+              onClick={() => setForceLyricsMode((currentMode) => !currentMode)}
+            >
+              <span className="mirror-control-button-icon" aria-hidden="true">LY</span>
+              {forceLyricsMode ? 'Lyrics Mode: On' : 'Lyrics Mode: Off'}
+            </button>
+            <button
+              type="button"
               className={`mirror-contrast-button ${highContrastMode ? 'mirror-control-button-active' : ''}`.trim()}
               aria-label="Toggle high contrast mode"
               title="High contrast"
@@ -4083,7 +4118,7 @@ function MirrorPageContent() {
               Venue: {venueMode === 'club' ? 'Club' : venueMode === 'festival' ? 'Festival' : 'Lounge'}
             </button>
             <p className="mirror-control-shortcuts" aria-live="polite">
-              Shortcuts: <strong>E</strong> edit mode, <strong>F</strong> fullscreen, <strong>C</strong> Edge cast, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
+              Shortcuts: <strong>E</strong> edit mode, <strong>F</strong> fullscreen, <strong>C</strong> Edge cast, <strong>L</strong> lyrics mode, <strong>Esc</strong> exit fullscreen, <strong>Space</strong> now playing/quote mode.
             </p>
             <div className="mirror-banner-editor">
               <label className="mirror-banner-label" htmlFor="mirror-banner-input">­ƒôó Scrolling Banner</label>
