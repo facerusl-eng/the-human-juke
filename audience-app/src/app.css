@@ -27,14 +27,11 @@ body {
   background: #0a0a0a;
 }
 
-.audience-lyric-entry-button {
-  border: 1px solid rgba(76, 201, 255, 0.55);
-  background: rgba(5, 10, 18, 0.85);
-  color: #dff7ff;
-  border-radius: 999px;
-  padding: 0.6rem 1.1rem;
-  font-weight: 700;
-  font-size: 1rem;
+.audience-lyric-waiting-copy {
+  margin: 0;
+  color: #9fb8d8;
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+  letter-spacing: 0.03em;
 }
 
 .audience-shell {
