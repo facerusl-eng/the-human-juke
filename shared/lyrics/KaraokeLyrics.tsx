@@ -53,7 +53,7 @@ export default function KaraokeLyrics({
   }, [className, mode])
 
   const currentKey = lineKey(current)
-  const hasFullAutoScrollLines = autoScrollEnabled && allLines.length > 0
+  const hasFullAutoScrollLines = allLines.length > 0
 
   const lineProgress = useMemo(() => {
     if (!current || !next) {
