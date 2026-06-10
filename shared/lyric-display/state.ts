@@ -504,6 +504,18 @@ function clampBlockIndex(nextIndex: number, totalBlocks: number) {
   return Math.max(0, Math.min(totalBlocks - 1, nextIndex))
 }
 
+function normalizeIntroBlockIndex(nextIndex: number, totalBlocks: number) {
+  if (totalBlocks <= 0) {
+    return 0
+  }
+
+  if (nextIndex < 0) {
+    return -1
+  }
+
+  return clampBlockIndex(nextIndex, totalBlocks)
+}
+
 function readStoredState() {
   if (typeof window === 'undefined') {
     return null
@@ -630,6 +642,7 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
       applyPatch({
         song,
         activeView: 'lyric',
+        currentBlockIndex: -1,
         returnToPath,
       })
       return
@@ -647,7 +660,7 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
     applyPatch({
       song,
       blocks,
-      currentBlockIndex: 0,
+      currentBlockIndex: -1,
       activeView: 'lyric',
       showOnMirror: false,
       returnToPath,
@@ -673,7 +686,7 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
 
     applyPatch({
       blocks: normalizedBlocks.length > 0 ? normalizedBlocks : ['No lyric loaded.'],
-      currentBlockIndex: 0,
+      currentBlockIndex: -1,
       activeView: 'lyric',
     })
   }, [applyPatch])
@@ -687,13 +700,13 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
 
   const nextBlock = useCallback(() => {
     applyPatch({
-      currentBlockIndex: clampBlockIndex(state.currentBlockIndex + 1, state.blocks.length),
+      currentBlockIndex: normalizeIntroBlockIndex(state.currentBlockIndex + 1, state.blocks.length),
     })
   }, [applyPatch, state.blocks.length, state.currentBlockIndex])
 
   const previousBlock = useCallback(() => {
     applyPatch({
-      currentBlockIndex: clampBlockIndex(state.currentBlockIndex - 1, state.blocks.length),
+      currentBlockIndex: normalizeIntroBlockIndex(state.currentBlockIndex - 1, state.blocks.length),
     })
   }, [applyPatch, state.blocks.length, state.currentBlockIndex])
 

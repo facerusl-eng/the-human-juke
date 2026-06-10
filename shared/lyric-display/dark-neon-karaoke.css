@@ -27,10 +27,17 @@
   text-align: center;
 }
 
+.lyric-dark-neon-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+}
+
 .lyric-dark-neon-copy {
   margin: 0;
   white-space: pre-line;
-  text-wrap: balance;
+  overflow-wrap: anywhere;
   line-height: 1.2;
   color: var(--lyric-text-primary);
   text-shadow:
@@ -51,6 +58,11 @@
 
 .lyric-dark-neon-copy-control {
   font-size: clamp(48px, 4.7vw, 64px);
+}
+
+.lyric-dark-neon-copy-intro-title {
+  font-size: clamp(56px, 6.4vw, 92px);
+  line-height: 1.06;
 }
 
 .lyric-dark-neon-copy-mirror {
@@ -133,6 +145,14 @@
   margin-top: 0.9rem;
   color: var(--lyric-text-secondary);
   font-size: 0.95rem;
+}
+
+.lyric-dark-neon-meta-intro {
+  margin-top: 0;
+  color: var(--lyric-text-active);
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .lyric-dark-neon-mirror-flash {
