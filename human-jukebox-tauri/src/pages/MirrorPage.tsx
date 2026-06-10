@@ -2839,25 +2839,6 @@ function MirrorPageContent() {
       return
     }
 
-    if (!isQuoteModeActive) {
-      return
-    }
-
-    const intervalId = window.setInterval(() => {
-      const nextQuoteIndex = (quoteIndexRef.current + 1) % BETWEEN_SONG_QUOTES.length
-      setQuoteIndex(nextQuoteIndex)
-    }, QUOTE_ROTATE_INTERVAL_MS)
-
-    return () => {
-      window.clearInterval(intervalId)
-    }
-  }, [isQuoteModeActive, layoutEditMode])
-
-  useEffect(() => {
-    if (layoutEditMode) {
-      return
-    }
-
     const onKeyDown = (keyEvent: KeyboardEvent) => {
       if (!keyEvent.isTrusted || keyEvent.defaultPrevented) {
         return
