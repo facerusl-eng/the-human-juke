@@ -201,7 +201,7 @@ function AdminDashboardContent({
   onManualRetry: () => void
 }) {
   const navigate = useNavigate()
-  const { signOut, isHost } = useAuthStore()
+  const { user, signOut, isHost } = useAuthStore()
   const { event, hostEvents, songs, loading, setActiveEvent, toggleRoomOpen, toggleExplicitFilter, toggleAudienceVoting } = useQueueStore()
   const [activeSwitchError, setActiveSwitchError] = useState<string | null>(null)
   const [quickActionError, setQuickActionError] = useState<string | null>(null)
@@ -335,17 +335,38 @@ function AdminDashboardContent({
       }
 
       autoLiveInFlightRef.current = true
-      attemptedAutoLiveGigIdsRef.current.add(dueEvent.id)
 
       try {
         const switched = await activeGigActions.switchActiveGig(dueEvent.id)
 
         if (!switched) {
+          attemptedAutoLiveGigIdsRef.current.delete(dueEvent.id)
           return
         }
 
+        const { error: openRoomError } = await supabase
+          .from('events')
+          .update({ room_open: true })
+          .eq('id', dueEvent.id)
+          .eq('host_id', user?.id ?? '')
+
+        if (openRoomError) {
+          throw openRoomError
+        }
+
+        if (dueEvent.introAudioUrl) {
+          const introAudio = new Audio(dueEvent.introAudioUrl)
+          introAudio.preload = 'auto'
+          void introAudio.play().catch(() => {
+            // Autoplay may be blocked until user interaction; keep Auto Live successful.
+          })
+        }
+
+        attemptedAutoLiveGigIdsRef.current.add(dueEvent.id)
+
         setActiveSwitchError(null)
       } catch (error) {
+        attemptedAutoLiveGigIdsRef.current.delete(dueEvent.id)
         setActiveSwitchError(error instanceof Error ? error.message : 'Auto Live could not activate the scheduled gig.')
       } finally {
         autoLiveInFlightRef.current = false
@@ -360,7 +381,7 @@ function AdminDashboardContent({
     return () => {
       window.clearInterval(timerId)
     }
-  }, [activeGigActions, hostEvents])
+  }, [activeGigActions, hostEvents, user?.id])
 
   useEffect(() => {
     let isCurrent = true
