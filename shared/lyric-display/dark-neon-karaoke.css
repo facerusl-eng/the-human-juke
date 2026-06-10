@@ -34,18 +34,19 @@
   line-height: 1.2;
   color: var(--lyric-text-primary);
   text-shadow:
-    0 0 12px rgba(76, 201, 255, 0.45),
-    0 0 28px rgba(76, 201, 255, 0.26);
-  transform: translateY(8px);
-  opacity: 0;
-  animation: lyric-block-enter 420ms ease forwards;
+    0 0 8px rgba(76, 201, 255, 0.32),
+    0 0 18px rgba(76, 201, 255, 0.18);
+  transform: none;
+  opacity: 1;
+  animation: none;
+  transition: color 120ms linear, text-shadow 120ms linear;
 }
 
 .lyric-dark-neon-copy-active {
   color: var(--lyric-text-active);
   text-shadow:
-    0 0 14px rgba(199, 125, 255, 0.6),
-    0 0 34px rgba(199, 125, 255, 0.35);
+    0 0 10px rgba(199, 125, 255, 0.42),
+    0 0 20px rgba(199, 125, 255, 0.24);
 }
 
 .lyric-dark-neon-copy-control {
@@ -98,16 +99,4 @@
   margin-top: 0.9rem;
   color: var(--lyric-text-secondary);
   font-size: 0.95rem;
-}
-
-@keyframes lyric-block-enter {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
