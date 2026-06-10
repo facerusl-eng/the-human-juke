@@ -5,7 +5,8 @@ import { useSharedLyricState } from './state'
 import type { LyricSongRef } from './types'
 import './dark-neon-karaoke.css'
 
-const PEDAL_ACTION_DEBOUNCE_MS = 140
+const PEDAL_ACTION_DEBOUNCE_MS = 180
+const PEDAL_SAME_ACTION_COALESCE_MS = 520
 
 type LyricPedalAction = 'next' | 'previous'
 
@@ -73,6 +74,7 @@ export default function LyricDisplay({
   const [pedalStatus, setPedalStatus] = useState('Pedal: keyboard fallback ready')
   const [isPairingPedal, setIsPairingPedal] = useState(false)
   const lastPedalActionAtRef = useRef(0)
+  const lastPedalActionTypeRef = useRef<LyricPedalAction | null>(null)
   const {
     state,
     setActiveView,
@@ -134,7 +136,16 @@ export default function LyricDisplay({
       if (now - lastPedalActionAtRef.current < PEDAL_ACTION_DEBOUNCE_MS) {
         return
       }
+
+      if (
+        lastPedalActionTypeRef.current === action
+        && now - lastPedalActionAtRef.current < PEDAL_SAME_ACTION_COALESCE_MS
+      ) {
+        return
+      }
+
       lastPedalActionAtRef.current = now
+      lastPedalActionTypeRef.current = action
 
       keyEvent.preventDefault()
 
