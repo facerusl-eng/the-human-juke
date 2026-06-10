@@ -98,6 +98,12 @@ export default function LyricDisplay({
       return
     }
 
+    // If lyric state is already live (typically driven by now-playing from Gig Control),
+    // do not override it from route query params.
+    if (state.song && state.blocks.length > 0) {
+      return
+    }
+
     const songKey = `${activeSong.id}::${activeSong.artist.toLowerCase()}::${activeSong.title.toLowerCase()}`
     if (lastAutoOpenedSongKeyRef.current === songKey) {
       return
@@ -105,7 +111,7 @@ export default function LyricDisplay({
 
     lastAutoOpenedSongKeyRef.current = songKey
     void openLyricForSong(activeSong, returnToPath)
-  }, [activeSong, autoOpenOnMount, openLyricForSong, returnToPath])
+  }, [activeSong, autoOpenOnMount, openLyricForSong, returnToPath, state.blocks.length, state.song])
 
   useEffect(() => {
     if (state.activeView !== 'lyric') {
