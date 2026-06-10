@@ -19,7 +19,6 @@ import HomePage from './pages/HomePage'
 import JamzoneLyricsPage from './pages/JamzoneLyricsPage'
 import LyricsBoardPage from './pages/LyricsBoardPage'
 import IpadControllerPage from './pages/IpadControllerPage'
-const LyricsPage = lazyWithChunkReload(() => import('./pages/LyricsPage'))
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
 import { demoMode } from './demo/demoMode'
@@ -244,7 +243,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'lyrics-legacy',
-        element: withSuspense(withCrashBoundary('Audience', <LyricsPage />)),
+        element: <Navigate to="/lyrics" replace />,
       },
       {
         path: 'lyrics-board',
