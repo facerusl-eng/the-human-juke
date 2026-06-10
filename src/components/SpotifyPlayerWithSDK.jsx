@@ -1373,19 +1373,16 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         }
 
         if (nextTransportCommand.mode === 'play') {
-          // Quote-mode play should be deterministic: always start the configured
-          // between-song playlist first when available.
-          if (playlistInput.trim()) {
-            await startPlaylistPlayback(playlistInput)
-            setPlayerStatus('Started between-song playlist.')
-            return
-          }
-
-          // No playlist configured — try resuming as a best-effort fallback.
           try {
             if (hasSdkPlaybackDevice) {
               await syncTogglePlayState(true)
               setPlayerStatus('Between-song Spotify playback resumed from Gig Control.')
+              return
+            }
+
+            const isPlayingViaApi = await getPlaybackIsPlaying()
+            if (isPlayingViaApi) {
+              setPlayerStatus('Between-song Spotify playback is already running.')
               return
             }
 
@@ -1395,7 +1392,13 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
               return
             }
           } catch {
-            // Fall through to actionable guidance below.
+            // Fall through to playlist fallback.
+          }
+
+          if (playlistInput.trim()) {
+            await startPlaylistPlayback(playlistInput)
+            setPlayerStatus('Started between-song playlist (no resumable context found).')
+            return
           }
 
           throw new Error('No paused Spotify context found. Set a Between Songs Playlist first.')
