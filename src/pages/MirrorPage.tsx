@@ -73,6 +73,7 @@ import { demoMode, homeMirrorPreviewMode } from '../demo/demoMode'
 import { DEMO_NOW_PLAYING_FACTS } from '../demo/demoNowPlaying'
 import { useJamzoneLyricSync } from '../../shared/lyrics/useJamzoneLyricSync'
 import type { LyricSongRef } from '../../shared/lyrics'
+import { MirrorScreenLyricView, useSharedLyricState } from '../../shared/lyric-display'
 
 type FeedImageSpotlight = {
   id: string
@@ -1392,6 +1393,7 @@ function MirrorPageContent() {
     }
   }, [event?.id])
   const { user, isHost } = useAuthStore()
+  const { state: sharedLyricState } = useSharedLyricState(supabase, 'mirror')
   const [spotlight, setSpotlight] = useState<FeedImageSpotlight | null>(null)
   const [funFacts, setFunFacts] = useState<string[]>([])
   const [currentFactIndex, setCurrentFactIndex] = useState(0)
@@ -3135,19 +3137,6 @@ function MirrorPageContent() {
       keyEvent.preventDefault()
       lastSpacebarActionAtRef.current = now
 
-      if (isAudienceKaraokeActive && mirrorKaraokeSectionStarts.length > 0) {
-        const lastSectionIndex = mirrorKaraokeSectionStarts.length - 1
-        setManualKaraokeSectionIndex((currentIndex) => {
-          const baseIndex = currentIndex >= 0 ? currentIndex : Math.max(0, resolvedKaraokeSectionIndex)
-          if (keyEvent.shiftKey) {
-            return Math.max(0, baseIndex - 1)
-          }
-
-          return Math.min(lastSectionIndex, baseIndex + 1)
-        })
-        return
-      }
-
       if (keyEvent.shiftKey) {
         return
       }
@@ -3159,7 +3148,7 @@ function MirrorPageContent() {
 
     window.addEventListener('keydown', onKeyDown as unknown as EventListener)
     return () => window.removeEventListener('keydown', onKeyDown as unknown as EventListener)
-  }, [isAudienceKaraokeActive, launchCastToScreen, layoutEditMode, mirrorKaraokeSectionStarts.length, resolvedKaraokeSectionIndex])
+  }, [launchCastToScreen, layoutEditMode])
 
   useEffect(() => {
     if (!isHost || isEmbeddedPreview) {
@@ -4125,6 +4114,10 @@ function MirrorPageContent() {
         </section>
       </div>
     )
+  }
+
+  if (sharedLyricState.showOnMirror && sharedLyricState.activeView === 'lyric') {
+    return <MirrorScreenLyricView state={sharedLyricState} />
   }
 
   return (

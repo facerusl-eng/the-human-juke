@@ -54,6 +54,7 @@ import {
 } from '../lib/constants';
 import { useAuthStore } from '../state/authStore';
 import { useQueueStore } from '../state/queueStore';
+import { useSharedLyricState } from '../../shared/lyric-display'
 // ...existing code...
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
@@ -3617,7 +3618,36 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     navigate('/admin/gig-control')
   }, [navigate])
 
-  const openNowPlayingLyrics = useCallback(() => {
+  const lyricStateController = useSharedLyricState(supabase, 'gig-control')
+
+  const nowPlayingLyricSong = useMemo(() => {
+    if (!nowPlaying?.title) {
+      return null
+    }
+
+    const artist = (nowPlaying.artist ?? '').trim()
+    const fallbackSongId = `${artist.toLowerCase().replace(/\s+/g, '-')}:${nowPlaying.title.toLowerCase().replace(/\s+/g, '-')}`
+
+    return {
+      id: nowPlaying.library_song_id ?? nowPlaying.id ?? fallbackSongId,
+      title: nowPlaying.title,
+      artist,
+    }
+  }, [nowPlaying])
+
+  useEffect(() => {
+    if (lyricStateController.state.activeView !== 'lyric' || !nowPlayingLyricSong) {
+      return
+    }
+
+    if (lyricStateController.state.song?.id === nowPlayingLyricSong.id) {
+      return
+    }
+
+    void lyricStateController.openLyricForSong(nowPlayingLyricSong, `${location.pathname}${location.search}`)
+  }, [location.pathname, location.search, lyricStateController, nowPlayingLyricSong])
+
+  const openNowPlayingLyrics = useCallback(async () => {
     if (!nowPlaying?.title) {
       setErrorText('No now-playing song is available for lyrics yet.')
       return
@@ -3638,6 +3668,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       searchParams.set('songId', nowPlaying.library_song_id)
     }
 
+    if (nowPlayingLyricSong) {
+      await lyricStateController.openLyricForSong(nowPlayingLyricSong, `${location.pathname}${location.search}`)
+      lyricStateController.setActiveView('lyric')
+    }
+
     navigate(`/lyrics?${searchParams.toString()}`, {
       state: {
         title: nowPlaying.title,
@@ -3647,7 +3682,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         returnTo: `${location.pathname}${location.search}`,
       },
     })
-  }, [location.pathname, location.search, navigate, nowPlaying])
+  }, [location.pathname, location.search, lyricStateController, navigate, nowPlaying, nowPlayingLyricSong])
 
   const handleEnterFocusFullscreen = useCallback(() => {
     if (typeof document === 'undefined' || !document.documentElement.requestFullscreen) {
@@ -4086,7 +4121,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             disabled={!nowPlaying?.title}
             title={nowPlaying?.title ? 'Open lyrics for the now-playing song on a stage-friendly screen' : 'Start a song to enable lyrics screen'}
           >
-            🎤 Open Lyrics Screen
+            Show Lyric
           </button>
           {!isFocusedGigControlWindow ? (
             <button type="button" className="ghost-button" onClick={openFocusedGigControlWindow}>

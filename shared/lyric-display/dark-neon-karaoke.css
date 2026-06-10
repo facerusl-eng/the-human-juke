@@ -1,0 +1,100 @@
+:root {
+  --lyric-bg-main: #000000;
+  --lyric-bg-alt: #0a0a0a;
+  --lyric-text-primary: #4cc9ff;
+  --lyric-text-active: #c77dff;
+  --lyric-text-secondary: #b3b3b3;
+}
+
+.lyric-dark-neon-shell {
+  min-height: 100vh;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(76, 201, 255, 0.09), transparent 38%),
+    radial-gradient(circle at 84% 82%, rgba(199, 125, 255, 0.09), transparent 40%),
+    linear-gradient(170deg, var(--lyric-bg-main), var(--lyric-bg-alt));
+  color: var(--lyric-text-primary);
+  font-family: 'Poppins', 'Montserrat', 'Inter', sans-serif;
+  padding: 1.2rem;
+  box-sizing: border-box;
+}
+
+.lyric-dark-neon-stage {
+  width: min(70vw, 1280px);
+  max-width: 70vw;
+  text-align: center;
+}
+
+.lyric-dark-neon-copy {
+  margin: 0;
+  white-space: pre-line;
+  text-wrap: balance;
+  line-height: 1.2;
+  color: var(--lyric-text-primary);
+  text-shadow:
+    0 0 12px rgba(76, 201, 255, 0.45),
+    0 0 28px rgba(76, 201, 255, 0.26);
+  transform: translateY(8px);
+  opacity: 0;
+  animation: lyric-block-enter 420ms ease forwards;
+}
+
+.lyric-dark-neon-copy-active {
+  color: var(--lyric-text-active);
+  text-shadow:
+    0 0 14px rgba(199, 125, 255, 0.6),
+    0 0 34px rgba(199, 125, 255, 0.35);
+}
+
+.lyric-dark-neon-copy-control {
+  font-size: clamp(48px, 4.7vw, 64px);
+}
+
+.lyric-dark-neon-copy-mirror {
+  font-size: clamp(80px, 8.2vw, 120px);
+}
+
+.lyric-dark-neon-copy-audience {
+  font-size: clamp(32px, 4.2vw, 48px);
+}
+
+.lyric-dark-neon-controls {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.lyric-dark-neon-button {
+  border: 1px solid rgba(76, 201, 255, 0.55);
+  background: rgba(5, 10, 18, 0.8);
+  color: #dff7ff;
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.lyric-dark-neon-meta {
+  margin-top: 0.9rem;
+  color: var(--lyric-text-secondary);
+  font-size: 0.95rem;
+}
+
+@keyframes lyric-block-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
