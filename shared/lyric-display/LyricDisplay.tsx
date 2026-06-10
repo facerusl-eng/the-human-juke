@@ -91,13 +91,14 @@ export default function LyricDisplay({
   const adminControlsVisible = useMemo(() => {
     const isAdminReturnPath = /\/admin\b/i.test(returnToPath)
 
-    if (!isAdminReturnPath || typeof window === 'undefined') {
+    if (typeof window === 'undefined') {
       return isAdminReturnPath
     }
 
-    const isMobileViewport = window.matchMedia('(max-width: 900px)').matches
-    const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches
-    if (isMobileViewport || hasCoarsePointer) {
+    const isAdminRoute = /\/admin\b/i.test(window.location.pathname)
+    const isAdminContext = isAdminRoute || isAdminReturnPath
+
+    if (!isAdminContext) {
       return false
     }
 
