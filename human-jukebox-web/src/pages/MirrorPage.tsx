@@ -4653,12 +4653,14 @@ function MirrorPageContent() {
                           <li key={song.id} className={queueItemClassName}>
                             <span className="mirror-queue-pos">{index + 1}</span>
                             {song.cover_url && !failedCoverUrls[song.cover_url] ? (
-                              <img
-                                src={song.cover_url}
-                                alt={`Cover art for ${song.title}`}
-                                className="mirror-queue-cover"
-                                onError={() => onCoverLoadError(song.cover_url)}
-                              />
+                              <span className={`mirror-queue-cover-wrap${isVoteSparkling ? ' mirror-queue-cover-burst' : ''}`}>
+                                <img
+                                  src={song.cover_url}
+                                  alt={`Cover art for ${song.title}`}
+                                  className="mirror-queue-cover"
+                                  onError={() => onCoverLoadError(song.cover_url)}
+                                />
+                              </span>
                             ) : null}
                             <div className="mirror-queue-info">
                               <div className="mirror-queue-song-info">
