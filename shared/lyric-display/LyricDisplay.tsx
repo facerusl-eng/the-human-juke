@@ -172,12 +172,17 @@ export default function LyricDisplay({
   }, [nextBlock, previousBlock, state.activeView])
 
   const openLyric = async () => {
-    if (!activeSong) {
+    if (state.activeView === 'lyric' && state.blocks.length > 0) {
+      return
+    }
+
+    const songToOpen = state.song ?? activeSong
+    if (!songToOpen) {
       return
     }
 
     setActiveView('lyric')
-    await openLyricForSong(activeSong, returnToPath)
+    await openLyricForSong(songToOpen, returnToPath)
   }
 
   const goBack = () => {
