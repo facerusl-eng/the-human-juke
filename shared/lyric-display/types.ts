@@ -4,6 +4,8 @@ export type LyricSongRef = {
   id: string
   title: string
   artist: string
+  createdByName?: string | null
+  audience_sings?: boolean | null
 }
 
 export type LyricDisplayState = {

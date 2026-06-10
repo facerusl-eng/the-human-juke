@@ -121,6 +121,12 @@ export default function LyricDisplay({
     return state.blocks[state.currentBlockIndex] ?? state.blocks[0]
   }, [state.blocks, state.currentBlockIndex])
 
+  const isIntroScreen = state.currentBlockIndex < 0
+  const introSongLabel = state.song ? `${state.song.artist} - ${state.song.title}` : 'No song selected'
+  const introRequesterLabel = state.song?.audience_sings && state.song.createdByName?.trim()
+    ? `Requested by ${state.song.createdByName.trim()}`
+    : null
+
   const goBack = useCallback(() => {
     closeLyric()
     navigate(state.returnToPath || returnToPath, { replace: false })
@@ -352,18 +358,34 @@ export default function LyricDisplay({
       ) : null}
 
       <article className="lyric-dark-neon-stage" aria-live="polite" aria-atomic="true">
-        <p className="lyric-dark-neon-copy lyric-dark-neon-copy-control lyric-dark-neon-copy-active">{currentBlock}</p>
-        <p className="lyric-dark-neon-meta">
-          {state.song ? `${state.song.artist} - ${state.song.title}` : 'No song selected'}
-          {adminControlsVisible ? (
-            <>
-              {' • '}
-              Block {Math.min(state.currentBlockIndex + 1, Math.max(1, state.blocks.length))}/{Math.max(1, state.blocks.length)}
-              {' • '}
-              Space/Enter/PageDown next, Shift+Space/PageUp previous
-            </>
-          ) : null}
-        </p>
+        {isIntroScreen ? (
+          <div className="lyric-dark-neon-intro">
+            <p className="lyric-dark-neon-copy lyric-dark-neon-copy-control lyric-dark-neon-copy-active lyric-dark-neon-copy-intro-title">
+              {introSongLabel}
+            </p>
+            {introRequesterLabel ? (
+              <p className="lyric-dark-neon-meta lyric-dark-neon-meta-intro">{introRequesterLabel}</p>
+            ) : null}
+            <p className="lyric-dark-neon-meta lyric-dark-neon-meta-intro">
+              Press the foot pedal to start the lyric
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="lyric-dark-neon-copy lyric-dark-neon-copy-control lyric-dark-neon-copy-active">{currentBlock}</p>
+            <p className="lyric-dark-neon-meta">
+              {introSongLabel}
+              {adminControlsVisible ? (
+                <>
+                  {' • '}
+                  Block {Math.min(state.currentBlockIndex + 1, Math.max(1, state.blocks.length))}/{Math.max(1, state.blocks.length)}
+                  {' • '}
+                  Space/Enter/PageDown next, Shift/Space/PageUp previous
+                </>
+              ) : null}
+            </p>
+          </>
+        )}
       </article>
     </section>
   )

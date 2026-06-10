@@ -1897,6 +1897,8 @@ function MirrorPageContent() {
       songId: activeSong.id,
       title: activeSong.title,
       artist: activeSong.artist,
+      createdByName: activeSong.createdByName ?? null,
+      audience_sings: activeSong.audience_sings ?? null,
     }
   }, [activeSong, isAudienceKaraokeActive])
 

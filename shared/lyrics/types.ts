@@ -26,6 +26,8 @@ export type LyricSongRef = {
   artist?: string | null
   title?: string | null
   explicitPath?: string
+  createdByName?: string | null
+  audience_sings?: boolean | null
 }
 
 export type LyricEngineLoadResult = {
