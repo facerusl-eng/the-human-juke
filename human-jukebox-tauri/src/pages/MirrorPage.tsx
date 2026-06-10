@@ -1406,7 +1406,7 @@ function MirrorPageContent() {
     let isCurrent = true
 
     const fetchMirrorCountdownFallback = async () => {
-      const selectFields = [
+      const baseSelectFields = [
         'id',
         'venue',
         'gig_date',
@@ -1418,19 +1418,38 @@ function MirrorPageContent() {
         'mirror_countdown_qr_custom_url',
         'mirror_break_qr_enabled',
         'mirror_break_qr_custom_url',
+      ].join(', ')
+
+      const extendedSelectFields = [
+        baseSelectFields,
         'mirror_countdown_qr_text',
         'mirror_countdown_qr_flash_venue',
       ].join(', ')
 
-      const baseQuery = supabase
-        .from('events')
-        .select(selectFields)
+      const runFallbackQuery = (selectFields: string) => {
+        const baseQuery = supabase
+          .from('events')
+          .select(selectFields)
 
-      const query = requestedEventIdFromQuery
-        ? baseQuery.eq('id', requestedEventIdFromQuery).maybeSingle()
-        : baseQuery.order('created_at', { ascending: false }).limit(1).maybeSingle()
+        return requestedEventIdFromQuery
+          ? baseQuery.eq('id', requestedEventIdFromQuery).maybeSingle()
+          : baseQuery.order('created_at', { ascending: false }).limit(1).maybeSingle()
+      }
 
-      const { data, error } = await query
+      let result = await runFallbackQuery(extendedSelectFields)
+
+      const missingOptionalColumns = result.error?.code === '42703'
+        && typeof result.error.message === 'string'
+        && (
+          result.error.message.includes('mirror_countdown_qr_text')
+          || result.error.message.includes('mirror_countdown_qr_flash_venue')
+        )
+
+      if (missingOptionalColumns) {
+        result = await runFallbackQuery(baseSelectFields)
+      }
+
+      const { data, error } = result
 
       if (!isCurrent) {
         return
