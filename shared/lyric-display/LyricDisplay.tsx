@@ -69,6 +69,7 @@ export default function LyricDisplay({
   autoOpenOnMount = false,
 }: LyricDisplayProps) {
   const navigate = useNavigate()
+  const lastAutoOpenedSongKeyRef = useRef<string | null>(null)
   const [pedalStatus, setPedalStatus] = useState('Pedal: keyboard fallback ready')
   const [isPairingPedal, setIsPairingPedal] = useState(false)
   const lastPedalActionAtRef = useRef(0)
@@ -95,12 +96,14 @@ export default function LyricDisplay({
       return
     }
 
-    if (state.song?.id === activeSong.id && state.activeView === 'lyric' && state.blocks.length > 0) {
+    const songKey = `${activeSong.id}::${activeSong.artist.toLowerCase()}::${activeSong.title.toLowerCase()}`
+    if (lastAutoOpenedSongKeyRef.current === songKey) {
       return
     }
 
+    lastAutoOpenedSongKeyRef.current = songKey
     void openLyricForSong(activeSong, returnToPath)
-  }, [activeSong, autoOpenOnMount, openLyricForSong, returnToPath, state.activeView, state.blocks.length, state.song?.id])
+  }, [activeSong, autoOpenOnMount, openLyricForSong, returnToPath])
 
   useEffect(() => {
     if (state.activeView !== 'lyric') {
