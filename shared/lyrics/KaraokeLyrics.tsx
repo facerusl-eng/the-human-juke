@@ -43,17 +43,43 @@ export default function KaraokeLyrics({
 }: KaraokeLyricsProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const hasFullAutoScrollLines = allLines.length > 0
+  const fullSheetDensityClassName = useMemo(() => {
+    if (!hasFullAutoScrollLines) {
+      return ''
+    }
+
+    if (allLines.length > 56) {
+      return 'karaoke-stage--sheet-ultra'
+    }
+
+    if (allLines.length > 42) {
+      return 'karaoke-stage--sheet-dense'
+    }
+
+    if (allLines.length > 30) {
+      return 'karaoke-stage--sheet-medium'
+    }
+
+    return 'karaoke-stage--sheet-relaxed'
+  }, [allLines.length, hasFullAutoScrollLines])
+
   const stageClassName = useMemo(() => {
     const classes = ['karaoke-stage', `karaoke-stage--${mode}`]
+    if (hasFullAutoScrollLines) {
+      classes.push('karaoke-stage--full-sheet')
+    }
+    if (fullSheetDensityClassName) {
+      classes.push(fullSheetDensityClassName)
+    }
     if (className.trim().length > 0) {
       classes.push(className)
     }
 
     return classes.join(' ')
-  }, [className, mode])
+  }, [className, fullSheetDensityClassName, hasFullAutoScrollLines, mode])
 
   const currentKey = lineKey(current)
-  const hasFullAutoScrollLines = allLines.length > 0
 
   const lineProgress = useMemo(() => {
     if (!current || !next) {
@@ -105,11 +131,7 @@ export default function KaraokeLyrics({
 
     const activeLine = container.querySelector('[data-karaoke-current="true"]')
 
-    if (hasFullAutoScrollLines && activeLine) {
-      activeLine.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      })
+    if (hasFullAutoScrollLines) {
       return
     }
 
@@ -138,7 +160,7 @@ export default function KaraokeLyrics({
   return (
     <section className={stageClassName} aria-live="polite" aria-atomic="true">
       <div className="karaoke-stage__inner" ref={containerRef} data-auto-scroll={autoScrollEnabled ? 'true' : 'false'}>
-        {secondsToNextLine !== null ? (
+        {secondsToNextLine !== null && !hasFullAutoScrollLines ? (
           <div className="karaoke-stage__cue" aria-live="off">
             <span className="karaoke-stage__cue-label">Next line in {secondsToNextLine.toFixed(1)}s</span>
             <progress className="karaoke-stage__line-progress" max={1} value={lineProgress ?? 0} />
@@ -147,7 +169,7 @@ export default function KaraokeLyrics({
 
         {statusText ? <p className="karaoke-stage__status">{statusText}</p> : null}
 
-        {previous ? (
+        {previous && !hasFullAutoScrollLines ? (
           <p className="karaoke-line karaoke-line--previous karaoke-line--muted">{previous.text}</p>
         ) : null}
 
@@ -179,8 +201,8 @@ export default function KaraokeLyrics({
           </p>
         )}
 
-        {next ? <p className="karaoke-line karaoke-line--next">{next.text}</p> : null}
-        {next2 ? <p className="karaoke-line karaoke-line--next karaoke-line--next-secondary">{next2.text}</p> : null}
+        {!hasFullAutoScrollLines && next ? <p className="karaoke-line karaoke-line--next">{next.text}</p> : null}
+        {!hasFullAutoScrollLines && next2 ? <p className="karaoke-line karaoke-line--next karaoke-line--next-secondary">{next2.text}</p> : null}
       </div>
     </section>
   )

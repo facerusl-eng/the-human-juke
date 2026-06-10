@@ -41,6 +41,13 @@
   -ms-overflow-style: none;
 }
 
+.karaoke-stage--full-sheet .karaoke-stage__inner {
+  align-content: start;
+  gap: clamp(6px, 1.2vh, 14px);
+  padding: clamp(10px, 1.8vw, 24px);
+  overflow-y: hidden;
+}
+
 .karaoke-stage__inner::-webkit-scrollbar {
   display: none;
 }
@@ -66,6 +73,15 @@
   filter: drop-shadow(0 0 8px rgba(var(--karaoke-glow), 0.7));
 }
 
+.karaoke-stage--full-sheet .karaoke-line--current {
+  color: #f9ffff;
+  text-shadow:
+    0 0 20px rgba(var(--karaoke-glow), 0.85),
+    0 0 38px rgba(var(--karaoke-glow), 0.45),
+    0 0 3px rgba(255, 255, 255, 0.95);
+  animation: karaoke-current-flash 0.95s ease-in-out infinite;
+}
+
 .karaoke-line--next {
   color: var(--karaoke-next);
   opacity: 0.85;
@@ -78,6 +94,58 @@
 
 .karaoke-line--muted {
   opacity: 0.4;
+}
+
+.karaoke-stage--full-sheet .karaoke-line {
+  font-weight: 800;
+  line-height: 1.14;
+  letter-spacing: 0.005em;
+}
+
+.karaoke-stage--full-sheet .karaoke-line--previous {
+  color: #9db1ce;
+  opacity: 0.55;
+}
+
+.karaoke-stage--full-sheet .karaoke-line--next {
+  color: #d8e8ff;
+  opacity: 0.86;
+}
+
+.karaoke-stage--sheet-relaxed .karaoke-line--current {
+  font-size: clamp(1.65rem, 3.2vw, 3.4rem);
+}
+
+.karaoke-stage--sheet-relaxed .karaoke-line--next,
+.karaoke-stage--sheet-relaxed .karaoke-line--previous {
+  font-size: clamp(1.24rem, 2.28vw, 2.2rem);
+}
+
+.karaoke-stage--sheet-medium .karaoke-line--current {
+  font-size: clamp(1.34rem, 2.55vw, 2.7rem);
+}
+
+.karaoke-stage--sheet-medium .karaoke-line--next,
+.karaoke-stage--sheet-medium .karaoke-line--previous {
+  font-size: clamp(1.05rem, 1.98vw, 1.85rem);
+}
+
+.karaoke-stage--sheet-dense .karaoke-line--current {
+  font-size: clamp(1.14rem, 2.15vw, 2.2rem);
+}
+
+.karaoke-stage--sheet-dense .karaoke-line--next,
+.karaoke-stage--sheet-dense .karaoke-line--previous {
+  font-size: clamp(0.96rem, 1.7vw, 1.52rem);
+}
+
+.karaoke-stage--sheet-ultra .karaoke-line--current {
+  font-size: clamp(0.97rem, 1.78vw, 1.72rem);
+}
+
+.karaoke-stage--sheet-ultra .karaoke-line--next,
+.karaoke-stage--sheet-ultra .karaoke-line--previous {
+  font-size: clamp(0.84rem, 1.46vw, 1.3rem);
 }
 
 .karaoke-stage--audience .karaoke-stage__inner {
@@ -143,6 +211,17 @@
 .karaoke-stage__line-progress::-moz-progress-bar {
   background: linear-gradient(90deg, #4bd7ff 0%, #7df7e9 100%);
   border-radius: 999px;
+}
+
+@keyframes karaoke-current-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.78;
+  }
 }
 
 @media (max-width: 640px) {
