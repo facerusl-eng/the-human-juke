@@ -18,6 +18,11 @@
   padding: clamp(0.5rem, 1.6vw, 1.2rem);
 }
 
+.live-lyrics-shell--stage {
+  gap: 0;
+  padding: 0;
+}
+
 .live-lyrics-shell--board {
   max-width: none;
   padding: 0;
@@ -91,6 +96,10 @@
 
 .live-lyrics-stage {
   height: calc(100vh - 132px);
+}
+
+.live-lyrics-stage--stage {
+  height: 100vh;
 }
 
 @media (max-width: 900px) {

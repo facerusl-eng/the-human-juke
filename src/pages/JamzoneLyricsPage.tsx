@@ -70,6 +70,7 @@ export default function JamzoneLyricsPage() {
   const location = useLocation()
   const { profile } = useAuthStore()
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(false)
+  const [performerModeEnabled, setPerformerModeEnabled] = useState(false)
   const [hasJamzoneBridge, setHasJamzoneBridge] = useState(false)
   const [bridgeSong, setBridgeSong] = useState<JamzoneSong | null>(null)
   const [remoteSong, setRemoteSong] = useState<JamzoneSong | null>(null)
@@ -147,11 +148,21 @@ export default function JamzoneLyricsPage() {
     return `/lyrics-board?event=${encodeURIComponent(syncEventId)}`
   }, [syncEventId])
 
+  const stageModeFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    const stageValue = (params.get('stage') ?? '').trim().toLowerCase()
+    return stageValue === '1' || stageValue === 'true' || stageValue === 'yes'
+  }, [location.search])
+
   const showDiagnostics = useMemo(() => {
     const params = new URLSearchParams(location.search)
     const debugValue = (params.get('debug') ?? params.get('diagnostics') ?? '').trim().toLowerCase()
     return debugValue === '1' || debugValue === 'true' || debugValue === 'yes'
   }, [location.search])
+
+  useEffect(() => {
+    setPerformerModeEnabled(stageModeFromUrl)
+  }, [stageModeFromUrl])
 
   useEffect(() => {
     const updateFromBridge = () => {
@@ -170,17 +181,20 @@ export default function JamzoneLyricsPage() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Enter' || event.repeat) {
-        return
-      }
-
       const target = event.target as HTMLElement | null
       const tagName = target?.tagName?.toUpperCase()
       if (target?.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
         return
       }
 
-      setAutoScrollEnabled((value) => !value)
+      if (event.key === 'Enter' && !event.repeat) {
+        setAutoScrollEnabled((value) => !value)
+        return
+      }
+
+      if ((event.key === 'f' || event.key === 'F') && !event.repeat) {
+        setPerformerModeEnabled((value) => !value)
+      }
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -383,7 +397,8 @@ export default function JamzoneLyricsPage() {
 
   return (
     <main className="live-lyrics-page live-lyrics-page--jamzone">
-      <section className="live-lyrics-shell">
+      <section className={`live-lyrics-shell${performerModeEnabled ? ' live-lyrics-shell--stage' : ''}`}>
+        {!performerModeEnabled ? (
         <header className="live-lyrics-header live-lyrics-header--compact">
           {activeSong ? <p className="live-lyrics-status">Now playing: {activeSong.artist} - {activeSong.title}</p> : null}
           {!activeSong ? <p className="live-lyrics-status">Waiting for song metadata from the active clock source...</p> : null}
@@ -391,6 +406,7 @@ export default function JamzoneLyricsPage() {
             Auto scroll: {autoScrollEnabled ? 'on' : 'off'}{songDurationSeconds ? `, song length ${songDurationSeconds.toFixed(1)}s` : ''}
           </p>
           <p className="live-lyrics-note">Press Enter to toggle auto scroll.</p>
+          <p className="live-lyrics-note">Press F for ultra stage mode.</p>
           <p className="live-lyrics-link-row">
             Fullscreen board: <a className="live-lyrics-link" href={boardHref} target="_blank" rel="noreferrer">open lyrics board</a>
           </p>
@@ -421,8 +437,9 @@ export default function JamzoneLyricsPage() {
             </details>
           ) : null}
         </header>
+        ) : null}
 
-        <section className="live-lyrics-stage">
+        <section className={`live-lyrics-stage${performerModeEnabled ? ' live-lyrics-stage--stage' : ''}`}>
           <KaraokeLyrics
             mode="main"
             current={displayWindow.current}
@@ -439,8 +456,8 @@ export default function JamzoneLyricsPage() {
           />
         </section>
 
-        {isLoading ? <p className="live-lyrics-loading">Loading LRC file...</p> : null}
-        {loadError ? <p className="live-lyrics-warning-text">Lyric file missing, fallback mode active: {loadError}</p> : null}
+        {!performerModeEnabled && isLoading ? <p className="live-lyrics-loading">Loading LRC file...</p> : null}
+        {!performerModeEnabled && loadError ? <p className="live-lyrics-warning-text">Lyric file missing, fallback mode active: {loadError}</p> : null}
       </section>
     </main>
   )
