@@ -3290,13 +3290,13 @@
 
 .mirror-queue-stage-overlay {
   position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  top: clamp(0.8rem, 2vw, 1.4rem);
+  left: clamp(0.8rem, 2vw, 1.4rem);
+  right: auto;
+  bottom: auto;
+  z-index: 190;
+  width: min(460px, 92vw);
   pointer-events: none;
-  background: rgba(4, 10, 26, 0.58);
   animation: mirror-stage-bg 2.2s ease forwards;
 }
 
@@ -3304,11 +3304,11 @@
   background: rgba(4, 10, 26, 0.97);
   border: 2px solid rgba(93, 215, 255, 0.5);
   border-radius: 20px;
-  padding: 1.4rem 1.8rem;
-  min-width: min(560px, 84vw);
-  max-width: min(700px, 92vw);
-  max-height: 75vh;
-  overflow: hidden;
+  padding: 1rem 1.1rem;
+  width: 100%;
+  max-height: min(74vh, 680px);
+  overflow-y: auto;
+  overflow-x: hidden;
   box-shadow:
     0 0 0 4px rgba(93, 215, 255, 0.1),
     0 0 60px rgba(93, 215, 255, 0.22),
@@ -3578,6 +3578,17 @@
 }
 
 @media (max-width: 900px) {
+  .mirror-queue-stage-overlay {
+    top: 0.55rem;
+    left: 0.55rem;
+    width: min(420px, calc(100vw - 1.1rem));
+  }
+
+  .mirror-queue-stage-panel {
+    max-height: min(68vh, 560px);
+    padding: 0.86rem 0.92rem;
+  }
+
   .mirror-top-voted-overlay {
     top: 0.55rem;
     right: 0.55rem;
