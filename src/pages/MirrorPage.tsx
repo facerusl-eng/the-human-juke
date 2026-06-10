@@ -2285,7 +2285,7 @@ function MirrorPageContent() {
     }
 
     return {
-      songId: activeSong.id,
+      songId: activeSong.library_song_id ?? activeSong.id,
       title: activeSong.title,
       artist: activeSong.artist,
       createdByName: activeSong.createdByName ?? null,
@@ -4519,14 +4519,25 @@ function MirrorPageContent() {
   const allowLyricTakeoverView = mirrorLyricsQueryValue !== '0' && mirrorLyricsQueryValue !== 'false' && mirrorLyricsQueryValue !== 'off'
 
   const sharedLyricSong = sharedLyricState.song
+  const normalizeLyricIdentity = (value: string | null | undefined) => (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+  const activeSongQueueId = normalizeLyricIdentity(activeSong?.id)
+  const activeSongLibraryId = normalizeLyricIdentity(activeSong?.library_song_id)
+  const sharedLyricSongId = normalizeLyricIdentity(sharedLyricSong?.id)
+  const sharedTitle = normalizeLyricIdentity(sharedLyricSong?.title)
+  const sharedArtist = normalizeLyricIdentity(sharedLyricSong?.artist)
+  const activeTitle = normalizeLyricIdentity(activeSong?.title)
+  const activeArtist = normalizeLyricIdentity(activeSong?.artist)
   const isSharedLyricSongMatchingActiveSong = Boolean(
     activeSong
     && sharedLyricSong
     && (
-      sharedLyricSong.id === activeSong.id
+      (activeSongLibraryId.length > 0 && sharedLyricSongId.length > 0 && sharedLyricSongId === activeSongLibraryId)
+      || (sharedLyricSongId.length > 0 && sharedLyricSongId === activeSongQueueId)
       || (
-        sharedLyricSong.title.trim().toLowerCase() === activeSong.title.trim().toLowerCase()
-        && sharedLyricSong.artist.trim().toLowerCase() === activeSong.artist.trim().toLowerCase()
+        sharedTitle.length > 0
+        && sharedArtist.length > 0
+        && sharedTitle === activeTitle
+        && sharedArtist === activeArtist
       )
     ),
   )
