@@ -12,6 +12,7 @@ import './liveLyricsPages.css'
 const LOCAL_LYRIC_SYNC_CHANNEL = 'human-jukebox-live-lyrics'
 const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
 const JAMZONE_REMOTE_CHANNEL_PREFIX = 'jamzone-bridge'
+const STAGE_MODE_STORAGE_KEY = 'human-jukebox:lyrics-stage-mode'
 
 function buildSongIdFallback(title: string, artist: string) {
   return `clock:${artist.toLowerCase().replace(/\s+/g, '-')}::${title.toLowerCase().replace(/\s+/g, '-')}`
@@ -73,6 +74,7 @@ export default function LyricsBoardPage() {
   const location = useLocation()
   const { profile } = useAuthStore()
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(false)
+  const [performerModeEnabled, setPerformerModeEnabled] = useState(false)
   const [windowState, setWindowState] = useState<LyricWindow>(emptyWindow)
   const [remoteSong, setRemoteSong] = useState<JamzoneSong | null>(null)
   const [remoteBridgeConnected, setRemoteBridgeConnected] = useState(false)
@@ -109,6 +111,45 @@ export default function LyricsBoardPage() {
     const profileEvent = profile?.active_event_id
     return profileEvent && profileEvent.trim().length > 0 ? profileEvent : null
   }, [location.search, profile?.active_event_id])
+
+  const stageModeFromUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    const stageValue = (params.get('stage') ?? '').trim().toLowerCase()
+    return stageValue === '1' || stageValue === 'true' || stageValue === 'yes'
+  }, [location.search])
+
+  useEffect(() => {
+    if (stageModeFromUrl) {
+      setPerformerModeEnabled(true)
+      return
+    }
+
+    const storedValue = window.localStorage.getItem(STAGE_MODE_STORAGE_KEY)
+    if (!storedValue) {
+      return
+    }
+
+    setPerformerModeEnabled(storedValue === '1')
+  }, [stageModeFromUrl])
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STAGE_MODE_STORAGE_KEY || event.newValue === null) {
+        return
+      }
+
+      setPerformerModeEnabled(event.newValue === '1')
+    }
+
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem(STAGE_MODE_STORAGE_KEY, performerModeEnabled ? '1' : '0')
+  }, [performerModeEnabled])
 
   const remoteChannelName = useMemo(() => {
     if (!syncEventId) {
@@ -170,17 +211,20 @@ export default function LyricsBoardPage() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Enter' || event.repeat) {
-        return
-      }
-
       const target = event.target as HTMLElement | null
       const tagName = target?.tagName?.toUpperCase()
       if (target?.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
         return
       }
 
-      setAutoScrollEnabled((value) => !value)
+      if (event.key === 'Enter' && !event.repeat) {
+        setAutoScrollEnabled((value) => !value)
+        return
+      }
+
+      if ((event.key === 'f' || event.key === 'F') && !event.repeat) {
+        setPerformerModeEnabled((value) => !value)
+      }
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -280,24 +324,24 @@ export default function LyricsBoardPage() {
 
   return (
     <main className="live-lyrics-page live-lyrics-page--board">
-      {syncEventId && !useDurableClock && !remoteBridgeConnected ? (
+      {!performerModeEnabled && syncEventId && !useDurableClock && !remoteBridgeConnected ? (
         <p className="live-lyrics-status live-lyrics-status--pad-lg">
           Waiting for legacy iPad bridge fallback on event {syncEventId}...
         </p>
       ) : null}
-      {syncEventId && useDurableClock ? (
+      {!performerModeEnabled && syncEventId && useDurableClock ? (
         <p className="live-lyrics-status live-lyrics-status--pad-lg">
           Durable clock active ({durableClockStatus}{durableClockConnected ? ', connected' : ''})
         </p>
       ) : null}
-      {syncEventId && remoteLyricLoadError ? (
+      {!performerModeEnabled && syncEventId && remoteLyricLoadError ? (
         <p className="live-lyrics-warning-text live-lyrics-status--pad-sm">
           LRC file missing for current song. Showing live fallback.
         </p>
       ) : null}
-      <p className="live-lyrics-status live-lyrics-status--pad-sm">
+      {!performerModeEnabled ? <p className="live-lyrics-status live-lyrics-status--pad-sm">
         Auto scroll: {autoScrollEnabled ? 'on' : 'off'}{songDurationSeconds ? `, song length ${songDurationSeconds.toFixed(1)}s` : ''}. Press Enter to toggle.
-      </p>
+      </p> : null}
       <KaraokeLyrics
         mode="board"
         current={activeWindow.current}

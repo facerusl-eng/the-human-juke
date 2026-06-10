@@ -16,6 +16,7 @@ import './liveLyricsPages.css'
 
 const JAMZONE_REMOTE_EVENT = 'jamzone-snapshot'
 const JAMZONE_REMOTE_CHANNEL_PREFIX = 'jamzone-bridge'
+const STAGE_MODE_STORAGE_KEY = 'human-jukebox:lyrics-stage-mode'
 
 const LOCAL_LYRIC_SYNC_CHANNEL = 'human-jukebox-live-lyrics'
 
@@ -140,14 +141,6 @@ export default function JamzoneLyricsPage() {
     }
   }, [durableClockSnapshot])
 
-  const boardHref = useMemo(() => {
-    if (!syncEventId) {
-      return '/lyrics-board'
-    }
-
-    return `/lyrics-board?event=${encodeURIComponent(syncEventId)}`
-  }, [syncEventId])
-
   const stageModeFromUrl = useMemo(() => {
     const params = new URLSearchParams(location.search)
     const stageValue = (params.get('stage') ?? '').trim().toLowerCase()
@@ -161,8 +154,22 @@ export default function JamzoneLyricsPage() {
   }, [location.search])
 
   useEffect(() => {
-    setPerformerModeEnabled(stageModeFromUrl)
+    if (stageModeFromUrl) {
+      setPerformerModeEnabled(true)
+      return
+    }
+
+    const storedValue = window.localStorage.getItem(STAGE_MODE_STORAGE_KEY)
+    if (!storedValue) {
+      return
+    }
+
+    setPerformerModeEnabled(storedValue === '1')
   }, [stageModeFromUrl])
+
+  useEffect(() => {
+    window.localStorage.setItem(STAGE_MODE_STORAGE_KEY, performerModeEnabled ? '1' : '0')
+  }, [performerModeEnabled])
 
   useEffect(() => {
     const updateFromBridge = () => {
@@ -314,6 +321,26 @@ export default function JamzoneLyricsPage() {
   const activeSong = sourceSong && !isPlaceholderSong(sourceSong)
     ? sourceSong
     : urlSong
+  const boardHref = useMemo(() => {
+    const params = new URLSearchParams()
+
+    if (syncEventId) {
+      params.set('event', syncEventId)
+    }
+
+    if (activeSong?.title && activeSong.artist) {
+      params.set('title', activeSong.title)
+      params.set('artist', activeSong.artist)
+      params.set('songId', activeSong.id)
+    }
+
+    if (performerModeEnabled) {
+      params.set('stage', '1')
+    }
+
+    const query = params.toString()
+    return query ? `/lyrics-board?${query}` : '/lyrics-board'
+  }, [activeSong, performerModeEnabled, syncEventId])
   const bridgeStatusLabel = hasJamzoneBridge
     ? 'detected'
     : (useRemoteSnapshot ? 'not detected (using iPad remote source)' : 'not detected')
