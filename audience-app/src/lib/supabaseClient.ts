@@ -1,6 +1,6 @@
 import { createSharedSupabaseClient } from '../../../shared/supabase/supabaseClient'
 
-export const SUPABASE_AUTH_STORAGE_KEY = 'human-jukebox-audience-auth-token'
+export const SUPABASE_AUTH_STORAGE_KEY = 'human-jukebox-org-auth-token'
 
 const { supabase, storage } = createSharedSupabaseClient({
   env: import.meta.env,
