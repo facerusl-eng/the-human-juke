@@ -1872,7 +1872,7 @@ function MirrorPageContent() {
     ? getChosenByAccentClass(activeSong.id)
     : CHOSEN_BY_ACCENT_CLASSES[0]
   const activeSongPickerName = activeSong?.createdByName?.trim() || (isHostPick(activeSong) ? 'The Host' : 'the crowd')
-  const nowPlayingComingUpSong = upNext[0] ?? null
+  const nowPlayingComingUpSong = upNext[1] ?? upNext[0] ?? null
   const nowPlayingTitleText = normalizeMirrorText(activeSong?.title, 'Waiting for requests')
   const nowPlayingPickedByText = activeSongChosenByLine ?? `Picked by ${activeSongPickerName} - the room is smiling already.`
   const nowPlayingComingUpText = nowPlayingComingUpSong
