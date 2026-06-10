@@ -4508,7 +4508,20 @@ function MirrorPageContent() {
     )
   }
 
-  if (sharedLyricState.showOnMirror && sharedLyricState.activeView === 'lyric') {
+  const allowLyricTakeoverView = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('mirrorLyrics') === '1'
+
+  const shouldShowSharedLyricMirrorView = Boolean(
+    allowLyricTakeoverView
+    &&
+    sharedLyricState.showOnMirror
+    && sharedLyricState.activeView === 'lyric'
+    && isNowPlayingStarted
+    && isAudienceKaraokeActive
+    && activeSong,
+  )
+
+  if (shouldShowSharedLyricMirrorView) {
     return (
       <MirrorScreenLyricView
         state={sharedLyricState}
