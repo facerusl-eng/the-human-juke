@@ -2081,10 +2081,8 @@ function MirrorPageContent() {
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
     : Boolean(playbackState?.isStarted && playbackState.currentSongId)
-  const isAudienceKaraokeActive = Boolean(
-    activeSong
-      && ((isNowPlayingStarted && activeSong.audience_sings) || forceLyricsMode),
-  )
+  // Mirror lyrics are operator-controlled only; never auto-enable from song metadata.
+  const isAudienceKaraokeActive = Boolean(activeSong && forceLyricsMode)
   const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)
   const isQuoteModeActive = (demoMode && forceQuoteMode) || isBetweenSongs || !activeSong
   const isGoLiveWelcomeActive = goLiveWelcomeUntilMs !== null && countdownNow < goLiveWelcomeUntilMs
