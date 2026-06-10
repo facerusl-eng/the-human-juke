@@ -545,8 +545,6 @@ function MirrorLayoutEditorPage() {
       }
 
       const deltaX = ((pointerEvent.clientX - interaction.startX) / interaction.shellWidth) * 100
-          createdByName: activeSong.createdByName ?? null,
-          audience_sings: activeSong.audience_sings ?? null,
       const deltaY = ((pointerEvent.clientY - interaction.startY) / interaction.shellHeight) * 100
 
       setLayoutState((currentState) => {

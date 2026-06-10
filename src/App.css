@@ -4767,6 +4767,11 @@ body.audience-immersive-mode {
   gap: 0.62rem;
 }
 
+.require-host-forgot-button {
+  margin-bottom: 8px;
+  text-align: left;
+}
+
 .admin-mobile-inline-actions {
   margin-top: 0.75rem;
 }

@@ -218,8 +218,7 @@ function RequireHost({ children }: PropsWithChildren) {
           </div>
           <button
             type="button"
-            className="ghost-button"
-            style={{ marginBottom: 8, textAlign: 'left' }}
+            className="ghost-button require-host-forgot-button"
             onClick={() => setShowForgot(true)}
             disabled={isSigningIn}
           >

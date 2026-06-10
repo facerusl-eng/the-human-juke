@@ -37,7 +37,6 @@
   display: grid;
   align-content: center;
   gap: clamp(14px, 2.4vh, 28px);
-  scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
@@ -69,7 +68,6 @@
   color: var(--karaoke-current);
   font-size: clamp(2.2rem, 7.2vw, 8.8rem);
   font-weight: 700;
-  text-wrap: balance;
   filter: drop-shadow(0 0 8px rgba(var(--karaoke-glow), 0.7));
 }
 
