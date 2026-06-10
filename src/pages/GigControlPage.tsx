@@ -3270,7 +3270,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   /**
    * GLOBAL MODE SWITCH: QUOTE ↔ NOW PLAYING
    * One call = instant state flip broadcast to all clients.
-   * Spotify follows: NOW PLAYING → pause, QUOTE → play.
+    * Spotify follows: NOW PLAYING → pause, QUOTE → pause.
    * No countdown, no transition lock, no queue advancement.
    */
   const runGlobalToggleQuoteNowPlaying = useCallback(async () => {
@@ -3346,7 +3346,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         });
 
         await registerBackgroundSync(BACKGROUND_SYNC_TAG);
-        sendSpotifyTransportCommand('play', { force: true });
+        sendSpotifyTransportCommand('pause', { force: true });
         setErrorText(null);
       } catch (error) {
         // Roll back local state on failure
