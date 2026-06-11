@@ -181,6 +181,8 @@ function buildVariants(song: string, artist: string) {
     "husid og eg:::sssol": [{ title: 'Husid Og Eg', artist: 'Sssol' }],
     "komdu i parti:::mannakorn": [{ title: 'Komdu I parti', artist: 'Mannakorn' }],
     "manst ekki eftir mer:::studmenn": [{ title: 'Manst ekki eftir mer', artist: 'Studmenn' }],
+    "my way:::frank sinatra": [{ title: 'My Way', artist: 'Frank Sinatra' }, { title: 'My Way', artist: '' }],
+    "my way live:::frank sinatra": [{ title: 'My Way', artist: 'Frank Sinatra' }, { title: 'My Way', artist: '' }],
     "reyndu aftur:::mannakorn": [{ title: 'Reyndu aftur', artist: 'Mannakorn' }],
     "taetum og tryllum:::studmenn": [{ title: 'Taetum og tryllum', artist: 'Studmenn' }],
     "vegbui:::kk": [{ title: 'Vegbui', artist: 'KK' }],
