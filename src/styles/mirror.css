@@ -3356,6 +3356,15 @@
   animation: mirror-rank-jump-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.38s both;
 }
 
+.mirror-queue-stage-offset-1 { --rank-entry-offset: 84px; }
+.mirror-queue-stage-offset-2 { --rank-entry-offset: 168px; }
+.mirror-queue-stage-offset-3 { --rank-entry-offset: 252px; }
+.mirror-queue-stage-offset-4 { --rank-entry-offset: 336px; }
+.mirror-queue-stage-offset-5 { --rank-entry-offset: 420px; }
+.mirror-queue-stage-offset-6 { --rank-entry-offset: 504px; }
+.mirror-queue-stage-offset-7 { --rank-entry-offset: 588px; }
+.mirror-queue-stage-offset-8 { --rank-entry-offset: 672px; }
+
 .mirror-queue-stage-pos {
   font-size: clamp(0.85rem, 1.5vw, 1.1rem);
   font-weight: 900;

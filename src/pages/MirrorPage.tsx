@@ -5270,11 +5270,11 @@ function MirrorPageContent() {
               {upNext.slice(0, 8).map((song, index) => {
                 const change = queueRankChanges.find((c) => c.songId === song.id)
                 const delta = change?.delta ?? 0
+                const deltaOffsetClass = delta > 0 ? ` mirror-queue-stage-offset-${Math.min(delta, 8)}` : ''
                 return (
                   <li
                     key={song.id}
-                    className={`mirror-queue-stage-item${delta > 0 ? ' mirror-queue-stage-item-up' : ''}`}
-                    style={delta !== 0 ? ({ '--rank-entry-offset': `${delta * 84}px` } as React.CSSProperties) : undefined}
+                    className={`mirror-queue-stage-item${delta > 0 ? ' mirror-queue-stage-item-up' : ''}${deltaOffsetClass}`}
                   >
                     <span className="mirror-queue-stage-pos">#{index + 1}</span>
                     {delta > 0 ? <span className="mirror-queue-stage-badge">▲{delta}</span> : <span className="mirror-queue-stage-badge-spacer" />}
