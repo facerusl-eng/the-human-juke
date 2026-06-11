@@ -10,7 +10,9 @@ const SECTION_LABEL_RE = /^(verse|chorus|pre-chorus|bridge|hook|refrain|intro|ou
 const SECTION_GAP_SECONDS = 12
 const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
 const STATUS_KEY = 'lyrics_prefetch_status_v1'
-const LRC_MISS_CACHE_TTL_MS = 15 * 60 * 1000
+const LRC_MISS_CACHE_TTL_MS = 5 * 60 * 1000
+const ONLINE_LYRICS_FETCH_TIMEOUT_MS = 12_000
+const ONLINE_LYRICS_MAX_ATTEMPTS = 3
 const MAX_BLOCK_LINES = 2
 const MAX_BLOCK_CHARS = 110
 const lrcMissCache = new Map<string, number>()
@@ -284,14 +286,27 @@ function buildSongQueryVariants(song: LyricSongRef) {
     .replace(/\s+/g, ' ')
     .trim()
 
+  const splitPrimary = (value: string) => normalizeQueryValue(value)
+    .split(/\s\/\s|\s-\s|\s\|\s|\//)[0]
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const normalizeNoPunctuation = (value: string) => normalizeQueryValue(value)
+    .replace(/[.,!?:;]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
   const titleCandidates = [
     normalizeQueryValue(song.title),
     stripTitle(song.title),
+    splitPrimary(stripTitle(song.title)),
+    normalizeNoPunctuation(stripTitle(song.title)),
   ].filter(Boolean)
 
   const artistCandidates = [
     normalizeQueryValue(song.artist),
     stripArtist(song.artist),
+    splitPrimary(stripArtist(song.artist)),
   ].filter(Boolean)
 
   if (artistCandidates.length === 0) {
@@ -314,6 +329,16 @@ function buildSongQueryVariants(song: LyricSongRef) {
   }
 
   return [...unique.values()]
+}
+
+function isRetryableLyricsStatus(statusCode: number) {
+  return statusCode === 408 || statusCode === 425 || statusCode === 429 || statusCode >= 500
+}
+
+async function waitFor(ms: number) {
+  await new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
 }
 
 function writeLyricsCache(song: LyricSongRef, lyrics: string) {
@@ -354,12 +379,12 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
   const variants = buildSongQueryVariants(song)
 
   for (const variant of variants) {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt < ONLINE_LYRICS_MAX_ATTEMPTS; attempt += 1) {
       try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => {
           controller.abort()
-        }, 9000)
+        }, ONLINE_LYRICS_FETCH_TIMEOUT_MS)
 
         const response = await fetch(
           `/api/lyrics-genius?song=${encodeURIComponent(variant.title)}&artist=${encodeURIComponent(variant.artist)}`,
@@ -368,6 +393,11 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
         clearTimeout(timeoutId)
 
         if (!response.ok) {
+          if (isRetryableLyricsStatus(response.status) && attempt < ONLINE_LYRICS_MAX_ATTEMPTS - 1) {
+            await waitFor(220 * (attempt + 1))
+            continue
+          }
+
           break
         }
 
@@ -390,7 +420,10 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
 
         break
       } catch {
-        // Retry once before falling back to the next query variant.
+        if (attempt < ONLINE_LYRICS_MAX_ATTEMPTS - 1) {
+          await waitFor(220 * (attempt + 1))
+          continue
+        }
       }
     }
   }
@@ -416,6 +449,14 @@ function readAutoCachedLyrics(song: LyricSongRef) {
       `song:${song.id.trim().toLowerCase()}`,
       `${normalizedTitle}::${normalizedArtist}`,
     ]
+
+    for (const variant of buildSongQueryVariants(song)) {
+      const variantTitle = variant.title.trim().toLowerCase()
+      const variantArtist = variant.artist.trim().toLowerCase()
+      if (variantTitle) {
+        songKeys.push(`${variantTitle}::${variantArtist}`)
+      }
+    }
 
     for (const songKey of songKeys) {
       const hit = parsedCache[songKey]
