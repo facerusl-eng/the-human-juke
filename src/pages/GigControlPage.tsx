@@ -957,18 +957,32 @@ function GigControlPage() {
     }
 
     if (document.fullscreenElement) {
+      releaseFullscreenFocus()
       return
     }
 
-    const timerId = window.setTimeout(() => {
+    let hasAttemptedFullscreen = false
+
+    const requestFullscreenFromUserGesture = () => {
+      if (hasAttemptedFullscreen || document.fullscreenElement) {
+        return
+      }
+
+      hasAttemptedFullscreen = true
+
       void document.documentElement.requestFullscreen()
         .then(() => {
           releaseFullscreenFocus()
         })
         .catch(() => {
-          // Ignore blocked auto-fullscreen attempts in focus mode.
+          // Browser can still deny fullscreen even with gesture context.
         })
-    }, 120)
+        .finally(() => {
+          document.removeEventListener('pointerdown', requestFullscreenFromUserGesture, true)
+          document.removeEventListener('keydown', requestFullscreenFromUserGesture, true)
+          document.removeEventListener('touchstart', requestFullscreenFromUserGesture, true)
+        })
+    }
 
     const onFullscreenChange = () => {
       if (document.fullscreenElement) {
@@ -976,10 +990,15 @@ function GigControlPage() {
       }
     }
 
+    document.addEventListener('pointerdown', requestFullscreenFromUserGesture, true)
+    document.addEventListener('keydown', requestFullscreenFromUserGesture, true)
+    document.addEventListener('touchstart', requestFullscreenFromUserGesture, true)
     document.addEventListener('fullscreenchange', onFullscreenChange, true)
 
     return () => {
-      window.clearTimeout(timerId)
+      document.removeEventListener('pointerdown', requestFullscreenFromUserGesture, true)
+      document.removeEventListener('keydown', requestFullscreenFromUserGesture, true)
+      document.removeEventListener('touchstart', requestFullscreenFromUserGesture, true)
       document.removeEventListener('fullscreenchange', onFullscreenChange, true)
     }
   }, [isFocusedGigControlWindow, releaseFullscreenFocus, shouldAutoEnterFullscreenInFocusWindow])
