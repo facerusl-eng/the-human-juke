@@ -50,8 +50,116 @@ type GeniusLyricsResult = {
   score: number;
 };
 
+type ResolvedLyricsResponse = {
+  statusCode: 200;
+  body: {
+    lyrics: string;
+    source: ProviderName;
+    variant: VariantPair;
+    debug?: {
+      attemptedVariants: number;
+      attemptedProviders: number;
+      attempts: ProviderAttempt[];
+    };
+  };
+};
+
+type MissingLyricsResponse = {
+  statusCode: 404;
+  body: {
+    error: string;
+    debug?: {
+      attemptedVariants: number;
+      attemptedProviders: number;
+      env: {
+        hasGeniusToken: boolean;
+        hasMusixmatchKey: boolean;
+        hasAuddToken: boolean;
+      };
+      attempts: ProviderAttempt[];
+    };
+  };
+};
+
+type LyricsHandlerResult = ResolvedLyricsResponse | MissingLyricsResponse;
+
+type LyricsCacheEntry = {
+  expiresAt: number;
+  result: LyricsHandlerResult;
+};
+
+const LYRICS_FOUND_CACHE_TTL_MS = 12 * 60 * 1000;
+const LYRICS_NOT_FOUND_CACHE_TTL_MS = 2 * 60 * 1000;
+const lyricsResponseCache = new Map<string, LyricsCacheEntry>();
+const inFlightLyricsLookups = new Map<string, Promise<LyricsHandlerResult>>();
+
 function normalizeText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function cacheKeyForLyricsRequest(song: string, artist: string) {
+  return `${normalizeComparable(song)}::${normalizeComparable(artist)}`;
+}
+
+function cloneLyricsHandlerResult(result: LyricsHandlerResult): LyricsHandlerResult {
+  if (result.statusCode === 200) {
+    const debug = result.body.debug
+      ? {
+          attemptedVariants: result.body.debug.attemptedVariants,
+          attemptedProviders: result.body.debug.attemptedProviders,
+          attempts: [...result.body.debug.attempts],
+        }
+      : undefined;
+
+    return {
+      statusCode: 200,
+      body: {
+        lyrics: result.body.lyrics,
+        source: result.body.source,
+        variant: { ...result.body.variant },
+        ...(debug ? { debug } : {}),
+      },
+    };
+  }
+
+  const debug = result.body.debug
+    ? {
+        attemptedVariants: result.body.debug.attemptedVariants,
+        attemptedProviders: result.body.debug.attemptedProviders,
+        env: { ...result.body.debug.env },
+        attempts: [...result.body.debug.attempts],
+      }
+    : undefined;
+
+  return {
+    statusCode: 404,
+    body: {
+      error: result.body.error,
+      ...(debug ? { debug } : {}),
+    },
+  };
+}
+
+function readLyricsResponseCache(cacheKey: string): LyricsHandlerResult | null {
+  const cached = lyricsResponseCache.get(cacheKey);
+  if (!cached) {
+    return null;
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    lyricsResponseCache.delete(cacheKey);
+    return null;
+  }
+
+  return cloneLyricsHandlerResult(cached.result);
+}
+
+function writeLyricsResponseCache(cacheKey: string, result: LyricsHandlerResult) {
+  const ttlMs = result.statusCode === 200 ? LYRICS_FOUND_CACHE_TTL_MS : LYRICS_NOT_FOUND_CACHE_TTL_MS;
+  lyricsResponseCache.set(cacheKey, {
+    expiresAt: Date.now() + ttlMs,
+    result: cloneLyricsHandlerResult(result),
+  });
 }
 
 function normalizeQuotes(value: string) {
@@ -707,33 +815,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const artist = normalizeText(String(req.query.artist ?? ''));
   const debug = String(req.query.debug ?? '').toLowerCase();
   const includeDebug = debug === '1' || debug === 'true' || debug === 'yes';
-  const attempts: ProviderAttempt[] = [];
 
   if (!song) {
     res.status(400).json({ error: 'Missing song' });
     return;
   }
 
-  const variants = buildVariants(song, artist);
-  const bestCandidateRef: { current: LyricsCandidate | null } = { current: null };
+  const cacheKey = cacheKeyForLyricsRequest(song, artist);
 
-  for (const variant of variants) {
-    const markAttempt = (provider: ProviderName, ok: boolean, reason?: string) => {
-      if (!includeDebug) {
-        return;
-      }
+  if (!includeDebug) {
+    const cachedResult = readLyricsResponseCache(cacheKey);
+    if (cachedResult) {
+      res.status(cachedResult.statusCode).json(cachedResult.body);
+      return;
+    }
+  }
 
-      attempts.push({
-        variant,
-        provider,
-        ok,
-        reason,
-      });
-    };
+  const resolveLyrics = async (): Promise<LyricsHandlerResult> => {
+    const attempts: ProviderAttempt[] = [];
+    const variants = buildVariants(song, artist);
+    const bestCandidateRef: { current: LyricsCandidate | null } = { current: null };
 
-    const registerCandidate = (lyrics: string, source: ProviderName, confidenceScore: number) => {
-      const titleOverlap = calculateTokenOverlapScore(song, variant.title);
-      const artistOverlap = artist ? calculateTokenOverlapScore(artist, variant.artist) : 1;
+    for (const variant of variants) {
+      const markAttempt = (provider: ProviderName, ok: boolean, reason?: string) => {
+        if (!includeDebug) {
+          return;
+        }
+
+        attempts.push({
+          variant,
+          provider,
+          ok,
+          reason,
+        });
+      };
+
+      const registerCandidate = (lyrics: string, source: ProviderName, confidenceScore: number) => {
+        const titleOverlap = calculateTokenOverlapScore(song, variant.title);
+        const artistOverlap = artist ? calculateTokenOverlapScore(artist, variant.artist) : 1;
 
       // Reject weak title/artist matches early to prevent wrong-song lyric snaps.
       if (titleOverlap < 0.5) {
@@ -767,104 +886,134 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       return false;
-    };
+      };
 
-    const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
-    if (musixmatchLyrics) {
-      markAttempt('musixmatch', true);
-      if (registerCandidate(musixmatchLyrics, 'musixmatch', 8)) {
-        break;
+      const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
+      if (musixmatchLyrics) {
+        markAttempt('musixmatch', true);
+        if (registerCandidate(musixmatchLyrics, 'musixmatch', 8)) {
+          break;
+        }
+      } else {
+        markAttempt('musixmatch', false, 'No lyrics returned');
       }
-    } else {
-      markAttempt('musixmatch', false, 'No lyrics returned');
-    }
 
-    const geniusMatch = await findLyrics(variant.title, variant.artist);
-    if (geniusMatch?.lyrics) {
+      const geniusMatch = await findLyrics(variant.title, variant.artist);
+      if (geniusMatch?.lyrics) {
         markAttempt('genius', true);
         if (registerCandidate(geniusMatch.lyrics, 'genius', 12)) {
           break;
         }
-    } else {
-      markAttempt('genius', false, 'No high-confidence Genius match found');
-    }
-
-    const lrcLibLyrics = await fetchLrcLibLyrics(variant.title, variant.artist);
-    if (lrcLibLyrics) {
-      markAttempt('lrclib', true);
-      if (registerCandidate(lrcLibLyrics, 'lrclib', 10)) {
-        break;
+      } else {
+        markAttempt('genius', false, 'No high-confidence Genius match found');
       }
-    } else {
-      markAttempt('lrclib', false, 'No lyrics returned');
-    }
 
-    const auddLyrics = await fetchAudDLyrics(variant.title, variant.artist);
-    if (auddLyrics) {
-      markAttempt('audd', true);
-      if (registerCandidate(auddLyrics, 'audd', 7)) {
-        break;
-      }
-    } else {
-      markAttempt('audd', false, 'No lyrics returned');
-    }
-
-    const chartLyrics = await fetchChartLyrics(variant.title, variant.artist);
-    if (chartLyrics) {
-      markAttempt('chartlyrics', true);
-      if (registerCandidate(chartLyrics, 'chartlyrics', 5)) {
-        break;
-      }
-    } else {
-      markAttempt('chartlyrics', false, 'No lyrics returned');
-    }
-
-    const lyricsOvh = await fetchLyricsOvh(variant.title, variant.artist);
-    if (lyricsOvh) {
-      markAttempt('lyrics.ovh', true);
-      if (registerCandidate(lyricsOvh, 'lyrics.ovh', 3)) {
-        break;
-      }
-    } else {
-      markAttempt('lyrics.ovh', false, 'No lyrics returned');
-    }
-  }
-
-  const resolvedBestCandidate = bestCandidateRef.current;
-
-  if (resolvedBestCandidate) {
-    res.status(200).json({
-      lyrics: resolvedBestCandidate.lyrics,
-      source: resolvedBestCandidate.source,
-      variant: resolvedBestCandidate.variant,
-      ...(includeDebug
-        ? {
-            debug: {
-              attemptedVariants: variants.length,
-              attemptedProviders: attempts.length,
-              attempts,
-            },
-          }
-        : {}),
-    });
-    return;
-  }
-
-  res.status(404).json({
-    error: 'Lyrics not found in any source',
-    ...(includeDebug
-      ? {
-          debug: {
-            attemptedVariants: variants.length,
-            attemptedProviders: attempts.length,
-            env: {
-              hasGeniusToken: Boolean(GENIUS_ACCESS_TOKEN),
-              hasMusixmatchKey: Boolean(process.env.MUSIXMATCH_API_KEY),
-              hasAuddToken: Boolean(process.env.AUDD_API_TOKEN),
-            },
-            attempts,
-          },
+      const lrcLibLyrics = await fetchLrcLibLyrics(variant.title, variant.artist);
+      if (lrcLibLyrics) {
+        markAttempt('lrclib', true);
+        if (registerCandidate(lrcLibLyrics, 'lrclib', 10)) {
+          break;
         }
-      : {}),
-  });
+      } else {
+        markAttempt('lrclib', false, 'No lyrics returned');
+      }
+
+      const auddLyrics = await fetchAudDLyrics(variant.title, variant.artist);
+      if (auddLyrics) {
+        markAttempt('audd', true);
+        if (registerCandidate(auddLyrics, 'audd', 7)) {
+          break;
+        }
+      } else {
+        markAttempt('audd', false, 'No lyrics returned');
+      }
+
+      const chartLyrics = await fetchChartLyrics(variant.title, variant.artist);
+      if (chartLyrics) {
+        markAttempt('chartlyrics', true);
+        if (registerCandidate(chartLyrics, 'chartlyrics', 5)) {
+          break;
+        }
+      } else {
+        markAttempt('chartlyrics', false, 'No lyrics returned');
+      }
+
+      const lyricsOvh = await fetchLyricsOvh(variant.title, variant.artist);
+      if (lyricsOvh) {
+        markAttempt('lyrics.ovh', true);
+        if (registerCandidate(lyricsOvh, 'lyrics.ovh', 3)) {
+          break;
+        }
+      } else {
+        markAttempt('lyrics.ovh', false, 'No lyrics returned');
+      }
+    }
+
+    const resolvedBestCandidate = bestCandidateRef.current;
+
+    if (resolvedBestCandidate) {
+      return {
+        statusCode: 200,
+        body: {
+          lyrics: resolvedBestCandidate.lyrics,
+          source: resolvedBestCandidate.source,
+          variant: resolvedBestCandidate.variant,
+          ...(includeDebug
+            ? {
+                debug: {
+                  attemptedVariants: variants.length,
+                  attemptedProviders: attempts.length,
+                  attempts,
+                },
+              }
+            : {}),
+        },
+      };
+    }
+
+    return {
+      statusCode: 404,
+      body: {
+        error: 'Lyrics not found in any source',
+        ...(includeDebug
+          ? {
+              debug: {
+                attemptedVariants: variants.length,
+                attemptedProviders: attempts.length,
+                env: {
+                  hasGeniusToken: Boolean(GENIUS_ACCESS_TOKEN),
+                  hasMusixmatchKey: Boolean(process.env.MUSIXMATCH_API_KEY),
+                  hasAuddToken: Boolean(process.env.AUDD_API_TOKEN),
+                },
+                attempts,
+              },
+            }
+          : {}),
+      },
+    };
+  };
+
+  const resultPromise = includeDebug
+    ? resolveLyrics()
+    : (() => {
+        const existingInFlight = inFlightLyricsLookups.get(cacheKey);
+        if (existingInFlight) {
+          return existingInFlight;
+        }
+
+        const createdPromise = resolveLyrics()
+          .then((result) => {
+            writeLyricsResponseCache(cacheKey, result);
+            return result;
+          })
+          .finally(() => {
+            inFlightLyricsLookups.delete(cacheKey);
+          });
+
+        inFlightLyricsLookups.set(cacheKey, createdPromise);
+        return createdPromise;
+      })();
+
+  const result = await resultPromise;
+  res.status(result.statusCode).json(result.body);
 }
