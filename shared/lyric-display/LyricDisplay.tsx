@@ -138,8 +138,16 @@ export default function LyricDisplay({
     }
 
     // If lyric state is already live (typically driven by now-playing from Gig Control),
-    // do not override it from route query params.
-    if (state.song && state.blocks.length > 0) {
+    // do not override it only when it already matches the active song.
+    const stateMatchesActiveSong = Boolean(
+      state.song
+      && state.blocks.length > 0
+      && state.song.id === activeSong.id
+      && state.song.title.trim().toLowerCase() === activeSong.title.trim().toLowerCase()
+      && state.song.artist.trim().toLowerCase() === activeSong.artist.trim().toLowerCase(),
+    )
+
+    if (stateMatchesActiveSong) {
       return
     }
 
