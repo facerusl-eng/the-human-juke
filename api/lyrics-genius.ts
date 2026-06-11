@@ -82,6 +82,7 @@ type MissingLyricsResponse = {
 };
 
 type LyricsHandlerResult = ResolvedLyricsResponse | MissingLyricsResponse;
+type SupportedLyricsLocale = 'en' | 'da' | 'is';
 
 type LyricsCacheEntry = {
   expiresAt: number;
@@ -97,8 +98,59 @@ function normalizeText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function cacheKeyForLyricsRequest(song: string, artist: string) {
-  return `${normalizeComparable(song)}::${normalizeComparable(artist)}`;
+function normalizeLyricsLocale(value: unknown): SupportedLyricsLocale {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (normalized === 'da') {
+    return 'da';
+  }
+
+  if (normalized === 'is') {
+    return 'is';
+  }
+
+  return 'en';
+}
+
+function cacheKeyForLyricsRequest(song: string, artist: string, locale: SupportedLyricsLocale) {
+  return `${normalizeComparable(song)}::${normalizeComparable(artist)}::${locale}`;
+}
+
+function countMatches(haystack: string, pattern: RegExp) {
+  const matches = haystack.match(pattern);
+  return matches ? matches.length : 0;
+}
+
+function detectLyricsLocale(lyrics: string): { locale: SupportedLyricsLocale; confidence: number } {
+  const lower = lyrics.toLowerCase();
+
+  const daSignals =
+    countMatches(lower, /\b(og|jeg|det|du|ikke|der|har|med|for|til|den|de)\b/g)
+    + (countMatches(lower, /[æøå]/g) * 1.5);
+
+  const isSignals =
+    countMatches(lower, /\b(og|eg|er|ekki|sem|med|til|thetta|thad|hja|vid)\b/g)
+    + (countMatches(lower, /[ðþæö]/g) * 1.8);
+
+  const enSignals = countMatches(lower, /\b(the|and|you|i|we|to|for|with|that|this|is|are)\b/g);
+
+  const scores: Array<{ locale: SupportedLyricsLocale; score: number }> = [
+    { locale: 'en', score: enSignals },
+    { locale: 'da', score: daSignals },
+    { locale: 'is', score: isSignals },
+  ];
+
+  scores.sort((left, right) => right.score - left.score);
+  const best = scores[0];
+  const total = scores[0].score + scores[1].score + scores[2].score;
+
+  if (best.score <= 0 || total <= 0) {
+    return { locale: 'en', confidence: 0 };
+  }
+
+  return {
+    locale: best.locale,
+    confidence: Math.min(1, best.score / total),
+  };
 }
 
 function cloneLyricsHandlerResult(result: LyricsHandlerResult): LyricsHandlerResult {
@@ -813,6 +865,7 @@ async function fetchLrcLibLyrics(title: string, artist: string): Promise<string 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const song = normalizeText(String(req.query.song ?? ''));
   const artist = normalizeText(String(req.query.artist ?? ''));
+  const locale = normalizeLyricsLocale(req.query.locale);
   const debug = String(req.query.debug ?? '').toLowerCase();
   const includeDebug = debug === '1' || debug === 'true' || debug === 'yes';
 
@@ -821,7 +874,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const cacheKey = cacheKeyForLyricsRequest(song, artist);
+  const cacheKey = cacheKeyForLyricsRequest(song, artist, locale);
 
   if (!includeDebug) {
     const cachedResult = readLyricsResponseCache(cacheKey);
@@ -863,13 +916,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return false;
       }
 
+      const detectedLocale = detectLyricsLocale(lyrics);
+      let localeBoost = 0;
+      if (detectedLocale.locale === locale) {
+        localeBoost += detectedLocale.confidence >= 0.48 ? 11 : 6;
+      } else if (detectedLocale.confidence >= 0.58) {
+        localeBoost -= 12;
+      }
+
       const relevanceBoost = Math.round((titleOverlap * 22) + (artistOverlap * 14));
       const candidate: LyricsCandidate = {
         lyrics,
         source,
         variant,
         qualityScore: scoreLyricsQuality(lyrics),
-        confidenceScore: confidenceScore + relevanceBoost,
+        confidenceScore: confidenceScore + relevanceBoost + localeBoost,
       };
 
       if (!bestCandidateRef.current || scoreCandidate(candidate) > scoreCandidate(bestCandidateRef.current)) {

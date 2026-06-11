@@ -2,6 +2,8 @@
 // Results are stored in localStorage so LyricsPage can serve them instantly
 // and know whether manual entry is needed.
 
+import { readCommittedAudienceLocale } from './audienceIdentity'
+
 const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
 const STATUS_KEY = 'lyrics_prefetch_status_v1'
 
@@ -175,12 +177,13 @@ export function prefetchAndCacheLyrics(title: string, artist: string, songId?: s
   if (getLyricsPrefetchStatus(title, artist, songId) !== null) return
 
   const variants = buildQueryVariants(title, artist)
+  const locale = readCommittedAudienceLocale()
 
   void (async () => {
     for (const { t, a } of variants) {
       try {
         const res = await fetch(
-          `/api/lyrics-genius?song=${encodeURIComponent(t)}&artist=${encodeURIComponent(a)}`,
+          `/api/lyrics-genius?song=${encodeURIComponent(t)}&artist=${encodeURIComponent(a)}&locale=${encodeURIComponent(locale)}`,
         )
         if (!res.ok) continue
 

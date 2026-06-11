@@ -6,6 +6,7 @@ import type { LyricDisplayPatch, LyricDisplayState, LyricSongRef, LyricViewName 
 const STORAGE_KEY = 'human-jukebox-lyric-display-state-v1'
 const CHANNEL_NAME = 'human-jukebox-lyric-display-v1'
 const EVENT_NAME = 'lyric-display-state'
+const AUDIENCE_LOCALE_STORAGE_KEY = 'human-jukebox-audience-locale'
 const SECTION_LABEL_RE = /^(verse|chorus|pre-chorus|bridge|hook|refrain|intro|outro)\b/i
 const SECTION_GAP_SECONDS = 12
 const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
@@ -206,6 +207,28 @@ function normalizeComparableValue(value: string) {
     .trim()
 }
 
+function resolveLyricsLocale() {
+  if (typeof window === 'undefined') {
+    return 'en'
+  }
+
+  const fromStorage = window.localStorage.getItem(AUDIENCE_LOCALE_STORAGE_KEY)?.trim().toLowerCase()
+  if (fromStorage === 'da' || fromStorage === 'is' || fromStorage === 'en') {
+    return fromStorage
+  }
+
+  const browserLanguage = window.navigator.language?.trim().toLowerCase() ?? ''
+  if (browserLanguage.startsWith('da')) {
+    return 'da'
+  }
+
+  if (browserLanguage.startsWith('is')) {
+    return 'is'
+  }
+
+  return 'en'
+}
+
 function tokenOverlapScore(expected: string, actual: string) {
   const expectedTokens = new Set(normalizeComparableValue(expected).split(' ').filter(Boolean))
   const actualTokens = new Set(normalizeComparableValue(actual).split(' ').filter(Boolean))
@@ -377,6 +400,7 @@ function writeLyricsCache(song: LyricSongRef, lyrics: string) {
 
 async function fetchOnlineLyrics(song: LyricSongRef) {
   const variants = buildSongQueryVariants(song)
+  const lyricsLocale = resolveLyricsLocale()
 
   for (const variant of variants) {
     for (let attempt = 0; attempt < ONLINE_LYRICS_MAX_ATTEMPTS; attempt += 1) {
@@ -387,7 +411,7 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
         }, ONLINE_LYRICS_FETCH_TIMEOUT_MS)
 
         const response = await fetch(
-          `/api/lyrics-genius?song=${encodeURIComponent(variant.title)}&artist=${encodeURIComponent(variant.artist)}`,
+          `/api/lyrics-genius?song=${encodeURIComponent(variant.title)}&artist=${encodeURIComponent(variant.artist)}&locale=${encodeURIComponent(lyricsLocale)}`,
           { signal: controller.signal },
         )
         clearTimeout(timeoutId)
