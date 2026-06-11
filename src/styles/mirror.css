@@ -2288,6 +2288,11 @@
   color: #8ee7ff !important;
 }
 
+.mirror-shell-high-contrast .mirror-song-queue-frame .mirror-queue-artist-picker {
+  border-color: rgba(142, 231, 255, 0.84);
+  background: rgba(7, 17, 34, 0.96);
+}
+
 .mirror-shell-high-contrast .mirror-title,
 .mirror-shell-high-contrast .mirror-pre-show-title,
 .mirror-shell-high-contrast .mirror-queue-title {
@@ -4757,6 +4762,21 @@
   word-break: break-word;
 }
 
+.mirror-song-queue-frame .mirror-queue-artist-picker {
+  display: inline-block;
+  justify-self: end;
+  width: fit-content;
+  max-width: min(100%, 48ch);
+  padding: clamp(0.14rem, 0.24vw, 0.24rem) clamp(0.48rem, 0.72vw, 0.72rem);
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.56);
+  background: rgba(10, 21, 40, 0.76);
+  font-size: clamp(0.82rem, 0.96vw, 0.98rem);
+  font-weight: 860;
+  line-height: 1.24;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.42);
+}
+
 .mirror-song-queue-frame .mirror-queue-signal {
   display: inline-flex;
   align-items: center;
@@ -4936,7 +4956,12 @@
 }
 
 .mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue-picker {
-  font-size: clamp(0.62rem, 0.78vw, 0.78rem);
+  font-size: clamp(0.74rem, 0.92vw, 0.92rem);
+}
+
+.mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue-artist-picker {
+  padding: clamp(0.16rem, 0.28vw, 0.28rem) clamp(0.54rem, 0.82vw, 0.82rem);
+  border-width: 1px;
 }
 
 .mirror-shell-hide-controls .mirror-song-queue-frame .mirror-queue-signal {
