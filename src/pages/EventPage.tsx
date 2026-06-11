@@ -1348,8 +1348,17 @@ function EventPage() {
     : playbackTransitionState?.phase === 'intro'
     ? 'Intro MP3 playing...'
     : null
-  // Prefer mirrored host state when available so audience/mirror countdowns stay aligned.
-  const effectiveCountdownTargetMs = mirroredCountdownTargetMs ?? requestedCountdownTargetMs
+  const scheduledCountdownTargetMs = useMemo(() => {
+    if (!event?.id) {
+      return null
+    }
+
+    return parseEventStartMs(event.gigDate, event.gigStartTime)
+  }, [event?.gigDate, event?.gigStartTime, event?.id])
+  const shouldPreferScheduledCountdown = !roomOpen && playbackTransitionState?.phase !== 'countdown'
+  const effectiveCountdownTargetMs = shouldPreferScheduledCountdown
+    ? scheduledCountdownTargetMs ?? mirroredCountdownTargetMs ?? requestedCountdownTargetMs
+    : mirroredCountdownTargetMs ?? requestedCountdownTargetMs ?? scheduledCountdownTargetMs
   const hasRequestedEventParam = Boolean(requestedEventId)
   const [waitingRoomNowMs, setWaitingRoomNowMs] = useState(() => getAudienceNowMs())
   const waitingRoomStartMs = useMemo(() => {
@@ -1365,8 +1374,8 @@ function EventPage() {
       return null
     }
 
-    return parseEventStartMs(event.gigDate, event.gigStartTime)
-  }, [effectiveCountdownTargetMs, event?.gigDate, event?.gigStartTime, event?.id, roomOpen])
+    return scheduledCountdownTargetMs
+  }, [effectiveCountdownTargetMs, event?.id, roomOpen, scheduledCountdownTargetMs])
   const normalizedWaitingRoomStartMs = waitingRoomStartMs ?? null
   const waitingRoomCountdownLabel = useMemo(() => {
     if (normalizedWaitingRoomStartMs === null) {

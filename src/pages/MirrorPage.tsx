@@ -2678,7 +2678,10 @@ function MirrorPageContent() {
     () => getSharedPlaybackTransitionState(playbackState),
     [playbackState],
   )
-  const countdownTarget = mirroredCountdownTarget ?? activeFallbackCountdownTarget
+  const shouldPreferScheduledCountdown = playbackTransitionState?.phase !== 'countdown'
+  const countdownTarget = shouldPreferScheduledCountdown
+    ? activeFallbackCountdownTarget ?? mirroredCountdownTarget
+    : mirroredCountdownTarget ?? activeFallbackCountdownTarget
   const countdownRemainingMs = countdownTarget ? countdownTarget.getTime() - countdownNow : null
   const playbackTransitionRemainingMs = playbackTransitionState?.phase === 'countdown'
     && playbackTransitionState.countdownTargetMs !== null

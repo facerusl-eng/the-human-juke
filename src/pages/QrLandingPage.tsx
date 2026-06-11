@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { AUDIENCE_LOCALE_STORAGE_KEY, normalizeAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { ensureAnonymousAudienceSession } from '../lib/audienceAuth'
-import { readSharedPlaybackState } from '../lib/playbackState'
+import { getSharedPlaybackTransitionState, readSharedPlaybackState } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 
 const LIVE_SYNC_POLL_INTERVAL_MS = 4000
@@ -569,7 +569,13 @@ function QrLandingPage() {
         const startMs = parseEventStartMs(data.gig_date as string | null, data.gig_start_time as string | null)
         const mirroredPlaybackState = await readSharedPlaybackState(eventId)
         const mirroredCountdownTargetMs = mirroredPlaybackState?.countdownTargetMs ?? null
-        setEventStartMs(countdownTargetMsFromLink ?? mirroredCountdownTargetMs ?? startMs)
+        const mirroredTransitionState = getSharedPlaybackTransitionState(mirroredPlaybackState)
+        const shouldPreferScheduledCountdown = !data.room_open && mirroredTransitionState?.phase !== 'countdown'
+        setEventStartMs(
+          shouldPreferScheduledCountdown
+            ? (startMs ?? countdownTargetMsFromLink ?? mirroredCountdownTargetMs)
+            : (countdownTargetMsFromLink ?? mirroredCountdownTargetMs ?? startMs),
+        )
         setEventRoomOpen(Boolean(data.room_open))
         setSyncStatusReason(null)
       } catch {
