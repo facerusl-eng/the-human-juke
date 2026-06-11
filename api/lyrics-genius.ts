@@ -83,6 +83,7 @@ type MissingLyricsResponse = {
 
 type LyricsHandlerResult = ResolvedLyricsResponse | MissingLyricsResponse;
 type SupportedLyricsLocale = 'en' | 'da' | 'is';
+type DetectedLyricsLocale = SupportedLyricsLocale | 'es';
 
 type LyricsCacheEntry = {
   expiresAt: number;
@@ -120,7 +121,7 @@ function countMatches(haystack: string, pattern: RegExp) {
   return matches ? matches.length : 0;
 }
 
-function detectLyricsLocale(lyrics: string): { locale: SupportedLyricsLocale; confidence: number } {
+function detectLyricsLocale(lyrics: string): { locale: DetectedLyricsLocale; confidence: number } {
   const lower = lyrics.toLowerCase();
 
   const daSignals =
@@ -133,10 +134,15 @@ function detectLyricsLocale(lyrics: string): { locale: SupportedLyricsLocale; co
 
   const enSignals = countMatches(lower, /\b(the|and|you|i|we|to|for|with|that|this|is|are)\b/g);
 
-  const scores: Array<{ locale: SupportedLyricsLocale; score: number }> = [
+  const esSignals =
+    countMatches(lower, /\b(el|la|los|las|que|de|del|y|con|por|para|sin|eres|soy|siempre|lluvia)\b/g)
+    + (countMatches(lower, /[áéíóúñü]/g) * 1.6);
+
+  const scores: Array<{ locale: DetectedLyricsLocale; score: number }> = [
     { locale: 'en', score: enSignals },
     { locale: 'da', score: daSignals },
     { locale: 'is', score: isSignals },
+    { locale: 'es', score: esSignals },
   ];
 
   scores.sort((left, right) => right.score - left.score);
@@ -921,7 +927,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (detectedLocale.locale === locale) {
         localeBoost += detectedLocale.confidence >= 0.48 ? 11 : 6;
       } else if (detectedLocale.confidence >= 0.58) {
-        localeBoost -= 12;
+        localeBoost -= 30;
+
+        // Strong language mismatch: reject wrong-language candidate outright.
+        if (detectedLocale.confidence >= 0.66) {
+          return false;
+        }
       }
 
       const relevanceBoost = Math.round((titleOverlap * 22) + (artistOverlap * 14));
