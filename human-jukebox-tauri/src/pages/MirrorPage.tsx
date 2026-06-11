@@ -152,8 +152,12 @@ function getMirrorCountdownSettingsFromRow(row: Record<string, unknown> | null |
     mirrorCountdownQrCustomUrl: typeof row.mirror_countdown_qr_custom_url === 'string' ? row.mirror_countdown_qr_custom_url : null,
     mirrorBreakQrEnabled: typeof row.mirror_break_qr_enabled === 'boolean' ? row.mirror_break_qr_enabled : null,
     mirrorBreakQrCustomUrl: typeof row.mirror_break_qr_custom_url === 'string' ? row.mirror_break_qr_custom_url : null,
-    mirrorCountdownQrText: typeof row.mirror_countdown_qr_text === 'string' ? row.mirror_countdown_qr_text : null,
-    mirrorCountdownQrFlashVenue: typeof row.mirror_countdown_qr_flash_venue === 'string' ? row.mirror_countdown_qr_flash_venue : null,
+    mirrorCountdownQrText: typeof row.mirror_brb_qr_text === 'string'
+      ? row.mirror_brb_qr_text
+      : (typeof row.mirror_countdown_qr_text === 'string' ? row.mirror_countdown_qr_text : null),
+    mirrorCountdownQrFlashVenue: typeof row.mirror_brb_qr_flash_venue === 'string'
+      ? row.mirror_brb_qr_flash_venue
+      : (typeof row.mirror_countdown_qr_flash_venue === 'string' ? row.mirror_countdown_qr_flash_venue : null),
   }
 }
 
@@ -1422,8 +1426,8 @@ function MirrorPageContent() {
 
       const extendedSelectFields = [
         baseSelectFields,
-        'mirror_countdown_qr_text',
-        'mirror_countdown_qr_flash_venue',
+        'mirror_brb_qr_text',
+        'mirror_brb_qr_flash_venue',
       ].join(', ')
 
       const runFallbackQuery = (selectFields: string) => {
@@ -1441,8 +1445,8 @@ function MirrorPageContent() {
       const missingOptionalColumns = result.error?.code === '42703'
         && typeof result.error.message === 'string'
         && (
-          result.error.message.includes('mirror_countdown_qr_text')
-          || result.error.message.includes('mirror_countdown_qr_flash_venue')
+          result.error.message.includes('mirror_brb_qr_text')
+          || result.error.message.includes('mirror_brb_qr_flash_venue')
         )
 
       if (missingOptionalColumns) {
