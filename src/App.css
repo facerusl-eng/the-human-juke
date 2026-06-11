@@ -5577,6 +5577,11 @@ body.audience-immersive-mode {
   letter-spacing: 0.01em;
 }
 
+.gig-next-up-requester strong {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .gig-next-up-karaoke {
   display: inline-flex;
   align-items: center;
@@ -5590,6 +5595,20 @@ body.audience-immersive-mode {
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  animation: gig-next-up-karaoke-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes gig-next-up-karaoke-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 142, 158, 0.36);
+  }
+
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 0.28rem rgba(255, 142, 158, 0.18);
+  }
 }
 
 .gig-next-up-queue {
