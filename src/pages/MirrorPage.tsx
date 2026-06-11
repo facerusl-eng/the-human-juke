@@ -2519,6 +2519,32 @@ function MirrorPageContent() {
     }
   }, [])
 
+  const recoverMirrorScreen = useCallback(async () => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    setMirrorWarningMessage('Recovering mirror screen cache...')
+
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(registrations.map((registration) => registration.unregister()))
+      }
+
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys()
+        await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)))
+      }
+    } catch (error) {
+      console.warn('MirrorPage: cache recovery encountered an error', error)
+    }
+
+    const hardRefreshUrl = new URL(window.location.href)
+    hardRefreshUrl.searchParams.set('build-refresh', Date.now().toString(36))
+    window.location.replace(hardRefreshUrl.toString())
+  }, [])
+
   useEffect(() => {
     const eventBannerText = event?.mirrorBannerText
     const fallbackLocalBannerText = readTextFromLocalStorage(MIRROR_BANNER_STORAGE_KEY)
@@ -4562,6 +4588,18 @@ function MirrorPageContent() {
           <span className="mirror-fullscreen-prompt-label">Tap to enter fullscreen</span>
         </button>
       )}
+      {!shouldShowEditorControls ? (
+        <button
+          type="button"
+          className="mirror-recover-button"
+          title="Fix mirror screen if it looks stuck"
+          onClick={() => {
+            void recoverMirrorScreen()
+          }}
+        >
+          Fix Screen
+        </button>
+      ) : null}
       {demoMode ? (
         <div className="mirror-demo-exit-bar">
           <span className="mirror-demo-exit-label">Demo Preview</span>

@@ -734,6 +734,32 @@
   opacity: 0.9;
 }
 
+.mirror-recover-button {
+  position: fixed;
+  right: clamp(0.55rem, 0.9vw, 0.9rem);
+  bottom: clamp(0.55rem, 0.9vw, 0.9rem);
+  z-index: calc(var(--z-overlay) - 2);
+  padding: 0.36rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(146, 207, 255, 0.52);
+  background: rgba(7, 18, 36, 0.72);
+  color: #f1f8ff;
+  font-size: clamp(0.66rem, 0.82vw, 0.82rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  opacity: 0.58;
+  transition: opacity 160ms ease, transform 160ms ease, background-color 160ms ease;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.mirror-recover-button:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  background: rgba(10, 28, 56, 0.88);
+}
+
 
 .mirror-header-qr {
   display: inline-flex;
