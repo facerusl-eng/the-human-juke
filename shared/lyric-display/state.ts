@@ -239,7 +239,8 @@ function onlineResultMatchesSong(song: LyricSongRef, payload: Record<string, unk
   const titleMatch = tokenOverlapScore(song.title, variantTitle)
   const artistMatch = variantArtist ? tokenOverlapScore(song.artist, variantArtist) : 1
 
-  return titleMatch >= 0.7 && artistMatch >= 0.55
+  // Keep strong same-song guarantees while allowing covers/alternate credits.
+  return (titleMatch >= 0.64 && artistMatch >= 0.45) || titleMatch >= 0.86
 }
 
 function normalizeSongIdentityValue(value: string | null | undefined) {
@@ -293,11 +294,18 @@ function buildSongQueryVariants(song: LyricSongRef) {
     stripArtist(song.artist),
   ].filter(Boolean)
 
+  if (artistCandidates.length === 0) {
+    artistCandidates.push('')
+  }
+
   const variants: Array<{ title: string; artist: string }> = []
   for (const title of titleCandidates) {
     for (const artist of artistCandidates) {
       variants.push({ title, artist })
     }
+
+    // Retry without artist to recover from bad/missing artist metadata.
+    variants.push({ title, artist: '' })
   }
 
   const unique = new Map<string, { title: string; artist: string }>()
@@ -346,40 +354,44 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
   const variants = buildSongQueryVariants(song)
 
   for (const variant of variants) {
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => {
-        controller.abort()
-      }, 5000)
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => {
+          controller.abort()
+        }, 9000)
 
-      const response = await fetch(
-        `/api/lyrics-genius?song=${encodeURIComponent(variant.title)}&artist=${encodeURIComponent(variant.artist)}`,
-        { signal: controller.signal },
-      )
-      clearTimeout(timeoutId)
+        const response = await fetch(
+          `/api/lyrics-genius?song=${encodeURIComponent(variant.title)}&artist=${encodeURIComponent(variant.artist)}`,
+          { signal: controller.signal },
+        )
+        clearTimeout(timeoutId)
 
-      if (!response.ok) {
-        continue
+        if (!response.ok) {
+          break
+        }
+
+        const payload = await response.json() as Record<string, unknown>
+        if (!onlineResultMatchesSong(song, payload)) {
+          break
+        }
+
+        const rawLyrics = typeof payload.lyrics === 'string' ? payload.lyrics.trim() : ''
+        if (!rawLyrics) {
+          break
+        }
+
+        writeLyricsCache(song, rawLyrics)
+
+        const blocks = parseBlocksFromPlainLyrics(rawLyrics)
+        if (blocks.length > 0) {
+          return blocks
+        }
+
+        break
+      } catch {
+        // Retry once before falling back to the next query variant.
       }
-
-      const payload = await response.json() as Record<string, unknown>
-      if (!onlineResultMatchesSong(song, payload)) {
-        continue
-      }
-
-      const rawLyrics = typeof payload.lyrics === 'string' ? payload.lyrics.trim() : ''
-      if (!rawLyrics) {
-        continue
-      }
-
-      writeLyricsCache(song, rawLyrics)
-
-      const blocks = parseBlocksFromPlainLyrics(rawLyrics)
-      if (blocks.length > 0) {
-        return blocks
-      }
-    } catch {
-      // Continue to next query variant.
     }
   }
 
