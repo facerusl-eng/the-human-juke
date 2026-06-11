@@ -18,6 +18,10 @@ const SONG_BLOCK_CACHE_TTL_MS = 20 * 60 * 1000
 const songBlocksCache = new Map<string, { cachedAt: number; blocks: string[] }>()
 const pendingSongLoads = new Map<string, Promise<string[]>>()
 
+function isLyricMissPlaceholder(blocks: string[]) {
+  return blocks.length === 1 && blocks[0].startsWith('No lyric blocks found for ')
+}
+
 function sanitizeLineText(value: string) {
   return value
     .trim()
@@ -417,7 +421,11 @@ function readAutoCachedLyrics(song: LyricSongRef) {
 async function loadBlocksForSong(song: LyricSongRef) {
   const identityKey = songIdentityKey(song)
   const cachedSongBlocks = songBlocksCache.get(identityKey)
-  if (cachedSongBlocks && Date.now() - cachedSongBlocks.cachedAt < SONG_BLOCK_CACHE_TTL_MS) {
+  if (
+    cachedSongBlocks
+    && Date.now() - cachedSongBlocks.cachedAt < SONG_BLOCK_CACHE_TTL_MS
+    && !isLyricMissPlaceholder(cachedSongBlocks.blocks)
+  ) {
     return cachedSongBlocks.blocks
   }
 
@@ -473,10 +481,12 @@ async function loadBlocksForSong(song: LyricSongRef) {
 
   try {
     const blocks = await loadPromise
-    songBlocksCache.set(identityKey, {
-      cachedAt: Date.now(),
-      blocks,
-    })
+    if (!isLyricMissPlaceholder(blocks)) {
+      songBlocksCache.set(identityKey, {
+        cachedAt: Date.now(),
+        blocks,
+      })
+    }
     return blocks
   } finally {
     pendingSongLoads.delete(identityKey)
