@@ -5555,11 +5555,41 @@ body.audience-immersive-mode {
   font-size: 1.1em;
 }
 
+.gig-next-up-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.42rem;
+}
+
 .gig-next-up-requester {
-  display: block;
-  font-size: 1.02em;
-  font-weight: 820;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.24rem;
+  width: fit-content;
+  padding: 0.2rem 0.56rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 227, 150, 0.72);
+  background: rgba(91, 64, 13, 0.68);
   color: #fff7cb;
+  font-size: 1.03em;
+  font-weight: 860;
+  letter-spacing: 0.01em;
+}
+
+.gig-next-up-karaoke {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.2rem 0.56rem;
+  border-radius: 999px;
+  border: 1px solid rgba(250, 143, 143, 0.8);
+  background: rgba(110, 22, 34, 0.72);
+  color: #ffe8ef;
+  font-size: 0.95em;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .gig-next-up-queue {
@@ -5947,6 +5977,10 @@ body.audience-immersive-mode {
 
 .gig-control-shell-focus .gig-next-up-requester {
   font-size: 1.06em;
+}
+
+.gig-control-shell-focus .gig-next-up-karaoke {
+  font-size: 1em;
 }
   margin: 0;
   color: rgba(255, 255, 255, 0.99);

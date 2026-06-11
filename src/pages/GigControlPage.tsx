@@ -4391,8 +4391,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               <p className="subcopy gig-next-up-hint" aria-live="polite">
                 <span className="gig-next-up-label">Next up</span>
                 <span className="gig-next-up-song"><strong>{nextUpSong.title}</strong> — {nextUpSong.artist}</span>
-                {nextUpSong.createdByName ? (
-                  <span className="gig-next-up-requester">Requested by <strong>{nextUpSong.createdByName}</strong></span>
+                {nextUpSong.createdByName || nextUpSong.audience_sings ? (
+                  <span className="gig-next-up-meta">
+                    {nextUpSong.createdByName ? (
+                      <span className="gig-next-up-requester">Requested by <strong>{nextUpSong.createdByName}</strong></span>
+                    ) : null}
+                    {nextUpSong.audience_sings ? <span className="gig-next-up-karaoke">Karaoke</span> : null}
+                  </span>
                 ) : null}
                 {queueEstMinutes > 0 ? <span className="gig-next-up-queue">~{queueEstMinutes} min queue</span> : null}
               </p>
