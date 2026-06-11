@@ -598,6 +598,7 @@ function GigControlPage() {
   const [workerHeartbeatText, setWorkerHeartbeatText] = useState<string | null>(null)
   const [activeAudienceCount, setActiveAudienceCount] = useState<number | null>(null)
   const [preflightBusy, setPreflightBusy] = useState(false)
+  const [audienceStabilityTestBusy, setAudienceStabilityTestBusy] = useState(false)
   const [preflightStatusText, setPreflightStatusText] = useState<string | null>(null)
   const [lastReadinessVerdict, setLastReadinessVerdict] = useState<'pass' | 'fail' | 'unknown'>(() => {
     try {
@@ -1670,14 +1671,18 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       throw new Error('No active host session. Please sign in again before going live.')
     }
 
-    const { error: dbReadError } = await supabase
+    const { data: eventRow, error: dbReadError } = await supabase
       .from('events')
       .select('id, room_open')
       .eq('id', event.id)
-      .single()
+      .maybeSingle()
 
     if (dbReadError) {
       throw new Error(`Database read failed: ${dbReadError.message}`)
+    }
+
+    if (!eventRow) {
+      throw new Error('Database read failed: active gig record was not found.')
     }
 
     const testChannel = supabase.channel(`go-live-preflight-${Date.now()}`)
@@ -1815,6 +1820,109 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       setPreflightBusy(false)
     }
   }, [attemptAutomaticHealthRepair, event, persistReadinessVerdict, runPreflightChecks])
+
+  const runAudienceConnectStabilityTest = useCallback(async () => {
+    if (!event) {
+      throw new Error('No active gig selected for audience test.')
+    }
+
+    setAudienceStabilityTestBusy(true)
+    setPreflightStatusText('Running audience app connect + stability test...')
+
+    const audienceUrl = event.isTestGig
+      ? getAudienceUrl(event.id, { compact: false, mode: 'test' })
+      : getAudienceUrl(event.id, { compact: true })
+
+    try {
+      if (!audienceUrl.startsWith('http')) {
+        throw new Error('Audience test failed: share URL is invalid.')
+      }
+
+      const audienceRequestController = new AbortController()
+      const audienceRequestTimeoutId = window.setTimeout(() => {
+        audienceRequestController.abort()
+      }, 5000)
+
+      const audienceResponse = await fetch(audienceUrl, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: audienceRequestController.signal,
+      }).finally(() => {
+        window.clearTimeout(audienceRequestTimeoutId)
+      })
+
+      if (!audienceResponse.ok) {
+        throw new Error(`Audience test failed: app URL returned ${audienceResponse.status}.`)
+      }
+
+      const stabilityChannel = supabase.channel(`audience-stability-test-${event.id}-${Date.now()}`)
+      const subscribedAt = await new Promise<number>((resolve, reject) => {
+        let settled = false
+        let holdTimeoutId: number | null = null
+
+        const finishWithError = (message: string) => {
+          if (settled) {
+            return
+          }
+
+          settled = true
+          if (holdTimeoutId !== null) {
+            window.clearTimeout(holdTimeoutId)
+          }
+          reject(new Error(message))
+        }
+
+        const subscribeTimeoutId = window.setTimeout(() => {
+          finishWithError('Audience test failed: realtime subscribe timed out.')
+        }, 3500)
+
+        stabilityChannel
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'queue_songs',
+            filter: `event_id=eq.${event.id}`,
+          }, () => {
+            // Connectivity test only.
+          })
+          .subscribe((status) => {
+            if (settled) {
+              return
+            }
+
+            if (status === 'SUBSCRIBED') {
+              window.clearTimeout(subscribeTimeoutId)
+              const connectedAt = Date.now()
+              holdTimeoutId = window.setTimeout(() => {
+                if (settled) {
+                  return
+                }
+
+                settled = true
+                resolve(connectedAt)
+              }, 3000)
+              return
+            }
+
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              window.clearTimeout(subscribeTimeoutId)
+              finishWithError(`Audience test failed: realtime channel became unstable (${status}).`)
+            }
+          })
+      })
+
+      await supabase.removeChannel(stabilityChannel)
+      const elapsedSeconds = ((Date.now() - subscribedAt) / 1000).toFixed(1)
+      setPreflightStatusText(`Audience app connect + stability test passed (${elapsedSeconds}s stable).`)
+      setErrorText(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Audience app connect + stability test failed.'
+      setPreflightStatusText(message)
+      throw new Error(message)
+    } finally {
+      setAudienceStabilityTestBusy(false)
+    }
+  }, [event, setErrorText])
 
   const ensureRoomOpenState = useCallback(async (targetRoomOpen: boolean) => {
     const wait = (ms: number) => new Promise<void>((resolve) => {
@@ -4028,6 +4136,20 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         }
       },
       disabled: preflightBusy,
+      variant: 'ghost',
+    },
+    {
+      id: 'run-audience-connect-stability-test',
+      label: audienceStabilityTestBusy ? 'Testing Audience App...' : 'Test Audience App',
+      title: 'Check audience app connect path and hold a realtime channel briefly to verify stability before show start',
+      onClick: async () => {
+        try {
+          await runAudienceConnectStabilityTest()
+        } catch (error) {
+          setErrorText(error instanceof Error ? error.message : 'Audience app test failed.')
+        }
+      },
+      disabled: preflightBusy || audienceStabilityTestBusy,
       variant: 'ghost',
     },
     {

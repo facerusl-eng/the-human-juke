@@ -490,7 +490,7 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
       .from('playback_state')
       .select(selectWithCountdownAndBrb)
       .eq('event_id', eventId)
-      .single()
+      .maybeSingle()
 
     data = (initialRead.data as Record<string, unknown> | null) ?? null
     error = initialRead.error as { code?: string; message?: string } | null
@@ -500,7 +500,7 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
         .from('playback_state')
         .select(selectWithBrb)
         .eq('event_id', eventId)
-        .single()
+        .maybeSingle()
 
       data = (withoutCountdownRead.data as Record<string, unknown> | null) ?? null
       error = withoutCountdownRead.error as { code?: string; message?: string } | null
@@ -511,7 +511,7 @@ export async function readSharedPlaybackState(eventId: string): Promise<SharedPl
         .from('playback_state')
         .select(selectLegacy)
         .eq('event_id', eventId)
-        .single()
+        .maybeSingle()
 
       data = (legacyRead.data as Record<string, unknown> | null) ?? null
       error = legacyRead.error as { code?: string; message?: string } | null
