@@ -109,6 +109,11 @@ type PrimedIntroAudio = {
   element: HTMLAudioElement
 }
 
+type IntroAudioPlayedMarker = {
+  eventId: string
+  playedAt: number
+}
+
 function getPreservedOverlayMessage(state: SharedPlaybackState | null | undefined) {
   const currentBrbMessage = state?.brbMessage ?? null
   const hasActiveTransitionMessage = Boolean(getSharedPlaybackTransitionState(state))
@@ -212,6 +217,66 @@ function releaseIntroAudioPlayLock(eventId: string, ownerId: string) {
     }
   } catch {
     // Best-effort lock release only.
+  }
+}
+
+function readIntroAudioPlayedMarker(eventId: string | null): IntroAudioPlayedMarker | null {
+  if (typeof window === 'undefined' || !eventId) {
+    return null
+  }
+
+  try {
+    const raw = window.localStorage.getItem(`${INTRO_AUDIO_LOCK_STORAGE_KEY}:played`)
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as Partial<IntroAudioPlayedMarker>
+    if (parsed.eventId !== eventId || typeof parsed.playedAt !== 'number' || !Number.isFinite(parsed.playedAt)) {
+      return null
+    }
+
+    return {
+      eventId,
+      playedAt: parsed.playedAt,
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeIntroAudioPlayedMarker(eventId: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(`${INTRO_AUDIO_LOCK_STORAGE_KEY}:played`, JSON.stringify({
+      eventId,
+      playedAt: Date.now(),
+    } satisfies IntroAudioPlayedMarker))
+  } catch {
+    // Best effort only.
+  }
+}
+
+function clearIntroAudioPlayedMarker(eventId: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const raw = window.localStorage.getItem(`${INTRO_AUDIO_LOCK_STORAGE_KEY}:played`)
+    if (!raw) {
+      return
+    }
+
+    const parsed = JSON.parse(raw) as Partial<IntroAudioPlayedMarker>
+    if (parsed.eventId === eventId) {
+      window.localStorage.removeItem(`${INTRO_AUDIO_LOCK_STORAGE_KEY}:played`)
+    }
+  } catch {
+    // Best effort only.
   }
 }
 
@@ -1792,7 +1857,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     autoplayBlockedMessage: string,
     primedAudioElement?: HTMLAudioElement | null,
   ) => {
-    if (introAudioPlayedEventIdsRef.current.has(eventId)) {
+    if (introAudioPlayedEventIdsRef.current.has(eventId) || readIntroAudioPlayedMarker(eventId)) {
       return
     }
 
@@ -1806,6 +1871,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     try {
       await playIntroAudioWithSpotifyBridge(introAudioUrl, primedAudioElement)
       introAudioPlayedEventIdsRef.current.add(eventId)
+      writeIntroAudioPlayedMarker(eventId)
     } catch {
       setErrorText(autoplayBlockedMessage)
     } finally {
@@ -2434,6 +2500,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
     if (hasJustEnded) {
       introAudioPlayedEventIdsRef.current.delete(event.id)
+      clearIntroAudioPlayedMarker(event.id)
       if (primedIntroAudioRef.current?.eventId === event.id) {
         primedIntroAudioRef.current = null
       }
