@@ -5,6 +5,7 @@ import { ActionButtonGroup, type ActionButtonConfig } from '../components/action
 import { useGigActions } from '../hooks/useGigActions'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 import { openMirrorScreen as openMirrorScreenWindow } from '../lib/openMirrorScreen'
+import { requestSharedIntroAudioPlayback } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
@@ -400,15 +401,7 @@ function AdminDashboardContent({
         }
 
         if (dueEvent.introAudioUrl) {
-          const primedIntro = autoLivePrimedIntroAudioRef.current
-          const introAudio = primedIntro && primedIntro.url === dueEvent.introAudioUrl
-            ? primedIntro.element
-            : new Audio(dueEvent.introAudioUrl)
-
-          introAudio.preload = 'auto'
-          void introAudio.play().catch(() => {
-            // Autoplay may be blocked until user interaction; keep Auto Live successful.
-          })
+          requestSharedIntroAudioPlayback(dueEvent.id, dueEvent.introAudioUrl, 'admin-auto-live')
         }
 
         attemptedAutoLiveGigIdsRef.current.add(dueEvent.id)
