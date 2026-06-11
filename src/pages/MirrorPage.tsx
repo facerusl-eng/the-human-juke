@@ -4519,37 +4519,13 @@ function MirrorPageContent() {
   const allowLyricTakeoverView = mirrorLyricsQueryValue !== '0' && mirrorLyricsQueryValue !== 'false' && mirrorLyricsQueryValue !== 'off'
 
   const sharedLyricSong = sharedLyricState.song
-  const normalizeLyricIdentity = (value: string | null | undefined) => (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
-  const activeSongQueueId = normalizeLyricIdentity(activeSong?.id)
-  const activeSongLibraryId = normalizeLyricIdentity(activeSong?.library_song_id)
-  const sharedLyricSongId = normalizeLyricIdentity(sharedLyricSong?.id)
-  const sharedTitle = normalizeLyricIdentity(sharedLyricSong?.title)
-  const sharedArtist = normalizeLyricIdentity(sharedLyricSong?.artist)
-  const activeTitle = normalizeLyricIdentity(activeSong?.title)
-  const activeArtist = normalizeLyricIdentity(activeSong?.artist)
-  const isSharedLyricSongMatchingActiveSong = Boolean(
-    activeSong
-    && sharedLyricSong
-    && (
-      (activeSongLibraryId.length > 0 && sharedLyricSongId.length > 0 && sharedLyricSongId === activeSongLibraryId)
-      || (sharedLyricSongId.length > 0 && sharedLyricSongId === activeSongQueueId)
-      || (
-        sharedTitle.length > 0
-        && sharedArtist.length > 0
-        && sharedTitle === activeTitle
-        && sharedArtist === activeArtist
-      )
-    ),
-  )
 
   const shouldShowSharedLyricMirrorView = Boolean(
     allowLyricTakeoverView
     &&
     sharedLyricState.showOnMirror
     && sharedLyricState.activeView === 'lyric'
-    && isSharedLyricSongMatchingActiveSong
-    && isNowPlayingStarted
-    && activeSong,
+    && sharedLyricSong,
   )
 
   if (shouldShowSharedLyricMirrorView) {
