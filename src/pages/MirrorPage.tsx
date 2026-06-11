@@ -4549,7 +4549,6 @@ function MirrorPageContent() {
     && sharedLyricState.activeView === 'lyric'
     && isSharedLyricSongMatchingActiveSong
     && isNowPlayingStarted
-    && isAudienceKaraokeActive
     && activeSong,
   )
 
