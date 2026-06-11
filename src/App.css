@@ -5577,6 +5577,17 @@ body.audience-immersive-mode {
   letter-spacing: 0.01em;
 }
 
+.gig-next-up-requester-prefix {
+  font-size: 0.72em;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffe6ad;
+  padding-right: 0.28rem;
+  margin-right: 0.08rem;
+  border-right: 1px solid rgba(255, 232, 173, 0.55);
+}
+
 .gig-next-up-requester strong {
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -5996,6 +6007,10 @@ body.audience-immersive-mode {
 
 .gig-control-shell-focus .gig-next-up-requester {
   font-size: 1.06em;
+}
+
+.gig-control-shell-focus .gig-next-up-requester-prefix {
+  font-size: 0.75em;
 }
 
 .gig-control-shell-focus .gig-next-up-karaoke {

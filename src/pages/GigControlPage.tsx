@@ -4394,7 +4394,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 {nextUpSong.createdByName || nextUpSong.audience_sings ? (
                   <span className="gig-next-up-meta">
                     {nextUpSong.createdByName ? (
-                      <span className="gig-next-up-requester">Requested by <strong>{nextUpSong.createdByName}</strong></span>
+                      <span className="gig-next-up-requester">
+                        <span className="gig-next-up-requester-prefix">Requested by</span>
+                        <strong>{nextUpSong.createdByName}</strong>
+                      </span>
                     ) : null}
                     {nextUpSong.audience_sings ? <span className="gig-next-up-karaoke">Karaoke</span> : null}
                   </span>
