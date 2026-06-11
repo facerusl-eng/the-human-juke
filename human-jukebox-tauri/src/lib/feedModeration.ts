@@ -48,17 +48,21 @@ export async function isUserBlocked(eventId: string, userId?: string, userIp?: s
       return false
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('blocked_users')
       .select('id')
       .eq('event_id', eventId)
-      .or(blockedFilters.join(','))
-      .single()
+      .limit(1)
 
-    if (error && error.code === 'PGRST116') {
-      // No rows returned - user is not blocked
-      return false
+    if (blockedFilters.length > 1) {
+      query = query.or(blockedFilters.join(','))
+    } else if (normalizedUserId) {
+      query = query.eq('blocked_user_id', normalizedUserId)
+    } else if (normalizedUserIp) {
+      query = query.eq('blocked_ip', normalizedUserIp)
     }
+
+    const { data, error } = await query.maybeSingle()
 
     if (error) {
       console.error('Error checking if user is blocked:', error)

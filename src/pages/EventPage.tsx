@@ -494,10 +494,10 @@ async function fetchItunesSongFacts(title: string, artist: string, signal: Abort
 
 async function fetchWikipediaSummarySentences(title: string, artist: string, signal: AbortSignal) {
   const candidateTitles = [
-    `${title} (song)`,
     title,
     `${title} (${artist} song)`,
     `${title} ${artist}`,
+    `${title} (song)`,
     artist,
   ]
 

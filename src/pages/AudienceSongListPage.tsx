@@ -143,10 +143,10 @@ function extractInterestingSentences(extract: string) {
 
 async function fetchWikipediaSongFacts(title: string, artist: string, signal: AbortSignal) {
   const candidateTitles = [
-    `${title} (song)`,
     title,
     `${title} (${artist} song)`,
     `${title} ${artist}`,
+    `${title} (song)`,
     artist,
   ]
 
