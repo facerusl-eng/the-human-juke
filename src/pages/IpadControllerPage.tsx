@@ -364,22 +364,26 @@ export default function IpadControllerPage() {
       }
 
       void (async () => {
-        const ack = await remoteBridgeChannelRef.current?.send({
-          type: 'broadcast',
-          event: JAMZONE_REMOTE_EVENT,
-          payload: {
+        const ack = await remoteBridgeChannelRef.current?.httpSend(
+          JAMZONE_REMOTE_EVENT,
+          {
             sourceId: sourceIdRef.current,
             currentTimeSeconds: nextTimeSeconds,
             currentSong,
             playPulse: manualPlayPulse,
             updatedAtMs: Date.now(),
           },
-        })
+        )
 
         const ackLabel = typeof ack === 'string' ? ack : JSON.stringify(ack ?? 'unknown')
         setLastPublishAck(ackLabel)
 
-        if (ackLabel.toLowerCase().includes('ok')) {
+        const ackIndicatesSuccess = Boolean(
+          (ack as { success?: boolean } | null)?.success
+          || ackLabel.toLowerCase().includes('ok'),
+        )
+
+        if (ackIndicatesSuccess) {
           setChannelConnected(true)
           setPublishStatus('publishing')
           lastPublishAtMsRef.current = Date.now()

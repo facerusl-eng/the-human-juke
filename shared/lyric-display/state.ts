@@ -630,11 +630,7 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
       return
     }
 
-    void channelRef.current.send({
-      type: 'broadcast',
-      event: EVENT_NAME,
-      payload: state,
-    })
+    void channelRef.current.httpSend(EVENT_NAME, state)
   }, [state])
 
   const openLyricForSong = useCallback(async (song: LyricSongRef, returnToPath: string) => {
