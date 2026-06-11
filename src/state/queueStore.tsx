@@ -2715,6 +2715,8 @@ function QueueProvider({ children }: PropsWithChildren) {
     // Host sessions use a shorter threshold to detect drops faster.
     const REALTIME_WATCHDOG_INTERVAL_MS = 30_000
     const REALTIME_SILENCE_THRESHOLD_MS = isHostSession ? 45_000 : 90_000
+    const REALTIME_WATCHDOG_WARN_COOLDOWN_MS = 180_000
+    let lastWatchdogWarnAt = 0
 
     const clearChannelWatchdog = () => {
       if (channelWatchdogTimerId !== null) {
@@ -2748,7 +2750,11 @@ function QueueProvider({ children }: PropsWithChildren) {
         const silenceMs = Date.now() - lastRealtimeEventAt
 
         if (silenceMs >= REALTIME_SILENCE_THRESHOLD_MS) {
-          console.warn(`queueStore: Realtime silent for ${silenceMs}ms — forcing reconnect`)
+          const now = Date.now()
+          if (now - lastWatchdogWarnAt >= REALTIME_WATCHDOG_WARN_COOLDOWN_MS) {
+            lastWatchdogWarnAt = now
+            console.warn(`queueStore: Realtime silent for ${silenceMs}ms — forcing reconnect`)
+          }
           lastRealtimeEventAt = Date.now()
           registerRealtimeFailure('watchdog silence timeout')
         }

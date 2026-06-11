@@ -109,6 +109,29 @@ function isChunkLoadFailure(error: unknown): boolean {
     || (message.includes('unexpected token') && message.includes('<'))
 }
 
+function isStaticAssetLoadFailureEvent(event: ErrorEvent): boolean {
+  if (!import.meta.env.PROD || typeof window === 'undefined') {
+    return false
+  }
+
+  const target = event.target
+  if (!target || !(target instanceof Element)) {
+    return false
+  }
+
+  if (target instanceof HTMLLinkElement) {
+    const href = target.href ?? ''
+    return href.includes('/assets/') && href.endsWith('.css')
+  }
+
+  if (target instanceof HTMLScriptElement) {
+    const src = target.src ?? ''
+    return src.includes('/assets/') && src.endsWith('.js')
+  }
+
+  return false
+}
+
 function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
   if (!import.meta.env.PROD || typeof window === 'undefined' || !isChunkLoadFailure(error)) {
     return false
@@ -521,6 +544,12 @@ function installGlobalRuntimeHooks() {
   })
 
   window.addEventListener('error', (event) => {
+    if (isStaticAssetLoadFailureEvent(event)) {
+      if (recoverFromChunkLoadFailure('failed to load module script', 'global-error-static-asset-load')) {
+        return
+      }
+    }
+
     if (recoverFromChunkLoadFailure(event.error ?? event.message, 'global-error-chunk-load')) {
       return
     }
