@@ -3107,7 +3107,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         return
       }
 
-      const transitionIntroAudioUrl = transitionState.introAudioUrl
+      const shouldSkipTransitionIntroAudio = Boolean(readIntroAudioPlayedMarker(currentEvent.id))
+      const transitionIntroAudioUrl = shouldSkipTransitionIntroAudio ? null : transitionState.introAudioUrl
 
       if (transitionIntroAudioUrl) {
         const introStartedAtMs = getHostNowMs()
@@ -3306,7 +3307,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   const startCurrentSong = useCallback(async (options?: { skipIntroAudio?: boolean; countdownMs?: number }) => {
     const currentEvent = eventRef.current
     const currentSong = nowPlayingRef.current
-    const shouldSkipIntroAudio = options?.skipIntroAudio === true
+    const shouldSkipIntroAudio = options?.skipIntroAudio === true || Boolean(currentEvent?.id && readIntroAudioPlayedMarker(currentEvent.id))
     const transitionIntroAudioUrl = shouldSkipIntroAudio ? null : (currentEvent?.introAudioUrl ?? null)
     const countdownMs = Number.isFinite(options?.countdownMs)
       ? Math.max(250, Number(options?.countdownMs))
