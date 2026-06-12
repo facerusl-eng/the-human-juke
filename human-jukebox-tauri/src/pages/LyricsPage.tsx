@@ -67,6 +67,121 @@ function buildFallbackLyricsText(title: string, artist: string) {
   ].join('\n');
 }
 
+type BridgeLyricsRow = Record<string, unknown>;
+
+function toNonEmptyString(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function toComparable(value: unknown) {
+  const text = toNonEmptyString(value);
+  return text ? normalizeLyricsInput(text).toLowerCase() : null;
+}
+
+function buildImportedLyricsTextFromSections(sections: unknown[]) {
+  const blocks: string[] = [];
+
+  sections.forEach((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      return;
+    }
+
+    const section = entry as Record<string, unknown>;
+    const sectionText = toNonEmptyString(section.text ?? section.lyrics ?? section.content);
+    if (!sectionText) {
+      return;
+    }
+
+    const explicitLabel = toNonEmptyString(section.imported_label ?? section.label ?? section.heading ?? section.name);
+    const sectionType = toNonEmptyString(section.type) ?? 'Section';
+    const order = typeof section.order === 'number' && Number.isFinite(section.order)
+      ? Math.max(1, Math.floor(section.order))
+      : index + 1;
+
+    const normalizedLabel = explicitLabel ?? `${sectionType} ${order}`;
+    const bracketedLabel = /^\[[^\]]+\]$/.test(normalizedLabel)
+      ? normalizedLabel
+      : `[${normalizedLabel}]`;
+
+    blocks.push(`${bracketedLabel}\n${sectionText}`);
+  });
+
+  return blocks.length > 0 ? blocks.join('\n\n').trim() : null;
+}
+
+function extractImportedLyrics(row: BridgeLyricsRow) {
+  const importedSections = Array.isArray(row.imported_sections)
+    ? row.imported_sections
+    : Array.isArray(row.sections)
+      ? row.sections
+      : null;
+
+  const sectionText = importedSections ? buildImportedLyricsTextFromSections(importedSections) : null;
+  if (sectionText) {
+    return sectionText;
+  }
+
+  return toNonEmptyString(row.imported_raw_lyrics ?? row.raw_lyrics ?? row.lyrics ?? row.manual_lyrics);
+}
+
+function rowMatchesSong(row: BridgeLyricsRow, options: { title: string; artist: string; librarySongId: string | null }) {
+  const normalizedRowTitle = toComparable(row.title ?? row.song_title);
+  const normalizedRowArtist = toComparable(row.artist ?? row.song_artist);
+  const normalizedTitle = normalizeLyricsInput(options.title).toLowerCase();
+  const normalizedArtist = normalizeLyricsInput(options.artist).toLowerCase();
+
+  const rowSongId = toNonEmptyString(row.song_id ?? row.library_song_id ?? row.librarySongId ?? row.songId);
+  if (options.librarySongId && rowSongId && options.librarySongId === rowSongId) {
+    return true;
+  }
+
+  if (!normalizedRowTitle || normalizedRowTitle !== normalizedTitle) {
+    return false;
+  }
+
+  if (!normalizedArtist) {
+    return true;
+  }
+
+  return Boolean(normalizedRowArtist && normalizedRowArtist === normalizedArtist);
+}
+
+async function loadImportedBridgeLyrics(params: {
+  title: string;
+  artist: string;
+  librarySongId: string | null;
+}) {
+  const candidateTables = ['human_jukebox_lyrics', 'human_jukebox_ready_lyrics'];
+
+  for (const tableName of candidateTables) {
+    try {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(200);
+
+      if (error || !Array.isArray(data)) {
+        continue;
+      }
+
+      const matchingRow = data.find((row) => rowMatchesSong(row as BridgeLyricsRow, params)) as BridgeLyricsRow | undefined;
+      if (!matchingRow) {
+        continue;
+      }
+
+      const importedLyrics = extractImportedLyrics(matchingRow);
+      if (importedLyrics) {
+        return importedLyrics;
+      }
+    } catch {
+      // Try next candidate table.
+    }
+  }
+
+  return null;
+}
+
 function getLyricsPageCopy(locale: AudienceLocale) {
   if (locale === 'da') {
     return {
@@ -150,15 +265,14 @@ function parseHeadingLine(line: string) {
 
   const bracketHeading = trimmedLine.match(/^\[([^\]]+)\]$/);
   if (bracketHeading) {
-    const heading = normalizeSectionHeading(bracketHeading[1]);
-    const numberMatch = bracketHeading[1].match(/\b(\d+)\b/);
-    return heading ? `${heading}${numberMatch ? ` ${numberMatch[1]}` : ''}:` : null;
+    const headingText = bracketHeading[1].trim();
+    return headingText.length > 0 ? `[${headingText}]` : null;
   }
 
   const plainHeading = trimmedLine.match(/^(verse|chorus|bridge|solo|instrumental|hook|refrain)(?:\s+(\d+))?\s*[:\-]?$/i);
   if (plainHeading) {
     const heading = normalizeSectionHeading(plainHeading[0]);
-    return heading ? `${heading}${plainHeading[2] ? ` ${plainHeading[2]}` : ''}:` : null;
+    return heading ? `[${heading}${plainHeading[2] ? ` ${plainHeading[2]}` : ''}]` : null;
   }
 
   return null;
@@ -178,7 +292,8 @@ function renderKaraokeLyrics(text: string) {
     if (line.trim() === '') {
       return <br key={`br-${index}`} />;
     }
-    const isHeading = line.trim().endsWith(':') && line.length < 40;
+    const trimmedLine = line.trim();
+    const isHeading = (trimmedLine.endsWith(':') || /^\[[^\]]+\]$/.test(trimmedLine)) && trimmedLine.length < 60;
     return (
       <div key={`line-${index}`} className={isHeading ? 'karaoke-heading' : 'karaoke-line'}>
         {line}
@@ -383,7 +498,7 @@ function buildKaraokeFocusBlocks(text: string): KaraokeFocusBlock[] {
       continue
     }
 
-    const isHeading = line.endsWith(':') && line.length < 40
+    const isHeading = (line.endsWith(':') || /^\[[^\]]+\]$/.test(line)) && line.length < 60
     if (isHeading) {
       flushPairBuffer()
       blocks.push({ kind: 'heading', heading: line })
@@ -844,6 +959,24 @@ export default function LyricsPage() {
 
     // First, check if host already saved manual lyrics directly on this library song.
     const loadLyrics = async () => {
+      // Prefer imported, sectioned lyrics synced from LyricStudio/Base44 if available.
+      if (!demoMode && title) {
+        const importedLyrics = await loadImportedBridgeLyrics({
+          title,
+          artist,
+          librarySongId: librarySongId || null,
+        });
+
+        if (importedLyrics) {
+          cacheFoundLyrics(title, artist, importedLyrics);
+          setLyrics(importedLyrics);
+          setManualLyricsInput(importedLyrics);
+          setLyricsNotFound(false);
+          setLoading(false);
+          return;
+        }
+      }
+
       if (librarySongId && !demoMode) {
         try {
           const { data, error: fetchSongError } = await supabase
