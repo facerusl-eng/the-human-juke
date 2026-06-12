@@ -91,7 +91,7 @@ export default async function handler(req, res) {
       event_theme: null,
     }))
 
-    res.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=40')
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
     return res.status(200).json({ success: true, rows: mappedRows })
   } catch (error) {
     return res.status(500).json({

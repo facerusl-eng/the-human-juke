@@ -236,13 +236,13 @@ const ROOM_OPEN_SYNC_KEY = 'human-jukebox-room-open-sync'
 const HOST_QUEUE_POLL_INTERVAL_MS = 10_000
 const HOST_GIGS_ROUTE_POLL_INTERVAL_MS = 45_000
 // How often the audience polls when connected to a live event (realtime handles most updates).
-const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 20_000
+const AUDIENCE_QUEUE_POLL_INTERVAL_MS = 12_000
 // How often the audience checks for a new live gig when sitting on the no-gig screen.
-const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 20_000
+const AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 12_000
 const DEGRADE_AFTER_CONSECUTIVE_FAILURES = 2
 // In degraded mode we poll faster because realtime is unhealthy.
-const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 10_000
-const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 10_000
+const DEGRADED_AUDIENCE_QUEUE_POLL_INTERVAL_MS = 8_000
+const DEGRADED_AUDIENCE_LIVE_DISCOVERY_POLL_INTERVAL_MS = 8_000
 // Hidden audience tabs do not need aggressive polling; prioritize lower egress and battery use.
 const HIDDEN_AUDIENCE_POLL_INTERVAL_MS = 60_000
 const REALTIME_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3
