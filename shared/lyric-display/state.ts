@@ -13,7 +13,8 @@ const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
 const STATUS_KEY = 'lyrics_prefetch_status_v1'
 const LRC_MISS_CACHE_TTL_MS = 5 * 60 * 1000
 const ONLINE_LYRICS_FETCH_TIMEOUT_MS = 7_000
-const ONLINE_LYRICS_MAX_ATTEMPTS = 3
+const ONLINE_LYRICS_MAX_ATTEMPTS = 2
+const ONLINE_LYRICS_MAX_VARIANTS = 4
 const MAX_BLOCK_LINES = 8
 const MAX_BLOCK_CHARS = 520
 const lrcMissCache = new Map<string, number>()
@@ -412,7 +413,7 @@ function writeLyricsCache(song: LyricSongRef, lyrics: string) {
 }
 
 async function fetchOnlineLyrics(song: LyricSongRef) {
-  const variants = buildSongQueryVariants(song)
+  const variants = buildSongQueryVariants(song).slice(0, ONLINE_LYRICS_MAX_VARIANTS)
   const lyricsLocale = resolveLyricsLocale()
 
   for (const variant of variants) {
@@ -431,7 +432,7 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
 
         if (!response.ok) {
           if (isRetryableLyricsStatus(response.status) && attempt < ONLINE_LYRICS_MAX_ATTEMPTS - 1) {
-            await waitFor(220 * (attempt + 1))
+            await waitFor(120 * (attempt + 1))
             continue
           }
 
@@ -458,7 +459,7 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
         break
       } catch {
         if (attempt < ONLINE_LYRICS_MAX_ATTEMPTS - 1) {
-          await waitFor(220 * (attempt + 1))
+          await waitFor(120 * (attempt + 1))
           continue
         }
       }
@@ -508,6 +509,24 @@ function readAutoCachedLyrics(song: LyricSongRef) {
   return null
 }
 
+async function probeLrcCandidates(candidates: string[], identityKey: string) {
+  for (const candidatePath of candidates) {
+    const lrcText = await fetchLrc(candidatePath)
+    if (!lrcText) {
+      continue
+    }
+
+    const blocks = parseBlocksFromLrcText(lrcText)
+    if (blocks.length > 0) {
+      lrcMissCache.delete(identityKey)
+      return blocks
+    }
+  }
+
+  lrcMissCache.set(identityKey, Date.now())
+  return [] as string[]
+}
+
 async function loadBlocksForSong(song: LyricSongRef) {
   const identityKey = songIdentityKey(song)
   const cachedSongBlocks = songBlocksCache.get(identityKey)
@@ -543,27 +562,19 @@ async function loadBlocksForSong(song: LyricSongRef) {
       artist: song.artist,
     })
 
-    if (!shouldSkipLrcProbe) {
-      // Limit probes to the top candidates to reduce time-to-first-lyrics.
-      for (const candidatePath of candidates.slice(0, 3)) {
-        const lrcText = await fetchLrc(candidatePath)
-        if (!lrcText) {
-          continue
-        }
+    const lrcProbePromise = !shouldSkipLrcProbe
+      ? probeLrcCandidates(candidates.slice(0, 2), identityKey)
+      : Promise.resolve([] as string[])
 
-        const blocks = parseBlocksFromLrcText(lrcText)
-        if (blocks.length > 0) {
-          lrcMissCache.delete(identityKey)
-          return blocks
-        }
-      }
-
-      lrcMissCache.set(identityKey, Date.now())
-    }
-
+    // Prioritize Genius result for fastest visible lyrics while LRC probes in parallel.
     const onlineBlocks = await fetchOnlineLyrics(song)
     if (onlineBlocks.length > 0) {
       return onlineBlocks
+    }
+
+    const lrcBlocks = await lrcProbePromise
+    if (lrcBlocks.length > 0) {
+      return lrcBlocks
     }
 
     return [`No lyric blocks found for ${song.artist} - ${song.title}`]
