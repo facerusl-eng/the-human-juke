@@ -50,7 +50,7 @@ export default function JamzoneLyricsPage() {
     }
   }, [songs])
 
-  const activeSong = nowPlayingSong ?? querySong
+  const activeSong = querySong ?? nowPlayingSong
 
   return (
     <LyricDisplay
