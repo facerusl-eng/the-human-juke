@@ -14,7 +14,7 @@ const STATUS_KEY = 'lyrics_prefetch_status_v1'
 const LRC_MISS_CACHE_TTL_MS = 5 * 60 * 1000
 const ONLINE_LYRICS_FETCH_TIMEOUT_MS = 7_000
 const ONLINE_LYRICS_MAX_ATTEMPTS = 2
-const ONLINE_LYRICS_MAX_VARIANTS = 4
+const ONLINE_LYRICS_MAX_VARIANTS = 2
 const MAX_BLOCK_LINES = 8
 const MAX_BLOCK_CHARS = 520
 const lrcMissCache = new Map<string, number>()
@@ -27,6 +27,10 @@ const PLAIN_SECTION_HEADING_RE = /^(verse|chorus|pre-chorus|pre chorus|bridge|ho
 
 function isLyricMissPlaceholder(blocks: string[]) {
   return blocks.length === 1 && blocks[0].startsWith('No lyric blocks found for ')
+}
+
+function isLyricLoadingPlaceholder(blocks: string[]) {
+  return blocks.length === 1 && blocks[0].startsWith('Loading lyrics for ')
 }
 
 function sanitizeLineText(value: string) {
@@ -747,7 +751,11 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
   }, [state])
 
   const openLyricForSong = useCallback(async (song: LyricSongRef, returnToPath: string) => {
-    if (sameSongContent(stateRef.current.song, song) && stateRef.current.blocks.length > 0) {
+    if (
+      sameSongContent(stateRef.current.song, song)
+      && stateRef.current.blocks.length > 0
+      && !isLyricLoadingPlaceholder(stateRef.current.blocks)
+    ) {
       applyPatch({
         song,
         activeView: 'lyric',
