@@ -12,7 +12,7 @@ const SECTION_GAP_SECONDS = 12
 const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
 const STATUS_KEY = 'lyrics_prefetch_status_v1'
 const LRC_MISS_CACHE_TTL_MS = 5 * 60 * 1000
-const ONLINE_LYRICS_FETCH_TIMEOUT_MS = 12_000
+const ONLINE_LYRICS_FETCH_TIMEOUT_MS = 7_000
 const ONLINE_LYRICS_MAX_ATTEMPTS = 3
 const MAX_BLOCK_LINES = 8
 const MAX_BLOCK_CHARS = 520
@@ -525,44 +525,46 @@ async function loadBlocksForSong(song: LyricSongRef) {
   }
 
   const loadPromise = (async () => {
-  const missCachedAt = lrcMissCache.get(identityKey)
-  const shouldSkipLrcProbe = typeof missCachedAt === 'number' && Date.now() - missCachedAt < LRC_MISS_CACHE_TTL_MS
-
-  const candidates = buildLrcCandidatePaths({
-    songId: song.id,
-    title: song.title,
-    artist: song.artist,
-  })
-
-  if (!shouldSkipLrcProbe) {
-    for (const candidatePath of candidates.slice(0, 8)) {
-      const lrcText = await fetchLrc(candidatePath)
-      if (!lrcText) {
-        continue
-      }
-
-      const blocks = parseBlocksFromLrcText(lrcText)
-      if (blocks.length > 0) {
-        lrcMissCache.delete(identityKey)
-        return blocks
+    // Fastest path first: local cached lyrics are immediate.
+    const autoCachedLyrics = readAutoCachedLyrics(song)
+    if (autoCachedLyrics) {
+      const cachedBlocks = parseBlocksFromPlainLyrics(autoCachedLyrics)
+      if (cachedBlocks.length > 0) {
+        return cachedBlocks
       }
     }
 
-    lrcMissCache.set(identityKey, Date.now())
-  }
+    const missCachedAt = lrcMissCache.get(identityKey)
+    const shouldSkipLrcProbe = typeof missCachedAt === 'number' && Date.now() - missCachedAt < LRC_MISS_CACHE_TTL_MS
 
-  const autoCachedLyrics = readAutoCachedLyrics(song)
-  if (autoCachedLyrics) {
-    const cachedBlocks = parseBlocksFromPlainLyrics(autoCachedLyrics)
-    if (cachedBlocks.length > 0) {
-      return cachedBlocks
+    const candidates = buildLrcCandidatePaths({
+      songId: song.id,
+      title: song.title,
+      artist: song.artist,
+    })
+
+    if (!shouldSkipLrcProbe) {
+      // Limit probes to the top candidates to reduce time-to-first-lyrics.
+      for (const candidatePath of candidates.slice(0, 3)) {
+        const lrcText = await fetchLrc(candidatePath)
+        if (!lrcText) {
+          continue
+        }
+
+        const blocks = parseBlocksFromLrcText(lrcText)
+        if (blocks.length > 0) {
+          lrcMissCache.delete(identityKey)
+          return blocks
+        }
+      }
+
+      lrcMissCache.set(identityKey, Date.now())
     }
-  }
 
-  const onlineBlocks = await fetchOnlineLyrics(song)
-  if (onlineBlocks.length > 0) {
-    return onlineBlocks
-  }
+    const onlineBlocks = await fetchOnlineLyrics(song)
+    if (onlineBlocks.length > 0) {
+      return onlineBlocks
+    }
 
     return [`No lyric blocks found for ${song.artist} - ${song.title}`]
   })()
@@ -746,6 +748,16 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
 
     latestOpenRequestIdRef.current += 1
     const requestId = latestOpenRequestIdRef.current
+
+    // Update UI immediately so users don't wait on stale lyric content.
+    applyPatch({
+      song,
+      blocks: [`Loading lyrics for ${song.artist} - ${song.title}...`],
+      currentBlockIndex: -1,
+      activeView: 'lyric',
+      showOnMirror: false,
+      returnToPath,
+    })
 
     const blocks = await loadBlocksForSong(song)
 
