@@ -314,12 +314,21 @@ function parseHeadingLine(line: string) {
   return null;
 }
 
-function annotateLyricsSections(rawLyrics: string) {
+function normalizeSectionLineBreaks(rawLyrics: string) {
   return rawLyrics
     .replace(/\r\n/g, '\n')
+    .replace(/\]\s*\[/g, ']\n\n[')
+    .replace(/(\[[^\]]+\])\s+(?=[^\n\[])/g, '$1\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function annotateLyricsSections(rawLyrics: string) {
+  return normalizeSectionLineBreaks(rawLyrics)
     .split('\n')
     .map((line) => parseHeadingLine(line) ?? line)
     .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
@@ -336,6 +345,63 @@ function renderKaraokeLyrics(text: string) {
       </div>
     );
   });
+}
+
+type LyricsSectionBlock = {
+  heading: string | null
+  lines: string[]
+}
+
+function buildLyricsSectionBlocks(text: string): LyricsSectionBlock[] {
+  const blocks: LyricsSectionBlock[] = []
+  let currentHeading: string | null = null
+  let currentLines: string[] = []
+
+  const flush = () => {
+    if (currentLines.length === 0) {
+      return
+    }
+    blocks.push({ heading: currentHeading, lines: [...currentLines] })
+    currentLines = []
+  }
+
+  for (const rawLine of text.split('\n')) {
+    const heading = parseHeadingLine(rawLine)
+    if (heading) {
+      flush()
+      currentHeading = heading
+      continue
+    }
+    currentLines.push(rawLine)
+  }
+
+  flush()
+  return blocks
+}
+
+function renderLyricsSections(text: string) {
+  const blocks = buildLyricsSectionBlocks(text)
+
+  if (blocks.length <= 1) {
+    return renderKaraokeLyrics(text)
+  }
+
+  return (
+    <div className="lyrics-sections" aria-label="Lyrics sections">
+      {blocks.map((block, index) => (
+        <section key={`lyrics-section-${index}`} className="lyrics-section">
+          {block.heading ? <h3 className="lyrics-section-heading">{block.heading}</h3> : null}
+          <div className="lyrics-section-body">
+            {block.lines.map((line, lineIndex) => (
+              line.trim().length === 0
+                ? <br key={`lyrics-section-${index}-line-${lineIndex}`} />
+                : <p key={`lyrics-section-${index}-line-${lineIndex}`} className="lyrics-section-line">{line}</p>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
 }
 
 type TimedKaraokeWord = {
@@ -1271,7 +1337,7 @@ export default function LyricsPage() {
       ) : null}
 
       {formattedLyrics ? (
-        <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}${hasTimedKaraoke ? ' lyrics-stage-text-timed' : ''}` : ''}`}>
+        <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}${hasTimedKaraoke ? ' lyrics-stage-text-timed' : ''}` : ' audience-lyrics-text-sections'}`}>
           {isStageMode ? (() => {
             if (!hasTimedKaraoke) {
               return <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
@@ -1324,9 +1390,7 @@ export default function LyricsPage() {
                 </section>
               </div>
             )
-          })() : (
-            renderKaraokeLyrics(formattedLyrics)
-          )}
+          })() : renderLyricsSections(formattedLyrics)}
         </div>
       ) : null}
     </div>

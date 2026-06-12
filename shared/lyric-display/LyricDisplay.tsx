@@ -56,6 +56,15 @@ function resolveLyricActionFromKey(keyEvent: KeyboardEvent): LyricPedalAction | 
   return null
 }
 
+function normalizeSectionLineBreaks(rawLyrics: string) {
+  return rawLyrics
+    .replace(/\r\n/g, '\n')
+    .replace(/\]\s*\[/g, ']\n\n[')
+    .replace(/(\[[^\]]+\])\s+(?=[^\n\[])/g, '$1\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 type LyricDisplayProps = {
   supabase: SupabaseClient
   activeSong: LyricSongRef | null
@@ -299,7 +308,7 @@ export default function LyricDisplay({
   }
 
   const saveEditedLyric = () => {
-    const normalized = draftLyricText.replace(/\r\n/g, '\n')
+    const normalized = normalizeSectionLineBreaks(draftLyricText)
     const nextBlocks = normalized
       .split(/\n{2,}/)
       .map((block) => block.trim())

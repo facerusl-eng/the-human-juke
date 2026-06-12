@@ -58,8 +58,44 @@
   padding: 18px 12px;
   margin: 0 auto 24px auto;
   text-align: center;
-  max-height: 50vh;
+  max-height: 72vh;
   overflow-y: auto;
+}
+
+.audience-lyrics-text-sections {
+  text-align: left;
+  padding: 18px;
+}
+
+.lyrics-sections {
+  display: grid;
+  gap: 14px;
+}
+
+.lyrics-section {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(2, 8, 22, 0.45);
+  padding: 10px 12px;
+}
+
+.lyrics-section-heading {
+  margin: 0 0 8px 0;
+  color: #7dd3fc;
+  font-size: 0.96rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lyrics-section-body {
+  display: grid;
+  gap: 4px;
+}
+
+.lyrics-section-line {
+  margin: 0;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .karaoke-line {

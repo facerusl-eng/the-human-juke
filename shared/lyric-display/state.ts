@@ -14,12 +14,15 @@ const STATUS_KEY = 'lyrics_prefetch_status_v1'
 const LRC_MISS_CACHE_TTL_MS = 5 * 60 * 1000
 const ONLINE_LYRICS_FETCH_TIMEOUT_MS = 12_000
 const ONLINE_LYRICS_MAX_ATTEMPTS = 3
-const MAX_BLOCK_LINES = 2
-const MAX_BLOCK_CHARS = 110
+const MAX_BLOCK_LINES = 4
+const MAX_BLOCK_CHARS = 220
 const lrcMissCache = new Map<string, number>()
 const SONG_BLOCK_CACHE_TTL_MS = 20 * 60 * 1000
 const songBlocksCache = new Map<string, { cachedAt: number; blocks: string[] }>()
 const pendingSongLoads = new Map<string, Promise<string[]>>()
+
+const BRACKET_HEADING_RE = /^\[[^\]]+\]$/
+const PLAIN_SECTION_HEADING_RE = /^(verse|chorus|pre-chorus|pre chorus|bridge|hook|refrain|intro|outro|solo|instrumental)(?:\s+\d+)?\s*[:\-]?$/i
 
 function isLyricMissPlaceholder(blocks: string[]) {
   return blocks.length === 1 && blocks[0].startsWith('No lyric blocks found for ')
@@ -127,6 +130,24 @@ function normalizeLyricBlocks(rawBlocks: string[]) {
   return normalizedBlocks
 }
 
+function normalizeSectionLineBreaks(rawLyrics: string) {
+  return rawLyrics
+    .replace(/\r\n/g, '\n')
+    .replace(/\]\s*\[/g, ']\n\n[')
+    .replace(/(\[[^\]]+\])\s+(?=[^\n\[])/g, '$1\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function isSectionHeadingLine(line: string) {
+  const trimmed = line.trim()
+  if (!trimmed) {
+    return false
+  }
+
+  return BRACKET_HEADING_RE.test(trimmed) || PLAIN_SECTION_HEADING_RE.test(trimmed)
+}
+
 function parseBlocksFromLrcText(lrcText: string) {
   const parsed = parseLrc(lrcText)
   if (!parsed.lines.length) {
@@ -161,8 +182,7 @@ function parseBlocksFromLrcText(lrcText: string) {
 }
 
 function parseBlocksFromPlainLyrics(rawLyrics: string) {
-  const normalized = rawLyrics
-    .replace(/\r\n/g, '\n')
+  const normalized = normalizeSectionLineBreaks(rawLyrics)
     .split('\n')
     .map((line) => line.trim())
 
@@ -175,6 +195,15 @@ function parseBlocksFromPlainLyrics(rawLyrics: string) {
         blocks.push(currentBlockLines.join('\n'))
         currentBlockLines = []
       }
+      continue
+    }
+
+    if (isSectionHeadingLine(line)) {
+      if (currentBlockLines.length > 0) {
+        blocks.push(currentBlockLines.join('\n'))
+        currentBlockLines = []
+      }
+      blocks.push(line)
       continue
     }
 
