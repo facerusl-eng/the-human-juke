@@ -5012,6 +5012,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                       return
                     }
 
+                    if ((nowPlaying.votes_count ?? 0) > 0) {
+                      setErrorText(`Cannot skip \"${nowPlaying.title}\" because it has ${nowPlaying.votes_count} vote${nowPlaying.votes_count === 1 ? '' : 's'}. Mark it as played instead.`)
+                      return
+                    }
+
                     setSongActionBusyId(nowPlaying.id)
 
                     try {
@@ -5246,6 +5251,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                     disabled={songActionBusyId === song.id}
                     onClick={async () => {
                       if (songActionBusyId === song.id) {
+                        return
+                      }
+
+                      if ((song.votes_count ?? 0) > 0) {
+                        setErrorText(`Cannot remove \"${song.title}\" because it has ${song.votes_count} vote${song.votes_count === 1 ? '' : 's'}.`)
                         return
                       }
 
