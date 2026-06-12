@@ -78,6 +78,30 @@ function toComparable(value: unknown) {
   return text ? normalizeLyricsInput(text).toLowerCase() : null;
 }
 
+function toLooseComparable(value: unknown) {
+  const text = toComparable(value);
+  if (!text) {
+    return null;
+  }
+
+  return text
+    .replace(/[\[\](){}'".,!?;:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function valuesLikelyMatch(left: string | null, right: string | null) {
+  if (!left || !right) {
+    return false;
+  }
+
+  if (left === right) {
+    return true;
+  }
+
+  return left.includes(right) || right.includes(left);
+}
+
 function buildImportedLyricsTextFromSections(sections: unknown[]) {
   const blocks: string[] = [];
 
@@ -127,15 +151,22 @@ function extractImportedLyrics(row: BridgeLyricsRow) {
 function rowMatchesSong(row: BridgeLyricsRow, options: { title: string; artist: string; librarySongId: string | null }) {
   const normalizedRowTitle = toComparable(row.title ?? row.song_title);
   const normalizedRowArtist = toComparable(row.artist ?? row.song_artist);
+  const looseRowTitle = toLooseComparable(row.title ?? row.song_title);
+  const looseRowArtist = toLooseComparable(row.artist ?? row.song_artist);
   const normalizedTitle = normalizeLyricsInput(options.title).toLowerCase();
   const normalizedArtist = normalizeLyricsInput(options.artist).toLowerCase();
+  const looseTitle = toLooseComparable(options.title);
+  const looseArtist = toLooseComparable(options.artist);
 
   const rowSongId = toNonEmptyString(row.song_id ?? row.library_song_id ?? row.librarySongId ?? row.songId);
   if (options.librarySongId && rowSongId && options.librarySongId === rowSongId) {
     return true;
   }
 
-  if (!normalizedRowTitle || normalizedRowTitle !== normalizedTitle) {
+  const titleMatched = valuesLikelyMatch(normalizedRowTitle, normalizedTitle)
+    || valuesLikelyMatch(looseRowTitle, looseTitle);
+
+  if (!titleMatched) {
     return false;
   }
 
@@ -143,7 +174,12 @@ function rowMatchesSong(row: BridgeLyricsRow, options: { title: string; artist: 
     return true;
   }
 
-  return Boolean(normalizedRowArtist && normalizedRowArtist === normalizedArtist);
+  if (!normalizedRowArtist) {
+    return true;
+  }
+
+  return valuesLikelyMatch(normalizedRowArtist, normalizedArtist)
+    || valuesLikelyMatch(looseRowArtist, looseArtist);
 }
 
 async function loadImportedBridgeLyrics(params: {
@@ -159,7 +195,7 @@ async function loadImportedBridgeLyrics(params: {
         .from(tableName)
         .select('*')
         .order('updated_at', { ascending: false })
-        .limit(200);
+        .limit(1000);
 
       if (error || !Array.isArray(data)) {
         continue;
