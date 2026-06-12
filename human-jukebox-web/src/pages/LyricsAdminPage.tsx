@@ -253,6 +253,123 @@ function deleteBatchFromStorage(batchId: string): void {
   }
 }
 
+function normalizeLyricsLookupValue(value: string) {
+  return value
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function buildLyricsLookupCandidates(title: string, artist: string) {
+  const normalizedTitle = normalizeLyricsLookupValue(title)
+  const normalizedArtist = normalizeLyricsLookupValue(artist)
+
+  const stripTitle = (value: string) => normalizeLyricsLookupValue(value)
+    .replace(/\(.*?\)/g, ' ')
+    .replace(/\[.*?\]/g, ' ')
+    .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+    .replace(/\b(remix|version|edit|live|acoustic)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const stripArtist = (value: string) => normalizeLyricsLookupValue(value)
+    .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
+    .split(/\s(?:&|x|with|and)\s|,|\//i)[0]
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const titleCandidates = [
+    normalizedTitle,
+    stripTitle(normalizedTitle),
+  ].filter(Boolean)
+
+  const artistCandidates = [
+    normalizedArtist,
+    stripArtist(normalizedArtist),
+    '',
+  ]
+
+  const unique = new Map<string, { song: string; artist: string }>()
+  for (const titleValue of titleCandidates) {
+    for (const artistValue of artistCandidates) {
+      const key = `${titleValue}::${artistValue}`
+      unique.set(key, { song: titleValue, artist: artistValue })
+    }
+  }
+
+  return [...unique.values()]
+}
+
+function shouldRetryLyricsStatus(statusCode: number) {
+  return statusCode === 408 || statusCode === 425 || statusCode === 429 || statusCode >= 500
+}
+
+async function fetchLyricsFromGenius(title: string, artist: string): Promise<string | null> {
+  const candidates = buildLyricsLookupCandidates(title, artist)
+
+  for (const candidate of candidates) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const params = new URLSearchParams({ song: candidate.song })
+      if (candidate.artist) {
+        params.set('artist', candidate.artist)
+      }
+
+      const controller = new AbortController()
+      const timeoutId = window.setTimeout(() => {
+        controller.abort()
+      }, 8000)
+
+      try {
+        const response = await fetch(`/api/lyrics-genius?${params.toString()}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          if (shouldRetryLyricsStatus(response.status) && attempt < 1) {
+            continue
+          }
+          break
+        }
+
+        const data = await response.json() as { lyrics?: string }
+        const fetched = (data.lyrics ?? '').trim()
+        if (fetched) {
+          return fetched
+        }
+      } catch {
+        if (attempt >= 1) {
+          break
+        }
+      } finally {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }
+
+  return null
+}
+
+function exportBatchToFile(batch: SavedBatch): void {
+  try {
+    const payload = JSON.stringify(batch, null, 2)
+    const blob = new Blob([payload], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    const safeName = batch.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()
+    anchor.href = url
+    anchor.download = `${safeName || 'lyrics-list'}-${new Date(batch.createdAt).toISOString().slice(0, 10)}.json`
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    URL.revokeObjectURL(url)
+  } catch {
+    // ignore export errors
+  }
+}
+
 function parseCsvLine(line: string): string[] {
   const fields: string[] = []
   let current = ''
@@ -407,17 +524,7 @@ export default function LyricsAdminPage() {
     setStatusMessage(null)
 
     try {
-      const params = new URLSearchParams({ song: selectedSong.title ?? '' })
-      if (selectedSong.artist) {
-        params.set('artist', selectedSong.artist)
-      }
-      const response = await fetch(`/api/lyrics-genius?${params.toString()}`, { cache: 'no-store' })
-      if (!response.ok) {
-        setStatusMessage('API returned no lyrics for this song.')
-        return
-      }
-      const data = await response.json() as { lyrics?: string }
-      const fetched = (data.lyrics ?? '').trim()
+      const fetched = await fetchLyricsFromGenius(selectedSong.title ?? '', selectedSong.artist ?? '')
       if (!fetched) {
         setStatusMessage('No lyrics found on the internet for this song.')
         return
@@ -444,18 +551,10 @@ export default function LyricsAdminPage() {
 
     if (!lyrics) {
       try {
-        const params = new URLSearchParams({ song: title })
-        if (artist) {
-          params.set('artist', artist)
-        }
-        const response = await fetch(`/api/lyrics-genius?${params.toString()}`, { cache: 'no-store' })
-        if (response.ok) {
-          const data = await response.json() as { lyrics?: string }
-          const fetched = (data.lyrics ?? '').trim()
-          if (fetched) {
-            lyrics = fetched
-            autoFetched = true
-          }
+        const fetched = await fetchLyricsFromGenius(title, artist)
+        if (fetched) {
+          lyrics = fetched
+          autoFetched = true
         }
       } catch {
         // fall through to skip
@@ -565,6 +664,22 @@ export default function LyricsAdminPage() {
     }
   }, [saveSingleLyricsRow, batchName])
 
+  const saveCurrentLyricList = useCallback(() => {
+    if (csvResults.length === 0) {
+      return
+    }
+
+    const name = batchName.trim() || `Import ${new Date().toLocaleString()}`
+    const batch: SavedBatch = {
+      id: `export-${Date.now().toString(36)}`,
+      name,
+      createdAt: Date.now(),
+      results: csvResults,
+    }
+    exportBatchToFile(batch)
+    setStatusMessage('Lyric list exported as JSON file.')
+  }, [batchName, csvResults])
+
   const saveLyrics = async () => {
     if (!selectedSong) {
       setStatusMessage('Select a song first.')
@@ -662,14 +777,21 @@ export default function LyricsAdminPage() {
               : null}
         </div>
         {csvResults.length > 0 ? (
-          <ul className="lyrics-admin-csv-results">
-            {csvResults.map((result, index) => (
-              <li key={index} className={`lyrics-admin-csv-row lyrics-admin-csv-row--${result.status}`}>
-                <span className="lyrics-admin-csv-song">{result.title}{result.artist ? ` - ${result.artist}` : ''}</span>
-                <span className="lyrics-admin-csv-msg">{result.message}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="lyrics-admin-list-actions">
+              <button type="button" className="secondary-button" onClick={saveCurrentLyricList}>
+                Save lyric list
+              </button>
+            </div>
+            <ul className="lyrics-admin-csv-results">
+              {csvResults.map((result, index) => (
+                <li key={index} className={`lyrics-admin-csv-row lyrics-admin-csv-row--${result.status}`}>
+                  <span className="lyrics-admin-csv-song">{result.title}{result.artist ? ` - ${result.artist}` : ''}</span>
+                  <span className="lyrics-admin-csv-msg">{result.message}</span>
+                </li>
+              ))}
+            </ul>
+          </>
         ) : null}
 
         {savedBatches.length > 0 ? (
@@ -686,11 +808,23 @@ export default function LyricsAdminPage() {
                       : null}
                     <span> · {new Date(batch.createdAt).toLocaleDateString()}</span>
                   </span>
+                </summary>
+                <div className="lyrics-admin-batch-actions">
+                  <button
+                    type="button"
+                    className="lyrics-admin-batch-save"
+                    onClick={() => {
+                      exportBatchToFile(batch)
+                      setStatusMessage('Lyric list exported as JSON file.')
+                    }}
+                    title="Save this lyric list to a file"
+                  >
+                    Save list
+                  </button>
                   <button
                     type="button"
                     className="lyrics-admin-batch-delete"
-                    onClick={(e) => {
-                      e.preventDefault()
+                    onClick={() => {
                       deleteBatchFromStorage(batch.id)
                       setSavedBatches(loadBatchesFromStorage())
                     }}
@@ -698,7 +832,7 @@ export default function LyricsAdminPage() {
                   >
                     Delete
                   </button>
-                </summary>
+                </div>
                 <ul className="lyrics-admin-csv-results">
                   {batch.results.map((result, index) => (
                     <li key={index} className={`lyrics-admin-csv-row lyrics-admin-csv-row--${result.status}`}>

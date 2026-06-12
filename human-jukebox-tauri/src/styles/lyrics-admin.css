@@ -87,6 +87,11 @@
   color: #00e5ff;
 }
 
+.lyrics-admin-list-actions {
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
 .lyrics-admin-batches {
   margin-top: 20px;
 }
@@ -136,6 +141,30 @@
 
 .lyrics-admin-batch-failed {
   color: #e05555;
+}
+
+.lyrics-admin-batch-actions {
+  display: inline-flex;
+  gap: 8px;
+  margin: 8px 12px 0;
+}
+
+.lyrics-admin-batch-save {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  background: rgba(0, 180, 255, 0.12);
+  border: 1px solid rgba(0, 180, 255, 0.35);
+  border-radius: 4px;
+  color: #5bd3ff;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.lyrics-admin-batch-save:hover {
+  background: rgba(0, 180, 255, 0.2);
+  border-color: rgba(0, 180, 255, 0.5);
 }
 
 .lyrics-admin-batch-delete {
