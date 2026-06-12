@@ -525,9 +525,9 @@ function readAutoCachedLyrics(song: LyricSongRef) {
 }
 
 async function fetchManualLyricsForSong(supabase: SupabaseClient, song: LyricSongRef) {
-  const librarySongId = normalizeComparableValue(song.librarySongId ?? song.id)
-  const title = normalizeComparableValue(song.title ?? '')
-  const artist = normalizeComparableValue(song.artist ?? '')
+  const librarySongId = (song.librarySongId ?? song.id ?? '').trim()
+  const title = normalizeQueryValue(song.title ?? '')
+  const artist = normalizeQueryValue(song.artist ?? '')
 
   if (librarySongId) {
     try {
