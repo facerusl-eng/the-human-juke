@@ -239,10 +239,32 @@ export default function LyricsAdminPage() {
   }
 
   const saveSingleLyricsRow = useCallback(async (row: CsvImportRow): Promise<CsvImportResult> => {
-    const { title, artist, lyrics } = row
+    const { title, artist } = row
+    let { lyrics } = row
+    let autoFetched = false
 
     if (!lyrics) {
-      return { title, artist, status: 'skipped', message: 'No lyrics in row' }
+      try {
+        const params = new URLSearchParams({ song: title })
+        if (artist) {
+          params.set('artist', artist)
+        }
+        const response = await fetch(`/api/lyrics-genius?${params.toString()}`, { cache: 'no-store' })
+        if (response.ok) {
+          const data = await response.json() as { lyrics?: string }
+          const fetched = (data.lyrics ?? '').trim()
+          if (fetched) {
+            lyrics = fetched
+            autoFetched = true
+          }
+        }
+      } catch {
+        // fall through to skip
+      }
+
+      if (!lyrics) {
+        return { title, artist, status: 'skipped', message: 'No lyrics in CSV and auto-fetch found nothing' }
+      }
     }
 
     try {
@@ -292,7 +314,7 @@ export default function LyricsAdminPage() {
         return { title, artist, status: 'ok', message: 'Saved to song but bridge sync failed' }
       }
 
-      return { title, artist, status: 'ok', message: 'Saved and synced' }
+      return { title, artist, status: 'ok', message: autoFetched ? 'Auto-fetched, saved and synced' : 'Saved and synced' }
     } catch {
       return { title, artist, status: 'error', message: 'Unexpected error' }
     }
