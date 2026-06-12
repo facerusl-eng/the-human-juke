@@ -241,12 +241,20 @@ export default function LyricDisplay({
   }, [adminControlsVisible, goBack, nextBlock, previousBlock, state.activeView])
 
   const openLyric = async () => {
-    if (state.activeView === 'lyric' && state.blocks.length > 0) {
+    const songToOpen = activeSong ?? state.song
+    if (!songToOpen) {
       return
     }
 
-    const songToOpen = state.song ?? activeSong
-    if (!songToOpen) {
+    const stateAlreadyOnSong = Boolean(
+      state.activeView === 'lyric'
+      && state.blocks.length > 0
+      && state.song
+      && state.song.title.trim().toLowerCase() === songToOpen.title.trim().toLowerCase()
+      && state.song.artist.trim().toLowerCase() === songToOpen.artist.trim().toLowerCase(),
+    )
+
+    if (stateAlreadyOnSong) {
       return
     }
 
