@@ -106,6 +106,7 @@ const GigSettingsPage = lazyWithChunkReload(() => import('./pages/GigSettingsPag
 const GigsPage = lazyWithChunkReload(() => import('./pages/GigsPage'))
 const HealthCheckPage = lazyWithChunkReload(() => import('./pages/HealthCheckPage'))
 const LoungeLinkPage = lazyWithChunkReload(() => import('./pages/LoungeLinkPage'))
+const LyricsAdminPage = lazyWithChunkReload(() => import('./pages/LyricsAdminPage'))
 const QrLandingPage = lazyWithChunkReload(() => import('./pages/QrLandingPage'))
 const ReadinessPage = lazyWithChunkReload(() => import('./pages/ReadinessPage'))
 const SetlistLibraryPage = lazyWithChunkReload(() => import('./pages/SetlistLibraryPage'))
@@ -350,6 +351,17 @@ const router = createAppRouter([
             'Admin',
             <RequireHost>
               <SettingsPage />
+            </RequireHost>,
+          ),
+        ),
+      },
+      {
+        path: 'admin/lyrics',
+        element: withSuspense(
+          withCrashBoundary(
+            'Admin',
+            <RequireHost>
+              <LyricsAdminPage />
             </RequireHost>,
           ),
         ),
