@@ -524,6 +524,57 @@ function readAutoCachedLyrics(song: LyricSongRef) {
   return null
 }
 
+async function fetchManualLyricsForSong(supabase: SupabaseClient, song: LyricSongRef) {
+  const librarySongId = normalizeComparableValue(song.librarySongId ?? song.id)
+  const title = normalizeComparableValue(song.title ?? '')
+  const artist = normalizeComparableValue(song.artist ?? '')
+
+  if (librarySongId) {
+    try {
+      const { data, error } = await supabase
+        .from('library_songs')
+        .select('manual_lyrics')
+        .eq('id', librarySongId)
+        .maybeSingle()
+
+      const manualLyrics = typeof data?.manual_lyrics === 'string' ? data.manual_lyrics.trim() : ''
+      if (!error && manualLyrics) {
+        return manualLyrics
+      }
+    } catch {
+      // Continue to metadata lookup.
+    }
+  }
+
+  if (!title) {
+    return null
+  }
+
+  try {
+    let query = supabase
+      .from('library_songs')
+      .select('manual_lyrics')
+      .not('manual_lyrics', 'is', null)
+      .ilike('title', `%${title}%`)
+      .limit(1)
+
+    if (artist) {
+      query = query.ilike('artist', `%${artist}%`)
+    }
+
+    const { data, error } = await query
+    const manualLyrics = typeof data?.[0]?.manual_lyrics === 'string' ? data[0].manual_lyrics.trim() : ''
+
+    if (!error && manualLyrics) {
+      return manualLyrics
+    }
+  } catch {
+    // No manual lyric match.
+  }
+
+  return null
+}
+
 async function probeLrcCandidates(candidates: string[], identityKey: string) {
   for (const candidatePath of candidates) {
     const lrcText = await withTimeout(fetchLrc(candidatePath), LRC_PROBE_TIMEOUT_MS, null)
@@ -542,7 +593,7 @@ async function probeLrcCandidates(candidates: string[], identityKey: string) {
   return [] as string[]
 }
 
-async function loadBlocksForSong(song: LyricSongRef) {
+async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
   const identityKey = songIdentityKey(song)
   const cachedSongBlocks = songBlocksCache.get(identityKey)
   if (
@@ -565,6 +616,14 @@ async function loadBlocksForSong(song: LyricSongRef) {
       const cachedBlocks = parseBlocksFromPlainLyrics(autoCachedLyrics)
       if (cachedBlocks.length > 0) {
         return cachedBlocks
+      }
+    }
+
+    const manualLyrics = await fetchManualLyricsForSong(supabase, song)
+    if (manualLyrics) {
+      const manualBlocks = parseBlocksFromPlainLyrics(manualLyrics)
+      if (manualBlocks.length > 0) {
+        return manualBlocks
       }
     }
 
@@ -789,7 +848,7 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
       returnToPath,
     })
 
-    const blocks = await loadBlocksForSong(song)
+    const blocks = await loadBlocksForSong(supabase, song)
 
     if (requestId !== latestOpenRequestIdRef.current) {
       return

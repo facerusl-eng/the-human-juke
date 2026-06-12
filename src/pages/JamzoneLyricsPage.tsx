@@ -25,6 +25,7 @@ export default function JamzoneLyricsPage() {
       id: (params.get('songId') ?? '').trim() || normalizeSongId(title, artist),
       title,
       artist,
+      librarySongId: (params.get('librarySongId') ?? params.get('songId') ?? '').trim() || null,
     }
   }, [location.search])
 
@@ -45,6 +46,7 @@ export default function JamzoneLyricsPage() {
       id: nowPlaying.library_song_id?.trim() || nowPlaying.id,
       title: nowPlaying.title,
       artist,
+      librarySongId: nowPlaying.library_song_id?.trim() || null,
       createdByName: nowPlaying.createdByName,
       audience_sings: nowPlaying.audience_sings,
     }
