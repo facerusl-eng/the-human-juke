@@ -212,6 +212,37 @@ type CsvImportResult = {
   message: string
 }
 
+type SavedBatch = {
+  id: string
+  name: string
+  createdAt: number
+  results: CsvImportResult[]
+}
+
+const BATCHES_STORAGE_KEY = 'human-jukebox:lyrics-batches'
+
+function loadBatchesFromStorage(): SavedBatch[] {
+  try {
+    if (typeof window === 'undefined') return []
+    const raw = window.localStorage.getItem(BATCHES_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? (parsed as SavedBatch[]) : []
+  } catch {
+    return []
+  }
+}
+
+function saveBatchToStorage(batch: SavedBatch): void {
+  try {
+    const existing = loadBatchesFromStorage()
+    const updated = [batch, ...existing].slice(0, 20)
+    window.localStorage.setItem(BATCHES_STORAGE_KEY, JSON.stringify(updated))
+  } catch {
+    // ignore storage errors
+  }
+}
+
 function parseCsvLine(line: string): string[] {
   const fields: string[] = []
   let current = ''
@@ -280,6 +311,9 @@ export default function LyricsAdminPage() {
   const [csvImporting, setCsvImporting] = useState(false)
   const [csvResults, setCsvResults] = useState<CsvImportResult[]>([])
   const csvInputRef = useRef<HTMLInputElement>(null)
+  const [batchName, setBatchName] = useState('')
+  const [csvProgress, setCsvProgress] = useState<{ done: number; total: number } | null>(null)
+  const [savedBatches, setSavedBatches] = useState<SavedBatch[]>(() => loadBatchesFromStorage())
 
   const selectedSong = useMemo(
     () => searchResults.find((song) => song.id === selectedSongId) ?? null,
@@ -438,6 +472,7 @@ export default function LyricsAdminPage() {
   const handleCsvFile = useCallback(async (file: File) => {
     setCsvResults([])
     setCsvImporting(true)
+    setCsvProgress(null)
     setStatusMessage(null)
 
     try {
@@ -449,25 +484,35 @@ export default function LyricsAdminPage() {
         return
       }
 
+      setCsvProgress({ done: 0, total: rows.length })
       const results: CsvImportResult[] = []
       for (const row of rows) {
         const result = await saveSingleLyricsRow(row)
         results.push(result)
         setCsvResults([...results])
+        setCsvProgress({ done: results.length, total: rows.length })
       }
 
       const okCount = results.filter((r) => r.status === 'ok').length
       const errorCount = results.filter((r) => r.status === 'error').length
-      setStatusMessage(`CSV import done: ${okCount} saved, ${errorCount} failed, ${results.length - okCount - errorCount} skipped.`)
+      const skippedCount = results.length - okCount - errorCount
+
+      const resolvedName = batchName.trim() || `Import ${new Date().toLocaleString()}`
+      const batch: SavedBatch = { id: Date.now().toString(36), name: resolvedName, createdAt: Date.now(), results }
+      saveBatchToStorage(batch)
+      setSavedBatches(loadBatchesFromStorage())
+
+      setStatusMessage(`Done: ${okCount} saved, ${errorCount} failed, ${skippedCount} skipped.`)
     } catch {
       setStatusMessage('Could not read CSV file.')
     } finally {
       setCsvImporting(false)
+      setCsvProgress(null)
       if (csvInputRef.current) {
         csvInputRef.current.value = ''
       }
     }
-  }, [saveSingleLyricsRow])
+  }, [saveSingleLyricsRow, batchName])
 
   const saveLyrics = async () => {
     if (!selectedSong) {
@@ -535,8 +580,16 @@ export default function LyricsAdminPage() {
 
       <div className="queue-panel lyrics-admin-csv-section">
         <h2 className="lyrics-admin-csv-heading">Import from CSV</h2>
-        <p className="subcopy">CSV format: <code>title,artist,lyrics</code> — lyrics column supports section headings like <code>[Verse 1]</code>, <code>[Chorus]</code>.</p>
+        <p className="subcopy">CSV format: <code>title,artist,lyrics</code> — if the lyrics column is empty, lyrics are auto-fetched and arranged into Verse / Chorus / Bridge / Outro.</p>
         <div className="hero-actions lyrics-admin-search-row">
+          <input
+            type="text"
+            value={batchName}
+            onChange={(event) => setBatchName(event.target.value)}
+            placeholder="Name this import (optional)"
+            aria-label="Batch name"
+            disabled={csvImporting}
+          />
           <input
             ref={csvInputRef}
             type="file"
@@ -551,7 +604,11 @@ export default function LyricsAdminPage() {
             }}
             disabled={csvImporting}
           />
-          {csvImporting ? <span className="subcopy">Importing…</span> : null}
+          {csvImporting && csvProgress
+            ? <span className="subcopy lyrics-admin-progress">{csvProgress.done}/{csvProgress.total} songs processed…</span>
+            : csvImporting
+              ? <span className="subcopy">Importing…</span>
+              : null}
         </div>
         {csvResults.length > 0 ? (
           <ul className="lyrics-admin-csv-results">
@@ -562,6 +619,34 @@ export default function LyricsAdminPage() {
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {savedBatches.length > 0 ? (
+          <div className="lyrics-admin-batches">
+            <p className="subcopy lyrics-admin-batches-heading">Previous imports</p>
+            {savedBatches.map((batch) => (
+              <details key={batch.id} className="lyrics-admin-batch">
+                <summary className="lyrics-admin-batch-summary">
+                  <span className="lyrics-admin-batch-name">{batch.name}</span>
+                  <span className="lyrics-admin-batch-stats">
+                    <span className="lyrics-admin-batch-ready">{batch.results.filter((r) => r.status === 'ok').length} ready</span>
+                    {batch.results.filter((r) => r.status === 'error').length > 0
+                      ? <span className="lyrics-admin-batch-failed"> · {batch.results.filter((r) => r.status === 'error').length} failed</span>
+                      : null}
+                    <span> · {new Date(batch.createdAt).toLocaleDateString()}</span>
+                  </span>
+                </summary>
+                <ul className="lyrics-admin-csv-results">
+                  {batch.results.map((result, index) => (
+                    <li key={index} className={`lyrics-admin-csv-row lyrics-admin-csv-row--${result.status}`}>
+                      <span className="lyrics-admin-csv-song">{result.title}{result.artist ? ` - ${result.artist}` : ''}</span>
+                      <span className="lyrics-admin-csv-msg">{result.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+          </div>
         ) : null}
       </div>
 

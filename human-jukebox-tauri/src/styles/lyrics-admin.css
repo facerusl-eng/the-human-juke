@@ -68,3 +68,63 @@
 .lyrics-admin-csv-msg {
   opacity: 0.85;
 }
+
+.lyrics-admin-progress {
+  font-weight: 600;
+  color: #00e5ff;
+}
+
+.lyrics-admin-batches {
+  margin-top: 20px;
+}
+
+.lyrics-admin-batches-heading {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.lyrics-admin-batch {
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.lyrics-admin-batch-summary {
+  cursor: pointer;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255,255,255,0.04);
+  list-style: none;
+}
+
+.lyrics-admin-batch-summary:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.lyrics-admin-batch-name {
+  font-weight: 600;
+  flex: 1;
+}
+
+.lyrics-admin-batch-stats {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.lyrics-admin-batch-ready {
+  color: #4caf7d;
+}
+
+.lyrics-admin-batch-failed {
+  color: #e05555;
+}
+
+.lyrics-admin-batch ul {
+  padding: 8px;
+}
