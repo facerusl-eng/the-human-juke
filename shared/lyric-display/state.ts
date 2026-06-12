@@ -14,8 +14,8 @@ const STATUS_KEY = 'lyrics_prefetch_status_v1'
 const LRC_MISS_CACHE_TTL_MS = 5 * 60 * 1000
 const ONLINE_LYRICS_FETCH_TIMEOUT_MS = 12_000
 const ONLINE_LYRICS_MAX_ATTEMPTS = 3
-const MAX_BLOCK_LINES = 4
-const MAX_BLOCK_CHARS = 220
+const MAX_BLOCK_LINES = 8
+const MAX_BLOCK_CHARS = 520
 const lrcMissCache = new Map<string, number>()
 const SONG_BLOCK_CACHE_TTL_MS = 20 * 60 * 1000
 const songBlocksCache = new Map<string, { cachedAt: number; blocks: string[] }>()
@@ -41,7 +41,7 @@ function splitLongLine(line: string) {
   }
 
   const midpoint = Math.floor(normalizedLine.length / 2)
-  const breakRegex = /[,;:.!?]|\s+and\s+|\s+but\s+|\s+or\s+/gi
+  const breakRegex = /[,;:.!?]/g
   const breakPoints: number[] = []
   let match: RegExpExecArray | null = breakRegex.exec(normalizedLine)
 
@@ -65,24 +65,8 @@ function splitLongLine(line: string) {
   }
 
   if (splitAt < 0) {
-    const words = normalizedLine.split(/\s+/)
-    const firstHalf: string[] = []
-    const secondHalf: string[] = []
-    let firstLength = 0
-
-    for (const word of words) {
-      const projectedLength = firstLength === 0 ? word.length : firstLength + 1 + word.length
-      if (projectedLength <= midpoint || firstHalf.length === 0) {
-        firstHalf.push(word)
-        firstLength = projectedLength
-      } else {
-        secondHalf.push(word)
-      }
-    }
-
-    const firstLine = firstHalf.join(' ').trim()
-    const secondLine = secondHalf.join(' ').trim()
-    return [firstLine, secondLine].filter(Boolean)
+    // Keep original line intact when there is no good punctuation split point.
+    return [normalizedLine]
   }
 
   const firstPart = normalizedLine.slice(0, splitAt).trim()
