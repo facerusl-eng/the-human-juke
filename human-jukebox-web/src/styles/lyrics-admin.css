@@ -10,6 +10,19 @@
   margin-top: 12px;
 }
 
+.lyrics-admin-song-badge {
+  font-size: 0.72em;
+  opacity: 0.8;
+  font-weight: 400;
+}
+
+.lyrics-admin-song-id {
+  font-size: 0.68em;
+  opacity: 0.5;
+  font-weight: 400;
+  font-family: monospace;
+}
+
 .lyrics-admin-status {
   margin-top: 12px;
 }

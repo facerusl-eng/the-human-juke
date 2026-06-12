@@ -315,6 +315,8 @@ export default function LyricsAdminPage() {
   const [csvProgress, setCsvProgress] = useState<{ done: number; total: number } | null>(null)
   const [savedBatches, setSavedBatches] = useState<SavedBatch[]>(() => loadBatchesFromStorage())
 
+  const [fetchBusy, setFetchBusy] = useState(false)
+
   const selectedSong = useMemo(
     () => searchResults.find((song) => song.id === selectedSongId) ?? null,
     [searchResults, selectedSongId],
@@ -385,6 +387,45 @@ export default function LyricsAdminPage() {
     setLyricsDraft(song.manual_lyrics ?? '')
     setStatusMessage(null)
   }
+
+  const fetchAndFill = useCallback(async () => {
+    if (!selectedSong) {
+      return
+    }
+
+    setFetchBusy(true)
+    setStatusMessage(null)
+
+    try {
+      const params = new URLSearchParams({ song: selectedSong.title ?? '' })
+      if (selectedSong.artist) {
+        params.set('artist', selectedSong.artist)
+      }
+      const response = await fetch(`/api/lyrics-genius?${params.toString()}`, { cache: 'no-store' })
+      if (!response.ok) {
+        setStatusMessage('API returned no lyrics for this song.')
+        return
+      }
+      const data = await response.json() as { lyrics?: string }
+      const fetched = (data.lyrics ?? '').trim()
+      if (!fetched) {
+        setStatusMessage('No lyrics found on the internet for this song.')
+        return
+      }
+      setLyricsDraft(autoArrangeLyrics(fetched))
+      setStatusMessage('Lyrics fetched and arranged — review then click Save Lyrics.')
+    } catch {
+      setStatusMessage('Could not fetch lyrics right now.')
+    } finally {
+      setFetchBusy(false)
+    }
+  }, [selectedSong])
+
+  const handleSearchKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      void runSearch()
+    }
+  }, [runSearch])
 
   const saveSingleLyricsRow = useCallback(async (row: CsvImportRow): Promise<CsvImportResult> => {
     const { title, artist } = row
@@ -655,6 +696,7 @@ export default function LyricsAdminPage() {
           type="text"
           value={titleQuery}
           onChange={(event) => setTitleQuery(event.target.value)}
+          onKeyDown={handleSearchKeyDown}
           placeholder="Song title"
           aria-label="Song title"
         />
@@ -662,6 +704,7 @@ export default function LyricsAdminPage() {
           type="text"
           value={artistQuery}
           onChange={(event) => setArtistQuery(event.target.value)}
+          onKeyDown={handleSearchKeyDown}
           placeholder="Artist"
           aria-label="Artist"
         />
@@ -680,8 +723,11 @@ export default function LyricsAdminPage() {
                 key={song.id}
                 className={song.id === selectedSongId ? 'primary-button' : 'secondary-button'}
                 onClick={() => selectSong(song)}
+                title={song.id}
               >
                 {(song.title ?? 'Untitled').trim()} - {(song.artist ?? 'Unknown artist').trim()}
+                {' '}<span className="lyrics-admin-song-badge">{song.manual_lyrics ? '✓ has lyrics' : '· empty'}</span>
+                {' '}<span className="lyrics-admin-song-id">#{song.id.slice(-6)}</span>
               </button>
             ))}
           </div>
@@ -705,6 +751,11 @@ export default function LyricsAdminPage() {
             <button type="button" className="primary-button" onClick={() => { void saveLyrics() }} disabled={saveBusy}>
               {saveBusy ? 'Saving...' : 'Save Lyrics'}
             </button>
+            {!lyricsDraft.trim() ? (
+              <button type="button" className="secondary-button" onClick={() => { void fetchAndFill() }} disabled={fetchBusy}>
+                {fetchBusy ? 'Fetching...' : 'Fetch & Arrange from internet'}
+              </button>
+            ) : null}
           </div>
         </>
       ) : null}

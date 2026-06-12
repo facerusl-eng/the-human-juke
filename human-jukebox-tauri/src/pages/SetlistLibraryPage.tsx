@@ -1132,7 +1132,7 @@ function SetlistLibraryPage() {
         <div className="setlist-kpis" aria-label="Setlist library stats">
           <div>
             <strong>{totalSongCount}</strong>
-            <span>songs</span>
+            <span>unique songs</span>
           </div>
           <div>
             <strong>{playlists.length}</strong>
