@@ -15,6 +15,8 @@ const LRC_MISS_CACHE_TTL_MS = 5 * 60 * 1000
 const ONLINE_LYRICS_FETCH_TIMEOUT_MS = 7_000
 const ONLINE_LYRICS_MAX_ATTEMPTS = 2
 const ONLINE_LYRICS_MAX_VARIANTS = 2
+const LRC_PROBE_TIMEOUT_MS = 1500
+const LRC_TOTAL_PROBE_TIMEOUT_MS = 2600
 const MAX_BLOCK_LINES = 8
 const MAX_BLOCK_CHARS = 520
 const lrcMissCache = new Map<string, number>()
@@ -382,6 +384,15 @@ async function waitFor(ms: number) {
   })
 }
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallbackValue: T): Promise<T> {
+  return await Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      setTimeout(() => resolve(fallbackValue), timeoutMs)
+    }),
+  ])
+}
+
 function writeLyricsCache(song: LyricSongRef, lyrics: string) {
   if (typeof window === 'undefined') {
     return
@@ -515,7 +526,7 @@ function readAutoCachedLyrics(song: LyricSongRef) {
 
 async function probeLrcCandidates(candidates: string[], identityKey: string) {
   for (const candidatePath of candidates) {
-    const lrcText = await fetchLrc(candidatePath)
+    const lrcText = await withTimeout(fetchLrc(candidatePath), LRC_PROBE_TIMEOUT_MS, null)
     if (!lrcText) {
       continue
     }
@@ -567,7 +578,7 @@ async function loadBlocksForSong(song: LyricSongRef) {
     })
 
     const lrcProbePromise = !shouldSkipLrcProbe
-      ? probeLrcCandidates(candidates.slice(0, 2), identityKey)
+      ? withTimeout(probeLrcCandidates(candidates.slice(0, 2), identityKey), LRC_TOTAL_PROBE_TIMEOUT_MS, [] as string[])
       : Promise.resolve([] as string[])
 
     // Prioritize Genius result for fastest visible lyrics while LRC probes in parallel.
