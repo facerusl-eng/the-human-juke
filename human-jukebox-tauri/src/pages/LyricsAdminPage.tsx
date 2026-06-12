@@ -85,6 +85,120 @@ function buildSectionsFromLyrics(rawLyrics: string) {
   return sections
 }
 
+function normBlockText(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+function blockSimilarity(a: string, b: string): number {
+  const aNorm = normBlockText(a)
+  const bNorm = normBlockText(b)
+  if (!aNorm || !bNorm) {
+    return 0
+  }
+  const aWords = new Set(aNorm.split(' ').filter(Boolean))
+  const bWords = bNorm.split(' ').filter(Boolean)
+  const matches = bWords.filter((w) => aWords.has(w)).length
+  return matches / Math.max(aWords.size, bWords.length)
+}
+
+function splitIntoLyricsBlocks(rawLyrics: string): string[] {
+  const blankLineSplit = rawLyrics
+    .replace(/\r\n/g, '\n')
+    .trim()
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter(Boolean)
+
+  if (blankLineSplit.length >= 3) {
+    return blankLineSplit
+  }
+
+  const lines = rawLyrics
+    .replace(/\r\n/g, '\n')
+    .trim()
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  if (lines.length < 4) {
+    return blankLineSplit.length > 0 ? blankLineSplit : [lines.join('\n')]
+  }
+
+  const chunkSize = Math.max(4, Math.ceil(lines.length / Math.round(lines.length / 4)))
+  const chunks: string[] = []
+  for (let i = 0; i < lines.length; i += chunkSize) {
+    chunks.push(lines.slice(i, i + chunkSize).join('\n'))
+  }
+  return chunks.filter(Boolean)
+}
+
+function autoArrangeLyrics(rawLyrics: string): string {
+  const trimmed = rawLyrics.trim()
+
+  if (/^\[[^\]]+\]/m.test(trimmed)) {
+    return trimmed
+  }
+
+  const blocks = splitIntoLyricsBlocks(trimmed)
+
+  if (blocks.length < 2) {
+    return trimmed
+  }
+
+  let chorusBlockText: string | null = null
+  let maxSimilarCount = 0
+
+  for (let i = 0; i < blocks.length; i++) {
+    let count = 0
+    for (let j = 0; j < blocks.length; j++) {
+      if (i !== j && blockSimilarity(blocks[i], blocks[j]) >= 0.6) {
+        count++
+      }
+    }
+    if (count > maxSimilarCount) {
+      maxSimilarCount = count
+      chorusBlockText = blocks[i]
+    }
+  }
+
+  const hasChorus = maxSimilarCount >= 1 && chorusBlockText !== null
+  let verseCount = 0
+  let bridgeCount = 0
+  let chorusSeen = false
+
+  const labeled = blocks.map((block, index) => {
+    const isChorus = hasChorus && blockSimilarity(block, chorusBlockText!) >= 0.6
+    const lineCount = block.split('\n').filter(Boolean).length
+
+    if (isChorus) {
+      chorusSeen = true
+      return `[Chorus]\n${block}`
+    }
+
+    if (!chorusSeen) {
+      if (lineCount <= 2 && verseCount === 0) {
+        return `[Intro]\n${block}`
+      }
+      verseCount++
+      return `[Verse ${verseCount}]\n${block}`
+    }
+
+    if (lineCount <= 3) {
+      bridgeCount++
+      return `[Bridge${bridgeCount > 1 ? ` ${bridgeCount}` : ''}]\n${block}`
+    }
+
+    if (index === blocks.length - 1) {
+      return `[Outro]\n${block}`
+    }
+
+    verseCount++
+    return `[Verse ${verseCount}]\n${block}`
+  })
+
+  return labeled.join('\n\n')
+}
+
 type CsvImportRow = {
   title: string
   artist: string
@@ -289,24 +403,25 @@ export default function LyricsAdminPage() {
       }
 
       const songId = foundRows[0].id as string
+      const finalLyrics = autoArrangeLyrics(lyrics)
 
       const { error: saveError } = await supabase
         .from('library_songs')
-        .update({ manual_lyrics: lyrics })
+        .update({ manual_lyrics: finalLyrics })
         .eq('id', songId)
 
       if (saveError) {
         return { title, artist, status: 'error', message: saveError.message }
       }
 
-      const importedSections = buildSectionsFromLyrics(lyrics)
+      const importedSections = buildSectionsFromLyrics(finalLyrics)
       const { error: bridgeError } = await supabase
         .from('human_jukebox_lyrics')
         .upsert({
           song_id: songId,
           title: foundRows[0].title,
           artist: foundRows[0].artist,
-          imported_raw_lyrics: lyrics,
+          imported_raw_lyrics: finalLyrics,
           imported_sections: importedSections.length > 0 ? importedSections : null,
         }, { onConflict: 'song_id' })
 
