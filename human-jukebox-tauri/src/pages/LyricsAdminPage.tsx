@@ -243,6 +243,16 @@ function saveBatchToStorage(batch: SavedBatch): void {
   }
 }
 
+function deleteBatchFromStorage(batchId: string): void {
+  try {
+    const existing = loadBatchesFromStorage()
+    const updated = existing.filter((b) => b.id !== batchId)
+    window.localStorage.setItem(BATCHES_STORAGE_KEY, JSON.stringify(updated))
+  } catch {
+    // ignore storage errors
+  }
+}
+
 function parseCsvLine(line: string): string[] {
   const fields: string[] = []
   let current = ''
@@ -676,6 +686,18 @@ export default function LyricsAdminPage() {
                       : null}
                     <span> · {new Date(batch.createdAt).toLocaleDateString()}</span>
                   </span>
+                  <button
+                    type="button"
+                    className="lyrics-admin-batch-delete"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      deleteBatchFromStorage(batch.id)
+                      setSavedBatches(loadBatchesFromStorage())
+                    }}
+                    title="Delete this import batch"
+                  >
+                    Delete
+                  </button>
                 </summary>
                 <ul className="lyrics-admin-csv-results">
                   {batch.results.map((result, index) => (

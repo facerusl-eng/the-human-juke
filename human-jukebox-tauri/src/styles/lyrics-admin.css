@@ -138,6 +138,24 @@
   color: #e05555;
 }
 
+.lyrics-admin-batch-delete {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  background: rgba(255, 60, 60, 0.1);
+  border: 1px solid rgba(255, 60, 60, 0.3);
+  border-radius: 4px;
+  color: #e05555;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.lyrics-admin-batch-delete:hover {
+  background: rgba(255, 60, 60, 0.2);
+  border-color: rgba(255, 60, 60, 0.5);
+}
+
 .lyrics-admin-batch ul {
   padding: 8px;
 }
