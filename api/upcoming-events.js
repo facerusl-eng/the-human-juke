@@ -13,6 +13,14 @@ function corsHeaders(origin) {
   }
 }
 
+function setNoStoreHeaders(res) {
+  // Some mobile stacks (including Safari/WebKit paths) respect legacy cache headers.
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+  res.setHeader('Pragma', 'no-cache')
+  res.setHeader('Expires', '0')
+  res.setHeader('Surrogate-Control', 'no-store')
+}
+
 function normalizeTodayIso(rawToday) {
   const trimmed = String(rawToday || '').trim()
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
@@ -91,7 +99,7 @@ export default async function handler(req, res) {
       event_theme: null,
     }))
 
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate')
+    setNoStoreHeaders(res)
     return res.status(200).json({ success: true, rows: mappedRows })
   } catch (error) {
     return res.status(500).json({
