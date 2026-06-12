@@ -345,7 +345,7 @@ export default function LyricsAdminPage() {
       }
 
       if (user?.id) {
-        query = query.eq('host_id', user.id)
+        query = query.eq('user_id', user.id)
       }
 
       const { data, error } = await query
@@ -427,7 +427,7 @@ export default function LyricsAdminPage() {
       }
 
       if (user?.id) {
-        findQuery = findQuery.eq('host_id', user.id)
+        findQuery = findQuery.eq('user_id', user.id)
       }
 
       const { data: foundRows, error: findError } = await findQuery
