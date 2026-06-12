@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../state/authStore'
 import '../styles/lyrics-admin.css'
@@ -85,6 +85,74 @@ function buildSectionsFromLyrics(rawLyrics: string) {
   return sections
 }
 
+type CsvImportRow = {
+  title: string
+  artist: string
+  lyrics: string
+}
+
+type CsvImportResult = {
+  title: string
+  artist: string
+  status: 'ok' | 'skipped' | 'error'
+  message: string
+}
+
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = []
+  let current = ''
+  let insideQuotes = false
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    if (char === '"') {
+      if (insideQuotes && line[i + 1] === '"') {
+        current += '"'
+        i++
+      } else {
+        insideQuotes = !insideQuotes
+      }
+    } else if (char === ',' && !insideQuotes) {
+      fields.push(current)
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  fields.push(current)
+  return fields
+}
+
+function parseCsvText(text: string): CsvImportRow[] {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  const rows: CsvImportRow[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) {
+      continue
+    }
+
+    const fields = parseCsvLine(line)
+    if (i === 0) {
+      const header = fields.map((f) => f.trim().toLowerCase())
+      if (header.includes('title') || header.includes('song')) {
+        continue
+      }
+    }
+
+    const title = (fields[0] ?? '').trim()
+    const artist = (fields[1] ?? '').trim()
+    const lyrics = (fields[2] ?? '').trim()
+
+    if (title) {
+      rows.push({ title, artist, lyrics })
+    }
+  }
+
+  return rows
+}
+
 export default function LyricsAdminPage() {
   const { user } = useAuthStore()
   const [titleQuery, setTitleQuery] = useState('')
@@ -95,6 +163,9 @@ export default function LyricsAdminPage() {
   const [searchResults, setSearchResults] = useState<SongRow[]>([])
   const [selectedSongId, setSelectedSongId] = useState<string | null>(null)
   const [lyricsDraft, setLyricsDraft] = useState('')
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvResults, setCsvResults] = useState<CsvImportResult[]>([])
+  const csvInputRef = useRef<HTMLInputElement>(null)
 
   const selectedSong = useMemo(
     () => searchResults.find((song) => song.id === selectedSongId) ?? null,
@@ -167,6 +238,100 @@ export default function LyricsAdminPage() {
     setStatusMessage(null)
   }
 
+  const saveSingleLyricsRow = useCallback(async (row: CsvImportRow): Promise<CsvImportResult> => {
+    const { title, artist, lyrics } = row
+
+    if (!lyrics) {
+      return { title, artist, status: 'skipped', message: 'No lyrics in row' }
+    }
+
+    try {
+      let findQuery = supabase
+        .from('library_songs')
+        .select('id,title,artist')
+        .ilike('title', `%${title}%`)
+        .limit(1)
+
+      if (artist) {
+        findQuery = findQuery.ilike('artist', `%${artist}%`)
+      }
+
+      if (user?.id) {
+        findQuery = findQuery.eq('host_id', user.id)
+      }
+
+      const { data: foundRows, error: findError } = await findQuery
+
+      if (findError || !foundRows?.length) {
+        return { title, artist, status: 'error', message: 'Song not found in library' }
+      }
+
+      const songId = foundRows[0].id as string
+
+      const { error: saveError } = await supabase
+        .from('library_songs')
+        .update({ manual_lyrics: lyrics })
+        .eq('id', songId)
+
+      if (saveError) {
+        return { title, artist, status: 'error', message: saveError.message }
+      }
+
+      const importedSections = buildSectionsFromLyrics(lyrics)
+      const { error: bridgeError } = await supabase
+        .from('human_jukebox_lyrics')
+        .upsert({
+          song_id: songId,
+          title: foundRows[0].title,
+          artist: foundRows[0].artist,
+          imported_raw_lyrics: lyrics,
+          imported_sections: importedSections.length > 0 ? importedSections : null,
+        }, { onConflict: 'song_id' })
+
+      if (bridgeError) {
+        return { title, artist, status: 'ok', message: 'Saved to song but bridge sync failed' }
+      }
+
+      return { title, artist, status: 'ok', message: 'Saved and synced' }
+    } catch {
+      return { title, artist, status: 'error', message: 'Unexpected error' }
+    }
+  }, [user])
+
+  const handleCsvFile = useCallback(async (file: File) => {
+    setCsvResults([])
+    setCsvImporting(true)
+    setStatusMessage(null)
+
+    try {
+      const text = await file.text()
+      const rows = parseCsvText(text)
+
+      if (rows.length === 0) {
+        setStatusMessage('CSV file had no valid rows. Expected columns: title, artist, lyrics')
+        return
+      }
+
+      const results: CsvImportResult[] = []
+      for (const row of rows) {
+        const result = await saveSingleLyricsRow(row)
+        results.push(result)
+        setCsvResults([...results])
+      }
+
+      const okCount = results.filter((r) => r.status === 'ok').length
+      const errorCount = results.filter((r) => r.status === 'error').length
+      setStatusMessage(`CSV import done: ${okCount} saved, ${errorCount} failed, ${results.length - okCount - errorCount} skipped.`)
+    } catch {
+      setStatusMessage('Could not read CSV file.')
+    } finally {
+      setCsvImporting(false)
+      if (csvInputRef.current) {
+        csvInputRef.current.value = ''
+      }
+    }
+  }, [saveSingleLyricsRow])
+
   const saveLyrics = async () => {
     if (!selectedSong) {
       setStatusMessage('Select a song first.')
@@ -230,6 +395,38 @@ export default function LyricsAdminPage() {
       <p className="eyebrow">Lyrics</p>
       <h1>Lyrics Manager</h1>
       <p className="subcopy">Search a song, edit sectioned lyrics, and save directly in Human Jukebox.</p>
+
+      <div className="queue-panel lyrics-admin-csv-section">
+        <h2 className="lyrics-admin-csv-heading">Import from CSV</h2>
+        <p className="subcopy">CSV format: <code>title,artist,lyrics</code> — lyrics column supports section headings like <code>[Verse 1]</code>, <code>[Chorus]</code>.</p>
+        <div className="hero-actions lyrics-admin-search-row">
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            aria-label="Choose CSV file"
+            className="lyrics-admin-csv-input"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) {
+                void handleCsvFile(file)
+              }
+            }}
+            disabled={csvImporting}
+          />
+          {csvImporting ? <span className="subcopy">Importing…</span> : null}
+        </div>
+        {csvResults.length > 0 ? (
+          <ul className="lyrics-admin-csv-results">
+            {csvResults.map((result, index) => (
+              <li key={index} className={`lyrics-admin-csv-row lyrics-admin-csv-row--${result.status}`}>
+                <span className="lyrics-admin-csv-song">{result.title}{result.artist ? ` - ${result.artist}` : ''}</span>
+                <span className="lyrics-admin-csv-msg">{result.message}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
 
       <div className="hero-actions lyrics-admin-search-row">
         <input

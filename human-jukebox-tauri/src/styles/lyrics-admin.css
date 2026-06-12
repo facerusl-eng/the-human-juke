@@ -13,3 +13,58 @@
 .lyrics-admin-status {
   margin-top: 12px;
 }
+
+.lyrics-admin-csv-section {
+  margin-top: 24px;
+}
+
+.lyrics-admin-csv-heading {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.lyrics-admin-csv-input {
+  cursor: pointer;
+}
+
+.lyrics-admin-csv-results {
+  list-style: none;
+  padding: 0;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lyrics-admin-csv-row {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.lyrics-admin-csv-row--ok {
+  background: rgba(0, 229, 100, 0.08);
+  color: #4caf7d;
+}
+
+.lyrics-admin-csv-row--skipped {
+  background: rgba(255, 200, 0, 0.08);
+  color: #b8962e;
+}
+
+.lyrics-admin-csv-row--error {
+  background: rgba(255, 60, 60, 0.08);
+  color: #e05555;
+}
+
+.lyrics-admin-csv-song {
+  flex: 1;
+  font-weight: 500;
+}
+
+.lyrics-admin-csv-msg {
+  opacity: 0.85;
+}
