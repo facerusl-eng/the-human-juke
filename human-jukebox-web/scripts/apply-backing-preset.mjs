@@ -174,6 +174,12 @@ const commands = [
   ['/ch/16/mix/06/on',     [{ type: 'i', value: 1 }]],             // ch16→bus6 send ON
   ['/ch/16/mix/06/level',  [{ type: 'f', value: fader(0) }]],      // 0dB
 
+  // AUX stereo return (Spotify/Jamzone fallback) → Bus 5+6
+  ['/rtn/aux/mix/05/on',   [{ type: 'i', value: 1 }]],
+  ['/rtn/aux/mix/05/level',[{ type: 'f', value: fader(0) }]],
+  ['/rtn/aux/mix/06/on',   [{ type: 'i', value: 1 }]],
+  ['/rtn/aux/mix/06/level',[{ type: 'f', value: fader(0) }]],
+
   // ══ BUS 1+2: IEM MONITOR (stereo linked, no limiter) ═════════════════════
   ['/bus/01/mix/on',       [{ type: 'i', value: 1 }]],
   ['/bus/01/mix/fader',    [{ type: 'f', value: fader(-6) }]],     // start -6dB
