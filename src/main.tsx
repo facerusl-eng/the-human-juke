@@ -13,6 +13,7 @@ const CHUNK_RECOVERY_LAST_ATTEMPT_KEY = 'human-jukebox-chunk-recovery-last-attem
 const CHUNK_RECOVERY_THROTTLE_MS = 15_000
 const NON_JSON_RECOVERY_LAST_ATTEMPT_KEY = 'human-jukebox-non-json-recovery-last-attempt'
 const NON_JSON_RECOVERY_THROTTLE_MS = 4_000
+const NON_JSON_RECOVERY_NOTICE_SHOWN_KEY = 'human-jukebox-non-json-recovery-notice-shown'
 const BUILD_UPDATE_RELOAD_LAST_ATTEMPT_KEY = 'human-jukebox-build-update-reload-last-attempt'
 const BUILD_UPDATE_RELOAD_THROTTLE_MS = 20_000
 const IOS_SW_BYPASS_STORAGE_KEY = 'human-jukebox-ios-sw-cache-bypass'
@@ -203,11 +204,26 @@ function recoverFromNonJsonRuntimeError(error: unknown, source: string): boolean
   const previousAttempt = Number(window.sessionStorage.getItem(NON_JSON_RECOVERY_LAST_ATTEMPT_KEY) ?? '0')
 
   if (Number.isFinite(previousAttempt) && now - previousAttempt < NON_JSON_RECOVERY_THROTTLE_MS) {
-    emitRuntimeNotice('A server response was invalid. Recovery is already in progress...')
+    logCrashTelemetry({
+      route: window.location.pathname,
+      error,
+      extra: {
+        source,
+        recovery: 'non-json-reload-throttled',
+        elapsedMsSinceLastAttempt: now - previousAttempt,
+      },
+    })
+
+    if (window.sessionStorage.getItem(NON_JSON_RECOVERY_NOTICE_SHOWN_KEY) !== '1') {
+      window.sessionStorage.setItem(NON_JSON_RECOVERY_NOTICE_SHOWN_KEY, '1')
+      emitRuntimeNotice('A server response was invalid. Recovery is already in progress...')
+    }
+
     return true
   }
 
   window.sessionStorage.setItem(NON_JSON_RECOVERY_LAST_ATTEMPT_KEY, `${now}`)
+  window.sessionStorage.removeItem(NON_JSON_RECOVERY_NOTICE_SHOWN_KEY)
 
   logCrashTelemetry({
     route: window.location.pathname,
