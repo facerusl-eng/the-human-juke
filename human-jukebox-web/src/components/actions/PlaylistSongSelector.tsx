@@ -591,7 +591,7 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
             <span className="gig-song-search-label">Select list</span>
             <select
               id="gig-control-setlist-by-name-picker"
-              className="gig-song-search-input"
+              className="gig-song-search-input gig-song-search-select"
               value={selectedNamedSetlistId}
               onChange={(event) => {
                 setSelectedNamedSetlistId(event.target.value)
