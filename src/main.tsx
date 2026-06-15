@@ -203,7 +203,8 @@ function recoverFromNonJsonRuntimeError(error: unknown, source: string): boolean
   const previousAttempt = Number(window.sessionStorage.getItem(NON_JSON_RECOVERY_LAST_ATTEMPT_KEY) ?? '0')
 
   if (Number.isFinite(previousAttempt) && now - previousAttempt < NON_JSON_RECOVERY_THROTTLE_MS) {
-    return false
+    emitRuntimeNotice('A server response was invalid. Recovery is already in progress...')
+    return true
   }
 
   window.sessionStorage.setItem(NON_JSON_RECOVERY_LAST_ATTEMPT_KEY, `${now}`)
@@ -220,10 +221,14 @@ function recoverFromNonJsonRuntimeError(error: unknown, source: string): boolean
   emitRuntimeDiagnostic(source, error)
   emitRuntimeNotice('A server response was invalid. Reloading to recover...')
   window.setTimeout(() => {
-    const hardRefreshUrl = new URL(window.location.href)
-    hardRefreshUrl.searchParams.set('build-refresh', Date.now().toString(36))
-    hardRefreshUrl.searchParams.set('non-json-recovery', '1')
-    window.location.replace(hardRefreshUrl.toString())
+    try {
+      window.location.reload()
+    } catch {
+      const hardRefreshUrl = new URL(window.location.href)
+      hardRefreshUrl.searchParams.set('build-refresh', Date.now().toString(36))
+      hardRefreshUrl.searchParams.set('non-json-recovery', '1')
+      window.location.replace(hardRefreshUrl.toString())
+    }
   }, 60)
 
   return true
@@ -609,8 +614,7 @@ function installGlobalRuntimeHooks() {
     }
 
     if (isHtmlInsteadOfJsonError(event.error ?? event.message)) {
-      emitRuntimeDiagnostic('global-error-non-json-response', event.error ?? event.message)
-      emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
+      emitRuntimeNotice('A server response was invalid. Reloading to recover...')
       return
     }
 
@@ -650,8 +654,7 @@ function installGlobalRuntimeHooks() {
 
     if (isHtmlInsteadOfJsonError(event.reason)) {
       event.preventDefault()
-      emitRuntimeDiagnostic('global-unhandledrejection-non-json-response', event.reason)
-      emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
+      emitRuntimeNotice('A server response was invalid. Reloading to recover...')
       return
     }
 
