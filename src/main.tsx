@@ -216,7 +216,6 @@ function recoverFromNonJsonRuntimeError(error: unknown, source: string): boolean
 
     if (window.sessionStorage.getItem(NON_JSON_RECOVERY_NOTICE_SHOWN_KEY) !== '1') {
       window.sessionStorage.setItem(NON_JSON_RECOVERY_NOTICE_SHOWN_KEY, '1')
-      emitRuntimeNotice('A server response was invalid. Recovery is already in progress...')
     }
 
     return true
