@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, LayoutDashboard, ListMusic, MessageSquareMore, Music4, PlusCircle, Settings, Sliders, Tv } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
+import { getSupabaseAuthPersistence } from '../lib/supabase'
 
 type SideNavigationProps = {
   collapsed: boolean
@@ -130,6 +131,7 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
   const { user, isHost, loading, authError: storeAuthError, signInHost, signOut } = useAuthStore()
   const [hostEmail, setHostEmail] = useState('')
   const [hostPassword, setHostPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(() => getSupabaseAuthPersistence())
   const [authBusy, setAuthBusy] = useState<null | 'signin' | 'signout'>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [gigsOpen, setGigsOpen] = useState(() =>
@@ -147,7 +149,7 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
     setAuthBusy('signin')
 
     try {
-      await withHostSignInUiTimeout(signInHost(hostEmail, hostPassword))
+      await withHostSignInUiTimeout(signInHost(hostEmail, hostPassword, rememberMe))
       setHostPassword('')
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Sign in failed. Please try again.')
@@ -331,6 +333,14 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
                     placeholder="Password"
                     className="h-9 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-100 outline-none transition-all duration-200 focus:border-cyan-300"
                   />
+                  <label className="flex items-center gap-2 text-xs text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(event) => setRememberMe(event.target.checked)}
+                    />
+                    Remember me on this device
+                  </label>
                   <button
                     type="submit"
                     disabled={Boolean(authBusy)}

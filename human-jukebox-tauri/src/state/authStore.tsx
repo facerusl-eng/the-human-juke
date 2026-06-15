@@ -3,7 +3,7 @@ import type { PropsWithChildren } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling'
 import { ensureAnonymousAudienceSession } from '../lib/audienceAuth'
-import { clearSupabaseAuthStorage, supabase } from '../lib/supabase'
+import { clearSupabaseAuthStorage, setSupabaseAuthPersistence, supabase } from '../lib/supabase'
 
 const ALLOWED_HOST_EMAIL = import.meta.env.VITE_ALLOWED_HOST_EMAIL?.trim().toLowerCase()
 const IS_DEV_ENV = import.meta.env.DEV
@@ -80,7 +80,7 @@ type AuthContextValue = {
   isHost: boolean
   loading: boolean
   authError: string | null
-  signInHost: (email: string, password: string) => Promise<void>
+  signInHost: (email: string, password: string, rememberSession?: boolean) => Promise<void>
   isPasskeySupported: boolean
   signInHostWithPasskey: () => Promise<void>
   registerHostPasskey: (friendlyName?: string) => Promise<void>
@@ -698,12 +698,18 @@ function AuthProvider({ children }: PropsWithChildren) {
       loading,
       authError,
       isPasskeySupported: supportsWebAuthn(),
-      signInHost: async (email: string, password: string) => {
+      signInHost: async (email: string, password: string, rememberSession = true) => {
         const normalizedEmail = email.trim().toLowerCase()
 
         isHostSignInInProgressRef.current = true
 
         try {
+          setSupabaseAuthPersistence(rememberSession)
+
+          if (!rememberSession) {
+            clearSupabaseAuthStorage()
+          }
+
           let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>
 
           try {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { useAuthStore } from '../state/authStore'
+import { getSupabaseAuthPersistence, supabase } from '../lib/supabase'
 
 const HOST_GATE_LOADING_TIMEOUT_MS = 2500
 const HOST_SIGN_IN_UI_TIMEOUT_MS = 30_000
@@ -32,6 +33,7 @@ function RequireHost({ children }: PropsWithChildren) {
   const [showLoadingFallback, setShowLoadingFallback] = useState(false)
   const [hostEmail, setHostEmail] = useState('')
   const [hostPassword, setHostPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(() => getSupabaseAuthPersistence())
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [signInError, setSignInError] = useState<string | null>(null)
   const [showForgot, setShowForgot] = useState(false)
@@ -132,7 +134,7 @@ function RequireHost({ children }: PropsWithChildren) {
     setIsSigningIn(true)
 
     try {
-      await withHostSignInUiTimeout(signInHost(hostEmail, hostPassword))
+      await withHostSignInUiTimeout(signInHost(hostEmail, hostPassword, rememberMe))
       setHostEmail('')
       setHostPassword('')
     } catch (error) {
@@ -156,9 +158,7 @@ function RequireHost({ children }: PropsWithChildren) {
             setResetStatus(null);
             setResetBusy(true);
             try {
-              const { error } = await import('../lib/supabase').then(({ supabase }) =>
-                supabase.auth.resetPasswordForEmail(resetEmail.trim())
-              );
+              const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim());
               if (error) {
                 setResetStatus(error.message || 'Failed to send reset email.');
               } else {
@@ -217,6 +217,17 @@ function RequireHost({ children }: PropsWithChildren) {
               required
             />
           </div>
+          <label className="subcopy no-margin" htmlFor="host-remember-me">
+            <input
+              id="host-remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+              disabled={isSigningIn}
+              style={{ marginRight: 8 }}
+            />
+            Remember me on this device
+          </label>
           <button
             type="button"
             className="ghost-button"

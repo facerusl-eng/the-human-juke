@@ -17,7 +17,7 @@ export function DemoAuthProvider({ children }: PropsWithChildren) {
     isHost: false,
     loading: false,
     authError: null,
-    signInHost: async () => {
+    signInHost: async (_email?: string, _password?: string, _rememberSession?: boolean) => {
       // No-op in demo mode — login is hidden in the UI
     },
     isPasskeySupported: false,
