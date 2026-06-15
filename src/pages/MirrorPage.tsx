@@ -1522,63 +1522,137 @@ function MirrorPageContent() {
     }
 
     let isCurrent = true
-    const channel = supabase
-      .channel(`mirror_event_settings:${currentEventId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'events',
-          filter: `id=eq.${currentEventId}`,
-        },
-        (payload) => {
+    let reconnectAttempt = 0
+    const maxReconnectAttempts = 10
+    const baseReconnectDelayMs = 1000
+    let heartbeatTimeoutId: ReturnType<typeof setTimeout> | null = null
+    let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
+    const heartbeatIntervalMs = 30_000 // 30 seconds
+    const heartbeatTimeoutMs = 60_000 // 60 seconds without activity = stale
+
+    const setupChannel = () => {
+      if (!isCurrent) {
+        return
+      }
+
+      let lastMessageTimeMs = Date.now()
+
+      const channel = supabase
+        .channel(`mirror_event_settings:${currentEventId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'events',
+            filter: `id=eq.${currentEventId}`,
+          },
+          (payload) => {
+            if (!isCurrent) {
+              return
+            }
+
+            lastMessageTimeMs = Date.now()
+
+            const row = (payload?.new ?? {}) as Record<string, unknown>
+            const nextGigDate = typeof row.gig_date === 'string' ? row.gig_date : undefined
+            const nextGigStartTime = typeof row.gig_start_time === 'string' ? row.gig_start_time : undefined
+
+            setLiveMirrorEventSettings((previousValue) => ({
+              ...previousValue,
+              venue: typeof row.venue === 'string' ? row.venue : previousValue.venue,
+              gigDate: nextGigDate ?? previousValue.gigDate,
+              gigStartTime: nextGigStartTime ?? previousValue.gigStartTime,
+              mirrorCountdownEnabled: typeof row.mirror_countdown_enabled === 'boolean'
+                ? row.mirror_countdown_enabled
+                : previousValue.mirrorCountdownEnabled,
+              mirrorCountdownShowQrLink: typeof row.mirror_countdown_show_qr_link === 'boolean'
+                ? row.mirror_countdown_show_qr_link
+                : previousValue.mirrorCountdownShowQrLink,
+              mirrorCountdownQrLink: typeof row.mirror_brb_qr_link === 'string' ? row.mirror_brb_qr_link : previousValue.mirrorCountdownQrLink,
+              mirrorCountdownQrCustomEnabled: typeof row.mirror_countdown_qr_custom_enabled === 'boolean'
+                ? row.mirror_countdown_qr_custom_enabled
+                : previousValue.mirrorCountdownQrCustomEnabled,
+              mirrorCountdownQrCustomUrl: typeof row.mirror_countdown_qr_custom_url === 'string'
+                ? row.mirror_countdown_qr_custom_url
+                : previousValue.mirrorCountdownQrCustomUrl,
+              mirrorBreakQrEnabled: typeof row.mirror_break_qr_enabled === 'boolean'
+                ? row.mirror_break_qr_enabled
+                : previousValue.mirrorBreakQrEnabled,
+              mirrorBreakQrCustomUrl: typeof row.mirror_break_qr_custom_url === 'string'
+                ? row.mirror_break_qr_custom_url
+                : previousValue.mirrorBreakQrCustomUrl,
+              mirrorCountdownQrText: typeof row.mirror_brb_qr_text === 'string'
+                ? row.mirror_brb_qr_text
+                : previousValue.mirrorCountdownQrText,
+              mirrorCountdownQrFlashVenue: typeof row.mirror_brb_qr_flash_venue === 'string'
+                ? row.mirror_brb_qr_flash_venue
+                : previousValue.mirrorCountdownQrFlashVenue,
+            }))
+          },
+        )
+        .subscribe((status, error) => {
           if (!isCurrent) {
             return
           }
 
-          const row = (payload?.new ?? {}) as Record<string, unknown>
-          const nextGigDate = typeof row.gig_date === 'string' ? row.gig_date : undefined
-          const nextGigStartTime = typeof row.gig_start_time === 'string' ? row.gig_start_time : undefined
+          if (status === 'SUBSCRIBED') {
+            reconnectAttempt = 0 // Reset on successful connection
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn(`[MirrorEventSettings] Channel status: ${status}, error: ${error?.message}`)
+            scheduleReconnect()
+          }
+        })
 
-          setLiveMirrorEventSettings((previousValue) => ({
-            ...previousValue,
-            venue: typeof row.venue === 'string' ? row.venue : previousValue.venue,
-            gigDate: nextGigDate ?? previousValue.gigDate,
-            gigStartTime: nextGigStartTime ?? previousValue.gigStartTime,
-            mirrorCountdownEnabled: typeof row.mirror_countdown_enabled === 'boolean'
-              ? row.mirror_countdown_enabled
-              : previousValue.mirrorCountdownEnabled,
-            mirrorCountdownShowQrLink: typeof row.mirror_countdown_show_qr_link === 'boolean'
-              ? row.mirror_countdown_show_qr_link
-              : previousValue.mirrorCountdownShowQrLink,
-            mirrorCountdownQrLink: typeof row.mirror_brb_qr_link === 'string' ? row.mirror_brb_qr_link : previousValue.mirrorCountdownQrLink,
-            mirrorCountdownQrCustomEnabled: typeof row.mirror_countdown_qr_custom_enabled === 'boolean'
-              ? row.mirror_countdown_qr_custom_enabled
-              : previousValue.mirrorCountdownQrCustomEnabled,
-            mirrorCountdownQrCustomUrl: typeof row.mirror_countdown_qr_custom_url === 'string'
-              ? row.mirror_countdown_qr_custom_url
-              : previousValue.mirrorCountdownQrCustomUrl,
-            mirrorBreakQrEnabled: typeof row.mirror_break_qr_enabled === 'boolean'
-              ? row.mirror_break_qr_enabled
-              : previousValue.mirrorBreakQrEnabled,
-            mirrorBreakQrCustomUrl: typeof row.mirror_break_qr_custom_url === 'string'
-              ? row.mirror_break_qr_custom_url
-              : previousValue.mirrorBreakQrCustomUrl,
-            mirrorCountdownQrText: typeof row.mirror_brb_qr_text === 'string'
-              ? row.mirror_brb_qr_text
-              : previousValue.mirrorCountdownQrText,
-            mirrorCountdownQrFlashVenue: typeof row.mirror_brb_qr_flash_venue === 'string'
-              ? row.mirror_brb_qr_flash_venue
-              : previousValue.mirrorCountdownQrFlashVenue,
-          }))
-        },
-      )
-      .subscribe()
+      // Heartbeat to detect stale connections
+      const startHeartbeat = () => {
+        if (heartbeatTimeoutId) clearTimeout(heartbeatTimeoutId)
+
+        heartbeatTimeoutId = setTimeout(() => {
+          if (!isCurrent) {
+            return
+          }
+
+          const timeSinceLastMessageMs = Date.now() - lastMessageTimeMs
+          if (timeSinceLastMessageMs > heartbeatTimeoutMs) {
+            console.warn('[MirrorEventSettings] Connection appears stale (no activity for 60s), reconnecting...')
+            void channel.unsubscribe()
+            scheduleReconnect()
+          } else {
+            // Check again soon
+            startHeartbeat()
+          }
+        }, heartbeatIntervalMs)
+      }
+
+      startHeartbeat()
+    }
+
+    const scheduleReconnect = () => {
+      if (!isCurrent || reconnectAttempt >= maxReconnectAttempts) {
+        return
+      }
+
+      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId)
+
+      reconnectAttempt += 1
+      const delayMs = Math.min(baseReconnectDelayMs * Math.pow(2, reconnectAttempt - 1), 30_000)
+
+      console.log(`[MirrorEventSettings] Scheduling reconnect attempt ${reconnectAttempt}/${maxReconnectAttempts} in ${delayMs}ms`)
+
+      reconnectTimeoutId = setTimeout(() => {
+        if (isCurrent) {
+          setupChannel()
+        }
+      }, delayMs)
+    }
+
+    setupChannel()
 
     return () => {
       isCurrent = false
-      void channel.unsubscribe()
+      if (heartbeatTimeoutId) clearTimeout(heartbeatTimeoutId)
+      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId)
     }
   }, [event?.id])
   const { user, isHost } = useAuthStore()

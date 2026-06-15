@@ -36,6 +36,12 @@ function buildQueryVariants(title: string, artist: string): Array<{ t: string; a
       .replace(/\s+/g, ' ')
       .trim()
 
+  const stripApostrophes = (v: string) =>
+    normalizeQuotes(v)
+      .replace(/[\u2019'’]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+
   const stripArtist = (v: string) =>
     normalizeQuotes(v)
       .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
@@ -60,6 +66,7 @@ function buildQueryVariants(title: string, artist: string): Array<{ t: string; a
     stripTitle(title),
     splitPrimary(stripTitle(title)),
     normalizeNoPunctuation(stripTitle(title)),
+    stripApostrophes(stripTitle(title)),
   ].filter(Boolean)))
 
   const artists = Array.from(new Set([

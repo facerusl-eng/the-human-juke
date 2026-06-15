@@ -344,6 +344,68 @@ async function resolveArtworkForImportedSongs(songs: ImportedSongDraft[]): Promi
   return songsWithArtwork
 }
 
+async function importLyricsForSongs(songs: Array<{ id: string; title: string; artist: string }>) {
+  const songsToImport = songs.filter((song) => song.id && song.title.trim() && song.artist.trim())
+
+  if (songsToImport.length === 0) {
+    return 0
+  }
+
+  let nextSongIndex = 0
+  let importedCount = 0
+
+  const workers = Array.from({ length: Math.min(4, songsToImport.length) }, async () => {
+    while (nextSongIndex < songsToImport.length) {
+      const currentIndex = nextSongIndex
+      nextSongIndex += 1
+      const song = songsToImport[currentIndex]
+
+      try {
+        const response = await fetch(`/api/lyrics-genius?song=${encodeURIComponent(song.title)}&artist=${encodeURIComponent(song.artist)}&locale=en`)
+        if (!response.ok) {
+          continue
+        }
+
+        const payload = await response.json().catch(() => ({})) as { lyrics?: unknown }
+        const lyricsText = typeof payload.lyrics === 'string' ? payload.lyrics.trim() : ''
+        if (!lyricsText) {
+          continue
+        }
+
+        const { error: saveError } = await supabase
+          .from('library_songs')
+          .update({ manual_lyrics: lyricsText })
+          .eq('id', song.id)
+
+        if (saveError) {
+          continue
+        }
+
+        const { error: bridgeError } = await supabase
+          .from('human_jukebox_lyrics')
+          .upsert({
+            song_id: song.id,
+            title: song.title,
+            artist: song.artist,
+            imported_raw_lyrics: lyricsText,
+            imported_sections: null,
+          }, { onConflict: 'song_id' })
+
+        if (bridgeError) {
+          continue
+        }
+
+        importedCount += 1
+      } catch {
+        // Best effort.
+      }
+    }
+  })
+
+  await Promise.all(workers)
+  return importedCount
+}
+
 function SetlistLibraryPage() {
   const { user } = useAuthStore()
   const { addSong, event } = useQueueStore()
@@ -470,11 +532,13 @@ function SetlistLibraryPage() {
           const { data: insertedSongs, error: insertedSongsError } = await supabase
             .from('library_songs')
             .insert(songRows)
-            .select('id, created_at')
+            .select('id, title, artist, created_at')
 
           if (insertedSongsError) {
             throw insertedSongsError
           }
+
+          await importLyricsForSongs((insertedSongs ?? []) as Array<{ id: string; title: string; artist: string }>)
 
           const playlistSongs = [...(insertedSongs ?? [])]
             .sort((left, right) => left.created_at.localeCompare(right.created_at))
@@ -903,6 +967,8 @@ function SetlistLibraryPage() {
         throw linkError
       }
 
+      await importLyricsForSongs([{ id: insertedSong.id, title: insertedSong.title, artist: insertedSong.artist }])
+
       setSongs((currentSongs) => [...currentSongs, { ...(insertedSong as PlaylistSongRecord), position: currentSongs.length }])
       setPlaylistCounts((currentCounts) => ({
         ...currentCounts,
@@ -1071,6 +1137,7 @@ function SetlistLibraryPage() {
       }
 
       const nextSongsToAdd = (insertedSongs ?? []) as PlaylistSongRecord[]
+      const lyricsImportedCount = await importLyricsForSongs(nextSongsToAdd)
       const positionStart = songs.length
 
       const { error: addToPlaylistError } = await supabase
@@ -1102,7 +1169,8 @@ function SetlistLibraryPage() {
       const importedWithArtworkCount = songsWithArtwork.filter((song) => Boolean(song.coverUrl)).length
       setSuccessText(
         `Imported ${nextSongsToAdd.length} song${nextSongsToAdd.length === 1 ? '' : 's'} from ${selectedFile.name}. `
-        + `Found cover art for ${importedWithArtworkCount}.`,
+        + `Found cover art for ${importedWithArtworkCount}. `
+        + `Imported lyrics for ${lyricsImportedCount}.`,
       )
     } catch (error) {
       if (isMountedRef.current) {

@@ -323,6 +323,11 @@ function buildSongQueryVariants(song: LyricSongRef) {
     .replace(/\s+/g, ' ')
     .trim()
 
+  const stripApostrophes = (value: string) => normalizeQueryValue(value)
+    .replace(/[\u2019'’]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
   const stripArtist = (value: string) => normalizeQueryValue(value)
     .replace(/\b(feat\.?|ft\.?)\b.*$/i, ' ')
     .split(/\s(?:&|x|with|and)\s|,|\//i)[0]
@@ -344,6 +349,7 @@ function buildSongQueryVariants(song: LyricSongRef) {
     stripTitle(song.title),
     splitPrimary(stripTitle(song.title)),
     normalizeNoPunctuation(stripTitle(song.title)),
+    stripApostrophes(stripTitle(song.title)),
   ].filter(Boolean)
 
   const artistCandidates = [
@@ -764,23 +770,101 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
   }, [])
 
   useEffect(() => {
-    const channel = supabase
-      .channel(CHANNEL_NAME)
-      .on('broadcast', { event: EVENT_NAME }, ({ payload }) => {
-        const nextState = payload as LyricDisplayState
-        if (!nextState || nextState.updatedBy === sourceIdRef.current) {
-          return
+    let isMounted = true
+    let reconnectAttempt = 0
+    const maxReconnectAttempts = 10
+    const baseReconnectDelayMs = 1000
+    let heartbeatTimeoutId: ReturnType<typeof setTimeout> | null = null
+    let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
+    const heartbeatIntervalMs = 30_000 // 30 seconds
+    const heartbeatTimeoutMs = 60_000 // 60 seconds without activity = stale
+
+    const setupChannel = () => {
+      if (!isMounted) {
+        return
+      }
+
+      let lastMessageTimeMs = Date.now()
+
+      const channel = supabase
+        .channel(CHANNEL_NAME)
+        .on('broadcast', { event: EVENT_NAME }, ({ payload }) => {
+          if (!isMounted) {
+            return
+          }
+
+          lastMessageTimeMs = Date.now()
+
+          const nextState = payload as LyricDisplayState
+          if (!nextState || nextState.updatedBy === sourceIdRef.current) {
+            return
+          }
+
+          if (nextState.updatedAt <= (stateRef.current.updatedAt ?? 0)) {
+            return
+          }
+
+          setState(nextState)
+        })
+        .subscribe((status, error) => {
+          if (!isMounted) {
+            return
+          }
+
+          if (status === 'SUBSCRIBED') {
+            reconnectAttempt = 0 // Reset on successful connection
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn(`[LyricDisplay] Channel status: ${status}, error: ${error?.message}`)
+            scheduleReconnect()
+          }
+        })
+
+      channelRef.current = channel
+
+      // Heartbeat to detect stale connections
+      const startHeartbeat = () => {
+        if (heartbeatTimeoutId) clearTimeout(heartbeatTimeoutId)
+
+        heartbeatTimeoutId = setTimeout(() => {
+          if (!isMounted) {
+            return
+          }
+
+          const timeSinceLastMessageMs = Date.now() - lastMessageTimeMs
+          if (timeSinceLastMessageMs > heartbeatTimeoutMs) {
+            console.warn('[LyricDisplay] Connection appears stale (no activity for 60s), reconnecting...')
+            void channel.unsubscribe()
+            scheduleReconnect()
+          } else {
+            // Check again soon
+            startHeartbeat()
+          }
+        }, heartbeatIntervalMs)
+      }
+
+      startHeartbeat()
+    }
+
+    const scheduleReconnect = () => {
+      if (!isMounted || reconnectAttempt >= maxReconnectAttempts) {
+        return
+      }
+
+      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId)
+
+      reconnectAttempt += 1
+      const delayMs = Math.min(baseReconnectDelayMs * Math.pow(2, reconnectAttempt - 1), 30_000)
+
+      console.log(`[LyricDisplay] Scheduling reconnect attempt ${reconnectAttempt}/${maxReconnectAttempts} in ${delayMs}ms`)
+
+      reconnectTimeoutId = setTimeout(() => {
+        if (isMounted) {
+          setupChannel()
         }
+      }, delayMs)
+    }
 
-        if (nextState.updatedAt <= (stateRef.current.updatedAt ?? 0)) {
-          return
-        }
-
-        setState(nextState)
-      })
-      .subscribe()
-
-    channelRef.current = channel
+    setupChannel()
 
     const onStorage = (storageEvent: StorageEvent) => {
       if (storageEvent.key !== STORAGE_KEY || !storageEvent.newValue) {
@@ -806,9 +890,16 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
     window.addEventListener('storage', onStorage)
 
     return () => {
+      isMounted = false
       window.removeEventListener('storage', onStorage)
-      void channel.unsubscribe()
-      channelRef.current = null
+
+      if (heartbeatTimeoutId) clearTimeout(heartbeatTimeoutId)
+      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId)
+
+      if (channelRef.current) {
+        void channelRef.current.unsubscribe()
+        channelRef.current = null
+      }
     }
   }, [supabase])
 

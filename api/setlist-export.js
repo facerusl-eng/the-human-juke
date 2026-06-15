@@ -212,6 +212,39 @@ async function fetchLyricsFromApi(req, song, locale, includeDebug) {
   return typeof payload?.lyrics === 'string' ? payload.lyrics.trim() : ''
 }
 
+async function persistLyricsForSong(supabase, song, lyricsText) {
+  const finalLyrics = String(lyricsText ?? '').trim()
+
+  if (!finalLyrics) {
+    return false
+  }
+
+  const { error: saveError } = await supabase
+    .from('library_songs')
+    .update({ manual_lyrics: finalLyrics })
+    .eq('id', song.song_id)
+
+  if (saveError) {
+    throw saveError
+  }
+
+  const { error: bridgeError } = await supabase
+    .from('human_jukebox_lyrics')
+    .upsert({
+      song_id: song.song_id,
+      title: song.title,
+      artist: song.artist,
+      imported_raw_lyrics: finalLyrics,
+      imported_sections: parseLyricsSections(finalLyrics),
+    }, { onConflict: 'song_id' })
+
+  if (bridgeError) {
+    throw bridgeError
+  }
+
+  return true
+}
+
 function normalizeLocale(value) {
   const normalized = normalizeQueryValue(value).toLowerCase()
 
@@ -275,6 +308,14 @@ export default async function handler(req, res) {
       autoRefreshToken: false,
     },
   })
+  const writableSupabase = serviceRoleKey
+    ? createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    })
+    : supabase
 
   const { data, error } = await supabase
     .from('playlist_songs')
@@ -324,6 +365,9 @@ export default async function handler(req, res) {
     if (includeLyrics && !lyricsText && fetchMissingLyrics) {
       try {
         lyricsText = await fetchLyricsFromApi(req, song, locale, includeDebug)
+        if (lyricsText && serviceRoleKey) {
+          await persistLyricsForSong(writableSupabase, song, lyricsText)
+        }
       } catch {
         lyricsText = ''
       }
