@@ -317,6 +317,18 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
     [namedSetlistOptions, selectedNamedSetlistId],
   )
 
+  const isSongQueueBlocked = (song: PlaylistSong) => {
+    if (queuedLibrarySongIds.has(song.id)) {
+      return true
+    }
+
+    if (isSetlistByNameMode) {
+      return false
+    }
+
+    return unavailableLibrarySongIds.has(song.id)
+  }
+
   useEffect(() => {
     if (!isSetlistByNameMode) {
       return
@@ -812,8 +824,8 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
                 {selectedSong.is_explicit ? <span className="explicit-tag"> · E</span> : null}
               </p>
               <p className="gig-song-picker-selected-hint">
-                {unavailableLibrarySongIds.has(selectedSong.id)
-                  ? 'Unavailable because this song is already queued or already played.'
+                {isSongQueueBlocked(selectedSong)
+                  ? 'Unavailable because this song is already queued.'
                   : 'Ready to add this track to queue.'}
               </p>
             </div>
@@ -825,11 +837,11 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
             onClick={async () => {
               await onAddSong(selectedSong)
             }}
-            disabled={addingSongId === selectedSong.id || unavailableLibrarySongIds.has(selectedSong.id)}
+            disabled={addingSongId === selectedSong.id || isSongQueueBlocked(selectedSong)}
           >
             {addingSongId === selectedSong.id
               ? 'Adding...'
-              : unavailableLibrarySongIds.has(selectedSong.id)
+              : isSongQueueBlocked(selectedSong)
               ? 'Already in queue'
               : 'Add to Queue'}
           </PrimaryButton>
@@ -888,11 +900,11 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
                   onClick={async () => {
                     await onAddSong(song)
                   }}
-                  disabled={addingSongId === song.id || unavailableLibrarySongIds.has(song.id)}
+                  disabled={addingSongId === song.id || isSongQueueBlocked(song)}
                 >
                   {addingSongId === song.id
                     ? 'Adding...'
-                    : unavailableLibrarySongIds.has(song.id)
+                    : isSongQueueBlocked(song)
                     ? 'Already in queue'
                     : 'Add to Queue'}
                 </PrimaryButton>

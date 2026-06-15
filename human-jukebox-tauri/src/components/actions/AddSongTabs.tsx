@@ -168,7 +168,11 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, unavailableLibrary
       return
     }
 
-    const preferredPool = candidateSongs.filter((song) => !unavailableLibrarySongIds.has(song.id))
+    const preferredPool = candidateSongs.filter((song) => (
+      song.playlist_type === 'setlist_by_name'
+        ? !queuedLibrarySongIds.has(song.id)
+        : !unavailableLibrarySongIds.has(song.id)
+    ))
     const sourcePool = preferredPool.length > 0 ? preferredPool : candidateSongs
 
     if (sourcePool.length === 0) {
