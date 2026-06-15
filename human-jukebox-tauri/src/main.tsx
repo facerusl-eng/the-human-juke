@@ -130,7 +130,7 @@ function isStaticAssetLoadFailureEvent(event: ErrorEvent): boolean {
 }
 
 function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
-  if (!import.meta.env.PROD || typeof window === 'undefined' || !isChunkLoadFailure(error)) {
+  if (typeof window === 'undefined' || !isChunkLoadFailure(error)) {
     return false
   }
 
@@ -565,6 +565,10 @@ function installGlobalRuntimeHooks() {
     }
 
     if (isHtmlInsteadOfJsonError(event.error ?? event.message)) {
+      if (recoverFromChunkLoadFailure(event.error ?? event.message, 'global-error-non-json-response-reload')) {
+        return
+      }
+
       emitRuntimeDiagnostic('global-error-non-json-response', event.error ?? event.message)
       emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
       return
@@ -600,6 +604,11 @@ function installGlobalRuntimeHooks() {
     }
 
     if (isHtmlInsteadOfJsonError(event.reason)) {
+      if (recoverFromChunkLoadFailure(event.reason, 'global-unhandledrejection-non-json-response-reload')) {
+        event.preventDefault()
+        return
+      }
+
       event.preventDefault()
       emitRuntimeDiagnostic('global-unhandledrejection-non-json-response', event.reason)
       emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
