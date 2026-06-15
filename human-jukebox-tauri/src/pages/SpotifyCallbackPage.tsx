@@ -39,10 +39,16 @@ function SpotifyCallbackPage() {
       try {
         const callbackUrl = `${resolveSpotifyApiUrl('/api/spotify/callback')}?code=${encodeURIComponent(code)}`
         const response = await fetch(callbackUrl)
-        const payload = await response.json().catch(() => ({}))
+        const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+        const payload = contentType.includes('application/json')
+          ? await response.json().catch(() => ({}))
+          : {}
 
         if (!response.ok || typeof payload.access_token !== 'string') {
-          throw new Error(payload.error || 'Spotify login failed.')
+          const fallbackError = !contentType.includes('application/json')
+            ? `Spotify login failed (non-JSON response, status ${response.status}).`
+            : 'Spotify login failed.'
+          throw new Error(payload.error || fallbackError)
         }
 
         window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)

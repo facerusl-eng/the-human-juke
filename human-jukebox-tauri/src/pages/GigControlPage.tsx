@@ -1389,10 +1389,16 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
   const refreshSpotifyAccessToken = useCallback(async () => {
     const response = await fetch('/api/spotify/token')
-    const payload = await response.json().catch(() => ({}))
+    const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+    const payload = contentType.includes('application/json')
+      ? await response.json().catch(() => ({}))
+      : {}
 
     if (!response.ok || typeof payload.access_token !== 'string') {
-      throw new Error(payload.error || 'Spotify token refresh failed.')
+      const fallbackError = !contentType.includes('application/json')
+        ? `Spotify token refresh failed (non-JSON response, status ${response.status}).`
+        : 'Spotify token refresh failed.'
+      throw new Error(payload.error || fallbackError)
     }
 
     window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)

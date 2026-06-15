@@ -1168,7 +1168,12 @@ export default function LyricsPage() {
             return null
           }
 
-          const data = await response.json()
+          const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+          if (!contentType.includes('application/json')) {
+            return null
+          }
+
+          const data = await response.json().catch(() => null)
           const resolvedLyrics = typeof data?.lyrics === 'string' ? data.lyrics.trim() : ''
           return resolvedLyrics.length > 0 ? resolvedLyrics : null
         } catch {
