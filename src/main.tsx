@@ -179,6 +179,18 @@ function isAbortLikeRejection(reason: unknown): boolean {
   return message.includes('aborted') || message.includes('aborterror') || message.includes('canceled')
 }
 
+function isHtmlInsteadOfJsonError(candidate: unknown): boolean {
+  const message = (getErrorMessage(candidate) || getRejectionMessage(candidate)).toLowerCase()
+
+  if (!message) {
+    return false
+  }
+
+  return (message.includes("unexpected token '<'") && message.includes('json'))
+    || (message.includes('unexpected token') && message.includes('<') && message.includes('json'))
+    || (message.includes('is not valid json') && message.includes('<'))
+}
+
 function isIOSLikeDevice() {
   if (typeof navigator === 'undefined') {
     return false
@@ -554,6 +566,12 @@ function installGlobalRuntimeHooks() {
       return
     }
 
+    if (isHtmlInsteadOfJsonError(event.error ?? event.message)) {
+      emitRuntimeDiagnostic('global-error-non-json-response', event.error ?? event.message)
+      emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
+      return
+    }
+
     logCrashTelemetry({
       route: typeof window === 'undefined' ? undefined : window.location.pathname,
       error: event.error ?? event.message,
@@ -580,6 +598,13 @@ function installGlobalRuntimeHooks() {
 
     if (recoverFromChunkLoadFailure(event.reason, 'global-unhandledrejection-chunk-load')) {
       event.preventDefault()
+      return
+    }
+
+    if (isHtmlInsteadOfJsonError(event.reason)) {
+      event.preventDefault()
+      emitRuntimeDiagnostic('global-unhandledrejection-non-json-response', event.reason)
+      emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
       return
     }
 

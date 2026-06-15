@@ -5,6 +5,7 @@ import './App.css'
 import App from './App.tsx'
 import { logCrashTelemetry } from './lib/crashTelemetry'
 import { AppUpdateNotification } from './components/AppUpdateNotification'
+import { initializeJamzoneBridgeRuntime } from './lib/jamzoneBridge'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const GLOBAL_RUNTIME_DIAGNOSTIC_EVENT = 'human-jukebox-runtime-diagnostic'
@@ -16,6 +17,8 @@ const IOS_SW_BYPASS_STORAGE_KEY = 'human-jukebox-ios-sw-cache-bypass'
 const MOBILE_ZOOM_UNLOCK_STORAGE_KEY = 'human-jukebox-mobile-zoom-unlock'
 const MOBILE_ZOOM_PREF_EVENT = 'human-jukebox-mobile-zoom-preference-changed'
 const VIEWPORT_CONTENT_ACCESSIBLE = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
+
+initializeJamzoneBridgeRuntime()
 
 function isLocalPreviewHost() {
   if (typeof window === 'undefined') {
@@ -32,16 +35,6 @@ function isAdminRoute() {
   }
 
   return window.location.pathname.startsWith('/admin')
-}
-
-function isDesktopRuntime() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return window.location.protocol === 'tauri:'
-    || window.location.protocol === 'file:'
-    || '__TAURI_INTERNALS__' in (window as unknown as Record<string, unknown>)
 }
 
 function shouldRenderAnalytics() {
@@ -116,10 +109,31 @@ function isChunkLoadFailure(error: unknown): boolean {
     || (message.includes('unexpected token') && message.includes('<'))
 }
 
-function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
-  const allowRecovery = import.meta.env.PROD || isDesktopRuntime()
+function isStaticAssetLoadFailureEvent(event: ErrorEvent): boolean {
+  if (!import.meta.env.PROD || typeof window === 'undefined') {
+    return false
+  }
 
-  if (!allowRecovery || typeof window === 'undefined' || !isChunkLoadFailure(error)) {
+  const target = event.target
+  if (!target || !(target instanceof Element)) {
+    return false
+  }
+
+  if (target instanceof HTMLLinkElement) {
+    const href = target.href ?? ''
+    return href.includes('/assets/') && href.endsWith('.css')
+  }
+
+  if (target instanceof HTMLScriptElement) {
+    const src = target.src ?? ''
+    return src.includes('/assets/') && src.endsWith('.js')
+  }
+
+  return false
+}
+
+function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
+  if (!import.meta.env.PROD || typeof window === 'undefined' || !isChunkLoadFailure(error)) {
     return false
   }
 
@@ -127,9 +141,7 @@ function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
   const previousAttempt = Number(window.sessionStorage.getItem(CHUNK_RECOVERY_LAST_ATTEMPT_KEY) ?? '0')
 
   if (Number.isFinite(previousAttempt) && now - previousAttempt < CHUNK_RECOVERY_THROTTLE_MS) {
-    // The same chunk mismatch can fire multiple global errors in quick succession.
-    // Treat throttled repeats as handled to avoid noisy duplicate diagnostics.
-    return true
+    return false
   }
 
   window.sessionStorage.setItem(CHUNK_RECOVERY_LAST_ATTEMPT_KEY, `${now}`)
@@ -146,10 +158,6 @@ function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
   emitRuntimeNotice('A new app build was detected. Reloading to recover...')
   window.setTimeout(() => {
     const hardRefreshUrl = new URL(window.location.href)
-    if (hardRefreshUrl.protocol === 'tauri:' || hardRefreshUrl.protocol === 'file:') {
-      hardRefreshUrl.pathname = '/'
-      hardRefreshUrl.search = ''
-    }
     hardRefreshUrl.searchParams.set('build-refresh', Date.now().toString(36))
     window.location.replace(hardRefreshUrl.toString())
   }, 60)
@@ -169,6 +177,18 @@ function isAbortLikeRejection(reason: unknown): boolean {
   const message = getRejectionMessage(reason).toLowerCase()
 
   return message.includes('aborted') || message.includes('aborterror') || message.includes('canceled')
+}
+
+function isHtmlInsteadOfJsonError(candidate: unknown): boolean {
+  const message = (getErrorMessage(candidate) || getRejectionMessage(candidate)).toLowerCase()
+
+  if (!message) {
+    return false
+  }
+
+  return (message.includes("unexpected token '<'") && message.includes('json'))
+    || (message.includes('unexpected token') && message.includes('<') && message.includes('json'))
+    || (message.includes('is not valid json') && message.includes('<'))
 }
 
 function isIOSLikeDevice() {
@@ -331,7 +351,7 @@ async function cleanupLegacyServiceWorkers() {
 }
 
 async function registerProductionServiceWorker() {
-  if (!import.meta.env.PROD || typeof window === 'undefined' || !('serviceWorker' in navigator) || isDesktopRuntime()) {
+  if (!import.meta.env.PROD || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return
   }
 
@@ -407,7 +427,7 @@ async function registerProductionServiceWorker() {
 }
 
 function setupBuildUpdateRefresh() {
-  if (!import.meta.env.PROD || typeof window === 'undefined' || isDesktopRuntime()) {
+  if (!import.meta.env.PROD || typeof window === 'undefined') {
     return
   }
 
@@ -536,7 +556,19 @@ function installGlobalRuntimeHooks() {
   })
 
   window.addEventListener('error', (event) => {
+    if (isStaticAssetLoadFailureEvent(event)) {
+      if (recoverFromChunkLoadFailure('failed to load module script', 'global-error-static-asset-load')) {
+        return
+      }
+    }
+
     if (recoverFromChunkLoadFailure(event.error ?? event.message, 'global-error-chunk-load')) {
+      return
+    }
+
+    if (isHtmlInsteadOfJsonError(event.error ?? event.message)) {
+      emitRuntimeDiagnostic('global-error-non-json-response', event.error ?? event.message)
+      emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
       return
     }
 
@@ -566,6 +598,13 @@ function installGlobalRuntimeHooks() {
 
     if (recoverFromChunkLoadFailure(event.reason, 'global-unhandledrejection-chunk-load')) {
       event.preventDefault()
+      return
+    }
+
+    if (isHtmlInsteadOfJsonError(event.reason)) {
+      event.preventDefault()
+      emitRuntimeDiagnostic('global-unhandledrejection-non-json-response', event.reason)
+      emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
       return
     }
 
@@ -604,10 +643,8 @@ function scheduleNonCriticalStartupTasks() {
     return
   }
 
-  if (!isDesktopRuntime()) {
-    // Start build freshness checks immediately so stale startup tabs self-heal fast.
-    setupBuildUpdateRefresh()
-  }
+  // Start build freshness checks immediately so stale startup tabs self-heal fast.
+  setupBuildUpdateRefresh()
 
   const run = () => {
     if (isIOSLikeDevice() && !shouldBypassServiceWorkerCachingOnIOS()) {

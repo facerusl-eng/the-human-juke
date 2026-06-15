@@ -5,6 +5,7 @@ import './App.css'
 import App from './App.tsx'
 import { logCrashTelemetry } from './lib/crashTelemetry'
 import { AppUpdateNotification } from './components/AppUpdateNotification'
+import { initializeJamzoneBridgeRuntime } from './lib/jamzoneBridge'
 
 const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const GLOBAL_RUNTIME_DIAGNOSTIC_EVENT = 'human-jukebox-runtime-diagnostic'
@@ -16,6 +17,8 @@ const IOS_SW_BYPASS_STORAGE_KEY = 'human-jukebox-ios-sw-cache-bypass'
 const MOBILE_ZOOM_UNLOCK_STORAGE_KEY = 'human-jukebox-mobile-zoom-unlock'
 const MOBILE_ZOOM_PREF_EVENT = 'human-jukebox-mobile-zoom-preference-changed'
 const VIEWPORT_CONTENT_ACCESSIBLE = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
+
+initializeJamzoneBridgeRuntime()
 
 function isLocalPreviewHost() {
   if (typeof window === 'undefined') {
@@ -106,6 +109,29 @@ function isChunkLoadFailure(error: unknown): boolean {
     || (message.includes('unexpected token') && message.includes('<'))
 }
 
+function isStaticAssetLoadFailureEvent(event: ErrorEvent): boolean {
+  if (!import.meta.env.PROD || typeof window === 'undefined') {
+    return false
+  }
+
+  const target = event.target
+  if (!target || !(target instanceof Element)) {
+    return false
+  }
+
+  if (target instanceof HTMLLinkElement) {
+    const href = target.href ?? ''
+    return href.includes('/assets/') && href.endsWith('.css')
+  }
+
+  if (target instanceof HTMLScriptElement) {
+    const src = target.src ?? ''
+    return src.includes('/assets/') && src.endsWith('.js')
+  }
+
+  return false
+}
+
 function recoverFromChunkLoadFailure(error: unknown, source: string): boolean {
   if (!import.meta.env.PROD || typeof window === 'undefined' || !isChunkLoadFailure(error)) {
     return false
@@ -151,6 +177,18 @@ function isAbortLikeRejection(reason: unknown): boolean {
   const message = getRejectionMessage(reason).toLowerCase()
 
   return message.includes('aborted') || message.includes('aborterror') || message.includes('canceled')
+}
+
+function isHtmlInsteadOfJsonError(candidate: unknown): boolean {
+  const message = (getErrorMessage(candidate) || getRejectionMessage(candidate)).toLowerCase()
+
+  if (!message) {
+    return false
+  }
+
+  return (message.includes("unexpected token '<'") && message.includes('json'))
+    || (message.includes('unexpected token') && message.includes('<') && message.includes('json'))
+    || (message.includes('is not valid json') && message.includes('<'))
 }
 
 function isIOSLikeDevice() {
@@ -518,7 +556,19 @@ function installGlobalRuntimeHooks() {
   })
 
   window.addEventListener('error', (event) => {
+    if (isStaticAssetLoadFailureEvent(event)) {
+      if (recoverFromChunkLoadFailure('failed to load module script', 'global-error-static-asset-load')) {
+        return
+      }
+    }
+
     if (recoverFromChunkLoadFailure(event.error ?? event.message, 'global-error-chunk-load')) {
+      return
+    }
+
+    if (isHtmlInsteadOfJsonError(event.error ?? event.message)) {
+      emitRuntimeDiagnostic('global-error-non-json-response', event.error ?? event.message)
+      emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
       return
     }
 
@@ -548,6 +598,13 @@ function installGlobalRuntimeHooks() {
 
     if (recoverFromChunkLoadFailure(event.reason, 'global-unhandledrejection-chunk-load')) {
       event.preventDefault()
+      return
+    }
+
+    if (isHtmlInsteadOfJsonError(event.reason)) {
+      event.preventDefault()
+      emitRuntimeDiagnostic('global-unhandledrejection-non-json-response', event.reason)
+      emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
       return
     }
 
