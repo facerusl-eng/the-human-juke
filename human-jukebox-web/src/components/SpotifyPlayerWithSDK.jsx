@@ -308,12 +308,20 @@ function getSpotifyDisconnectHint(message) {
 function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, onStatusTextChange, onPlaylistMetaChange }) {
   const playerRef = useRef(null)
   const accessTokenRef = useRef(accessToken)
+  const deviceIdRef = useRef(null)
   const playlistInputRef = useRef('')
   const lastStartedPlaylistContextRef = useRef('')
   const transportInFlightRef = useRef(false)
   const noListRecoveryInFlightRef = useRef(false)
   const pendingTransportCommandRef = useRef(null)
   const lastProcessedTransportNonceRef = useRef(0)
+  const togglePlayLockRef = useRef(false)
+  const syncToggleLockRef = useRef(false)
+  const sdkReconnectTimeoutRef = useRef(null)
+  const sdkReconnectAttemptRef = useRef(0)
+  const sdkReconnectInFlightRef = useRef(false)
+  const sdkHealthIntervalRef = useRef(null)
+  const sdkLastSeenAtRef = useRef(Date.now())
 
   const [isSdkReady, setIsSdkReady] = useState(false)
   const [deviceId, setDeviceId] = useState(null)
@@ -493,10 +501,98 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   }, [playlistInput])
 
   useEffect(() => {
+    deviceIdRef.current = deviceId
+  }, [deviceId])
+
+  useEffect(() => {
     let cancelled = false
     let player = null
 
     const cleanupListeners = []
+
+    const clearReconnectTimer = () => {
+      if (sdkReconnectTimeoutRef.current) {
+        window.clearTimeout(sdkReconnectTimeoutRef.current)
+        sdkReconnectTimeoutRef.current = null
+      }
+    }
+
+    const clearHealthInterval = () => {
+      if (sdkHealthIntervalRef.current) {
+        window.clearInterval(sdkHealthIntervalRef.current)
+        sdkHealthIntervalRef.current = null
+      }
+    }
+
+    const attemptReconnect = async (reason = 'connection loss') => {
+      if (cancelled || !playerRef.current || sdkReconnectInFlightRef.current) {
+        return
+      }
+
+      sdkReconnectInFlightRef.current = true
+
+      try {
+        const connected = await playerRef.current.connect()
+
+        if (!connected) {
+          throw new Error('Spotify SDK returned disconnected state.')
+        }
+
+        sdkReconnectAttemptRef.current = 0
+        sdkLastSeenAtRef.current = Date.now()
+        setPlayerStatus(`Spotify device connection recovered (${reason}).`)
+      } catch {
+        const attempt = Math.min(sdkReconnectAttemptRef.current + 1, 8)
+        sdkReconnectAttemptRef.current = attempt
+        const delayMs = Math.min(1000 * 2 ** (attempt - 1), 30_000)
+
+        setPlayerStatus(`Spotify device reconnecting in ${Math.round(delayMs / 1000)}s...`)
+
+        clearReconnectTimer()
+        sdkReconnectTimeoutRef.current = window.setTimeout(() => {
+          void attemptReconnect('retry')
+        }, delayMs)
+      } finally {
+        sdkReconnectInFlightRef.current = false
+      }
+    }
+
+    const scheduleReconnect = (reason = 'connection loss') => {
+      if (cancelled) {
+        return
+      }
+
+      clearReconnectTimer()
+      sdkReconnectTimeoutRef.current = window.setTimeout(() => {
+        void attemptReconnect(reason)
+      }, 500)
+    }
+
+    const startHealthMonitor = () => {
+      clearHealthInterval()
+
+      sdkHealthIntervalRef.current = window.setInterval(() => {
+        if (cancelled || !playerRef.current || !deviceIdRef.current) {
+          return
+        }
+
+        void playerRef.current.getCurrentState?.()
+          .then((state) => {
+            if (state) {
+              sdkLastSeenAtRef.current = Date.now()
+              return
+            }
+
+            const staleForMs = Date.now() - sdkLastSeenAtRef.current
+            if (staleForMs > 90_000) {
+              scheduleReconnect('stale playback state')
+            }
+          })
+          .catch(() => {
+            scheduleReconnect('state poll failed')
+          })
+      }, 30_000)
+    }
 
     const initialize = async () => {
       try {
@@ -530,14 +626,22 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         const onReady = ({ device_id: readyDeviceId }) => {
           setDeviceId(readyDeviceId)
           storeSpotifyDeviceId(readyDeviceId)
+          sdkReconnectAttemptRef.current = 0
+          sdkLastSeenAtRef.current = Date.now()
           setPlayerStatus('Spotify device is ready.')
         }
 
         const onNotReady = ({ device_id: offlineDeviceId }) => {
           if (offlineDeviceId) {
+            setDeviceId((currentDeviceId) => (currentDeviceId === offlineDeviceId ? null : currentDeviceId))
+          }
+
+          if (offlineDeviceId) {
             storeSpotifyDeviceId(null)
           }
+
           setPlayerStatus(`Spotify device went offline: ${offlineDeviceId}`)
+          scheduleReconnect('device went offline')
         }
 
         player.addListener('ready', onReady)
@@ -554,6 +658,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
               .then((newToken) => {
                 accessTokenRef.current = newToken
                 setPlayerStatus('Spotify token refreshed after authentication error.')
+                scheduleReconnect('token refresh')
               })
               .catch((refreshError) => {
                 setPlayerStatus(
@@ -568,6 +673,8 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           setPlayerStatus(`Account error: ${message}`)
         })
         player.addListener('playback_error', ({ message }) => {
+          sdkLastSeenAtRef.current = Date.now()
+
           if (isNoListError(message)) {
             if (noListRecoveryInFlightRef.current) {
               return
@@ -622,6 +729,11 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
           setPlayerStatus(`Playback error: ${mappedMessage}`)
         })
+        player.addListener('player_state_changed', (state) => {
+          if (state) {
+            sdkLastSeenAtRef.current = Date.now()
+          }
+        })
 
         cleanupListeners.push(() => {
           player.removeListener('ready', onReady)
@@ -630,15 +742,20 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           player.removeListener('authentication_error')
           player.removeListener('account_error')
           player.removeListener('playback_error')
+          player.removeListener('player_state_changed')
         })
 
-        await player.connect()
+        const connected = await player.connect()
+        if (!connected) {
+          scheduleReconnect('initial connect')
+        }
         try {
           await player.setVolume(SPOTIFY_TOGGLE_BASE_VOLUME)
         } catch {
           // Volume writes can fail for restricted/remote sessions. Safe to ignore.
         }
         playerRef.current = player
+        startHealthMonitor()
       } catch (error) {
         setPlayerStatus(error instanceof Error ? error.message : 'Spotify SDK setup failed.')
       }
@@ -655,6 +772,8 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           // Ignore listener cleanup errors.
         }
       })
+      clearReconnectTimer()
+      clearHealthInterval()
       playerRef.current = null
     }
   }, [])
@@ -849,10 +968,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   }
 
   // Prevent concurrent toggle actions
-  let syncToggleLock = false
   const syncTogglePlayState = async (shouldPlay) => {
-    if (syncToggleLock) return
-    syncToggleLock = true
+    if (syncToggleLockRef.current) return
+    syncToggleLockRef.current = true
     try {
       if (!playerRef.current) return
       const currentState = await playerRef.current.getCurrentState?.()
@@ -865,15 +983,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         await playerRef.current.togglePlay()
       }
     } finally {
-      syncToggleLock = false
+      syncToggleLockRef.current = false
     }
   }
 
   // Prevent concurrent toggles
-  let togglePlayLock = false
   const togglePlay = async () => {
-    if (togglePlayLock) return
-    togglePlayLock = true
+    if (togglePlayLockRef.current) return
+    togglePlayLockRef.current = true
     setActionBusy(true)
     try {
       if (playerRef.current && deviceId) {
@@ -938,7 +1055,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
       setPlayerStatus(error instanceof Error ? error.message : 'Toggle play failed.')
     } finally {
       setActionBusy(false)
-      togglePlayLock = false
+      togglePlayLockRef.current = false
     }
   }
 
