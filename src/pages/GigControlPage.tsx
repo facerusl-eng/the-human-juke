@@ -4657,22 +4657,25 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               <p className="meta-badge" aria-live="polite">Auto Live issue: {autoLiveLastError}</p>
             ) : null}
             {nextUpSong ? (
-              <p className="subcopy gig-next-up-hint" aria-live="polite">
-                <span className="gig-next-up-label">Next up</span>
-                <span className="gig-next-up-song"><strong>{nextUpSong.title}</strong> — {nextUpSong.artist}</span>
-                {nextUpSong.createdByName || nextUpSong.audience_sings ? (
-                  <span className="gig-next-up-meta">
-                    {nextUpSong.createdByName ? (
-                      <span className="gig-next-up-requester">
-                        <span className="gig-next-up-requester-prefix">Requested by</span>
-                        <strong>{nextUpSong.createdByName}</strong>
-                      </span>
-                    ) : null}
-                    {nextUpSong.audience_sings ? <span className="gig-next-up-karaoke">Karaoke</span> : null}
-                  </span>
+              <div className="gig-next-up-hint" aria-live="polite">
+                <div className="gig-next-up-header">
+                  <span className="gig-next-up-label">↓ Next up</span>
+                  {nextUpSong.audience_sings && <span className="gig-next-up-type-badge karaoke-tag">🎤 Karaoke</span>}
+                </div>
+                <div className="gig-next-up-song-block">
+                  <p className="gig-next-up-song">
+                    <strong className="gig-next-up-song-title">{nextUpSong.title}</strong>
+                    <span className="gig-next-up-song-artist"> — {nextUpSong.artist}</span>
+                  </p>
+                </div>
+                {nextUpSong.createdByName ? (
+                  <div className="gig-next-up-requester-block">
+                    <span className="gig-next-up-requester-icon">👤</span>
+                    <span className="gig-next-up-requester-name">{nextUpSong.createdByName}</span>
+                  </div>
                 ) : null}
                 {queueEstMinutes > 0 ? <span className="gig-next-up-queue">~{queueEstMinutes} min queue</span> : null}
-              </p>
+              </div>
             ) : null}
             <p className="subcopy gig-playback-note">
               Playback is controlled from this screen. Press Space to start the current song, then Space again to
