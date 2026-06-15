@@ -11,6 +11,8 @@ const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
 const GLOBAL_RUNTIME_DIAGNOSTIC_EVENT = 'human-jukebox-runtime-diagnostic'
 const CHUNK_RECOVERY_LAST_ATTEMPT_KEY = 'human-jukebox-chunk-recovery-last-attempt'
 const CHUNK_RECOVERY_THROTTLE_MS = 15_000
+const NON_JSON_RECOVERY_LAST_ATTEMPT_KEY = 'human-jukebox-non-json-recovery-last-attempt'
+const NON_JSON_RECOVERY_THROTTLE_MS = 4_000
 const BUILD_UPDATE_RELOAD_LAST_ATTEMPT_KEY = 'human-jukebox-build-update-reload-last-attempt'
 const BUILD_UPDATE_RELOAD_THROTTLE_MS = 20_000
 const IOS_SW_BYPASS_STORAGE_KEY = 'human-jukebox-ios-sw-cache-bypass'
@@ -190,6 +192,41 @@ function isHtmlInsteadOfJsonError(candidate: unknown): boolean {
     || (message.includes('unexpected token') && message.includes('<'))
     || (message.includes('failed to execute') && message.includes('json.parse') && message.includes('<'))
     || (message.includes('is not valid json') && message.includes('<'))
+}
+
+function recoverFromNonJsonRuntimeError(error: unknown, source: string): boolean {
+  if (typeof window === 'undefined' || !isHtmlInsteadOfJsonError(error)) {
+    return false
+  }
+
+  const now = Date.now()
+  const previousAttempt = Number(window.sessionStorage.getItem(NON_JSON_RECOVERY_LAST_ATTEMPT_KEY) ?? '0')
+
+  if (Number.isFinite(previousAttempt) && now - previousAttempt < NON_JSON_RECOVERY_THROTTLE_MS) {
+    return false
+  }
+
+  window.sessionStorage.setItem(NON_JSON_RECOVERY_LAST_ATTEMPT_KEY, `${now}`)
+
+  logCrashTelemetry({
+    route: window.location.pathname,
+    error,
+    extra: {
+      source,
+      recovery: 'non-json-hard-refresh',
+    },
+  })
+
+  emitRuntimeDiagnostic(source, error)
+  emitRuntimeNotice('A server response was invalid. Reloading to recover...')
+  window.setTimeout(() => {
+    const hardRefreshUrl = new URL(window.location.href)
+    hardRefreshUrl.searchParams.set('build-refresh', Date.now().toString(36))
+    hardRefreshUrl.searchParams.set('non-json-recovery', '1')
+    window.location.replace(hardRefreshUrl.toString())
+  }, 60)
+
+  return true
 }
 
 function isIOSLikeDevice() {
@@ -567,11 +604,11 @@ function installGlobalRuntimeHooks() {
       return
     }
 
-    if (isHtmlInsteadOfJsonError(event.error ?? event.message)) {
-      if (recoverFromChunkLoadFailure(event.error ?? event.message, 'global-error-non-json-response-reload')) {
-        return
-      }
+    if (recoverFromNonJsonRuntimeError(event.error ?? event.message, 'global-error-non-json-response-reload')) {
+      return
+    }
 
+    if (isHtmlInsteadOfJsonError(event.error ?? event.message)) {
       emitRuntimeDiagnostic('global-error-non-json-response', event.error ?? event.message)
       emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
       return
@@ -606,12 +643,12 @@ function installGlobalRuntimeHooks() {
       return
     }
 
-    if (isHtmlInsteadOfJsonError(event.reason)) {
-      if (recoverFromChunkLoadFailure(event.reason, 'global-unhandledrejection-non-json-response-reload')) {
-        event.preventDefault()
-        return
-      }
+    if (recoverFromNonJsonRuntimeError(event.reason, 'global-unhandledrejection-non-json-response-reload')) {
+      event.preventDefault()
+      return
+    }
 
+    if (isHtmlInsteadOfJsonError(event.reason)) {
       event.preventDefault()
       emitRuntimeDiagnostic('global-unhandledrejection-non-json-response', event.reason)
       emitRuntimeNotice('A server response was not JSON. The app will retry in the background.')
