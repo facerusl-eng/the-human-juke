@@ -15,7 +15,7 @@ type Playlist = {
 }
 
 type PlaylistType = 'human_jukebox' | 'karaoke'
-type CreatePlaylistType = PlaylistType | 'harald_live'
+type CreatePlaylistType = PlaylistType | 'harald_live' | 'setlist_by_name'
 
 type PlaylistSongRecord = {
   id: string
@@ -82,7 +82,11 @@ function inferPlaylistType(rawType: string | null | undefined, playlistName: str
 }
 
 function toPersistedPlaylistType(playlistType: CreatePlaylistType): 'human_jukebox' | 'karaoke' {
-  return playlistType === 'harald_live' ? 'human_jukebox' : playlistType
+  if (playlistType === 'harald_live' || playlistType === 'setlist_by_name') {
+    return 'human_jukebox'
+  }
+
+  return playlistType
 }
 
 function readFileAsDataUrl(file: File) {
@@ -1235,6 +1239,7 @@ function SetlistLibraryPage() {
               <option value="harald_live">Harald Live Setlist</option>
               <option value="human_jukebox">Human Jukebox Setlist</option>
               <option value="karaoke">Karaoke Setlist</option>
+              <option value="setlist_by_name">Setlist by Name</option>
             </select>
             <textarea
               placeholder="Optional description"
