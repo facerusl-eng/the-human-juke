@@ -6790,8 +6790,14 @@ body.audience-immersive-mode {
 
 .gig-add-song-tab-switcher {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .gig-add-song-tab-switcher {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .gig-add-song-tab-button {
