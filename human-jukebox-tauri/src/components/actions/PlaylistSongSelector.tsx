@@ -26,6 +26,7 @@ type PlaylistSongSelectorProps = {
 type PlaylistMeta = {
   id: string
   name: string
+  description: string | null
   playlist_type: 'human_jukebox' | 'karaoke'
 }
 
@@ -122,34 +123,57 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
       setErrorText(null)
 
       try {
-        const { data: eventPlaylists, error: eventPlaylistError } = await supabase
-          .from('event_playlists')
-          .select('playlist_id, playlists!inner(id, name, playlist_type)')
-          .eq('event_id', eventId)
-          .order('created_at', { ascending: true })
+        let availablePlaylists: PlaylistMeta[] = []
 
-        if (eventPlaylistError) {
-          throw eventPlaylistError
+        if (playlistTypeFilter === 'setlist_by_name' && userId) {
+          const { data: userPlaylists, error: userPlaylistsError } = await supabase
+            .from('playlists')
+            .select('id, name, description, playlist_type')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true })
+
+          if (userPlaylistsError) {
+            throw userPlaylistsError
+          }
+
+          availablePlaylists = ((userPlaylists ?? []) as Array<{ id: string; name: string; description?: string | null; playlist_type?: string | null }>)
+            .map((playlist) => ({
+              id: playlist.id,
+              name: playlist.name,
+              description: playlist.description ?? null,
+              playlist_type: inferPlaylistType(playlist.playlist_type, playlist.name),
+            }))
+        } else {
+          const { data: eventPlaylists, error: eventPlaylistError } = await supabase
+            .from('event_playlists')
+            .select('playlist_id, playlists!inner(id, name, description, playlist_type)')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: true })
+
+          if (eventPlaylistError) {
+            throw eventPlaylistError
+          }
+
+          availablePlaylists = ((eventPlaylists ?? []) as Array<{
+            playlist_id?: string | null
+            playlists?: { id: string; name: string; description?: string | null; playlist_type?: string | null } | Array<{ id: string; name: string; description?: string | null; playlist_type?: string | null }> | null
+          }>)
+            .map((row) => {
+              const playlistData = Array.isArray(row.playlists) ? row.playlists[0] : row.playlists
+
+              if (!playlistData) {
+                return null
+              }
+
+              return {
+                id: playlistData.id,
+                name: playlistData.name,
+                description: playlistData.description ?? null,
+                playlist_type: inferPlaylistType(playlistData.playlist_type, playlistData.name),
+              } as PlaylistMeta
+            })
+            .filter((playlist): playlist is PlaylistMeta => Boolean(playlist))
         }
-
-        const availablePlaylists = ((eventPlaylists ?? []) as Array<{
-          playlist_id?: string | null
-          playlists?: { id: string; name: string; playlist_type?: string | null } | Array<{ id: string; name: string; playlist_type?: string | null }> | null
-        }>)
-          .map((row) => {
-            const playlistData = Array.isArray(row.playlists) ? row.playlists[0] : row.playlists
-
-            if (!playlistData) {
-              return null
-            }
-
-            return {
-              id: playlistData.id,
-              name: playlistData.name,
-              playlist_type: inferPlaylistType(playlistData.playlist_type, playlistData.name),
-            } as PlaylistMeta
-          })
-          .filter((playlist): playlist is PlaylistMeta => Boolean(playlist))
 
         const filteredEventPlaylists = availablePlaylists.filter((playlist) => {
           if (playlistTypeFilter === 'karaoke') {
@@ -250,7 +274,7 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
     return () => {
       isCurrent = false
     }
-  }, [eventId, playlistTypeFilter, selectedNamedSetlistId])
+  }, [eventId, playlistTypeFilter, selectedNamedSetlistId, userId])
 
   const availableSongs = useMemo(() => {
     const normalizedQuery = songSearchQuery.trim().toLowerCase()
@@ -352,6 +376,7 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
       const createdPlaylist: PlaylistMeta = {
         id: insertedPlaylist.id,
         name: insertedPlaylist.name,
+        description: null,
         playlist_type: inferPlaylistType(insertedPlaylist.playlist_type, insertedPlaylist.name),
       }
 
