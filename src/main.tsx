@@ -186,8 +186,9 @@ function isHtmlInsteadOfJsonError(candidate: unknown): boolean {
     return false
   }
 
-  return (message.includes("unexpected token '<'") && message.includes('json'))
-    || (message.includes('unexpected token') && message.includes('<') && message.includes('json'))
+  return message.includes("unexpected token '<'")
+    || (message.includes('unexpected token') && message.includes('<'))
+    || (message.includes('failed to execute') && message.includes('json.parse') && message.includes('<'))
     || (message.includes('is not valid json') && message.includes('<'))
 }
 
