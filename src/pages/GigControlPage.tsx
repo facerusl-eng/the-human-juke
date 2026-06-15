@@ -554,7 +554,7 @@ async function sendSpotifyWebApiTransportCommand(mode: 'play' | 'pause') {
 function GigControlPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, isHost } = useAuthStore()
   const {
     event,
     hostEvents,
@@ -925,6 +925,23 @@ function GigControlPage() {
         .filter((songId): songId is string => Boolean(songId)),
     )
   ), [songs])
+  const unavailableLibrarySongIds = useMemo(() => {
+    const ids = new Set<string>()
+
+    songs.forEach((song) => {
+      if (song.library_song_id) {
+        ids.add(song.library_song_id)
+      }
+    })
+
+    performedSongs.forEach((song) => {
+      if (song.library_song_id) {
+        ids.add(song.library_song_id)
+      }
+    })
+
+    return ids
+  }, [performedSongs, songs])
   const joinUrl = getAudienceUrl(qrTargetEventId, {
     compact: true,
     includeVersion: true,
@@ -4940,18 +4957,21 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         </details>
       </section>
 
-      <section className="queue-panel gig-manual-add-panel" aria-label="Admin add song controls">
-        <div className="panel-head">
-          <h2>Add Song to Queue</h2>
-          <span className="meta-badge">Playlist + Custom</span>
-        </div>
-        <AddSongTabs
-          eventId={event.id}
-          userId={user?.id ?? null}
-          addSong={addSong}
-          queuedLibrarySongIds={queuedLibrarySongIds}
-        />
-      </section>
+      {isHost ? (
+        <section className="queue-panel gig-manual-add-panel" aria-label="Admin add song controls">
+          <div className="panel-head">
+            <h2>Add Song to Queue</h2>
+            <span className="meta-badge">Playlist + Custom</span>
+          </div>
+          <AddSongTabs
+            eventId={event.id}
+            userId={user?.id ?? null}
+            addSong={addSong}
+            queuedLibrarySongIds={queuedLibrarySongIds}
+            unavailableLibrarySongIds={unavailableLibrarySongIds}
+          />
+        </section>
+      ) : null}
 
       {spotifyAccessToken ? (
         <>

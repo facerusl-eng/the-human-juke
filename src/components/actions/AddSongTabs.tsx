@@ -18,6 +18,7 @@ type AddSongTabsProps = {
   eventId: string
   userId: string | null
   queuedLibrarySongIds: Set<string>
+  unavailableLibrarySongIds: Set<string>
   addSong: (title: string, artist: string, isExplicit: boolean, options?: AddSongOptions) => Promise<void>
 }
 
@@ -26,8 +27,8 @@ type ToastState = {
   message: string
 } | null
 
-function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSongTabsProps) {
-  const [activeTab, setActiveTab] = useState<'human_jukebox' | 'karaoke' | 'custom'>('human_jukebox')
+function AddSongTabs({ eventId, userId, queuedLibrarySongIds, unavailableLibrarySongIds, addSong }: AddSongTabsProps) {
+  const [activeTab, setActiveTab] = useState<'human_jukebox' | 'karaoke' | 'setlist_by_name' | 'custom'>('human_jukebox')
   const [customSongs, setCustomSongs] = useState<CustomSong[]>([])
   const [loadingCustomSongs, setLoadingCustomSongs] = useState(false)
   const [customSongsError, setCustomSongsError] = useState<string | null>(null)
@@ -167,7 +168,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
       return
     }
 
-    const preferredPool = candidateSongs.filter((song) => !queuedLibrarySongIds.has(song.id))
+    const preferredPool = candidateSongs.filter((song) => !unavailableLibrarySongIds.has(song.id))
     const sourcePool = preferredPool.length > 0 ? preferredPool : candidateSongs
 
     if (sourcePool.length === 0) {
@@ -232,7 +233,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
       <SectionHeader
         eyebrow="Queue control"
         title="Add Songs"
-        subtitle="Choose from Human Jukebox, Karaoke, or save custom songs for quick reuse."
+        subtitle="Choose from Human Jukebox, Karaoke, Setlist by Name, or save custom songs for quick reuse."
       />
       <label className="gig-add-song-requester-field" htmlFor="gig-control-picked-by">
         <span className="gig-add-song-requester-label">Picked by name (optional)</span>
@@ -268,6 +269,13 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
         >
           Custom Song
         </PrimaryButton>
+        <PrimaryButton
+          variant="secondary"
+          className={`secondary-button gig-add-song-tab-button${activeTab === 'setlist_by_name' ? ' is-active' : ''}`}
+          onClick={() => setActiveTab('setlist_by_name')}
+        >
+          Setlist by Name
+        </PrimaryButton>
       </div>
 
       {toastState ? (
@@ -279,8 +287,10 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
       {activeTab === 'human_jukebox' ? (
         <PlaylistSongSelector
           eventId={eventId}
+          userId={userId}
           playlistTypeFilter="human_jukebox"
           queuedLibrarySongIds={queuedLibrarySongIds}
+          unavailableLibrarySongIds={unavailableLibrarySongIds}
           addingSongId={addingSongId}
           addingRandomCount={addingRandomCount}
           onAddSong={addPlaylistSongToQueue}
@@ -289,8 +299,22 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, addSong }: AddSong
       ) : activeTab === 'karaoke' ? (
         <PlaylistSongSelector
           eventId={eventId}
+          userId={userId}
           playlistTypeFilter="karaoke"
           queuedLibrarySongIds={queuedLibrarySongIds}
+          unavailableLibrarySongIds={unavailableLibrarySongIds}
+          addingSongId={addingSongId}
+          addingRandomCount={addingRandomCount}
+          onAddSong={addPlaylistSongToQueue}
+          onAddRandomSongs={addRandomPlaylistSongsToQueue}
+        />
+      ) : activeTab === 'setlist_by_name' ? (
+        <PlaylistSongSelector
+          eventId={eventId}
+          userId={userId}
+          playlistTypeFilter="setlist_by_name"
+          queuedLibrarySongIds={queuedLibrarySongIds}
+          unavailableLibrarySongIds={unavailableLibrarySongIds}
           addingSongId={addingSongId}
           addingRandomCount={addingRandomCount}
           onAddSong={addPlaylistSongToQueue}
