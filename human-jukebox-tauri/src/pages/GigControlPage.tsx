@@ -88,8 +88,38 @@ type SpotifyPlaylistMeta = {
   ownerName?: string
 } | null
 
+type SavedSpotifyPlaylist = {
+  uri: string
+  name: string
+  ownerName: string
+}
+
 const SPOTIFY_PLAYLIST_META_STORAGE_KEY = 'human-jukebox-spotify-playlist-meta'
+const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
 const SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY = 'human-jukebox-spotify-saved-playlists'
+
+function normalizeSavedSpotifyPlaylist(rawPlaylist: unknown): SavedSpotifyPlaylist | null {
+  if (!rawPlaylist || typeof rawPlaylist !== 'object') {
+    return null
+  }
+
+  const candidate = rawPlaylist as { uri?: unknown; name?: unknown; ownerName?: unknown }
+  const uri = typeof candidate.uri === 'string' ? candidate.uri.trim() : ''
+
+  if (!uri) {
+    return null
+  }
+
+  const name = typeof candidate.name === 'string' && candidate.name.trim()
+    ? candidate.name.trim()
+    : uri
+
+  return {
+    uri,
+    name,
+    ownerName: typeof candidate.ownerName === 'string' ? candidate.ownerName.trim() : '',
+  }
+}
 
 type PersistedGigControlNowPlaying = {
   eventId: string
@@ -531,6 +561,7 @@ function GigControlPage() {
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
   const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
   const [selectedSpotifyPlaylistMeta, setSelectedSpotifyPlaylistMeta] = useState<SpotifyPlaylistMeta>(null)
+  const [savedSpotifyPlaylists, setSavedSpotifyPlaylists] = useState<SavedSpotifyPlaylist[]>([])
   const [savedSpotifyPlaylistCount, setSavedSpotifyPlaylistCount] = useState(0)
   const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
   const [isEndingOrDeletingGig, setIsEndingOrDeletingGig] = useState(false)
@@ -1460,7 +1491,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       try {
         const parsedSavedPlaylists = JSON.parse(storedSavedPlaylists) as unknown[]
         if (Array.isArray(parsedSavedPlaylists)) {
-          setSavedSpotifyPlaylistCount(parsedSavedPlaylists.length)
+          const normalizedSavedPlaylists = parsedSavedPlaylists
+            .map(normalizeSavedSpotifyPlaylist)
+            .filter((playlist): playlist is SavedSpotifyPlaylist => Boolean(playlist))
+
+          setSavedSpotifyPlaylists(normalizedSavedPlaylists)
+          setSavedSpotifyPlaylistCount(normalizedSavedPlaylists.length)
         }
       } catch {
         window.localStorage.removeItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
@@ -3971,9 +4007,34 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     setSelectedSpotifyPlaylistMeta(playlistMeta)
   }, [])
 
-  const handleSavedSpotifyPlaylistsChange = useCallback((savedPlaylists: Array<{ uri?: string }>) => {
-    setSavedSpotifyPlaylistCount(savedPlaylists.length)
+  const handleSavedSpotifyPlaylistsChange = useCallback((savedPlaylists: Array<{ uri?: string; name?: string; ownerName?: string }>) => {
+    const normalizedSavedPlaylists = savedPlaylists
+      .map(normalizeSavedSpotifyPlaylist)
+      .filter((playlist): playlist is SavedSpotifyPlaylist => Boolean(playlist))
+
+    setSavedSpotifyPlaylists(normalizedSavedPlaylists)
+    setSavedSpotifyPlaylistCount(normalizedSavedPlaylists.length)
   }, [])
+
+  const selectedSavedSpotifyPlaylistUri = selectedSpotifyPlaylistMeta?.uri ?? ''
+
+  const selectSavedSpotifyPlaylistFromGigControl = useCallback((playlistUri: string) => {
+    const selectedPlaylist = savedSpotifyPlaylists.find((playlist) => playlist.uri === playlistUri)
+
+    if (!selectedPlaylist) {
+      return
+    }
+
+    const nextMeta: SpotifyPlaylistMeta = {
+      uri: selectedPlaylist.uri,
+      name: selectedPlaylist.name,
+      ownerName: selectedPlaylist.ownerName,
+    }
+
+    setSelectedSpotifyPlaylistMeta(nextMeta)
+    window.localStorage.setItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY, JSON.stringify(nextMeta))
+    window.localStorage.setItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY, selectedPlaylist.uri)
+  }, [savedSpotifyPlaylists])
 
   const selectedSpotifyPlaylistLabel = selectedSpotifyPlaylistMeta?.name?.trim() || 'Not selected yet'
   const selectedSpotifyPlaylistOwnerText = selectedSpotifyPlaylistMeta?.ownerName?.trim()
@@ -4801,6 +4862,30 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             </span>
           </div>
           <p className="subcopy">Connect Spotify to enable play/pause and track skipping from Gig Control.</p>
+          {savedSpotifyPlaylists.length > 0 ? (
+            <>
+              <label htmlFor="spotify-disconnected-saved-playlists-select" className="gig-switcher-label">
+                Choose saved playlist before reconnecting
+              </label>
+              <select
+                id="spotify-disconnected-saved-playlists-select"
+                className="gig-switcher-select"
+                value={selectedSavedSpotifyPlaylistUri}
+                onChange={(event) => {
+                  selectSavedSpotifyPlaylistFromGigControl(event.target.value)
+                }}
+              >
+                <option value="">Choose saved playlist...</option>
+                {savedSpotifyPlaylists.map((savedPlaylist) => (
+                  <option key={savedPlaylist.uri} value={savedPlaylist.uri}>
+                    {savedPlaylist.ownerName
+                      ? `${savedPlaylist.name} - ${savedPlaylist.ownerName}`
+                      : savedPlaylist.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : null}
           <div className="hero-actions no-margin-bottom">
             <button
               type="button"
