@@ -370,6 +370,37 @@
   width: fit-content;
 }
 
+.lp-mirror-preview-frame-shell {
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(6, 10, 22, 0.88);
+  box-shadow: 0 26px 42px rgba(3, 8, 22, 0.56), 0 8px 20px rgba(3, 8, 22, 0.34);
+}
+
+.lp-mirror-preview-frame-viewport {
+  --lp-mirror-scale: 0.62;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  position: relative;
+  overflow: hidden;
+  background: #05070f;
+}
+
+.lp-mirror-preview-frame {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1440px;
+  height: 810px;
+  border: 0;
+  display: block;
+  background: #05070f;
+  transform-origin: top center;
+  transform: translateX(-50%) scale(var(--lp-mirror-scale));
+  pointer-events: none;
+}
+
 .lp-mirror-fullscreen-link {
   display: inline-flex;
   align-items: center;
