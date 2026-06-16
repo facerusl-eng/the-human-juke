@@ -7,6 +7,7 @@ import { PrimaryButton } from '../components/ui'
 import { demoMode } from '../demo/demoMode'
 import { readCommittedAudienceLocale, commitAudienceLocale } from '../lib/audienceIdentity'
 import { openMirrorScreen } from '../lib/openMirrorScreen'
+import { resolveAppPath } from '../lib/routePath'
 import '../styles/home-landing.css'
 
 type HomeLang = 'en' | 'da'
@@ -645,7 +646,7 @@ function HomePage() {
           <div ref={mirrorPreviewViewportRef} className="lp-mirror-preview-frame-viewport">
             <iframe
               className="lp-mirror-preview-frame"
-              src="/mirror?demo=true&preview=home&safeMargins=1&density=medium&cast=1"
+              src={resolveAppPath('/mirror?demo=true&preview=home&safeMargins=1&density=medium&cast=1')}
               title="Human Jukebox mirror preview"
               loading="lazy"
               referrerPolicy="no-referrer"
