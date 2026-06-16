@@ -1424,6 +1424,22 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     setPlayerStatus(`Selected playlist "${normalizedPlaylist.name}".`)
   }
 
+  const selectSavedPlaylistByUri = (playlistUri) => {
+    const normalizedUri = normalizePlaylistContextUri(playlistUri)
+
+    if (!normalizedUri) {
+      return
+    }
+
+    const matchedPlaylist = savedPlaylists.find((savedPlaylist) => savedPlaylist.uri === normalizedUri)
+
+    if (!matchedPlaylist) {
+      return
+    }
+
+    selectSavedPlaylist(matchedPlaylist)
+  }
+
   const removeSavedPlaylist = (uriToRemove) => {
     setSavedPlaylists((currentPlaylists) => currentPlaylists.filter((playlist) => playlist.uri !== uriToRemove))
 
@@ -1433,6 +1449,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   }
 
   const selectedPlaylistUri = normalizePlaylistContextUri(playlistInput)
+  const selectedSavedPlaylistValue = savedPlaylists.some((savedPlaylist) => savedPlaylist.uri === selectedPlaylistUri)
+    ? selectedPlaylistUri
+    : ''
   const canAttemptPlaylistImport = Boolean(normalizePlaylistContextUri(playlistInput) || isLikelySpotifyShortLink(playlistInput))
 
   useEffect(() => {
@@ -1738,6 +1757,24 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
       {savedPlaylists.length > 0 ? (
         <div className="gig-spotify-saved-playlists" aria-label="Saved Spotify playlists">
           <p className="gig-spotify-saved-playlists-label">Saved playlists</p>
+          <label htmlFor="spotify-saved-playlists-select" className="gig-switcher-label">Choose a saved playlist</label>
+          <select
+            id="spotify-saved-playlists-select"
+            className="gig-switcher-select"
+            value={selectedSavedPlaylistValue}
+            onChange={(event) => {
+              selectSavedPlaylistByUri(event.target.value)
+            }}
+          >
+            <option value="">Choose saved playlist...</option>
+            {savedPlaylists.map((savedPlaylist) => (
+              <option key={savedPlaylist.uri} value={savedPlaylist.uri}>
+                {savedPlaylist.ownerName
+                  ? `${savedPlaylist.name} - ${savedPlaylist.ownerName}`
+                  : savedPlaylist.name}
+              </option>
+            ))}
+          </select>
           <div className="gig-spotify-saved-playlists-grid">
             {savedPlaylists.map((savedPlaylist) => {
               const isSelected = selectedPlaylistUri === savedPlaylist.uri
