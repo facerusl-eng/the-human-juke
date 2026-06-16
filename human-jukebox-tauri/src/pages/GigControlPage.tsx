@@ -3752,7 +3752,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [isFocusedGigControlWindow])
 
   const openMirrorFromGigControl = useCallback(() => {
-    const { navigatedInCurrentWindow, openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
+    const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
@@ -3760,8 +3760,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
     const statusMessage = openedInNewTabWindow
       ? 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
-      : navigatedInCurrentWindow
-      ? 'Mirror opened in this window because a separate popup window was unavailable.'
       : blockedByPopup
       ? 'Mirror was blocked by pop-up settings. Gig Control stays open here. Allow pop-ups and try again.'
       : 'Could not open Mirror. Please try again.'
