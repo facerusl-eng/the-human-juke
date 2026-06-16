@@ -2690,7 +2690,15 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    const channel = supabase.channel(`audience-presence:${eventId}`)
+    const presenceTopic = `audience-presence:${eventId}`
+    for (const activeChannel of supabase.getChannels()) {
+      const topic = (activeChannel as { topic?: string }).topic ?? ''
+      if (topic === presenceTopic || topic === `realtime:${presenceTopic}`) {
+        void supabase.removeChannel(activeChannel)
+      }
+    }
+
+    const channel = supabase.channel(presenceTopic)
 
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState()
