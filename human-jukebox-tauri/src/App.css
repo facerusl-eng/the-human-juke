@@ -6615,6 +6615,16 @@ body.audience-immersive-mode {
 }
 
 .gig-mode-toggle-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  line-height: inherit;
+  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
   transition: opacity 120ms;
 }
