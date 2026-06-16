@@ -37,6 +37,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
       await existingWindow.show().catch(() => undefined)
       await existingWindow.unminimize().catch(() => undefined)
       await existingWindow.center().catch(() => undefined)
+      await existingWindow.setAlwaysOnTop(true).catch(() => undefined)
       await existingWindow.setFocus().catch(() => undefined)
       await existingWindow.requestUserAttention(null).catch(() => undefined)
       return {
@@ -63,9 +64,9 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         await mirrorWindow.show().catch(() => undefined)
         await mirrorWindow.unminimize().catch(() => undefined)
         await mirrorWindow.center().catch(() => undefined)
+        await mirrorWindow.setAlwaysOnTop(true).catch(() => undefined)
         await mirrorWindow.setFocus().catch(() => undefined)
         await mirrorWindow.requestUserAttention(null).catch(() => undefined)
-        await mirrorWindow.setFullscreen(true).catch(() => undefined)
         resolve()
       })
     })
