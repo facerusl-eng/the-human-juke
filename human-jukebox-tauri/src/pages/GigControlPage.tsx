@@ -53,6 +53,7 @@ import {
   ROOM_STATE_ENSURE_MAX_ATTEMPTS,
   ROOM_STATE_ENSURE_RETRY_DELAY_MS,
   MIRROR_PREVIEW_TRANSITION_MS,
+  SPACEBAR_ACTION_COOLDOWN_MS,
   MIRROR_LAUNCH_STATUS_DURATION_MS,
   AUTO_LIVE_RETRY_DELAY_MS,
   BACKGROUND_SYNC_TAG,
@@ -65,7 +66,6 @@ const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const GO_LIVE_COUNTDOWN_LOCK_MESSAGE = 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
 const SONG_START_COUNTDOWN_MS = 10_000
-const SPACEBAR_START_COUNTDOWN_MS = 250
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
 const PLAYBACK_ACTION_LOCK_MAX_MS = 20_000
@@ -3341,12 +3341,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     nowPlayingTypeRef.current = nowPlayingType
   }, [nowPlayingType])
 
-  // Stable ref to the shortcut so the keydown listener never needs re-registering
-  const runQueueTogglePlayShortcutRef = useRef(runQueueTogglePlayShortcut)
-  useEffect(() => {
-    runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
-  }, [runQueueTogglePlayShortcut])
-
   const toggleSpotifyPlayPause = useCallback(async () => {
     if (!event?.roomOpen) {
       setErrorText('Spacebar playback is disabled until the gig is live.')
@@ -3427,10 +3421,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    await runQueueTogglePlayShortcutRef.current({
-      skipIntroAudio: true,
-      countdownMs: SPACEBAR_START_COUNTDOWN_MS,
-    })
+    await runGlobalToggleQuoteNowPlayingRef.current()
   }, [])
 
 
@@ -3450,6 +3441,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     const currentSong = nowPlayingRef.current;
     if (!currentEvent?.id || !currentSong?.id) {
       return;
+    }
+
+    if (!currentEvent.roomOpen) {
+      setErrorText('Spacebar playback is disabled until the gig is live.')
+      return
     }
 
     if (
@@ -3585,7 +3581,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     spacebarSkipUntilKeyUpRef.current = false
 
     const now = Date.now()
-    if (now - lastSpacebarHandledAtRef.current < 120) {
+    if (now - lastSpacebarHandledAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
       return
     }
     lastSpacebarHandledAtRef.current = now
@@ -3659,7 +3655,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     const now = Date.now()
-    if (now - lastSpacebarHandledAtRef.current < 120) {
+    if (now - lastSpacebarHandledAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
       return
     }
     lastSpacebarHandledAtRef.current = now
@@ -4779,7 +4775,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 </button>
               </div>
               <p className="subcopy no-margin">
-                Playing now. {event?.roomOpen ? 'Press Space to toggle queue play/pause for this song.' : 'Spacebar is disabled until gig is live.'}
+                Playing now. {event?.roomOpen ? 'Press Space to switch between song mode and quote mode.' : 'Spacebar is disabled until gig is live.'}
               </p>
             </>
           ) : nowPlaying ? (
@@ -4788,7 +4784,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 <p className="gig-between-songs-quote">{betweenSongQuote}</p>
                 <p className="subcopy gig-between-songs-hint">
                   {'Tap Go Live or '}
-                  {event?.roomOpen ? 'press Space to start the next queued song.' : 'Spacebar is disabled until gig is live.'}
+                  {event?.roomOpen ? 'press Space to show the song now.' : 'Spacebar is disabled until gig is live.'}
                 </p>
               </div>
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
