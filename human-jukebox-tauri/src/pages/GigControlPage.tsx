@@ -1521,8 +1521,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     spotifyAutoConnectAttemptedRef.current = true
 
     let cancelled = false
+    let retryTimeoutId: number | null = null
+    let attemptCount = 0
+    const maxAttempts = 3
+    const hasCachedToken = Boolean(window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY))
 
-    void (async () => {
+    const attemptAutoConnect = async () => {
+      attemptCount += 1
+
       try {
         const token = await refreshSpotifyAccessToken()
 
@@ -1533,12 +1539,32 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         setSpotifyAccessToken(token)
         setSpotifyStatusSafely('Spotify auto-connected from your saved login.', { dedupeWindowMs: 3_000 })
       } catch {
-        // No saved Spotify session/cookie yet; stay disconnected until the user connects once.
+        if (cancelled) {
+          return
+        }
+
+        if (attemptCount < maxAttempts) {
+          const retryDelayMs = attemptCount * 2500
+          retryTimeoutId = window.setTimeout(() => {
+            void attemptAutoConnect()
+          }, retryDelayMs)
+          return
+        }
+
+        if (!hasCachedToken) {
+          setSpotifyStatusSafely('Spotify session not restored automatically. Press Connect Spotify once to re-link.', { dedupeWindowMs: 12_000 })
+        }
       }
-    })()
+    }
+
+    void attemptAutoConnect()
 
     return () => {
       cancelled = true
+
+      if (retryTimeoutId) {
+        window.clearTimeout(retryTimeoutId)
+      }
     }
   }, [refreshSpotifyAccessToken, setSpotifyStatusSafely])
 

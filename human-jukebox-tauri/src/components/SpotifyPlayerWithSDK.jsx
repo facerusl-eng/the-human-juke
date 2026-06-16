@@ -324,6 +324,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   const sdkLastSeenAtRef = useRef(Date.now())
   const lastPlayerStatusMessageRef = useRef(null)
   const lastPlayerStatusAtRef = useRef(0)
+  const savedPlaylistsHydratedRef = useRef(false)
 
   const [isSdkReady, setIsSdkReady] = useState(false)
   const [deviceId, setDeviceId] = useState(null)
@@ -419,6 +420,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
   useEffect(() => {
     if (typeof window === 'undefined') {
+      savedPlaylistsHydratedRef.current = true
       return
     }
 
@@ -435,6 +437,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
       const storedSavedPlaylistsRaw = window.localStorage.getItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
 
       if (!storedSavedPlaylistsRaw) {
+        savedPlaylistsHydratedRef.current = true
         return
       }
 
@@ -453,6 +456,8 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         window.localStorage.removeItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
       }
 
+      savedPlaylistsHydratedRef.current = true
+
       return
     }
 
@@ -470,6 +475,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     const storedSavedPlaylistsRaw = window.localStorage.getItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
 
     if (!storedSavedPlaylistsRaw) {
+      savedPlaylistsHydratedRef.current = true
       return
     }
 
@@ -489,6 +495,8 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     } catch {
       window.localStorage.removeItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
     }
+
+    savedPlaylistsHydratedRef.current = true
   }, [])
 
   useEffect(() => {
@@ -520,6 +528,10 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
   useEffect(() => {
     if (typeof window === 'undefined') {
+      return
+    }
+
+    if (!savedPlaylistsHydratedRef.current) {
       return
     }
 
