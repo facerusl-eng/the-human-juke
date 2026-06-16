@@ -4970,7 +4970,30 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                     <p className="song">{song.title}</p>
                     <p className="artist">{song.artist}</p>
                     <div className="gig-song-flag-row">
-                      {song.audience_sings ? <span className="karaoke-tag">Karaoke Wish</span> : <span className="gig-live-mode-tag">Live Request</span>}
+                      <button
+                        type="button"
+                        className={song.audience_sings ? 'karaoke-tag gig-mode-toggle-btn' : 'gig-live-mode-tag gig-mode-toggle-btn'}
+                        title={song.audience_sings ? 'Click to switch to Live Request mode' : 'Click to switch to Karaoke mode'}
+                        disabled={songActionBusyId === song.id}
+                        onClick={async () => {
+                          if (songActionBusyId === song.id) return
+                          setSongActionBusyId(song.id)
+                          try {
+                            const { error } = await supabase
+                              .from('queue_songs')
+                              .update({ audience_sings: !song.audience_sings })
+                              .eq('id', song.id)
+                            if (error) throw error
+                            await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+                          } catch {
+                            setErrorText('Failed to change song mode.')
+                          } finally {
+                            setSongActionBusyId(null)
+                          }
+                        }}
+                      >
+                        {song.audience_sings ? '🎤 Karaoke Wish' : '🎸 Live Request'}
+                      </button>
                       {song.is_explicit ? <span className="explicit-tag">E</span> : null}
                     </div>
                     {song.createdByName ? (

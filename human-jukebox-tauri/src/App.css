@@ -6614,6 +6614,19 @@ body.audience-immersive-mode {
   padding: 0.12rem 0.44rem;
 }
 
+.gig-mode-toggle-btn {
+  cursor: pointer;
+  transition: opacity 120ms;
+}
+
+.gig-mode-toggle-btn:hover:not(:disabled) {
+  opacity: 0.72;
+}
+
+.gig-mode-toggle-btn:disabled {
+  cursor: default;
+}
+
 .gig-requester-chip-row {
   display: flex;
   align-items: center;
