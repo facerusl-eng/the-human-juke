@@ -46,8 +46,38 @@ type ImportedSongWithArtwork = ImportedSongDraft & {
   coverUrl: string | null
 }
 
+type LibrarySongSuggestion = {
+  title: string
+  artist: string
+}
+
 const MAX_COVER_IMAGE_BYTES = 3 * 1024 * 1024
 const IMPORT_ARTWORK_CONCURRENCY = 4
+
+function normalizeSongSearchValue(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function uniqueSuggestionValues(songs: LibrarySongSuggestion[], field: 'title' | 'artist') {
+  const seen = new Set<string>()
+
+  return songs.flatMap((song) => {
+    const value = song[field].trim()
+
+    if (!value) {
+      return []
+    }
+
+    const normalizedValue = value.toLowerCase()
+
+    if (seen.has(normalizedValue)) {
+      return []
+    }
+
+    seen.add(normalizedValue)
+    return [value]
+  })
+}
 
 function isMissingPlaylistTypeColumnError(error: unknown) {
   if (!error || typeof error !== 'object') {
@@ -427,6 +457,7 @@ function SetlistLibraryPage() {
   const [draftPlaylistName, setDraftPlaylistName] = useState('')
   const [songTitle, setSongTitle] = useState('')
   const [artistName, setArtistName] = useState('')
+  const [librarySongSuggestions, setLibrarySongSuggestions] = useState<LibrarySongSuggestion[]>([])
   const [isExplicit, setIsExplicit] = useState(false)
   const [customCoverDataUrl, setCustomCoverDataUrl] = useState<string | null>(null)
   const [customCoverName, setCustomCoverName] = useState('')
@@ -595,7 +626,7 @@ function SetlistLibraryPage() {
           }))
         }
 
-        const [playlistCountsResult, totalSongsResult] = await Promise.all([
+        const [playlistCountsResult, totalSongsResult, librarySongsResult] = await Promise.all([
           supabase
             .from('playlist_songs')
             .select('playlist_id'),
@@ -603,6 +634,11 @@ function SetlistLibraryPage() {
             .from('library_songs')
             .select('id', { count: 'exact' })
             .eq('user_id', userId),
+          supabase
+            .from('library_songs')
+            .select('title, artist')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false }),
         ])
 
         if (playlistCountsResult.error) {
@@ -611,6 +647,10 @@ function SetlistLibraryPage() {
 
         if (totalSongsResult.error) {
           throw totalSongsResult.error
+        }
+
+        if (librarySongsResult.error) {
+          throw librarySongsResult.error
         }
 
         if (isCancelled) {
@@ -629,6 +669,7 @@ function SetlistLibraryPage() {
         setPlaylists(nextPlaylists)
         setPlaylistCounts(nextPlaylistCounts)
         setTotalSongCount(totalSongsResult.count ?? 0)
+        setLibrarySongSuggestions(((librarySongsResult.data ?? []) as LibrarySongSuggestion[]).filter((song) => song.title.trim() && song.artist.trim()))
         setSelectedPlaylistId((currentPlaylistId) => {
           const nextSelectedPlaylistId = currentPlaylistId && nextPlaylists.some((playlist) => playlist.id === currentPlaylistId)
             ? currentPlaylistId
@@ -703,6 +744,42 @@ function SetlistLibraryPage() {
       isCancelled = true
     }
   }, [selectedPlaylistId])
+
+  const songTitleSuggestions = useMemo(() => uniqueSuggestionValues(librarySongSuggestions, 'title'), [librarySongSuggestions])
+  const artistNameSuggestions = useMemo(() => uniqueSuggestionValues(librarySongSuggestions, 'artist'), [librarySongSuggestions])
+
+  useEffect(() => {
+    if (!librarySongSuggestions.length) {
+      return
+    }
+
+    const normalizedSongTitle = normalizeSongSearchValue(songTitle)
+    const normalizedArtistName = normalizeSongSearchValue(artistName)
+
+    if (normalizedSongTitle && !normalizedArtistName) {
+      const matchingSongs = librarySongSuggestions.filter((song) => normalizeSongSearchValue(song.title).includes(normalizedSongTitle))
+
+      if (matchingSongs.length === 1) {
+        const nextArtistName = matchingSongs[0].artist.trim()
+        if (nextArtistName && nextArtistName !== artistName) {
+          setArtistName(nextArtistName)
+        }
+      }
+
+      return
+    }
+
+    if (normalizedArtistName && !normalizedSongTitle) {
+      const matchingSongs = librarySongSuggestions.filter((song) => normalizeSongSearchValue(song.artist).includes(normalizedArtistName))
+
+      if (matchingSongs.length === 1) {
+        const nextSongTitle = matchingSongs[0].title.trim()
+        if (nextSongTitle && nextSongTitle !== songTitle) {
+          setSongTitle(nextSongTitle)
+        }
+      }
+    }
+  }, [artistName, librarySongSuggestions, songTitle])
 
   useEffect(() => {
     const songsMissingArtwork = filteredSongs.filter((song) => !song.cover_url).slice(0, 8)
@@ -1326,13 +1403,21 @@ function SetlistLibraryPage() {
               placeholder="Song title"
               value={songTitle}
               onChange={(event) => setSongTitle(event.target.value)}
+              list="setlist-song-title-suggestions"
             />
             <input
               type="text"
               placeholder="Artist"
               value={artistName}
               onChange={(event) => setArtistName(event.target.value)}
+              list="setlist-artist-name-suggestions"
             />
+            <datalist id="setlist-song-title-suggestions">
+              {songTitleSuggestions.map((title) => <option key={title} value={title} />)}
+            </datalist>
+            <datalist id="setlist-artist-name-suggestions">
+              {artistNameSuggestions.map((artist) => <option key={artist} value={artist} />)}
+            </datalist>
             <label className="checkbox-row setlist-checkbox-row" htmlFor="setlist-explicit">
               <input
                 id="setlist-explicit"
