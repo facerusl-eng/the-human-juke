@@ -421,6 +421,8 @@ function QrLandingPage() {
   const finalCountdownSeconds = isCountdownActive && countdownRemainingMs !== null && countdownRemainingMs <= 10_000
     ? Math.ceil(countdownRemainingMs / 1000)
     : null
+  const isFinalCountdownRush = waitingForLive && finalCountdownSeconds !== null
+  const isFinalCountdownBlast = finalCountdownSeconds !== null && finalCountdownSeconds <= 3
   const syncStatusText = syncStatusReason === 'notFound'
     ? copy.statusNotFound
     : null
@@ -710,7 +712,12 @@ function QrLandingPage() {
       </div>
 
       {waitingForLive && finalCountdownSeconds !== null ? (
-        <div className="qr-landing-final-countdown" role="status" aria-live="assertive" aria-label={`${copy.statusGoingLiveIn} ${finalCountdownSeconds}`}>
+          <div
+            className={`qr-landing-final-countdown${isFinalCountdownRush ? ' is-rush' : ''}${isFinalCountdownBlast ? ' is-blast' : ''}`}
+            role="status"
+            aria-live="assertive"
+            aria-label={`${copy.statusGoingLiveIn} ${finalCountdownSeconds}`}
+          >
           <p className="qr-landing-final-countdown-label">{copy.statusGoingLiveIn}</p>
           <p className="qr-landing-final-countdown-number">{finalCountdownSeconds}</p>
           <p className="qr-landing-final-countdown-subtitle">
