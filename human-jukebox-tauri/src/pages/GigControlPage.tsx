@@ -1232,6 +1232,31 @@ function GigControlPage() {
     }
   }, [draggedSongId, event, isNowPlayingStarted, performedSongs, reorderSong, songActionBusyId, songs, upNext])
 
+  const setSpotifyStatusSafely = useCallback((nextStatusText: string | null, options?: { dedupeWindowMs?: number }) => {
+    const normalizedStatusText = nextStatusText?.trim() ?? ''
+
+    if (!normalizedStatusText) {
+      spotifyStatusLastMessageRef.current = null
+      spotifyStatusLastAtRef.current = 0
+      setSpotifyStatusText(null)
+      return
+    }
+
+    const dedupeWindowMs = options?.dedupeWindowMs ?? 12_000
+    const now = Date.now()
+
+    if (
+      spotifyStatusLastMessageRef.current === normalizedStatusText
+      && now - spotifyStatusLastAtRef.current < dedupeWindowMs
+    ) {
+      return
+    }
+
+    spotifyStatusLastMessageRef.current = normalizedStatusText
+    spotifyStatusLastAtRef.current = now
+    setSpotifyStatusText(normalizedStatusText)
+  }, [])
+
   const sendSpotifyTransportCommand = useCallback((
     mode: SpotifyTransportMode,
     options?: { force?: boolean },
@@ -1445,31 +1470,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     if (storedAutoTransport === '0') {
       setSpotifyAutoTransportEnabled(false)
     }
-  }, [])
-
-  const setSpotifyStatusSafely = useCallback((nextStatusText: string | null, options?: { dedupeWindowMs?: number }) => {
-    const normalizedStatusText = nextStatusText?.trim() ?? ''
-
-    if (!normalizedStatusText) {
-      spotifyStatusLastMessageRef.current = null
-      spotifyStatusLastAtRef.current = 0
-      setSpotifyStatusText(null)
-      return
-    }
-
-    const dedupeWindowMs = options?.dedupeWindowMs ?? 12_000
-    const now = Date.now()
-
-    if (
-      spotifyStatusLastMessageRef.current === normalizedStatusText
-      && now - spotifyStatusLastAtRef.current < dedupeWindowMs
-    ) {
-      return
-    }
-
-    spotifyStatusLastMessageRef.current = normalizedStatusText
-    spotifyStatusLastAtRef.current = now
-    setSpotifyStatusText(normalizedStatusText)
   }, [])
 
   useEffect(() => {
@@ -4268,6 +4268,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 Selected Spotify playlist: <strong>{selectedSpotifyPlaylistLabel}</strong>
                 {selectedSpotifyPlaylistOwnerText ? ` by ${selectedSpotifyPlaylistOwnerText}` : ''}
               </p>
+              <p className="subcopy no-margin">
+                Saved Spotify playlists: <strong>{savedSpotifyPlaylistCount}</strong>
+              </p>
               {spotifyStatusText ? <p className="meta-badge gig-focus-spotify-status" role="status" aria-live="polite">{spotifyStatusText}</p> : null}
             </div>
           </div>
@@ -4280,8 +4283,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             accessToken={spotifyAccessToken}
             onRefreshToken={refreshSpotifyAccessToken}
             transportCommand={spotifyTransportCommand}
-            onStatusTextChange={setSpotifyStatusText}
+            onStatusTextChange={setSpotifyStatusSafely}
             onPlaylistMetaChange={handleSpotifyPlaylistMetaChange}
+            onSavedPlaylistsChange={handleSavedSpotifyPlaylistsChange}
           />
         </section>
       ) : null}
