@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { useAuthStore } from '../state/authStore'
 import { getSupabaseAuthPersistence, supabase } from '../lib/supabase'
+import {
+  clearStoredHostCredentials,
+  readStoredHostCredentials,
+  storeHostCredentials,
+} from '../lib/hostCredentials'
 
 const HOST_GATE_LOADING_TIMEOUT_MS = 2500
 const HOST_SIGN_IN_UI_TIMEOUT_MS = 30_000
@@ -31,8 +36,8 @@ function RequireHost({ children }: PropsWithChildren) {
     signInHost,
   } = useAuthStore()
   const [showLoadingFallback, setShowLoadingFallback] = useState(false)
-  const [hostEmail, setHostEmail] = useState('')
-  const [hostPassword, setHostPassword] = useState('')
+  const [hostEmail, setHostEmail] = useState(() => readStoredHostCredentials()?.email ?? '')
+  const [hostPassword, setHostPassword] = useState(() => readStoredHostCredentials()?.password ?? '')
   const [rememberMe, setRememberMe] = useState(() => getSupabaseAuthPersistence())
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [signInError, setSignInError] = useState<string | null>(null)
@@ -55,6 +60,14 @@ function RequireHost({ children }: PropsWithChildren) {
       window.clearTimeout(timerId)
     }
   }, [loading])
+
+  useEffect(() => {
+    if (rememberMe) {
+      return
+    }
+
+    clearStoredHostCredentials()
+  }, [rememberMe])
 
   if (loading) {
     return (
@@ -135,8 +148,13 @@ function RequireHost({ children }: PropsWithChildren) {
 
     try {
       await withHostSignInUiTimeout(signInHost(hostEmail, hostPassword, rememberMe))
-      setHostEmail('')
-      setHostPassword('')
+      if (rememberMe) {
+        storeHostCredentials(hostEmail, hostPassword)
+      } else {
+        clearStoredHostCredentials()
+        setHostEmail('')
+        setHostPassword('')
+      }
     } catch (error) {
       setSignInError(error instanceof Error ? error.message : 'Failed to sign in. Please try again.')
     } finally {
@@ -198,6 +216,7 @@ function RequireHost({ children }: PropsWithChildren) {
             <input
               id="host-email"
               type="email"
+              autoComplete="username"
               value={hostEmail}
               onChange={(e) => setHostEmail(e.target.value)}
               placeholder="your@host.email"
@@ -210,6 +229,7 @@ function RequireHost({ children }: PropsWithChildren) {
             <input
               id="host-password"
               type="password"
+              autoComplete="current-password"
               value={hostPassword}
               onChange={(e) => setHostPassword(e.target.value)}
               placeholder="••••••••"

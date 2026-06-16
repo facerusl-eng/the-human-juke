@@ -657,6 +657,7 @@ function GigControlPage() {
   const spotifyStatusLastMessageRef = useRef<string | null>(null)
   const spotifyStatusLastAtRef = useRef(0)
   const spotifyTokenRefreshPromiseRef = useRef<Promise<string> | null>(null)
+  const spotifyAutoConnectAttemptedRef = useRef(false)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
@@ -1511,6 +1512,35 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       spotifyTokenRefreshPromiseRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (spotifyAutoConnectAttemptedRef.current) {
+      return
+    }
+
+    spotifyAutoConnectAttemptedRef.current = true
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const token = await refreshSpotifyAccessToken()
+
+        if (cancelled) {
+          return
+        }
+
+        setSpotifyAccessToken(token)
+        setSpotifyStatusSafely('Spotify auto-connected from your saved login.', { dedupeWindowMs: 3_000 })
+      } catch {
+        // No saved Spotify session/cookie yet; stay disconnected until the user connects once.
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [refreshSpotifyAccessToken, setSpotifyStatusSafely])
 
   useEffect(() => {
     if (!spotifyAccessToken) {

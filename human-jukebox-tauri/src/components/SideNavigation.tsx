@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, LayoutDashboard, ListMusic, MessageSquareMore, Music4, PlusCircle, Settings, Sliders, Tv } from 'lucide-react'
@@ -6,6 +6,11 @@ import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 import { getSupabaseAuthPersistence } from '../lib/supabase'
 import { openMirrorScreen } from '../lib/openMirrorScreen'
+import {
+  clearStoredHostCredentials,
+  readStoredHostCredentials,
+  storeHostCredentials,
+} from '../lib/hostCredentials'
 
 type SideNavigationProps = {
   collapsed: boolean
@@ -130,8 +135,8 @@ const NAV_ITEMS: NavEntry[] = [
 
 function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }: SideNavigationProps) {
   const { user, isHost, loading, authError: storeAuthError, signInHost, signOut } = useAuthStore()
-  const [hostEmail, setHostEmail] = useState('')
-  const [hostPassword, setHostPassword] = useState('')
+  const [hostEmail, setHostEmail] = useState(() => readStoredHostCredentials()?.email ?? '')
+  const [hostPassword, setHostPassword] = useState(() => readStoredHostCredentials()?.password ?? '')
   const [rememberMe, setRememberMe] = useState(() => getSupabaseAuthPersistence())
   const [authBusy, setAuthBusy] = useState<null | 'signin' | 'signout'>(null)
   const [authError, setAuthError] = useState<string | null>(null)
@@ -139,6 +144,14 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
     NAV_ITEMS.some((e) => isGroup(e) && e.groupMatch(currentPath))
   )
   const shownAuthError = authError ?? storeAuthError
+
+  useEffect(() => {
+    if (rememberMe) {
+      return
+    }
+
+    clearStoredHostCredentials()
+  }, [rememberMe])
 
   const handleHostSignIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -151,7 +164,12 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
 
     try {
       await withHostSignInUiTimeout(signInHost(hostEmail, hostPassword, rememberMe))
-      setHostPassword('')
+      if (rememberMe) {
+        storeHostCredentials(hostEmail, hostPassword)
+      } else {
+        clearStoredHostCredentials()
+        setHostPassword('')
+      }
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Sign in failed. Please try again.')
     } finally {
@@ -343,6 +361,7 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
                   <p className="text-xs text-zinc-300">Admin login</p>
                   <input
                     type="email"
+                    autoComplete="username"
                     value={hostEmail}
                     onChange={(event) => setHostEmail(event.target.value)}
                     required
@@ -351,6 +370,7 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
                   />
                   <input
                     type="password"
+                    autoComplete="current-password"
                     value={hostPassword}
                     onChange={(event) => setHostPassword(event.target.value)}
                     required
