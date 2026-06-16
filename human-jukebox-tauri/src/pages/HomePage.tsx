@@ -14,8 +14,6 @@ type GigType = 'afternoon' | 'evening' | 'both'
 
 const INTERNAL_BOOKING_ENDPOINT = '/api/book-show'
 const GET_UPDATES_ENDPOINT = '/api/get-updates'
-const MIRROR_PREVIEW_BASE_WIDTH = 1440
-
 const COPY = {
   en: {
     eyebrow: 'Trusted by venues that want full rooms',
@@ -26,8 +24,8 @@ const COPY = {
     bookCta: 'Book the show',
     demoCta: 'See how it works',
     mirrorPreviewLabel: 'Mirror demo',
-    mirrorPreviewTitle: 'Preview the live mirror screen right here',
-    mirrorPreviewCopy: 'This is the exact display your crowd sees on the venue screen: now playing, queue, live feed, and join QR all together.',
+    mirrorPreviewTitle: 'Open the live mirror in a separate window',
+    mirrorPreviewCopy: 'This launches the real native mirror window on desktop, with now playing, queue, live feed, and join QR all together.',
     mirrorPreviewAction: 'Open mirror window',
     stats: [
       { value: '500+', label: 'Song requests per show' },
@@ -65,8 +63,8 @@ const COPY = {
     bookCta: 'Book showet',
     demoCta: 'Se hvordan det virker',
     mirrorPreviewLabel: 'Skærmdemo',
-    mirrorPreviewTitle: 'Se den live publikumsskærm her',
-    mirrorPreviewCopy: 'Det er præcis den skærm, gæsterne ser på venue-skærmen: Spiller nu, kø, livefeed og join-QR samlet ét sted.',
+    mirrorPreviewTitle: 'Åbn live-mirror i et separat vindue',
+    mirrorPreviewCopy: 'Dette åbner det rigtige native mirror-vindue på desktop med nu spiller, kø, live feed og join QR samlet.',
     mirrorPreviewAction: 'Åbn mirror-vinduet',
     stats: [
       { value: '500+', label: 'Sangønsker pr. show' },
@@ -234,7 +232,6 @@ function HomePage() {
   const navigate = useNavigate()
   const bookingFormRef = useRef<HTMLFormElement | null>(null)
   const bookingDateInputRef = useRef<HTMLInputElement | null>(null)
-  const mirrorPreviewViewportRef = useRef<HTMLDivElement | null>(null)
   const [signupEmail, setSignupEmail] = useState('')
   const [signupError, setSignupError] = useState<string | null>(null)
   const [signupNotice, setSignupNotice] = useState<string | null>(null)
@@ -466,35 +463,6 @@ function HomePage() {
     scrollToBookingForm()
   }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const viewport = mirrorPreviewViewportRef.current
-    if (!viewport) {
-      return
-    }
-
-    const updateScale = () => {
-      const viewportWidth = viewport.clientWidth
-      if (!viewportWidth) {
-        return
-      }
-
-      const nextScale = Math.min(1, Math.max(0.2, viewportWidth / MIRROR_PREVIEW_BASE_WIDTH))
-      viewport.style.setProperty('--lp-mirror-scale', nextScale.toString())
-    }
-
-    updateScale()
-    const observer = new ResizeObserver(updateScale)
-    observer.observe(viewport)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [])
-
   const iconMap = {
     building: Building2,
     phone: Smartphone,
@@ -641,17 +609,6 @@ function HomePage() {
           <PrimaryButton variant="secondary" className="lp-mirror-preview-desktop-action" onClick={openMirrorDemo}>
             {copy.mirrorPreviewAction}
           </PrimaryButton>
-        </div>
-        <div className="lp-mirror-preview-frame-shell" role="img" aria-label="Demo mirror screen preview">
-          <div ref={mirrorPreviewViewportRef} className="lp-mirror-preview-frame-viewport">
-          <iframe
-            className="lp-mirror-preview-frame"
-            src="/mirror?demo=true&preview=home"
-            title="Human Jukebox mirror demo preview"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
-          </div>
         </div>
       </section>
 
