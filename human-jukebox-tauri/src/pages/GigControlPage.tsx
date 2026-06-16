@@ -1980,9 +1980,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       await writeSharedPlaybackState(latestEvent.id, {
         currentSongId: nowPlaying?.id ?? null,
         currentSongCoverUrl: resolveCoverUrlForSong(nowPlaying?.id ?? null),
-        isStarted: true,
+        isStarted: false,
         quoteIndex: quoteIndexRef.current,
-        countdownTargetMs: mirroredCountdownTargetMs,
+        countdownTargetMs: null,
         brbActive: false,
         brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
       });
