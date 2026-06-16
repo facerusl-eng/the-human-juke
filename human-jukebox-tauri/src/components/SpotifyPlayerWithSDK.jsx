@@ -305,7 +305,7 @@ function getSpotifyDisconnectHint(message) {
   return null
 }
 
-function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, onStatusTextChange, onPlaylistMetaChange }) {
+function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, onStatusTextChange, onPlaylistMetaChange, onSavedPlaylistsChange }) {
   const playerRef = useRef(null)
   const accessTokenRef = useRef(accessToken)
   const deviceIdRef = useRef(null)
@@ -322,10 +322,12 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   const sdkReconnectInFlightRef = useRef(false)
   const sdkHealthIntervalRef = useRef(null)
   const sdkLastSeenAtRef = useRef(Date.now())
+  const lastPlayerStatusMessageRef = useRef(null)
+  const lastPlayerStatusAtRef = useRef(0)
 
   const [isSdkReady, setIsSdkReady] = useState(false)
   const [deviceId, setDeviceId] = useState(null)
-  const [playerStatus, setPlayerStatus] = useState(DEFAULT_SPOTIFY_PLAYER_STATUS)
+  const [playerStatus, setPlayerStatusState] = useState(DEFAULT_SPOTIFY_PLAYER_STATUS)
   const [spotifyUriInput, setSpotifyUriInput] = useState('')
   const [playlistInput, setPlaylistInput] = useState(DEFAULT_BETWEEN_SONGS_PLAYLIST)
   const [playlistMeta, setPlaylistMeta] = useState(null)
@@ -335,6 +337,31 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   const [actionBusy, setActionBusy] = useState(false)
   const [transportStatusText, setTransportStatusText] = useState(null)
   const disconnectHint = !deviceId ? getSpotifyDisconnectHint(playerStatus) : null
+
+  const setPlayerStatus = (nextStatusText, options = {}) => {
+    const normalizedStatusText = String(nextStatusText || '').trim()
+
+    if (!normalizedStatusText) {
+      lastPlayerStatusMessageRef.current = null
+      lastPlayerStatusAtRef.current = 0
+      setPlayerStatusState(DEFAULT_SPOTIFY_PLAYER_STATUS)
+      return
+    }
+
+    const dedupeWindowMs = options.dedupeWindowMs ?? 12_000
+    const now = Date.now()
+
+    if (
+      lastPlayerStatusMessageRef.current === normalizedStatusText
+      && now - lastPlayerStatusAtRef.current < dedupeWindowMs
+    ) {
+      return
+    }
+
+    lastPlayerStatusMessageRef.current = normalizedStatusText
+    lastPlayerStatusAtRef.current = now
+    setPlayerStatusState(normalizedStatusText)
+  }
 
   useEffect(() => {
     if (!onStatusTextChange) {
@@ -357,6 +384,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
     onPlaylistMetaChange(playlistMeta)
   }, [onPlaylistMetaChange, playlistMeta])
+
+  useEffect(() => {
+    if (!onSavedPlaylistsChange) {
+      return
+    }
+
+    onSavedPlaylistsChange(savedPlaylists)
+  }, [onSavedPlaylistsChange, savedPlaylists])
 
   accessTokenRef.current = accessToken
 
@@ -665,6 +700,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
                   refreshError instanceof Error
                     ? refreshError.message
                     : 'Spotify token refresh failed after authentication error.',
+                  { dedupeWindowMs: 20_000 },
                 )
               })
           }

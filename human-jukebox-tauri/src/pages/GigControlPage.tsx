@@ -88,6 +88,9 @@ type SpotifyPlaylistMeta = {
   ownerName?: string
 } | null
 
+const SPOTIFY_PLAYLIST_META_STORAGE_KEY = 'human-jukebox-spotify-playlist-meta'
+const SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY = 'human-jukebox-spotify-saved-playlists'
+
 type PersistedGigControlNowPlaying = {
   eventId: string
   currentSongId: string | null
@@ -528,6 +531,7 @@ function GigControlPage() {
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
   const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
   const [selectedSpotifyPlaylistMeta, setSelectedSpotifyPlaylistMeta] = useState<SpotifyPlaylistMeta>(null)
+  const [savedSpotifyPlaylistCount, setSavedSpotifyPlaylistCount] = useState(0)
   const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
   const [isEndingOrDeletingGig, setIsEndingOrDeletingGig] = useState(false)
   const [spotifyAutoTransportEnabled, setSpotifyAutoTransportEnabled] = useState(true)
@@ -650,6 +654,9 @@ function GigControlPage() {
   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
   const activeIntroAudioElementRef = useRef<HTMLAudioElement | null>(null)
   const spotifyTransportNonceRef = useRef(0)
+  const spotifyStatusLastMessageRef = useRef<string | null>(null)
+  const spotifyStatusLastAtRef = useRef(0)
+  const spotifyTokenRefreshPromiseRef = useRef<Promise<string> | null>(null)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
@@ -1232,7 +1239,7 @@ function GigControlPage() {
     if (isEndingOrDeletingGig) return
 
     if (!spotifyAccessToken) {
-      setSpotifyStatusText('Spotify is disconnected. Click Connect Spotify to enable auto play/pause transport.')
+      setSpotifyStatusSafely('Spotify is disconnected. Click Connect Spotify to enable auto play/pause transport.')
       return
     }
 
@@ -1281,16 +1288,16 @@ function GigControlPage() {
     }
 
     if (mode === 'play') {
-      setSpotifyStatusText('Sending Spotify play command...')
+      setSpotifyStatusSafely('Sending Spotify play command...', { dedupeWindowMs: 1_500 })
     } else if (mode === 'next') {
-      setSpotifyStatusText('Sending Spotify next command...')
+      setSpotifyStatusSafely('Sending Spotify next command...', { dedupeWindowMs: 1_500 })
     } else if (mode === 'previous') {
-      setSpotifyStatusText('Sending Spotify previous command...')
+      setSpotifyStatusSafely('Sending Spotify previous command...', { dedupeWindowMs: 1_500 })
     }
 
     spotifyTransportNonceRef.current += 1
     setSpotifyTransportCommand({ mode, nonce: spotifyTransportNonceRef.current })
-  }, [spotifyAccessToken])
+  }, [setSpotifyStatusSafely, spotifyAccessToken])
 
   const primeIntroAudioPlayback = useCallback((eventId: string, introAudioUrl: string) => {
     if (typeof window === 'undefined' || typeof Audio === 'undefined') {
@@ -1409,10 +1416,60 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     if (storedToken) {
       setSpotifyAccessToken(storedToken)
     }
+
+    const storedPlaylistMeta = window.localStorage.getItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY)
+    if (storedPlaylistMeta) {
+      try {
+        const parsedPlaylistMeta = JSON.parse(storedPlaylistMeta) as SpotifyPlaylistMeta
+        if (parsedPlaylistMeta && typeof parsedPlaylistMeta === 'object') {
+          setSelectedSpotifyPlaylistMeta(parsedPlaylistMeta)
+        }
+      } catch {
+        window.localStorage.removeItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY)
+      }
+    }
+
+    const storedSavedPlaylists = window.localStorage.getItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
+    if (storedSavedPlaylists) {
+      try {
+        const parsedSavedPlaylists = JSON.parse(storedSavedPlaylists) as unknown[]
+        if (Array.isArray(parsedSavedPlaylists)) {
+          setSavedSpotifyPlaylistCount(parsedSavedPlaylists.length)
+        }
+      } catch {
+        window.localStorage.removeItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
+      }
+    }
+
     const storedAutoTransport = window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY)
     if (storedAutoTransport === '0') {
       setSpotifyAutoTransportEnabled(false)
     }
+  }, [])
+
+  const setSpotifyStatusSafely = useCallback((nextStatusText: string | null, options?: { dedupeWindowMs?: number }) => {
+    const normalizedStatusText = nextStatusText?.trim() ?? ''
+
+    if (!normalizedStatusText) {
+      spotifyStatusLastMessageRef.current = null
+      spotifyStatusLastAtRef.current = 0
+      setSpotifyStatusText(null)
+      return
+    }
+
+    const dedupeWindowMs = options?.dedupeWindowMs ?? 12_000
+    const now = Date.now()
+
+    if (
+      spotifyStatusLastMessageRef.current === normalizedStatusText
+      && now - spotifyStatusLastAtRef.current < dedupeWindowMs
+    ) {
+      return
+    }
+
+    spotifyStatusLastMessageRef.current = normalizedStatusText
+    spotifyStatusLastAtRef.current = now
+    setSpotifyStatusText(normalizedStatusText)
   }, [])
 
   useEffect(() => {
@@ -1423,22 +1480,36 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [spotifyAutoTransportEnabled])
 
   const refreshSpotifyAccessToken = useCallback(async () => {
-    const response = await fetch(resolveApiUrl('/api/spotify/token'))
-    const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
-    const payload = contentType.includes('application/json')
-      ? await response.json().catch(() => ({}))
-      : {}
-
-    if (!response.ok || typeof payload.access_token !== 'string') {
-      const fallbackError = !contentType.includes('application/json')
-        ? `Spotify token refresh failed (non-JSON response, status ${response.status}).`
-        : 'Spotify token refresh failed.'
-      throw new Error(payload.error || fallbackError)
+    if (spotifyTokenRefreshPromiseRef.current) {
+      return spotifyTokenRefreshPromiseRef.current
     }
 
-    window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
-    setSpotifyAccessToken(payload.access_token)
-    return payload.access_token as string
+    const refreshPromise = (async () => {
+      const response = await fetch(resolveApiUrl('/api/spotify/token'))
+      const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+      const payload = contentType.includes('application/json')
+        ? await response.json().catch(() => ({}))
+        : {}
+
+      if (!response.ok || typeof payload.access_token !== 'string') {
+        const fallbackError = !contentType.includes('application/json')
+          ? `Spotify token refresh failed (non-JSON response, status ${response.status}).`
+          : 'Spotify token refresh failed.'
+        throw new Error(payload.error || fallbackError)
+      }
+
+      window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
+      setSpotifyAccessToken(payload.access_token)
+      return payload.access_token as string
+    })()
+
+    spotifyTokenRefreshPromiseRef.current = refreshPromise
+
+    try {
+      return await refreshPromise
+    } finally {
+      spotifyTokenRefreshPromiseRef.current = null
+    }
   }, [])
 
   useEffect(() => {
@@ -1453,12 +1524,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
           const token = await refreshSpotifyAccessToken()
 
           if (!cancelled) {
-            setSpotifyStatusText(`Spotify session refreshed at ${new Date().toLocaleTimeString()}.`)
             setSpotifyAccessToken(token)
           }
         } catch (error) {
           if (!cancelled) {
-            setSpotifyStatusText(error instanceof Error ? error.message : 'Spotify refresh failed.')
+            setSpotifyStatusSafely(error instanceof Error ? error.message : 'Spotify refresh failed.')
           }
         }
       })()
@@ -1468,7 +1538,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       cancelled = true
       window.clearInterval(refreshInterval)
     }
-  }, [refreshSpotifyAccessToken, spotifyAccessToken])
+  }, [refreshSpotifyAccessToken, setSpotifyStatusSafely, spotifyAccessToken])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof Worker === 'undefined') {
@@ -1564,7 +1634,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   const connectSpotify = useCallback(async () => {
     try {
       const token = await refreshSpotifyAccessToken()
-      setSpotifyStatusText(`Spotify connected from saved session at ${new Date().toLocaleTimeString()}.`)
+      setSpotifyStatusSafely(`Spotify connected from saved session at ${new Date().toLocaleTimeString()}.`, { dedupeWindowMs: 3_000 })
       setSpotifyAccessToken(token)
       return
     } catch {
@@ -1572,7 +1642,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
       window.location.assign(loginUrl)
     }
-  }, [refreshSpotifyAccessToken])
+  }, [refreshSpotifyAccessToken, setSpotifyStatusSafely])
 
   const persistReadinessVerdict = useCallback((verdict: 'pass' | 'fail') => {
     setLastReadinessVerdict(verdict)
@@ -3354,7 +3424,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         token = await refreshSpotifyAccessToken()
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Spotify token refresh failed.'
-        setSpotifyStatusText(message)
+        setSpotifyStatusSafely(message)
         setErrorText('Connect Spotify first to use Spotify transport controls.')
         return false
       }
@@ -3365,12 +3435,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return false
     }
 
-    setSpotifyStatusText('Sending Spotify play/pause command...')
+    setSpotifyStatusSafely('Sending Spotify play/pause command...', { dedupeWindowMs: 1_500 })
     spotifyTransportNonceRef.current += 1
     setSpotifyTransportCommand({ mode: 'toggle', nonce: spotifyTransportNonceRef.current })
     setErrorText(null)
     return true
-  }, [event?.roomOpen, refreshSpotifyAccessToken, spotifyAccessToken])
+  }, [event?.roomOpen, refreshSpotifyAccessToken, setSpotifyStatusSafely, spotifyAccessToken])
 
   const toggleQueuePlayPause = useCallback(async () => {
     if (!event?.roomOpen) {
@@ -3835,6 +3905,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
   const handleSpotifyPlaylistMetaChange = useCallback((playlistMeta: SpotifyPlaylistMeta) => {
     setSelectedSpotifyPlaylistMeta(playlistMeta)
+  }, [])
+
+  const handleSavedSpotifyPlaylistsChange = useCallback((savedPlaylists: Array<{ uri?: string }>) => {
+    setSavedSpotifyPlaylistCount(savedPlaylists.length)
   }, [])
 
   const selectedSpotifyPlaylistLabel = selectedSpotifyPlaylistMeta?.name?.trim() || 'Not selected yet'
@@ -4635,14 +4709,18 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               Selected Spotify playlist: <strong>{selectedSpotifyPlaylistLabel}</strong>
               {selectedSpotifyPlaylistOwnerText ? ` by ${selectedSpotifyPlaylistOwnerText}` : ''}
             </p>
+            <p className="subcopy no-margin">
+              Saved Spotify playlists: <strong>{savedSpotifyPlaylistCount}</strong>
+            </p>
           </section>
 
           <SpotifyPlayerWithSDK
             accessToken={spotifyAccessToken}
             onRefreshToken={refreshSpotifyAccessToken}
             transportCommand={spotifyTransportCommand}
-            onStatusTextChange={setSpotifyStatusText}
+            onStatusTextChange={setSpotifyStatusSafely}
             onPlaylistMetaChange={handleSpotifyPlaylistMetaChange}
+            onSavedPlaylistsChange={handleSavedSpotifyPlaylistsChange}
           />
         </>
       ) : (
