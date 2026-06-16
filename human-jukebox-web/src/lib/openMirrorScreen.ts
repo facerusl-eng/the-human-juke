@@ -7,6 +7,7 @@ export type OpenMirrorScreenResult = {
 
 type OpenMirrorScreenOptions = {
   eventId?: string | null
+  demo?: boolean
   preferEdgeOnWindows?: boolean
 }
 
@@ -20,6 +21,10 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
 
   if (options.eventId?.trim()) {
     mirrorUrl.searchParams.set('event', options.eventId.trim())
+  }
+
+  if (options.demo) {
+    mirrorUrl.searchParams.set('demo', 'true')
   }
 
   const userAgent = window.navigator.userAgent
