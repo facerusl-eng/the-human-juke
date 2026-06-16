@@ -1744,6 +1744,7 @@ function MirrorPageContent() {
   const [hasCheckedMirrorNetworkAccess, setHasCheckedMirrorNetworkAccess] = useState(false)
   const [mirrorClockOffsetMs, setMirrorClockOffsetMs] = useState(0)
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
+  const [countdownAutoLiveActive, setCountdownAutoLiveActive] = useState(false)
   const [fallbackUpcomingEvent, setFallbackUpcomingEvent] = useState<MirrorUpcomingEvent | null>(null)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const [goLiveWelcomeUntilMs, setGoLiveWelcomeUntilMs] = useState<number | null>(null)
@@ -2044,7 +2045,7 @@ function MirrorPageContent() {
   }, [safeSongs])
 
   const nowPlaying = safeSongs[0]
-  const isLive = event?.roomOpen ?? false
+  const isLive = (event?.roomOpen ?? false) || countdownAutoLiveActive
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
   const showMirrorDebugOverlay =
@@ -3136,17 +3137,28 @@ function MirrorPageContent() {
 
     if (!event?.id) {
       autoLiveAttemptedEventIdRef.current = null
+      setCountdownAutoLiveActive(false)
       return
     }
 
     if (!event.autoLiveEnabled || event.roomOpen) {
       autoLiveAttemptedEventIdRef.current = null
+
+      if (!event.autoLiveEnabled) {
+        setCountdownAutoLiveActive(false)
+      }
     }
   }, [event?.id, event?.autoLiveEnabled, event?.roomOpen, layoutEditMode])
 
   useEffect(() => {
+    if (!event?.id || countdownRemainingMs === null || countdownRemainingMs > 0) {
+      setCountdownAutoLiveActive(false)
+    }
+  }, [countdownRemainingMs, event?.id])
+
+  useEffect(() => {
     const runMirrorAutoLive = async () => {
-      if (!isHost || !event?.id || !event.autoLiveEnabled || event.roomOpen || autoLiveInFlightRef.current) {
+      if (!event?.id || !event.autoLiveEnabled || event.roomOpen || autoLiveInFlightRef.current) {
         return
       }
 
@@ -3159,10 +3171,18 @@ function MirrorPageContent() {
       }
 
       autoLiveAttemptedEventIdRef.current = event.id
+      setCountdownAutoLiveActive(true)
       autoLiveInFlightRef.current = true
 
+      let roomOpened = false
       try {
         await setRoomOpen(true)
+        roomOpened = true
+      } catch {
+        roomOpened = false
+      }
+
+      try {
         const introAudioUrl = event.introAudioUrl?.trim() ?? ''
 
         if (introAudioUrl) {
@@ -3181,9 +3201,13 @@ function MirrorPageContent() {
 
         setGoLiveWelcomeUntilMs(Date.now() + GO_LIVE_WELCOME_DURATION_MS)
 
-        setMirrorWarningMessage('Auto Live started from scheduled countdown.')
+        setMirrorWarningMessage(
+          roomOpened
+            ? 'Auto Live started from scheduled countdown.'
+            : 'Countdown ended. Mirror switched to live mode and intro cue was sent.'
+        )
       } catch {
-        setMirrorWarningMessage('Countdown ended, but Auto Live could not open the room. Use Gig Control to go live manually.')
+        setMirrorWarningMessage('Countdown ended, but Auto Live could not fully sync. Use Gig Control to confirm room-open state.')
       } finally {
         autoLiveInFlightRef.current = false
       }
@@ -3197,7 +3221,6 @@ function MirrorPageContent() {
     event?.autoLiveEnabled,
     event?.introAudioUrl,
     event?.roomOpen,
-    isHost,
     nowPlaying?.cover_url,
     nowPlaying?.id,
     setRoomOpen,
