@@ -10,6 +10,7 @@ export type OpenMirrorScreenResult = {
 
 type OpenMirrorScreenOptions = {
   eventId?: string | null
+  demo?: boolean
   preferEdgeOnWindows?: boolean
 }
 
@@ -19,12 +20,15 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
   const mirrorUrl = new URLSearchParams()
   mirrorUrl.set('safeMargins', '1')
   mirrorUrl.set('density', 'medium')
-  mirrorUrl.set('launchFullscreen', '1')
   mirrorUrl.set('cast', '1')
   mirrorUrl.delete('windowed')
 
   if (options.eventId?.trim()) {
     mirrorUrl.set('event', options.eventId.trim())
+  }
+
+  if (options.demo) {
+    mirrorUrl.set('demo', 'true')
   }
 
   const mirrorPath = `${resolveAppPath('/mirror')}?${mirrorUrl.toString()}`
@@ -34,10 +38,13 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     const existingWindow = await WebviewWindow.getByLabel(MIRROR_WINDOW_LABEL)
 
     if (existingWindow) {
+      await existingWindow.setDecorations(true).catch(() => undefined)
+      await existingWindow.setResizable(true).catch(() => undefined)
+      await existingWindow.setFullscreen(false).catch(() => undefined)
+      await existingWindow.setAlwaysOnTop(false).catch(() => undefined)
       await existingWindow.show().catch(() => undefined)
       await existingWindow.unminimize().catch(() => undefined)
       await existingWindow.center().catch(() => undefined)
-      await existingWindow.setAlwaysOnTop(true).catch(() => undefined)
       await existingWindow.setFocus().catch(() => undefined)
       await existingWindow.requestUserAttention(null).catch(() => undefined)
       return {
@@ -51,7 +58,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     const mirrorWindow = new WebviewWindow(MIRROR_WINDOW_LABEL, {
       url: mirrorWindowUrl,
       title: 'Human Jukebox Mirror',
-      decorations: false,
+      decorations: true,
       visible: true,
       center: true,
       width: 1280,
@@ -64,7 +71,6 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         await mirrorWindow.show().catch(() => undefined)
         await mirrorWindow.unminimize().catch(() => undefined)
         await mirrorWindow.center().catch(() => undefined)
-        await mirrorWindow.setAlwaysOnTop(true).catch(() => undefined)
         await mirrorWindow.setFocus().catch(() => undefined)
         await mirrorWindow.requestUserAttention(null).catch(() => undefined)
         resolve()

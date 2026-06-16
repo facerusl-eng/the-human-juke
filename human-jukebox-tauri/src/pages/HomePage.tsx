@@ -6,7 +6,7 @@ import { resetOGTags } from '../lib/metaTags'
 import { PrimaryButton } from '../components/ui'
 import { demoMode } from '../demo/demoMode'
 import { readCommittedAudienceLocale, commitAudienceLocale } from '../lib/audienceIdentity'
-import { resolveAppPath } from '../lib/routePath'
+import { openMirrorScreen } from '../lib/openMirrorScreen'
 import '../styles/home-landing.css'
 
 type HomeLang = 'en' | 'da'
@@ -28,7 +28,7 @@ const COPY = {
     mirrorPreviewLabel: 'Mirror demo',
     mirrorPreviewTitle: 'Preview the live mirror screen right here',
     mirrorPreviewCopy: 'This is the exact display your crowd sees on the venue screen: now playing, queue, live feed, and join QR all together.',
-    mirrorPreviewAction: 'Open mirror demo in full screen',
+    mirrorPreviewAction: 'Open mirror window',
     stats: [
       { value: '500+', label: 'Song requests per show' },
       { value: '100%', label: 'Crowd-controlled setlist' },
@@ -67,7 +67,7 @@ const COPY = {
     mirrorPreviewLabel: 'Skærmdemo',
     mirrorPreviewTitle: 'Se den live publikumsskærm her',
     mirrorPreviewCopy: 'Det er præcis den skærm, gæsterne ser på venue-skærmen: Spiller nu, kø, livefeed og join-QR samlet ét sted.',
-    mirrorPreviewAction: 'Åbn skærmdemo i fuldskærm',
+    mirrorPreviewAction: 'Åbn mirror-vinduet',
     stats: [
       { value: '500+', label: 'Sangønsker pr. show' },
       { value: '100%', label: 'Publikumsstyret sætliste' },
@@ -271,15 +271,7 @@ function HomePage() {
   }
 
   const openMirrorDemo = () => {
-    if (typeof window !== 'undefined') {
-      if (window.matchMedia('(max-width: 680px)').matches) {
-        return
-      }
-
-      window.location.assign(resolveAppPath('/mirror?demo=true&launchFullscreen=1'))
-      return
-    }
-    navigate('/mirror?demo=true&launchFullscreen=1')
+    void openMirrorScreen({ demo: true })
   }
 
   const scrollToBookingForm = () => {
