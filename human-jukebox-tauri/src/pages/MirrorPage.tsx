@@ -2870,7 +2870,12 @@ function MirrorPageContent() {
         await setRoomOpen(true)
         roomOpened = true
       } catch {
-        roomOpened = false
+        const { error: fallbackOpenRoomError } = await supabase
+          .from('events')
+          .update({ room_open: true })
+          .eq('id', event.id)
+
+        roomOpened = !fallbackOpenRoomError
       }
 
       try {
