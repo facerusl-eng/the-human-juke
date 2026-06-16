@@ -34,40 +34,63 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
   const mirrorPath = `${resolveAppPath('/mirror')}?${mirrorUrl.toString()}`
 
   if (isTauriDesktopRuntime()) {
-    const mirrorWindowUrl = resolveTauriWindowUrl(`/mirror?${mirrorUrl.toString()}`)
     const existingWindow = await WebviewWindow.getByLabel(MIRROR_WINDOW_LABEL)
 
     if (existingWindow) {
-      await existingWindow.close().catch(() => undefined)
+      await existingWindow.show().catch(() => undefined)
+      await existingWindow.unminimize().catch(() => undefined)
+      await existingWindow.setFocus().catch(() => undefined)
+      return {
+        navigatedInCurrentWindow: false,
+        openedInPopupWindow: false,
+        openedInNewTabWindow: true,
+        blockedByPopup: false,
+      }
     }
 
-    const mirrorWindow = new WebviewWindow(MIRROR_WINDOW_LABEL, {
-      url: mirrorWindowUrl,
-      title: 'Human Jukebox Mirror',
-      decorations: true,
-      visible: true,
-      center: true,
-      width: 1280,
-      height: 720,
-      resizable: true,
-    })
-
-    await new Promise<void>((resolve) => {
-      void mirrorWindow.once('tauri://created', async () => {
-        await mirrorWindow.show().catch(() => undefined)
-        await mirrorWindow.unminimize().catch(() => undefined)
-        await mirrorWindow.center().catch(() => undefined)
-        await mirrorWindow.setFocus().catch(() => undefined)
-        await mirrorWindow.requestUserAttention(null).catch(() => undefined)
-        resolve()
+    try {
+      const mirrorWindowUrl = resolveTauriWindowUrl(`/mirror?${mirrorUrl.toString()}`)
+      const mirrorWindow = new WebviewWindow(MIRROR_WINDOW_LABEL, {
+        url: mirrorWindowUrl,
+        title: 'Human Jukebox Mirror',
+        decorations: true,
+        visible: true,
+        center: true,
+        width: 1280,
+        height: 720,
+        resizable: true,
       })
-    })
 
-    return {
-      navigatedInCurrentWindow: false,
-      openedInPopupWindow: false,
-      openedInNewTabWindow: true,
-      blockedByPopup: false,
+      await new Promise<void>((resolve, reject) => {
+        void mirrorWindow.once('tauri://created', async () => {
+          await mirrorWindow.show().catch(() => undefined)
+          await mirrorWindow.unminimize().catch(() => undefined)
+          await mirrorWindow.center().catch(() => undefined)
+          await mirrorWindow.setFocus().catch(() => undefined)
+          await mirrorWindow.requestUserAttention(null).catch(() => undefined)
+          resolve()
+        })
+
+        void mirrorWindow.once('tauri://error', () => {
+          reject(new Error('Failed to create mirror window'))
+        })
+      })
+
+      return {
+        navigatedInCurrentWindow: false,
+        openedInPopupWindow: false,
+        openedInNewTabWindow: true,
+        blockedByPopup: false,
+      }
+    } catch {
+      // Fallback: keep operation working by opening mirror in the current window.
+      window.location.assign(mirrorPath)
+      return {
+        navigatedInCurrentWindow: true,
+        openedInPopupWindow: false,
+        openedInNewTabWindow: false,
+        blockedByPopup: true,
+      }
     }
   }
 
@@ -103,8 +126,11 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     }
   }
 
+  // Last-resort fallback for environments that block window.open popups.
+  window.location.assign(mirrorPath)
+
   return {
-    navigatedInCurrentWindow: false,
+    navigatedInCurrentWindow: true,
     openedInPopupWindow: false,
     openedInNewTabWindow: false,
     blockedByPopup: true,

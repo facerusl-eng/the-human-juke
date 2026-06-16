@@ -59,8 +59,11 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
     }
   }
 
+  // Last-resort fallback for environments that block window.open popups.
+  window.location.assign(mirrorUrl.toString())
+
   return {
-    navigatedInCurrentWindow: false,
+    navigatedInCurrentWindow: true,
     openedInPopupWindow: false,
     openedInNewTabWindow: false,
     blockedByPopup: true,
