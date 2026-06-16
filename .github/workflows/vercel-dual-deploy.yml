@@ -1,6 +1,6 @@
 name: Vercel Dual Deploy
 
-on:
+"on":
   push:
     branches: [main]
   workflow_dispatch:

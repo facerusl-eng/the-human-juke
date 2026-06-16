@@ -1,6 +1,6 @@
 name: Vercel Deploy Reusable
 
-on:
+"on":
   workflow_call:
     inputs:
       project-directory:
