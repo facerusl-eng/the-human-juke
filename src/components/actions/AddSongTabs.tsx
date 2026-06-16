@@ -116,12 +116,15 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, unavailableLibrary
   const normalizedRequesterName = hostRequesterName.trim()
   const requesterNameOption = normalizedRequesterName.length > 0 ? normalizedRequesterName : null
 
-  const addPlaylistSongToQueue = async (song: PlaylistSong) => {
+  const addPlaylistSongToQueue = async (song: PlaylistSong, options?: { requesterNameOverride?: string | null }) => {
     if (addingSongId) {
       return
     }
 
     setAddingSongId(song.id)
+
+    const requesterNameOverride = options?.requesterNameOverride?.trim() ?? ''
+    const requesterName = requesterNameOverride || requesterNameOption
 
     try {
       await addSong(song.title, song.artist, song.is_explicit, {
@@ -129,7 +132,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, unavailableLibrary
         coverUrl: song.cover_url,
         performerMode: song.playlist_type === 'karaoke' ? 'audience' : 'performer',
         bypassEventRules: true,
-        requesterName: requesterNameOption,
+        requesterName,
       })
       prefetchAndCacheLyrics(song.title, song.artist)
       showToast(`${song.title} added to queue.`, 'success')

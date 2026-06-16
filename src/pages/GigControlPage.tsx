@@ -955,11 +955,10 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const mirrorMonitorUrl = useMemo(() => {
     if (typeof window === 'undefined') {
-      return '/mirror?preview=1&safeMargins=1&density=medium&cast=1'
+      return '/mirror?safeMargins=1&density=medium&cast=1'
     }
 
     const mirrorUrl = new URL('/mirror', window.location.origin)
-    mirrorUrl.searchParams.set('preview', '1')
     mirrorUrl.searchParams.set('safeMargins', '1')
     mirrorUrl.searchParams.set('density', 'medium')
     mirrorUrl.searchParams.set('cast', '1')

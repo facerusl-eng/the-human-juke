@@ -6,6 +6,7 @@ import { resetOGTags } from '../lib/metaTags'
 import { PrimaryButton } from '../components/ui'
 import { demoMode } from '../demo/demoMode'
 import { readCommittedAudienceLocale, commitAudienceLocale } from '../lib/audienceIdentity'
+import { resolveAppPath } from '../lib/routePath'
 import '../styles/home-landing.css'
 
 type HomeLang = 'en' | 'da'
@@ -275,7 +276,7 @@ function HomePage() {
         return
       }
 
-      window.location.assign('/mirror?demo=true&launchFullscreen=1')
+      window.location.assign(resolveAppPath('/mirror?demo=true&launchFullscreen=1'))
       return
     }
     navigate('/mirror?demo=true&launchFullscreen=1')

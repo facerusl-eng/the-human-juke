@@ -46,6 +46,7 @@ import React from 'react';
 import type { FormEvent } from 'react'
 
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { resolveAppPath } from '../lib/routePath'
 import AudienceNoGigState, { type AudienceUpcomingEvent } from '../components/audience/AudienceNoGigState'
 import AudienceFixedHeader from '../components/audience/AudienceFixedHeader'
 import SongVoteCard from '../components/audience/SongVoteCard'
@@ -3272,8 +3273,8 @@ function EventPage() {
                 className="primary-button"
                 onClick={() => {
                   const mirrorUrl = event?.id
-                    ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
-                    : '/mirror?launchFullscreen=1'
+                    ? resolveAppPath(`/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`)
+                    : resolveAppPath('/mirror?launchFullscreen=1')
                   window.location.assign(mirrorUrl)
                 }}
               >

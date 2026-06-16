@@ -7034,6 +7034,14 @@ body.audience-immersive-mode {
   color: #f3f9ff;
 }
 
+.gig-song-search-select-compact {
+  width: min(100%, 22rem);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 0.72rem;
+  font-size: 0.92rem;
+}
+
 .gig-song-search-results-count {
   font-size: 0.82rem;
   color: #9bc2f4;

@@ -16,3 +16,16 @@ export function resolveAppPath(path: string) {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   return `#${normalizedPath}`
 }
+
+export function resolveTauriWindowUrl(path: string) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+
+  if (!isTauriDesktopRuntime()) {
+    return normalizedPath
+  }
+
+  const appUrl = new URL(window.location.href)
+  appUrl.hash = normalizedPath
+  appUrl.search = ''
+  return appUrl.toString()
+}

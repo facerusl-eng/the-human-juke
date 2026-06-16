@@ -19,7 +19,7 @@ type PlaylistSongSelectorProps = {
   unavailableLibrarySongIds: Set<string>
   addingSongId: string | null
   addingRandomCount: number | null
-  onAddSong: (song: PlaylistSong) => Promise<void>
+  onAddSong: (song: PlaylistSong, options?: { requesterNameOverride?: string | null }) => Promise<void>
   onAddRandomSongs: (candidateSongs: PlaylistSong[], requestedCount: number) => Promise<void>
 }
 
@@ -58,6 +58,16 @@ function inferPlaylistType(rawType: string | null | undefined, playlistName: str
   return 'human_jukebox'
 }
 
+const EXCLUDED_NAMED_SETLIST_NAMES = new Set([
+  'human jukebox',
+  'harald spiller',
+])
+
+function shouldIncludeNamedSetlist(playlist: PlaylistMeta) {
+  const normalizedName = playlist.name.trim().toLowerCase()
+  return !EXCLUDED_NAMED_SETLIST_NAMES.has(normalizedName)
+}
+
 function getEmptyPlaylistLabel(playlistTypeFilter: 'human_jukebox' | 'karaoke' | 'setlist_by_name') {
   if (playlistTypeFilter === 'karaoke') {
     return 'No karaoke playlist selected'
@@ -94,6 +104,17 @@ function normalizeCoverUrl(coverUrl: string | null | undefined) {
   }
 
   return trimmedCoverUrl.replace(/^http:\/\//i, 'https://')
+}
+
+function getRequesterNameFromSetlistName(setlistName: string | null | undefined) {
+  const rawName = (setlistName ?? '').trim()
+
+  if (!rawName) {
+    return null
+  }
+
+  const withoutPrefix = rawName.replace(/^(ensemble|ecsemble)\s+/i, '').trim()
+  return withoutPrefix || rawName
 }
 
 function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibrarySongIds, unavailableLibrarySongIds, addingSongId, addingRandomCount, onAddSong, onAddRandomSongs }: PlaylistSongSelectorProps) {
@@ -178,6 +199,10 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
         const filteredEventPlaylists = availablePlaylists.filter((playlist) => {
           if (playlistTypeFilter === 'karaoke') {
             return playlist.playlist_type === 'karaoke'
+          }
+
+          if (playlistTypeFilter === 'setlist_by_name') {
+            return playlist.playlist_type !== 'karaoke' && shouldIncludeNamedSetlist(playlist)
           }
 
           return playlist.playlist_type !== 'karaoke'
@@ -316,6 +341,9 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
     () => namedSetlistOptions.find((playlist) => playlist.id === selectedNamedSetlistId) ?? null,
     [namedSetlistOptions, selectedNamedSetlistId],
   )
+  const setlistByNameRequester = isSetlistByNameMode
+    ? getRequesterNameFromSetlistName(selectedNamedSetlist?.name ?? playlistName)
+    : null
 
   const isSongQueueBlocked = (song: PlaylistSong) => {
     if (queuedLibrarySongIds.has(song.id)) {
@@ -603,7 +631,7 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
             <span className="gig-song-search-label">Select list</span>
             <select
               id="gig-control-setlist-by-name-picker"
-              className="gig-song-search-input gig-song-search-select"
+              className="gig-song-search-input gig-song-search-select gig-song-search-select-compact"
               value={selectedNamedSetlistId}
               onChange={(event) => {
                 setSelectedNamedSetlistId(event.target.value)
@@ -835,7 +863,7 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
             variant="secondary"
             className="secondary-button"
             onClick={async () => {
-              await onAddSong(selectedSong)
+              await onAddSong(selectedSong, { requesterNameOverride: setlistByNameRequester })
             }}
             disabled={addingSongId === selectedSong.id || isSongQueueBlocked(selectedSong)}
           >
@@ -853,7 +881,7 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
           <label htmlFor="gig-control-add-to-list">Add to list...</label>
           <select
             id="gig-control-add-to-list"
-            className="gig-song-search-input"
+            className="gig-song-search-input gig-song-search-select gig-song-search-select-compact"
             value={targetSetlistIdForAdd}
             onChange={(event) => setTargetSetlistIdForAdd(event.target.value)}
             disabled={namedSetlistOptions.length === 0 || Boolean(setlistBusyAction)}
@@ -898,7 +926,7 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
                   variant="secondary"
                   className="secondary-button"
                   onClick={async () => {
-                    await onAddSong(song)
+                    await onAddSong(song, { requesterNameOverride: setlistByNameRequester })
                   }}
                   disabled={addingSongId === song.id || isSongQueueBlocked(song)}
                 >

@@ -48,6 +48,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { getAudienceUrl } from '../lib/audienceUrl'
+import { resolveAppPath } from '../lib/routePath'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 import {
   PLAYBACK_STATE_BROADCAST_CHANNEL,
@@ -754,7 +755,7 @@ function MirrorLayoutEditorPage() {
         <button type="button" className={`mirror-layout-edit-button ${snapToGrid ? 'mirror-layout-edit-button-primary' : ''}`.trim()} onClick={() => setSnapToGrid((currentValue) => !currentValue)}>{snapToGrid ? 'Snap On' : 'Snap Off'}</button>
         <button type="button" className={`mirror-layout-edit-button ${showGrid ? 'mirror-layout-edit-button-primary' : ''}`.trim()} onClick={() => setShowGrid((currentValue) => !currentValue)}>{showGrid ? 'Grid On' : 'Grid Off'}</button>
         <button type="button" className="mirror-layout-edit-button" onClick={resetLayout}>Reset</button>
-        <button type="button" className="mirror-layout-edit-button mirror-layout-edit-button-primary" onClick={() => window.location.href = '/mirror?demo=true'}>Done</button>
+        <button type="button" className="mirror-layout-edit-button mirror-layout-edit-button-primary" onClick={() => window.location.href = resolveAppPath('/mirror?demo=true')}>Done</button>
       </div>
 
       {showBlockPicker ? (

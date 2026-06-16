@@ -1,4 +1,5 @@
-import { isTauriDesktopRuntime, resolveAppPath } from './routePath'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { isTauriDesktopRuntime, resolveAppPath, resolveTauriWindowUrl } from './routePath'
 
 export type OpenMirrorScreenResult = {
   navigatedInCurrentWindow: boolean
@@ -12,7 +13,9 @@ type OpenMirrorScreenOptions = {
   preferEdgeOnWindows?: boolean
 }
 
-export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMirrorScreenResult {
+const MIRROR_WINDOW_LABEL = 'mirror-screen'
+
+export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): Promise<OpenMirrorScreenResult> {
   const mirrorUrl = new URLSearchParams()
   mirrorUrl.set('safeMargins', '1')
   mirrorUrl.set('density', 'medium')
@@ -26,13 +29,61 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
 
   const mirrorPath = `${resolveAppPath('/mirror')}?${mirrorUrl.toString()}`
 
+  if (isTauriDesktopRuntime()) {
+    const mirrorWindowUrl = resolveTauriWindowUrl(`/mirror?${mirrorUrl.toString()}`)
+    const existingWindow = await WebviewWindow.getByLabel(MIRROR_WINDOW_LABEL)
+
+    if (existingWindow) {
+      await existingWindow.show().catch(() => undefined)
+      await existingWindow.unminimize().catch(() => undefined)
+      await existingWindow.center().catch(() => undefined)
+      await existingWindow.setFocus().catch(() => undefined)
+      await existingWindow.requestUserAttention(null).catch(() => undefined)
+      return {
+        navigatedInCurrentWindow: false,
+        openedInPopupWindow: false,
+        openedInNewTabWindow: true,
+        blockedByPopup: false,
+      }
+    }
+
+    const mirrorWindow = new WebviewWindow(MIRROR_WINDOW_LABEL, {
+      url: mirrorWindowUrl,
+      title: 'Human Jukebox Mirror',
+      decorations: false,
+      visible: true,
+      center: true,
+      width: 1280,
+      height: 720,
+      resizable: true,
+    })
+
+    await new Promise<void>((resolve) => {
+      void mirrorWindow.once('tauri://created', async () => {
+        await mirrorWindow.show().catch(() => undefined)
+        await mirrorWindow.unminimize().catch(() => undefined)
+        await mirrorWindow.center().catch(() => undefined)
+        await mirrorWindow.setFocus().catch(() => undefined)
+        await mirrorWindow.requestUserAttention(null).catch(() => undefined)
+        await mirrorWindow.setFullscreen(true).catch(() => undefined)
+        resolve()
+      })
+    })
+
+    return {
+      navigatedInCurrentWindow: false,
+      openedInPopupWindow: false,
+      openedInNewTabWindow: true,
+      blockedByPopup: false,
+    }
+  }
+
   const userAgent = window.navigator.userAgent
   const isWindows = /Windows NT/i.test(userAgent)
   const isEdgeBrowser = /Edg\//.test(userAgent)
   const preferEdgeOnWindows = options.preferEdgeOnWindows ?? true
-  const isTauriRuntime = isTauriDesktopRuntime()
 
-  if (preferEdgeOnWindows && isWindows && !isEdgeBrowser && !isTauriRuntime) {
+  if (preferEdgeOnWindows && isWindows && !isEdgeBrowser) {
     const edgeProtocolUrl = `microsoft-edge:${mirrorPath}`
     const edgeTab = window.open(edgeProtocolUrl, '_blank', 'noopener,noreferrer')
 

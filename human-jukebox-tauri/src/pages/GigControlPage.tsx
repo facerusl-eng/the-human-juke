@@ -8,7 +8,7 @@ import { useClipboardCopy } from '../hooks/useClipboardCopy';
 import { useGigActions } from '../hooks/useGigActions';
 import { getAudienceUrl } from '../lib/audienceUrl';
 import { openMirrorScreen } from '../lib/openMirrorScreen';
-import { resolveAppPath } from '../lib/routePath';
+import { isTauriDesktopRuntime, resolveAppPath } from '../lib/routePath';
 import { resolveApiUrl } from '../lib/apiUrl';
 import { registerBackgroundSync } from '../lib/backgroundSync';
 import {
@@ -3751,15 +3751,17 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
   }, [isFocusedGigControlWindow])
 
-  const openMirrorFromGigControl = useCallback(() => {
-    const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
+  const openMirrorFromGigControl = useCallback(async () => {
+    const { openedInNewTabWindow, blockedByPopup } = await openMirrorScreen({ eventId: event?.id ?? null })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
     }
 
     const statusMessage = openedInNewTabWindow
-      ? 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
+      ? isTauriDesktopRuntime()
+        ? 'Mirror opened in a separate native window. Gig Control stays open here.'
+        : 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
       : blockedByPopup
       ? 'Mirror was blocked by pop-up settings. Gig Control stays open here. Allow pop-ups and try again.'
       : 'Could not open Mirror. Please try again.'

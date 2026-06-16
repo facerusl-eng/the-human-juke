@@ -28,6 +28,7 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@supabase/supabase-js": "^2.104.1",
+    "@tauri-apps/api": "^2.11.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/node": "^5.8.5",
     "axios": "^1.16.1",
@@ -46,10 +47,10 @@
     "react-window": "^2.2.7"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/cli": "^4.3.0",
     "@tailwindcss/vite": "^4.2.4",
+    "@tauri-apps/cli": "^2.0.0",
     "@types/lodash.isequal": "^4.5.8",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",

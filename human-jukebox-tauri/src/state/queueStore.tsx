@@ -37,6 +37,7 @@ type AddSongOptions = {
   librarySongId?: string | null
   performerMode?: 'performer' | 'audience'
   bypassEventRules?: boolean
+  requesterName?: string | null
 }
 
 type EventTheme = 'harald-live' | 'human-jukebox' | 'karaoke'
@@ -1199,6 +1200,77 @@ async function withTransientRetry<T>(operation: () => Promise<T>, attempts = TRA
   throw lastError
 }
 
+const EXCLUDED_NAMED_SETLIST_NAMES = new Set([
+  'human jukebox',
+  'harald spiller',
+])
+
+function normalizeRequesterNameFromSetlistName(setlistName: string | null | undefined) {
+  const rawName = (setlistName ?? '').trim()
+
+  if (!rawName) {
+    return null
+  }
+
+  const withoutPrefix = rawName.replace(/^(ensemble|ecsemble)\s+/i, '').trim()
+  return withoutPrefix || rawName
+}
+
+async function inferRequesterNameByLibrarySongIdsForHost(librarySongIds: string[], hostUserId: string) {
+  const uniqueSongIds = [...new Set(librarySongIds.filter((songId) => typeof songId === 'string' && songId.trim().length > 0))]
+
+  if (uniqueSongIds.length === 0 || !hostUserId.trim()) {
+    return new Map<string, string>()
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('playlist_songs')
+      .select('song_id, playlists!inner(name, playlist_type, user_id)')
+      .in('song_id', uniqueSongIds)
+      .eq('playlists.user_id', hostUserId)
+
+    if (error) {
+      return new Map<string, string>()
+    }
+
+    const requesterBySongId = new Map<string, string>()
+
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const songId = typeof row.song_id === 'string' ? row.song_id : ''
+
+      if (!songId || requesterBySongId.has(songId)) {
+        continue
+      }
+
+      const playlistData = Array.isArray(row.playlists)
+        ? row.playlists[0] as Record<string, unknown> | undefined
+        : row.playlists as Record<string, unknown> | null | undefined
+
+      if (!playlistData) {
+        continue
+      }
+
+      const playlistType = typeof playlistData.playlist_type === 'string' ? playlistData.playlist_type.trim().toLowerCase() : ''
+      const playlistName = typeof playlistData.name === 'string' ? playlistData.name.trim() : ''
+
+      if (!playlistName || playlistType === 'karaoke' || EXCLUDED_NAMED_SETLIST_NAMES.has(playlistName.toLowerCase())) {
+        continue
+      }
+
+      const requesterName = normalizeRequesterNameFromSetlistName(playlistName)
+
+      if (requesterName) {
+        requesterBySongId.set(songId, requesterName)
+      }
+    }
+
+    return requesterBySongId
+  } catch {
+    return new Map<string, string>()
+  }
+}
+
 function readRequestedEventIdFromUrl() {
   if (typeof window === 'undefined') {
     return null
@@ -2182,6 +2254,9 @@ function QueueProvider({ children }: PropsWithChildren) {
     } = optionalSettings
 
     const resolvedEventId = String((eventData as Record<string, unknown>).id ?? '')
+    const resolvedEventHostId = typeof (eventData as Record<string, unknown>).host_id === 'string'
+      ? ((eventData as Record<string, unknown>).host_id as string)
+      : null
     const isTestGig = readTestGigMap()[resolvedEventId] ?? false
     const requestedEventIdFromUrl = readRequestedEventIdFromUrl()
     const isExplicitTestPreviewRequest = isAudienceRoutePath()
@@ -2240,7 +2315,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         songsData = (songsWithProfiles ?? []) as Array<Record<string, unknown>>
       }
 
-      const mappedQueueSongs = (songsData ?? []).map((song) => {
+      let mappedQueueSongs = (songsData ?? []).map((song) => {
         const normalizedSong = song as Record<string, unknown>
         const profile = normalizedSong.profiles as { display_name?: string | null } | null | undefined
         const creatorId = typeof normalizedSong.created_by === 'string' ? normalizedSong.created_by : null
@@ -2263,6 +2338,42 @@ function QueueProvider({ children }: PropsWithChildren) {
           creatorId,
         }
       })
+
+      const hostOwnedSongsWithoutRequesterName = mappedQueueSongs.filter((song) => (
+        !song.createdByName
+        && Boolean(song.library_song_id)
+        && Boolean(song.creatorId)
+        && Boolean(resolvedEventHostId)
+        && song.creatorId === resolvedEventHostId
+      ))
+
+      if (hostOwnedSongsWithoutRequesterName.length > 0 && resolvedEventHostId) {
+        const inferredRequesterByLibrarySongId = await inferRequesterNameByLibrarySongIdsForHost(
+          hostOwnedSongsWithoutRequesterName
+            .map((song) => song.library_song_id)
+            .filter((librarySongId): librarySongId is string => Boolean(librarySongId)),
+          resolvedEventHostId,
+        )
+
+        if (inferredRequesterByLibrarySongId.size > 0) {
+          mappedQueueSongs = mappedQueueSongs.map((song) => {
+            if (song.createdByName || !song.library_song_id) {
+              return song
+            }
+
+            const inferredRequesterName = inferredRequesterByLibrarySongId.get(song.library_song_id)
+
+            if (!inferredRequesterName) {
+              return song
+            }
+
+            return {
+              ...song,
+              createdByName: inferredRequesterName,
+            }
+          })
+        }
+      }
 
       const missingCreatorIds = [...new Set(
         mappedQueueSongs
@@ -3526,6 +3637,10 @@ function QueueProvider({ children }: PropsWithChildren) {
         const shouldBypassRules = options?.bypassEventRules || isHostSession
 
         const queuePendingRequest = async () => {
+          const fallbackRequesterName = readCommittedAudienceName().trim()
+          const overrideRequesterName = options?.requesterName?.trim() ?? ''
+          const requesterName = overrideRequesterName || fallbackRequesterName
+
           const pendingSong: PendingOfflineSong = {
             id: crypto.randomUUID(),
             eventId: targetEventId,
@@ -3535,7 +3650,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             coverUrl: options?.coverUrl ?? null,
             librarySongId: options?.librarySongId ?? null,
             performerMode: options?.performerMode,
-            requesterName: readCommittedAudienceName().trim(),
+            requesterName,
             createdAt: Date.now(),
           }
 
@@ -3747,7 +3862,9 @@ function QueueProvider({ children }: PropsWithChildren) {
           }
         }
 
-        const requesterName = readCommittedAudienceName().trim()
+        const fallbackRequesterName = readCommittedAudienceName().trim()
+        const overrideRequesterName = options?.requesterName?.trim() ?? ''
+        const requesterName = overrideRequesterName || fallbackRequesterName
 
         // Keep audience profile display_name in sync with the chosen audience identity
         // so picker names can be resolved in queue/mirror views.
