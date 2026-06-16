@@ -266,6 +266,16 @@ function isNoListError(error) {
   return normalized.includes('no list') || normalized.includes('cannot perform operation')
 }
 
+function isSpotifyAuthError(error) {
+  const normalized = String(error?.message || error || '').toLowerCase()
+
+  return normalized.includes('401')
+    || normalized.includes('expired')
+    || normalized.includes('access token')
+    || normalized.includes('authentication')
+    || normalized.includes('invalid token')
+}
+
 function getSpotifyDisconnectHint(message) {
   const normalized = String(message || '').toLowerCase()
 
@@ -325,6 +335,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   const lastPlayerStatusMessageRef = useRef(null)
   const lastPlayerStatusAtRef = useRef(0)
   const savedPlaylistsHydratedRef = useRef(false)
+  const lastAuthRefreshAtRef = useRef(0)
 
   const [isSdkReady, setIsSdkReady] = useState(false)
   const [deviceId, setDeviceId] = useState(null)
@@ -701,6 +712,14 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           setPlayerStatus(`Authentication error: ${message}`)
 
           if (onRefreshToken) {
+            const now = Date.now()
+            if (now - lastAuthRefreshAtRef.current < 15_000) {
+              setPlayerStatus('Spotify auth error repeated quickly; waiting before next token refresh attempt.', { dedupeWindowMs: 15_000 })
+              return
+            }
+
+            lastAuthRefreshAtRef.current = now
+
             void onRefreshToken()
               .then((newToken) => {
                 accessTokenRef.current = newToken
@@ -832,6 +851,10 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
     try {
       return await action(accessTokenRef.current)
     } catch (error) {
+      if (!isSpotifyAuthError(error)) {
+        throw error
+      }
+
       if (!onRefreshToken) {
         throw error
       }
