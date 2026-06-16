@@ -3,15 +3,32 @@ name: Vercel Dual Deploy
 on:
   push:
     branches: [main]
-    paths:
-      - human-jukebox-web/**
-      - audience-app/**
-      - shared/**
-      - .github/workflows/vercel-dual-deploy.yml
   workflow_dispatch:
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      audience: ${{ steps.filter.outputs.audience }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'human-jukebox-web/**'
+              - 'shared/**'
+              - '.github/workflows/vercel-dual-deploy.yml'
+            audience:
+              - 'audience-app/**'
+              - 'shared/**'
+              - '.github/workflows/vercel-dual-deploy.yml'
+
   deploy-web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +53,8 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
 
   deploy-audience:
+    needs: changes
+    if: needs.changes.outputs.audience == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
