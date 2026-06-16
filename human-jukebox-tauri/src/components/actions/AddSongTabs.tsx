@@ -115,6 +115,11 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, unavailableLibrary
 
   const normalizedRequesterName = hostRequesterName.trim()
   const requesterNameOption = normalizedRequesterName.length > 0 ? normalizedRequesterName : null
+  const resolvePerformerMode = (song: PlaylistSong) => (
+    song.playlist_type === 'karaoke' || song.playlist_type === 'setlist_by_name'
+      ? 'audience'
+      : 'performer'
+  )
 
   const addPlaylistSongToQueue = async (song: PlaylistSong, options?: { requesterNameOverride?: string | null }) => {
     if (addingSongId) {
@@ -130,7 +135,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, unavailableLibrary
       await addSong(song.title, song.artist, song.is_explicit, {
         librarySongId: song.id,
         coverUrl: song.cover_url,
-        performerMode: song.playlist_type === 'karaoke' ? 'audience' : 'performer',
+        performerMode: resolvePerformerMode(song),
         bypassEventRules: true,
         requesterName,
       })
@@ -204,7 +209,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, unavailableLibrary
         await addSong(song.title, song.artist, song.is_explicit, {
           librarySongId: song.id,
           coverUrl: song.cover_url,
-          performerMode: song.playlist_type === 'karaoke' ? 'audience' : 'performer',
+          performerMode: resolvePerformerMode(song),
           bypassEventRules: true,
           requesterName: requesterNameOption,
         })
