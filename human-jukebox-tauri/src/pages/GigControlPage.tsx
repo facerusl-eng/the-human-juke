@@ -4970,9 +4970,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                     <p className="song">{song.title}</p>
                     <p className="artist">{song.artist}</p>
                     <div className="gig-song-flag-row">
+                      {song.audience_sings ? <span className="karaoke-tag">Karaoke Wish</span> : <span className="gig-live-mode-tag">Live Request</span>}
                       <button
                         type="button"
-                        className={song.audience_sings ? 'karaoke-tag gig-mode-toggle-btn' : 'gig-live-mode-tag gig-mode-toggle-btn'}
+                        className="gig-mode-inline-switch"
                         title={song.audience_sings ? 'Click to switch to Live Request mode' : 'Click to switch to Karaoke mode'}
                         disabled={songActionBusyId === song.id}
                         onClick={async () => {
@@ -4992,7 +4993,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                           }
                         }}
                       >
-                        {song.audience_sings ? '🎤 Karaoke Wish' : '🎸 Live Request'}
+                        Switch
                       </button>
                       {song.is_explicit ? <span className="explicit-tag">E</span> : null}
                     </div>

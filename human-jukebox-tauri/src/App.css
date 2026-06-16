@@ -6637,6 +6637,31 @@ body.audience-immersive-mode {
   cursor: default;
 }
 
+.gig-mode-inline-switch {
+  appearance: none;
+  border: 1px solid rgba(147, 193, 255, 0.35);
+  background: rgba(21, 41, 77, 0.68);
+  color: #d8e9ff;
+  border-radius: 999px;
+  padding: 0.08rem 0.48rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity 120ms, border-color 120ms;
+}
+
+.gig-mode-inline-switch:hover:not(:disabled) {
+  opacity: 0.82;
+  border-color: rgba(147, 193, 255, 0.65);
+}
+
+.gig-mode-inline-switch:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .gig-requester-chip-row {
   display: flex;
   align-items: center;
