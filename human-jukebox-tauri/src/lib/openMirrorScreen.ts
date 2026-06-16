@@ -38,22 +38,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     const existingWindow = await WebviewWindow.getByLabel(MIRROR_WINDOW_LABEL)
 
     if (existingWindow) {
-      await existingWindow.navigate(mirrorWindowUrl).catch(() => undefined)
-      await existingWindow.setDecorations(true).catch(() => undefined)
-      await existingWindow.setResizable(true).catch(() => undefined)
-      await existingWindow.setFullscreen(false).catch(() => undefined)
-      await existingWindow.setAlwaysOnTop(false).catch(() => undefined)
-      await existingWindow.show().catch(() => undefined)
-      await existingWindow.unminimize().catch(() => undefined)
-      await existingWindow.center().catch(() => undefined)
-      await existingWindow.setFocus().catch(() => undefined)
-      await existingWindow.requestUserAttention(null).catch(() => undefined)
-      return {
-        navigatedInCurrentWindow: false,
-        openedInPopupWindow: false,
-        openedInNewTabWindow: true,
-        blockedByPopup: false,
-      }
+      await existingWindow.close().catch(() => undefined)
     }
 
     const mirrorWindow = new WebviewWindow(MIRROR_WINDOW_LABEL, {
