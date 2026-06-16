@@ -5,6 +5,7 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, House, LayoutDash
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../state/authStore'
 import { getSupabaseAuthPersistence } from '../lib/supabase'
+import { openMirrorScreen } from '../lib/openMirrorScreen'
 
 type SideNavigationProps = {
   collapsed: boolean
@@ -259,6 +260,29 @@ function SideNavigation({ collapsed, onToggleCollapsed, currentPath, isMobile }:
 
               const Icon = entry.icon
               const isActive = entry.match(currentPath)
+
+              if (entry.to === '/mirror') {
+                return (
+                  <li key={entry.label}>
+                    <button
+                      type="button"
+                      onClick={() => { void openMirrorScreen() }}
+                      title={collapsed ? entry.label : undefined}
+                      className={[
+                        'group flex h-12 w-full items-center rounded-xl px-3 text-sm font-medium transition-all duration-200',
+                        'hover:shadow-[0_0_18px_rgba(255,0,255,0.25)]',
+                        collapsed ? 'justify-center' : 'justify-start gap-3',
+                        isActive
+                          ? 'bg-cyan-400/10 text-[#00E5FF] ring-1 ring-cyan-300/40'
+                          : 'text-zinc-300 hover:bg-zinc-900/80 hover:text-cyan-100',
+                      ].join(' ')}
+                    >
+                      <Icon size={20} className="shrink-0" aria-hidden="true" />
+                      {!collapsed ? <span>{entry.label}</span> : null}
+                    </button>
+                  </li>
+                )
+              }
 
               return (
                 <li key={entry.label}>
