@@ -21,67 +21,25 @@ jobs:
               - 'human-jukebox-web/**'
               - 'shared/**'
               - '.github/workflows/vercel-dual-deploy.yml'
+              - '.github/workflows/vercel-deploy-reusable.yml'
             audience:
               - 'audience-app/**'
               - 'shared/**'
               - '.github/workflows/vercel-dual-deploy.yml'
+              - '.github/workflows/vercel-deploy-reusable.yml'
 
   deploy-web:
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
-    env:
-      VERCEL_TOKEN_SECRET_NAME: VERCEL_TOKEN
-      VERCEL_ORG_ID_SECRET_NAME: VERCEL_ORG_ID
-      VERCEL_PROJECT_ID_SECRET_NAME: VERCEL_PROJECT_ID_WEB
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm install --global vercel@latest
-      - run: vercel pull --yes --environment=production --token=${{ secrets[env.VERCEL_TOKEN_SECRET_NAME] }}
-        working-directory: human-jukebox-web
-        env:
-          VERCEL_ORG_ID: ${{ secrets[env.VERCEL_ORG_ID_SECRET_NAME] }}
-          VERCEL_PROJECT_ID: ${{ secrets[env.VERCEL_PROJECT_ID_SECRET_NAME] }}
-      - run: vercel build --prod --token=${{ secrets[env.VERCEL_TOKEN_SECRET_NAME] }}
-        working-directory: human-jukebox-web
-        env:
-          VERCEL_ORG_ID: ${{ secrets[env.VERCEL_ORG_ID_SECRET_NAME] }}
-          VERCEL_PROJECT_ID: ${{ secrets[env.VERCEL_PROJECT_ID_SECRET_NAME] }}
-      - run: vercel deploy --prebuilt --prod --token=${{ secrets[env.VERCEL_TOKEN_SECRET_NAME] }}
-        working-directory: human-jukebox-web
-        env:
-          VERCEL_ORG_ID: ${{ secrets[env.VERCEL_ORG_ID_SECRET_NAME] }}
-          VERCEL_PROJECT_ID: ${{ secrets[env.VERCEL_PROJECT_ID_SECRET_NAME] }}
+    uses: ./.github/workflows/vercel-deploy-reusable.yml
+    with:
+      project-directory: human-jukebox-web
+    secrets: inherit
 
   deploy-audience:
     needs: changes
     if: needs.changes.outputs.audience == 'true'
-    runs-on: ubuntu-latest
-    env:
-      VERCEL_TOKEN_SECRET_NAME: VERCEL_TOKEN
-      VERCEL_ORG_ID_SECRET_NAME: VERCEL_ORG_ID
-      VERCEL_PROJECT_ID_SECRET_NAME: VERCEL_PROJECT_ID_AUDIENCE
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm install --global vercel@latest
-      - run: vercel pull --yes --environment=production --token=${{ secrets[env.VERCEL_TOKEN_SECRET_NAME] }}
-        working-directory: audience-app
-        env:
-          VERCEL_ORG_ID: ${{ secrets[env.VERCEL_ORG_ID_SECRET_NAME] }}
-          VERCEL_PROJECT_ID: ${{ secrets[env.VERCEL_PROJECT_ID_SECRET_NAME] }}
-      - run: vercel build --prod --token=${{ secrets[env.VERCEL_TOKEN_SECRET_NAME] }}
-        working-directory: audience-app
-        env:
-          VERCEL_ORG_ID: ${{ secrets[env.VERCEL_ORG_ID_SECRET_NAME] }}
-          VERCEL_PROJECT_ID: ${{ secrets[env.VERCEL_PROJECT_ID_SECRET_NAME] }}
-      - run: vercel deploy --prebuilt --prod --token=${{ secrets[env.VERCEL_TOKEN_SECRET_NAME] }}
-        working-directory: audience-app
-        env:
-          VERCEL_ORG_ID: ${{ secrets[env.VERCEL_ORG_ID_SECRET_NAME] }}
-          VERCEL_PROJECT_ID: ${{ secrets[env.VERCEL_PROJECT_ID_SECRET_NAME] }}
+    uses: ./.github/workflows/vercel-deploy-reusable.yml
+    with:
+      project-directory: audience-app
+    secrets: inherit

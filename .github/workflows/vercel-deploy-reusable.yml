@@ -1,0 +1,58 @@
+name: Vercel Deploy Reusable
+
+on:
+  workflow_call:
+    inputs:
+      project-directory:
+        description: Project directory to deploy
+        required: true
+        type: string
+      node-version:
+        description: Node version used for deployment
+        required: false
+        default: '20'
+        type: string
+    secrets:
+      VERCEL_TOKEN:
+        required: true
+      VERCEL_ORG_ID:
+        required: true
+      VERCEL_PROJECT_ID_WEB:
+        required: true
+      VERCEL_PROJECT_ID_AUDIENCE:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+      - run: npm install --global vercel@latest
+      - id: project
+        run: |
+          if [ "${{ inputs.project-directory }}" = "human-jukebox-web" ]; then
+            echo "id=${{ secrets.VERCEL_PROJECT_ID_WEB }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ inputs.project-directory }}" = "audience-app" ]; then
+            echo "id=${{ secrets.VERCEL_PROJECT_ID_AUDIENCE }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unsupported project-directory: ${{ inputs.project-directory }}" >&2
+            exit 1
+          fi
+      - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ${{ inputs.project-directory }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ steps.project.outputs.id }}
+      - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ${{ inputs.project-directory }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ steps.project.outputs.id }}
+      - run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: ${{ inputs.project-directory }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ steps.project.outputs.id }}
