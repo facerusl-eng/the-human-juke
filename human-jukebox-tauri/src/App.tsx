@@ -22,30 +22,12 @@ import { QueueProvider } from './state/queueStore'
 import { demoMode } from './demo/demoMode'
 import { DemoAuthProvider } from './demo/DemoAuthProvider'
 import { DemoQueueProvider } from './demo/DemoQueueProvider'
+import { isTauriDesktopRuntime, resolveAppPath } from './lib/routePath'
 
 const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
 const ROUTE_LOADING_STARTED_AT_STORAGE_KEY = 'human-jukebox-route-loading-started-at'
 const ROUTE_LOADING_RECOVERY_TIMEOUT_MS = 12_000
 const ROUTE_IMPORT_TIMEOUT_MS = 18_000
-
-function isTauriDesktopRuntime() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return window.location.protocol === 'tauri:'
-    || window.location.protocol === 'file:'
-    || '__TAURI_INTERNALS__' in (window as unknown as Record<string, unknown>)
-}
-
-function resolveAppPath(path: string) {
-  if (!isTauriDesktopRuntime()) {
-    return path
-  }
-
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  return `#${normalizedPath}`
-}
 
 function isChunkLoadFailure(error: unknown) {
   const message = error instanceof Error ? error.message : String(error)

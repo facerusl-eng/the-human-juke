@@ -1,21 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { resolveApiUrl } from '../lib/apiUrl'
 
 const SPOTIFY_ACCESS_TOKEN_STORAGE_KEY = 'human-jukebox-spotify-access-token'
-
-function resolveSpotifyApiUrl(path: '/api/spotify/callback') {
-  const isLocalHttpDev = (
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    && window.location.protocol === 'http:'
-  )
-
-  if (isLocalHttpDev) {
-    return path
-  }
-
-  const spotifyApiOrigin = (import.meta.env.VITE_SPOTIFY_API_ORIGIN?.trim() || 'https://www.the-human-jukebox.org').replace(/\/$/, '')
-  return `${spotifyApiOrigin}${path}`
-}
 
 function SpotifyCallbackPage() {
   const [searchParams] = useSearchParams()
@@ -27,9 +14,22 @@ function SpotifyCallbackPage() {
 
     const finishLogin = async () => {
       const code = searchParams.get('code')
+      const error = searchParams.get('error')
+      const state = searchParams.get('state')
+
+      console.log('[SpotifyCallback] Auth response:', { code: !!code, error, state })
+
+      if (error) {
+        setStatusText(`Spotify authorization denied: ${error}. Redirecting...`)
+        window.setTimeout(() => {
+          navigate('/admin/gig-control', { replace: true })
+        }, 2000)
+        return
+      }
 
       if (!code) {
         setStatusText('Missing Spotify code. Redirecting to Gig Control...')
+        console.warn('[SpotifyCallback] No code parameter in URL')
         window.setTimeout(() => {
           navigate('/admin/gig-control', { replace: true })
         }, 900)
@@ -37,12 +37,16 @@ function SpotifyCallbackPage() {
       }
 
       try {
-        const callbackUrl = `${resolveSpotifyApiUrl('/api/spotify/callback')}?code=${encodeURIComponent(code)}`
+        const callbackUrl = `${resolveApiUrl('/api/spotify/callback')}?code=${encodeURIComponent(code)}`
+        console.log('[SpotifyCallback] Fetching:', callbackUrl.split('?')[0])
+        
         const response = await fetch(callbackUrl)
         const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
         const payload = contentType.includes('application/json')
           ? await response.json().catch(() => ({}))
           : {}
+
+        console.log('[SpotifyCallback] Response status:', response.status, 'has token:', !!payload.access_token)
 
         if (!response.ok || typeof payload.access_token !== 'string') {
           const fallbackError = !contentType.includes('application/json')
@@ -52,17 +56,26 @@ function SpotifyCallbackPage() {
         }
 
         window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
+        console.log('[SpotifyCallback] Token saved, navigating to gig control')
 
         if (!cancelled) {
           setStatusText('Spotify connected. Redirecting to Gig Control...')
-          navigate('/admin/gig-control', { replace: true })
+          window.setTimeout(() => {
+            navigate('/admin/gig-control', { replace: true })
+          }, 500)
         }
       } catch (error) {
         if (cancelled) {
           return
         }
 
-        setStatusText(error instanceof Error ? error.message : 'Spotify callback failed.')
+        const errorMsg = error instanceof Error ? error.message : 'Spotify callback failed.'
+        console.error('[SpotifyCallback] Error:', errorMsg)
+        setStatusText(errorMsg)
+        
+        window.setTimeout(() => {
+          navigate('/admin/gig-control', { replace: true })
+        }, 2000)
       }
     }
 

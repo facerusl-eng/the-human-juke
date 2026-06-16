@@ -8,6 +8,8 @@ import { useClipboardCopy } from '../hooks/useClipboardCopy';
 import { useGigActions } from '../hooks/useGigActions';
 import { getAudienceUrl } from '../lib/audienceUrl';
 import { openMirrorScreen } from '../lib/openMirrorScreen';
+import { resolveAppPath } from '../lib/routePath';
+import { resolveApiUrl } from '../lib/apiUrl';
 import { registerBackgroundSync } from '../lib/backgroundSync';
 import {
   captureQueueSnapshot,
@@ -888,11 +890,27 @@ function GigControlPage() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const mirrorMonitorUrl = useMemo(() => {
     if (typeof window === 'undefined') {
-      return '/mirror?preview=1&safeMargins=1&density=medium&cast=1'
+      return resolveAppPath('/mirror?safeMargins=1&density=medium&cast=1')
+    }
+
+    if (window.location.protocol === 'tauri:' || window.location.protocol === 'file:' || '__TAURI_INTERNALS__' in window) {
+      const mirrorUrl = new URLSearchParams()
+      mirrorUrl.set('safeMargins', '1')
+      mirrorUrl.set('density', 'medium')
+      mirrorUrl.set('cast', '1')
+
+      if (event?.id) {
+        mirrorUrl.set('event', event.id)
+      }
+
+      if (mirrorMonitorRefreshNonce > 0) {
+        mirrorUrl.set('monitorRefresh', String(mirrorMonitorRefreshNonce))
+      }
+
+      return `${resolveAppPath('/mirror')}?${mirrorUrl.toString()}`
     }
 
     const mirrorUrl = new URL('/mirror', window.location.origin)
-    mirrorUrl.searchParams.set('preview', '1')
     mirrorUrl.searchParams.set('safeMargins', '1')
     mirrorUrl.searchParams.set('density', 'medium')
     mirrorUrl.searchParams.set('cast', '1')
@@ -1405,7 +1423,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [spotifyAutoTransportEnabled])
 
   const refreshSpotifyAccessToken = useCallback(async () => {
-    const response = await fetch('/api/spotify/token')
+    const response = await fetch(resolveApiUrl('/api/spotify/token'))
     const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
     const payload = contentType.includes('application/json')
       ? await response.json().catch(() => ({}))
@@ -1550,13 +1568,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       setSpotifyAccessToken(token)
       return
     } catch {
-      const isLocalHttpDev = (
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        && window.location.protocol === 'http:'
-      )
-      const loginUrl = isLocalHttpDev
-        ? 'https://www.the-human-jukebox.org/api/spotify/login'
-        : '/api/spotify/login'
+      const loginUrl = resolveApiUrl('/api/spotify/login')
 
       window.location.assign(loginUrl)
     }
@@ -1589,7 +1601,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       keepWarmController.abort()
     }, 1800)
 
-    const keepWarmPromise = fetch('/api/keepwarm', {
+    const keepWarmPromise = fetch(resolveApiUrl('/api/keepwarm'), {
       method: 'GET',
       cache: 'no-store',
       signal: keepWarmController.signal,
@@ -1679,7 +1691,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       case 'keepwarm':
       case 'unknown': {
         await supabase.auth.refreshSession().catch(() => undefined)
-        const keepWarmResponse = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' }).catch(() => null)
+        const keepWarmResponse = await fetch(resolveApiUrl('/api/keepwarm'), { method: 'GET', cache: 'no-store' }).catch(() => null)
 
         return {
           fixed: Boolean(keepWarmResponse?.ok),
@@ -3740,7 +3752,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [isFocusedGigControlWindow])
 
   const openMirrorFromGigControl = useCallback(() => {
-    const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
+    const { navigatedInCurrentWindow, openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
@@ -3748,6 +3760,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
     const statusMessage = openedInNewTabWindow
       ? 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
+      : navigatedInCurrentWindow
+      ? 'Mirror opened in this window because a separate popup window was unavailable.'
       : blockedByPopup
       ? 'Mirror was blocked by pop-up settings. Gig Control stays open here. Allow pop-ups and try again.'
       : 'Could not open Mirror. Please try again.'

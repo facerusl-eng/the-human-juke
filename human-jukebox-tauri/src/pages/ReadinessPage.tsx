@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getAudienceUrl } from '../lib/audienceUrl'
+import { resolveApiUrl } from '../lib/apiUrl'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 import {
@@ -239,7 +240,7 @@ function ReadinessPage() {
           break
         }
         case 'keepwarm': {
-          const res = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' })
+          const res = await fetch(resolveApiUrl('/api/keepwarm'), { method: 'GET', cache: 'no-store' })
           if (!res.ok) throw new Error(`Keep-warm endpoint returned ${res.status}.`)
           break
         }

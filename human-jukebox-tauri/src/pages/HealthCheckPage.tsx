@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getAudienceUrl } from '../lib/audienceUrl'
+import { resolveApiUrl } from '../lib/apiUrl'
 import { useAuthStore } from '../state/authStore'
 import { useQueueStore } from '../state/queueStore'
 
@@ -165,7 +166,7 @@ async function probeMixerHost(ip: string, timeoutMs: number) {
 }
 
 async function runLocalMixerAutoFix() {
-  const response = await fetch('/api/mixer/auto-fix', {
+  const response = await fetch(resolveApiUrl('/api/mixer/auto-fix'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
