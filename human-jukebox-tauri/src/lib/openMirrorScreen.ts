@@ -97,7 +97,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
   const userAgent = window.navigator.userAgent
   const isWindows = /Windows NT/i.test(userAgent)
   const isEdgeBrowser = /Edg\//.test(userAgent)
-  const preferEdgeOnWindows = options.preferEdgeOnWindows ?? true
+  const preferEdgeOnWindows = options.preferEdgeOnWindows ?? false
 
   if (preferEdgeOnWindows && isWindows && !isEdgeBrowser) {
     const edgeProtocolUrl = `microsoft-edge:${mirrorPath}`
