@@ -645,7 +645,7 @@ function HomePage() {
           <div ref={mirrorPreviewViewportRef} className="lp-mirror-preview-frame-viewport">
             <iframe
               className="lp-mirror-preview-frame"
-              src="/mirror?demo=true&safeMargins=1&density=medium&cast=1"
+              src="/mirror?demo=true&preview=home&safeMargins=1&density=medium&cast=1"
               title="Human Jukebox mirror preview"
               loading="lazy"
               referrerPolicy="no-referrer"
