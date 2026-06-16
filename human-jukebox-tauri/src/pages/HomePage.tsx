@@ -7,7 +7,7 @@ import { PrimaryButton } from '../components/ui'
 import { demoMode } from '../demo/demoMode'
 import { readCommittedAudienceLocale, commitAudienceLocale } from '../lib/audienceIdentity'
 import { openMirrorScreen } from '../lib/openMirrorScreen'
-import { resolveAppPath } from '../lib/routePath'
+import { isTauriDesktopRuntime, resolveAppPath, resolveTauriWindowUrl } from '../lib/routePath'
 import '../styles/home-landing.css'
 
 type HomeLang = 'en' | 'da'
@@ -256,6 +256,10 @@ function HomePage() {
 
   const copy = COPY[lang]
   const homeUiCopy = HOME_UI_COPY[lang]
+  const mirrorPreviewPath = '/mirror?demo=true&preview=home&safeMargins=1&density=medium&cast=1'
+  const mirrorPreviewSrc = isTauriDesktopRuntime()
+    ? resolveTauriWindowUrl(mirrorPreviewPath)
+    : mirrorPreviewPath
 
   const switchLang = (next: HomeLang) => {
     setLang(next)
@@ -646,7 +650,7 @@ function HomePage() {
           <div ref={mirrorPreviewViewportRef} className="lp-mirror-preview-frame-viewport">
             <iframe
               className="lp-mirror-preview-frame"
-              src={resolveAppPath('/mirror?demo=true&preview=home&safeMargins=1&density=medium&cast=1')}
+              src={mirrorPreviewSrc}
               title="Human Jukebox mirror preview"
               loading="lazy"
               referrerPolicy="no-referrer"
