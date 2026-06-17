@@ -268,7 +268,7 @@ function HomePage() {
 
   const openAudienceDemo = () => {
     if (typeof window !== 'undefined') {
-      window.location.assign('/audience?demo=true')
+      window.location.assign(resolveAppPath('/audience?demo=true'))
       return
     }
     navigate('/audience?demo=true')
@@ -385,7 +385,7 @@ function HomePage() {
 
   const openAdminLogin = () => {
     if (typeof window !== 'undefined') {
-      window.location.assign('/admin')
+      window.location.assign(resolveAppPath('/admin'))
       return
     }
     navigate('/admin')

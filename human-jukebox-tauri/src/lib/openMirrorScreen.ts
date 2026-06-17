@@ -82,23 +82,16 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
   const mirrorPath = `${resolveAppPath('/mirror')}?${mirrorUrl.toString()}`
 
   if (isTauriDesktopRuntime()) {
+    const withQueryUrl = resolveTauriWindowUrl(`/mirror?${mirrorUrl.toString()}`)
+    const withoutQueryUrl = resolveTauriWindowUrl('/mirror')
+    const hashRouterUrl = `${window.location.origin}/#/mirror?${mirrorUrl.toString()}`
     const existingWindow = await WebviewWindow.getByLabel(MIRROR_WINDOW_LABEL)
 
     if (existingWindow) {
-      await lockMirrorWindow(existingWindow)
-      return {
-        navigatedInCurrentWindow: false,
-        openedInPopupWindow: false,
-        openedInNewTabWindow: true,
-        blockedByPopup: false,
-      }
+      await existingWindow.close().catch(() => undefined)
     }
 
     try {
-      const withQueryUrl = resolveTauriWindowUrl(`/mirror?${mirrorUrl.toString()}`)
-      const withoutQueryUrl = resolveTauriWindowUrl('/mirror')
-      const hashRouterUrl = `${window.location.origin}/#/mirror?${mirrorUrl.toString()}`
-
       const mirrorWindow = await createTauriMirrorWindow([
         withQueryUrl,
         hashRouterUrl,

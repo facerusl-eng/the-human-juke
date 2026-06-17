@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { useAuthStore } from '../state/authStore'
 import { getSupabaseAuthPersistence, supabase } from '../lib/supabase'
+import { resolveAppPath } from '../lib/routePath'
 import {
   clearStoredHostCredentials,
   readStoredHostCredentials,
@@ -95,7 +96,7 @@ function RequireHost({ children }: PropsWithChildren) {
                 type="button"
                 className="ghost-button"
                 onClick={() => {
-                  window.location.assign('/admin')
+                  window.location.assign(resolveAppPath('/admin'))
                 }}
               >
                 Open Admin Dashboard
@@ -127,7 +128,7 @@ function RequireHost({ children }: PropsWithChildren) {
             type="button"
             className="ghost-button"
             onClick={() => {
-              window.location.assign('/audience')
+              window.location.assign(resolveAppPath('/audience'))
             }}
           >
             Open Audience
@@ -237,21 +238,20 @@ function RequireHost({ children }: PropsWithChildren) {
               required
             />
           </div>
-          <label className="subcopy no-margin" htmlFor="host-remember-me">
+          <label className="subcopy no-margin host-remember-label" htmlFor="host-remember-me">
             <input
               id="host-remember-me"
               type="checkbox"
               checked={rememberMe}
               onChange={(event) => setRememberMe(event.target.checked)}
               disabled={isSigningIn}
-              style={{ marginRight: 8 }}
+              className="host-remember-checkbox"
             />
             Remember me on this device
           </label>
           <button
             type="button"
-            className="ghost-button"
-            style={{ marginBottom: 8, textAlign: 'left' }}
+            className="ghost-button host-forgot-password-button"
             onClick={() => setShowForgot(true)}
             disabled={isSigningIn}
           >
