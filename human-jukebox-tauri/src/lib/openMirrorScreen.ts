@@ -16,6 +16,16 @@ type OpenMirrorScreenOptions = {
 
 const MIRROR_WINDOW_LABEL = 'mirror-screen'
 
+async function lockMirrorWindow(mirrorWindow: WebviewWindow) {
+  await mirrorWindow.setAlwaysOnTop(true).catch(() => undefined)
+  await mirrorWindow.setFullscreen(true).catch(() => undefined)
+  await mirrorWindow.setResizable(false).catch(() => undefined)
+  await mirrorWindow.show().catch(() => undefined)
+  await mirrorWindow.unminimize().catch(() => undefined)
+  await mirrorWindow.setFocus().catch(() => undefined)
+  await mirrorWindow.requestUserAttention(null).catch(() => undefined)
+}
+
 async function createTauriMirrorWindow(urlCandidates: string[]): Promise<WebviewWindow> {
   let lastError: unknown = null
 
@@ -29,7 +39,9 @@ async function createTauriMirrorWindow(urlCandidates: string[]): Promise<Webview
         center: true,
         width: 1280,
         height: 720,
-        resizable: true,
+        resizable: false,
+        fullscreen: true,
+        alwaysOnTop: true,
       })
 
       await new Promise<void>((resolve, reject) => {
@@ -73,9 +85,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     const existingWindow = await WebviewWindow.getByLabel(MIRROR_WINDOW_LABEL)
 
     if (existingWindow) {
-      await existingWindow.show().catch(() => undefined)
-      await existingWindow.unminimize().catch(() => undefined)
-      await existingWindow.setFocus().catch(() => undefined)
+      await lockMirrorWindow(existingWindow)
       return {
         navigatedInCurrentWindow: false,
         openedInPopupWindow: false,
@@ -95,11 +105,8 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         withoutQueryUrl,
       ])
 
-      await mirrorWindow.show().catch(() => undefined)
-      await mirrorWindow.unminimize().catch(() => undefined)
       await mirrorWindow.center().catch(() => undefined)
-      await mirrorWindow.setFocus().catch(() => undefined)
-      await mirrorWindow.requestUserAttention(null).catch(() => undefined)
+      await lockMirrorWindow(mirrorWindow)
 
       return {
         navigatedInCurrentWindow: false,
