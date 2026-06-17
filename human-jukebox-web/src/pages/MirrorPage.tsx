@@ -2058,7 +2058,7 @@ function MirrorPageContent() {
   // Keep demo mode in always-playing mode for screenshots and promo captures.
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
-    : Boolean(playbackState?.isStarted && playbackState.currentSongId)
+    : Boolean(playbackState?.isStarted && playbackSong?.id)
   const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)
   const isQuoteModeActive = (demoMode && forceQuoteMode) || isBetweenSongs || !activeSong
   const isGoLiveWelcomeActive = goLiveWelcomeUntilMs !== null && countdownNow < goLiveWelcomeUntilMs

@@ -2159,7 +2159,7 @@ function MirrorPageContent() {
   // Keep demo mode in always-playing mode for screenshots and promo captures.
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
-    : Boolean(playbackState?.isStarted && playbackState.currentSongId)
+    : Boolean(playbackState?.isStarted && playbackSong?.id)
   // Mirror lyrics are operator-controlled only; never auto-enable from song metadata.
   const isAudienceKaraokeActive = Boolean(activeSong && forceLyricsMode)
   const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)

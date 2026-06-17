@@ -1398,7 +1398,7 @@ function EventPage() {
     ? songs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
   const activeSong = playbackSong ?? nowPlaying
-  const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackState.currentSongId)
+  const isNowPlayingStarted = Boolean(playbackState?.isStarted && playbackSong?.id)
   const displaySong = isNowPlayingStarted ? activeSong : nowPlaying
   const displaySongCoverUrl = displaySong?.cover_url ?? playbackState?.currentSongCoverUrl ?? null
   const currentSongFact = songFunFacts.length > 0
