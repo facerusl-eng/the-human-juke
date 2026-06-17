@@ -293,36 +293,6 @@ function parseRequesterNames(rawName: string | null | undefined) {
   ))
 }
 
-function getSetlistBucketLabel(songTitle: string) {
-  const firstChar = songTitle.trim().charAt(0).toUpperCase()
-
-  if (!firstChar) {
-    return 'A-E'
-  }
-
-  if (/[0-9]/.test(firstChar)) {
-    return '0-9'
-  }
-
-  if (firstChar >= 'A' && firstChar <= 'E') {
-    return 'A-E'
-  }
-
-  if (firstChar >= 'F' && firstChar <= 'J') {
-    return 'F-J'
-  }
-
-  if (firstChar >= 'K' && firstChar <= 'O') {
-    return 'K-O'
-  }
-
-  if (firstChar >= 'P' && firstChar <= 'T') {
-    return 'P-T'
-  }
-
-  return 'U-Z'
-}
-
 function classifyPreflightIssue(error?: unknown): PreflightIssueCode {
   void error
   return 'unknown'
@@ -832,21 +802,6 @@ function GigControlPage() {
     const target = resolveGigStartAt(event?.gigDate, event?.gigStartTime)
     return target ? target.getTime() : null
   }, [event?.gigDate, event?.gigStartTime])
-  const nowPlayingSetlistBucket = useMemo(() => {
-    if (!nowPlaying?.title) {
-      return 'A-E'
-    }
-
-    return getSetlistBucketLabel(nowPlaying.title)
-  }, [nowPlaying?.title])
-  const setlistBucketHintText = useMemo(() => {
-    if (!nowPlaying?.title) {
-      return 'Setlist bucket: waiting for queue-head song.'
-    }
-
-    const normalizedTitle = nowPlaying.title.trim() || nowPlaying.title
-    return `Setlist bucket: ${nowPlayingSetlistBucket} - ${normalizedTitle}`
-  }, [nowPlaying?.title, nowPlayingSetlistBucket])
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
   const mirrorPreviewUpNext = useMemo(() => {
@@ -4802,7 +4757,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               {showMirrorTopVoted ? 'Hide Top Voted' : 'Top Voted on Mirror'}
             </button>
           </div>
-          <p className="meta-badge" role="status" aria-live="polite">{setlistBucketHintText}</p>
           <p className="meta-badge" role="status" aria-live="polite">{queueAheadMinutesHintText}</p>
           {endTimeWarningText ? (
             <p className="meta-badge gig-end-time-warning" role="alert" aria-live="assertive">{endTimeWarningText}</p>

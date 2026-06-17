@@ -5630,30 +5630,23 @@ function QueueProvider({ children }: PropsWithChildren) {
             ? { is_removed: true, performed_at: performedAt }
             : { is_removed: true }
 
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from('queue_songs')
             .update(payload)
             .eq('id', currentSong.id)
-            .select('id')
 
-          return {
-            error,
-            rowUpdated: Array.isArray(data) ? data.length > 0 : false,
-          }
+          return { error }
         }
 
-        const { error, rowUpdated } = await updatePlayedState(hasPerformedAtColumn)
+        const { error } = await updatePlayedState(hasPerformedAtColumn)
 
         if (error && isMissingPerformedAtColumnError(error)) {
           hasPerformedAtColumn = false
           markMissingColumnInCache('performedAt')
-          const { error: fallbackError, rowUpdated: fallbackRowUpdated } = await updatePlayedState(false)
+          const { error: fallbackError } = await updatePlayedState(false)
 
-          if (fallbackError || !fallbackRowUpdated) {
+          if (fallbackError) {
             rollbackMarkPlayed()
-            if (!fallbackError && !fallbackRowUpdated) {
-              throw new Error('Host update was not applied. Please verify queue_songs UPDATE policy for hosts.')
-            }
             throw fallbackError
           }
 
@@ -5664,11 +5657,8 @@ function QueueProvider({ children }: PropsWithChildren) {
           return
         }
 
-        if (error || !rowUpdated) {
+        if (error) {
           rollbackMarkPlayed()
-          if (!error && !rowUpdated) {
-            throw new Error('Host update was not applied. Please verify queue_songs UPDATE policy for hosts.')
-          }
           throw error
         }
 
