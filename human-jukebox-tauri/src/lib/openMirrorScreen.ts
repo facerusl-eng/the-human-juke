@@ -16,6 +16,42 @@ type OpenMirrorScreenOptions = {
 
 const MIRROR_WINDOW_LABEL = 'mirror-screen'
 
+async function createTauriMirrorWindow(urlCandidates: string[]): Promise<WebviewWindow> {
+  let lastError: unknown = null
+
+  for (const url of urlCandidates) {
+    try {
+      const mirrorWindow = new WebviewWindow(MIRROR_WINDOW_LABEL, {
+        url,
+        title: 'Human Jukebox Mirror',
+        decorations: true,
+        visible: true,
+        center: true,
+        width: 1280,
+        height: 720,
+        resizable: true,
+      })
+
+      await new Promise<void>((resolve, reject) => {
+        void mirrorWindow.once('tauri://created', () => {
+          resolve()
+        })
+
+        void mirrorWindow.once('tauri://error', (errorPayload) => {
+          reject(new Error(`Failed to create mirror window for url: ${url}. ${String(errorPayload ?? '')}`))
+        })
+      })
+
+      return mirrorWindow
+    } catch (error) {
+      lastError = error
+      console.warn('openMirrorScreen: tauri mirror window attempt failed', { url, error })
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Failed to create mirror window')
+}
+
 export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): Promise<OpenMirrorScreenResult> {
   const mirrorUrl = new URLSearchParams()
   mirrorUrl.set('safeMargins', '1')
@@ -49,32 +85,21 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     }
 
     try {
-      const mirrorWindowUrl = resolveTauriWindowUrl(`/mirror?${mirrorUrl.toString()}`)
-      const mirrorWindow = new WebviewWindow(MIRROR_WINDOW_LABEL, {
-        url: mirrorWindowUrl,
-        title: 'Human Jukebox Mirror',
-        decorations: true,
-        visible: true,
-        center: true,
-        width: 1280,
-        height: 720,
-        resizable: true,
-      })
+      const withQueryUrl = resolveTauriWindowUrl(`/mirror?${mirrorUrl.toString()}`)
+      const withoutQueryUrl = resolveTauriWindowUrl('/mirror')
+      const hashRouterUrl = `${window.location.origin}/#/mirror?${mirrorUrl.toString()}`
 
-      await new Promise<void>((resolve, reject) => {
-        void mirrorWindow.once('tauri://created', async () => {
-          await mirrorWindow.show().catch(() => undefined)
-          await mirrorWindow.unminimize().catch(() => undefined)
-          await mirrorWindow.center().catch(() => undefined)
-          await mirrorWindow.setFocus().catch(() => undefined)
-          await mirrorWindow.requestUserAttention(null).catch(() => undefined)
-          resolve()
-        })
+      const mirrorWindow = await createTauriMirrorWindow([
+        withQueryUrl,
+        hashRouterUrl,
+        withoutQueryUrl,
+      ])
 
-        void mirrorWindow.once('tauri://error', () => {
-          reject(new Error('Failed to create mirror window'))
-        })
-      })
+      await mirrorWindow.show().catch(() => undefined)
+      await mirrorWindow.unminimize().catch(() => undefined)
+      await mirrorWindow.center().catch(() => undefined)
+      await mirrorWindow.setFocus().catch(() => undefined)
+      await mirrorWindow.requestUserAttention(null).catch(() => undefined)
 
       return {
         navigatedInCurrentWindow: false,
@@ -82,7 +107,8 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         openedInNewTabWindow: true,
         blockedByPopup: false,
       }
-    } catch {
+    } catch (error) {
+      console.error('openMirrorScreen: tauri mirror launch failed after retries', error)
       return {
         navigatedInCurrentWindow: false,
         openedInPopupWindow: false,
