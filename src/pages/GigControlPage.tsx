@@ -863,8 +863,17 @@ function GigControlPage() {
   }, [queueEstMinutes])
   const gigEndAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigEndTime ?? null)
   const minutesToGigEnd = gigEndAt ? Math.round((gigEndAt.getTime() - getHostNowMs()) / 60000) : null
-  const endTimeWarningText = (event?.roomOpen && minutesToGigEnd !== null && minutesToGigEnd >= 0 && minutesToGigEnd <= 10)
-    ? `⚠️ ${minutesToGigEnd} min until end time — ~${queueEstMinutes} min queue remaining`
+  const queueOverrunMinutes = minutesToGigEnd !== null
+    ? Math.max(0, queueEstMinutes - minutesToGigEnd)
+    : 0
+  const endTimeWarningText = (event?.roomOpen && minutesToGigEnd !== null && queueEstMinutes > 0)
+    ? minutesToGigEnd < 0
+      ? `⚠️ Gig end time passed ${Math.abs(minutesToGigEnd)} min ago — ~${queueEstMinutes} min queue still waiting`
+      : queueEstMinutes >= minutesToGigEnd
+      ? queueOverrunMinutes > 0
+        ? `⚠️ Queue reaches past gig end by ~${queueOverrunMinutes} min (end in ${minutesToGigEnd} min, queue ~${queueEstMinutes} min)`
+        : `⚠️ Queue reaches the gig end time now (end in ${minutesToGigEnd} min, queue ~${queueEstMinutes} min)`
+      : null
     : null
   const nowPlayingRequesters = parseRequesterNames(nowPlaying?.createdByName)
   const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
