@@ -48,23 +48,34 @@ async function main() {
   }
 
   const desktopDirectory = path.join(process.env.USERPROFILE || os.homedir(), 'Desktop');
-  const shortcutPath = path.join(desktopDirectory, 'Human Jukebox.lnk');
+  const shortcutPaths = [
+    path.join(desktopDirectory, 'Human Jukebox.lnk'),
+    path.join(desktopDirectory, 'Human Jukebox Tauri.lnk'),
+    path.join(desktopDirectory, 'HumanJukeboxWinUI - THIS ONE.lnk'),
+    path.join(desktopDirectory, 'HumanJukeboxWinUI.lnk'),
+  ];
   const iconPath = path.join(projectRoot, 'src-tauri', 'icons', 'icon.ico');
   const workingDirectory = path.dirname(tauriExePath);
 
+  const shortcutPathList = shortcutPaths
+    .map((shortcutPath) => `'${escapePowerShellLiteral(shortcutPath)}'`)
+    .join(', ');
+
   const script = [
-    `$shortcutPath = '${escapePowerShellLiteral(shortcutPath)}'`,
+    `$shortcutPaths = @(${shortcutPathList})`,
     `$targetPath = '${escapePowerShellLiteral(tauriExePath)}'`,
     `$workingDirectory = '${escapePowerShellLiteral(workingDirectory)}'`,
     `$iconPath = '${escapePowerShellLiteral(iconPath)}'`,
     '$shell = New-Object -ComObject WScript.Shell',
-    '$shortcut = $shell.CreateShortcut($shortcutPath)',
-    '$shortcut.TargetPath = $targetPath',
-    '$shortcut.WorkingDirectory = $workingDirectory',
-    "$shortcut.Description = 'Human Jukebox'",
-    'if (Test-Path -LiteralPath $iconPath) { $shortcut.IconLocation = "$iconPath,0" }',
-    '$shortcut.Save()',
-    'Write-Output "Desktop shortcut updated: $shortcutPath -> $targetPath"',
+    'foreach ($shortcutPath in $shortcutPaths) {',
+    '  $shortcut = $shell.CreateShortcut($shortcutPath)',
+    '  $shortcut.TargetPath = $targetPath',
+    '  $shortcut.WorkingDirectory = $workingDirectory',
+    "  $shortcut.Description = 'Human Jukebox'",
+    '  if (Test-Path -LiteralPath $iconPath) { $shortcut.IconLocation = "$iconPath,0" }',
+    '  $shortcut.Save()',
+    '  Write-Output "Desktop shortcut updated: $shortcutPath -> $targetPath"',
+    '}',
   ].join('; ');
 
   const powershellResult = spawnSync(
