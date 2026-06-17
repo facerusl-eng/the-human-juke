@@ -807,7 +807,7 @@ function MirrorLayoutEditorPage() {
           <section className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel" data-mirror-layout-panel="status" onPointerDown={beginPanelDrag('status')}>
             <button type="button" className="mirror-layout-drag-handle" aria-label="Drag status panel" onPointerDown={beginInteraction('status', 'drag')}>Move</button>
             <div className="mirror-layout-edit-simple-panel-body">
-              <span className="mirror-status mirror-open">ÔùÅ Live</span>
+              <span className="mirror-status mirror-open">● Live</span>
             </div>
             <button type="button" className="mirror-layout-resize-handle" aria-label="Resize status panel" onPointerDown={beginInteraction('status', 'resize')} />
           </section>
@@ -2488,6 +2488,13 @@ function MirrorPageContent() {
   const venueLogoAppearance = normalizeVenueLogoAppearance(activeVenueLogoLayoutPreview?.venueLogoAppearance ?? event?.venueLogoAppearance)
   const hasLiveMirrorSignal = Boolean(playbackState?.isStarted && playbackState.currentSongId) || playbackTransitionState?.phase === 'intro'
   const shouldShowPreShow = !isLive && !hasLiveMirrorSignal
+  const mirrorStatusBadgeText = playbackState?.brbActive
+    ? 'On Break'
+    : isLive
+    ? 'Live'
+    : shouldShowPreShow
+    ? 'Starting Soon'
+    : 'Paused'
   const isLastSongSoonMode = isLastSongSoonOverlayMessage(playbackState?.brbMessage)
   const encoreCandidateSong = upNext[0] ?? null
   const showEncoreVoteOverlay = isLive
