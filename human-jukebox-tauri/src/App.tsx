@@ -22,10 +22,7 @@ import { QueueProvider } from './state/queueStore'
 import { demoMode } from './demo/demoMode'
 import { DemoAuthProvider } from './demo/DemoAuthProvider'
 import { DemoQueueProvider } from './demo/DemoQueueProvider'
-import { openMirrorScreen } from './lib/openMirrorScreen'
 import { isTauriDesktopRuntime, resolveAppPath } from './lib/routePath'
-
-const OPEN_MIRROR_SHORTCUT_EVENT = 'human-jukebox-open-mirror-shortcut'
 
 const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
 const ROUTE_LOADING_STARTED_AT_STORAGE_KEY = 'human-jukebox-route-loading-started-at'
@@ -207,22 +204,6 @@ function withSuspense(element: React.ReactNode) {
 
 function withCrashBoundary(areaLabel: string, element: React.ReactNode) {
   return <AppCrashBoundary areaLabel={areaLabel}>{element}</AppCrashBoundary>
-}
-
-function TauriMirrorShortcutBridge() {
-  useEffect(() => {
-    const handleOpenMirrorShortcut = () => {
-      void openMirrorScreen({ preferEdgeOnWindows: true })
-    }
-
-    window.addEventListener(OPEN_MIRROR_SHORTCUT_EVENT, handleOpenMirrorShortcut)
-
-    return () => {
-      window.removeEventListener(OPEN_MIRROR_SHORTCUT_EVENT, handleOpenMirrorShortcut)
-    }
-  }, [])
-
-  return null
 }
 
 const createAppRouter = isTauriDesktopRuntime() ? createHashRouter : createBrowserRouter
@@ -439,12 +420,7 @@ const router = createAppRouter([
   },
 ])
 
-const App = () => (
-  <>
-    <TauriMirrorShortcutBridge />
-    <RouterProvider router={router} />
-  </>
-)
+const App = () => <RouterProvider router={router} />
 
 export { router };
 export default App;

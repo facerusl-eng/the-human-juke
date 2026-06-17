@@ -3936,6 +3936,18 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }, MIRROR_LAUNCH_STATUS_DURATION_MS)
   }, [event?.id])
 
+  useEffect(() => {
+    const handleMirrorShortcut = () => {
+      void openMirrorFromGigControl()
+    }
+
+    window.addEventListener('human-jukebox-open-mirror-shortcut', handleMirrorShortcut)
+
+    return () => {
+      window.removeEventListener('human-jukebox-open-mirror-shortcut', handleMirrorShortcut)
+    }
+  }, [openMirrorFromGigControl])
+
   const openFocusedGigControlWindow = useCallback(() => {
     const searchParams = new URLSearchParams()
     searchParams.set('view', 'focus')
