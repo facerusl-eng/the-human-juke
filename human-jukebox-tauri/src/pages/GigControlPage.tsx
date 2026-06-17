@@ -3472,6 +3472,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     nowPlayingTypeRef.current = nowPlayingType
   }, [nowPlayingType])
 
+  const runQueueTogglePlayShortcutRef = useRef(runQueueTogglePlayShortcut)
+  useEffect(() => {
+    runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
+  }, [runQueueTogglePlayShortcut])
+
   const toggleSpotifyPlayPause = useCallback(async () => {
     if (!event?.roomOpen) {
       setErrorText('Spacebar playback is disabled until the gig is live.')
@@ -3552,7 +3557,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    await runGlobalToggleQuoteNowPlayingRef.current()
+    await runQueueTogglePlayShortcutRef.current()
   }, [])
 
 
