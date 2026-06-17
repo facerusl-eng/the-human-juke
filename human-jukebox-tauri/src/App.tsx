@@ -7,7 +7,7 @@ import './components/ui/ui.css'
 import './styles/mirror.css'
 import './styles/qr-landing.css'
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { Navigate, RouterProvider, createBrowserRouter, createHashRouter, isRouteErrorResponse, useRouteError, useParams } from 'react-router-dom'
+import { Navigate, RouterProvider, createBrowserRouter, createHashRouter, isRouteErrorResponse, useLocation, useRouteError, useParams } from 'react-router-dom'
 import AppCrashBoundary from './components/AppCrashBoundary'
 import RequireHost from './components/RequireHost'
 import ShellLayout from './components/ShellLayout'
@@ -22,8 +22,10 @@ import { QueueProvider } from './state/queueStore'
 import { demoMode } from './demo/demoMode'
 import { DemoAuthProvider } from './demo/DemoAuthProvider'
 import { DemoQueueProvider } from './demo/DemoQueueProvider'
+import { openMirrorScreen } from './lib/openMirrorScreen'
 import { isTauriDesktopRuntime, resolveAppPath } from './lib/routePath'
 
+const OPEN_MIRROR_SHORTCUT_EVENT = 'human-jukebox-open-mirror-shortcut'
 const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
 const ROUTE_LOADING_STARTED_AT_STORAGE_KEY = 'human-jukebox-route-loading-started-at'
 const ROUTE_LOADING_RECOVERY_TIMEOUT_MS = 12_000
@@ -206,6 +208,39 @@ function withCrashBoundary(areaLabel: string, element: React.ReactNode) {
   return <AppCrashBoundary areaLabel={areaLabel}>{element}</AppCrashBoundary>
 }
 
+function TauriMirrorShortcutBridge() {
+  const location = useLocation()
+
+  useEffect(() => {
+    const handleMirrorShortcut = () => {
+      const searchParams = new URLSearchParams(location.search)
+      const eventId = searchParams.get('event')?.trim() || null
+      void openMirrorScreen({ eventId })
+    }
+
+    window.addEventListener(OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)
+
+    return () => {
+      window.removeEventListener(OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)
+    }
+  }, [location.search])
+
+  return null
+}
+
+function withTauriMirrorShortcutBridge(element: React.ReactNode) {
+  if (!isTauriDesktopRuntime()) {
+    return element
+  }
+
+  return (
+    <>
+      <TauriMirrorShortcutBridge />
+      {element}
+    </>
+  )
+}
+
 const createAppRouter = isTauriDesktopRuntime() ? createHashRouter : createBrowserRouter
 
 const router = createAppRouter([
@@ -213,9 +248,11 @@ const router = createAppRouter([
     path: '/',
     element: withCrashBoundary(
       'App Shell',
-      demoMode
-        ? <DemoAuthProvider><DemoQueueProvider><ShellLayout /></DemoQueueProvider></DemoAuthProvider>
-        : <AuthProvider><QueueProvider><ShellLayout /></QueueProvider></AuthProvider>,
+      withTauriMirrorShortcutBridge(
+        demoMode
+          ? <DemoAuthProvider><DemoQueueProvider><ShellLayout /></DemoQueueProvider></DemoAuthProvider>
+          : <AuthProvider><QueueProvider><ShellLayout /></QueueProvider></AuthProvider>,
+      ),
     ),
     errorElement: <RouteErrorFallback />,
     children: [
@@ -402,9 +439,11 @@ const router = createAppRouter([
     path: '/mirror',
     element: withCrashBoundary(
       'Mirror',
-      demoMode
-        ? <DemoAuthProvider><DemoQueueProvider>{withSuspense(<MirrorPage />)}</DemoQueueProvider></DemoAuthProvider>
-        : <AuthProvider><QueueProvider>{withSuspense(<MirrorPage />)}</QueueProvider></AuthProvider>,
+      withTauriMirrorShortcutBridge(
+        demoMode
+          ? <DemoAuthProvider><DemoQueueProvider>{withSuspense(<MirrorPage />)}</DemoQueueProvider></DemoAuthProvider>
+          : <AuthProvider><QueueProvider>{withSuspense(<MirrorPage />)}</QueueProvider></AuthProvider>,
+      ),
     ),
     errorElement: <RouteErrorFallback />,
   },
