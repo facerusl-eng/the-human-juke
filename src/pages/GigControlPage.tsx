@@ -4174,6 +4174,25 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
   const selectedSpotifyPlaylistLabel = selectedSpotifyPlaylistMeta?.name?.trim() || 'Not selected yet'
   const selectedSpotifyPlaylistOwnerText = selectedSpotifyPlaylistMeta?.ownerName?.trim()
+  const introSpotifyDebugStatusText = useMemo(() => {
+    if (playbackTransitionState?.phase === 'countdown') {
+      return playbackTransitionCountdownSeconds !== null
+        ? `Go-live countdown running · intro starts in ${playbackTransitionCountdownSeconds}s`
+        : 'Go-live countdown syncing · intro and Spotify bridge armed'
+    }
+
+    if (playbackTransitionState?.phase === 'intro') {
+      return playbackTransitionIntroRemainingMs !== null
+        ? `Intro MP3 playing · Spotify paused · ${Math.max(1, Math.ceil(playbackTransitionIntroRemainingMs / 1000))}s left`
+        : 'Intro MP3 playing · Spotify paused'
+    }
+
+    if (event?.roomOpen && isNowPlayingStarted) {
+      return 'Live show running · Spotify resumed'
+    }
+
+    return null
+  }, [event?.roomOpen, isNowPlayingStarted, playbackTransitionCountdownSeconds, playbackTransitionIntroRemainingMs, playbackTransitionState?.phase])
 
   const headerActions: ActionButtonConfig[] = [
     {
@@ -4543,7 +4562,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 Selected Spotify playlist: <strong>{selectedSpotifyPlaylistLabel}</strong>
                 {selectedSpotifyPlaylistOwnerText ? ` by ${selectedSpotifyPlaylistOwnerText}` : ''}
               </p>
-              {spotifyStatusText ? <p className="meta-badge gig-focus-spotify-status" role="status" aria-live="polite">{spotifyStatusText}</p> : null}
+              {introSpotifyDebugStatusText ? <p className="meta-badge gig-focus-spotify-status" role="status" aria-live="polite">{introSpotifyDebugStatusText}</p> : null}
             </div>
           </div>
         </section>
