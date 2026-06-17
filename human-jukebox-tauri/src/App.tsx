@@ -24,8 +24,8 @@ import { DemoAuthProvider } from './demo/DemoAuthProvider'
 import { DemoQueueProvider } from './demo/DemoQueueProvider'
 import { openMirrorScreen } from './lib/openMirrorScreen'
 import { isTauriDesktopRuntime, resolveAppPath } from './lib/routePath'
+import { TAURI_OPEN_MIRROR_SHORTCUT_EVENT } from './lib/tauriShortcutEvents'
 
-const OPEN_MIRROR_SHORTCUT_EVENT = 'human-jukebox-open-mirror-shortcut'
 const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
 const ROUTE_LOADING_STARTED_AT_STORAGE_KEY = 'human-jukebox-route-loading-started-at'
 const ROUTE_LOADING_RECOVERY_TIMEOUT_MS = 12_000
@@ -218,10 +218,10 @@ function TauriMirrorShortcutBridge() {
       void openMirrorScreen({ eventId })
     }
 
-    window.addEventListener(OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)
+    window.addEventListener(TAURI_OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)
 
     return () => {
-      window.removeEventListener(OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)
+      window.removeEventListener(TAURI_OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)
     }
   }, [location.search])
 

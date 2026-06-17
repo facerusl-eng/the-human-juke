@@ -35,7 +35,18 @@ async function runShortcutRefresh() {
   }
 }
 
+async function runShortcutContractCheck() {
+  const scriptPath = path.join(__dirname, 'verify-tauri-shortcuts.mjs');
+  const statusCode = await runCommand(process.execPath, [scriptPath]);
+
+  if (statusCode !== 0) {
+    process.exit(statusCode);
+  }
+}
+
 async function main() {
+  await runShortcutContractCheck();
+
   const tauriArgs = process.argv.slice(2);
   const normalizedArgs = tauriArgs.length > 0 ? tauriArgs : ['dev'];
   const shouldRefreshShortcut = normalizedArgs.includes('dev') || normalizedArgs.includes('build');
