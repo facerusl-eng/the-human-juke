@@ -115,6 +115,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, unavailableLibrary
 
   const normalizedRequesterName = hostRequesterName.trim()
   const requesterNameOption = normalizedRequesterName.length > 0 ? normalizedRequesterName : null
+  const randomRequesterName = requesterNameOption ?? 'Host'
   const resolvePerformerMode = (song: PlaylistSong) => (
     song.playlist_type === 'karaoke' || song.playlist_type === 'setlist_by_name'
       ? 'audience'
@@ -211,7 +212,7 @@ function AddSongTabs({ eventId, userId, queuedLibrarySongIds, unavailableLibrary
           coverUrl: song.cover_url,
           performerMode: resolvePerformerMode(song),
           bypassEventRules: true,
-          requesterName: requesterNameOption,
+          requesterName: randomRequesterName,
         })
         prefetchAndCacheLyrics(song.title, song.artist)
         addedCount += 1
