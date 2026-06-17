@@ -3,9 +3,15 @@
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Manager;
 
+const OPEN_MIRROR_SHORTCUT_EVENT: &str = "human-jukebox-open-mirror-shortcut";
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
+            let open_mirror_item = MenuItemBuilder::with_id("open-mirror", "Open Mirror")
+                .accelerator("CmdOrCtrl+M")
+                .build(app)?;
+
             let refresh_item = MenuItemBuilder::with_id("refresh", "Refresh")
                 .accelerator("CmdOrCtrl+R")
                 .build(app)?;
@@ -19,6 +25,7 @@ fn main() {
                 .build(app)?;
 
             let app_submenu = SubmenuBuilder::new(app, "App")
+                .item(&open_mirror_item)
                 .item(&refresh_item)
                 .item(&update_item)
                 .item(&quit_item)
@@ -31,6 +38,14 @@ fn main() {
         })
         .on_menu_event(|app, event| {
             match event.id().as_ref() {
+                "open-mirror" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.eval(&format!(
+                            "window.dispatchEvent(new CustomEvent('{}'))",
+                            OPEN_MIRROR_SHORTCUT_EVENT,
+                        ));
+                    }
+                }
                 "refresh" => {
                     if let Some(window) = app.get_webview_window("main") {
                         let _ = window.eval("window.location.reload()") ;
