@@ -1416,14 +1416,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       const cleanup = () => {
         introAudio.removeEventListener('ended', onEnded)
         introAudio.removeEventListener('error', onError)
-        introAudio.removeEventListener('pause', onPause)
       }
       const onEnded = () => { cleanup(); resolve(undefined) }
       const onError = () => { cleanup(); resolve(undefined) }
-      const onPause = () => { cleanup(); resolve(undefined) }
       introAudio.addEventListener('ended', onEnded, { once: true })
       introAudio.addEventListener('error', onError, { once: true })
-      introAudio.addEventListener('pause', onPause, { once: true })
     })
 
     try {
