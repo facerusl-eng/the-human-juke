@@ -3210,6 +3210,7 @@ function QueueProvider({ children }: PropsWithChildren) {
                 new?: Record<string, unknown> | null
               }) => {
                 lastRealtimeEventAt = Date.now()
+                eventOptionalSettingsCache.delete(resolvedEventId)
 
                 const nextRow = payload.new
                 if (nextRow) {
