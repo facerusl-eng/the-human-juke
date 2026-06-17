@@ -83,10 +83,8 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         blockedByPopup: false,
       }
     } catch {
-      // Fallback: keep operation working by opening mirror in the current window.
-      window.location.assign(mirrorPath)
       return {
-        navigatedInCurrentWindow: true,
+        navigatedInCurrentWindow: false,
         openedInPopupWindow: false,
         openedInNewTabWindow: false,
         blockedByPopup: true,
@@ -126,11 +124,8 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     }
   }
 
-  // Last-resort fallback for environments that block window.open popups.
-  window.location.assign(mirrorPath)
-
   return {
-    navigatedInCurrentWindow: true,
+    navigatedInCurrentWindow: false,
     openedInPopupWindow: false,
     openedInNewTabWindow: false,
     blockedByPopup: true,
