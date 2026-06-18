@@ -116,12 +116,25 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
           : 'Failed to create mirror window'
 
       console.error('openMirrorScreen: tauri mirror launch failed after retries', error)
-      window.location.assign(mirrorPath)
+
+      const fallbackTab = window.open(mirrorPath, '_blank', 'noopener,noreferrer')
+
+      if (fallbackTab) {
+        fallbackTab.focus()
+        return {
+          navigatedInCurrentWindow: false,
+          openedInPopupWindow: true,
+          openedInNewTabWindow: false,
+          blockedByPopup: false,
+          errorMessage,
+        }
+      }
+
       return {
-        navigatedInCurrentWindow: true,
+        navigatedInCurrentWindow: false,
         openedInPopupWindow: false,
         openedInNewTabWindow: false,
-        blockedByPopup: false,
+        blockedByPopup: true,
         errorMessage,
       }
     }

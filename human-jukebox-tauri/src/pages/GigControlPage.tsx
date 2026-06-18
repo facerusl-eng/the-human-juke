@@ -3884,20 +3884,18 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [isFocusedGigControlWindow])
 
   const openMirrorFromGigControl = useCallback(async () => {
-    const { navigatedInCurrentWindow, openedInNewTabWindow, blockedByPopup, errorMessage } = await openMirrorScreen({ eventId: event?.id ?? null })
+    const { navigatedInCurrentWindow, openedInPopupWindow, openedInNewTabWindow, blockedByPopup, errorMessage } = await openMirrorScreen({ eventId: event?.id ?? null })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
     }
 
-    const statusMessage = openedInNewTabWindow
+    const statusMessage = openedInNewTabWindow || navigatedInCurrentWindow || openedInPopupWindow
       ? isTauriDesktopRuntime()
-        ? 'Mirror opened in a separate native window. Gig Control stays open here.'
+        ? `Mirror opened in a separate window. Gig Control stays open here.${errorMessage ? ` Native launch note: ${errorMessage}` : ''}`
         : 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
-      : navigatedInCurrentWindow && isTauriDesktopRuntime()
-      ? `Mirror could not open in a separate native window, so it opened in the current Tauri window instead.${errorMessage ? ` Error: ${errorMessage}` : ''}`
       : blockedByPopup
-      ? 'Mirror was blocked by pop-up settings. Gig Control stays open here. Allow pop-ups and try again.'
+      ? 'Mirror could not open a separate window. Allow pop-ups in the shortcut app and try again.'
       : 'Could not open Mirror. Please try again.'
 
     setMirrorLaunchStatusText(statusMessage)
