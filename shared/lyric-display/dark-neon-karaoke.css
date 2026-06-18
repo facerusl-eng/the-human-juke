@@ -24,8 +24,10 @@
 /* Scrollable variant for audience lyric view */
 .audience-lyric-scroll-shell {
   display: block;
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: unset;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 2rem 1.2rem;
 }
 
