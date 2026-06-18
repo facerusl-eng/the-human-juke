@@ -31,8 +31,7 @@ export default function LyricsBoardPage() {
 
   const returnToPath = useMemo(() => {
     const params = new URLSearchParams(location.search)
-    const returnTo = (params.get('returnTo') ?? '').trim()
-    return returnTo || '/admin/gig-control'
+    return (params.get('returnTo') ?? '').trim()
   }, [location.search])
 
   const nowPlayingSong = useMemo(() => {
