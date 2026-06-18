@@ -2,6 +2,15 @@ import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 
+const GLOBAL_RUNTIME_NOTICE_EVENT = 'human-jukebox-runtime-notice'
+const GLOBAL_RUNTIME_DIAGNOSTIC_EVENT = 'human-jukebox-runtime-diagnostic'
+
+type RuntimeDiagnosticDetail = {
+  source: string
+  message: string
+  timestamp: number
+}
+
 type AppCrashBoundaryProps = {
   areaLabel: string
   children: ReactNode
@@ -26,6 +35,17 @@ class AppCrashBoundary extends Component<AppCrashBoundaryProps, AppCrashBoundary
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    const diagnostic: RuntimeDiagnosticDetail = {
+      source: `app-crash:${this.props.areaLabel}`,
+      message: error.message || 'Unexpected runtime failure.',
+      timestamp: Date.now(),
+    }
+
+    window.dispatchEvent(new CustomEvent(GLOBAL_RUNTIME_DIAGNOSTIC_EVENT, { detail: diagnostic }))
+    window.dispatchEvent(new CustomEvent(GLOBAL_RUNTIME_NOTICE_EVENT, {
+      detail: `A runtime error was detected in ${this.props.areaLabel}. Check the diagnostic details below.`,
+    }))
+
     logCrashTelemetry({
       route: typeof window === 'undefined' ? this.props.areaLabel : window.location.pathname,
       error,

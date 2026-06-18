@@ -6,6 +6,7 @@ export type OpenMirrorScreenResult = {
   openedInPopupWindow: boolean
   openedInNewTabWindow: boolean
   blockedByPopup: boolean
+  errorMessage?: string | null
 }
 
 type OpenMirrorScreenOptions = {
@@ -14,7 +15,11 @@ type OpenMirrorScreenOptions = {
   preferEdgeOnWindows?: boolean
 }
 
-const MIRROR_WINDOW_LABEL = 'mirror-screen'
+const MIRROR_WINDOW_LABEL_PREFIX = 'mirror-screen'
+
+function createMirrorWindowLabel() {
+  return `${MIRROR_WINDOW_LABEL_PREFIX}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
 
 async function lockMirrorWindow(mirrorWindow: WebviewWindow) {
   await mirrorWindow.setAlwaysOnTop(true).catch(() => undefined)
@@ -26,12 +31,12 @@ async function lockMirrorWindow(mirrorWindow: WebviewWindow) {
   await mirrorWindow.requestUserAttention(null).catch(() => undefined)
 }
 
-async function createTauriMirrorWindow(urlCandidates: string[]): Promise<WebviewWindow> {
+async function createTauriMirrorWindow(urlCandidates: string[], windowLabel: string): Promise<WebviewWindow> {
   let lastError: unknown = null
 
   for (const url of urlCandidates) {
     try {
-      const mirrorWindow = new WebviewWindow(MIRROR_WINDOW_LABEL, {
+      const mirrorWindow = new WebviewWindow(windowLabel, {
         url,
         title: 'Human Jukebox Mirror',
         decorations: true,
@@ -85,18 +90,14 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     const withQueryUrl = resolveTauriWindowUrl(`/mirror?${mirrorUrl.toString()}`)
     const withoutQueryUrl = resolveTauriWindowUrl('/mirror')
     const hashRouterUrl = `${window.location.origin}/#/mirror?${mirrorUrl.toString()}`
-    const existingWindow = await WebviewWindow.getByLabel(MIRROR_WINDOW_LABEL)
-
-    if (existingWindow) {
-      await existingWindow.close().catch(() => undefined)
-    }
+    const mirrorWindowLabel = createMirrorWindowLabel()
 
     try {
       const mirrorWindow = await createTauriMirrorWindow([
         withQueryUrl,
         hashRouterUrl,
         withoutQueryUrl,
-      ])
+      ], mirrorWindowLabel)
 
       await mirrorWindow.center().catch(() => undefined)
       await lockMirrorWindow(mirrorWindow)
@@ -108,12 +109,20 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         blockedByPopup: false,
       }
     } catch (error) {
+      const errorMessage = error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : 'Failed to create mirror window'
+
       console.error('openMirrorScreen: tauri mirror launch failed after retries', error)
+      window.location.assign(mirrorPath)
       return {
-        navigatedInCurrentWindow: false,
+        navigatedInCurrentWindow: true,
         openedInPopupWindow: false,
         openedInNewTabWindow: false,
-        blockedByPopup: true,
+        blockedByPopup: false,
+        errorMessage,
       }
     }
   }
@@ -134,6 +143,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         openedInPopupWindow: false,
         openedInNewTabWindow: true,
         blockedByPopup: false,
+        errorMessage: null,
       }
     }
   }
@@ -147,6 +157,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
       openedInPopupWindow: false,
       openedInNewTabWindow: true,
       blockedByPopup: false,
+      errorMessage: null,
     }
   }
 
@@ -155,5 +166,6 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     openedInPopupWindow: false,
     openedInNewTabWindow: false,
     blockedByPopup: true,
+    errorMessage: null,
   }
 }

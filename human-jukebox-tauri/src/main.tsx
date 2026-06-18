@@ -99,6 +99,31 @@ function getErrorMessage(error: unknown): string {
   return ''
 }
 
+function getConsoleErrorMessage(args: unknown[]): string {
+  return args
+    .map((value) => {
+      if (typeof value === 'string') {
+        return value
+      }
+
+      if (value instanceof Error) {
+        return `${value.name || 'Error'}: ${value.message || 'Unknown runtime error'}`
+      }
+
+      if (value && typeof value === 'object') {
+        try {
+          return JSON.stringify(value)
+        } catch {
+          return Object.prototype.toString.call(value)
+        }
+      }
+
+      return String(value)
+    })
+    .join(' ')
+    .trim()
+}
+
 function isChunkLoadFailure(error: unknown): boolean {
   const message = getErrorMessage(error).toLowerCase()
 
@@ -606,9 +631,29 @@ function installGlobalRuntimeHooks() {
     return
   }
 
+  const originalConsoleError = console.error.bind(console)
+  const runtimeWindow = window as Window & {
+    __humanJukeboxConsoleErrorHookInstalled?: boolean
+  }
+
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault()
   })
+
+  if (!runtimeWindow.__humanJukeboxConsoleErrorHookInstalled) {
+    runtimeWindow.__humanJukeboxConsoleErrorHookInstalled = true
+
+    console.error = ((...args: unknown[]) => {
+      originalConsoleError(...args)
+
+      const message = getConsoleErrorMessage(args)
+      if (!message) {
+        return
+      }
+
+      emitRuntimeDiagnostic('console-error', new Error(message))
+    }) as typeof console.error
+  }
 
   window.addEventListener('error', (event) => {
     if (isStaticAssetLoadFailureEvent(event)) {
@@ -642,7 +687,7 @@ function installGlobalRuntimeHooks() {
     })
 
     if (event.error) {
-      console.warn('Global runtime error captured', event.error)
+      originalConsoleError('Global runtime error captured', event.error)
     }
     emitRuntimeDiagnostic('global-error', event.error ?? event.message)
     emitRuntimeNotice('A runtime issue was detected. The app is trying to recover automatically.')

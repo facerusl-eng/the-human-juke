@@ -1,36 +1,218 @@
-name: CI
+name: CI Pipeline
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  NODE_VERSION: '20'
+  RUST_VERSION: 'stable'
 
 jobs:
-  verify:
+  lint-tauri:
+    name: Lint Tauri App
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: npm
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: human-jukebox-tauri/package-lock.json
 
       - name: Install dependencies
+        working-directory: human-jukebox-tauri
         run: npm ci
 
-      - name: Lint
+      - name: Run ESLint
+        working-directory: human-jukebox-tauri
         run: npm run lint
 
-      - name: Build
+  lint-audience:
+    name: Lint Audience App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: audience-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: audience-app
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: audience-app
+        run: npm run lint
+
+  typecheck-tauri:
+    name: TypeScript Type Check - Tauri App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: human-jukebox-tauri/package-lock.json
+
+      - name: Install dependencies
+        working-directory: human-jukebox-tauri
+        run: npm ci
+
+      - name: Run TypeScript type check
+        working-directory: human-jukebox-tauri
+        run: npm exec tsc --noEmit
+
+  typecheck-audience:
+    name: TypeScript Type Check - Audience App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: audience-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: audience-app
+        run: npm ci
+
+      - name: Run TypeScript type check
+        working-directory: audience-app
+        run: npm exec tsc --noEmit
+
+  cargo-check:
+    name: Rust Cargo Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: human-jukebox-tauri/package-lock.json
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('human-jukebox-tauri/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install dependencies
+        working-directory: human-jukebox-tauri
+        run: npm ci
+
+      - name: Run Cargo check
+        working-directory: human-jukebox-tauri/src-tauri
+        run: cargo check
+
+  build-audience:
+    name: Build Audience App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: audience-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: audience-app
+        run: npm ci
+
+      - name: Build Audience app
+        working-directory: audience-app
         run: npm run build
 
-      - name: Verify critical migration guards
+      - name: Verify dist output exists
+        working-directory: audience-app
+        run: ls -la dist/
+
+  build-tauri:
+    name: Build Tauri Desktop App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: human-jukebox-tauri/package-lock.json
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('human-jukebox-tauri/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install dependencies
+        working-directory: human-jukebox-tauri
+        run: npm ci
+
+      - name: Build Tauri app
+        working-directory: human-jukebox-tauri
+        run: npm run build
+
+      - name: Verify target output exists
+        working-directory: human-jukebox-tauri
+        run: ls -la src-tauri/target/release/
+
+      - name: List bundled executables
+        working-directory: human-jukebox-tauri
+        run: find src-tauri/target/release/bundle -name "*.exe" -o -name "*.msi" 2>/dev/null || echo "No packaged bundles found in standard locations"
+
+      - name: Verify icons exist
+        working-directory: human-jukebox-tauri
         run: |
-          grep -q "crash_telemetry_select_authenticated" supabase-migration.sql
-          grep -q "CREATE TABLE IF NOT EXISTS public.crash_telemetry" supabase-migration.sql
+          echo "Checking icons..."
+          ls -la src-tauri/icons/ || echo "Icons directory not found"

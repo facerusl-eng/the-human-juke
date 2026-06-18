@@ -18,7 +18,8 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
   mirrorUrl.searchParams.set('launchFullscreen', '1')
   mirrorUrl.searchParams.set('cast', '1')
   mirrorUrl.searchParams.delete('windowed')
-  const mirrorWindowFeatures = 'popup,width=1280,height=720,noopener,noreferrer'
+  const mirrorWindowFeatures = 'width=1280,height=720,noopener,noreferrer'
+  const mirrorWindowTarget = '_blank'
 
   if (options.eventId?.trim()) {
     mirrorUrl.searchParams.set('event', options.eventId.trim())
@@ -35,7 +36,7 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
 
   if (preferEdgeOnWindows && isWindows && !isEdgeBrowser) {
     const edgeProtocolUrl = `microsoft-edge:${mirrorUrl.toString()}`
-    const edgeTab = window.open(edgeProtocolUrl, 'human-jukebox-mirror', mirrorWindowFeatures)
+    const edgeTab = window.open(edgeProtocolUrl, mirrorWindowTarget, mirrorWindowFeatures)
 
     if (edgeTab) {
       edgeTab.focus()
@@ -48,7 +49,7 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
     }
   }
 
-  const mirrorTab = window.open(mirrorUrl.toString(), 'human-jukebox-mirror', mirrorWindowFeatures)
+  const mirrorTab = window.open(mirrorUrl.toString(), mirrorWindowTarget, mirrorWindowFeatures)
 
   if (mirrorTab) {
     mirrorTab.focus()

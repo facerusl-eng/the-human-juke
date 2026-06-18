@@ -3947,6 +3947,20 @@ body.audience-immersive-mode {
   color: #f7fbff;
 }
 
+.host-remember-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.host-remember-checkbox {
+  margin-right: 8px;
+}
+
+.host-forgot-password-button {
+  margin-bottom: 8px;
+  text-align: left;
+}
+
 .admin-shell {
   display: grid;
   gap: clamp(0.85rem, 2.4vw, 1.2rem);

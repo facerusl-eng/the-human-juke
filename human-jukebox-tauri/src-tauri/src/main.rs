@@ -51,8 +51,9 @@ fn main() {
                         let _ = window.eval("window.location.reload()") ;
                     }
                 }
-                "update" => {
-                    app.restart();
+"update" => {
+                    // app.restart() requires updater plugin - call safely to prevent crash
+                    let _ = app.restart();
                 }
                 "quit" => {
                     app.exit(0);

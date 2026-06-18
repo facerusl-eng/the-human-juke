@@ -4919,7 +4919,7 @@ function MirrorPageContent() {
       {playbackState?.brbActive ? (
         <div className="mirror-brb-overlay" aria-live="polite" role="status">
           <div className="mirror-brb-copy">
-            <p className="mirror-brb-icon" aria-hidden="true">­ƒì║</p>
+            <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
             <p className="mirror-brb-heading">On Break</p>
             <p className="mirror-brb-message">{playbackState.brbMessage?.trim() || DEFAULT_BRB_MESSAGE}</p>
           </div>

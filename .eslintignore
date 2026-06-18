@@ -1,0 +1,4 @@
+# Tauri build output directories - these contain binary-like JS chunks
+src-tauri/target/**
+**/src-tauri/target/**
+human-jukebox-tauri/src-tauri/target/**

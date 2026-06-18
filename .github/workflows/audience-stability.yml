@@ -1,0 +1,142 @@
+name: Audience App Stability Tests
+
+on:
+  push:
+    paths:
+      - 'audience-app/**'
+      - '.github/workflows/audience-stability.yml'
+  pull_request:
+    paths:
+      - 'audience-app/**'
+      - '.github/workflows/audience-stability.yml'
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  eslint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: audience-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: audience-app
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: audience-app
+        run: npm run lint
+
+  typecheck:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: audience-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: audience-app
+        run: npm ci
+
+      - name: Run TypeScript type check
+        working-directory: audience-app
+        run: npm exec tsc --noEmit
+
+  vite-build:
+    name: Vite Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: audience-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: audience-app
+        run: npm ci
+
+      - name: Build app
+        working-directory: audience-app
+        run: npm run build
+
+  validate-dist:
+    name: Validate Dist Assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: audience-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: audience-app
+        run: npm ci
+
+      - name: Build app
+        working-directory: audience-app
+        run: npm run build
+
+      - name: Verify dist directory exists
+        run: |
+          if [ -d "audience-app/dist" ]; then
+            echo "✓ dist directory exists"
+          else
+            echo "✗ dist directory missing"
+            exit 1
+          fi
+
+      - name: Verify dist has content
+        run: |
+          if [ -d "audience-app/dist" ] && [ "$(ls -A audience-app/dist)" ]; then
+            echo "✓ dist directory has content"
+          else
+            echo "✗ dist directory is empty"
+            exit 1
+          fi
+
+      - name: List dist contents
+        run: ls -la audience-app/dist/
+
+      - name: Verify index.html exists
+        run: |
+          if [ -f "audience-app/dist/index.html" ]; then
+            echo "✓ index.html exists"
+          else
+            echo "✗ index.html missing"
+            exit 1
+          fi
+
+      - name: Verify assets directory exists
+        run: |
+          if [ -d "audience-app/dist/assets" ]; then
+            echo "✓ assets directory exists"
+            ls -la audience-app/dist/assets/
+          else
+            echo "⚠ assets directory not found (may be没有问题 if using different build config)"
+          fi

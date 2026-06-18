@@ -1,0 +1,214 @@
+name: Tauri Stability Tests
+
+on:
+  push:
+    paths:
+      - 'human-jukebox-tauri/src-tauri/**'
+      - 'human-jukebox-tauri/package.json'
+      - '.github/workflows/tauri-stability.yml'
+  pull_request:
+    paths:
+      - 'human-jukebox-tauri/src-tauri/**'
+      - 'human-jukebox-tauri/package.json'
+      - '.github/workflows/tauri-stability.yml'
+
+env:
+  NODE_VERSION: '20'
+  RUST_VERSION: 'stable'
+
+jobs:
+  cargo-check:
+    name: Cargo Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('human-jukebox-tauri/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Cargo check
+        working-directory: human-jukebox-tauri/src-tauri
+        run: cargo check
+
+  cargo-clippy:
+    name: Cargo Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('human-jukebox-tauri/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Cargo clippy
+        working-directory: human-jukebox-tauri/src-tauri
+        run: cargo clippy -- -D warnings
+
+  cargo-test:
+    name: Cargo Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('human-jukebox-tauri/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Cargo test
+        working-directory: human-jukebox-tauri/src-tauri
+        run: cargo test
+
+  verify-tauri-config:
+    name: Verify Tauri Config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify tauri.conf.json exists
+        run: test -f human-jukebox-tauri/src-tauri/tauri.conf.json && echo "tauri.conf.json found" || exit 1
+
+      - name: Verify tauri.conf.json is valid JSON
+        working-directory: human-jukebox-tauri
+        run: node -e "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json', 'utf8'))" && echo "Valid JSON"
+
+      - name: Verify icons directory exists
+        run: test -d human-jukebox-tauri/src-tauri/icons && echo "icons directory found" || exit 1
+
+      - name: Verify required icons exist
+        working-directory: human-jukebox-tauri
+        run: |
+          echo "Checking required icons..."
+          required_icons=("icons/32x32.png" "icons/128x128.png" "icons/128x128@2x.png" "icons/icon.ico")
+          for icon in "${required_icons[@]}"; do
+            if [ -f "$icon" ]; then
+              echo "✓ $icon exists"
+            else
+              echo "✗ $icon missing"
+              exit 1
+            fi
+          done
+
+  verify-shortcuts:
+    name: Verify Shortcut Event Contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: human-jukebox-tauri/package-lock.json
+
+      - name: Install dependencies
+        working-directory: human-jukebox-tauri
+        run: npm ci
+
+      - name: Run shortcut verification script
+        working-directory: human-jukebox-tauri
+        run: npm run verify:tauri-shortcuts
+
+  verify-eslint-ignores:
+    name: Verify ESLint Ignores Target
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check .eslintignore contains target
+        run: |
+          echo "Checking .eslintignore for src-tauri/target/**..."
+          if grep -q "src-tauri/target" .eslintignore; then
+            echo "✓ src-tauri/target is ignored"
+          else
+            echo "✗ src-tauri/target not found in .eslintignore"
+            exit 1
+          fi
+
+  verify-package-assets:
+    name: Verify Package Assets Included
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: human-jukebox-tauri/package-lock.json
+
+      - name: Install dependencies
+        working-directory: human-jukebox-tauri
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: human-jukebox-tauri
+        run: npm exec vite build
+
+      - name: Verify dist directory has content
+        run: |
+          if [ -d "human-jukebox-tauri/dist" ] && [ "$(ls -A human-jukebox-tauri/dist)" ]; then
+            echo "✓ dist directory has content"
+            ls -la human-jukebox-tauri/dist/
+          else
+            echo "✗ dist directory is empty or missing"
+            exit 1
+          fi
+
+      - name: Verify public assets exist
+        run: |
+          if [ -d "human-jukebox-tauri/public" ]; then
+            echo "✓ public directory exists"
+            ls -la human-jukebox-tauri/public/
+          else
+            echo "✗ public directory missing"
+            exit 1
+          fi

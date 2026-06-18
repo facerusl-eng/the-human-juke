@@ -49,9 +49,11 @@ async function main() {
 
   const tauriArgs = process.argv.slice(2);
   const normalizedArgs = tauriArgs.length > 0 ? tauriArgs : ['dev'];
-  const shouldRefreshShortcut = normalizedArgs.includes('dev') || normalizedArgs.includes('build');
+  // Only refresh shortcuts for 'build' - not for 'dev' (no packaged exe exists during dev)
+  const isBuild = normalizedArgs.includes('build');
 
-  if (shouldRefreshShortcut) {
+  if (isBuild) {
+    // Pre-build shortcut refresh: try to update with existing packaged exe (if any)
     await runShortcutRefresh();
   }
 
@@ -66,7 +68,9 @@ async function main() {
     ])
     : await runCommand('npx', ['--no-install', 'tauri', ...normalizedArgs]);
 
-  if (shouldRefreshShortcut && tauriExitCode === 0) {
+  // Post-build shortcut refresh: always update after successful build
+  // This ensures the shortcut points to the newly packaged exe
+  if (isBuild && tauriExitCode === 0) {
     await runShortcutRefresh();
   }
 

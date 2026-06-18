@@ -105,7 +105,7 @@ function ShellLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(null)
-  const [runtimeDiagnostic, setRuntimeDiagnostic] = useState<RuntimeDiagnosticDetail | null>(null)
+  const [runtimeDiagnostics, setRuntimeDiagnostics] = useState<RuntimeDiagnosticDetail[]>([])
   const [runtimeDiagnosticCopied, setRuntimeDiagnosticCopied] = useState(false)
   const [dismissedDegradedBanner, setDismissedDegradedBanner] = useState(false)
   const [runtimeBuildTag] = useState(() => getRuntimeBuildTag())
@@ -197,7 +197,7 @@ function ShellLayout() {
         return
       }
 
-      setRuntimeDiagnostic(payload)
+      setRuntimeDiagnostics((current) => [payload, ...current].slice(0, 8))
     }
 
     window.addEventListener(GLOBAL_RUNTIME_NOTICE_EVENT, onRuntimeNotice as EventListener)
@@ -214,6 +214,8 @@ function ShellLayout() {
   const isAdminRoute = currentPath.startsWith('/admin')
   const isFocusedGigControlView = currentPath.startsWith('/admin/gig-control') && searchParams.get('view') === 'focus'
   const showAdminNavigation = isAdminRoute && !isFocusedGigControlView
+  const latestRuntimeDiagnostic = runtimeDiagnostics[0] ?? null
+  const hasRuntimeDiagnostics = runtimeDiagnostics.length > 0
 
   const authErrorText = authError?.toLowerCase() ?? ''
   const queueHealthText = queueHealthMessage?.toLowerCase() ?? ''
@@ -241,11 +243,11 @@ function ShellLayout() {
   }, [degradedServiceMessage])
 
   const copyRuntimeDiagnostic = async () => {
-    if (!runtimeDiagnostic) {
+    if (!latestRuntimeDiagnostic) {
       return
     }
 
-    const payload = JSON.stringify(runtimeDiagnostic)
+    const payload = JSON.stringify(runtimeDiagnostics.length === 1 ? latestRuntimeDiagnostic : runtimeDiagnostics, null, 2)
 
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
@@ -317,40 +319,63 @@ function ShellLayout() {
             </section>
           ) : null}
 
-          {runtimeNotice && !isFocusedGigControlView ? (
-          <section className="queue-panel" role="status" aria-live="polite">
-            <div className="hero-actions no-margin-bottom">
-              <p className="subcopy no-margin">{runtimeNotice}</p>
-              {runtimeDiagnostic ? (
-                <p className="subcopy no-margin">
-                  Last diagnostic: {runtimeDiagnostic.source} - {runtimeDiagnostic.message}
-                </p>
-              ) : null}
-              {runtimeDiagnostic ? (
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => {
-                    void copyRuntimeDiagnostic()
-                  }}
-                >
-                  {runtimeDiagnosticCopied ? 'Copied' : 'Copy Diagnostic'}
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => {
-                  setRuntimeNotice(null)
-                  setRuntimeDiagnostic(null)
-                  setRuntimeDiagnosticCopied(false)
-                }}
-              >
-                Dismiss
-              </button>
-            </div>
-          </section>
-        ) : null}
+          {(runtimeNotice || hasRuntimeDiagnostics) && !isFocusedGigControlView ? (
+            <section className="queue-panel" role="status" aria-live="polite">
+              <div className="hero-actions no-margin-bottom">
+                <div className="w-full min-w-0">
+                  <p className="eyebrow">{runtimeNotice ? 'Runtime notice' : 'Runtime diagnostics'}</p>
+                  {runtimeNotice ? <p className="subcopy no-margin">{runtimeNotice}</p> : null}
+                  {hasRuntimeDiagnostics ? (
+                    <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+                      <p className="subcopy mb-2">Recent error feed</p>
+                      <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                        {runtimeDiagnostics.map((diagnostic) => (
+                          <li
+                            key={`${diagnostic.timestamp}-${diagnostic.source}-${diagnostic.message}`}
+                            className="rounded-xl border border-white/5 bg-white/5 p-3"
+                          >
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                              {diagnostic.source}
+                            </p>
+                            <p className="mt-1 break-words text-sm text-white">
+                              {diagnostic.message}
+                            </p>
+                            <p className="mt-1 text-[11px] text-white/45">
+                              {new Date(diagnostic.timestamp).toLocaleTimeString()}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {hasRuntimeDiagnostics ? (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => {
+                        void copyRuntimeDiagnostic()
+                      }}
+                    >
+                      {runtimeDiagnosticCopied ? 'Copied' : runtimeDiagnostics.length > 1 ? 'Copy Feed' : 'Copy Diagnostic'}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => {
+                      setRuntimeNotice(null)
+                      setRuntimeDiagnostics([])
+                      setRuntimeDiagnosticCopied(false)
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </section>
+          ) : null}
         <Outlet />
         {!isFocusedGigControlView ? (
           <footer className="site-legal-footer" aria-label="Copyright notice">

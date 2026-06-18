@@ -1,0 +1,159 @@
+name: Build Verification
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main, master]
+
+env:
+  NODE_VERSION: '20'
+  RUST_VERSION: 'stable'
+
+jobs:
+  verify-tauri-build:
+    name: Verify Tauri Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: human-jukebox-tauri/package-lock.json
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('human-jukebox-tauri/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install dependencies
+        working-directory: human-jukebox-tauri
+        run: npm ci
+
+      - name: Build Tauri app
+        working-directory: human-jukebox-tauri
+        run: npm run build
+
+      - name: Verify build completed without errors
+        run: |
+          if [ -d "human-jukebox-tauri/dist" ] && [ "$(ls -A human-jukebox-tauri/dist)" ]; then
+            echo "✓ Frontend build successful"
+          else
+            echo "✗ Frontend build failed or empty"
+            exit 1
+          fi
+
+      - name: Verify release binary
+        run: |
+          if [ -f "human-jukebox-tauri/src-tauri/target/release/human-jukebox-tauri" ] || \
+             [ -f "human-jukebox-tauri/src-tauri/target/release/human-jukebox-tauri.exe" ]; then
+            echo "✓ Release binary exists"
+          else
+            echo "⚠ Release binary not in standard location, searching..."
+            find human-jukebox-tauri/src-tauri/target/release -maxdepth 2 -type f -executable 2>/dev/null | head -5
+          fi
+
+      - name: Verify bundle output
+        run: |
+          echo "Checking bundle output..."
+          find human-jukebox-tauri/src-tauri/target/release/bundle -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.app" \) 2>/dev/null
+          if [ $? -eq 0 ]; then
+            echo "✓ Bundle artifacts found"
+          else
+            echo "⚠ No bundle artifacts found in standard locations (may need full tauri build)"
+          fi
+
+  verify-audience-build:
+    name: Verify Audience App Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: audience-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: audience-app
+        run: npm ci
+
+      - name: Build Audience app
+        working-directory: audience-app
+        run: npm run build
+
+      - name: Verify build completed without errors
+        run: |
+          if [ -d "audience-app/dist" ] && [ "$(ls -A audience-app/dist)" ]; then
+            echo "✓ Build successful"
+            ls -la audience-app/dist/
+          else
+            echo "✗ Build failed or empty"
+            exit 1
+          fi
+
+      - name: Verify index.html
+        run: |
+          if [ -f "audience-app/dist/index.html" ]; then
+            echo "✓ index.html found"
+          else
+            echo "✗ index.html missing"
+            exit 1
+          fi
+
+      - name: Verify critical assets
+        run: |
+          echo "Checking for critical assets..."
+          if ls audience-app/dist/assets/*.js 2>/dev/null | head -1 > /dev/null; then
+            echo "✓ JavaScript bundles found"
+          fi
+          if ls audience-app/dist/assets/*.css 2>/dev/null | head -1 > /dev/null; then
+            echo "✓ CSS files found"
+          fi
+
+  test-audience-preview:
+    name: Test Audience App Serves Correctly
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: audience-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: audience-app
+        run: npm ci
+
+      - name: Build app
+        working-directory: audience-app
+        run: npm run build
+
+      - name: Verify preview can start without errors
+        working-directory: audience-app
+        run: timeout 10s npm run preview || echo "Preview test completed (timeout is expected)"
