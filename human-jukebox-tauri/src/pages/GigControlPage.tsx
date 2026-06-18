@@ -33,6 +33,8 @@ import {
   isLastSongSoonOverlayMessage,
   normalizeCountdownTargetMs,
   parseIntroAudioPlaybackRequest,
+  requestSharedIntroAudioPlayback,
+  type IntroAudioPlaybackRequest,
   type SharedPlaybackState,
   readSharedPlaybackState,
   writeSharedPlaybackState,
@@ -652,6 +654,8 @@ function GigControlPage() {
   const autoLiveNextRetryAtRef = useRef(0)
   const autoLiveInFlightRef = useRef(false)
   const lastIntroPlaybackRequestRef = useRef<string | null>(null)
+  const pendingIntroAudioRequestRef = useRef<IntroAudioPlaybackRequest | null>(null)
+  const previousShowStatusRef = useRef<'paused' | 'countdown' | 'live' | null>(null)
   const hostClockOffsetRef = useRef(0)
   const introAudioLockOwnerRef = useRef<string | null>(null)
   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
@@ -774,6 +778,11 @@ function GigControlPage() {
       ? 'Intro MP3 playing...'
       : null
     : null
+  const showPlaybackStatus = event?.roomOpen
+    ? 'live'
+    : playbackTransitionState?.phase === 'countdown'
+    ? 'countdown'
+    : 'paused'
   const mirroredCountdownTargetMs = useMemo(() => {
     const target = resolveGigStartAt(event?.gigDate, event?.gigStartTime)
     return target ? target.getTime() : null
@@ -1978,39 +1987,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       }
 
       lastIntroPlaybackRequestRef.current = requestKey
-
-      void (async () => {
-        await playIntroAudioOnceSafely(
-          event.id,
-          request.introAudioUrl,
-          'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
-        )
-
-        if (isNowPlayingStartedRef.current) {
-          return
-        }
-
-        await writeSharedPlaybackState(event.id, {
-          currentSongId: nowPlayingRef.current?.id ?? null,
-          currentSongCoverUrl: resolveCoverUrlForSong(nowPlayingRef.current?.id ?? null),
-          isStarted: false,
-          quoteIndex: quoteIndexRef.current,
-          countdownTargetMs: mirroredCountdownTargetMs,
-          brbActive: false,
-          brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
-        })
-
-        setIsNowPlayingStarted(false)
-        setPreflightStatusText('Auto Live intro triggered from countdown.')
-
-        try {
-          window.localStorage.removeItem(INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY)
-        } catch {
-          // Ignore storage cleanup failures.
-        }
-      })().catch((error) => {
-        console.warn('GigControlPage: intro playback request handling failed', error)
-      })
+      pendingIntroAudioRequestRef.current = request
     }
 
     const onIntroRequestEvent = (nextEvent: Event) => {
@@ -2036,6 +2013,68 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       window.removeEventListener('storage', onIntroRequestStorage)
     }
   }, [event?.id, mirroredCountdownTargetMs, playIntroAudioOnceSafely, resolveCoverUrlForSong])
+
+  useEffect(() => {
+    const previousShowStatus = previousShowStatusRef.current
+    const currentShowStatus = showPlaybackStatus
+    const pendingIntroAudioRequest = pendingIntroAudioRequestRef.current
+
+    if (previousShowStatus === 'countdown' && currentShowStatus === 'live' && pendingIntroAudioRequest) {
+      pendingIntroAudioRequestRef.current = null
+
+      void (async () => {
+        try {
+          await playIntroAudioOnceSafely(
+            pendingIntroAudioRequest.eventId,
+            pendingIntroAudioRequest.introAudioUrl,
+            'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
+          )
+
+          if (isNowPlayingStartedRef.current) {
+            return
+          }
+
+          await writeSharedPlaybackState(pendingIntroAudioRequest.eventId, {
+            currentSongId: nowPlayingRef.current?.id ?? null,
+            currentSongCoverUrl: resolveCoverUrlForSong(nowPlayingRef.current?.id ?? null),
+            isStarted: false,
+            quoteIndex: quoteIndexRef.current,
+            countdownTargetMs: mirroredCountdownTargetMs,
+            brbActive: false,
+            brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+          })
+
+          setIsNowPlayingStarted(false)
+          setPreflightStatusText('Auto Live intro triggered from countdown.')
+        } catch (error) {
+          console.warn('GigControlPage: intro playback request handling failed', error)
+        } finally {
+          try {
+            window.localStorage.removeItem(INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY)
+          } catch {
+            // Ignore storage cleanup failures.
+          }
+        }
+      })()
+    }
+
+    if (currentShowStatus !== 'countdown' && pendingIntroAudioRequest) {
+      pendingIntroAudioRequestRef.current = null
+      try {
+        window.localStorage.removeItem(INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY)
+      } catch {
+        // Ignore storage cleanup failures.
+      }
+    }
+
+    previousShowStatusRef.current = currentShowStatus
+  }, [
+    mirroredCountdownTargetMs,
+    nowPlayingRef,
+    playIntroAudioOnceSafely,
+    resolveCoverUrlForSong,
+    showPlaybackStatus,
+  ])
 
   const toggleLiveState = useCallback(async () => {
     if (!ensureGlobalActionCheckEnabled('changing live state')) {
@@ -2065,6 +2104,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       if (isOpeningRoom) {
         if (currentEvent.introAudioUrl) {
           primeIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl);
+          requestSharedIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl, 'gig-control-go-live')
         }
 
         setAutoLiveLastError(null);
@@ -2083,23 +2123,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       const latestEvent = eventRef.current;
       if (!isOpeningRoom || !latestEvent?.id || latestEvent.id !== currentEvent.id) {
         return;
-      }
-
-      if (latestEvent.introAudioUrl) {
-        const primedIntroAudio = primedIntroAudioRef.current;
-        const primedElement =
-          primedIntroAudio &&
-          primedIntroAudio.eventId === latestEvent.id &&
-          primedIntroAudio.url === latestEvent.introAudioUrl
-            ? primedIntroAudio.element
-            : null;
-
-        await playIntroAudioOnceSafely(
-          latestEvent.id,
-          latestEvent.introAudioUrl,
-          'Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
-          primedElement,
-        );
       }
 
       await writeSharedPlaybackState(latestEvent.id, {
@@ -3387,18 +3410,15 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   const startCurrentSong = useCallback(async (options?: { skipIntroAudio?: boolean; countdownMs?: number }) => {
     const currentEvent = eventRef.current
     const currentSong = nowPlayingRef.current
-    const shouldSkipIntroAudio = options?.skipIntroAudio === true
-    const transitionIntroAudioUrl = shouldSkipIntroAudio ? null : (currentEvent?.introAudioUrl ?? null)
+    // The event-level introAudioUrl is the show-start MP3 and must only play once at show start
+    // (managed by the Go Live / countdown→live flow). Song-start transitions never play it.
+    const transitionIntroAudioUrl = null
     const countdownMs = Number.isFinite(options?.countdownMs)
       ? Math.max(250, Number(options?.countdownMs))
       : SONG_START_COUNTDOWN_MS
 
     if (!currentEvent?.id || !currentSong?.id || playbackTransitionLockedRef.current) {
       return
-    }
-
-    if (transitionIntroAudioUrl) {
-      primeIntroAudioPlayback(currentEvent.id, transitionIntroAudioUrl)
     }
 
     const transitionId = `${currentSong.id}:${Date.now()}`
@@ -4488,7 +4508,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               </div>
             ) : null}
             <h1>{event.name}</h1>
-            <div className="subcopy no-margin">Local time: {localTime.toLocaleTimeString()}</div>
+            <div className="gig-local-clock" aria-label={`Local time ${localTime.toLocaleTimeString()}`}>
+              <span className="gig-local-clock-label">Local time</span>
+              <span className="gig-local-clock-time">{localTime.toLocaleTimeString()}</span>
+            </div>
             {isCurrentTestGig ? <p className="meta-badge">Test Gig (Private)</p> : null}
             {event.venue ? <p className="subcopy no-margin">{event.venue}</p> : null}
             {event.subtitle ? <p className="subcopy gig-event-subtitle">{event.subtitle}</p> : null}
