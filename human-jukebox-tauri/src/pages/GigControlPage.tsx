@@ -572,6 +572,7 @@ function GigControlPage() {
   const [autoLiveLockBadgeText, setAutoLiveLockBadgeText] = useState<string | null>(null)
   const [hostClockOffsetMs, setHostClockOffsetMs] = useState(() => readSharedClockOffsetCache() ?? 0)
   const [playbackTransitionNowMs, setPlaybackTransitionNowMs] = useState(() => Date.now())
+  const [localTime, setLocalTime] = useState(() => new Date())
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
@@ -625,6 +626,7 @@ function GigControlPage() {
       console.warn('GigControlPage error:', errorText);
     }
   }, [errorText]);
+  useEffect(() => { const timerId = window.setInterval(() => setLocalTime(new Date()), 1000); return () => window.clearInterval(timerId) }, [])
 
   const quoteIndexRef = useRef(0)
   const isNowPlayingStartedRef = useRef(isNowPlayingStarted)
@@ -3892,10 +3894,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
     const statusMessage = openedInNewTabWindow || navigatedInCurrentWindow || openedInPopupWindow
       ? isTauriDesktopRuntime()
-        ? `Mirror opened in a separate window. Gig Control stays open here.${errorMessage ? ` Native launch note: ${errorMessage}` : ''}`
+        ? navigatedInCurrentWindow
+          ? `Mirror could not open in a separate native window, so it opened in the current Tauri window instead.${errorMessage ? ` Error: ${errorMessage}` : ''}`
+          : `Mirror opened in a separate window. Gig Control stays open here.${errorMessage ? ` Native launch note: ${errorMessage}` : ''}`
         : 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
       : blockedByPopup
       ? 'Mirror could not open a separate window. Allow pop-ups in the shortcut app and try again.'
+      : isTauriDesktopRuntime() && errorMessage
+      ? `Mirror could not open a separate native window. Gig Control stayed open here.${errorMessage ? ` Error: ${errorMessage}` : ''}`
       : 'Could not open Mirror. Please try again.'
 
     setMirrorLaunchStatusText(statusMessage)
@@ -4482,6 +4488,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               </div>
             ) : null}
             <h1>{event.name}</h1>
+            <div className="subcopy no-margin">Local time: {localTime.toLocaleTimeString()}</div>
             {isCurrentTestGig ? <p className="meta-badge">Test Gig (Private)</p> : null}
             {event.venue ? <p className="subcopy no-margin">{event.venue}</p> : null}
             {event.subtitle ? <p className="subcopy gig-event-subtitle">{event.subtitle}</p> : null}

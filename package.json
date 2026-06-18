@@ -16,7 +16,7 @@
     "install:apps": "npm --prefix human-jukebox-web install && npm --prefix audience-app install && npm --prefix human-jukebox-tauri install",
     "dev:web": "vite",
     "dev:api": "node server/index.js",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm --prefix human-jukebox-tauri run build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:responsive": "node scripts/responsive-smoke.mjs",

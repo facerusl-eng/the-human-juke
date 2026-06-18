@@ -1945,7 +1945,7 @@ function MirrorPageContent() {
   }, [safeSongs])
 
   const nowPlaying = safeSongs[0]
-  const isLive = (event?.roomOpen ?? false) || countdownAutoLiveActive
+  const isLive = event?.roomOpen ?? false
   const isEmbeddedPreview =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
   const showMirrorDebugOverlay =
