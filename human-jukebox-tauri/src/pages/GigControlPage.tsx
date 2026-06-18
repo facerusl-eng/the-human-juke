@@ -3579,6 +3579,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
+    if (!isNowPlayingStartedRef.current) {
+      // Start the song instantly (no mirror countdown) — same path as "▶ Go Live" button
+      await runGlobalToggleQuoteNowPlayingRef.current()
+      return
+    }
+
     await runQueueTogglePlayShortcutRef.current()
   }, [])
 
@@ -3696,7 +3702,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       || normalizedKey === 'space'
       || (event as unknown as { keyCode?: number; which?: number }).keyCode === 32
       || (event as unknown as { keyCode?: number; which?: number }).which === 32
-    if (!isSpaceKey) {
+    // ArrowDown / PageDown act as the foot pedal key — same action as Space
+    const isPedalKey = event.code === 'ArrowDown' || event.key === 'ArrowDown'
+      || event.code === 'PageDown' || event.key === 'PageDown'
+    if (!isSpaceKey && !isPedalKey) {
       return
     }
 
@@ -4618,6 +4627,24 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               title={nowPlaying?.title ? 'Open lyrics for the now-playing song on a stage-friendly screen' : 'Start a song to enable lyrics screen'}
             >
               Show Lyrics
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                if (typeof navigator !== 'undefined' && 'hid' in navigator) {
+                  const hidApi = (navigator as unknown as { hid: { requestDevice: (opts: { filters: unknown[] }) => Promise<Array<{ productName?: string; opened?: boolean; open?: () => Promise<void> }>> } }).hid
+                  void hidApi.requestDevice({ filters: [] }).then(async (devices) => {
+                    const dev = devices[0]
+                    if (dev && !dev.opened && typeof dev.open === 'function') {
+                      await dev.open()
+                    }
+                  }).catch(() => { /* user cancelled */ })
+                }
+              }}
+              title="Connect Bluetooth foot pedal — ArrowDown and PageDown act as spacebar in Gig Control"
+            >
+              🦶 Connect Pedal
             </button>
             <button
               type="button"

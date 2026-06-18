@@ -1285,30 +1285,7 @@ export default function LyricsPage() {
           <div className="lyrics-stage-heading-block">
             <h1 className="audience-lyrics-title">{title} - {displayArtist}</h1>
             <p className="audience-lyrics-subtitle">Stage lyrics view</p>
-            {isHost ? (
-              <div className="lyrics-pedal-controls" aria-label="Lyrics pedal controls">
-                <div className="lyrics-pedal-row">
-                  <button type="button" className="primary-button lyrics-pedal-connect" onClick={() => { void connectBluetoothPedal(); }} disabled={pedalConnecting}>
-                    {pedalConnecting ? 'Connecting pedal...' : 'Connect Bluetooth Pedal'}
-                  </button>
-                  <span className={`lyrics-pedal-state${pedalConnected ? ' is-connected' : ''}`}>
-                    {pedalConnected ? `Connected: ${pedalDeviceName ?? 'Pedal'}` : 'Not connected'}
-                  </span>
-                </div>
-                <div className="lyrics-pedal-row lyrics-nudge-row">
-                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-250)}>-250ms</button>
-                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-100)}>-100ms</button>
-                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={tapSyncLyrics}>Tap Sync</button>
-                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(100)}>+100ms</button>
-                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(250)}>+250ms</button>
-                  <button type="button" className="primary-button lyrics-nudge-btn" onClick={resetLyricsNudge}>Reset</button>
-                </div>
-                <p className="lyrics-pedal-hint">
-                  Offset: {lyricsNudgeMs >= 0 ? '+' : ''}{lyricsNudgeMs}ms. Hotkeys: ArrowLeft/ArrowRight nudge, ArrowDown tap sync.
-                </p>
-                {pedalStatusText ? <p className="lyrics-pedal-hint">{pedalStatusText}</p> : null}
-              </div>
-            ) : null}
+
           </div>
         </div>
       ) : (
@@ -1342,60 +1319,8 @@ export default function LyricsPage() {
       ) : null}
 
       {formattedLyrics ? (
-        <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}${hasTimedKaraoke ? ' lyrics-stage-text-timed' : ''}` : ' audience-lyrics-text-sections'}`}>
-          {isStageMode ? (() => {
-            if (!hasTimedKaraoke) {
-              return <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
-            }
-
-            const activeLineIndex = getActiveTimedLyricsLineIndex(timedKaraokeLines, effectiveTimedElapsedMs)
-            const activeLine = activeLineIndex >= 0 ? timedKaraokeLines[activeLineIndex] : null
-
-            const nextLine = activeLineIndex >= 0
-              ? timedKaraokeLines.slice(activeLineIndex + 1).find((line) => !line.isHeading && line.text.length > 0) ?? null
-              : null
-
-            const headingForActiveLine = activeLineIndex > 0
-              ? [...timedKaraokeLines.slice(0, activeLineIndex)].reverse().find((line) => line.isHeading)?.headingText ?? null
-              : null
-
-            if (!activeLine || activeLine.isHeading) {
-              return <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
-            }
-
-            return (
-              <div className="lyrics-stage-focus lyrics-stage-focus-timed">
-                {headingForActiveLine ? <div className="lyrics-focus-heading">{headingForActiveLine}</div> : null}
-                <article className="lyrics-focus-card is-active">
-                  <p className="lyrics-focus-label">Now</p>
-                  <p className="lyrics-focus-primary is-timed">{renderTimedWords(activeLine, effectiveTimedElapsedMs)}</p>
-                  <p className="lyrics-focus-label">Next</p>
-                  <p className="lyrics-focus-secondary">{nextLine?.text ?? '...'}</p>
-                </article>
-                <section className="lyrics-stage-full-timeline" aria-label="Full lyrics timeline">
-                  {timedKaraokeLines.map((line, index) => {
-                    if (line.isHeading) {
-                      return (
-                        <p key={`timeline-heading-${index}`} className="lyrics-timeline-heading">{line.headingText}</p>
-                      )
-                    }
-
-                    const isActive = index === activeLineIndex
-                    const isSung = index < activeLineIndex
-
-                    return (
-                      <p
-                        key={`timeline-line-${index}`}
-                        className={`lyrics-timeline-line${isActive ? ' is-active' : ''}${isSung ? ' is-sung' : ''}`}
-                      >
-                        {isActive ? renderTimedWords(line, effectiveTimedElapsedMs) : line.text}
-                      </p>
-                    )
-                  })}
-                </section>
-              </div>
-            )
-          })() : renderLyricsSections(formattedLyrics)}
+        <div className="audience-lyrics-text audience-lyrics-text-sections">
+          {renderLyricsSections(formattedLyrics)}
         </div>
       ) : null}
     </div>
