@@ -15,7 +15,7 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
   const mirrorUrl = new URL('/mirror', window.location.origin)
   mirrorUrl.searchParams.set('safeMargins', '1')
   mirrorUrl.searchParams.set('density', 'medium')
-  mirrorUrl.searchParams.set('launchFullscreen', '1')
+  mirrorUrl.searchParams.delete('launchFullscreen')
   mirrorUrl.searchParams.set('cast', '1')
   mirrorUrl.searchParams.delete('windowed')
   const mirrorWindowFeatures = 'width=1280,height=720,noopener,noreferrer'
