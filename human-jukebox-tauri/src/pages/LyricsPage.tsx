@@ -1372,6 +1372,15 @@ export default function LyricsPage() {
         </div>
       ) : (
         <>
+          <nav className="lyrics-audience-nav" aria-label="Lyrics navigation">
+            <button
+              type="button"
+              className="ghost-button lyrics-audience-back-btn"
+              onClick={handleBackNavigation}
+            >
+              ← {copy.backToLounge}
+            </button>
+          </nav>
           <h1 className="audience-lyrics-title">{copy.singAlongTitlePrefix} {title} - {displayArtist}</h1>
           <p className="audience-lyrics-subtitle">{copy.lyricsSubtitle}</p>
         </>

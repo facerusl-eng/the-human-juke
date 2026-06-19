@@ -58,7 +58,11 @@
   padding: 18px 12px;
   margin: 0 auto 24px auto;
   text-align: center;
-  max-height: 50vh;
+}
+
+/* In stage mode keep the box height-constrained and scrollable within the grid cell */
+.lyrics-stage-view .audience-lyrics-text {
+  max-height: calc(100dvh - 72px);
   overflow-y: auto;
 }
 
@@ -109,6 +113,22 @@
   align-items: center;
   gap: 8px;
   text-align: left;
+}
+
+.lyrics-audience-nav {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.lyrics-audience-back-btn {
+  padding: 7px 14px;
+  font-size: 0.88rem;
+  opacity: 0.85;
+}
+
+.lyrics-audience-back-btn:hover {
+  opacity: 1;
 }
 
 .lyrics-stage-back-button {
