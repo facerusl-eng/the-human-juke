@@ -492,6 +492,10 @@
   min-height: clamp(88px, 9.2dvh, 122px);
 }
 
+.mirror-shell-fullscreen .mirror-header {
+  display: none !important;
+}
+
 .mirror-shell-hide-controls .mirror-venue-logo-slot {
   width: clamp(158px, 16vw, 240px);
   height: clamp(62px, 6.8vw, 96px);

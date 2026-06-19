@@ -49,7 +49,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { getAudienceUrl } from '../lib/audienceUrl'
-import { resolveAppPath } from '../lib/routePath'
+import { isTauriDesktopRuntime, resolveAppPath } from '../lib/routePath'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 import {
   PLAYBACK_STATE_BROADCAST_CHANNEL,
@@ -2937,7 +2937,28 @@ function MirrorPageContent() {
     }
 
     const syncFullscreenState = () => {
-      setIsFullscreen(Boolean(getActiveFullscreenElement()))
+      const domFullscreen = Boolean(getActiveFullscreenElement())
+      const fullscreenDisplayMode = window.matchMedia('(display-mode: fullscreen)').matches
+
+      if (domFullscreen || fullscreenDisplayMode) {
+        setIsFullscreen(true)
+        return
+      }
+
+      if (isTauriDesktopRuntime()) {
+        const tauriWindow = getCurrentWebviewWindow()
+        void tauriWindow
+          .isFullscreen()
+          .then((tauriFullscreen) => {
+            setIsFullscreen(Boolean(tauriFullscreen))
+          })
+          .catch(() => {
+            setIsFullscreen(false)
+          })
+        return
+      }
+
+      setIsFullscreen(false)
     }
 
     syncFullscreenState()
@@ -4337,7 +4358,7 @@ function MirrorPageContent() {
   }
 
   return (
-    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${mirrorBackgroundClass} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''} ${!activeSong ? 'mirror-shell-no-live-data' : ''} ${(homeMirrorPreviewMode || demoMode) ? 'mirror-shell-home-preview' : ''}`} aria-label="Mirror display screen">
+    <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${mirrorBackgroundClass} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''} ${!activeSong ? 'mirror-shell-no-live-data' : ''} ${(homeMirrorPreviewMode || demoMode) ? 'mirror-shell-home-preview' : ''} ${isFullscreen ? 'mirror-shell-fullscreen' : ''}`} aria-label="Mirror display screen">
       {showFullscreenPrompt && !isFullscreen && (
         <button
           type="button"
