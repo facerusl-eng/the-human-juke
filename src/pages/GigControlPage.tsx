@@ -3771,7 +3771,11 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       || normalizedKey === 'space'
       || (event as unknown as { keyCode?: number; which?: number }).keyCode === 32
       || (event as unknown as { keyCode?: number; which?: number }).which === 32
-    if (!isSpaceKey) {
+    const isPedalKey = event.code === 'ArrowDown'
+      || event.code === 'PageDown'
+      || event.key === 'ArrowDown'
+      || event.key === 'PageDown'
+    if (!isSpaceKey && !isPedalKey) {
       return
     }
 
@@ -3791,7 +3795,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       || activeElement?.isContentEditable,
     )
 
-    if (isTypingTarget) {
+    // Pedal keys (ArrowDown/PageDown) always fire — not typing keys.
+    if (isTypingTarget && !isPedalKey) {
       spacebarSkipUntilKeyUpRef.current = true
       return
     }
