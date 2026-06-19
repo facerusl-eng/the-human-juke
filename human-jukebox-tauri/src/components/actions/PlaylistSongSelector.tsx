@@ -720,11 +720,17 @@ function PlaylistSongSelector({ eventId, userId, playlistTypeFilter, queuedLibra
         <input
           id={`gig-control-song-search-${playlistTypeFilter}`}
           type="text"
+          list={`gig-song-autocomplete-${playlistTypeFilter}`}
           value={songSearchQuery}
           onChange={(event) => setSongSearchQuery(event.target.value)}
           placeholder="Type title or artist name"
           className="gig-song-search-input"
         />
+        <datalist id={`gig-song-autocomplete-${playlistTypeFilter}`}>
+          {songs.map((song) => (
+            <option key={song.id} value={`${song.title} ${song.artist}`} />
+          ))}
+        </datalist>
       </label>
 
       <div className="field-row no-margin-bottom" ref={songPickerRef}>
