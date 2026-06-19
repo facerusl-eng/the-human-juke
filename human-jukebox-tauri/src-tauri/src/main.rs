@@ -67,9 +67,13 @@ fn main() {
                     }
                 }
                 "toggle-fullscreen" => {
+                    // Only toggle the main window if it's the focused one.
+                    // Other windows (e.g. mirror) handle F11 in their own JS handler.
                     if let Some(window) = app.get_webview_window("main") {
-                        if let Ok(is_fullscreen) = window.is_fullscreen() {
-                            let _ = window.set_fullscreen(!is_fullscreen);
+                        if window.is_focused().unwrap_or(false) {
+                            if let Ok(is_fullscreen) = window.is_fullscreen() {
+                                let _ = window.set_fullscreen(!is_fullscreen);
+                            }
                         }
                     }
                 }

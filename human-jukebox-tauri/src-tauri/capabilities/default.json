@@ -2,5 +2,5 @@
   "identifier": "default",
   "description": "Default capability for Human Jukebox app windows.",
   "windows": ["*"],
-  "permissions": ["core:default", "core:webview:allow-create-webview-window"]
+  "permissions": ["core:default", "core:webview:allow-create-webview-window", "core:window:allow-set-fullscreen", "core:window:allow-is-fullscreen", "core:window:allow-is-focused"]
 }
