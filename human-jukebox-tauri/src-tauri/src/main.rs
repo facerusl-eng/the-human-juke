@@ -8,6 +8,10 @@ const OPEN_MIRROR_SHORTCUT_EVENT: &str = "human-jukebox-open-mirror-shortcut";
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_fullscreen(true);
+            }
+
             let open_mirror_item = MenuItemBuilder::with_id("open-mirror", "Open Mirror")
                 .accelerator("CmdOrCtrl+M")
                 .build(app)?;

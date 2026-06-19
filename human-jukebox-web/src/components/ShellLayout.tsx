@@ -212,6 +212,7 @@ function ShellLayout() {
   const currentPath = location.pathname
   const searchParams = new URLSearchParams(location.search)
   const isAdminRoute = currentPath.startsWith('/admin')
+  const isAudienceRoute = currentPath.startsWith('/audience') || currentPath.startsWith('/lyrics') || currentPath.startsWith('/j/')
   const isFocusedGigControlView = currentPath.startsWith('/admin/gig-control') && searchParams.get('view') === 'focus'
   const showAdminNavigation = isAdminRoute && !isFocusedGigControlView
 
@@ -375,7 +376,7 @@ function ShellLayout() {
           </button>
         ) : null}
 
-        {!isAdminRoute ? (
+        {!isAdminRoute && !isAudienceRoute ? (
           <button
             type="button"
             className="fixed bottom-4 right-4 z-50 h-11 rounded-full border border-fuchsia-400/35 bg-[#0A0A0A] px-4 text-sm font-semibold text-cyan-200 shadow-[0_0_18px_rgba(255,0,255,0.25)] transition-all duration-200 hover:shadow-[0_0_24px_rgba(255,0,255,0.35)]"

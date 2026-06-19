@@ -6,6 +6,20 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const isTauri = !!process.env.TAURI_ENV_PLATFORM
 
+const devPublicOriginHost = (() => {
+  const devPublicOrigin = process.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
+
+  if (!devPublicOrigin) {
+    return null
+  }
+
+  try {
+    return new URL(devPublicOrigin).hostname
+  } catch {
+    return null
+  }
+})()
+
 // https://vite.dev/config/
 export default defineConfig({
   envPrefix: ['VITE_', 'SUPABASE_'],
@@ -62,6 +76,7 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    host: '0.0.0.0',
     https: process.env.VITE_DEV_HTTPS === '1',
     watch: {
       ignored: ['**/src-tauri/target/**'],
@@ -69,6 +84,7 @@ export default defineConfig({
     allowedHosts: [
       'localhost',
       '127.0.0.1',
+      ...(devPublicOriginHost ? [devPublicOriginHost] : []),
       '.lhr.life',
       '.loca.lt',
     ],

@@ -294,6 +294,11 @@ function ShellLayout() {
         ) : null}
 
         <section className={`app-main-content min-w-0 w-full flex-1 overflow-x-hidden${isFocusedGigControlView ? ' app-main-content-focus' : ''}`}>
+          {isFocusedGigControlView && runtimeBuildTag ? (
+            <p className="site-build-tag site-build-tag-overlay" aria-label={`App build ${runtimeBuildTag}`}>
+              Build {runtimeBuildTag}
+            </p>
+          ) : null}
           {showAdminNavigation && degradedServiceMessage && !dismissedDegradedBanner ? (
             <section className="queue-panel" role="status" aria-live="polite" aria-label="Service degradation notice">
               <p className="eyebrow">Service Degraded</p>

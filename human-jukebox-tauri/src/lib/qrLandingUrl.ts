@@ -10,6 +10,9 @@ type BuildQrLandingUrlOptions = {
   qrContext?: 'countdown' | 'break' | null
 }
 
+const DEV_PUBLIC_ORIGIN = import.meta.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
+const DEFAULT_PUBLIC_ORIGIN = 'https://www.the-human-jukebox.org'
+
 function normalizeCustomUrl(value: string | null | undefined): string | null {
   const trimmedValue = value?.trim()
 
@@ -28,7 +31,19 @@ function normalizeCustomUrl(value: string | null | undefined): string | null {
   return trimmedValue
 }
 
+function isTauriInternalOrigin(origin: string): boolean {
+  try {
+    return new URL(origin).hostname === 'tauri.localhost'
+  } catch {
+    return false
+  }
+}
+
 export function buildQrLandingUrl(options: BuildQrLandingUrlOptions): string {
+  const resolvedOrigin = /^https?:\/\//i.test(options.origin) && !isTauriInternalOrigin(options.origin)
+    ? options.origin
+    : (DEV_PUBLIC_ORIGIN || DEFAULT_PUBLIC_ORIGIN)
+
   const queryParams = new URLSearchParams()
 
   if (options.eventId) {
@@ -71,5 +86,5 @@ export function buildQrLandingUrl(options: BuildQrLandingUrlOptions): string {
     queryParams.set('visual', '1')
   }
 
-  return `${options.origin}/qr-landing?${queryParams.toString()}`
+  return `${resolvedOrigin}/qr-landing?${queryParams.toString()}`
 }

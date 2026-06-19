@@ -5,7 +5,7 @@
   "identifier": "org.thehumanjukebox.desktop",
   "build": {
     "beforeDevCommand": "node scripts/ensure-dev-server.mjs",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run build:web",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist"
   },
@@ -16,7 +16,7 @@
         "width": 1280,
         "height": 800,
         "resizable": true,
-        "fullscreen": false,
+        "fullscreen": true,
         "decorations": false
       }
     ],

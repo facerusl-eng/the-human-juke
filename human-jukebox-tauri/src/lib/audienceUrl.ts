@@ -1,5 +1,6 @@
 const DEV_PUBLIC_ORIGIN = import.meta.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
 const AUDIENCE_LINK_VERSION = import.meta.env.VITE_AUDIENCE_LINK_VERSION?.trim() || __HUMAN_JUKEBOX_BUILD_ID__
+const DEFAULT_PUBLIC_ORIGIN = 'https://www.the-human-jukebox.org'
 
 type AudienceUrlOptions = {
   compact?: boolean
@@ -8,7 +9,26 @@ type AudienceUrlOptions = {
 }
 
 function isLocalHostName(hostname: string) {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === 'tauri.localhost'
+}
+
+function resolveAudienceOrigin() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_PUBLIC_ORIGIN
+  }
+
+  // Tauri v2 on Windows (WebView2) maps the internal tauri:// protocol to
+  // https://tauri.localhost — that hostname is not reachable from other devices,
+  // so treat it the same as a non-browser origin.
+  if (window.location.hostname === 'tauri.localhost') {
+    return DEV_PUBLIC_ORIGIN || DEFAULT_PUBLIC_ORIGIN
+  }
+
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    return window.location.origin
+  }
+
+  return DEV_PUBLIC_ORIGIN || DEFAULT_PUBLIC_ORIGIN
 }
 
 export function getAudienceUrl(eventId?: string | null, options: AudienceUrlOptions = {}) {
@@ -50,5 +70,5 @@ export function getAudienceUrl(eventId?: string | null, options: AudienceUrlOpti
     }
   }
 
-  return buildAudienceUrl(window.location.origin)
+  return buildAudienceUrl(resolveAudienceOrigin())
 }
