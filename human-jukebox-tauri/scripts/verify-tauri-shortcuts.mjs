@@ -32,29 +32,18 @@ function ensure(condition, message) {
 
 function main() {
   const rustMain = readText(rustMainPath);
-  const tsShortcutEvents = readText(tsShortcutEventsPath);
-  const appTsx = readText(appTsxPath);
 
-  const rustEvent = extractRustShortcutEvent(rustMain);
-  const tsEvent = extractTsShortcutEvent(tsShortcutEvents);
-
-  ensure(Boolean(rustEvent), 'Could not find OPEN_MIRROR_SHORTCUT_EVENT in src-tauri/src/main.rs.');
-  ensure(Boolean(tsEvent), 'Could not find TAURI_OPEN_MIRROR_SHORTCUT_EVENT in src/lib/tauriShortcutEvents.ts.');
-  ensure(rustEvent === tsEvent, `Tauri shortcut event mismatch. Rust: ${rustEvent} | TS: ${tsEvent}`);
-
+  // Mirror window is now opened directly from Rust using WebviewWindowBuilder::new
+  // with an initialization_script to navigate to the mirror hash route.
+  // The old DOM-event bridge (OPEN_MIRROR_SHORTCUT_EVENT) is no longer used for Ctrl+M.
   ensure(
-    appTsx.includes("import { TAURI_OPEN_MIRROR_SHORTCUT_EVENT } from './lib/tauriShortcutEvents'"),
-    'App.tsx must import TAURI_OPEN_MIRROR_SHORTCUT_EVENT from src/lib/tauriShortcutEvents.ts.',
+    rustMain.includes('WebviewWindowBuilder::new'),
+    'main.rs must create the mirror window using WebviewWindowBuilder::new.',
   );
 
   ensure(
-    appTsx.includes('window.addEventListener(TAURI_OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)'),
-    'App.tsx must register the Tauri mirror shortcut listener using TAURI_OPEN_MIRROR_SHORTCUT_EVENT.',
-  );
-
-  ensure(
-    !appTsx.includes('human-jukebox-open-mirror-shortcut'),
-    'Do not hardcode the mirror shortcut event in App.tsx. Use TAURI_OPEN_MIRROR_SHORTCUT_EVENT.',
+    rustMain.includes('initialization_script'),
+    'main.rs mirror window must use initialization_script to navigate to the mirror route.',
   );
 
   console.log('Tauri shortcut contract verified.');

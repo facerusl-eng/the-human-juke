@@ -3,8 +3,6 @@
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Manager;
 
-const OPEN_MIRROR_SHORTCUT_EVENT: &str = "human-jukebox-open-mirror-shortcut";
-
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -48,11 +46,24 @@ fn main() {
         .on_menu_event(|app, event| {
             match event.id().as_ref() {
                 "open-mirror" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.eval(&format!(
-                            "window.dispatchEvent(new CustomEvent('{}'))",
-                            OPEN_MIRROR_SHORTCUT_EVENT
-                        ));
+                    if let Some(existing) = app.get_webview_window("mirror") {
+                        let _ = existing.set_focus();
+                    } else {
+                        let _ = tauri::WebviewWindowBuilder::new(
+                            app,
+                            "mirror",
+                            tauri::WebviewUrl::App(std::path::PathBuf::from("/")),
+                        )
+                        .title("Mirror Screen")
+                        .decorations(true)
+                        .inner_size(1280.0, 800.0)
+                        .resizable(true)
+                        .initialization_script(
+                            "if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#/') { \
+                                window.location.replace('#/mirror?safeMargins=1&density=medium'); \
+                            }"
+                        )
+                        .build();
                     }
                 }
                 "toggle-fullscreen" => {
