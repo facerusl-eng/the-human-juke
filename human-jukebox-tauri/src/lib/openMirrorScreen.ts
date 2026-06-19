@@ -95,7 +95,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
           })
         })
 
-        mirrorWindow.once('tauri://error', async (err) => {
+        mirrorWindow.once('tauri://error', async (err: unknown) => {
           clearTimeout(timerId)
           // Label collision — a ghost window is still registered; try to focus it
           try {
