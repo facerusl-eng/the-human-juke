@@ -16,6 +16,10 @@ fn main() {
                 .accelerator("CmdOrCtrl+M")
                 .build(app)?;
 
+            let toggle_fullscreen_item = MenuItemBuilder::with_id("toggle-fullscreen", "Toggle Fullscreen")
+                .accelerator("F11")
+                .build(app)?;
+
             let refresh_item = MenuItemBuilder::with_id("refresh", "Refresh")
                 .accelerator("CmdOrCtrl+R")
                 .build(app)?;
@@ -30,6 +34,7 @@ fn main() {
 
             let app_submenu = SubmenuBuilder::new(app, "App")
                 .item(&open_mirror_item)
+                .item(&toggle_fullscreen_item)
                 .item(&refresh_item)
                 .item(&update_item)
                 .item(&quit_item)
@@ -48,6 +53,13 @@ fn main() {
                             "window.dispatchEvent(new CustomEvent('{}'))",
                             OPEN_MIRROR_SHORTCUT_EVENT,
                         ));
+                    }
+                }
+                "toggle-fullscreen" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        if let Ok(is_fullscreen) = window.is_fullscreen() {
+                            let _ = window.set_fullscreen(!is_fullscreen);
+                        }
                     }
                 }
                 "refresh" => {
