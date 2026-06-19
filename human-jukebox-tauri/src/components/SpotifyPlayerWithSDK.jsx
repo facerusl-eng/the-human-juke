@@ -324,7 +324,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   const transportInFlightRef = useRef(false)
   const noListRecoveryInFlightRef = useRef(false)
   const pendingTransportCommandRef = useRef(null)
-  const lastProcessedTransportNonceRef = useRef(0)
+  const lastProcessedTransportNonceRef = useRef(
+    typeof window !== 'undefined' ? Number(window.sessionStorage?.getItem('human-jukebox-last-transport-nonce') ?? 0) : 0
+  )
   const togglePlayLockRef = useRef(false)
   const syncToggleLockRef = useRef(false)
   const sdkReconnectTimeoutRef = useRef(null)
@@ -662,9 +664,10 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
         setIsSdkReady(true)
 
-        player = getSpotifyPlayerSingleton()
+        const existingSingleton = getSpotifyPlayerSingleton()
+        player = existingSingleton
 
-        if (!player) {
+        if (!existingSingleton) {
           player = new window.Spotify.Player({
             name: 'Human Jukebox Gig Control',
             getOAuthToken: (cb) => {
@@ -678,7 +681,9 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
         const rememberedDeviceId = getStoredSpotifyDeviceId()
         if (rememberedDeviceId) {
           setDeviceId(rememberedDeviceId)
-          setPlayerStatus('Reusing Spotify device session in background.')
+          setPlayerStatus(
+            existingSingleton ? 'Spotify device is ready.' : 'Reusing Spotify device session in background.'
+          )
         }
 
         const onReady = ({ device_id: readyDeviceId }) => {
@@ -812,14 +817,16 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           player.removeListener('player_state_changed')
         })
 
-        const connected = await player.connect()
-        if (!connected) {
-          scheduleReconnect('initial connect')
-        }
-        try {
-          await player.setVolume(SPOTIFY_TOGGLE_BASE_VOLUME)
-        } catch {
-          // Volume writes can fail for restricted/remote sessions. Safe to ignore.
+        if (!existingSingleton) {
+          const connected = await player.connect()
+          if (!connected) {
+            scheduleReconnect('initial connect')
+          }
+          try {
+            await player.setVolume(SPOTIFY_TOGGLE_BASE_VOLUME)
+          } catch {
+            // Volume writes can fail for restricted/remote sessions. Safe to ignore.
+          }
         }
         playerRef.current = player
         startHealthMonitor()
@@ -1683,6 +1690,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
           await executeTransportCommand(commandToRun)
           lastProcessedTransportNonceRef.current = commandToRun.nonce ?? Date.now()
+          window.sessionStorage?.setItem('human-jukebox-last-transport-nonce', String(lastProcessedTransportNonceRef.current))
 
           const pendingCommand = pendingTransportCommandRef.current
           pendingTransportCommandRef.current = null
