@@ -54,6 +54,7 @@ fn main() {
                         let _ = tauri::WebviewWindowBuilder::new(app, "mirror", tauri::WebviewUrl::App("/#/mirror".into()))
                             .title("Mirror Screen")
                             .decorations(true)
+                            .fullscreen(true)
                             .inner_size(1280.0, 800.0)
                             .build();
                     }
