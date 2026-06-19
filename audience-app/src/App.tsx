@@ -1,5 +1,5 @@
-import { Suspense, useMemo, type ReactNode } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { Suspense, useCallback, useMemo, type ReactNode } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AudienceLyricView, useSharedLyricState } from '../../shared/lyric-display'
 import AudienceSongListPage from '../../src/pages/AudienceSongListPage'
 import EventPage from '../../src/pages/EventPage'
@@ -29,13 +29,19 @@ function DemoProviders({ children }: { children: ReactNode }) {
 
 function AudienceLyricsRoute() {
   const lyricController = useSharedLyricState(supabase, 'audience')
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const canShowLyric = useMemo(() => {
     return lyricController.state.blocks.length > 0
   }, [lyricController.state.blocks.length])
 
+  const handleBack = useCallback(() => {
+    navigate('/audience/song-list' + location.search)
+  }, [navigate, location.search])
+
   if (canShowLyric) {
-    return <AudienceLyricView state={lyricController.state} />
+    return <AudienceLyricView state={lyricController.state} onBack={handleBack} />
   }
 
   return (
@@ -43,6 +49,12 @@ function AudienceLyricsRoute() {
       <p className="audience-lyric-waiting-copy">Waiting for lyrics...</p>
     </main>
   )
+}
+
+function AudienceShortcutRedirect() {
+  const { eventId } = useParams<{ eventId: string }>()
+  if (!eventId) return <Navigate to="/audience" replace />
+  return <Navigate to={`/audience?event=${encodeURIComponent(eventId)}`} replace />
 }
 
 export default function App() {
@@ -60,6 +72,7 @@ export default function App() {
         >
           <Routes>
             <Route path="/" element={<Navigate to="/audience/song-list" replace />} />
+            <Route path="/j/:eventId" element={<AudienceShortcutRedirect />} />
             <Route path="/audience" element={<EventPage />} />
             <Route path="/audience/song-list" element={<AudienceSongListPage />} />
             <Route path="/lyrics" element={<AudienceLyricsRoute />} />

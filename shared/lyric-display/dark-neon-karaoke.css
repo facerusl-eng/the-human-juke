@@ -49,6 +49,30 @@
   white-space: pre-wrap;
 }
 
+.audience-lyric-back-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0.6rem 1.2rem;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.audience-lyric-back-btn {
+  background: none;
+  border: 1px solid rgba(76, 201, 255, 0.35);
+  border-radius: 6px;
+  color: var(--lyric-text-primary);
+  font-size: 0.9rem;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+
+.audience-lyric-back-btn:hover {
+  background: rgba(76, 201, 255, 0.12);
+}
+
 .lyric-dark-neon-stage {
   width: min(70vw, 1280px);
   max-width: 70vw;

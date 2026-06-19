@@ -295,6 +295,28 @@ function inferPlaylistType(rawType: string | null | undefined, playlistName: str
   return 'human_jukebox'
 }
 
+function loadRequestedSongIds(eventId: string | null | undefined): Set<string> {
+  if (!eventId) return new Set()
+  try {
+    const raw = localStorage.getItem(`aud-requested-v1::${eventId}`)
+    if (!raw) return new Set()
+    return new Set(JSON.parse(raw) as string[])
+  } catch {
+    return new Set()
+  }
+}
+
+function persistRequestedSongId(eventId: string, songId: string): void {
+  try {
+    const key = `aud-requested-v1::${eventId}`
+    const existing: string[] = JSON.parse(localStorage.getItem(key) ?? '[]') as string[]
+    if (!existing.includes(songId)) {
+      existing.push(songId)
+      localStorage.setItem(key, JSON.stringify(existing))
+    }
+  } catch { /* non-blocking */ }
+}
+
 function AudienceSongListPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -324,6 +346,11 @@ function AudienceSongListPage() {
   const [loadingSelectedSongFacts, setLoadingSelectedSongFacts] = useState(false)
   const [lastHealthySyncAt, setLastHealthySyncAt] = useState<number | null>(null)
   const [diagnosticsNowMs, setDiagnosticsNowMs] = useState(() => Date.now())
+  const [requestedSongIds, setRequestedSongIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    setRequestedSongIds(loadRequestedSongIds(event?.id))
+  }, [event?.id])
 
   const audienceName = readCommittedAudienceName()
   const audienceLocale = readCommittedAudienceLocale()
@@ -1082,6 +1109,11 @@ function AudienceSongListPage() {
         performerMode: effectiveMode,
       })
 
+      if (event?.id) {
+        persistRequestedSongId(event.id, selectedSong.id)
+        setRequestedSongIds((prev) => new Set([...prev, selectedSong.id]))
+      }
+
       const baseAudienceUrl = `/audience${location.search || ''}`
       const separator = location.search ? '&' : '?'
       const targetAudienceUrl = `${baseAudienceUrl}${separator}queued=${estimatedQueuePosition}`
@@ -1280,7 +1312,8 @@ function AudienceSongListPage() {
                 {activeRows.map((row) => {
                   const isQueued = queuedLibrarySongIds.has(row.song.id)
                   const isSelected = selectedSong?.id === row.song.id
-                  const isHighlighted = isQueued || isSelected
+                  const isRequested = requestedSongIds.has(row.song.id)
+                  const isHighlighted = isQueued || isSelected || isRequested
 
                   return (
                     <li
@@ -1290,8 +1323,8 @@ function AudienceSongListPage() {
                       {row.sectionLabel ? <p className="curated-section-label" aria-hidden="true">{row.sectionLabel}</p> : null}
                       <button
                         type="button"
-                        className={`audience-song-list-card${effectiveSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}${isQueued ? ' is-queued' : ''}${isSelected ? ' is-selected' : ''}`}
-                        disabled={isFinalSongRequestsClosed}
+                        className={`audience-song-list-card${effectiveSetlist === 'karaoke' ? ' audience-song-list-card-karaoke' : ''}${isQueued ? ' is-queued' : ''}${isSelected ? ' is-selected' : ''}${isRequested ? ' is-already-requested' : ''}`}
+                        disabled={isFinalSongRequestsClosed || isRequested}
                         onClick={() => handleSelectSong(row.song)}
                       >
                         {row.song.cover_url ? (
@@ -1311,7 +1344,9 @@ function AudienceSongListPage() {
                           {effectiveSetlist === 'karaoke' ? <span className="karaoke-tag">{copy.iSing}</span> : null}
                           {row.song.is_explicit ? <span className="curated-pick-meta">{copy.explicit}</span> : null}
                         </span>
-                        {isHighlighted ? (
+                        {isRequested ? (
+                          <span className="audience-song-list-selection-badge" aria-hidden="true">✓ Requested</span>
+                        ) : isHighlighted ? (
                           <span className="audience-song-list-selection-badge" aria-hidden="true">
                             {isQueued ? `✓ ${copy.selected}` : copy.selected}
                           </span>
