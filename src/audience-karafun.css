@@ -270,7 +270,7 @@
 }
 
 .lyrics-focus-primary.is-timed {
-  text-wrap: pretty;
+  text-wrap: balance;
 }
 
 .lyrics-word {
