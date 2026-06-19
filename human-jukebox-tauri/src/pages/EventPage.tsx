@@ -2375,10 +2375,15 @@ function EventPage() {
     }
 
     const presenceTopic = `audience-presence:${eventId}`
-    for (const activeChannel of supabase.getChannels()) {
-      const topic = (activeChannel as { topic?: string }).topic ?? ''
-      if (topic === presenceTopic || topic === `realtime:${presenceTopic}`) {
-        void supabase.removeChannel(activeChannel)
+
+    // supabase.channel() in v2+ deduplicates by topic, returning any existing
+    // channel. Synchronously evict stale channels before creating a fresh one.
+    const liveChannels = supabase.getChannels()
+    for (let i = liveChannels.length - 1; i >= 0; i--) {
+      const ch = liveChannels[i]
+      if (ch.topic === presenceTopic || ch.topic === `realtime:${presenceTopic}`) {
+        liveChannels.splice(i, 1)
+        void ch.unsubscribe()
       }
     }
 

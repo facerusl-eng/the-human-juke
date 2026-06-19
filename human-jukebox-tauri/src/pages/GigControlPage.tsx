@@ -2769,10 +2769,19 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     const presenceTopic = `audience-presence:${eventId}`
-    for (const activeChannel of supabase.getChannels()) {
-      const topic = (activeChannel as { topic?: string }).topic ?? ''
-      if (topic === presenceTopic || topic === `realtime:${presenceTopic}`) {
-        void supabase.removeChannel(activeChannel)
+
+    // supabase.channel() in v2+ returns an existing channel by topic instead of
+    // creating a new one. If cleanup fired removeChannel() asynchronously, the
+    // old joined channel may still be in the registry when this effect runs,
+    // causing .on('presence') to throw "cannot add presence callbacks after
+    // subscribe()". Evict stale channels synchronously via the live array
+    // (getChannels() returns it by reference) before calling supabase.channel().
+    const liveChannels = supabase.getChannels()
+    for (let i = liveChannels.length - 1; i >= 0; i--) {
+      const ch = liveChannels[i]
+      if (ch.topic === presenceTopic || ch.topic === `realtime:${presenceTopic}`) {
+        liveChannels.splice(i, 1)
+        void ch.unsubscribe()
       }
     }
 

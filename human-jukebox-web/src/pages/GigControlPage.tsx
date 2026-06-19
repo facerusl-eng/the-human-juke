@@ -2562,7 +2562,20 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    const channel = supabase.channel(`audience-presence:${eventId}`)
+    const presenceTopic = `audience-presence:${eventId}`
+
+    // supabase.channel() v2+ returns existing channels by topic. Synchronously
+    // evict stale channels so .on('presence') doesn't throw on a joined instance.
+    const liveChannels = supabase.getChannels()
+    for (let i = liveChannels.length - 1; i >= 0; i--) {
+      const ch = liveChannels[i]
+      if (ch.topic === presenceTopic || ch.topic === `realtime:${presenceTopic}`) {
+        liveChannels.splice(i, 1)
+        void ch.unsubscribe()
+      }
+    }
+
+    const channel = supabase.channel(presenceTopic)
 
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState()
