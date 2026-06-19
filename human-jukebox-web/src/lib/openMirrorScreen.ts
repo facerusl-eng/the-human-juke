@@ -19,7 +19,7 @@ export function openMirrorScreen(options: OpenMirrorScreenOptions = {}): OpenMir
   mirrorUrl.searchParams.set('cast', '1')
   mirrorUrl.searchParams.delete('windowed')
   const mirrorWindowFeatures = 'width=1280,height=720,noopener,noreferrer'
-  const mirrorWindowTarget = '_blank'
+  const mirrorWindowTarget = 'mirror-screen'
 
   if (options.eventId?.trim()) {
     mirrorUrl.searchParams.set('event', options.eventId.trim())

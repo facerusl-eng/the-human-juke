@@ -1,4 +1,5 @@
-import { isTauriDesktopRuntime, resolveAppPath } from './routePath'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { isTauriDesktopRuntime, resolveAppPath, resolveTauriWindowUrl } from './routePath'
 
 export type OpenMirrorScreenResult = {
   navigatedInCurrentWindow: boolean
@@ -28,13 +29,45 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     mirrorUrl.set('demo', 'true')
   }
 
-  const mirrorPath = `${resolveAppPath('/mirror')}?${mirrorUrl.toString()}`
+  const mirrorRoutePath = `/mirror?${mirrorUrl.toString()}`
+  const mirrorWindowUrl = isTauriDesktopRuntime()
+    ? resolveTauriWindowUrl(mirrorRoutePath)
+    : mirrorRoutePath
 
   if (isTauriDesktopRuntime()) {
-    const mirrorTab = window.open(mirrorPath, '_blank', 'noopener,noreferrer')
+    try {
+      // If the mirror window is already open, just focus it
+      const existing = await WebviewWindow.getByLabel('mirror-screen')
+      if (existing) {
+        await existing.show()
+        await existing.setFocus()
+        return {
+          navigatedInCurrentWindow: false,
+          openedInPopupWindow: false,
+          openedInNewTabWindow: true,
+          blockedByPopup: false,
+          errorMessage: null,
+        }
+      }
 
-    if (mirrorTab) {
-      mirrorTab.focus()
+      const mirrorWindow = new WebviewWindow('mirror-screen', {
+        url: mirrorWindowUrl,
+        title: 'Mirror Screen',
+        width: 1280,
+        height: 720,
+        resizable: true,
+        fullscreen: false,
+        decorations: true,
+      })
+
+      mirrorWindow.once('tauri://created', () => {
+        console.log('Mirror Screen window created')
+      })
+
+      mirrorWindow.once('tauri://error', (error) => {
+        console.error('Mirror Screen failed:', error)
+      })
+
       return {
         navigatedInCurrentWindow: false,
         openedInPopupWindow: false,
@@ -42,14 +75,14 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         blockedByPopup: false,
         errorMessage: null,
       }
-    }
-
-    return {
-      navigatedInCurrentWindow: false,
-      openedInPopupWindow: false,
-      openedInNewTabWindow: false,
-      blockedByPopup: true,
-      errorMessage: 'Failed to open mirror tab',
+    } catch (error) {
+      return {
+        navigatedInCurrentWindow: false,
+        openedInPopupWindow: false,
+        openedInNewTabWindow: false,
+        blockedByPopup: true,
+        errorMessage: error instanceof Error ? error.message : 'Failed to open mirror window',
+      }
     }
   }
 
@@ -59,7 +92,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
   const preferEdgeOnWindows = options.preferEdgeOnWindows ?? false
 
   if (preferEdgeOnWindows && isWindows && !isEdgeBrowser) {
-    const edgeProtocolUrl = `microsoft-edge:${mirrorPath}`
+    const edgeProtocolUrl = `microsoft-edge:${mirrorRoutePath}`
     const edgeTab = window.open(edgeProtocolUrl, '_blank', 'noopener,noreferrer')
 
     if (edgeTab) {
@@ -74,7 +107,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
     }
   }
 
-  const mirrorTab = window.open(mirrorPath, '_blank', 'noopener,noreferrer')
+  const mirrorTab = window.open(mirrorRoutePath, '_blank', 'noopener,noreferrer')
 
   if (mirrorTab) {
     mirrorTab.focus()
