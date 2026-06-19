@@ -4381,6 +4381,24 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             </button>
             <button
               type="button"
+              className="ghost-button"
+              onClick={() => {
+                if (typeof navigator !== 'undefined' && 'hid' in navigator) {
+                  const hidApi = (navigator as unknown as { hid: { requestDevice: (opts: { filters: unknown[] }) => Promise<Array<{ productName?: string; opened?: boolean; open?: () => Promise<void> }>> } }).hid
+                  void hidApi.requestDevice({ filters: [] }).then(async (devices) => {
+                    const dev = devices[0]
+                    if (dev && !dev.opened && typeof dev.open === 'function') {
+                      await dev.open()
+                    }
+                  }).catch(() => { /* user cancelled */ })
+                }
+              }}
+              title="Connect Bluetooth foot pedal — ArrowDown and PageDown act as spacebar in Gig Control"
+            >
+              🦶 Connect Pedal
+            </button>
+            <button
+              type="button"
               className={`ghost-button${showMirrorTopVoted ? ' is-active-toggle' : ''}`}
               onClick={() => {
                 const next = !showMirrorTopVoted
