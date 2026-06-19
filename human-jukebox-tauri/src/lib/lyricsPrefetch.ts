@@ -166,26 +166,60 @@ export function prefetchAndCacheLyrics(title: string, artist: string): void {
   const variants = buildQueryVariants(title, artist)
 
   void (async () => {
-    for (const { t, a } of variants) {
+    const GOOD_ENOUGH_CHARS = 350
+    const PREFETCH_TIMEOUT_MS = 14_000
+
+    const fetchVariant = async ({ t, a }: { t: string; a: string }): Promise<string | null> => {
       try {
+        const controller = new AbortController()
+        const timeoutId = window.setTimeout(() => controller.abort(), 7000)
         const res = await fetch(
           `/api/lyrics-genius?song=${encodeURIComponent(t)}&artist=${encodeURIComponent(a)}`,
+          { signal: controller.signal },
         )
-        if (!res.ok) continue
-
+        window.clearTimeout(timeoutId)
+        if (!res.ok) return null
         const data = (await res.json()) as Record<string, unknown>
-        const lyricsText = typeof data?.lyrics === 'string' ? data.lyrics.trim() : ''
-
-        if (lyricsText.length > 0) {
-          cacheFoundLyrics(title, artist, lyricsText)
-          return
-        }
+        const text = typeof data?.lyrics === 'string' ? data.lyrics.trim() : ''
+        return text.length > 0 ? text : null
       } catch {
-        // Continue to next variant.
+        return null
       }
     }
 
-    // All variants exhausted.
-    markLyricsNotFound(title, artist)
+    let bestLyrics: string | null = null
+    let settled = 0
+    let earlyResolved = false
+
+    const allPromises = variants.map((v) => fetchVariant(v))
+
+    await Promise.race([
+      new Promise<void>((resolveRace) => {
+        for (const p of allPromises) {
+          void p.then((lyrics) => {
+            settled++
+            if (lyrics && !earlyResolved) {
+              if (!bestLyrics || lyrics.length > bestLyrics.length) {
+                bestLyrics = lyrics
+              }
+              if (lyrics.length >= GOOD_ENOUGH_CHARS) {
+                earlyResolved = true
+                resolveRace()
+              }
+            }
+            if (settled === allPromises.length) {
+              resolveRace()
+            }
+          })
+        }
+      }),
+      new Promise<void>((r) => window.setTimeout(r, PREFETCH_TIMEOUT_MS)),
+    ])
+
+    if (bestLyrics) {
+      cacheFoundLyrics(title, artist, bestLyrics)
+    } else {
+      markLyricsNotFound(title, artist)
+    }
   })()
 }

@@ -708,11 +708,17 @@ function buildLyricsQueries(title: string, artist: string) {
     .replace(/\s+/g, ' ')
     .trim();
 
+  const stripApostrophes = (value: string) => normalizeQuotes(value)
+    .replace(/[\u2019'']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
   const titleVariants = Array.from(new Set([
     normalizeQuotes(title),
     stripTitle(title),
     splitPrimary(stripTitle(title)),
     stripPunctuation(stripTitle(title)),
+    stripApostrophes(stripTitle(title)),
   ].filter(Boolean)));
 
   const normalizedArtist = normalizeQuotes(artist);
@@ -1185,20 +1191,49 @@ export default function LyricsPage() {
 
       const tryAllSources = async () => {
       const queries = buildLyricsQueries(title, artist);
+      // Quality threshold: accept the first result that is at least this long.
+      // Shorter results are kept as candidates but we wait for something better.
+      const GOOD_ENOUGH_CHARS = 350
+      // Hard ceiling: give up waiting after this many ms regardless.
+      const OVERALL_TIMEOUT_MS = 18_000
 
-      for (let startIndex = 0; startIndex < queries.length; startIndex += 3) {
-        const batch = queries.slice(startIndex, startIndex + 3)
-        const results = await Promise.all(batch.map((query) => fetchLyricsCandidate(query)))
-        const resolvedLyrics = results.find((result): result is string => typeof result === 'string' && result.trim().length > 0)
+      // Fire ALL variant queries in parallel so the fastest/best result wins.
+      let bestLyrics: string | null = null
+      let settled = 0
+      let earlyResolved = false
 
-        if (resolvedLyrics) {
-          cacheFoundLyrics(title, artist, resolvedLyrics);
-          setLyrics(resolvedLyrics);
-          setManualLyricsInput(resolvedLyrics);
-          setLyricsNotFound(false);
-          setLoading(false);
-          return;
-        }
+      const allPromises = queries.map((query) => fetchLyricsCandidate(query))
+
+      await Promise.race([
+        new Promise<void>((resolveRace) => {
+          for (const p of allPromises) {
+            void p.then((lyrics) => {
+              settled++
+              if (lyrics && !earlyResolved) {
+                if (!bestLyrics || lyrics.length > bestLyrics.length) {
+                  bestLyrics = lyrics
+                }
+                if (lyrics.length >= GOOD_ENOUGH_CHARS) {
+                  earlyResolved = true
+                  resolveRace()
+                }
+              }
+              if (settled === allPromises.length) {
+                resolveRace()
+              }
+            })
+          }
+        }),
+        new Promise<void>((res) => window.setTimeout(res, OVERALL_TIMEOUT_MS)),
+      ])
+
+      if (bestLyrics) {
+        cacheFoundLyrics(title, artist, bestLyrics);
+        setLyrics(bestLyrics);
+        setManualLyricsInput(bestLyrics);
+        setLyricsNotFound(false);
+        setLoading(false);
+        return;
       }
 
       markLyricsNotFound(title, artist);
