@@ -45,6 +45,7 @@ function MirrorJoinQrBlock(props: MirrorJoinQrBlockProps) {
   );
 }
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { getAudienceUrl } from '../lib/audienceUrl'
@@ -5043,6 +5044,18 @@ function MirrorPage() {
   const { event } = useQueueStore();
   const [showWelcome, setShowWelcome] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
+
+  useEffect(() => {
+    const handleF11 = (e: KeyboardEvent) => {
+      if (e.key !== 'F11') return
+      e.preventDefault()
+      e.stopPropagation()
+      const win = getCurrentWebviewWindow()
+      void win.isFullscreen().then((full: boolean) => win.setFullscreen(!full))
+    }
+    document.addEventListener('keydown', handleF11, { capture: true })
+    return () => document.removeEventListener('keydown', handleF11, { capture: true })
+  }, [])
 
   useEffect(() => {
     if (event?.roomOpen && !hasShownWelcome) {
