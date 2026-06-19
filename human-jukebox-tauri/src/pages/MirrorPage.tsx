@@ -5051,7 +5051,11 @@ function MirrorPage() {
       e.preventDefault()
       e.stopPropagation()
       const win = getCurrentWebviewWindow()
-      void win.isFullscreen().then((full: boolean) => win.setFullscreen(!full))
+      win.isFullscreen()
+        .then((full: boolean) => win.setFullscreen(!full))
+        .catch(() => {
+          // Silently ignore — prevents the unhandledrejection warning banner.
+        })
     }
     document.addEventListener('keydown', handleF11, { capture: true })
     return () => document.removeEventListener('keydown', handleF11, { capture: true })
