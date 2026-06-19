@@ -48,11 +48,14 @@ fn main() {
         .on_menu_event(|app, event| {
             match event.id().as_ref() {
                 "open-mirror" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.eval(&format!(
-                            "window.dispatchEvent(new CustomEvent('{}'))",
-                            OPEN_MIRROR_SHORTCUT_EVENT,
-                        ));
+                    if let Some(w) = app.get_webview_window("mirror") {
+                        let _ = w.set_focus();
+                    } else {
+                        let _ = tauri::WebviewWindowBuilder::new(app, "mirror", tauri::WebviewUrl::App("/#/mirror".into()))
+                            .title("Mirror Screen")
+                            .decorations(true)
+                            .inner_size(1280.0, 800.0)
+                            .build();
                     }
                 }
                 "toggle-fullscreen" => {
