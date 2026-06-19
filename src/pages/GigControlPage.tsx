@@ -3841,7 +3841,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       || normalizedKey === 'space'
       || (event as unknown as { keyCode?: number; which?: number }).keyCode === 32
       || (event as unknown as { keyCode?: number; which?: number }).which === 32
-    if (!isSpaceKey) {
+    // Pedal keys must also reset press-active state, otherwise subsequent presses are dropped
+    const isPedalKey = event.code === 'ArrowDown' || event.key === 'ArrowDown'
+      || event.code === 'PageDown' || event.key === 'PageDown'
+    if (!isSpaceKey && !isPedalKey) {
       return
     }
 
