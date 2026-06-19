@@ -4384,6 +4384,24 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               <button type="button" className="ghost-button" onClick={handleEnterFocusFullscreen}>
                 Enter Fullscreen
               </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => {
+                  if (typeof navigator !== 'undefined' && 'hid' in navigator) {
+                    const hidApi = (navigator as unknown as { hid: { requestDevice: (opts: { filters: unknown[] }) => Promise<Array<{ productName?: string; opened?: boolean; open?: () => Promise<void> }>> } }).hid
+                    void hidApi.requestDevice({ filters: [] }).then(async (devices) => {
+                      const dev = devices[0]
+                      if (dev && !dev.opened && typeof dev.open === 'function') {
+                        await dev.open()
+                      }
+                    }).catch(() => { /* user cancelled */ })
+                  }
+                }}
+                title="Connect Bluetooth foot pedal — ArrowDown and PageDown act as spacebar in Gig Control"
+              >
+                🦶 Connect Pedal
+              </button>
             </div>
             <div className="gig-focus-toolbar-spotify-stack">
               <div className="hero-actions no-margin-bottom gig-focus-spotify-actions">
