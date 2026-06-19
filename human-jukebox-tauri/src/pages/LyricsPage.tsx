@@ -11,6 +11,7 @@ import {
   PLAYBACK_STATE_EVENT,
   PLAYBACK_STATE_STORAGE_KEY,
   readSharedPlaybackState,
+  writeSharedPlaybackState,
   type SharedPlaybackState,
 } from '../lib/playbackState';
 import '../audience-karafun.css';
@@ -784,6 +785,8 @@ export default function LyricsPage() {
   const [pedalDeviceName, setPedalDeviceName] = useState<string | null>(null);
   const [pedalStatusText, setPedalStatusText] = useState<string | null>(null);
   const [pedalConnecting, setPedalConnecting] = useState(false);
+  const [cachedPlaybackState, setCachedPlaybackState] = useState<SharedPlaybackState | null>(null);
+  const [toggleBusy, setToggleBusy] = useState(false);
 
   const formattedLyrics = useMemo(() => {
     if (!lyrics) {
@@ -852,6 +855,8 @@ export default function LyricsPage() {
       if (!isCurrent || !nextState) {
         return;
       }
+
+      setCachedPlaybackState(nextState);
 
       if (nextState.isStarted) {
         setPlaybackIsStarted(true);
@@ -962,6 +967,30 @@ export default function LyricsPage() {
     setPedalStatusText('Lyrics synced to now.');
   }, []);
 
+  const toggleQuoteNowPlaying = useCallback(async () => {
+    if (!lyricsEventId || toggleBusy) {
+      return;
+    }
+
+    setToggleBusy(true);
+
+    try {
+      const currentState = cachedPlaybackState ?? await readSharedPlaybackState(lyricsEventId);
+
+      if (!currentState) {
+        return;
+      }
+
+      await writeSharedPlaybackState(lyricsEventId, {
+        ...currentState,
+        isStarted: !currentState.isStarted,
+        countdownTargetMs: null,
+      });
+    } finally {
+      setToggleBusy(false);
+    }
+  }, [lyricsEventId, cachedPlaybackState, toggleBusy]);
+
   useEffect(() => {
     if (!isStageMode) {
       return;
@@ -982,9 +1011,15 @@ export default function LyricsPage() {
         return;
       }
 
-      if (normalizedKey === 'arrowdown' || normalizedKey === 'k') {
+      if (normalizedKey === 'k') {
         event.preventDefault();
         tapSyncLyrics();
+        return;
+      }
+
+      if (normalizedKey === ' ' || normalizedKey === 'spacebar' || normalizedKey === 'arrowdown' || normalizedKey === 'pagedown') {
+        event.preventDefault();
+        void toggleQuoteNowPlaying();
       }
     };
 
@@ -992,7 +1027,7 @@ export default function LyricsPage() {
     return () => {
       window.removeEventListener('keydown', onKeyDown, true);
     };
-  }, [applyLyricsNudge, isStageMode, tapSyncLyrics]);
+  }, [applyLyricsNudge, isStageMode, tapSyncLyrics, toggleQuoteNowPlaying]);
 
   const connectBluetoothPedal = useCallback(async () => {
     if (typeof navigator === 'undefined' || !('hid' in navigator)) {
@@ -1320,8 +1355,20 @@ export default function LyricsPage() {
           <div className="lyrics-stage-heading-block">
             <h1 className="audience-lyrics-title">{title} - {displayArtist}</h1>
             <p className="audience-lyrics-subtitle">Stage lyrics view</p>
-
           </div>
+          {isHost && lyricsEventId ? (
+            <div className="lyrics-stage-pedal-block">
+              <button
+                type="button"
+                className="primary-button lyrics-stage-toggle-btn"
+                title={playbackIsStarted ? 'Switch to quote / between-songs mode (Space / ↓)' : 'Switch to now-playing mode (Space / ↓)'}
+                disabled={toggleBusy}
+                onClick={() => { void toggleQuoteNowPlaying(); }}
+              >
+                {playbackIsStarted ? '◀ Show Quote' : '▶ Show Song'}
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
