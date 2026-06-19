@@ -36,18 +36,29 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
 
   if (isTauriDesktopRuntime()) {
     try {
-      // If the mirror window is already open, just focus it
+      // If the mirror window is already open and visible, just focus it
       const existing = await WebviewWindow.getByLabel('mirror-screen')
       if (existing) {
-        await existing.show()
-        await existing.setFocus()
-        return {
-          navigatedInCurrentWindow: false,
-          openedInPopupWindow: false,
-          openedInNewTabWindow: true,
-          blockedByPopup: false,
-          errorMessage: null,
+        try {
+          const visible = await existing.isVisible()
+          if (visible) {
+            await existing.show()
+            await existing.setFocus()
+            return {
+              navigatedInCurrentWindow: false,
+              openedInPopupWindow: false,
+              openedInNewTabWindow: true,
+              blockedByPopup: false,
+              errorMessage: null,
+            }
+          }
+        } catch {
+          // Window is dead — fall through to close and recreate
         }
+        // Window is registered but not visible (was closed) — destroy it so we can recreate
+        try { await existing.close() } catch { /* ignore */ }
+        // Brief pause to let Tauri clean up the label in the backend
+        await new Promise<void>(resolve => setTimeout(resolve, 200))
       }
 
       const mirrorWindow = new WebviewWindow('mirror-screen', {
@@ -60,21 +71,57 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         decorations: true,
       })
 
-      mirrorWindow.once('tauri://created', () => {
-        console.log('Mirror Screen window created')
-      })
+      // Wait for the window to confirm creation or report an error before returning
+      return await new Promise<OpenMirrorScreenResult>(resolve => {
+        const timerId = setTimeout(() => {
+          // Safety fallback: if no event fires within 6 s, assume success
+          resolve({
+            navigatedInCurrentWindow: false,
+            openedInPopupWindow: false,
+            openedInNewTabWindow: true,
+            blockedByPopup: false,
+            errorMessage: null,
+          })
+        }, 6000)
 
-      mirrorWindow.once('tauri://error', (error) => {
-        console.error('Mirror Screen failed:', error)
-      })
+        mirrorWindow.once('tauri://created', () => {
+          clearTimeout(timerId)
+          resolve({
+            navigatedInCurrentWindow: false,
+            openedInPopupWindow: false,
+            openedInNewTabWindow: true,
+            blockedByPopup: false,
+            errorMessage: null,
+          })
+        })
 
-      return {
-        navigatedInCurrentWindow: false,
-        openedInPopupWindow: false,
-        openedInNewTabWindow: true,
-        blockedByPopup: false,
-        errorMessage: null,
-      }
+        mirrorWindow.once('tauri://error', async (err) => {
+          clearTimeout(timerId)
+          // Label collision — a ghost window is still registered; try to focus it
+          try {
+            const ghost = await WebviewWindow.getByLabel('mirror-screen')
+            if (ghost) {
+              await ghost.show()
+              await ghost.setFocus()
+              resolve({
+                navigatedInCurrentWindow: false,
+                openedInPopupWindow: false,
+                openedInNewTabWindow: true,
+                blockedByPopup: false,
+                errorMessage: null,
+              })
+              return
+            }
+          } catch { /* ignore */ }
+          resolve({
+            navigatedInCurrentWindow: false,
+            openedInPopupWindow: false,
+            openedInNewTabWindow: false,
+            blockedByPopup: true,
+            errorMessage: String(err),
+          })
+        })
+      })
     } catch (error) {
       return {
         navigatedInCurrentWindow: false,
