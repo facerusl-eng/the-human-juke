@@ -3791,9 +3791,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       || activeElement?.isContentEditable,
     )
 
-    // Pedal keys (ArrowDown/PageDown) must always fire — they are foot-pedal
-    // controls, not typing keys. Only block Space when a text field has focus.
-    if (isTypingTarget && !isPedalKey) {
+    if (isTypingTarget) {
       spacebarSkipUntilKeyUpRef.current = true
       return
     }
