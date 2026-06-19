@@ -100,8 +100,71 @@ const SEQUENTIAL_CHECK_IDS: CheckId[] = ['realtime']
 
 const READINESS_SESSION_KEY = 'human-jukebox-readiness-verdict'
 const AUTO_REFRESH_INTERVAL_MS = 60_000
+const KEEPWARM_PATH = '/api/keepwarm'
+const KEEPWARM_FALLBACK_ORIGINS = ['https://www.the-human-jukebox.org', 'https://the-human-jukebox.org']
 
 const DEFAULT_RESULT: CheckResult = { status: 'idle', detail: 'Not run yet.', durationMs: null }
+
+function isKeepWarmNetworkError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  const normalized = message.toLowerCase()
+
+  return normalized.includes('failed to fetch')
+    || normalized.includes('networkerror')
+    || normalized.includes('network error')
+    || normalized.includes('load failed')
+    || normalized.includes('cors')
+}
+
+function getKeepWarmProbeUrls() {
+  if (typeof window === 'undefined') {
+    return [KEEPWARM_PATH]
+  }
+
+  if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') {
+    return [`${KEEPWARM_FALLBACK_ORIGINS[0]}${KEEPWARM_PATH}`]
+  }
+
+  const urls = [KEEPWARM_PATH]
+
+  for (const origin of KEEPWARM_FALLBACK_ORIGINS) {
+    if (origin !== window.location.origin) {
+      urls.push(`${origin}${KEEPWARM_PATH}`)
+    }
+  }
+
+  return urls
+}
+
+async function checkKeepWarmEndpoint() {
+  const probeUrls = getKeepWarmProbeUrls()
+  let lastError: unknown = null
+
+  for (const [index, url] of probeUrls.entries()) {
+    try {
+      const response = await fetch(url, { method: 'GET', cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error(`Keep-warm endpoint returned ${response.status}.`)
+      }
+      return
+    } catch (error) {
+      lastError = error
+      const hasFallback = index < probeUrls.length - 1
+
+      if (hasFallback && isKeepWarmNetworkError(error)) {
+        continue
+      }
+
+      throw error
+    }
+  }
+
+  if (isKeepWarmNetworkError(lastError)) {
+    throw new Error('Keep-warm endpoint is unreachable from this origin. Check Vercel deployment status.')
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Keep-warm endpoint check failed.')
+}
 
 function buildDefaultResults(): Record<CheckId, CheckResult> {
   return {
@@ -239,8 +302,7 @@ function ReadinessPage() {
           break
         }
         case 'keepwarm': {
-          const res = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' })
-          if (!res.ok) throw new Error(`Keep-warm endpoint returned ${res.status}.`)
+          await checkKeepWarmEndpoint()
           break
         }
       }

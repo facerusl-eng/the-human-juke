@@ -14,6 +14,8 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5173',
 ]
 
+const VERCEL_PREVIEW_ORIGIN_RE = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i
+
 function getRequestOrigin(req) {
   const rawOrigin = req.headers?.origin
 
@@ -24,10 +26,16 @@ function getRequestOrigin(req) {
   return typeof rawOrigin === 'string' ? rawOrigin.trim() : ''
 }
 
+function isAllowedOrigin(origin) {
+  if (!origin) {
+    return false
+  }
+
+  return ALLOWED_ORIGINS.includes(origin) || VERCEL_PREVIEW_ORIGIN_RE.test(origin)
+}
+
 function corsHeaders(origin) {
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin)
-    ? origin
-    : ALLOWED_ORIGINS[0]
+  const allowedOrigin = isAllowedOrigin(origin) ? origin : '*'
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
