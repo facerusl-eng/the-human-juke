@@ -294,7 +294,13 @@
 .lyrics-focus-primary,
 .lyrics-focus-secondary {
   margin: 0;
-  text-wrap: balance;
+}
+
+@supports (text-wrap: balance) {
+  .lyrics-focus-primary,
+  .lyrics-focus-secondary {
+    text-wrap: balance;
+  }
 }
 
 .lyrics-focus-primary {
@@ -303,10 +309,6 @@
   font-weight: 800;
   color: #ffffff;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
-}
-
-.lyrics-focus-primary.is-timed {
-  text-wrap: balance;
 }
 
 .lyrics-word {
