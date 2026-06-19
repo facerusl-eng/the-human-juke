@@ -48,7 +48,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LiveFeedPanel from '../components/LiveFeedPanel'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { getAudienceUrl } from '../lib/audienceUrl'
-import { resolveAppPath } from '../lib/routePath'
+import { resolveAppPath, isTauriDesktopRuntime } from '../lib/routePath'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { logCrashTelemetry } from '../lib/crashTelemetry'
 import {
   PLAYBACK_STATE_BROADCAST_CHANNEL,
@@ -5043,6 +5044,18 @@ function MirrorPage() {
   const { event } = useQueueStore();
   const [showWelcome, setShowWelcome] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
+
+  useEffect(() => {
+    if (!isTauriDesktopRuntime()) return
+    const handleF11 = (e: KeyboardEvent) => {
+      if (e.key !== 'F11') return
+      e.preventDefault()
+      const win = getCurrentWebviewWindow()
+      void win.isFullscreen().then((full: boolean) => win.setFullscreen(!full))
+    }
+    window.addEventListener('keydown', handleF11)
+    return () => window.removeEventListener('keydown', handleF11)
+  }, [])
 
   useEffect(() => {
     if (event?.roomOpen && !hasShownWelcome) {
