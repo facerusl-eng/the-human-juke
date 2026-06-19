@@ -55,7 +55,7 @@ fn main() {
                             tauri::WebviewUrl::App(std::path::PathBuf::from("/")),
                         )
                         .title("Mirror Screen")
-                        .decorations(true)
+                        .decorations(false)
                         .inner_size(1280.0, 800.0)
                         .resizable(true)
                         .initialization_script(

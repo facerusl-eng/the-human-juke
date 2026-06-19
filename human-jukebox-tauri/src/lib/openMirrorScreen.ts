@@ -75,7 +75,7 @@ export async function openMirrorScreen(options: OpenMirrorScreenOptions = {}): P
         height: 720,
         resizable: true,
         fullscreen: false,
-        decorations: true,
+        decorations: false,
       })
 
       // Wait for the window to confirm creation or report an error before returning
