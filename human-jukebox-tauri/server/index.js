@@ -659,6 +659,17 @@ async function refreshAccessToken(refreshToken) {
   return payload
 }
 
+// Tauri desktop callback relay: Spotify redirects here, we forward to the Tauri webview's
+// hash-router callback route so SpotifyCallbackPage can handle the code exchange.
+app.get('/callback', (req, res) => {
+  const params = new URLSearchParams()
+  if (typeof req.query.code === 'string') params.set('code', req.query.code)
+  if (typeof req.query.error === 'string') params.set('error', req.query.error)
+  if (typeof req.query.state === 'string') params.set('state', req.query.state)
+  const qs = params.toString()
+  res.redirect(`tauri://localhost/#/callback${qs ? `?${qs}` : ''}`)
+})
+
 app.get('/api/spotify/login', (req, res) => {
   res.redirect(getAuthorizeUrl(req, res))
 })

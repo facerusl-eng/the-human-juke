@@ -1,4 +1,7 @@
+import { isTauriDesktopRuntime } from './routePath'
+
 const DEFAULT_API_ORIGIN = 'https://www.the-human-jukebox.org'
+const TAURI_LOCAL_API_ORIGIN = 'http://localhost:3001'
 
 function resolveConfiguredApiOrigin() {
   const preferredOrigin = import.meta.env.VITE_API_ORIGIN?.trim()
@@ -16,6 +19,13 @@ function isLocalDevOrigin() {
 }
 
 export function resolveApiUrl(path: `/api/${string}`) {
+  // In the Tauri desktop runtime, tauri:// protocol is used so isLocalDevOrigin()
+  // returns false. We must explicitly route API calls to the local Express server.
+  if (isTauriDesktopRuntime()) {
+    const tauriApiOrigin = import.meta.env.VITE_API_ORIGIN?.trim() || TAURI_LOCAL_API_ORIGIN
+    return `${tauriApiOrigin}${path}`
+  }
+
   if (isLocalDevOrigin()) {
     return path
   }
