@@ -19,11 +19,19 @@ function isLocalDevOrigin() {
 }
 
 export function resolveApiUrl(path: `/api/${string}`) {
-  // In the Tauri desktop runtime, tauri:// protocol is used so isLocalDevOrigin()
-  // returns false. We must explicitly route API calls to the local Express server.
+  // In Tauri dev, route API calls to local Express. In packaged desktop builds,
+  // use the configured/public API origin so OAuth and callbacks do not hit localhost.
   if (isTauriDesktopRuntime()) {
-    const tauriApiOrigin = import.meta.env.VITE_API_ORIGIN?.trim() || TAURI_LOCAL_API_ORIGIN
-    return `${tauriApiOrigin}${path}`
+    const explicitOrigin = import.meta.env.VITE_API_ORIGIN?.trim() || import.meta.env.VITE_SPOTIFY_API_ORIGIN?.trim()
+    if (explicitOrigin) {
+      return `${explicitOrigin.replace(/\/$/, '')}${path}`
+    }
+
+    if (import.meta.env.DEV) {
+      return `${TAURI_LOCAL_API_ORIGIN}${path}`
+    }
+
+    return `${resolveConfiguredApiOrigin()}${path}`
   }
 
   if (isLocalDevOrigin()) {
