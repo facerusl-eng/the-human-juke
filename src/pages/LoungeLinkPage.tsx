@@ -27,15 +27,15 @@ function resolveSafeBackPath(search: string): string {
   if (backPath.startsWith('/') && !backPath.startsWith('//')) {
     try {
       const parsedBackUrl = new URL(backPath, window.location.origin)
-      parsedBackUrl.searchParams.set('rm', 'bar')
+      parsedBackUrl.searchParams.set('rm', 'countdown')
       parsedBackUrl.searchParams.set('ri', String(returnIndex))
       return `${parsedBackUrl.pathname}${parsedBackUrl.search}`
     } catch {
-      return '/qr-landing?rm=bar&ri=0'
+      return '/qr-landing?rm=countdown&ri=0'
     }
   }
 
-  return `/qr-landing?rm=bar&ri=${returnIndex}`
+  return `/qr-landing?rm=countdown&ri=${returnIndex}`
 }
 
 function resolveLoungeDestination(search: string) {
@@ -86,7 +86,15 @@ function LoungeLinkPage() {
   const mode = useMemo(() => {
     const params = new URLSearchParams(search)
     const rawMode = params.get('mode')?.trim().toLowerCase()
-    return rawMode === 'bar' ? 'bar' : 'lounge'
+    if (rawMode === 'bar') {
+      return 'bar'
+    }
+
+    if (rawMode === 'upcoming') {
+      return 'upcoming'
+    }
+
+    return 'lounge'
   }, [search])
   const destination = useMemo(() => resolveLoungeDestination(search), [search])
   const customLink = useMemo(() => {
@@ -95,7 +103,13 @@ function LoungeLinkPage() {
   }, [search])
   const backToWelcomePath = useMemo(() => resolveSafeBackPath(search), [search])
   const destinationHref = customLink ?? destination
-  const panelLabel = mode === 'bar' ? 'Bar choices' : 'Audience lounge'
+  const panelLabel = mode === 'bar'
+    ? 'Bar menu'
+    : mode === 'upcoming'
+    ? 'Upcoming live shows'
+    : 'Audience lounge'
+  const backButtonText = 'Back to Countdown'
+  const isUpcomingMode = mode === 'upcoming'
 
   if (destinationHref) {
     return (
@@ -116,7 +130,7 @@ function LoungeLinkPage() {
           <p className="eyebrow" style={{ margin: 0 }}>{panelLabel}</p>
           <div style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
             <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
-              Back to Start
+              {backButtonText}
             </button>
           </div>
         </section>
@@ -133,14 +147,14 @@ function LoungeLinkPage() {
   return (
     <section className="app-shell" aria-label="Opening lounge link">
       <section className="queue-panel">
-        <p className="eyebrow">Quick Choice</p>
-        <h1>{mode === 'bar' ? 'Bar route selected' : 'Lounge route selected'}</h1>
+        <p className="eyebrow">Countdown Choice</p>
+        <h1>{isUpcomingMode ? 'Upcoming live shows selected' : mode === 'bar' ? 'Bar menu selected' : 'Audience lounge selected'}</h1>
         <p className="subcopy">
-          Use Back to Start to return to the QR landing page.
+          Use {backButtonText} to return to the QR landing page.
         </p>
         <div style={{ display: 'grid', gap: '0.8rem', marginTop: '1rem' }}>
           <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
-            Back to Start
+            {backButtonText}
           </button>
         </div>
       </section>

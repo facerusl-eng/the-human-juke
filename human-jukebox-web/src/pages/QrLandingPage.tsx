@@ -2,31 +2,31 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { AUDIENCE_LOCALE_STORAGE_KEY, normalizeAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { ensureAnonymousAudienceSession } from '../lib/audienceAuth'
-import { readSharedPlaybackState } from '../lib/playbackState'
+import { getSharedPlaybackTransitionState, readSharedPlaybackState } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 
 const LIVE_SYNC_POLL_INTERVAL_MS = 4000
 const LINK_FUNNY_TEXT_DURATION_MS = 9000
 
-const FUNNY_LOUNGE_MESSAGES = [
-  'Splendid decision. The lounge is where legends are made, playlists are debated, and someone always claims they knew the chorus first. Drift back here anytime if you miss the dramatic lighting.',
-  'Right then, into the lounge you go. Keep your charm polished, your requests tasteful, and your dance moves legally distinct from chaos. We will still be here pretending to be very professional.',
-  'A classic move. You have chosen the lounge route: equal parts music, mischief, and mild emotional support from strangers who also love this song. Return for more nonsense whenever you like.',
+const UPCOMING_CHOICE_MESSAGES = [
+  'Upcoming live shows are open. Check the dates, then use Back to Countdown when you are ready.',
+  'You are viewing upcoming live shows. Pick your next night out, then return to countdown.',
+  'Upcoming schedule loaded. Explore freely and return to countdown anytime.',
 ]
 
-const FUNNY_BAR_MESSAGES = [
-  'Excellent scouting mission to the bar. Conduct your noble research with dignity, avoid tactical overconfidence, and report back with stories that improve slightly each time they are told.',
-  'Bold and thirsty. Take a graceful detour, inspect the local refreshments like a seasoned critic, and return when ready for more tunes, more chaos, and fewer responsible life choices.',
-  'Very brave. Off to the bar with purpose, posture, and probably a queue. We shall hold the musical fort while you negotiate beverages and pretend this was all part of the master plan.',
+const BAR_CHOICE_MESSAGES = [
+  'Bar menu opened. Use Back to Countdown when you want to return.',
+  'You are in the bar menu route. Return to countdown at any time.',
+  'Bar menu selected. Countdown is still running in the background.',
 ]
 
-const FUNNY_RETURN_MESSAGES = [
-  'Back already? Splendid timing. Your side quest has been logged, your legend has grown, and your seat in the nonsense remains fully reserved.',
-  'Welcome back, brave explorer. You inspected the outside world, found it acceptable, and returned to the superior chaos with remarkable professionalism.',
-  'And we have a triumphant return! The crowd imagines dramatic music, polite applause, and at least one person whispering, "absolute icon."',
+const RETURN_TO_COUNTDOWN_MESSAGES = [
+  'Back on countdown. We go live very soon.',
+  'Countdown resumed. Keep this page open for the live handoff.',
+  'Welcome back to countdown. You are ready for go-live.',
 ]
 
-type ChoiceAction = 'lounge' | 'bar'
+type ChoiceAction = 'upcoming' | 'bar'
 
 type SyncStatusReason = 'notFound' | 'reconnecting'
 type QrChoiceContext = 'countdown' | 'break'
@@ -35,7 +35,7 @@ function resolveReturnMessageIndex(search: string): number | null {
   const params = new URLSearchParams(search)
   const marker = params.get('rm')?.trim().toLowerCase() ?? ''
 
-  if (marker !== 'bar') {
+  if (marker !== 'countdown') {
     return null
   }
 
@@ -270,7 +270,7 @@ function resolveAudienceDestination(
   return queryString ? `/audience?${queryString}` : '/audience'
 }
 
-function buildChoiceBridgeUrl(backPath: string, options: { to?: string | null; url?: string | null; mode?: 'lounge' | 'bar' | null }) {
+function buildChoiceBridgeUrl(backPath: string, options: { to?: string | null; url?: string | null; mode?: 'lounge' | 'bar' | 'upcoming' | null }) {
   const params = new URLSearchParams()
   params.set('back', backPath)
 
@@ -305,7 +305,7 @@ function QrLandingPage() {
   const [customDestinationLookupComplete, setCustomDestinationLookupComplete] = useState(false)
   const didAutoNavigateRef = useRef(false)
   const funnyMessageTimerRef = useRef<number | null>(null)
-  const loungeFunnyMessageNextIndexRef = useRef(0)
+  const upcomingMessageNextIndexRef = useRef(0)
   const barFunnyMessageNextIndexRef = useRef(0)
   const locale = useMemo(() => resolveAudienceLocale(search), [search])
   const customDestinationFromSearch = useMemo(() => {
@@ -358,6 +358,10 @@ function QrLandingPage() {
         : { to: audienceDestination, mode: 'lounge' },
     )
   }, [audienceDestination, choiceBackPath])
+  const upcomingChoiceBridgeUrl = useMemo(
+    () => buildChoiceBridgeUrl(choiceBackPath, { to: '/coming-gigs', mode: 'upcoming' }),
+    [choiceBackPath],
+  )
   const returnMessageIndex = useMemo(() => resolveReturnMessageIndex(search), [search])
 
   useEffect(() => {
@@ -367,51 +371,57 @@ function QrLandingPage() {
   const copy = useMemo(() => {
     if (locale === 'da') {
       return {
-        buttonGoToLounge: 'Gå til loungen',
-        buttonGoToLink: 'Se bar-linket',
+        buttonGoToLounge: 'A) Gå til barmenuen',
+        buttonGoToLink: 'B) Se kommende live shows',
+        buttonFallbackToLounge: 'Gå til publikumsloungen',
         buttonSyncingStatus: 'Synkroniserer live-status...',
         buttonSyncingCountdownPrefix: 'Nedtælling synkroniseres',
         statusGoingLiveIn: 'Går live om',
         statusCountdownComplete: 'Nedtælling færdig. Venter på at værten går live...',
-        statusNotFound: 'Event blev ikke fundet. Tryk for at åbne lounge.',
+        statusNotFound: 'Event blev ikke fundet. Nedtællingen genopretter forbindelsen...',
         statusReconnecting: 'Genopretter forbindelse til live-status...',
-        ariaGoToAudienceLounge: 'Gå til publikums-lounge',
-        ariaGoToChoiceLink: 'Åbn ekstra link',
-        emptyState: 'Velkommen! Tryk på knappen nedenfor for at gå til loungen.',
-        emptyStateChoice: 'Velkommen til showet, du herlige ballademager. Vælg din vej heroppe, tag nogle mindeværdige valg, og vend tilbage her, når du er klar til endnu en dramatisk entré.',
+        ariaGoToAudienceLounge: 'Gå til barmenuen',
+        ariaGoToChoiceLink: 'Se kommende live shows',
+        ariaGoToFallbackLounge: 'Gå til publikumsloungen',
+        emptyState: 'Velkommen. Showet starter snart. Dette er den officielle nedtælling.',
+        emptyStateChoice: 'Velkommen til nedtællingen. Vælg A) barmenuen eller B) kommende live shows. Du kan altid gå tilbage til nedtællingen.',
       }
     }
 
     if (locale === 'is') {
       return {
-        buttonGoToLounge: 'Join the Lounge',
-        buttonGoToLink: 'Check out the bar',
+        buttonGoToLounge: 'A) Enter the Bar Menu',
+        buttonGoToLink: 'B) See Upcoming Live Shows',
+        buttonFallbackToLounge: 'Join the Audience Lounge',
         buttonSyncingStatus: 'Samstilli live-stodu...',
         buttonSyncingCountdownPrefix: 'Samstilltur nidurteljari',
         statusGoingLiveIn: 'Fer i loftid eftir',
         statusCountdownComplete: 'Nidurteljari lokid. Bid eftir ad host fari i live ham...',
-        statusNotFound: 'Vidburdur fannst ekki. Smelltu til ad opna lounge.',
+        statusNotFound: 'Event not found. Countdown sync is reconnecting...',
         statusReconnecting: 'Endurtengi vid live-stodu...',
-        ariaGoToAudienceLounge: 'Fara i ahorfenda lounge',
-        ariaGoToChoiceLink: 'Opna vidbotar-link',
-        emptyState: 'Velkomin! Smelltu a hnappinn ad neðan til ad fara i lounge.',
-        emptyStateChoice: 'Welcome to the show, you magnificent troublemaker. Pick your route above, make questionable but memorable decisions, and return here whenever you fancy another dramatic entrance.',
+        ariaGoToAudienceLounge: 'Enter the bar menu',
+        ariaGoToChoiceLink: 'See upcoming live shows',
+        ariaGoToFallbackLounge: 'Go to audience lounge',
+        emptyState: 'Welcome. The show starts soon. This is the official countdown screen.',
+        emptyStateChoice: 'Welcome to countdown mode. Choose A) bar menu or B) upcoming live shows. You can always return to countdown.',
       }
     }
 
     return {
-      buttonGoToLounge: 'Join the Lounge',
-      buttonGoToLink: 'Check out the bar',
+      buttonGoToLounge: 'A) Enter the Bar Menu',
+      buttonGoToLink: 'B) See Upcoming Live Shows',
+      buttonFallbackToLounge: 'Join Audience Lounge',
       buttonSyncingStatus: 'Syncing live status...',
       buttonSyncingCountdownPrefix: 'Syncing countdown',
       statusGoingLiveIn: 'Going live in',
       statusCountdownComplete: 'Countdown complete. Waiting for host to start live mode...',
-      statusNotFound: 'Could not find this event. Tap to open lounge.',
+      statusNotFound: 'Could not find this event. Countdown sync is reconnecting...',
       statusReconnecting: 'Reconnecting to live status...',
-      ariaGoToAudienceLounge: 'Go to audience lounge',
-      ariaGoToChoiceLink: 'Open secondary venue link',
-      emptyState: 'Welcome! Click the button below to join the lounge.',
-      emptyStateChoice: 'Welcome to the show, you magnificent troublemaker. Pick your route above: lounge for glorious vibes, or bar for vital field research. Either way, return here when you crave more ceremony.',
+      ariaGoToAudienceLounge: 'Enter the bar menu',
+      ariaGoToChoiceLink: 'See upcoming live shows',
+      ariaGoToFallbackLounge: 'Go to audience lounge',
+      emptyState: 'Welcome. The show starts soon. This is the official countdown screen.',
+      emptyStateChoice: 'Welcome to countdown mode. Choose A) bar menu or B) upcoming live shows. You can always return to countdown.',
     }
   }, [locale])
   const countdownRemainingMs = eventStartMs === null ? null : eventStartMs - nowMs
@@ -424,9 +434,14 @@ function QrLandingPage() {
   const syncStatusText = syncStatusReason === 'notFound'
     ? copy.statusNotFound
     : null
-  const loungeButtonText = copy.buttonGoToLounge
+  const loungeButtonText = hasCustomChoiceLink
+    ? copy.buttonGoToLounge
+    : copy.buttonFallbackToLounge
   const linkButtonText = copy.buttonGoToLink
-  const shouldDisableLoungeButton = false
+  const primaryChoiceHref = barChoiceBridgeUrl ?? loungeChoiceBridgeUrl
+  const primaryChoiceAriaLabel = hasCustomChoiceLink
+    ? copy.ariaGoToAudienceLounge
+    : copy.ariaGoToFallbackLounge
   const choiceWelcomeText = activeFunnyMessage === null
     ? copy.emptyStateChoice
     : activeFunnyMessage
@@ -569,7 +584,13 @@ function QrLandingPage() {
         const startMs = parseEventStartMs(data.gig_date as string | null, data.gig_start_time as string | null)
         const mirroredPlaybackState = await readSharedPlaybackState(eventId)
         const mirroredCountdownTargetMs = mirroredPlaybackState?.countdownTargetMs ?? null
-        setEventStartMs(countdownTargetMsFromLink ?? mirroredCountdownTargetMs ?? startMs)
+        const mirroredTransitionState = getSharedPlaybackTransitionState(mirroredPlaybackState)
+        const shouldPreferScheduledCountdown = !data.room_open && mirroredTransitionState?.phase !== 'countdown'
+        setEventStartMs(
+          shouldPreferScheduledCountdown
+            ? (startMs ?? countdownTargetMsFromLink ?? mirroredCountdownTargetMs)
+            : (countdownTargetMsFromLink ?? mirroredCountdownTargetMs ?? startMs),
+        )
         setEventRoomOpen(Boolean(data.room_open))
         setSyncStatusReason(null)
       } catch {
@@ -613,7 +634,7 @@ function QrLandingPage() {
       return
     }
 
-    const message = FUNNY_RETURN_MESSAGES[returnMessageIndex % FUNNY_RETURN_MESSAGES.length] ?? copy.emptyStateChoice
+    const message = RETURN_TO_COUNTDOWN_MESSAGES[returnMessageIndex % RETURN_TO_COUNTDOWN_MESSAGES.length] ?? copy.emptyStateChoice
     setActiveFunnyMessage(message)
 
     if (funnyMessageTimerRef.current !== null) {
@@ -665,8 +686,8 @@ function QrLandingPage() {
   }, [])
 
   const handleChoiceActionClick = useCallback((action: ChoiceAction) => {
-    const sourceMessages = action === 'lounge' ? FUNNY_LOUNGE_MESSAGES : FUNNY_BAR_MESSAGES
-    const sourceIndexRef = action === 'lounge' ? loungeFunnyMessageNextIndexRef : barFunnyMessageNextIndexRef
+    const sourceMessages = action === 'upcoming' ? UPCOMING_CHOICE_MESSAGES : BAR_CHOICE_MESSAGES
+    const sourceIndexRef = action === 'upcoming' ? upcomingMessageNextIndexRef : barFunnyMessageNextIndexRef
     const nextIndex = sourceIndexRef.current % sourceMessages.length
     sourceIndexRef.current += 1
     setActiveFunnyMessage(sourceMessages[nextIndex] ?? copy.emptyStateChoice)
@@ -682,26 +703,24 @@ function QrLandingPage() {
   }, [copy.emptyStateChoice])
 
   return (
-    <section className="qr-landing-shell" aria-label="Audience lounge landing page">
+    <section className="qr-landing-shell" aria-label="Audience countdown landing page">
       <div className="qr-landing-button-overlay">
         <a
-          href={loungeChoiceBridgeUrl}
-          className={`qr-landing-button${shouldDisableLoungeButton ? ' qr-landing-button-disabled' : ''}`}
-          aria-label={copy.ariaGoToAudienceLounge}
-          onClick={hasCustomChoiceLink ? () => handleChoiceActionClick('lounge') : undefined}
+          href={primaryChoiceHref}
+          className="qr-landing-button qr-landing-button-link"
+          aria-label={primaryChoiceAriaLabel}
+          onClick={hasCustomChoiceLink ? () => handleChoiceActionClick('bar') : undefined}
         >
           {loungeButtonText}
         </a>
-        {customDestination ? (
-          <a
-            href={barChoiceBridgeUrl ?? customDestination}
-            className="qr-landing-button qr-landing-button-link"
-            aria-label={copy.ariaGoToChoiceLink}
-            onClick={() => handleChoiceActionClick('bar')}
-          >
-            {linkButtonText}
-          </a>
-        ) : null}
+        <a
+          href={upcomingChoiceBridgeUrl}
+          className="qr-landing-button"
+          aria-label={copy.ariaGoToChoiceLink}
+          onClick={() => handleChoiceActionClick('upcoming')}
+        >
+          {linkButtonText}
+        </a>
         {waitingForLive ? (
           <p className="qr-landing-status" role="status" aria-live="polite">
             {syncStatusText ?? (countdownText ? `${copy.statusGoingLiveIn} ${countdownText}` : copy.statusCountdownComplete)}
