@@ -180,9 +180,15 @@ export function createICSFromEvent(event: CalendarEventInput): { content: string
   if (event.gigEndTime) {
     const endTime = normalizeTime(event.gigEndTime)
     const candidate = new Date(`${event.gigDate}T${endTime}:00`)
-    endDate = Number.isNaN(candidate.getTime())
-      ? new Date(startDate.getTime() + 2 * 60 * 60 * 1000)
-      : candidate
+    if (Number.isNaN(candidate.getTime())) {
+      endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000)
+    } else {
+      // End times that are earlier than (or equal to) the start are treated as next-day overnight gigs.
+      if (candidate.getTime() <= startDate.getTime()) {
+        candidate.setDate(candidate.getDate() + 1)
+      }
+      endDate = candidate
+    }
   } else {
     endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000)
   }

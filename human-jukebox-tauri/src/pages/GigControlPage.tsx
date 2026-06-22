@@ -269,14 +269,28 @@ function classifyPreflightIssue(error?: unknown): PreflightIssueCode {
   return 'unknown'
 }
 
-function resolveGigStartAt(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
+function resolveGigStartAt(
+  gigDate: string | null | undefined,
+  gigStartTime: string | null | undefined,
+  rollOverAfter?: Date | null,
+) {
   if (!gigDate || !gigStartTime) {
     return null
   }
 
   const normalizedTime = gigStartTime.length === 5 ? `${gigStartTime}:00` : gigStartTime
-  const startAt = new Date(`${gigDate}T${normalizedTime}`)
-  return Number.isNaN(startAt.getTime()) ? null : startAt
+  const resolvedAt = new Date(`${gigDate}T${normalizedTime}`)
+
+  if (Number.isNaN(resolvedAt.getTime())) {
+    return null
+  }
+
+  // End times after midnight are stored as HH:mm and need a next-day rollover.
+  if (rollOverAfter && resolvedAt.getTime() <= rollOverAfter.getTime()) {
+    resolvedAt.setDate(resolvedAt.getDate() + 1)
+  }
+
+  return resolvedAt
 }
 
 function formatGigSwitcherDate(gigDate: string | null | undefined, gigStartTime: string | null | undefined) {
@@ -801,7 +815,8 @@ function GigControlPage() {
 
     return `Queue ahead: ~${queueEstMinutes} min`
   }, [queueEstMinutes])
-  const gigEndAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigEndTime ?? null)
+  const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
+  const gigEndAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigEndTime ?? null, gigStartAt)
   const minutesToGigEnd = gigEndAt ? Math.round((gigEndAt.getTime() - getHostNowMs()) / 60000) : null
   const queueOverrunMinutes = minutesToGigEnd !== null
     ? Math.max(0, queueEstMinutes - minutesToGigEnd)
@@ -816,7 +831,6 @@ function GigControlPage() {
       : null
     : null
   const nowPlayingRequesters = parseRequesterNames(nowPlaying?.createdByName)
-  const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
   const isBeforeScheduledStart = Boolean(!event?.roomOpen && gigStartAt && gigStartAt.getTime() > getHostNowMs())
   const isManualGoLiveLocked = Boolean(event) && isGoLiveCountdownLocked(
     Boolean(event?.roomOpen),

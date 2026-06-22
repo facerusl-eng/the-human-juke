@@ -61,9 +61,16 @@ function buildDateRange(gigDate, gigStartTime, gigEndTime) {
 
   if (gigEndTime) {
     const normalizedEnd = normalizeTimeForDate(gigEndTime)
-    const candidateEnd = new Date(`${gigDate}T${normalizedEnd}:00`)
-    if (!Number.isNaN(candidateEnd.getTime())) {
-      return { startDate, endDate: candidateEnd }
+    if (normalizedEnd) {
+      const candidateEnd = new Date(`${gigDate}T${normalizedEnd}:00`)
+      if (!Number.isNaN(candidateEnd.getTime())) {
+        // End times that are <= start are overnight and should roll into the next day.
+        if (candidateEnd.getTime() <= startDate.getTime()) {
+          candidateEnd.setDate(candidateEnd.getDate() + 1)
+        }
+
+        return { startDate, endDate: candidateEnd }
+      }
     }
   }
 
