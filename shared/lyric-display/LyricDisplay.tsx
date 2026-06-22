@@ -334,7 +334,27 @@ export default function LyricDisplay({
     <section className="lyric-dark-neon-shell" aria-label="Lyric display">
       {adminControlsVisible ? (
       <div className="lyric-dark-neon-controls" data-spacebar-ignore="true">
-        <button type="button" className="lyric-dark-neon-button" onClick={openLyric}>
+        <button
+          type="button"
+          className="lyric-dark-neon-button"
+          onClick={openLyric}
+          onKeyDown={(event) => {
+            if (resolveLyricActionFromKey(event.nativeEvent) === null) {
+              return
+            }
+
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onKeyUp={(event) => {
+            if (resolveLyricActionFromKey(event.nativeEvent) === null) {
+              return
+            }
+
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+        >
           Show Lyric
         </button>
         {state.blocks.length > 0 ? (
