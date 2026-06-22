@@ -1679,9 +1679,9 @@ function EventPage() {
         karaokeEventBadge: 'Karaoke-event',
         joinKaraokeShow: '🎤 Deltag i karaoke-showet',
         liveFeed: '💬 Livefeed',
-        cancelMyRequestAria: 'Annuller mit ønske',
-        cancelButton: 'Annuller',
-        cancelRequestFailed: 'Kunne ikke annullere ønsket lige nu. Prøv igen.',
+        cancelMyRequestAria: 'Fjern mit ønske',
+        cancelButton: 'Fjern mit ønske',
+        cancelRequestFailed: 'Kunne ikke fjerne dit ønske lige nu. Prøv igen.',
       }
     : audienceLocale === 'is'
     ? {
@@ -1695,9 +1695,9 @@ function EventPage() {
         karaokeEventBadge: 'Karaoke Event',
         joinKaraokeShow: '🎤 Join the Karaoke Show',
         liveFeed: '💬 Live Feed',
-        cancelMyRequestAria: 'Cancel my request',
-        cancelButton: 'Cancel',
-        cancelRequestFailed: 'Could not cancel this request right now. Please try again.',
+        cancelMyRequestAria: 'Remove my request',
+        cancelButton: 'Remove mine',
+        cancelRequestFailed: 'Could not remove your request right now. Please try again.',
       }
     : {
         fallbackMode: 'Fallback Mode',
@@ -1710,9 +1710,9 @@ function EventPage() {
         karaokeEventBadge: 'Karaoke Event',
         joinKaraokeShow: '🎤 Join the Karaoke Show',
         liveFeed: '💬 Live Feed',
-        cancelMyRequestAria: 'Cancel my request',
-        cancelButton: 'Cancel',
-        cancelRequestFailed: 'Could not cancel this request right now. Please try again.',
+        cancelMyRequestAria: 'Remove my request',
+        cancelButton: 'Remove mine',
+        cancelRequestFailed: 'Could not remove your request right now. Please try again.',
       }
 
   const primaryQueuedRequest = myQueuedRequests[0] ?? null
@@ -1731,6 +1731,14 @@ function EventPage() {
   const queuedBannerSecondaryText = additionalQueuedRequestCount > 0
     ? copy.queueStatusAdditional.replace('{count}', String(additionalQueuedRequestCount))
     : null
+  const canCancelPrimaryQueuedRequest = Boolean(
+    primaryQueuedRequest
+    && (
+      normalizedAudienceUserId
+        ? (primaryQueuedRequest.song.creatorId ?? '').trim().toLowerCase() === normalizedAudienceUserId
+        : (primaryQueuedRequest.song.createdByName ?? '').trim().toLowerCase() === normalizedAudienceName
+    ),
+  )
   const showAudienceEncoreThankYou = roomOpen
     && event?.eventType !== 'karaoke'
     && isLastSongSoonMode
@@ -3577,7 +3585,7 @@ function EventPage() {
                 {queuedBannerText}
                 {queuedBannerSecondaryText ? ` ${queuedBannerSecondaryText}` : ''}
               </span>
-              {primaryQueuedRequest ? (
+              {canCancelPrimaryQueuedRequest && primaryQueuedRequest ? (
                 <div className="audience-queued-banner-actions">
                   <button
                     type="button"
