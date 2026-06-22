@@ -808,13 +808,19 @@ function GigControlPage() {
   }, [songs])
   const nextUpSong = upNext[0] ?? null
   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
+  const queueAheadDurationText = useMemo(() => {
+    const safeMinutes = Math.max(0, queueEstMinutes)
+    const hours = Math.floor(safeMinutes / 60)
+    const minutes = safeMinutes % 60
+    return `${hours}h ${String(minutes).padStart(2, '0')}m`
+  }, [queueEstMinutes])
   const queueAheadMinutesHintText = useMemo(() => {
     if (queueEstMinutes <= 0) {
-      return 'Queue ahead: 0 min'
+      return 'Queue ahead: 0h 00m'
     }
 
-    return `Queue ahead: ~${queueEstMinutes} min`
-  }, [queueEstMinutes])
+    return `Queue ahead: ~${queueAheadDurationText}`
+  }, [queueAheadDurationText, queueEstMinutes])
   const gigStartAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigStartTime ?? null)
   const gigEndAt = resolveGigStartAt(event?.gigDate ?? null, event?.gigEndTime ?? null, gigStartAt)
   const minutesToGigEnd = gigEndAt ? Math.round((gigEndAt.getTime() - getHostNowMs()) / 60000) : null
@@ -4993,7 +4999,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       <section className="gig-now-playing">
         <article className={`now-playing-card ${isNowPlayingStarted ? 'gig-now-playing-active' : ''}`}>
           <p className="eyebrow">Now Playing</p>
-          {queueEstMinutes > 0 ? <p className="subcopy no-margin">~{queueEstMinutes} min queue ahead</p> : null}
+          {queueEstMinutes > 0 ? <p className="subcopy no-margin">~{queueAheadDurationText} queue ahead</p> : null}
           {nowPlaying && isNowPlayingStarted ? (
             <>
               <div className="now-playing-media">
