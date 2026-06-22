@@ -11,7 +11,7 @@ function SingAlongButton(props: {
   const artistParam = encodeURIComponent(props.artist ?? '');
   const localeParam = `&locale=${encodeURIComponent(props.audienceLocale)}`;
   const songIdParam = props.librarySongId ? `&songId=${encodeURIComponent(props.librarySongId)}` : '';
-  const lyricsStatus = getLyricsPrefetchStatus(props.title, props.artist);
+  const lyricsStatus = getLyricsPrefetchStatus(props.title, props.artist, props.librarySongId ?? null);
   const needsManualLyrics = lyricsStatus === 'not_found';
   const buttonLabel = props.audienceLocale === 'da' ? '🎤 Se sangtekst' : '🎤 Open Lyrics';
   const warningLabel = props.audienceLocale === 'da' ? '⚠ Sangtekst skal indsaettes manuelt' : '⚠ Lyrics need manual paste';
@@ -20,7 +20,7 @@ function SingAlongButton(props: {
       <button
         className="primary-button sing-along-btn"
         onClick={() => {
-          prefetchAndCacheLyrics(props.title, props.artist)
+          prefetchAndCacheLyrics(props.title, props.artist, props.librarySongId ?? null)
           navigate(`/lyrics?title=${titleParam}&artist=${artistParam}${localeParam}${songIdParam}`, {
             state: {
               title: props.title,

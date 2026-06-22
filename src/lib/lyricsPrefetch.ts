@@ -6,6 +6,9 @@ import { readCommittedAudienceLocale } from './audienceIdentity'
 
 const AUTO_CACHE_KEY = 'lyrics_auto_cache_v1'
 const STATUS_KEY = 'lyrics_prefetch_status_v1'
+const PREFETCH_FETCH_TIMEOUT_MS = 7_000
+const PREFETCH_MAX_ATTEMPTS = 2
+const PREFETCH_MAX_VARIANTS = 6
 
 type PrefetchStatus = 'found' | 'not_found'
 type CacheMap = Record<string, string>
@@ -101,6 +104,16 @@ function buildQueryVariants(title: string, artist: string): Array<{ t: string; a
   return Array.from(new Map(pairs.map((pair) => [`${pair.t}::${pair.a}`, pair])).values())
 }
 
+function isRetryableLyricsStatus(statusCode: number): boolean {
+  return statusCode === 408 || statusCode === 425 || statusCode === 429 || statusCode >= 500
+}
+
+async function waitFor(ms: number): Promise<void> {
+  await new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
 export function getLyricsPrefetchStatus(title: string, artist: string, songId?: string | null): PrefetchStatus | null {
   try {
     const raw = localStorage.getItem(STATUS_KEY)
@@ -181,32 +194,67 @@ export function markLyricsNotFound(title: string, artist: string, songId?: strin
 // Skips silently if the song was already checked.
 export function prefetchAndCacheLyrics(title: string, artist: string, songId?: string | null): void {
   if (typeof window === 'undefined') return
+  if (!normalizePart(title)) return
   if (getLyricsPrefetchStatus(title, artist, songId) !== null) return
 
-  const variants = buildQueryVariants(title, artist)
+  const variants = buildQueryVariants(title, artist).slice(0, PREFETCH_MAX_VARIANTS)
   const locale = readCommittedAudienceLocale()
 
   void (async () => {
+    let sawResolvedResponse = false
+
     for (const { t, a } of variants) {
-      try {
-        const res = await fetch(
-          `/api/lyrics-genius?song=${encodeURIComponent(t)}&artist=${encodeURIComponent(a)}&locale=${encodeURIComponent(locale)}`,
-        )
-        if (!res.ok) continue
+      for (let attempt = 0; attempt < PREFETCH_MAX_ATTEMPTS; attempt += 1) {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => {
+          controller.abort()
+        }, PREFETCH_FETCH_TIMEOUT_MS)
 
-        const data = (await res.json()) as Record<string, unknown>
-        const lyricsText = typeof data?.lyrics === 'string' ? data.lyrics.trim() : ''
+        try {
+          const res = await fetch(
+            `/api/lyrics-genius?song=${encodeURIComponent(t)}&artist=${encodeURIComponent(a)}&locale=${encodeURIComponent(locale)}`,
+            { signal: controller.signal },
+          )
 
-        if (lyricsText.length > 0) {
-          cacheFoundLyrics(title, artist, lyricsText, songId)
-          return
+          if (!res.ok) {
+            if (isRetryableLyricsStatus(res.status) && attempt < PREFETCH_MAX_ATTEMPTS - 1) {
+              await waitFor(140 * (attempt + 1))
+              continue
+            }
+
+            // Hard non-retryable misses still count as resolved lookups.
+            if (res.status === 400 || res.status === 404 || res.status === 422) {
+              sawResolvedResponse = true
+            }
+
+            break
+          }
+
+          sawResolvedResponse = true
+          const data = (await res.json()) as Record<string, unknown>
+          const lyricsText = typeof data?.lyrics === 'string' ? data.lyrics.trim() : ''
+
+          if (lyricsText.length > 0) {
+            cacheFoundLyrics(title, artist, lyricsText, songId)
+            return
+          }
+
+          break
+        } catch {
+          if (attempt < PREFETCH_MAX_ATTEMPTS - 1) {
+            await waitFor(140 * (attempt + 1))
+            continue
+          }
+        } finally {
+          clearTimeout(timeoutId)
         }
-      } catch {
-        // Continue to next variant.
       }
     }
 
-    // All variants exhausted.
-    markLyricsNotFound(title, artist, songId)
+    // Only persist a miss after we received at least one resolved API response.
+    // This avoids locking songs into "not found" due to transient network failures.
+    if (sawResolvedResponse) {
+      markLyricsNotFound(title, artist, songId)
+    }
   })()
 }

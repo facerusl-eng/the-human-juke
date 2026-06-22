@@ -14,7 +14,7 @@ const STATUS_KEY = 'lyrics_prefetch_status_v1'
 const LRC_MISS_CACHE_TTL_MS = 5 * 60 * 1000
 const ONLINE_LYRICS_FETCH_TIMEOUT_MS = 7_000
 const ONLINE_LYRICS_MAX_ATTEMPTS = 2
-const ONLINE_LYRICS_MAX_VARIANTS = 2
+const ONLINE_LYRICS_MAX_VARIANTS = 6
 const LRC_PROBE_TIMEOUT_MS = 1500
 const LRC_TOTAL_PROBE_TIMEOUT_MS = 2600
 const MAX_BLOCK_LINES = 8
@@ -267,25 +267,57 @@ function tokenOverlapScore(expected: string, actual: string) {
   return overlapCount / Math.max(expectedTokens.size, actualTokens.size)
 }
 
-function onlineResultMatchesSong(song: LyricSongRef, payload: Record<string, unknown>) {
+function collectOnlineResultSongCandidates(payload: Record<string, unknown>) {
+  const candidates: Array<{ title: string; artist: string }> = []
+
+  const appendCandidate = (titleValue: unknown, artistValue: unknown) => {
+    const title = typeof titleValue === 'string' ? titleValue.trim() : ''
+    if (!title) {
+      return
+    }
+
+    const artist = typeof artistValue === 'string' ? artistValue.trim() : ''
+    candidates.push({ title, artist })
+  }
+
   const payloadVariant = payload.variant
-  if (!payloadVariant || typeof payloadVariant !== 'object') {
+  if (payloadVariant && typeof payloadVariant === 'object') {
+    const variant = payloadVariant as Record<string, unknown>
+    appendCandidate(variant.title ?? variant.song ?? variant.name, variant.artist ?? variant.artist_name)
+  }
+
+  appendCandidate(payload.title ?? payload.song ?? payload.track, payload.artist ?? payload.artist_name)
+
+  const payloadTrack = payload.track
+  if (payloadTrack && typeof payloadTrack === 'object') {
+    const track = payloadTrack as Record<string, unknown>
+    appendCandidate(track.title ?? track.song ?? track.name, track.artist ?? track.artist_name)
+  }
+
+  const uniqueCandidates = new Map<string, { title: string; artist: string }>()
+  for (const candidate of candidates) {
+    uniqueCandidates.set(
+      `${normalizeComparableValue(candidate.title)}::${normalizeComparableValue(candidate.artist)}`,
+      candidate,
+    )
+  }
+
+  return [...uniqueCandidates.values()]
+}
+
+function onlineResultMatchesSong(song: LyricSongRef, payload: Record<string, unknown>) {
+  const candidates = collectOnlineResultSongCandidates(payload)
+  if (candidates.length === 0) {
     return true
   }
 
-  const variant = payloadVariant as Record<string, unknown>
-  const variantTitle = typeof variant.title === 'string' ? variant.title : ''
-  const variantArtist = typeof variant.artist === 'string' ? variant.artist : ''
+  return candidates.some((candidate) => {
+    const titleMatch = tokenOverlapScore(song.title, candidate.title)
+    const artistMatch = candidate.artist ? tokenOverlapScore(song.artist, candidate.artist) : 1
 
-  if (!variantTitle) {
-    return true
-  }
-
-  const titleMatch = tokenOverlapScore(song.title, variantTitle)
-  const artistMatch = variantArtist ? tokenOverlapScore(song.artist, variantArtist) : 1
-
-  // Keep strong same-song guarantees while allowing covers/alternate credits.
-  return (titleMatch >= 0.64 && artistMatch >= 0.45) || titleMatch >= 0.86
+    // Keep strong same-song guarantees while allowing covers/alternate credits.
+    return (titleMatch >= 0.64 && artistMatch >= 0.45) || titleMatch >= 0.86
+  })
 }
 
 function normalizeSongIdentityValue(value: string | null | undefined) {
@@ -774,75 +806,16 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
     let reconnectAttempt = 0
     const maxReconnectAttempts = 10
     const baseReconnectDelayMs = 1000
-    let heartbeatTimeoutId: ReturnType<typeof setTimeout> | null = null
     let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
-    const heartbeatIntervalMs = 30_000 // 30 seconds
-    const heartbeatTimeoutMs = 60_000 // 60 seconds without activity = stale
+    let isChannelSubscribed = false
 
-    const setupChannel = () => {
-      if (!isMounted) {
-        return
+    const teardownChannel = () => {
+      if (channelRef.current) {
+        void channelRef.current.unsubscribe()
+        channelRef.current = null
       }
 
-      let lastMessageTimeMs = Date.now()
-
-      const channel = supabase
-        .channel(CHANNEL_NAME)
-        .on('broadcast', { event: EVENT_NAME }, ({ payload }) => {
-          if (!isMounted) {
-            return
-          }
-
-          lastMessageTimeMs = Date.now()
-
-          const nextState = payload as LyricDisplayState
-          if (!nextState || nextState.updatedBy === sourceIdRef.current) {
-            return
-          }
-
-          if (nextState.updatedAt <= (stateRef.current.updatedAt ?? 0)) {
-            return
-          }
-
-          setState(nextState)
-        })
-        .subscribe((status, error) => {
-          if (!isMounted) {
-            return
-          }
-
-          if (status === 'SUBSCRIBED') {
-            reconnectAttempt = 0 // Reset on successful connection
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn(`[LyricDisplay] Channel status: ${status}, error: ${error?.message}`)
-            scheduleReconnect()
-          }
-        })
-
-      channelRef.current = channel
-
-      // Heartbeat to detect stale connections
-      const startHeartbeat = () => {
-        if (heartbeatTimeoutId) clearTimeout(heartbeatTimeoutId)
-
-        heartbeatTimeoutId = setTimeout(() => {
-          if (!isMounted) {
-            return
-          }
-
-          const timeSinceLastMessageMs = Date.now() - lastMessageTimeMs
-          if (timeSinceLastMessageMs > heartbeatTimeoutMs) {
-            console.warn('[LyricDisplay] Connection appears stale (no activity for 60s), reconnecting...')
-            void channel.unsubscribe()
-            scheduleReconnect()
-          } else {
-            // Check again soon
-            startHeartbeat()
-          }
-        }, heartbeatIntervalMs)
-      }
-
-      startHeartbeat()
+      isChannelSubscribed = false
     }
 
     const scheduleReconnect = () => {
@@ -862,6 +835,53 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
           setupChannel()
         }
       }, delayMs)
+    }
+
+    const setupChannel = () => {
+      if (!isMounted) {
+        return
+      }
+
+      teardownChannel()
+
+      const channel = supabase
+        .channel(CHANNEL_NAME)
+        .on('broadcast', { event: EVENT_NAME }, ({ payload }) => {
+          if (!isMounted) {
+            return
+          }
+
+          const nextState = payload as LyricDisplayState
+          if (!nextState || nextState.updatedBy === sourceIdRef.current) {
+            return
+          }
+
+          if (nextState.updatedAt <= (stateRef.current.updatedAt ?? 0)) {
+            return
+          }
+
+          setState(nextState)
+        })
+        .subscribe((status, error) => {
+          if (!isMounted) {
+            return
+          }
+
+          if (status === 'SUBSCRIBED') {
+            isChannelSubscribed = true
+            reconnectAttempt = 0 // Reset on successful connection
+            if (reconnectTimeoutId) {
+              clearTimeout(reconnectTimeoutId)
+              reconnectTimeoutId = null
+            }
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            isChannelSubscribed = false
+            console.warn(`[LyricDisplay] Channel status: ${status}, error: ${error?.message}`)
+            scheduleReconnect()
+          }
+        })
+
+      channelRef.current = channel
     }
 
     setupChannel()
@@ -887,19 +907,42 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
       }
     }
 
+    const onWake = () => {
+      if (!isMounted) {
+        return
+      }
+
+      if (!isChannelSubscribed || !channelRef.current) {
+        scheduleReconnect()
+      }
+    }
+
+    const onVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return
+      }
+
+      onWake()
+    }
+
     window.addEventListener('storage', onStorage)
+    window.addEventListener('online', onWake)
+    window.addEventListener('focus', onWake)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibilityChange)
+    }
 
     return () => {
       isMounted = false
       window.removeEventListener('storage', onStorage)
-
-      if (heartbeatTimeoutId) clearTimeout(heartbeatTimeoutId)
-      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId)
-
-      if (channelRef.current) {
-        void channelRef.current.unsubscribe()
-        channelRef.current = null
+      window.removeEventListener('online', onWake)
+      window.removeEventListener('focus', onWake)
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibilityChange)
       }
+
+      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId)
+      teardownChannel()
     }
   }, [supabase])
 
