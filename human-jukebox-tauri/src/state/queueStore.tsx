@@ -3958,6 +3958,17 @@ function QueueProvider({ children }: PropsWithChildren) {
         let nextHostEvents: HostEventSummary[] = []
 
         try {
+          const preflightHostEvents = await fetchHostEvents(user.id)
+          if (!preflightHostEvents.some((hostEvent) => hostEvent.id === nextEventId)) {
+            setHostEvents(preflightHostEvents)
+            throw new Error('This gig no longer exists. The gig list has been refreshed.')
+          }
+        } catch (error) {
+          console.error('queueStore: setActiveEvent preflight step failed', error)
+          throw error
+        }
+
+        try {
           const { error: deactivateError } = await withTimeout(
             withAuthLockRetry(() =>
               supabase
@@ -3980,13 +3991,15 @@ function QueueProvider({ children }: PropsWithChildren) {
         }
 
         try {
-          const { error: activateError } = await withTimeout(
+          const { data: activatedEvent, error: activateError } = await withTimeout(
             withAuthLockRetry(() =>
               supabase
                 .from('events')
                 .update({ is_active: true })
                 .eq('id', nextEventId)
-                .eq('host_id', user.id),
+                .eq('host_id', user.id)
+                .select('id')
+                .maybeSingle(),
             ),
             DEFAULT_DB_TIMEOUT_MS,
             'Timed out while updating active gig. Please try again.',
@@ -3994,6 +4007,10 @@ function QueueProvider({ children }: PropsWithChildren) {
 
           if (activateError) {
             throw new Error(`Failed to activate gig: ${activateError.message}`)
+          }
+
+          if (!activatedEvent?.id) {
+            throw new Error('Failed to activate gig: the selected gig no longer exists.')
           }
         } catch (error) {
           console.error('queueStore: setActiveEvent activate step failed', error)
@@ -4013,6 +4030,15 @@ function QueueProvider({ children }: PropsWithChildren) {
           )
 
           if (profileError) {
+            if (profileError.code === '23503') {
+              try {
+                const refreshedHostEvents = await fetchHostEvents(user.id)
+                setHostEvents(refreshedHostEvents)
+              } catch (refreshError) {
+                console.warn('queueStore: setActiveEvent host events refresh after FK failure failed', refreshError)
+              }
+              throw new Error('This gig is no longer available. The gig list has been refreshed.')
+            }
             throw new Error(`Failed to update profile: ${profileError.message}`)
           }
         } catch (error) {
