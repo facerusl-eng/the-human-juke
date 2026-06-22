@@ -212,7 +212,10 @@ function ShellLayout() {
   const currentPath = location.pathname
   const searchParams = new URLSearchParams(location.search)
   const isAdminRoute = currentPath.startsWith('/admin')
-  const isAudienceRoute = currentPath.startsWith('/audience') || currentPath.startsWith('/lyrics') || currentPath.startsWith('/j/')
+  const isAudienceRoute = currentPath.startsWith('/audience')
+    || currentPath.startsWith('/lyrics')
+    || currentPath.startsWith('/j/')
+    || currentPath.startsWith('/a/')
   const isFocusedGigControlView = currentPath.startsWith('/admin/gig-control') && searchParams.get('view') === 'focus'
   const showAdminNavigation = isAdminRoute && !isFocusedGigControlView
 
