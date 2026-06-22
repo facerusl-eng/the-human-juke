@@ -1111,7 +1111,7 @@ function normalizeExternalLink(url: string | null | undefined) {
 
 function EventPage() {
   // --- Welcome Overlay Logic ---
-  const { event, songs, performedSongs, loading, upvoteSong, removeSong, audienceConnectionStatus, pendingOfflineSongs, queueOperatingMode, queueHealthMessage } = useQueueStore();
+  const { event, songs, performedSongs, loading, upvoteSong, audienceConnectionStatus, pendingOfflineSongs, queueOperatingMode, queueHealthMessage } = useQueueStore();
   const [showWelcome, setShowWelcome] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   useEffect(() => {
@@ -1153,7 +1153,6 @@ function EventPage() {
   const [hasCompletedInitialLiveGigProbe, setHasCompletedInitialLiveGigProbe] = useState(true)
   const [visibleConnectionStatus, setVisibleConnectionStatus] = useState(audienceConnectionStatus)
   const [holdLiveUiDuringReconnect, setHoldLiveUiDuringReconnect] = useState(false)
-  const [cancellingRequestId, setCancellingRequestId] = useState<string | null>(null)
   const [audienceClockOffsetMs, setAudienceClockOffsetMs] = useState(() => requestedClockOffsetMs ?? readAudienceClockOffsetCache() ?? 0)
   const upcomingEventsRef = useRef<AudienceUpcomingEvent[]>([])
   const upcomingCoverFetchInFlightRef = useRef<Set<string>>(new Set())
@@ -1687,9 +1686,6 @@ function EventPage() {
         karaokeEventBadge: 'Karaoke-event',
         joinKaraokeShow: '🎤 Deltag i karaoke-showet',
         liveFeed: '💬 Livefeed',
-        cancelMyRequestAria: 'Fjern mit ønske',
-        cancelButton: 'Fjern mit ønske',
-        cancelRequestFailed: 'Kunne ikke fjerne dit ønske lige nu. Prøv igen.',
       }
     : audienceLocale === 'is'
     ? {
@@ -1703,9 +1699,6 @@ function EventPage() {
         karaokeEventBadge: 'Karaoke Event',
         joinKaraokeShow: '🎤 Join the Karaoke Show',
         liveFeed: '💬 Live Feed',
-        cancelMyRequestAria: 'Remove my request',
-        cancelButton: 'Remove mine',
-        cancelRequestFailed: 'Could not remove your request right now. Please try again.',
       }
     : {
         fallbackMode: 'Fallback Mode',
@@ -1718,9 +1711,6 @@ function EventPage() {
         karaokeEventBadge: 'Karaoke Event',
         joinKaraokeShow: '🎤 Join the Karaoke Show',
         liveFeed: '💬 Live Feed',
-        cancelMyRequestAria: 'Remove my request',
-        cancelButton: 'Remove mine',
-        cancelRequestFailed: 'Could not remove your request right now. Please try again.',
       }
 
   const primaryQueuedRequest = myQueuedRequests[0] ?? null
@@ -1739,14 +1729,6 @@ function EventPage() {
   const queuedBannerSecondaryText = additionalQueuedRequestCount > 0
     ? copy.queueStatusAdditional.replace('{count}', String(additionalQueuedRequestCount))
     : null
-  const canCancelPrimaryQueuedRequest = Boolean(
-    primaryQueuedRequest
-    && (
-      normalizedAudienceUserId
-        ? (primaryQueuedRequest.song.creatorId ?? '').trim().toLowerCase() === normalizedAudienceUserId
-        : (primaryQueuedRequest.song.createdByName ?? '').trim().toLowerCase() === normalizedAudienceName
-    ),
-  )
   const showAudienceEncoreThankYou = roomOpen
     && event?.eventType !== 'karaoke'
     && isLastSongSoonMode
@@ -3580,28 +3562,6 @@ function EventPage() {
                 {queuedBannerText}
                 {queuedBannerSecondaryText ? ` ${queuedBannerSecondaryText}` : ''}
               </span>
-              {canCancelPrimaryQueuedRequest && primaryQueuedRequest ? (
-                <div className="audience-queued-banner-actions">
-                  <button
-                    type="button"
-                    className="audience-queued-banner-cancel"
-                    aria-label={audienceUiCopy.cancelMyRequestAria}
-                    disabled={cancellingRequestId === primaryQueuedRequest.song.id}
-                    onClick={async () => {
-                      setCancellingRequestId(primaryQueuedRequest.song.id)
-                      try {
-                        await removeSong(primaryQueuedRequest.song.id)
-                      } catch {
-                        setErrorText(audienceUiCopy.cancelRequestFailed)
-                      } finally {
-                        setCancellingRequestId(null)
-                      }
-                    }}
-                  >
-                    {cancellingRequestId === primaryQueuedRequest.song.id ? '…' : audienceUiCopy.cancelButton}
-                  </button>
-                </div>
-              ) : null}
             </div>
           ) : null}
           <p className="eyebrow"><span aria-hidden="true">🎤</span> {copy.nowPlaying}</p>
