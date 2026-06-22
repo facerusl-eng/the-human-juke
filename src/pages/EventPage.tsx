@@ -1746,6 +1746,7 @@ function EventPage() {
     && isBetweenSongs
     && !displaySong
 
+  const isWaitingCountdownActive = waitingRoomRemainingMs !== null && waitingRoomRemainingMs > 0
   const waitingRoomHasEnded = waitingRoomRemainingMs !== null && waitingRoomRemainingMs <= -15_000
   const waitingRoomStartsAtLabel = formatAudienceAbsoluteStartLabel(normalizedWaitingRoomStartMs, audienceLocale)
   const shouldPrioritizeAbsoluteStart = waitingRoomRemainingMs !== null && waitingRoomRemainingMs > 36 * 60 * 60 * 1000
@@ -3276,18 +3277,20 @@ function EventPage() {
               </div>
             ) : null}
             <div className="audience-waiting-primary-actions">
-              <button
-                type="button"
-                className="primary-button"
-                onClick={() => {
-                  const mirrorUrl = event?.id
-                    ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
-                    : '/mirror?launchFullscreen=1'
-                  window.location.assign(mirrorUrl)
-                }}
-              >
-                📺 {copy.viewMirror}
-              </button>
+              {!isWaitingCountdownActive ? (
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => {
+                    const mirrorUrl = event?.id
+                      ? `/mirror?event=${encodeURIComponent(event.id)}&launchFullscreen=1`
+                      : '/mirror?launchFullscreen=1'
+                    window.location.assign(mirrorUrl)
+                  }}
+                >
+                  📺 {copy.viewMirror}
+                </button>
+              ) : null}
               {hasRequestedEventParam ? (
                 <button
                   type="button"
