@@ -274,7 +274,6 @@
 .lyrics-focus-primary,
 .lyrics-focus-secondary {
   margin: 0;
-  text-wrap: balance;
 }
 
 .lyrics-focus-primary {
@@ -286,7 +285,7 @@
 }
 
 .lyrics-focus-primary.is-timed {
-  text-wrap: pretty;
+  overflow-wrap: anywhere;
 }
 
 .lyrics-word {

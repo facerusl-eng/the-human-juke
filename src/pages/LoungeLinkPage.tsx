@@ -113,22 +113,12 @@ function LoungeLinkPage() {
 
   if (destinationHref) {
     return (
-      <section className="app-shell" aria-label="QR destination viewer" style={{ minHeight: '100dvh', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
+      <section className="app-shell lounge-link-page" aria-label="QR destination viewer">
         <section
-          className="queue-panel"
-          style={{
-            margin: 0,
-            borderRadius: 0,
-            padding: '0.85rem 1rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '0.85rem',
-            flexWrap: 'wrap',
-          }}
+          className="queue-panel lounge-link-toolbar"
         >
-          <p className="eyebrow" style={{ margin: 0 }}>{panelLabel}</p>
-          <div style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
+          <p className="eyebrow lounge-link-toolbar-eyebrow">{panelLabel}</p>
+          <div className="lounge-link-toolbar-actions">
             <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
               {backButtonText}
             </button>
@@ -137,7 +127,7 @@ function LoungeLinkPage() {
         <iframe
           src={destinationHref}
           title={panelLabel}
-          style={{ width: '100%', height: '100%', border: 'none', background: '#060a1a' }}
+          className="lounge-link-iframe"
           referrerPolicy="no-referrer"
         />
       </section>
@@ -152,7 +142,7 @@ function LoungeLinkPage() {
         <p className="subcopy">
           Use {backButtonText} to return to the QR landing page.
         </p>
-        <div style={{ display: 'grid', gap: '0.8rem', marginTop: '1rem' }}>
+        <div className="lounge-link-empty-actions">
           <button type="button" className="qr-landing-button qr-landing-button-back" onClick={() => navigate(backToWelcomePath, { replace: true })}>
             {backButtonText}
           </button>
