@@ -4,10 +4,16 @@ on:
   push:
     paths:
       - 'audience-app/**'
+      - 'src/**'
+      - 'scripts/audience-cross-browser-smoke.mjs'
+      - 'package.json'
       - '.github/workflows/audience-stability.yml'
   pull_request:
     paths:
       - 'audience-app/**'
+      - 'src/**'
+      - 'scripts/audience-cross-browser-smoke.mjs'
+      - 'package.json'
       - '.github/workflows/audience-stability.yml'
 
 env:
@@ -140,3 +146,38 @@ jobs:
           else
             echo "⚠ assets directory not found (may be没有问题 if using different build config)"
           fi
+
+  cross-browser-os-smoke:
+    name: Audience Cross-Browser Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers (Linux)
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Install Playwright browsers (Windows/macOS)
+        if: runner.os != 'Linux'
+        run: npx playwright install chromium firefox webkit
+
+      - name: Run cross-browser smoke
+        run: npm run test:audience:cross-browser
+        env:
+          SMOKE_ROUTES: /audience,/audience?test=1,/mirror

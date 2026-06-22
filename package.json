@@ -30,6 +30,7 @@
     "mixer:preset:backing": "node scripts/apply-backing-preset.mjs",
     "mixer:mute": "node scripts/mixer-mute-hotkeys.mjs",
     "midi:bridge": "node scripts/midi-companion-bridge.mjs --config scripts/midi-companion-config.json",
+    "test:audience:cross-browser": "node scripts/audience-cross-browser-smoke.mjs",
     "ci:verify": "npm run lint && npm run build",
     "deploy": "vercel --prod"
   },
