@@ -34,6 +34,8 @@ function buildEventsUrl(supabaseUrl, selectColumns, todayIso) {
   const url = new URL('/rest/v1/events', supabaseUrl)
   url.searchParams.set('select', selectColumns)
   url.searchParams.set('or', `(gig_date.gte.${todayIso},gig_date.is.null)`)
+  // Show events explicitly enabled for no-live audience mode, plus legacy rows where the flag is null.
+  url.searchParams.set('show_in_audience_no_gig', 'not.eq.false')
   url.searchParams.set('order', 'gig_date.asc.nullslast,gig_start_time.asc.nullslast,created_at.asc')
   url.searchParams.set('limit', '50')
 
