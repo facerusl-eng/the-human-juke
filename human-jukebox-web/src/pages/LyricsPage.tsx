@@ -1,8 +1,9 @@
 
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { demoMode } from '../demo/demoMode';
 import { useAuthStore } from '../state/authStore';
+import { useQueueStore } from '../state/queueStore';
 import { supabase } from '../lib/supabase';
 import { cacheFoundLyrics, getAutoCachedLyrics, getLyricsPrefetchStatus, markLyricsNotFound } from '../lib/lyricsPrefetch';
 import { normalizeAudienceLocale, readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity';
@@ -56,6 +57,28 @@ function saveLyricsNudgeMs(value: number) {
 
 function normalizeLyricsInput(value: string | null | undefined) {
   return (value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+type LyricsSongSource = {
+  title: string;
+  artist: string;
+  librarySongId: string | null;
+};
+
+function buildLyricsSongIdentityKey(song: LyricsSongSource | null) {
+  if (!song) {
+    return null;
+  }
+
+  const titlePart = normalizeLyricsInput(song.title).toLowerCase();
+  const artistPart = normalizeLyricsInput(song.artist).toLowerCase();
+  const idPart = normalizeLyricsInput(song.librarySongId).toLowerCase();
+
+  if (!titlePart && !artistPart && !idPart) {
+    return null;
+  }
+
+  return `${idPart}::${artistPart}::${titlePart}`;
 }
 
 function buildFallbackLyricsText(title: string, artist: string) {
@@ -741,6 +764,7 @@ function buildLyricsQueries(title: string, artist: string) {
 export default function LyricsPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { songs, audienceConnectionStatus } = useQueueStore();
   const searchParams = new URLSearchParams(location.search);
   const routeState = (location.state as {
     title?: string;
@@ -758,10 +782,53 @@ export default function LyricsPage() {
   const isStageMode = searchParams.get('stage') === '1' || isGigControlReturnPath;
   const copy = getLyricsPageCopy(audienceLocale);
   const stateLibrarySongId = routeState?.librarySongId ?? null;
-  const title = normalizeLyricsInput(stateTitle || searchParams.get('title'));
-  const artist = normalizeLyricsInput(stateArtist || searchParams.get('artist'));
+
+  const querySong = useMemo(() => {
+    const routeTitle = normalizeLyricsInput(stateTitle || searchParams.get('title'));
+    if (!routeTitle) {
+      return null;
+    }
+
+    return {
+      title: routeTitle,
+      artist: normalizeLyricsInput(stateArtist || searchParams.get('artist')),
+      librarySongId: normalizeLyricsInput(stateLibrarySongId || searchParams.get('songId')) || null,
+    } as LyricsSongSource;
+  }, [searchParams, stateArtist, stateLibrarySongId, stateTitle]);
+
+  const nowPlayingSong = useMemo(() => {
+    const nowPlaying = songs[0];
+    if (!nowPlaying?.title) {
+      return null;
+    }
+
+    return {
+      title: normalizeLyricsInput(nowPlaying.title),
+      artist: normalizeLyricsInput(nowPlaying.artist),
+      librarySongId: normalizeLyricsInput(nowPlaying.library_song_id) || null,
+    } as LyricsSongSource;
+  }, [songs]);
+
+  const [lastKnownNowPlayingSong, setLastKnownNowPlayingSong] = useState<LyricsSongSource | null>(null);
+  useEffect(() => {
+    if (!nowPlayingSong?.title) {
+      return;
+    }
+
+    setLastKnownNowPlayingSong(nowPlayingSong);
+  }, [nowPlayingSong]);
+
+  const activeSong = useMemo(
+    () => nowPlayingSong ?? lastKnownNowPlayingSong ?? querySong,
+    [lastKnownNowPlayingSong, nowPlayingSong, querySong],
+  );
+
+  const title = normalizeLyricsInput(activeSong?.title);
+  const artist = normalizeLyricsInput(activeSong?.artist);
   const displayArtist = artist || copy.unknownArtist;
-  const librarySongId = normalizeLyricsInput(stateLibrarySongId || searchParams.get('songId'));
+  const librarySongId = normalizeLyricsInput(activeSong?.librarySongId || stateLibrarySongId || searchParams.get('songId'));
+  const activeSongKey = useMemo(() => buildLyricsSongIdentityKey(activeSong), [activeSong]);
+
   const { user, isHost } = useAuthStore();
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -774,10 +841,16 @@ export default function LyricsPage() {
   const [playbackIsStarted, setPlaybackIsStarted] = useState<boolean | null>(null);
   const [playbackStartedAtMs, setPlaybackStartedAtMs] = useState<number | null>(null);
   const [lyricsNudgeMs, setLyricsNudgeMs] = useState(() => readLyricsNudgeMs());
-  const [pedalConnected, setPedalConnected] = useState(false);
-  const [pedalDeviceName, setPedalDeviceName] = useState<string | null>(null);
   const [pedalStatusText, setPedalStatusText] = useState<string | null>(null);
-  const [pedalConnecting, setPedalConnecting] = useState(false);
+  const [lyricReloadTick, setLyricReloadTick] = useState(0);
+  const latestLyricsRequestIdRef = useRef(0);
+  const lastLoadedSongKeyRef = useRef<string | null>(null);
+  const lastConnectionStatusRef = useRef(audienceConnectionStatus);
+  const lyricsRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lyricsRef.current = lyrics;
+  }, [lyrics]);
 
   const formattedLyrics = useMemo(() => {
     if (!lyrics) {
@@ -988,41 +1061,6 @@ export default function LyricsPage() {
     };
   }, [applyLyricsNudge, isStageMode, tapSyncLyrics]);
 
-  const connectBluetoothPedal = useCallback(async () => {
-    if (typeof navigator === 'undefined' || !('hid' in navigator)) {
-      setPedalStatusText('WebHID not available. Pair pedal as keyboard and use ArrowLeft/ArrowRight/Tap-Sync hotkeys.');
-      return;
-    }
-
-    const hidApi = (navigator as unknown as { hid: { requestDevice: (options: { filters: Array<Record<string, unknown>> }) => Promise<Array<{ productName?: string; opened?: boolean; open?: () => Promise<void> }>> } }).hid;
-    setPedalConnecting(true);
-
-    try {
-      const devices = await hidApi.requestDevice({ filters: [] });
-      const firstDevice = devices[0];
-
-      if (!firstDevice) {
-        setPedalStatusText('No pedal selected.');
-        return;
-      }
-
-      if (!firstDevice.opened && typeof firstDevice.open === 'function') {
-        await firstDevice.open();
-      }
-
-      setPedalConnected(true);
-      setPedalDeviceName(firstDevice.productName ?? 'Bluetooth pedal');
-      setPedalStatusText('Pedal connected. Use pedal keys (ArrowLeft / ArrowRight / ArrowDown) to control lyric timing.');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not connect pedal.';
-      setPedalStatusText(message);
-      setPedalConnected(false);
-      setPedalDeviceName(null);
-    } finally {
-      setPedalConnecting(false);
-    }
-  }, []);
-
   const backButtonLabel = useMemo(() => {
     if (!isGigControlReturnPath) {
       return copy.backToLounge;
@@ -1047,17 +1085,96 @@ export default function LyricsPage() {
   }, [navigate, returnToPath]);
 
   useEffect(() => {
+    const onWake = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+
+      setLyricReloadTick((currentValue) => currentValue + 1);
+    };
+
+    window.addEventListener('online', onWake);
+    window.addEventListener('focus', onWake);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onWake);
+    }
+
+    return () => {
+      window.removeEventListener('online', onWake);
+      window.removeEventListener('focus', onWake);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onWake);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (lastConnectionStatusRef.current !== 'connected' && audienceConnectionStatus === 'connected') {
+      setLyricReloadTick((currentValue) => currentValue + 1);
+    }
+
+    lastConnectionStatusRef.current = audienceConnectionStatus;
+  }, [audienceConnectionStatus]);
+
+  useEffect(() => {
+    if (!lyricsNotFound || !title) {
+      return;
+    }
+
+    const retryTimerId = window.setInterval(() => {
+      setLyricReloadTick((currentValue) => currentValue + 1);
+    }, 20_000);
+
+    return () => {
+      window.clearInterval(retryTimerId);
+    };
+  }, [lyricsNotFound, title]);
+
+  useEffect(() => {
     if (!title) {
       setError(copy.missingSongTitle);
       return;
     }
 
-    setLoading(true);
+    latestLyricsRequestIdRef.current += 1;
+    const requestId = latestLyricsRequestIdRef.current;
+    const isSongChanged = activeSongKey !== lastLoadedSongKeyRef.current;
+    lastLoadedSongKeyRef.current = activeSongKey;
+
+    const hasExistingLyrics = Boolean(lyricsRef.current?.trim());
+    const autoCachedLyrics = getAutoCachedLyrics(title, artist)?.trim() ?? '';
+
+    const requestStillCurrent = () => requestId === latestLyricsRequestIdRef.current;
+
+    const updateLyricState = (nextLyrics: string, options?: { notFound?: boolean; saveToManual?: boolean }) => {
+      if (!requestStillCurrent()) {
+        return false;
+      }
+
+      setLyrics(nextLyrics);
+      if (options?.saveToManual !== false) {
+        setManualLyricsInput(nextLyrics);
+      }
+      setLyricsNotFound(options?.notFound === true);
+      setLoading(false);
+      return true;
+    };
+
+    setLoading(!autoCachedLyrics);
     setError(null);
-    setLyrics(null);
-    setLyricsNotFound(false);
-    setManualSaveMessage(null);
-    setManualLyricsInput('');
+
+    if (isSongChanged) {
+      setLyricsNotFound(false);
+      setManualSaveMessage(null);
+      if (!autoCachedLyrics) {
+        setLyrics(null);
+        setManualLyricsInput('');
+      }
+    }
+
+    if (autoCachedLyrics) {
+      updateLyricState(autoCachedLyrics, { notFound: false });
+    }
 
     // First, check if host already saved manual lyrics directly on this library song.
     const loadLyrics = async () => {
@@ -1071,10 +1188,7 @@ export default function LyricsPage() {
 
         if (importedLyrics) {
           cacheFoundLyrics(title, artist, importedLyrics);
-          setLyrics(importedLyrics);
-          setManualLyricsInput(importedLyrics);
-          setLyricsNotFound(false);
-          setLoading(false);
+          updateLyricState(importedLyrics, { notFound: false });
           return;
         }
       }
@@ -1091,9 +1205,7 @@ export default function LyricsPage() {
 
           if (!fetchSongError && songManualLyrics) {
             cacheFoundLyrics(title, artist, songManualLyrics);
-            setLyrics(songManualLyrics);
-            setManualLyricsInput(songManualLyrics);
-            setLoading(false);
+            updateLyricState(songManualLyrics, { notFound: false });
             return;
           }
         } catch {
@@ -1122,10 +1234,7 @@ export default function LyricsPage() {
 
           if (!metadataError && metadataManualLyrics) {
             cacheFoundLyrics(title, artist, metadataManualLyrics)
-            setLyrics(metadataManualLyrics)
-            setManualLyricsInput(metadataManualLyrics)
-            setLyricsNotFound(false)
-            setLoading(false)
+            updateLyricState(metadataManualLyrics, { notFound: false })
             return
           }
         } catch {
@@ -1137,10 +1246,7 @@ export default function LyricsPage() {
     const autoCached = getAutoCachedLyrics(title, artist);
     if (autoCached) {
       const normalizedAutoCached = autoCached.trim();
-      setLyrics(normalizedAutoCached);
-      setManualLyricsInput(normalizedAutoCached);
-      setLyricsNotFound(false);
-      setLoading(false);
+      updateLyricState(normalizedAutoCached, { notFound: false });
       return;
     }
 
@@ -1168,7 +1274,12 @@ export default function LyricsPage() {
             return null
           }
 
-          const data = await response.json()
+          const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+          if (!contentType.includes('application/json')) {
+            return null
+          }
+
+          const data = await response.json().catch(() => null)
           const resolvedLyrics = typeof data?.lyrics === 'string' ? data.lyrics.trim() : ''
           return resolvedLyrics.length > 0 ? resolvedLyrics : null
         } catch {
@@ -1181,32 +1292,64 @@ export default function LyricsPage() {
       const tryAllSources = async () => {
       const queries = buildLyricsQueries(title, artist);
 
-      for (let startIndex = 0; startIndex < queries.length; startIndex += 3) {
-        const batch = queries.slice(startIndex, startIndex + 3)
-        const results = await Promise.all(batch.map((query) => fetchLyricsCandidate(query)))
-        const resolvedLyrics = results.find((result): result is string => typeof result === 'string' && result.trim().length > 0)
+      // Quality threshold: accept the first result that is at least this long.
+      // Shorter results are kept as candidates but we wait for something better.
+      const GOOD_ENOUGH_CHARS = 350
+      // Hard ceiling: give up waiting after this many ms regardless.
+      const OVERALL_TIMEOUT_MS = 18_000
 
-        if (resolvedLyrics) {
-          cacheFoundLyrics(title, artist, resolvedLyrics);
-          setLyrics(resolvedLyrics);
-          setManualLyricsInput(resolvedLyrics);
-          setLyricsNotFound(false);
+      // Fire ALL variant queries in parallel so the fastest/best result wins.
+      let bestLyrics: string | null = null
+      let settled = 0
+      let earlyResolved = false
+
+      const allPromises = queries.map((query) => fetchLyricsCandidate(query))
+
+      await Promise.race([
+        new Promise<void>((resolveRace) => {
+          for (const p of allPromises) {
+            void p.then((resolvedLyrics) => {
+              settled++
+              if (resolvedLyrics && !earlyResolved) {
+                if (!bestLyrics || resolvedLyrics.length > bestLyrics.length) {
+                  bestLyrics = resolvedLyrics
+                }
+                if (resolvedLyrics.length >= GOOD_ENOUGH_CHARS) {
+                  earlyResolved = true
+                  resolveRace()
+                }
+              }
+              if (settled === allPromises.length) {
+                resolveRace()
+              }
+            })
+          }
+        }),
+        new Promise<void>((res) => window.setTimeout(res, OVERALL_TIMEOUT_MS)),
+      ])
+
+      if (bestLyrics) {
+        cacheFoundLyrics(title, artist, bestLyrics);
+        updateLyricState(bestLyrics, { notFound: false });
+        return;
+      }
+
+      if (!isSongChanged && hasExistingLyrics) {
+        if (requestStillCurrent()) {
           setLoading(false);
-          return;
         }
+        return;
       }
 
       markLyricsNotFound(title, artist);
-      setLyrics(buildFallbackLyricsText(title, artist));
-      setLyricsNotFound(true);
-      setLoading(false);
+      updateLyricState(buildFallbackLyricsText(title, artist), { notFound: true, saveToManual: false });
     };
 
       await tryAllSources();
     };
 
     void loadLyrics();
-  }, [title, artist, librarySongId, copy.missingSongTitle]);
+  }, [activeSongKey, artist, copy.missingSongTitle, librarySongId, lyricReloadTick, title]);
 
   const saveManualLyrics = async () => {
     const normalizedLyrics = manualLyricsInput.trim();
@@ -1266,7 +1409,7 @@ export default function LyricsPage() {
   };
 
   return (
-    <div className={`audience-lyrics-page${isStageMode ? ' lyrics-stage-view' : ''}`}>
+    <div className={`audience-lyrics-page${isStageMode ? ' lyrics-stage-view' : ' audience-lyrics-modern'}`}>
       {isStageMode ? (
         <div className="lyrics-stage-toolbar">
           {isHost ? (
@@ -1281,15 +1424,7 @@ export default function LyricsPage() {
             <h1 className="audience-lyrics-title">{title} - {displayArtist}</h1>
             <p className="audience-lyrics-subtitle">Stage lyrics view</p>
             {isHost ? (
-              <div className="lyrics-pedal-controls" aria-label="Lyrics pedal controls">
-                <div className="lyrics-pedal-row">
-                  <button type="button" className="primary-button lyrics-pedal-connect" onClick={() => { void connectBluetoothPedal(); }} disabled={pedalConnecting}>
-                    {pedalConnecting ? 'Connecting pedal...' : 'Connect Bluetooth Pedal'}
-                  </button>
-                  <span className={`lyrics-pedal-state${pedalConnected ? ' is-connected' : ''}`}>
-                    {pedalConnected ? `Connected: ${pedalDeviceName ?? 'Pedal'}` : 'Not connected'}
-                  </span>
-                </div>
+              <div className="lyrics-pedal-controls" aria-label="Lyrics sync controls">
                 <div className="lyrics-pedal-row lyrics-nudge-row">
                   <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-250)}>-250ms</button>
                   <button type="button" className="primary-button lyrics-nudge-btn" onClick={() => applyLyricsNudge(-100)}>-100ms</button>
@@ -1307,18 +1442,28 @@ export default function LyricsPage() {
           </div>
         </div>
       ) : (
-        <>
-          <h1 className="audience-lyrics-title">{copy.singAlongTitlePrefix} {title} - {displayArtist}</h1>
+        <header className="audience-lyrics-sticky-header">
+          <nav className="lyrics-audience-nav" aria-label="Lyrics navigation">
+            <button
+              type="button"
+              className="ghost-button lyrics-audience-back-btn"
+              onClick={handleBackNavigation}
+            >
+              ← {copy.backToLounge}
+            </button>
+          </nav>
+          <h1 className="audience-lyrics-title audience-lyrics-sticky-title">{copy.singAlongTitlePrefix} {title} - {displayArtist}</h1>
           <p className="audience-lyrics-subtitle">{copy.lyricsSubtitle}</p>
-        </>
+        </header>
       )}
-      {loading && <p>{copy.loadingLyrics}</p>}
+      <section className={isStageMode ? '' : 'audience-lyrics-scroll-region'}>
+      {loading && <p className="audience-lyrics-status">{copy.loadingLyrics}</p>}
       {error && <p className="error-text">{error}</p>}
       {lyricsNotFound ? (
         <p className="error-text">{copy.noLyricsAuto}</p>
       ) : null}
 
-      {isHost && (lyricsNotFound || lyrics) ? (
+      {isHost && isStageMode && (lyricsNotFound || lyrics) ? (
         <section className="lyrics-manual-entry" aria-label={copy.manualFallbackAria}>
           <h2>{lyricsNotFound ? copy.manualFallbackTitle : copy.manualEditTitle}</h2>
           <p className="subcopy">{lyricsNotFound ? copy.manualFallbackCopy : copy.manualEditCopy}</p>
@@ -1337,7 +1482,7 @@ export default function LyricsPage() {
       ) : null}
 
       {formattedLyrics ? (
-        <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}${hasTimedKaraoke ? ' lyrics-stage-text-timed' : ''}` : ' audience-lyrics-text-sections'}`}>
+        <div className={`audience-lyrics-text${isStageMode ? ` lyrics-stage-text${stageLyricsDensityClass}${hasTimedKaraoke ? ' lyrics-stage-text-timed' : ''}` : ' audience-lyrics-text-sections audience-lyrics-modern-text'}`}>
           {isStageMode ? (() => {
             if (!hasTimedKaraoke) {
               return <div className="lyrics-stage-focus">{renderKaraokeFocusBlocks(formattedLyrics)}</div>
@@ -1393,6 +1538,7 @@ export default function LyricsPage() {
           })() : renderLyricsSections(formattedLyrics)}
         </div>
       ) : null}
+      </section>
     </div>
   );
 }
