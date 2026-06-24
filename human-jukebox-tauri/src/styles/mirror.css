@@ -4026,13 +4026,24 @@
   line-height: 1.34;
 }
 
-.mirror-now-playing-qr-panel {
+.mirror-now-playing-qr-wrap {
   display: grid;
   align-content: center;
   justify-items: center;
   justify-self: center;
   align-self: center;
   width: min(100%, clamp(188px, 15vw, 286px));
+  max-width: 100%;
+  gap: clamp(0.24rem, 0.4vw, 0.36rem);
+}
+
+.mirror-now-playing-qr-panel {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  justify-self: stretch;
+  align-self: stretch;
+  width: 100%;
   max-width: 100%;
   gap: 0;
   height: auto;
@@ -4069,13 +4080,31 @@
   right: auto;
 }
 
+.mirror-now-playing-qr-label {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-size: clamp(0.72rem, 0.84vw, 0.92rem);
+  line-height: 1.2;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #eaf6ff;
+  padding: clamp(0.16rem, 0.24vw, 0.22rem) clamp(0.24rem, 0.38vw, 0.38rem);
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  background: rgba(8, 17, 33, 0.68);
+  text-shadow: 0 1px 8px rgba(4, 10, 22, 0.8);
+  overflow-wrap: anywhere;
+}
+
 .mirror-shell-hide-controls .mirror-now-playing-band-label,
 .mirror-shell-hide-controls .mirror-now-playing-qr-url {
   display: none;
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-qr-label {
-  display: none;
+  display: block;
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-qr-panel {
@@ -4144,8 +4173,12 @@
     gap: clamp(0.52rem, 1.4vw, 0.8rem);
   }
 
-  .mirror-now-playing-qr-panel {
+  .mirror-now-playing-qr-wrap {
     width: min(100%, 18rem);
+  }
+
+  .mirror-now-playing-qr-panel {
+    width: 100%;
     justify-self: center;
     height: auto;
   }

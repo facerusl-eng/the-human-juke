@@ -5145,15 +5145,18 @@ function MirrorPageContent() {
                   </div>
                 )}
                   {!layoutEditMode && !isAudienceKaraokeActive ? (
-                    <a
-                      className="mirror-now-playing-qr-panel"
-                      href={audienceUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      aria-label="Audience request page QR link"
-                    >
-                      <img src={audienceQrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
-                    </a>
+                    <div className="mirror-now-playing-qr-wrap">
+                      <a
+                        className="mirror-now-playing-qr-panel"
+                        href={audienceUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        aria-label="Audience request page QR link"
+                      >
+                        <img src={audienceQrUrl} alt="QR code for the audience request page" className="mirror-now-playing-qr" />
+                      </a>
+                      <p className="mirror-now-playing-qr-label">Scan code to join the show</p>
+                    </div>
                   ) : null}
                   {layoutEditMode ? (
                     <button
