@@ -14,17 +14,6 @@
   text-align: center;
 }
 
-.audience-lyrics-modern {
-  max-width: min(960px, calc(100vw - 14px));
-  padding: 0;
-  border-radius: 20px;
-  overflow: hidden;
-  background: linear-gradient(160deg, rgba(2, 6, 16, 0.92), rgba(7, 15, 30, 0.9));
-  border: 1px solid rgba(122, 162, 255, 0.32);
-  box-shadow: 0 18px 52px rgba(1, 4, 10, 0.56), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  text-align: left;
-}
-
 .audience-lyrics-page::before {
   content: '';
   position: fixed;
@@ -57,44 +46,6 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-.audience-lyrics-sticky-header {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  padding: 14px 18px 16px;
-  border-bottom: 1px solid rgba(125, 211, 252, 0.25);
-  background: linear-gradient(180deg, rgba(3, 9, 20, 0.96), rgba(5, 11, 24, 0.88));
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-
-.audience-lyrics-sticky-title {
-  margin: 0;
-  font-size: clamp(1.25rem, 0.96rem + 1.12vw, 2rem);
-  line-height: 1.2;
-}
-
-.audience-lyrics-sticky-header .audience-lyrics-subtitle {
-  margin: 8px 0 0;
-  font-size: 0.9rem;
-  color: rgba(232, 242, 255, 0.92);
-  max-width: 60ch;
-}
-
-.audience-lyrics-scroll-region {
-  max-height: calc(100dvh - 108px);
-  overflow-y: auto;
-  scroll-behavior: smooth;
-  padding: 10px 0 22px;
-}
-
-.audience-lyrics-status {
-  margin: 0;
-  padding: 18px 20px 0;
-  color: rgba(226, 240, 255, 0.9);
-  font-size: 0.98rem;
-}
-
 .audience-lyrics-text {
   white-space: pre-wrap;
   font-size: 1.25rem;
@@ -109,91 +60,10 @@
   text-align: center;
 }
 
-.audience-lyrics-modern-text {
-  width: min(100%, 880px);
-  margin: 0 auto;
-  padding: 20px clamp(14px, 2.2vw, 32px) 28px;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  text-align: left;
-  font-size: clamp(1.28rem, 1.08rem + 0.88vw, 2rem);
-  line-height: 1.58;
-  letter-spacing: 0.01em;
-  color: #f8fbff;
-}
-
 /* In stage mode keep the box height-constrained and scrollable within the grid cell */
 .lyrics-stage-view .audience-lyrics-text {
   max-height: calc(100dvh - 72px);
   overflow-y: auto;
-}
-
-.audience-lyrics-text-sections {
-  text-align: left;
-  padding: 18px;
-}
-
-.lyrics-sections {
-  display: grid;
-  gap: 14px;
-}
-
-.audience-lyrics-modern .lyrics-sections {
-  gap: 16px;
-}
-
-.lyrics-section {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  background: rgba(2, 8, 22, 0.45);
-  padding: 10px 12px;
-}
-
-.audience-lyrics-modern .lyrics-section {
-  border: 1px solid rgba(125, 211, 252, 0.18);
-  border-radius: 14px;
-  background: linear-gradient(166deg, rgba(7, 17, 36, 0.72), rgba(8, 13, 30, 0.48));
-  padding: 14px 14px 16px;
-  box-shadow: 0 8px 24px rgba(3, 7, 18, 0.3);
-}
-
-.lyrics-section-heading {
-  margin: 0 0 8px 0;
-  color: #7dd3fc;
-  font-size: 0.96rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.audience-lyrics-modern .lyrics-section-heading {
-  margin-bottom: 10px;
-  color: #a5d8ff;
-  font-size: 0.82em;
-  letter-spacing: 0.1em;
-}
-
-.lyrics-section-body {
-  display: grid;
-  gap: 4px;
-}
-
-.audience-lyrics-modern .lyrics-section-body {
-  gap: 8px;
-}
-
-.lyrics-section-line {
-  margin: 0;
-  font-weight: 700;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
-.audience-lyrics-modern .lyrics-section-line {
-  font-weight: 680;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.08);
 }
 
 .karaoke-line {
@@ -239,24 +109,16 @@
 
 .lyrics-stage-toolbar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: 8px;
   text-align: left;
-}
-
-.lyrics-stage-pedal-block {
-  justify-self: end;
 }
 
 .lyrics-audience-nav {
   display: flex;
   justify-content: flex-start;
   margin-bottom: 12px;
-}
-
-.audience-lyrics-sticky-header .lyrics-audience-nav {
-  margin-bottom: 10px;
 }
 
 .lyrics-audience-back-btn {
@@ -267,16 +129,6 @@
 
 .lyrics-audience-back-btn:hover {
   opacity: 1;
-}
-
-.audience-lyrics-sticky-header .lyrics-audience-back-btn {
-  border-color: rgba(125, 211, 252, 0.4);
-  color: #cfe6ff;
-  background: rgba(10, 22, 46, 0.45);
-}
-
-.audience-lyrics-sticky-header .lyrics-audience-back-btn:hover {
-  background: rgba(16, 30, 60, 0.7);
 }
 
 .lyrics-stage-back-button {
@@ -519,40 +371,6 @@
 }
 
 @media (max-width: 768px) {
-  .audience-lyrics-modern {
-    max-width: calc(100vw - 10px);
-    border-radius: 14px;
-  }
-
-  .audience-lyrics-sticky-header {
-    padding: 12px 12px 14px;
-  }
-
-  .audience-lyrics-sticky-title {
-    font-size: clamp(1.02rem, 0.82rem + 1.04vw, 1.36rem);
-  }
-
-  .audience-lyrics-scroll-region {
-    max-height: calc(100dvh - 92px);
-    padding-top: 8px;
-  }
-
-  .audience-lyrics-status {
-    padding: 12px 12px 0;
-    font-size: 0.9rem;
-  }
-
-  .audience-lyrics-modern-text {
-    padding: 14px 12px 20px;
-    font-size: clamp(1.08rem, 0.94rem + 0.9vw, 1.32rem);
-    line-height: 1.56;
-  }
-
-  .audience-lyrics-modern .lyrics-section {
-    padding: 12px 10px 12px;
-    border-radius: 12px;
-  }
-
   .lyrics-stage-view {
     max-width: calc(100vw - 12px);
     padding: 8px 6px 12px 6px;
@@ -1605,7 +1423,7 @@
 .audience-karafun .audience-final-countdown-number {
   margin: 0;
   color: #ffffff;
-  font-size: clamp(6.8rem, 26vw, 13.5rem);
+  font-size: clamp(8.2rem, 30vw, 16rem);
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0.02em;
@@ -2545,7 +2363,7 @@
 }
 
 .audience-karafun .audience-no-gig-countdown-value {
-  font-size: clamp(1.6rem, 8.2vw, 2.35rem);
+  font-size: clamp(2.4rem, 12vw, 4rem);
 }
 
 @media (max-width: 480px) {
@@ -2557,7 +2375,7 @@
     width: min(94vw, 340px);
   }
   .audience-karafun .audience-final-countdown-number {
-    font-size: clamp(5rem, 32vw, 9rem);
+    font-size: clamp(6.2rem, 35vw, 11rem);
   }
   .audience-karafun .audience-waiting-primary-actions {
     grid-template-columns: 1fr;
@@ -2617,6 +2435,6 @@
   }
 
   .audience-karafun .audience-no-gig-countdown-value {
-    font-size: clamp(1.42rem, 7.4vw, 2.05rem);
+    font-size: clamp(2rem, 11vw, 3rem);
   }
 }
