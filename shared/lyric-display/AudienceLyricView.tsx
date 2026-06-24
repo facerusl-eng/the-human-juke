@@ -70,9 +70,31 @@ function normalizeSectionBodyKey(lines: string[]) {
     .trim()
 }
 
+function hasExplicitSectionHeadings(blocks: string[]) {
+  for (const block of blocks) {
+    const blockLines = block
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    if (blockLines.length === 0) {
+      continue
+    }
+
+    if (normalizeSectionHeading(blockLines[0])) {
+      return true
+    }
+  }
+
+  return false
+}
+
 function buildAudienceLyricSections(blocks: string[]) {
   const sections: AudienceLyricSection[] = []
   const seenBodyKeys = new Map<string, number>()
+  const seenBodyHeadings = new Map<string, string>()
+  const explicitHeadingsDetected = hasExplicitSectionHeadings(blocks)
   let pendingHeading: string | null = null
   let verseCounter = 1
 
@@ -114,12 +136,24 @@ function buildAudienceLyricSections(blocks: string[]) {
       const previousMatches = seenBodyKeys.get(bodyKey) ?? 0
       seenBodyKeys.set(bodyKey, previousMatches + 1)
 
-      if (previousMatches > 0) {
+      const knownHeading = seenBodyHeadings.get(bodyKey)
+      if (knownHeading) {
+        sectionHeading = knownHeading
+      }
+
+      if (!sectionHeading && !explicitHeadingsDetected && previousMatches > 0) {
         sectionHeading = 'Chorus'
-      } else {
+      } else if (!sectionHeading) {
         sectionHeading = `Verse ${verseCounter}`
         verseCounter += 1
       }
+    }
+
+    const bodyKey = normalizeSectionBodyKey(sectionLines)
+    const headingLooksLikeVerse = /^verse\b/i.test(sectionHeading)
+    const previousHeading = seenBodyHeadings.get(bodyKey)
+    if (!previousHeading || (!headingLooksLikeVerse && /^verse\b/i.test(previousHeading))) {
+      seenBodyHeadings.set(bodyKey, sectionHeading)
     }
 
     sections.push({

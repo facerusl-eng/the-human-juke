@@ -99,6 +99,21 @@ function normalizeText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeLyricsWithLineBreaks(value: string) {
+  return value
+    .replace(/\u00a0/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function hasStructuredSectionHeadings(lyrics: string) {
+  return /\[(verse|chorus|pre[- ]?chorus|post[- ]?chorus|bridge|hook|refrain|intro|outro|solo|instrumental)\b[^\]]*\]/i.test(lyrics);
+}
+
 function normalizeLyricsLocale(value: unknown): SupportedLyricsLocale {
   const normalized = String(value ?? '').trim().toLowerCase();
   if (normalized === 'da') {
@@ -263,7 +278,7 @@ function scoreLyricsQuality(lyrics: string) {
   const lineCount = lyrics.split(/\n+/).filter((line) => line.trim().length > 0).length;
   const lengthScore = Math.min(30, lyrics.length / 45);
   const lineScore = Math.min(22, lineCount * 1.6);
-  const structureBonus = /\[[^\]]+\]/.test(lyrics) ? 6 : 0;
+  const structureBonus = hasStructuredSectionHeadings(lyrics) ? 14 : 0;
 
   return Math.round(lengthScore + lineScore + structureBonus);
 }
@@ -596,20 +611,28 @@ export function extractLyricsFromHtml(html: string): string {
   const lines: string[] = [];
 
   $('[data-lyrics-container="true"]').each((_, element) => {
-    const text = normalizeText($(element).text());
+    const containerHtml = $(element).html() ?? '';
+    if (!containerHtml) {
+      return;
+    }
+
+    const text = normalizeLyricsWithLineBreaks(
+      cheerio.load(`<div>${containerHtml.replace(/<br\s*\/?>(\n)?/gi, '\\n')}</div>`)('div').text(),
+    );
+
     if (text) {
       lines.push(text);
     }
   });
 
   if (lines.length === 0) {
-    const fallback = normalizeText($('.lyrics').text());
+    const fallback = normalizeLyricsWithLineBreaks($('.lyrics').text());
     if (fallback) {
       lines.push(fallback);
     }
   }
 
-  return sanitizeLyrics(lines.join('\n')) ?? '';
+  return sanitizeLyrics(normalizeLyricsWithLineBreaks(lines.join('\n'))) ?? '';
 }
 
 export async function findLyrics(title: string, artist: string): Promise<GeniusLyricsResult | null> {
@@ -924,6 +947,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const detectedLocale = detectLyricsLocale(lyrics);
       let localeBoost = 0;
+      const sectionHeadingBoost = hasStructuredSectionHeadings(lyrics) ? 16 : 0;
       if (detectedLocale.locale === locale) {
         localeBoost += detectedLocale.confidence >= 0.48 ? 11 : 6;
       } else if (detectedLocale.confidence >= 0.58) {
@@ -941,7 +965,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         source,
         variant,
         qualityScore: scoreLyricsQuality(lyrics),
-        confidenceScore: confidenceScore + relevanceBoost + localeBoost,
+        confidenceScore: confidenceScore + relevanceBoost + localeBoost + sectionHeadingBoost,
       };
 
       if (!bestCandidateRef.current || scoreCandidate(candidate) > scoreCandidate(bestCandidateRef.current)) {

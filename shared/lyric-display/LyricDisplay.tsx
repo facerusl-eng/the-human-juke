@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import AudienceLyricView from './AudienceLyricView'
 import { useSharedLyricState } from './state'
@@ -66,6 +66,33 @@ function normalizeSectionLineBreaks(rawLyrics: string) {
     .trim()
 }
 
+function sanitizeInternalPath(value: string | null | undefined) {
+  const trimmed = (value ?? '').trim()
+  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return null
+  }
+
+  return trimmed
+}
+
+function buildAudienceDefaultReturnPath(search: string) {
+  const params = new URLSearchParams(search)
+  const audienceParams = new URLSearchParams()
+
+  const eventId = (params.get('event') ?? params.get('eventId') ?? '').trim()
+  if (eventId) {
+    audienceParams.set('event', eventId)
+  }
+
+  const locale = (params.get('locale') ?? '').trim().toLowerCase()
+  if (locale === 'en' || locale === 'da' || locale === 'is') {
+    audienceParams.set('locale', locale)
+  }
+
+  const query = audienceParams.toString()
+  return query ? `/audience/song-list?${query}` : '/audience/song-list'
+}
+
 type LyricDisplayProps = {
   supabase: SupabaseClient
   activeSong: LyricSongRef | null
@@ -80,6 +107,7 @@ export default function LyricDisplay({
   autoOpenOnMount = false,
 }: LyricDisplayProps) {
   const navigate = useNavigate()
+  const location = useLocation()
   const lastAutoOpenedSongKeyRef = useRef<string | null>(null)
   const [pedalStatus, setPedalStatus] = useState('Pedal: keyboard fallback ready')
   const [isPairingPedal, setIsPairingPedal] = useState(false)
@@ -144,10 +172,40 @@ export default function LyricDisplay({
     ? `Requested by ${state.song.createdByName.trim()}`
     : null
 
+  const audienceDefaultReturnPath = useMemo(
+    () => buildAudienceDefaultReturnPath(location.search),
+    [location.search],
+  )
+
+  const audienceReturnPath = useMemo(() => {
+    const configuredReturnPath = sanitizeInternalPath(returnToPath)
+    const stateReturnPath = sanitizeInternalPath(state.returnToPath)
+
+    const audiencePathPattern = /^\/audience\b|^\/event\b|^\/events\b/i
+
+    if (configuredReturnPath && audiencePathPattern.test(configuredReturnPath)) {
+      return configuredReturnPath
+    }
+
+    if (stateReturnPath && audiencePathPattern.test(stateReturnPath)) {
+      return stateReturnPath
+    }
+
+    return audienceDefaultReturnPath
+  }, [audienceDefaultReturnPath, returnToPath, state.returnToPath])
+
   const goBack = useCallback(() => {
     closeLyric()
-    navigate(state.returnToPath || returnToPath, { replace: false })
-  }, [closeLyric, navigate, returnToPath, state.returnToPath])
+    const targetPath = sanitizeInternalPath(state.returnToPath)
+      ?? sanitizeInternalPath(returnToPath)
+      ?? audienceDefaultReturnPath
+    navigate(targetPath, { replace: false })
+  }, [audienceDefaultReturnPath, closeLyric, navigate, returnToPath, state.returnToPath])
+
+  const goBackToAudience = useCallback(() => {
+    closeLyric()
+    navigate(audienceReturnPath, { replace: false })
+  }, [audienceReturnPath, closeLyric, navigate])
 
   useEffect(() => {
     if (!autoOpenOnMount || !activeSong) {
@@ -339,7 +397,7 @@ export default function LyricDisplay({
   }
 
   if (!adminControlsVisible) {
-    return <AudienceLyricView state={state} />
+    return <AudienceLyricView state={state} onBack={goBackToAudience} />
   }
 
   return (
