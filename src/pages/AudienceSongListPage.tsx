@@ -9,7 +9,6 @@ import { DEMO_CURATED_SONGS } from '../demo/demoSongCatalog'
 import { batchFetchDemoArtwork } from '../demo/demoArtwork'
 import { useQueueStore } from '../state/queueStore'
 import { setEventOGTags, resetOGTags } from '../lib/metaTags'
-import AudienceFullscreenToggleButton from '../components/audience/AudienceFullscreenToggleButton'
 import '../audience-karafun.css'
 
 type CuratedSong = {
@@ -1182,7 +1181,6 @@ function AudienceSongListPage() {
           >
             ← {copy.back}
           </button>
-          <AudienceFullscreenToggleButton locale={audienceLocale} className="audience-song-list-fullscreen" />
         </div>
         <div className="audience-song-list-header-copy">
           <p className="eyebrow">{copy.eyebrow}</p>

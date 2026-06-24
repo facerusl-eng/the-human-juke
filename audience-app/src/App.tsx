@@ -219,7 +219,7 @@ function AudienceLyricsRoute() {
   }, [activeSong, lyricState.blocks, stateMatchesActiveSong])
 
   const handleBack = useCallback(() => {
-    navigate('/audience/song-list' + location.search)
+    navigate('/audience' + location.search)
   }, [navigate, location.search])
 
   if (canShowLyric) {

@@ -10109,10 +10109,6 @@ body.audience-immersive-mode {
   flex-wrap: wrap;
 }
 
-.audience-song-list-fullscreen {
-  white-space: nowrap;
-}
-
 .audience-song-list-header-copy {
   display: grid;
   gap: 0.2rem;
