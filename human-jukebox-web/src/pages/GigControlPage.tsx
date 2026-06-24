@@ -4382,7 +4382,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
         <article className="gig-mirror-preview-card" aria-label="Live mirror preview">
           <p className="gig-control-card-label">Live Mirror Preview</p>
-          <div className="gig-mirror-preview-toolbar" role="status" aria-live="polite">
+          <div className="gig-mirror-preview-toolbar gig-mirror-preview-toolbar-no-lyrics-toggle" role="status" aria-live="polite">
             <MirrorSyncHealthBadge
               audienceConnectionStatus={audienceConnectionStatus}
               lastMirrorSyncAt={lastMirrorSyncAt}
@@ -4398,7 +4398,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             </button>
             <button
               type="button"
-              className="ghost-button"
+              className="ghost-button gig-mirror-pedal-button"
               onClick={openNowPlayingLyrics}
               disabled={!nowPlaying?.title}
               title={nowPlaying?.title ? 'Open lyrics for the now-playing song on a stage-friendly screen' : 'Start a song to enable lyrics screen'}
