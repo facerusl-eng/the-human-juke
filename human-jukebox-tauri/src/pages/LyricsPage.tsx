@@ -786,7 +786,9 @@ export default function LyricsPage() {
   const localeFromQuery = normalizeLyricsInput(searchParams.get('locale'));
   const audienceLocale = normalizeAudienceLocale(routeState?.audienceLocale || localeFromQuery || readCommittedAudienceLocale());
   const isGigControlReturnPath = Boolean(returnToPath?.startsWith('/admin/gig-control'));
-  const isStageMode = searchParams.get('stage') === '1' || isGigControlReturnPath;
+  const stageModeParam = searchParams.get('stage');
+  const hasExplicitStageModeParam = stageModeParam === '0' || stageModeParam === '1';
+  const isStageMode = stageModeParam === '1' || (!hasExplicitStageModeParam && isGigControlReturnPath);
   const copy = getLyricsPageCopy(audienceLocale);
   const stateLibrarySongId = routeState?.librarySongId ?? null;
 

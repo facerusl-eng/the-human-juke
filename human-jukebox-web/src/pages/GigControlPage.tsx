@@ -3784,7 +3784,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       title: nowPlaying.title,
       artist,
       locale: 'en',
-      stage: '1',
+      stage: '0',
       returnTo: `${location.pathname}${location.search}`,
     })
 
