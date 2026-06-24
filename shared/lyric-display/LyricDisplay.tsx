@@ -90,7 +90,7 @@ function buildAudienceDefaultReturnPath(search: string) {
   }
 
   const query = audienceParams.toString()
-  return query ? `/audience/song-list?${query}` : '/audience/song-list'
+  return query ? `/audience?${query}` : '/audience'
 }
 
 type LyricDisplayProps = {

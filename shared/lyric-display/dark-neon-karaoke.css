@@ -154,14 +154,19 @@
 
 @media (max-width: 768px) {
   .audience-lyric-scroll-shell {
-    padding-top: calc(4rem + env(safe-area-inset-top, 0px));
+    padding-top: calc(7.2rem + env(safe-area-inset-top, 0px));
   }
 
   .audience-lyric-back-bar {
-    top: max(calc(0.55rem + env(safe-area-inset-top, 0px)), 3.2rem);
-    margin-bottom: 0.55rem;
+    position: fixed;
+    left: calc(0.65rem + env(safe-area-inset-left, 0px));
+    right: calc(0.65rem + env(safe-area-inset-right, 0px));
+    top: max(calc(0.75rem + env(safe-area-inset-top, 0px)), clamp(4.6rem, 9svh, 6rem));
+    margin: 0;
     padding: 0.45rem 0.5rem;
     border-radius: 12px;
+    border: 1px solid rgba(76, 201, 255, 0.22);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.42);
   }
 
   .audience-lyric-back-btn {
