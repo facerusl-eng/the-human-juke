@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import AudienceLyricView from './AudienceLyricView'
 import { useSharedLyricState } from './state'
 import type { LyricSongRef } from './types'
 import './dark-neon-karaoke.css'
@@ -111,14 +112,21 @@ export default function LyricDisplay({
       return false
     }
 
-    // Gig Control opens lyric mode with stage=1 for performer layout,
-    // but this should still keep admin controls visible in admin context.
+    const searchParams = new URLSearchParams(window.location.search)
+    const stageModeParam = searchParams.get('stage')
+
+    // Explicit stage=0 should force the audience-friendly full lyric view,
+    // even when the return path points back to Gig Control.
+    if (stageModeParam === '0') {
+      return false
+    }
+
+    // Gig Control can still keep controls visible in admin context.
     if (isAdminReturnPath) {
       return true
     }
 
-    const searchParams = new URLSearchParams(window.location.search)
-    const isStageMode = searchParams.get('stage') === '1'
+    const isStageMode = stageModeParam === '1'
     return !isStageMode
   }, [returnToPath])
 
@@ -328,6 +336,10 @@ export default function LyricDisplay({
 
     setBlocks(nextBlocks)
     setIsEditingLyric(false)
+  }
+
+  if (!adminControlsVisible) {
+    return <AudienceLyricView state={state} />
   }
 
   return (
