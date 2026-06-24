@@ -13,6 +13,7 @@ import { supabase } from './lib/supabaseClient'
 import './app.css'
 
 const LYRIC_MISSING_RETRY_COOLDOWN_MS = 10_000
+const LYRIC_BACKGROUND_REFRESH_INTERVAL_MS = 25_000
 
 function normalizeSongIdentityValue(value: string | null | undefined) {
   return (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
@@ -180,12 +181,28 @@ function AudienceLyricsRoute() {
 
     window.addEventListener('online', handleWake)
     window.addEventListener('focus', handleWake)
+    window.addEventListener('pageshow', handleWake)
     document.addEventListener('visibilitychange', handleWake)
 
     return () => {
       window.removeEventListener('online', handleWake)
       window.removeEventListener('focus', handleWake)
+      window.removeEventListener('pageshow', handleWake)
       document.removeEventListener('visibilitychange', handleWake)
+    }
+  }, [ensureLyricsLoaded])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return
+      }
+
+      void ensureLyricsLoaded()
+    }, LYRIC_BACKGROUND_REFRESH_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
     }
   }, [ensureLyricsLoaded])
 
