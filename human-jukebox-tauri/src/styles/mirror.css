@@ -3911,7 +3911,7 @@
 }
 
 .mirror-now-playing {
-  --mirror-now-playing-qr-column-width: clamp(204px, 15.8vw, 278px);
+  --mirror-now-playing-qr-column-width: clamp(220px, 17vw, 300px);
   grid-template-columns: minmax(0, 1fr) var(--mirror-now-playing-qr-column-width);
   align-items: stretch;
   column-gap: clamp(0.64rem, 0.95vw, 0.92rem);
@@ -4035,7 +4035,7 @@
   align-self: center;
   width: 100%;
   max-width: var(--mirror-now-playing-qr-column-width);
-  gap: clamp(0.16rem, 0.3vw, 0.28rem);
+  gap: clamp(0.2rem, 0.34vw, 0.32rem);
 }
 
 .mirror-now-playing-qr-panel {
@@ -4085,13 +4085,13 @@
   margin: 0;
   width: 100%;
   text-align: center;
-  font-size: clamp(0.64rem, 0.76vw, 0.84rem);
-  line-height: 1.14;
-  letter-spacing: 0.03em;
+  font-size: clamp(0.68rem, 0.8vw, 0.9rem);
+  line-height: 1.16;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   font-weight: 800;
   color: #eaf6ff;
-  padding: clamp(0.12rem, 0.2vw, 0.18rem) clamp(0.2rem, 0.34vw, 0.34rem);
+  padding: clamp(0.14rem, 0.22vw, 0.2rem) clamp(0.22rem, 0.36vw, 0.36rem);
   border-radius: 999px;
   border: 1px solid rgba(125, 211, 252, 0.28);
   background: rgba(8, 17, 33, 0.68);
@@ -4110,11 +4110,11 @@
 
 .mirror-shell-hide-controls .mirror-now-playing-qr-panel {
   gap: 0;
-  padding: clamp(0.2rem, 0.34vw, 0.32rem);
+  padding: clamp(0.22rem, 0.36vw, 0.36rem);
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-qr {
-  width: min(100%, clamp(160px, 13.4vw, 236px));
+  width: min(100%, clamp(184px, 15.2vw, 268px));
 }
 
 .mirror-shell-hide-controls .mirror-edge-cast-hint {
@@ -4512,8 +4512,16 @@
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-topline {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.88fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.8fr);
   gap: clamp(0.28rem, 0.45vw, 0.44rem);
+}
+
+.mirror-shell-hide-controls .mirror-now-playing .mirror-title {
+  font-size: clamp(1.24rem, 2.12vw, 2.44rem);
+}
+
+.mirror-shell-hide-controls .mirror-now-playing .mirror-artist {
+  font-size: clamp(0.78rem, 0.94vw, 1.02rem);
 }
 
 /* 1920x1080 class tuning: maximize readability at stage distance without bloating cards */
@@ -4536,6 +4544,14 @@
 
   .mirror-now-playing .mirror-artist {
     font-size: clamp(0.88rem, 1.08vw, 1.14rem);
+  }
+
+  .mirror-shell-hide-controls .mirror-now-playing .mirror-title {
+    font-size: clamp(1.5rem, 2.18vw, 2.54rem);
+  }
+
+  .mirror-shell-hide-controls .mirror-now-playing .mirror-artist {
+    font-size: clamp(0.82rem, 0.96vw, 1.02rem);
   }
 
   .mirror-live-feed-frame .live-feed-panel-mirror .live-feed-post-message,
@@ -4694,7 +4710,7 @@
 
 /* Larger QR in the now-playing right-side block (both width and height). */
 .mirror-shell-hide-controls .mirror-now-playing {
-  --mirror-now-playing-qr-column-width: clamp(206px, 15.8vw, 286px);
+  --mirror-now-playing-qr-column-width: clamp(232px, 18vw, 320px);
   grid-template-columns: minmax(0, 1fr) var(--mirror-now-playing-qr-column-width);
 }
 
