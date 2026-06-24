@@ -2240,7 +2240,7 @@ function MirrorPageContent() {
   const activeSongChosenByAccentClass = activeSong?.id
     ? getChosenByAccentClass(activeSong.id)
     : CHOSEN_BY_ACCENT_CLASSES[0]
-  const nowPlayingComingUpSong = upNext[1] ?? upNext[0] ?? null
+  const nowPlayingComingUpSong = upNext.find((song) => song.id !== activeSong?.id) ?? null
   const nowPlayingTitleText = normalizeMirrorText(activeSong?.title, 'Waiting for requests')
   const nowPlayingPickedByText = 'Scan the QR code with your phone to choose songs, vote live, and join tonight\'s show.'
   const nowPlayingComingUpText = nowPlayingComingUpSong

@@ -3945,7 +3945,8 @@
 }
 
 .mirror-now-playing {
-  grid-template-columns: minmax(0, 1fr) clamp(208px, 17.5vw, 310px);
+  --mirror-now-playing-qr-column-width: clamp(220px, 17vw, 300px);
+  grid-template-columns: minmax(0, 1fr) var(--mirror-now-playing-qr-column-width);
   align-items: stretch;
   column-gap: clamp(0.64rem, 0.95vw, 0.92rem);
   padding: clamp(0.72rem, 1.05vw, 1.15rem);
@@ -4066,8 +4067,8 @@
   justify-items: center;
   justify-self: center;
   align-self: center;
-  width: min(100%, clamp(188px, 15vw, 286px));
-  max-width: 100%;
+  width: 100%;
+  max-width: var(--mirror-now-playing-qr-column-width);
   gap: clamp(0.24rem, 0.4vw, 0.36rem);
 }
 
@@ -4748,7 +4749,8 @@
 
 /* Larger QR in the now-playing right-side block (both width and height). */
 .mirror-shell-hide-controls .mirror-now-playing {
-  grid-template-columns: minmax(0, 1fr) clamp(250px, 20vw, 390px);
+  --mirror-now-playing-qr-column-width: clamp(236px, 18.2vw, 330px);
+  grid-template-columns: minmax(0, 1fr) var(--mirror-now-playing-qr-column-width);
 }
 
 
