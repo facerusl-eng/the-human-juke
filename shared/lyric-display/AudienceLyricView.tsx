@@ -252,7 +252,6 @@ export default function AudienceLyricView({ state, onBack }: AudienceLyricViewPr
         {lyricSections.length > 0
           ? lyricSections.map((section) => (
               <section key={section.id} className="audience-lyric-scroll-section" aria-label={section.heading}>
-                <h2 className="audience-lyric-scroll-section-heading">{section.heading}</h2>
                 <div className="audience-lyric-scroll-lines">
                   {section.lines.map((line, index) => (
                     <p key={`${section.id}-line-${index}`} className="lyric-dark-neon-copy audience-lyric-scroll-line">{line}</p>
