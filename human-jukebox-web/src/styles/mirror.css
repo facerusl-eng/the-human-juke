@@ -3907,7 +3907,7 @@
 }
 
 .mirror-now-playing {
-  --mirror-now-playing-qr-column-width: clamp(220px, 17vw, 300px);
+  --mirror-now-playing-qr-column-width: clamp(212px, 16.4vw, 288px);
   grid-template-columns: minmax(0, 1fr) var(--mirror-now-playing-qr-column-width);
   align-items: stretch;
   column-gap: clamp(0.64rem, 0.95vw, 0.92rem);
@@ -4031,7 +4031,7 @@
   align-self: center;
   width: 100%;
   max-width: var(--mirror-now-playing-qr-column-width);
-  gap: clamp(0.2rem, 0.34vw, 0.32rem);
+  gap: clamp(0.16rem, 0.28vw, 0.26rem);
 }
 
 .mirror-now-playing-qr-panel {
@@ -4080,14 +4080,15 @@
 .mirror-now-playing-qr-label {
   margin: 0;
   width: 100%;
+  max-width: min(100%, 18ch);
   text-align: center;
-  font-size: clamp(0.68rem, 0.8vw, 0.9rem);
-  line-height: 1.16;
-  letter-spacing: 0.04em;
+  font-size: clamp(0.62rem, 0.72vw, 0.8rem);
+  line-height: 1.14;
+  letter-spacing: 0.018em;
   text-transform: uppercase;
   font-weight: 800;
   color: #eaf6ff;
-  padding: clamp(0.14rem, 0.22vw, 0.2rem) clamp(0.22rem, 0.36vw, 0.36rem);
+  padding: clamp(0.1rem, 0.18vw, 0.16rem) clamp(0.18rem, 0.3vw, 0.3rem);
   border-radius: 999px;
   border: 1px solid rgba(125, 211, 252, 0.28);
   background: rgba(8, 17, 33, 0.68);
@@ -4106,11 +4107,11 @@
 
 .mirror-shell-hide-controls .mirror-now-playing-qr-panel {
   gap: 0;
-  padding: clamp(0.22rem, 0.36vw, 0.36rem);
+  padding: clamp(0.18rem, 0.32vw, 0.28rem);
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-qr {
-  width: min(100%, clamp(184px, 15.2vw, 268px));
+  width: min(100%, clamp(170px, 14.2vw, 244px));
 }
 
 .mirror-shell-hide-controls .mirror-edge-cast-hint {
@@ -4508,16 +4509,16 @@
 }
 
 .mirror-shell-hide-controls .mirror-now-playing-topline {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 0.76fr);
   gap: clamp(0.28rem, 0.45vw, 0.44rem);
 }
 
 .mirror-shell-hide-controls .mirror-now-playing .mirror-title {
-  font-size: clamp(1.24rem, 2.12vw, 2.44rem);
+  font-size: clamp(1.16rem, 1.95vw, 2.28rem);
 }
 
 .mirror-shell-hide-controls .mirror-now-playing .mirror-artist {
-  font-size: clamp(0.78rem, 0.94vw, 1.02rem);
+  font-size: clamp(0.74rem, 0.86vw, 0.96rem);
 }
 
 /* 1920x1080 class tuning: maximize readability at stage distance without bloating cards */
@@ -4543,11 +4544,11 @@
   }
 
   .mirror-shell-hide-controls .mirror-now-playing .mirror-title {
-    font-size: clamp(1.5rem, 2.18vw, 2.54rem);
+    font-size: clamp(1.4rem, 2.02vw, 2.34rem);
   }
 
   .mirror-shell-hide-controls .mirror-now-playing .mirror-artist {
-    font-size: clamp(0.82rem, 0.96vw, 1.02rem);
+    font-size: clamp(0.78rem, 0.9vw, 0.96rem);
   }
 
   .mirror-live-feed-frame .live-feed-panel-mirror .live-feed-post-message,
@@ -4706,7 +4707,7 @@
 
 /* Larger QR in the now-playing right-side block (both width and height). */
 .mirror-shell-hide-controls .mirror-now-playing {
-  --mirror-now-playing-qr-column-width: clamp(232px, 18vw, 320px);
+  --mirror-now-playing-qr-column-width: clamp(220px, 16.9vw, 300px);
   grid-template-columns: minmax(0, 1fr) var(--mirror-now-playing-qr-column-width);
 }
 
