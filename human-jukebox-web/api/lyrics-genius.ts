@@ -50,8 +50,193 @@ type GeniusLyricsResult = {
   score: number;
 };
 
+type ResolvedLyricsResponse = {
+  statusCode: 200;
+  body: {
+    lyrics: string;
+    source: ProviderName;
+    variant: VariantPair;
+    debug?: {
+      attemptedVariants: number;
+      attemptedProviders: number;
+      attempts: ProviderAttempt[];
+    };
+  };
+};
+
+type MissingLyricsResponse = {
+  statusCode: 404;
+  body: {
+    error: string;
+    debug?: {
+      attemptedVariants: number;
+      attemptedProviders: number;
+      env: {
+        hasGeniusToken: boolean;
+        hasMusixmatchKey: boolean;
+        hasAuddToken: boolean;
+      };
+      attempts: ProviderAttempt[];
+    };
+  };
+};
+
+type LyricsHandlerResult = ResolvedLyricsResponse | MissingLyricsResponse;
+type SupportedLyricsLocale = 'en' | 'da' | 'is';
+type DetectedLyricsLocale = SupportedLyricsLocale | 'es';
+
+type LyricsCacheEntry = {
+  expiresAt: number;
+  result: LyricsHandlerResult;
+};
+
+const LYRICS_FOUND_CACHE_TTL_MS = 12 * 60 * 1000;
+const LYRICS_NOT_FOUND_CACHE_TTL_MS = 2 * 60 * 1000;
+// Overall budget for a single lyrics resolution. Vercel serverless functions
+// have their own ceiling; we stop launching new work past this point and
+// return the best candidate gathered so far instead of timing out empty.
+const LYRICS_RESOLUTION_BUDGET_MS = 18 * 1000;
+const lyricsResponseCache = new Map<string, LyricsCacheEntry>();
+const inFlightLyricsLookups = new Map<string, Promise<LyricsHandlerResult>>();
+
 function normalizeText(value: string) {
   return value.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeLyricsWithLineBreaks(value: string) {
+  return value
+    .replace(/\u00a0/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function hasStructuredSectionHeadings(lyrics: string) {
+  return /\[(verse|chorus|pre[- ]?chorus|post[- ]?chorus|bridge|hook|refrain|intro|outro|solo|instrumental)\b[^\]]*\]/i.test(lyrics);
+}
+
+function normalizeLyricsLocale(value: unknown): SupportedLyricsLocale {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (normalized === 'da') {
+    return 'da';
+  }
+
+  if (normalized === 'is') {
+    return 'is';
+  }
+
+  return 'en';
+}
+
+function cacheKeyForLyricsRequest(song: string, artist: string, locale: SupportedLyricsLocale) {
+  return `${normalizeComparable(song)}::${normalizeComparable(artist)}::${locale}`;
+}
+
+function countMatches(haystack: string, pattern: RegExp) {
+  const matches = haystack.match(pattern);
+  return matches ? matches.length : 0;
+}
+
+function detectLyricsLocale(lyrics: string): { locale: DetectedLyricsLocale; confidence: number } {
+  const lower = lyrics.toLowerCase();
+
+  const daSignals =
+    countMatches(lower, /\b(og|jeg|det|du|ikke|der|har|med|for|til|den|de)\b/g)
+    + (countMatches(lower, /[æøå]/g) * 1.5);
+
+  const isSignals =
+    countMatches(lower, /\b(og|eg|er|ekki|sem|med|til|thetta|thad|hja|vid)\b/g)
+    + (countMatches(lower, /[ðþæö]/g) * 1.8);
+
+  const enSignals = countMatches(lower, /\b(the|and|you|i|we|to|for|with|that|this|is|are)\b/g);
+
+  const esSignals =
+    countMatches(lower, /\b(el|la|los|las|que|de|del|y|con|por|para|sin|eres|soy|siempre|lluvia)\b/g)
+    + (countMatches(lower, /[áéíóúñü]/g) * 1.6);
+
+  const scores: Array<{ locale: DetectedLyricsLocale; score: number }> = [
+    { locale: 'en', score: enSignals },
+    { locale: 'da', score: daSignals },
+    { locale: 'is', score: isSignals },
+    { locale: 'es', score: esSignals },
+  ];
+
+  scores.sort((left, right) => right.score - left.score);
+  const best = scores[0];
+  const total = scores[0].score + scores[1].score + scores[2].score;
+
+  if (best.score <= 0 || total <= 0) {
+    return { locale: 'en', confidence: 0 };
+  }
+
+  return {
+    locale: best.locale,
+    confidence: Math.min(1, best.score / total),
+  };
+}
+
+function cloneLyricsHandlerResult(result: LyricsHandlerResult): LyricsHandlerResult {
+  if (result.statusCode === 200) {
+    const debug = result.body.debug
+      ? {
+          attemptedVariants: result.body.debug.attemptedVariants,
+          attemptedProviders: result.body.debug.attemptedProviders,
+          attempts: [...result.body.debug.attempts],
+        }
+      : undefined;
+
+    return {
+      statusCode: 200,
+      body: {
+        lyrics: result.body.lyrics,
+        source: result.body.source,
+        variant: { ...result.body.variant },
+        ...(debug ? { debug } : {}),
+      },
+    };
+  }
+
+  const debug = result.body.debug
+    ? {
+        attemptedVariants: result.body.debug.attemptedVariants,
+        attemptedProviders: result.body.debug.attemptedProviders,
+        env: { ...result.body.debug.env },
+        attempts: [...result.body.debug.attempts],
+      }
+    : undefined;
+
+  return {
+    statusCode: 404,
+    body: {
+      error: result.body.error,
+      ...(debug ? { debug } : {}),
+    },
+  };
+}
+
+function readLyricsResponseCache(cacheKey: string): LyricsHandlerResult | null {
+  const cached = lyricsResponseCache.get(cacheKey);
+  if (!cached) {
+    return null;
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    lyricsResponseCache.delete(cacheKey);
+    return null;
+  }
+
+  return cloneLyricsHandlerResult(cached.result);
+}
+
+function writeLyricsResponseCache(cacheKey: string, result: LyricsHandlerResult) {
+  const ttlMs = result.statusCode === 200 ? LYRICS_FOUND_CACHE_TTL_MS : LYRICS_NOT_FOUND_CACHE_TTL_MS;
+  lyricsResponseCache.set(cacheKey, {
+    expiresAt: Date.now() + ttlMs,
+    result: cloneLyricsHandlerResult(result),
+  });
 }
 
 function normalizeQuotes(value: string) {
@@ -97,7 +282,7 @@ function scoreLyricsQuality(lyrics: string) {
   const lineCount = lyrics.split(/\n+/).filter((line) => line.trim().length > 0).length;
   const lengthScore = Math.min(30, lyrics.length / 45);
   const lineScore = Math.min(22, lineCount * 1.6);
-  const structureBonus = /\[[^\]]+\]/.test(lyrics) ? 6 : 0;
+  const structureBonus = hasStructuredSectionHeadings(lyrics) ? 14 : 0;
 
   return Math.round(lengthScore + lineScore + structureBonus);
 }
@@ -430,20 +615,28 @@ export function extractLyricsFromHtml(html: string): string {
   const lines: string[] = [];
 
   $('[data-lyrics-container="true"]').each((_, element) => {
-    const text = normalizeText($(element).text());
+    const containerHtml = $(element).html() ?? '';
+    if (!containerHtml) {
+      return;
+    }
+
+    const text = normalizeLyricsWithLineBreaks(
+      cheerio.load(`<div>${containerHtml.replace(/<br\s*\/?>(\n)?/gi, '\\n')}</div>`)('div').text(),
+    );
+
     if (text) {
       lines.push(text);
     }
   });
 
   if (lines.length === 0) {
-    const fallback = normalizeText($('.lyrics').text());
+    const fallback = normalizeLyricsWithLineBreaks($('.lyrics').text());
     if (fallback) {
       lines.push(fallback);
     }
   }
 
-  return sanitizeLyrics(lines.join('\n')) ?? '';
+  return sanitizeLyrics(normalizeLyricsWithLineBreaks(lines.join('\n'))) ?? '';
 }
 
 export async function findLyrics(title: string, artist: string): Promise<GeniusLyricsResult | null> {
@@ -491,28 +684,41 @@ export async function findLyrics(title: string, artist: string): Promise<GeniusL
     }
   }
 
-  for (const candidate of uniqueCandidates) {
-    const songUrl = candidate.hit.result?.url;
-    if (!songUrl) {
-      continue;
-    }
-
-    try {
-      const response = await fetchWithRetry(() => axios.get(songUrl, { timeout: 9000 }), 1);
-      const lyrics = extractLyricsFromHtml(String(response.data ?? ''));
-
-      if (!lyrics) {
-        continue;
+  // Fetch the top candidate song pages in parallel instead of strictly
+  // sequentially. This keeps latency low while still preferring the
+  // highest-scored candidate that actually returns usable lyrics.
+  const fetchedCandidates = await Promise.all(
+    uniqueCandidates.map(async (candidate) => {
+      const songUrl = candidate.hit.result?.url;
+      if (!songUrl) {
+        return null;
       }
 
-      return {
-        lyrics,
-        songUrl,
-        query: candidate.query,
-        score: candidate.score,
-      };
-    } catch {
-      // Try the next best Genius candidate.
+      try {
+        const response = await fetchWithRetry(() => axios.get(songUrl, { timeout: 8000 }), 1);
+        const lyrics = extractLyricsFromHtml(String(response.data ?? ''));
+
+        if (!lyrics) {
+          return null;
+        }
+
+        return {
+          lyrics,
+          songUrl,
+          query: candidate.query,
+          score: candidate.score,
+        } satisfies GeniusLyricsResult;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  // uniqueCandidates is already sorted best-first, so the first non-null
+  // result is the highest-confidence match.
+  for (const result of fetchedCandidates) {
+    if (result) {
+      return result;
     }
   }
 
@@ -705,35 +911,54 @@ async function fetchLrcLibLyrics(title: string, artist: string): Promise<string 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const song = normalizeText(String(req.query.song ?? ''));
   const artist = normalizeText(String(req.query.artist ?? ''));
+  const locale = normalizeLyricsLocale(req.query.locale);
   const debug = String(req.query.debug ?? '').toLowerCase();
   const includeDebug = debug === '1' || debug === 'true' || debug === 'yes';
-  const attempts: ProviderAttempt[] = [];
 
   if (!song) {
     res.status(400).json({ error: 'Missing song' });
     return;
   }
 
-  const variants = buildVariants(song, artist);
-  const bestCandidateRef: { current: LyricsCandidate | null } = { current: null };
+  const cacheKey = cacheKeyForLyricsRequest(song, artist, locale);
 
-  for (const variant of variants) {
-    const markAttempt = (provider: ProviderName, ok: boolean, reason?: string) => {
-      if (!includeDebug) {
-        return;
+  if (!includeDebug) {
+    const cachedResult = readLyricsResponseCache(cacheKey);
+    if (cachedResult) {
+      res.status(cachedResult.statusCode).json(cachedResult.body);
+      return;
+    }
+  }
+
+  const resolveLyrics = async (): Promise<LyricsHandlerResult> => {
+    const deadline = Date.now() + LYRICS_RESOLUTION_BUDGET_MS;
+    const attempts: ProviderAttempt[] = [];
+    const variants = buildVariants(song, artist);
+    const bestCandidateRef: { current: LyricsCandidate | null } = { current: null };
+
+    for (const variant of variants) {
+      // Respect the overall budget: if we are out of time, stop launching new
+      // provider work and return the best candidate gathered so far.
+      if (Date.now() >= deadline && bestCandidateRef.current) {
+        break;
       }
 
-      attempts.push({
-        variant,
-        provider,
-        ok,
-        reason,
-      });
-    };
+      const markAttempt = (provider: ProviderName, ok: boolean, reason?: string) => {
+        if (!includeDebug) {
+          return;
+        }
 
-    const registerCandidate = (lyrics: string, source: ProviderName, confidenceScore: number) => {
-      const titleOverlap = calculateTokenOverlapScore(song, variant.title);
-      const artistOverlap = artist ? calculateTokenOverlapScore(artist, variant.artist) : 1;
+        attempts.push({
+          variant,
+          provider,
+          ok,
+          reason,
+        });
+      };
+
+      const registerCandidate = (lyrics: string, source: ProviderName, confidenceScore: number) => {
+        const titleOverlap = calculateTokenOverlapScore(song, variant.title);
+        const artistOverlap = artist ? calculateTokenOverlapScore(artist, variant.artist) : 1;
 
       // Reject weak title/artist matches early to prevent wrong-song lyric snaps.
       if (titleOverlap < 0.5) {
@@ -744,13 +969,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return false;
       }
 
+      const detectedLocale = detectLyricsLocale(lyrics);
+      let localeBoost = 0;
+      const sectionHeadingBoost = hasStructuredSectionHeadings(lyrics) ? 16 : 0;
+      if (detectedLocale.locale === locale) {
+        localeBoost += detectedLocale.confidence >= 0.48 ? 11 : 6;
+      } else if (detectedLocale.confidence >= 0.58) {
+        localeBoost -= 30;
+
+        // Strong language mismatch: reject wrong-language candidate outright.
+        if (detectedLocale.confidence >= 0.66) {
+          return false;
+        }
+      }
+
       const relevanceBoost = Math.round((titleOverlap * 22) + (artistOverlap * 14));
       const candidate: LyricsCandidate = {
         lyrics,
         source,
         variant,
         qualityScore: scoreLyricsQuality(lyrics),
-        confidenceScore: confidenceScore + relevanceBoost,
+        confidenceScore: confidenceScore + relevanceBoost + localeBoost + sectionHeadingBoost,
       };
 
       if (!bestCandidateRef.current || scoreCandidate(candidate) > scoreCandidate(bestCandidateRef.current)) {
@@ -767,104 +1006,124 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       return false;
-    };
+      };
 
-    const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
-    if (musixmatchLyrics) {
-      markAttempt('musixmatch', true);
-      if (registerCandidate(musixmatchLyrics, 'musixmatch', 8)) {
-        break;
-      }
-    } else {
-      markAttempt('musixmatch', false, 'No lyrics returned');
-    }
+      // Run every provider for this variant concurrently. Previously these were
+      // awaited one-by-one with an early break, so a single slow/missing
+      // provider delayed the whole chain and could exhaust the time budget
+      // before faster, higher-quality providers were even tried.
+      const providerFetchers: Array<{
+        provider: ProviderName;
+        confidence: number;
+        fetch: () => Promise<string | null>;
+      }> = [
+        { provider: 'musixmatch', confidence: 8, fetch: () => fetchMusixmatchLyrics(variant.title, variant.artist) },
+        {
+          provider: 'genius',
+          confidence: 12,
+          fetch: async () => (await findLyrics(variant.title, variant.artist))?.lyrics ?? null,
+        },
+        { provider: 'lrclib', confidence: 10, fetch: () => fetchLrcLibLyrics(variant.title, variant.artist) },
+        { provider: 'audd', confidence: 7, fetch: () => fetchAudDLyrics(variant.title, variant.artist) },
+        { provider: 'chartlyrics', confidence: 5, fetch: () => fetchChartLyrics(variant.title, variant.artist) },
+        { provider: 'lyrics.ovh', confidence: 3, fetch: () => fetchLyricsOvh(variant.title, variant.artist) },
+      ];
 
-    const geniusMatch = await findLyrics(variant.title, variant.artist);
-    if (geniusMatch?.lyrics) {
-        markAttempt('genius', true);
-        if (registerCandidate(geniusMatch.lyrics, 'genius', 12)) {
-          break;
-        }
-    } else {
-      markAttempt('genius', false, 'No high-confidence Genius match found');
-    }
-
-    const lrcLibLyrics = await fetchLrcLibLyrics(variant.title, variant.artist);
-    if (lrcLibLyrics) {
-      markAttempt('lrclib', true);
-      if (registerCandidate(lrcLibLyrics, 'lrclib', 10)) {
-        break;
-      }
-    } else {
-      markAttempt('lrclib', false, 'No lyrics returned');
-    }
-
-    const auddLyrics = await fetchAudDLyrics(variant.title, variant.artist);
-    if (auddLyrics) {
-      markAttempt('audd', true);
-      if (registerCandidate(auddLyrics, 'audd', 7)) {
-        break;
-      }
-    } else {
-      markAttempt('audd', false, 'No lyrics returned');
-    }
-
-    const chartLyrics = await fetchChartLyrics(variant.title, variant.artist);
-    if (chartLyrics) {
-      markAttempt('chartlyrics', true);
-      if (registerCandidate(chartLyrics, 'chartlyrics', 5)) {
-        break;
-      }
-    } else {
-      markAttempt('chartlyrics', false, 'No lyrics returned');
-    }
-
-    const lyricsOvh = await fetchLyricsOvh(variant.title, variant.artist);
-    if (lyricsOvh) {
-      markAttempt('lyrics.ovh', true);
-      if (registerCandidate(lyricsOvh, 'lyrics.ovh', 3)) {
-        break;
-      }
-    } else {
-      markAttempt('lyrics.ovh', false, 'No lyrics returned');
-    }
-  }
-
-  const resolvedBestCandidate = bestCandidateRef.current;
-
-  if (resolvedBestCandidate) {
-    res.status(200).json({
-      lyrics: resolvedBestCandidate.lyrics,
-      source: resolvedBestCandidate.source,
-      variant: resolvedBestCandidate.variant,
-      ...(includeDebug
-        ? {
-            debug: {
-              attemptedVariants: variants.length,
-              attemptedProviders: attempts.length,
-              attempts,
-            },
+      const providerResults = await Promise.all(
+        providerFetchers.map(async ({ provider, confidence, fetch }) => {
+          try {
+            const lyrics = await fetch();
+            return { provider, confidence, lyrics };
+          } catch {
+            return { provider, confidence, lyrics: null as string | null };
           }
-        : {}),
-    });
-    return;
-  }
+        }),
+      );
 
-  res.status(404).json({
-    error: 'Lyrics not found in any source',
-    ...(includeDebug
-      ? {
-          debug: {
-            attemptedVariants: variants.length,
-            attemptedProviders: attempts.length,
-            env: {
-              hasGeniusToken: Boolean(GENIUS_ACCESS_TOKEN),
-              hasMusixmatchKey: Boolean(process.env.MUSIXMATCH_API_KEY),
-              hasAuddToken: Boolean(process.env.AUDD_API_TOKEN),
-            },
-            attempts,
-          },
+      // Evaluate providers in priority order so that, on ties, the higher-rated
+      // source wins and the confident-winner short circuit stays deterministic.
+      let foundConfidentWinner = false;
+      for (const { provider, confidence, lyrics } of providerResults) {
+        if (lyrics) {
+          markAttempt(provider, true);
+          if (registerCandidate(lyrics, provider, confidence)) {
+            foundConfidentWinner = true;
+          }
+        } else {
+          markAttempt(provider, false, 'No lyrics returned');
         }
-      : {}),
-  });
+      }
+
+      if (foundConfidentWinner) {
+        break;
+      }
+    }
+
+    const resolvedBestCandidate = bestCandidateRef.current;
+
+    if (resolvedBestCandidate) {
+      return {
+        statusCode: 200,
+        body: {
+          lyrics: resolvedBestCandidate.lyrics,
+          source: resolvedBestCandidate.source,
+          variant: resolvedBestCandidate.variant,
+          ...(includeDebug
+            ? {
+                debug: {
+                  attemptedVariants: variants.length,
+                  attemptedProviders: attempts.length,
+                  attempts,
+                },
+              }
+            : {}),
+        },
+      };
+    }
+
+    return {
+      statusCode: 404,
+      body: {
+        error: 'Lyrics not found in any source',
+        ...(includeDebug
+          ? {
+              debug: {
+                attemptedVariants: variants.length,
+                attemptedProviders: attempts.length,
+                env: {
+                  hasGeniusToken: Boolean(GENIUS_ACCESS_TOKEN),
+                  hasMusixmatchKey: Boolean(process.env.MUSIXMATCH_API_KEY),
+                  hasAuddToken: Boolean(process.env.AUDD_API_TOKEN),
+                },
+                attempts,
+              },
+            }
+          : {}),
+      },
+    };
+  };
+
+  const resultPromise = includeDebug
+    ? resolveLyrics()
+    : (() => {
+        const existingInFlight = inFlightLyricsLookups.get(cacheKey);
+        if (existingInFlight) {
+          return existingInFlight;
+        }
+
+        const createdPromise = resolveLyrics()
+          .then((result) => {
+            writeLyricsResponseCache(cacheKey, result);
+            return result;
+          })
+          .finally(() => {
+            inFlightLyricsLookups.delete(cacheKey);
+          });
+
+        inFlightLyricsLookups.set(cacheKey, createdPromise);
+        return createdPromise;
+      })();
+
+  const result = await resultPromise;
+  res.status(result.statusCode).json(result.body);
 }

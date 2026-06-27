@@ -92,6 +92,10 @@ type LyricsCacheEntry = {
 
 const LYRICS_FOUND_CACHE_TTL_MS = 12 * 60 * 1000;
 const LYRICS_NOT_FOUND_CACHE_TTL_MS = 2 * 60 * 1000;
+// Overall budget for a single lyrics resolution. Vercel serverless functions
+// have their own ceiling; we stop launching new work past this point and
+// return the best candidate gathered so far instead of timing out empty.
+const LYRICS_RESOLUTION_BUDGET_MS = 18 * 1000;
 const lyricsResponseCache = new Map<string, LyricsCacheEntry>();
 const inFlightLyricsLookups = new Map<string, Promise<LyricsHandlerResult>>();
 
@@ -680,28 +684,41 @@ export async function findLyrics(title: string, artist: string): Promise<GeniusL
     }
   }
 
-  for (const candidate of uniqueCandidates) {
-    const songUrl = candidate.hit.result?.url;
-    if (!songUrl) {
-      continue;
-    }
-
-    try {
-      const response = await fetchWithRetry(() => axios.get(songUrl, { timeout: 9000 }), 1);
-      const lyrics = extractLyricsFromHtml(String(response.data ?? ''));
-
-      if (!lyrics) {
-        continue;
+  // Fetch the top candidate song pages in parallel instead of strictly
+  // sequentially. This keeps latency low while still preferring the
+  // highest-scored candidate that actually returns usable lyrics.
+  const fetchedCandidates = await Promise.all(
+    uniqueCandidates.map(async (candidate) => {
+      const songUrl = candidate.hit.result?.url;
+      if (!songUrl) {
+        return null;
       }
 
-      return {
-        lyrics,
-        songUrl,
-        query: candidate.query,
-        score: candidate.score,
-      };
-    } catch {
-      // Try the next best Genius candidate.
+      try {
+        const response = await fetchWithRetry(() => axios.get(songUrl, { timeout: 8000 }), 1);
+        const lyrics = extractLyricsFromHtml(String(response.data ?? ''));
+
+        if (!lyrics) {
+          return null;
+        }
+
+        return {
+          lyrics,
+          songUrl,
+          query: candidate.query,
+          score: candidate.score,
+        } satisfies GeniusLyricsResult;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  // uniqueCandidates is already sorted best-first, so the first non-null
+  // result is the highest-confidence match.
+  for (const result of fetchedCandidates) {
+    if (result) {
+      return result;
     }
   }
 
@@ -914,11 +931,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const resolveLyrics = async (): Promise<LyricsHandlerResult> => {
+    const deadline = Date.now() + LYRICS_RESOLUTION_BUDGET_MS;
     const attempts: ProviderAttempt[] = [];
     const variants = buildVariants(song, artist);
     const bestCandidateRef: { current: LyricsCandidate | null } = { current: null };
 
     for (const variant of variants) {
+      // Respect the overall budget: if we are out of time, stop launching new
+      // provider work and return the best candidate gathered so far.
+      if (Date.now() >= deadline && bestCandidateRef.current) {
+        break;
+      }
+
       const markAttempt = (provider: ProviderName, ok: boolean, reason?: string) => {
         if (!includeDebug) {
           return;
@@ -984,64 +1008,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return false;
       };
 
-      const musixmatchLyrics = await fetchMusixmatchLyrics(variant.title, variant.artist);
-      if (musixmatchLyrics) {
-        markAttempt('musixmatch', true);
-        if (registerCandidate(musixmatchLyrics, 'musixmatch', 8)) {
-          break;
+      // Run every provider for this variant concurrently. Previously these were
+      // awaited one-by-one with an early break, so a single slow/missing
+      // provider delayed the whole chain and could exhaust the time budget
+      // before faster, higher-quality providers were even tried.
+      const providerFetchers: Array<{
+        provider: ProviderName;
+        confidence: number;
+        fetch: () => Promise<string | null>;
+      }> = [
+        { provider: 'musixmatch', confidence: 8, fetch: () => fetchMusixmatchLyrics(variant.title, variant.artist) },
+        {
+          provider: 'genius',
+          confidence: 12,
+          fetch: async () => (await findLyrics(variant.title, variant.artist))?.lyrics ?? null,
+        },
+        { provider: 'lrclib', confidence: 10, fetch: () => fetchLrcLibLyrics(variant.title, variant.artist) },
+        { provider: 'audd', confidence: 7, fetch: () => fetchAudDLyrics(variant.title, variant.artist) },
+        { provider: 'chartlyrics', confidence: 5, fetch: () => fetchChartLyrics(variant.title, variant.artist) },
+        { provider: 'lyrics.ovh', confidence: 3, fetch: () => fetchLyricsOvh(variant.title, variant.artist) },
+      ];
+
+      const providerResults = await Promise.all(
+        providerFetchers.map(async ({ provider, confidence, fetch }) => {
+          try {
+            const lyrics = await fetch();
+            return { provider, confidence, lyrics };
+          } catch {
+            return { provider, confidence, lyrics: null as string | null };
+          }
+        }),
+      );
+
+      // Evaluate providers in priority order so that, on ties, the higher-rated
+      // source wins and the confident-winner short circuit stays deterministic.
+      let foundConfidentWinner = false;
+      for (const { provider, confidence, lyrics } of providerResults) {
+        if (lyrics) {
+          markAttempt(provider, true);
+          if (registerCandidate(lyrics, provider, confidence)) {
+            foundConfidentWinner = true;
+          }
+        } else {
+          markAttempt(provider, false, 'No lyrics returned');
         }
-      } else {
-        markAttempt('musixmatch', false, 'No lyrics returned');
       }
 
-      const geniusMatch = await findLyrics(variant.title, variant.artist);
-      if (geniusMatch?.lyrics) {
-        markAttempt('genius', true);
-        if (registerCandidate(geniusMatch.lyrics, 'genius', 12)) {
-          break;
-        }
-      } else {
-        markAttempt('genius', false, 'No high-confidence Genius match found');
-      }
-
-      const lrcLibLyrics = await fetchLrcLibLyrics(variant.title, variant.artist);
-      if (lrcLibLyrics) {
-        markAttempt('lrclib', true);
-        if (registerCandidate(lrcLibLyrics, 'lrclib', 10)) {
-          break;
-        }
-      } else {
-        markAttempt('lrclib', false, 'No lyrics returned');
-      }
-
-      const auddLyrics = await fetchAudDLyrics(variant.title, variant.artist);
-      if (auddLyrics) {
-        markAttempt('audd', true);
-        if (registerCandidate(auddLyrics, 'audd', 7)) {
-          break;
-        }
-      } else {
-        markAttempt('audd', false, 'No lyrics returned');
-      }
-
-      const chartLyrics = await fetchChartLyrics(variant.title, variant.artist);
-      if (chartLyrics) {
-        markAttempt('chartlyrics', true);
-        if (registerCandidate(chartLyrics, 'chartlyrics', 5)) {
-          break;
-        }
-      } else {
-        markAttempt('chartlyrics', false, 'No lyrics returned');
-      }
-
-      const lyricsOvh = await fetchLyricsOvh(variant.title, variant.artist);
-      if (lyricsOvh) {
-        markAttempt('lyrics.ovh', true);
-        if (registerCandidate(lyricsOvh, 'lyrics.ovh', 3)) {
-          break;
-        }
-      } else {
-        markAttempt('lyrics.ovh', false, 'No lyrics returned');
+      if (foundConfidentWinner) {
+        break;
       }
     }
 
