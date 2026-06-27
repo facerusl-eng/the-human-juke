@@ -219,11 +219,15 @@ async function fetchServerClockOffsetMs(): Promise<number | null> {
 function formatCountdownLabel(remainingMs: number): string {
   const totalSeconds = Math.floor(Math.max(0, remainingMs) / 1000);
   const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   let label = '';
   if (days > 0) {
     label += `${days}d `;
+  }
+  if (days > 0 || hours > 0) {
+    label += `${String(hours).padStart(2, '0')}h `;
   }
   label += `${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
   return label.trim();
