@@ -1814,23 +1814,33 @@ function QueueProvider({ children }: PropsWithChildren) {
     }
 
     setSongs((currentSongs) => currentSongs.filter((song) => song.id !== targetSongId))
+
+    // A song is flagged is_removed either because it was performed (performed_at set)
+    // or because it was simply removed from the queue. Only performed songs belong in
+    // the Performed Songs list; removed songs must never appear there.
+    const performedAtValue = typeof nextRow.performed_at === 'string' && nextRow.performed_at.length > 0
+      ? nextRow.performed_at
+      : null
+
+    if (!performedAtValue) {
+      setPerformedSongs((currentPerformedSongs) => currentPerformedSongs.filter((song) => song.id !== targetSongId))
+      setQueueOperatingMode('normal')
+      setQueueHealthMessage(null)
+      return
+    }
+
     setPerformedSongs((currentPerformedSongs) => {
       const existingPerformedSong = currentPerformedSongs.find((song) => song.id === targetSongId)
       const queueFallbackSong = songsRef.current.find((song) => song.id === targetSongId)
       const baseSong = existingPerformedSong ?? queueFallbackSong
       const nextSong = mapRealtimeRowToQueueSong(nextRow, baseSong)
-      const performedAt = typeof nextRow.performed_at === 'string'
-        ? nextRow.performed_at
-        : typeof nextRow.updated_at === 'string'
-        ? nextRow.updated_at
-        : new Date().toISOString()
 
       const remainingPerformedSongs = currentPerformedSongs.filter((song) => song.id !== targetSongId)
       const nextPerformedSongs: PerformedSong[] = [
         {
           ...nextSong,
           is_removed: true,
-          performedAt,
+          performedAt: performedAtValue,
         },
         ...remainingPerformedSongs,
       ]
@@ -2337,6 +2347,7 @@ function QueueProvider({ children }: PropsWithChildren) {
             .select(performedSongsSelectWithPerformedAt)
             .eq('event_id', activeEventId)
             .eq('is_removed', true)
+            .not('performed_at', 'is', null)
             .order('performed_at', { ascending: false, nullsFirst: false })
             .limit(30),
           DEFAULT_DB_TIMEOUT_MS,
