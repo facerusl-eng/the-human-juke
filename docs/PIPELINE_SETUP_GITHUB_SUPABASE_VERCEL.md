@@ -95,3 +95,35 @@ All three must point at the same Supabase project values from their `.env.local`
 - Vercel redeploys on every push to `main` affecting either app folder (or shared Supabase client) via workflow.
 - If Supabase schema changes, both apps continue working as long as queries remain compatible and migrations are applied.
 - Updating Vercel env vars requires triggering a redeploy/rebuild in each Vercel project.
+
+## CI/CD Pipeline
+
+Continuous integration and deployment run through GitHub Actions and Vercel.
+
+### Active Workflows
+
+Only workflows located in the repository-root `.github/workflows/` directory are executed by GitHub Actions:
+
+| Workflow | Purpose |
+| --- | --- |
+| `ci.yml` | Lints and typechecks the Tauri and Audience apps |
+| `build-verification.yml` | Verifies production builds |
+| `vercel-dual-deploy.yml` | Orchestrates deployment of the Web and Audience apps |
+| `vercel-deploy-reusable.yml` | Reusable deploy workflow called by `vercel-dual-deploy.yml` |
+| Stability workflows | `tauri-stability.yml`, `audience-stability.yml` |
+
+### Inert Workflows
+
+Nested `ci.yml` files located outside the root `.github/workflows/` directory (e.g. inside individual app folders) **never execute**. GitHub Actions only discovers and runs workflows from the repository-root `.github/workflows/` directory, so these nested files are inert.
+
+### Responsibilities
+
+- **CI (`ci.yml`)** — lints and typechecks the **Tauri** and **Audience** apps.
+- **Deployment (Vercel)** — deploys the **Web** and **Audience** apps.
+
+### Verification Results
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Tauri lint | `npm run lint` | 0 errors, 17 warnings |
+| Tauri typecheck | `tsc -p tsconfig.app.json --noEmit` | Passed (0 errors) |
