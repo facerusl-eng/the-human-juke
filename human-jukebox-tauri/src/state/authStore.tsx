@@ -482,11 +482,11 @@ function AuthProvider({ children }: PropsWithChildren) {
       return session ?? null
     } catch (error) {
       if (error instanceof Error && error.message.toLowerCase().includes('anonymous sign-ins are disabled')) {
-        throw new Error('Audience guest sign-in is disabled in Supabase. Enable Authentication > Providers > Anonymous to let phones join live.')
+        throw new Error('Audience guest sign-in is disabled in Supabase. Enable Authentication > Providers > Anonymous to let phones join live.', { cause: error })
       }
 
       if (isRateLimitedAuthError(error)) {
-        throw new Error('Audience sign-in is busy right now. Auto-retrying in about 1-2 minutes.')
+        throw new Error('Audience sign-in is busy right now. Auto-retrying in about 1-2 minutes.', { cause: error })
       }
 
       throw error

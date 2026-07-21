@@ -1,5 +1,5 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { isTauriDesktopRuntime, resolveAppPath, resolveTauriWindowUrl } from './routePath'
+import { isTauriDesktopRuntime, resolveTauriWindowUrl } from './routePath'
 
 export type OpenMirrorScreenResult = {
   navigatedInCurrentWindow: boolean

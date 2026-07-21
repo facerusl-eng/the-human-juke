@@ -4,8 +4,6 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const isTauri = !!process.env.TAURI_ENV_PLATFORM
-
 const devPublicOriginHost = (() => {
   const devPublicOrigin = process.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
 

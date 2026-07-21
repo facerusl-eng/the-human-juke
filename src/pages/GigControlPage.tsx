@@ -560,6 +560,7 @@ function GigControlPage() {
     audienceConnectionStatus,
     queueOperatingMode,
     queueHealthMessage,
+    setNowPlayingPin,
   } = useQueueStore()
 
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -750,6 +751,12 @@ function GigControlPage() {
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
 
   const nowPlaying = songs[0]
+  // Pin the song that is actively playing so audience-vote re-sorts never bump it
+  // out of the now-playing slot. When nothing is started, the highest-voted song
+  // is free to move to the front so it plays next.
+  useEffect(() => {
+    setNowPlayingPin(isNowPlayingStarted ? nowPlaying?.id ?? null : null)
+  }, [isNowPlayingStarted, nowPlaying?.id, setNowPlayingPin])
   const nowPlayingType = useMemo<NowPlayingType>(() => {
     if (!nowPlaying) {
       return 'none'

@@ -1,49 +1,3 @@
-// --- MirrorJoinQrBlock: Place after imports, before any other code ---
-
-
-// --- MirrorJoinQrBlock: Place after imports, before any other code ---
-type MirrorJoinQrBlockProps = {
-  audienceUrl: string;
-  beginPanelDrag: any;
-  beginInteraction: any;
-};
-
-function MirrorJoinQrBlock(props: MirrorJoinQrBlockProps) {
-  const { audienceUrl, beginPanelDrag, beginInteraction } = props;
-  return (
-    <section
-      className="mirror-frame mirror-layout-edit-panel mirror-layout-edit-simple-panel mirror-qr-visual-block"
-      data-mirror-layout-panel="joinQr"
-      onPointerDown={beginPanelDrag('joinQr')}
-    >
-      <button
-        type="button"
-        className="mirror-layout-drag-handle"
-        aria-label="Drag join QR panel"
-        onPointerDown={beginInteraction('joinQr', 'drag')}
-      >
-        Move
-      </button>
-      <div className="mirror-layout-edit-simple-panel-body mirror-layout-edit-qr-panel">
-        <div className="mirror-layout-edit-qr-box mirror-qr-visual-box">
-          <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=2400x2400&ecc=M&margin=0&data=${encodeURIComponent(audienceUrl)}`}
-            alt="Scan to join the show"
-            className="mirror-qr-visual-img"
-          />
-        </div>
-        <div className="mirror-qr-visual-title">Join the Show!</div>
-        <div className="mirror-qr-visual-desc">Scan this QR code with your phone camera</div>
-      </div>
-      <button
-        type="button"
-        className="mirror-layout-resize-handle"
-        aria-label="Resize join QR panel"
-        onPointerDown={beginInteraction('joinQr', 'resize')}
-      />
-    </section>
-  );
-}
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import LiveFeedPanel from '../components/LiveFeedPanel'
@@ -55,7 +9,6 @@ import {
   PLAYBACK_STATE_BROADCAST_CHANNEL,
   PLAYBACK_STATE_EVENT,
   PLAYBACK_STATE_STORAGE_KEY,
-  getSharedPlaybackDisplayMessage,
   getSharedPlaybackTransitionState,
   isCountdownTargetActive,
   isLastSongSoonOverlayMessage,
@@ -202,7 +155,6 @@ const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - g
 
 const SPOTLIGHT_DURATION_MS = 10000
 const SPOTLIGHT_POLL_INTERVAL_MS = 15000
-const QUOTE_ROTATE_INTERVAL_MS = 20000
 const GO_LIVE_WELCOME_DURATION_MS = 15000
 const SONG_INFO_ROTATE_INTERVAL_MS = 20000
 const SONG_FACT_MAX_LENGTH = 180
@@ -1648,12 +1600,12 @@ function MirrorPageContent() {
   const [hasCheckedMirrorNetworkAccess, setHasCheckedMirrorNetworkAccess] = useState(false)
   const [mirrorClockOffsetMs, setMirrorClockOffsetMs] = useState(0)
   const [countdownNow, setCountdownNow] = useState(() => Date.now())
-  const [countdownAutoLiveActive, setCountdownAutoLiveActive] = useState(false)
+  const [, setCountdownAutoLiveActive] = useState(false)
   const [fallbackUpcomingEvent, setFallbackUpcomingEvent] = useState<MirrorUpcomingEvent | null>(null)
   const [betweenSongQuoteIndex, setBetweenSongQuoteIndex] = useState(0)
   const [goLiveWelcomeUntilMs, setGoLiveWelcomeUntilMs] = useState<number | null>(null)
   const [hasStartedSongDuringLastSongMode, setHasStartedSongDuringLastSongMode] = useState(false)
-  const [forceQuoteMode, setForceQuoteMode] = useState(false)
+  const [forceQuoteMode] = useState(false)
   const [qrFlashTextIndex, setQrFlashTextIndex] = useState(0)
   const quoteIndexRef = useRef(0)
   const wasLiveRef = useRef(false)
@@ -1670,7 +1622,6 @@ function MirrorPageContent() {
   const mirrorClockOffsetRef = useRef(0)
   const mirrorShellRef = useRef<HTMLDivElement | null>(null)
   const venueLogoImageRef = useRef<HTMLImageElement | null>(null)
-  const autoFullscreenAttemptedRef = useRef(false)
   const mirrorLayoutStageRef = useRef<HTMLDivElement | null>(null)
   const layoutInteractionRef = useRef<{
     panelId: MirrorLayoutPanelId
@@ -2063,7 +2014,6 @@ function MirrorPageContent() {
     : Boolean(playbackState?.isStarted && playbackSong?.id)
   const isBetweenSongs = Boolean(playbackState && !playbackState.isStarted)
   const isQuoteModeActive = (demoMode && forceQuoteMode) || isBetweenSongs || !activeSong
-  const isGoLiveWelcomeActive = goLiveWelcomeUntilMs !== null && countdownNow < goLiveWelcomeUntilMs
   const shouldCompactQueue = safeSongs.length > 6
   const upNext = useMemo(() => {
     const candidateSongs = isNowPlayingStarted
@@ -2489,13 +2439,6 @@ function MirrorPageContent() {
   const venueLogoAppearance = normalizeVenueLogoAppearance(activeVenueLogoLayoutPreview?.venueLogoAppearance ?? event?.venueLogoAppearance)
   const hasLiveMirrorSignal = Boolean(playbackState?.isStarted && playbackState.currentSongId) || playbackTransitionState?.phase === 'intro'
   const shouldShowPreShow = !isLive && !hasLiveMirrorSignal
-  const mirrorStatusBadgeText = playbackState?.brbActive
-    ? 'On Break'
-    : isLive
-    ? 'Live'
-    : shouldShowPreShow
-    ? 'Starting Soon'
-    : 'Paused'
   const isLastSongSoonMode = isLastSongSoonOverlayMessage(playbackState?.brbMessage)
   const encoreCandidateSong = upNext[0] ?? null
   const showEncoreVoteOverlay = isLive
@@ -2872,7 +2815,7 @@ function MirrorPageContent() {
       setCountdownAutoLiveActive(true)
       autoLiveInFlightRef.current = true
 
-      let roomOpened = false
+      let roomOpened: boolean
       try {
         await setRoomOpen(true)
         roomOpened = true
@@ -2989,12 +2932,6 @@ function MirrorPageContent() {
       window.removeEventListener('resize', checkFullscreen);
     };
   }, [layoutEditMode]);
-
-  const handleFullscreenPromptClick = useCallback(() => {
-    requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
-      .then(() => setShowFullscreenPrompt(false))
-      .catch(() => setShowFullscreenPrompt(true));
-  }, []);
 
   // In your render, show the prompt if showFullscreenPrompt is true:
   // {showFullscreenPrompt && (
@@ -5065,7 +5002,7 @@ function MirrorPageContent() {
 
 function MirrorPage() {
   const { event } = useQueueStore();
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [, setShowWelcome] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
 
   useEffect(() => {

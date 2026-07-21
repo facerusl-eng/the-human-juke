@@ -229,6 +229,7 @@ export type QueueContextValue = {
   createEvent: (name: string, venue: string, options?: CreateEventOptions) => Promise<void>
   markPlayed: () => Promise<void>
   unmarkPlayed: (songId: string) => Promise<void>
+  setNowPlayingPin: (songId: string | null) => void
 }
 
 export const QueueContext = createContext<QueueContextValue | null>(null)
@@ -1600,6 +1601,39 @@ async function ensureDefaultHostPlaylists(hostId: string, eventName: string) {
   }
 }
 
+// Orders the queue so audience votes drive what plays next: highest votes first,
+// position as a tiebreaker. The currently-playing song (pinnedSongId) is kept at
+// the front so it stays stable while it is being performed, even if another song
+// overtakes it on votes mid-performance.
+function sortQueueSongsByVotes(queueSongs: QueueSong[], pinnedSongId: string | null): QueueSong[] {
+  const pinnedSong = pinnedSongId
+    ? queueSongs.find((song) => song.id === pinnedSongId)
+    : undefined
+  const songsToSort = pinnedSong
+    ? queueSongs.filter((song) => song.id !== pinnedSongId)
+    : [...queueSongs]
+
+  songsToSort.sort((leftSong, rightSong) => {
+    const leftVotes = typeof leftSong.votes_count === 'number' ? leftSong.votes_count : 0
+    const rightVotes = typeof rightSong.votes_count === 'number' ? rightSong.votes_count : 0
+
+    if (leftVotes !== rightVotes) {
+      return rightVotes - leftVotes
+    }
+
+    const leftPosition = typeof leftSong.position === 'number' ? leftSong.position : Number.MAX_SAFE_INTEGER
+    const rightPosition = typeof rightSong.position === 'number' ? rightSong.position : Number.MAX_SAFE_INTEGER
+
+    if (leftPosition !== rightPosition) {
+      return leftPosition - rightPosition
+    }
+
+    return leftSong.id.localeCompare(rightSong.id)
+  })
+
+  return pinnedSong ? [pinnedSong, ...songsToSort] : songsToSort
+}
+
 function QueueProvider({ children }: PropsWithChildren) {
   const { user, profile, isHost, refreshProfile } = useAuthStore()
   const [event, setEvent] = useState<EventState | null>(null)
@@ -1618,6 +1652,7 @@ function QueueProvider({ children }: PropsWithChildren) {
   const queueOperatingModeRef = useRef<'normal' | 'degraded'>('normal')
   const hostEventsRef = useRef<HostEventSummary[]>([])
   const songsRef = useRef<QueueSong[]>([])
+  const nowPlayingPinRef = useRef<string | null>(null)
 
   const eventId = profile?.active_event_id ?? null
   const isHostSession = isHost
@@ -1705,17 +1740,15 @@ function QueueProvider({ children }: PropsWithChildren) {
     })
   }, [event?.id])
 
-  const sortQueueSongsByPosition = useCallback((queueSongs: QueueSong[]) => {
-    return [...queueSongs].sort((leftSong, rightSong) => {
-      const leftPosition = typeof leftSong.position === 'number' ? leftSong.position : Number.MAX_SAFE_INTEGER
-      const rightPosition = typeof rightSong.position === 'number' ? rightSong.position : Number.MAX_SAFE_INTEGER
-
-      if (leftPosition !== rightPosition) {
-        return leftPosition - rightPosition
-      }
-
-      return leftSong.id.localeCompare(rightSong.id)
-    })
+  // Host pins the song that is actively playing so re-sorts never bump it out of
+  // the now-playing slot. Audience clients leave this null and get pure vote order.
+  const setNowPlayingPin = useCallback((songId: string | null) => {
+    const normalizedSongId = songId && songId.length > 0 ? songId : null
+    if (nowPlayingPinRef.current === normalizedSongId) {
+      return
+    }
+    nowPlayingPinRef.current = normalizedSongId
+    setSongs((currentSongs) => sortQueueSongsByVotes(currentSongs, normalizedSongId))
   }, [])
 
   const sortPerformedSongsByTime = useCallback((nextPerformedSongs: PerformedSong[]) => {
@@ -1804,7 +1837,7 @@ function QueueProvider({ children }: PropsWithChildren) {
         const existingSong = currentSongs.find((song) => song.id === targetSongId)
         const nextSong = mapRealtimeRowToQueueSong(nextRow, existingSong)
         const remainingSongs = currentSongs.filter((song) => song.id !== targetSongId)
-        return sortQueueSongsByPosition([...remainingSongs, nextSong])
+        return sortQueueSongsByVotes([...remainingSongs, nextSong], nowPlayingPinRef.current)
       })
 
       setPerformedSongs((currentPerformedSongs) => currentPerformedSongs.filter((song) => song.id !== targetSongId))
@@ -1850,7 +1883,7 @@ function QueueProvider({ children }: PropsWithChildren) {
 
     setQueueOperatingMode('normal')
     setQueueHealthMessage(null)
-  }, [mapRealtimeRowToQueueSong, sortPerformedSongsByTime, sortQueueSongsByPosition])
+  }, [mapRealtimeRowToQueueSong, sortPerformedSongsByTime])
 
   const fetchQueueSnapshot = useCallback(async (activeEventId: string) => {
     const loadEventSnapshot = async () => {
@@ -2505,7 +2538,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       isTestGig,
     })
     if (queueLoaded) {
-      setSongs(queueSongs.map((song) => {
+      setSongs(sortQueueSongsByVotes(queueSongs.map((song) => {
         if (song.cover_url || !song.library_song_id) {
           return song
         }
@@ -2514,7 +2547,7 @@ function QueueProvider({ children }: PropsWithChildren) {
           ...song,
           cover_url: coverUrlByLibrarySongId.get(song.library_song_id) ?? null,
         }
-      }))
+      }), nowPlayingPinRef.current))
     } else {
       setSongs((currentSongs) => (activeEventIdRef.current === activeEventId ? currentSongs : []))
     }
@@ -3475,6 +3508,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       pendingOfflineSongs,
       queueOperatingMode,
       queueHealthMessage,
+      setNowPlayingPin,
       forceFallbackMode: async () => {
         if (!isHostSession) {
           throw new Error('Host account required to force fallback mode.')
@@ -5668,6 +5702,7 @@ function QueueProvider({ children }: PropsWithChildren) {
       refreshProfile,
       fetchQueueSnapshot,
       setPendingOfflineSongs,
+      setNowPlayingPin,
     ],
   )
 

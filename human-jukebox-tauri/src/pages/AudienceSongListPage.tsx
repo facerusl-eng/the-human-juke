@@ -231,7 +231,7 @@ async function fetchMusicBrainzSongFacts(title: string, artist: string, signal: 
 function buildLocalSongFacts(song: SongFactContext) {
   const titleWordCount = song.title.trim().split(/\s+/).filter(Boolean).length
   const hasFeature = /\b(feat\.?|ft\.?)\b/i.test(song.title)
-  const hasBrackets = /[()\[\]]/.test(song.title)
+  const hasBrackets = /[()[\]]/.test(song.title)
 
   return [
     hasFeature

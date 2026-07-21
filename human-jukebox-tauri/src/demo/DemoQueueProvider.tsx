@@ -380,6 +380,7 @@ export function DemoQueueProvider({ children }: PropsWithChildren) {
       createEvent: noop,
       markPlayed: noop,
       unmarkPlayed: noop,
+      setNowPlayingPin: noop,
     }),
     [songs, performedSongs, addSong, upvoteSong, noop],
   )

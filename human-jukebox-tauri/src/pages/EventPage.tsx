@@ -1113,7 +1113,7 @@ function normalizeExternalLink(url: string | null | undefined) {
 function EventPage() {
   // --- Welcome Overlay Logic ---
   const { event, songs, performedSongs, loading, upvoteSong, audienceConnectionStatus, pendingOfflineSongs, queueOperatingMode, queueHealthMessage } = useQueueStore();
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [, setShowWelcome] = useState(false);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   useEffect(() => {
     if (event?.roomOpen && !hasShownWelcome) {
@@ -1443,9 +1443,6 @@ function EventPage() {
         return (song.createdByName ?? '').trim().toLowerCase() === normalizedAudienceName
       })
   }, [normalizedAudienceName, normalizedAudienceUserId, upNext])
-  const myQueuedSongIds = useMemo(() => {
-    return new Set(myQueuedRequests.map(({ song }) => song.id))
-  }, [myQueuedRequests])
   const isBetweenSongs = playbackState?.isStarted === false
   const isLastSongSoonMode = isLastSongSoonOverlayMessage(playbackState?.brbMessage)
   const isAudienceBreakMode = Boolean(playbackState?.brbActive) && !isLastSongSoonMode

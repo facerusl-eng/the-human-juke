@@ -109,7 +109,7 @@ function toLooseComparable(value: unknown) {
   }
 
   return text
-    .replace(/[\[\](){}'".,!?;:]/g, ' ')
+    .replace(/[[\](){}'".,!?;:]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -329,7 +329,7 @@ function parseHeadingLine(line: string) {
     return headingText.length > 0 ? `[${headingText}]` : null;
   }
 
-  const plainHeading = trimmedLine.match(/^(verse|chorus|bridge|solo|instrumental|hook|refrain)(?:\s+(\d+))?\s*[:\-]?$/i);
+  const plainHeading = trimmedLine.match(/^(verse|chorus|bridge|solo|instrumental|hook|refrain)(?:\s+(\d+))?\s*[:-]?$/i);
   if (plainHeading) {
     const heading = normalizeSectionHeading(plainHeading[0]);
     return heading ? `[${heading}${plainHeading[2] ? ` ${plainHeading[2]}` : ''}]` : null;
@@ -342,7 +342,7 @@ function normalizeSectionLineBreaks(rawLyrics: string) {
   return rawLyrics
     .replace(/\r\n/g, '\n')
     .replace(/\]\s*\[/g, ']\n\n[')
-    .replace(/(\[[^\]]+\])\s+(?=[^\n\[])/g, '$1\n')
+    .replace(/(\[[^\]]+\])\s+(?=[^\n[])/g, '$1\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -539,128 +539,6 @@ function parseTimedKaraokeLines(text: string) {
   })
 }
 
-function getActiveTimedLyricsLineIndex(lines: TimedKaraokeLine[], elapsedMs: number) {
-  const lyricLines = lines
-    .map((line, index) => ({ line, index }))
-    .filter(({ line }) => !line.isHeading && line.text.length > 0)
-
-  if (lyricLines.length === 0) {
-    return -1
-  }
-
-  const timedLyricsLines = lyricLines.filter(({ line }) => Number.isFinite(line.lineStartMs))
-  if (timedLyricsLines.length === 0) {
-    return lyricLines[0].index
-  }
-
-  for (let index = timedLyricsLines.length - 1; index >= 0; index -= 1) {
-    const currentLine = timedLyricsLines[index]
-    const currentStart = currentLine.line.lineStartMs ?? 0
-    const nextStart = timedLyricsLines[index + 1]?.line.lineStartMs ?? Number.POSITIVE_INFINITY
-
-    if (elapsedMs >= currentStart && elapsedMs < nextStart) {
-      return currentLine.index
-    }
-  }
-
-  return elapsedMs < (timedLyricsLines[0].line.lineStartMs ?? 0)
-    ? timedLyricsLines[0].index
-    : timedLyricsLines[timedLyricsLines.length - 1].index
-}
-
-function renderTimedWords(line: TimedKaraokeLine, elapsedMs: number) {
-  const hasWordTiming = line.words.some((word) => Number.isFinite(word.startMs))
-
-  if (!hasWordTiming) {
-    return line.text
-  }
-
-  return line.words.map((word, index) => {
-    const wordStart = word.startMs ?? Number.POSITIVE_INFINITY
-    const nextWordStart = line.words[index + 1]?.startMs ?? Number.POSITIVE_INFINITY
-    const isSung = elapsedMs >= wordStart
-    const isCurrent = elapsedMs >= wordStart && elapsedMs < nextWordStart
-
-    return (
-      <span
-        key={`timed-word-${index}-${word.text}`}
-        className={`lyrics-word${isSung ? ' is-sung' : ''}${isCurrent ? ' is-current' : ''}`}
-      >
-        {word.text}
-        {index < line.words.length - 1 ? ' ' : ''}
-      </span>
-    )
-  })
-}
-
-type KaraokeFocusBlock =
-  | { kind: 'heading'; heading: string }
-  | { kind: 'lyrics'; nowLine: string; nextLine: string | null }
-
-function buildKaraokeFocusBlocks(text: string): KaraokeFocusBlock[] {
-  const lines = text.split('\n')
-  const blocks: KaraokeFocusBlock[] = []
-  let pairBuffer: string[] = []
-
-  const flushPairBuffer = () => {
-    if (pairBuffer.length === 0) {
-      return
-    }
-
-    for (let index = 0; index < pairBuffer.length; index += 2) {
-      const nowLine = pairBuffer[index]
-      const nextLine = pairBuffer[index + 1] ?? null
-      blocks.push({ kind: 'lyrics', nowLine, nextLine })
-    }
-
-    pairBuffer = []
-  }
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim()
-
-    if (!line) {
-      flushPairBuffer()
-      continue
-    }
-
-    const isHeading = (line.endsWith(':') || /^\[[^\]]+\]$/.test(line)) && line.length < 60
-    if (isHeading) {
-      flushPairBuffer()
-      blocks.push({ kind: 'heading', heading: line })
-      continue
-    }
-
-    pairBuffer.push(rawLine)
-  }
-
-  flushPairBuffer()
-  return blocks
-}
-
-function renderKaraokeFocusBlocks(text: string) {
-  const blocks = buildKaraokeFocusBlocks(text)
-
-  return blocks.map((block, index) => {
-    if (block.kind === 'heading') {
-      return (
-        <div key={`focus-heading-${index}`} className="lyrics-focus-heading" aria-hidden="true">
-          {block.heading}
-        </div>
-      )
-    }
-
-    return (
-      <article key={`focus-lyrics-${index}`} className="lyrics-focus-card">
-        <p className="lyrics-focus-label">Now</p>
-        <p className="lyrics-focus-primary">{block.nowLine}</p>
-        <p className="lyrics-focus-label">Next</p>
-        <p className="lyrics-focus-secondary">{block.nextLine ?? '...'}</p>
-      </article>
-    )
-  })
-}
-
 function sanitizeReturnPath(value: string | null | undefined) {
   const trimmedValue = (value ?? '').trim();
 
@@ -846,7 +724,7 @@ export default function LyricsPage() {
   const [manualLyricsInput, setManualLyricsInput] = useState('');
   const [manualSaveMessage, setManualSaveMessage] = useState<string | null>(null);
   const [savingManualLyrics, setSavingManualLyrics] = useState(false);
-  const [timedElapsedMs, setTimedElapsedMs] = useState(0);
+  const [, setTimedElapsedMs] = useState(0);
   const [playbackIsStarted, setPlaybackIsStarted] = useState<boolean | null>(null);
   const [playbackStartedAtMs, setPlaybackStartedAtMs] = useState<number | null>(null);
   const [lyricsNudgeMs, setLyricsNudgeMs] = useState(() => readLyricsNudgeMs());
@@ -881,34 +759,6 @@ export default function LyricsPage() {
   const hasTimedKaraoke = useMemo(() => (
     timedKaraokeLines.some((line) => Number.isFinite(line.lineStartMs))
   ), [timedKaraokeLines])
-
-  const effectiveTimedElapsedMs = useMemo(
-    () => Math.max(0, timedElapsedMs + lyricsNudgeMs),
-    [timedElapsedMs, lyricsNudgeMs],
-  );
-
-  const stageLyricsDensityClass = useMemo(() => {
-    if (!isStageMode || !formattedLyrics) {
-      return '';
-    }
-
-    const nonEmptyLines = formattedLyrics.split('\n').filter((line) => line.trim().length > 0).length;
-    const characterCount = formattedLyrics.replace(/\s+/g, ' ').trim().length;
-
-    if (nonEmptyLines > 120 || characterCount > 5200) {
-      return ' lyrics-stage-text-auto-fit-max';
-    }
-
-    if (nonEmptyLines > 88 || characterCount > 3600) {
-      return ' lyrics-stage-text-auto-fit-more';
-    }
-
-    if (nonEmptyLines > 64 || characterCount > 2400) {
-      return ' lyrics-stage-text-auto-fit';
-    }
-
-    return '';
-  }, [formattedLyrics, isStageMode]);
 
   const lyricsEventId = useMemo(
     () => resolveEventIdForLyrics(searchParams, returnToPath),

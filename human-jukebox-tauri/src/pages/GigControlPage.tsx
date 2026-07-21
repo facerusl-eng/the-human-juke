@@ -70,7 +70,6 @@ const GO_LIVE_COUNTDOWN_LOCK_MESSAGE = 'Go Live is countdown-only: manual start 
 const SONG_START_COUNTDOWN_MS = 10_000
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
-const PLAYBACK_ACTION_LOCK_MAX_MS = 20_000
 const PLAYBACK_SYNC_POLL_INTERVAL_MS = 2_500
 const BRB_MESSAGE_DICE_OPTIONS = [
   'Quick break in progress. Keep your requests coming and I will be right back.',
@@ -531,6 +530,7 @@ function GigControlPage() {
     audienceConnectionStatus,
     queueOperatingMode,
     queueHealthMessage,
+    setNowPlayingPin,
   } = useQueueStore()
 
   const [errorText, setErrorText] = useState<string | null>(null)
@@ -575,8 +575,8 @@ function GigControlPage() {
   const [showMirrorTopVoted, setShowMirrorTopVoted] = useState(() => {
     try { return localStorage.getItem('human-jukebox-mirror-top-voted') === '1' } catch { return false }
   })
-  const [mirrorPreviewTransitionMessage, setMirrorPreviewTransitionMessage] = useState<string | null>(null)
-  const [mirrorPreviewTransitionTone, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
+  const [, setMirrorPreviewTransitionMessage] = useState<string | null>(null)
+  const [, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
   const [mirrorMonitorRefreshNonce, setMirrorMonitorRefreshNonce] = useState(0)
   const [lastMirrorSyncAt, setLastMirrorSyncAt] = useState<number>(() => Date.now())
   const [mirrorLaunchStatusText, setMirrorLaunchStatusText] = useState<string | null>(null)
@@ -617,7 +617,7 @@ function GigControlPage() {
       } catch (err) {
         let msg = 'Failed to toggle room.';
         if (err && typeof err === 'object' && 'message' in err) {
-          msg += ` ${(err as any).message}`;
+          msg += ` ${(err as { message?: string }).message}`;
         }
         setErrorText(msg);
         // Log to console for debugging
@@ -730,6 +730,12 @@ function GigControlPage() {
   const introAudioPlayedEventIdsRef = useRef<Set<string>>(new Set())
 
   const nowPlaying = songs[0]
+  // Pin the song that is actively playing so audience-vote re-sorts never bump it
+  // out of the now-playing slot. When nothing is started, the highest-voted song
+  // is free to move to the front so it plays next.
+  useEffect(() => {
+    setNowPlayingPin(isNowPlayingStarted ? nowPlaying?.id ?? null : null)
+  }, [isNowPlayingStarted, nowPlaying?.id, setNowPlayingPin])
   const nowPlayingType = useMemo<NowPlayingType>(() => {
     if (!nowPlaying) {
       return 'none'
@@ -783,15 +789,6 @@ function GigControlPage() {
     : playbackTransitionState?.phase === 'intro'
     ? playbackTransitionIntroRemainingMs !== null && playbackTransitionIntroRemainingMs > 0
     : false
-  const playbackTransitionStatusText = playbackTransitionState?.phase === 'countdown'
-    ? playbackTransitionCountdownSeconds !== null
-      ? `Global start in ${playbackTransitionCountdownSeconds}`
-      : 'Global start is syncing...'
-    : playbackTransitionState?.phase === 'intro'
-    ? isPlaybackTransitionLocked
-      ? 'Intro MP3 playing...'
-      : null
-    : null
   const showPlaybackStatus = event?.roomOpen
     ? 'live'
     : playbackTransitionState?.phase === 'countdown'
@@ -803,9 +800,6 @@ function GigControlPage() {
   }, [event?.gigDate, event?.gigStartTime])
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
-  const mirrorPreviewUpNext = useMemo(() => {
-    return songs.slice(1)
-  }, [songs])
   const nextUpSong = upNext[0] ?? null
   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
   const queueAheadDurationText = useMemo(() => {
@@ -3528,80 +3522,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
   }, [runQueueTogglePlayShortcut])
 
-  const toggleSpotifyPlayPause = useCallback(async () => {
-    if (!event?.roomOpen) {
-      setErrorText('Spacebar playback is disabled until the gig is live.')
-      return false
-    }
-
-    let token = spotifyAccessToken
-
-    if (!token) {
-      try {
-        token = await refreshSpotifyAccessToken()
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Spotify token refresh failed.'
-        setSpotifyStatusSafely(message)
-        setErrorText('Connect Spotify first to use Spotify transport controls.')
-        return false
-      }
-    }
-
-    if (!token) {
-      setErrorText('Connect Spotify first to use Spotify transport controls.')
-      return false
-    }
-
-    setSpotifyStatusSafely('Sending Spotify play/pause command...', { dedupeWindowMs: 1_500 })
-    spotifyTransportNonceRef.current += 1
-    setSpotifyTransportCommand({ mode: 'toggle', nonce: spotifyTransportNonceRef.current })
-    setErrorText(null)
-    return true
-  }, [event?.roomOpen, refreshSpotifyAccessToken, setSpotifyStatusSafely, spotifyAccessToken])
-
-  const toggleQueuePlayPause = useCallback(async () => {
-    if (!event?.roomOpen) {
-      setErrorText('Spacebar playback is disabled until the gig is live.')
-      return
-    }
-
-    const currentSong = nowPlayingRef.current
-    if (!currentSong) {
-      return
-    }
-
-    const now = Date.now()
-    if (
-      playbackActionLockRef.current
-      && playbackActionLockStartedAtRef.current > 0
-      && now - playbackActionLockStartedAtRef.current > PLAYBACK_ACTION_LOCK_MAX_MS
-    ) {
-      playbackActionLockRef.current = false
-      playbackActionLockStartedAtRef.current = 0
-      spaceActionBusyRef.current = false
-      setSpaceActionBusy(false)
-    }
-
-    if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
-      return
-    }
-
-    try {
-      const nextStarted = !isNowPlayingStartedRef.current
-      await syncStartedState(nextStarted, currentSong.id)
-      await registerBackgroundSync(BACKGROUND_SYNC_TAG)
-
-      if (spotifyAccessToken) {
-        sendSpotifyTransportCommand('pause', { force: true })
-      }
-
-      setErrorText(null)
-    } catch (error) {
-      console.warn('GigControlPage: queue play/pause toggle failed', error)
-      setErrorText('Playback toggle failed. Please try again.')
-    }
-  }, [event?.roomOpen, sendSpotifyTransportCommand, spotifyAccessToken, syncStartedState])
-
   const handleSpacebarAction = useCallback(async () => {
     if (!nowPlayingRef.current) {
       setErrorText('No song in queue yet. Add a song, then press Space.')
@@ -5075,7 +4995,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                     }
 
                     if ((nowPlaying.votes_count ?? 0) > 0) {
-                      setErrorText(`Cannot skip \"${nowPlaying.title}\" because it has ${nowPlaying.votes_count} vote${nowPlaying.votes_count === 1 ? '' : 's'}. Mark it as played instead.`)
+                      setErrorText(`Cannot skip "${nowPlaying.title}" because it has ${nowPlaying.votes_count} vote${nowPlaying.votes_count === 1 ? '' : 's'}. Mark it as played instead.`)
                       return
                     }
 
@@ -5341,7 +5261,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                       }
 
                       if ((song.votes_count ?? 0) > 0) {
-                        setErrorText(`Cannot remove \"${song.title}\" because it has ${song.votes_count} vote${song.votes_count === 1 ? '' : 's'}.`)
+                        setErrorText(`Cannot remove "${song.title}" because it has ${song.votes_count} vote${song.votes_count === 1 ? '' : 's'}.`)
                         return
                       }
 
