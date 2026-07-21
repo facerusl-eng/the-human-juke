@@ -7,7 +7,7 @@ import { readCommittedAudienceLocale, readCommittedAudienceName } from '../lib/a
 import { getLastSongSoonAudienceMessage, isLastSongSoonPlaybackState, readSharedPlaybackState } from '../lib/playbackState'
 import { useAuthStore } from './authStore'
 import type { PendingOfflineSong } from '../lib/queueIdb'
-import { idbAddPendingSong, idbGetPendingSongs, idbRemovePendingSong } from '../lib/queueIdb'
+import { idbAddPendingSong, idbGetPendingSongs, idbRemovePendingSong, idbAddPendingVote, idbGetPendingVotes, idbRemovePendingVote } from '../lib/queueIdb'
 
 export type QueueSong = {
   id: string
@@ -1717,9 +1717,12 @@ function QueueProvider({ children }: PropsWithChildren) {
   const [queueHealthMessage, setQueueHealthMessage] = useState<string | null>(null)
   const [audienceRefreshTick, setAudienceRefreshTick] = useState(0)
   const [pendingOfflineSongs, setPendingOfflineSongs] = useState<PendingOfflineSong[]>([])
+  const [pendingOfflineVoteTick, setPendingOfflineVoteTick] = useState(0)
   const activeEventIdRef = useRef<string | null>(null)
   const prevConnectionStatusRef = useRef<'connecting' | 'connected' | 'reconnecting' | 'offline'>('connecting')
   const pendingReplayInFlightRef = useRef(false)
+  const pendingVoteReplayInFlightRef = useRef(false)
+  const pendingOfflineVoteIdsRef = useRef<Set<string>>(new Set())
   const queueOperatingModeRef = useRef<'normal' | 'degraded'>('normal')
   const hostEventsRef = useRef<HostEventSummary[]>([])
   const songsRef = useRef<QueueSong[]>([])
@@ -2750,6 +2753,48 @@ function QueueProvider({ children }: PropsWithChildren) {
       pendingReplayInFlightRef.current = false
     })
   }, [audienceConnectionStatus, event?.id, user?.id, pendingOfflineSongs.length])
+
+  // Replay offline votes whenever connection is healthy enough. Mirrors the
+  // offline song-request replay above.
+  useEffect(() => {
+    const connectedEnough = audienceConnectionStatus === 'connected' || audienceConnectionStatus === 'reconnecting'
+
+    if (!connectedEnough || !event?.id || pendingVoteReplayInFlightRef.current) {
+      return
+    }
+
+    pendingVoteReplayInFlightRef.current = true
+    const targetEventId = event.id
+
+    void idbGetPendingVotes(targetEventId).then(async (pendingVotes) => {
+      if (pendingVotes.length === 0) {
+        return
+      }
+
+      for (const vote of pendingVotes) {
+        try {
+          await withTransientRetry(async () => {
+            const { error } = await supabase
+              .from('votes')
+              .insert({ song_id: vote.songId, user_id: vote.userId })
+            // 23505 = the vote already exists server-side; treat as reconciled.
+            if (error && error.code !== '23505') {
+              throw error
+            }
+          }, 3)
+
+          await idbRemovePendingVote(vote.id).catch(() => {})
+          pendingOfflineVoteIdsRef.current.delete(vote.id)
+        } catch {
+          // Keep in IDB for the next reconnect attempt.
+        }
+      }
+
+      await fetchQueueSnapshotRef.current(targetEventId).catch(() => {})
+    }).catch(() => {}).finally(() => {
+      pendingVoteReplayInFlightRef.current = false
+    })
+  }, [audienceConnectionStatus, event?.id, pendingOfflineVoteTick])
 
   useEffect(() => {
     let isCurrent = true
@@ -4865,6 +4910,41 @@ function QueueProvider({ children }: PropsWithChildren) {
 
         if (selectedSong?.voting_locked) {
           throw new Error('Voting is currently locked for this song.')
+        }
+
+        // Offline-safe voting: when the device is offline, persist the vote to
+        // IndexedDB and optimistically reflect it locally. It replays
+        // automatically on reconnect (mirrors offline song requests).
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          const offlineVoterId = user?.id ?? null
+          const offlineEventId = event?.id ?? activeEventIdRef.current ?? null
+
+          if (offlineVoterId && offlineEventId) {
+            const offlineVoteKey = `${offlineEventId}:${songId}:${offlineVoterId}`
+
+            if (!pendingOfflineVoteIdsRef.current.has(offlineVoteKey)) {
+              pendingOfflineVoteIdsRef.current.add(offlineVoteKey)
+
+              await idbAddPendingVote({
+                id: offlineVoteKey,
+                eventId: offlineEventId,
+                songId,
+                userId: offlineVoterId,
+                createdAt: Date.now(),
+              }).catch(() => {})
+
+              setSongs((currentSongs) => sortQueueSongsByVotes(
+                currentSongs.map((song) => song.id === songId
+                  ? { ...song, votes_count: (song.votes_count ?? 0) + 1 }
+                  : song),
+                nowPlayingPinRef.current,
+              ))
+
+              setPendingOfflineVoteTick((tick) => tick + 1)
+            }
+          }
+
+          throw new Error("You're offline. Your vote has been saved and will submit automatically when you reconnect.")
         }
 
         let voterId = user?.id ?? null
