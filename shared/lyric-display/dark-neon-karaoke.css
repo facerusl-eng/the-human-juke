@@ -149,8 +149,36 @@
 
 .lyric-machine-viewport-rot-90 .audience-lyric-fit-frame,
 .lyric-machine-viewport-rot-270 .audience-lyric-fit-frame {
-  width: min(98dvh, calc(98vw * 16 / 9));
-  height: min(98vw, calc(98dvh * 9 / 16));
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  padding: clamp(0.45rem, 1.4vw, 1.1rem) clamp(0.65rem, 2vw, 1.45rem);
+}
+
+.lyric-machine-viewport-rot-90 .audience-lyric-fit-shell,
+.lyric-machine-viewport-rot-270 .audience-lyric-fit-shell {
+  padding:
+    calc(0.2rem + env(safe-area-inset-top, 0px))
+    calc(0.2rem + env(safe-area-inset-right, 0px))
+    calc(0.2rem + env(safe-area-inset-bottom, 0px))
+    calc(0.2rem + env(safe-area-inset-left, 0px));
+}
+
+.lyric-machine-viewport-rot-90 .audience-lyric-fit-content,
+.lyric-machine-viewport-rot-270 .audience-lyric-fit-content {
+  width: 100% !important;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(0.35rem, 1vw, 0.8rem);
+}
+
+.lyric-machine-viewport-rot-90 .audience-lyric-fit-title,
+.lyric-machine-viewport-rot-270 .audience-lyric-fit-title {
+  margin-bottom: 0.2rem;
 }
 
 .lyric-machine-logo-shell {
