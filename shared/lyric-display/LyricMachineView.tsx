@@ -12,7 +12,9 @@ type LyricMachineViewProps = {
 }
 
 const DISPLAY_PRESET_STORAGE_KEY = 'human-jukebox-lyric-machine-display-preset-v1'
+const ROTATION_DEGREES_STORAGE_KEY = 'human-jukebox-lyric-machine-rotation-degrees-v1'
 const TOOLBAR_AUTO_HIDE_MS = 5_000
+const ROTATION_DEGREES_OPTIONS = [0, 90, 180, 270] as const
 const DISPLAY_PRESETS: Array<{ id: LyricMachineDisplayPreset; label: string; description: string }> = [
   { id: 'tight', label: 'Compact', description: 'Fits more lines with tighter spacing' },
   { id: 'balanced', label: 'Balanced', description: 'Best all-around fit for the frame' },
@@ -33,9 +35,23 @@ function readStoredDisplayPreset(): LyricMachineDisplayPreset {
   return 'balanced'
 }
 
+function readStoredRotationDegrees() {
+  if (typeof window === 'undefined') {
+    return 0
+  }
+
+  const stored = Number(window.localStorage.getItem(ROTATION_DEGREES_STORAGE_KEY) ?? '0')
+  if (ROTATION_DEGREES_OPTIONS.includes(stored as (typeof ROTATION_DEGREES_OPTIONS)[number])) {
+    return stored
+  }
+
+  return 0
+}
+
 export default function LyricMachineView({ supabase, activeSong, showLogoScreen = false, returnToPath = '/admin/gig-control' }: LyricMachineViewProps) {
   const [hasOpened, setHasOpened] = useState(false)
   const [displayPreset, setDisplayPreset] = useState<LyricMachineDisplayPreset>(() => readStoredDisplayPreset())
+  const [rotationDegrees, setRotationDegrees] = useState<number>(() => readStoredRotationDegrees())
   const [isToolbarVisible, setIsToolbarVisible] = useState(true)
   const autoHideTimeoutRef = useRef<number | null>(null)
   const lyricStateController = useSharedLyricState(supabase, 'lyric-machine')
@@ -80,6 +96,14 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
       return
     }
 
+    window.localStorage.setItem(ROTATION_DEGREES_STORAGE_KEY, String(rotationDegrees))
+  }, [rotationDegrees])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
     if (showLogoScreen) {
       clearToolbarAutoHide()
       setIsToolbarVisible(false)
@@ -114,6 +138,19 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
     void lyricStateController.openLyricForSong(activeSong, returnToPath)
   }, [activeSong, hasOpened, lyricStateController, returnToPath, showLogoScreen])
 
+  const rotateDisplay = useCallback(() => {
+    setRotationDegrees((currentRotationDegrees) => {
+      const currentIndex = ROTATION_DEGREES_OPTIONS.indexOf(
+        currentRotationDegrees as (typeof ROTATION_DEGREES_OPTIONS)[number],
+      )
+      const nextIndex = currentIndex < 0
+        ? 0
+        : (currentIndex + 1) % ROTATION_DEGREES_OPTIONS.length
+      return ROTATION_DEGREES_OPTIONS[nextIndex]
+    })
+    scheduleToolbarAutoHide()
+  }, [scheduleToolbarAutoHide])
+
   useEffect(() => {
     if (showLogoScreen || !activeSong || !hasOpened) {
       return
@@ -135,13 +172,15 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
   return (
     <main style={{ minHeight: '100vh', minWidth: '100vw' }}>
       {showLogoScreen ? (
-        <section className="lyric-dark-neon-shell lyric-machine-logo-shell" aria-label="Lyric machine intermission screen">
-          <div className="lyric-machine-logo-card">
-            <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="lyric-machine-logo-mark" />
-            <p className="lyric-machine-logo-title">The Human Jukebox</p>
-            <p className="lyric-machine-logo-caption">Waiting for the next song</p>
-          </div>
-        </section>
+        <div className={`lyric-machine-viewport lyric-machine-viewport-rot-${rotationDegrees}`}>
+          <section className="lyric-dark-neon-shell lyric-machine-logo-shell" aria-label="Lyric machine intermission screen">
+            <div className="lyric-machine-logo-card">
+              <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="lyric-machine-logo-mark" />
+              <p className="lyric-machine-logo-title">The Human Jukebox</p>
+              <p className="lyric-machine-logo-caption">Waiting for the next song</p>
+            </div>
+          </section>
+        </div>
       ) : (
         <>
           <div
@@ -150,6 +189,15 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
             aria-label="Lyric display presets"
             aria-hidden={!isToolbarVisible}
           >
+            <button
+              type="button"
+              className="lyric-machine-display-btn"
+              onClick={rotateDisplay}
+              title="Rotate lyric display"
+              aria-label="Rotate lyric display"
+            >
+              Rotate {rotationDegrees}°
+            </button>
             {DISPLAY_PRESETS.map((preset) => (
               <button
                 key={preset.id}
@@ -166,7 +214,9 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
               </button>
             ))}
           </div>
-          <AudienceLyricView state={lyricStateController.state} layoutMode="fit-16-9" fitPreset={displayPreset} />
+          <div className={`lyric-machine-viewport lyric-machine-viewport-rot-${rotationDegrees}`}>
+            <AudienceLyricView state={lyricStateController.state} layoutMode="fit-16-9" fitPreset={displayPreset} />
+          </div>
         </>
       )}
     </main>
