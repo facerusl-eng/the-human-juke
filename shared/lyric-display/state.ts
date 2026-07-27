@@ -24,6 +24,7 @@ const lrcMissCache = new Map<string, number>()
 const SONG_BLOCK_CACHE_TTL_MS = 20 * 60 * 1000
 const songBlocksCache = new Map<string, { cachedAt: number; blocks: string[] }>()
 const pendingSongLoads = new Map<string, Promise<string[]>>()
+type SupportedLyricsLocale = 'en' | 'da' | 'is'
 
 const BRACKET_HEADING_RE = /^\[[^\]]+\]$/
 const PLAIN_SECTION_HEADING_RE = /^(verse|chorus|pre-chorus|pre chorus|bridge|hook|refrain|intro|outro|solo|instrumental)(?:\s+\d+)?\s*[:\-]?$/i
@@ -268,9 +269,56 @@ function normalizeComparableValue(value: string) {
     .trim()
 }
 
+function normalizeSupportedLyricsLocale(value: string | null | undefined): SupportedLyricsLocale | null {
+  const normalized = (value ?? '').trim().toLowerCase()
+  if (normalized === 'da' || normalized === 'en' || normalized === 'is') {
+    return normalized
+  }
+
+  return null
+}
+
+function resolveExplicitLocaleFromLocation(): SupportedLyricsLocale | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const readFromParams = (params: URLSearchParams) => {
+    return normalizeSupportedLyricsLocale(
+      params.get('locale')
+      ?? params.get('lang')
+      ?? params.get('l'),
+    )
+  }
+
+  const searchParams = new URLSearchParams(window.location.search)
+  const fromSearch = readFromParams(searchParams)
+  if (fromSearch) {
+    return fromSearch
+  }
+
+  const hash = window.location.hash ?? ''
+  const hashQueryIndex = hash.indexOf('?')
+  if (hashQueryIndex >= 0) {
+    const hashQuery = hash.slice(hashQueryIndex + 1)
+    const hashParams = new URLSearchParams(hashQuery)
+    const fromHashQuery = readFromParams(hashParams)
+    if (fromHashQuery) {
+      return fromHashQuery
+    }
+  }
+
+  return null
+}
+
 function resolveLyricsLocale() {
   if (typeof window === 'undefined') {
     return 'en'
+  }
+
+  const explicitLocale = resolveExplicitLocaleFromLocation()
+  if (explicitLocale) {
+    return explicitLocale
   }
 
   const fromStorage = window.localStorage.getItem(AUDIENCE_LOCALE_STORAGE_KEY)?.trim().toLowerCase()
@@ -292,7 +340,7 @@ function resolveLyricsLocale() {
 
 function resolveLyricsLocaleCandidates() {
   const primaryLocale = resolveLyricsLocale()
-  const candidateLocales: Array<'en' | 'da' | 'is'> = [primaryLocale]
+  const candidateLocales: Array<SupportedLyricsLocale> = [primaryLocale]
 
   if (primaryLocale !== 'da') {
     candidateLocales.push('da')
@@ -554,7 +602,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallbackVa
   ])
 }
 
-function writeLyricsCache(song: LyricSongRef, lyrics: string) {
+function writeLyricsCache(song: LyricSongRef, lyrics: string, localeOverride?: SupportedLyricsLocale) {
   if (typeof window === 'undefined') {
     return
   }
@@ -568,9 +616,14 @@ function writeLyricsCache(song: LyricSongRef, lyrics: string) {
   const normalizedArtist = song.artist.trim().toLowerCase()
   const songKey = `song:${song.id.trim().toLowerCase()}`
   const pairKey = `${normalizedTitle}::${normalizedArtist}`
+  const locale = localeOverride ?? resolveLyricsLocale()
+  const localeSongKey = `${songKey}::${locale}`
+  const localePairKey = `${pairKey}::${locale}`
 
   try {
     const cache = JSON.parse(window.localStorage.getItem(AUTO_CACHE_KEY) ?? '{}') as Record<string, string>
+    cache[localeSongKey] = normalizedLyrics
+    cache[localePairKey] = normalizedLyrics
     cache[songKey] = normalizedLyrics
     cache[pairKey] = normalizedLyrics
     window.localStorage.setItem(AUTO_CACHE_KEY, JSON.stringify(cache))
@@ -580,6 +633,8 @@ function writeLyricsCache(song: LyricSongRef, lyrics: string) {
 
   try {
     const status = JSON.parse(window.localStorage.getItem(STATUS_KEY) ?? '{}') as Record<string, string>
+    status[localeSongKey] = 'found'
+    status[localePairKey] = 'found'
     status[songKey] = 'found'
     status[pairKey] = 'found'
     window.localStorage.setItem(STATUS_KEY, JSON.stringify(status))
@@ -660,7 +715,7 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
             continue
           }
 
-          writeLyricsCache(song, rawLyrics)
+          writeLyricsCache(song, rawLyrics, lyricsLocale)
 
           const blocks = parseBlocksFromPlainLyrics(rawLyrics)
           if (blocks.length > 0) {
@@ -681,7 +736,7 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
   return [] as string[]
 }
 
-function readAutoCachedLyrics(song: LyricSongRef) {
+function readAutoCachedLyrics(song: LyricSongRef, localeCandidates: SupportedLyricsLocale[]) {
   if (typeof window === 'undefined') {
     return null
   }
@@ -695,16 +750,34 @@ function readAutoCachedLyrics(song: LyricSongRef) {
     const parsedCache = JSON.parse(rawCache) as Record<string, string>
     const normalizedTitle = song.title.trim().toLowerCase()
     const normalizedArtist = song.artist.trim().toLowerCase()
-    const songKeys = [
-      `song:${song.id.trim().toLowerCase()}`,
-      `${normalizedTitle}::${normalizedArtist}`,
-    ]
+
+    const songKey = `song:${song.id.trim().toLowerCase()}`
+    const pairKey = `${normalizedTitle}::${normalizedArtist}`
+    const songKeys: string[] = []
+
+    for (const locale of localeCandidates) {
+      songKeys.push(`${songKey}::${locale}`)
+      songKeys.push(`${pairKey}::${locale}`)
+    }
+
+    // Legacy unscoped cache keys can easily pin English lyrics.
+    // Only use them when English is the primary preference.
+    if ((localeCandidates[0] ?? 'en') === 'en') {
+      songKeys.push(songKey)
+      songKeys.push(pairKey)
+    }
 
     for (const variant of buildSongQueryVariants(song)) {
       const variantTitle = variant.title.trim().toLowerCase()
       const variantArtist = variant.artist.trim().toLowerCase()
       if (variantTitle) {
-        songKeys.push(`${variantTitle}::${variantArtist}`)
+        for (const locale of localeCandidates) {
+          songKeys.push(`${variantTitle}::${variantArtist}::${locale}`)
+        }
+
+        if ((localeCandidates[0] ?? 'en') === 'en') {
+          songKeys.push(`${variantTitle}::${variantArtist}`)
+        }
       }
     }
 
@@ -808,7 +881,8 @@ async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
 
   const loadPromise = (async () => {
     // Fastest path first: local cached lyrics are immediate.
-    const autoCachedLyrics = readAutoCachedLyrics(song)
+    const localeCandidates = resolveLyricsLocaleCandidates()
+    const autoCachedLyrics = readAutoCachedLyrics(song, localeCandidates)
     if (autoCachedLyrics) {
       const cachedBlocks = parseBlocksFromPlainLyrics(autoCachedLyrics)
       if (hasUsableLyricBlocks(cachedBlocks)) {

@@ -14,12 +14,28 @@ type OpenLyricMachineScreenOptions = {
   librarySongId?: string | null
   album?: string | null
   duration?: number | string | null
+  locale?: 'en' | 'da' | 'is' | null
 }
 
 let _activeLyricMachineWindow: WebviewWindow | null = null
 
 export async function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = {}): Promise<OpenLyricMachineWindowResult> {
   const lyricMachineUrl = new URLSearchParams()
+  const normalizedLocale = (() => {
+    const explicitLocale = (options.locale ?? '').trim().toLowerCase()
+    if (explicitLocale === 'en' || explicitLocale === 'da' || explicitLocale === 'is') {
+      return explicitLocale
+    }
+
+    if (typeof window !== 'undefined') {
+      const storedLocale = (window.localStorage.getItem('human-jukebox-audience-locale') ?? '').trim().toLowerCase()
+      if (storedLocale === 'en' || storedLocale === 'da' || storedLocale === 'is') {
+        return storedLocale
+      }
+    }
+
+    return null
+  })()
 
   if (options.title?.trim()) {
     lyricMachineUrl.set('title', options.title.trim())
@@ -45,6 +61,10 @@ export async function openLyricMachineScreen(options: OpenLyricMachineScreenOpti
     lyricMachineUrl.set('duration', String(options.duration))
   } else if (typeof options.duration === 'string' && options.duration.trim()) {
     lyricMachineUrl.set('duration', options.duration.trim())
+  }
+
+  if (normalizedLocale) {
+    lyricMachineUrl.set('locale', normalizedLocale)
   }
 
   const lyricMachineRoutePath = `/lyric-machine${lyricMachineUrl.toString() ? `?${lyricMachineUrl.toString()}` : ''}`
