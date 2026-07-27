@@ -1,5 +1,6 @@
 export { default as LyricDisplay } from './LyricDisplay'
 export { default as MirrorScreenLyricView } from './MirrorScreenLyricView'
 export { default as AudienceLyricView } from './AudienceLyricView'
+export { default as LyricMachineView } from './LyricMachineView'
 export { useSharedLyricState } from './state'
 export type { LyricDisplayState, LyricSongRef, LyricViewName } from './types'

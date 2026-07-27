@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './dark-neon-karaoke.css'
 import type { LyricDisplayState } from './types'
 
@@ -9,6 +9,62 @@ type AudienceLyricSection = {
   id: string
   heading: string
   lines: string[]
+}
+
+export type LyricMachineDisplayPreset = 'tight' | 'balanced' | 'wide' | 'max'
+
+type LyricMachineFitConfig = {
+  contentWidth: string
+  minFontSize: number
+  maxFontSize: number
+  lineGap: string
+  contentPadding: string
+  titleFontSize: string
+  requesterFontSize: string
+}
+
+type LyricMachineFitColumn = {
+  id: string
+  lines: string[]
+}
+
+const LYRIC_MACHINE_FIT_CONFIG: Record<LyricMachineDisplayPreset, LyricMachineFitConfig> = {
+  tight: {
+    contentWidth: '66%',
+    minFontSize: 8,
+    maxFontSize: 30,
+    lineGap: '0.08rem',
+    contentPadding: '0.15rem 0',
+    titleFontSize: 'clamp(13px, 1.55vw, 20px)',
+    requesterFontSize: 'clamp(10px, 1.05vw, 14px)',
+  },
+  balanced: {
+    contentWidth: '78%',
+    minFontSize: 10,
+    maxFontSize: 38,
+    lineGap: '0.18rem',
+    contentPadding: '0.3rem 0',
+    titleFontSize: 'clamp(15px, 1.9vw, 26px)',
+    requesterFontSize: 'clamp(11px, 1.15vw, 15px)',
+  },
+  wide: {
+    contentWidth: '90%',
+    minFontSize: 11,
+    maxFontSize: 44,
+    lineGap: '0.28rem',
+    contentPadding: '0.42rem 0',
+    titleFontSize: 'clamp(17px, 2.15vw, 30px)',
+    requesterFontSize: 'clamp(12px, 1.3vw, 16px)',
+  },
+  max: {
+    contentWidth: '100%',
+    minFontSize: 12,
+    maxFontSize: 52,
+    lineGap: '0.36rem',
+    contentPadding: '0.5rem 0',
+    titleFontSize: 'clamp(18px, 2.4vw, 34px)',
+    requesterFontSize: 'clamp(12px, 1.35vw, 17px)',
+  },
 }
 
 function normalizeSongIdentityPart(value: string | null | undefined) {
@@ -166,19 +222,151 @@ function buildAudienceLyricSections(blocks: string[]) {
   return sections
 }
 
+function splitFitModeColumns(lines: string[]) {
+  if (lines.length === 0) {
+    return [{ id: 'fit-column-left', lines: [] }, { id: 'fit-column-right', lines: [] }]
+  }
+
+  const midpoint = Math.ceil(lines.length / 2)
+  let splitIndex = -1
+
+  for (let offset = 0; offset < lines.length; offset += 1) {
+    const beforeIndex = midpoint - offset
+    const afterIndex = midpoint + offset
+
+    if (beforeIndex > 0 && beforeIndex < lines.length - 1 && lines[beforeIndex] === '') {
+      splitIndex = beforeIndex
+      break
+    }
+
+    if (afterIndex > 0 && afterIndex < lines.length - 1 && lines[afterIndex] === '') {
+      splitIndex = afterIndex
+      break
+    }
+  }
+
+  const leftLines = (splitIndex >= 0 ? lines.slice(0, splitIndex) : lines.slice(0, midpoint)).filter((line, index, values) => {
+    if (line !== '') {
+      return true
+    }
+
+    return index > 0 && index < values.length - 1
+  })
+
+  const rightLines = (splitIndex >= 0 ? lines.slice(splitIndex + 1) : lines.slice(midpoint)).filter((line, index, values) => {
+    if (line !== '') {
+      return true
+    }
+
+    return index > 0 && index < values.length - 1
+  })
+
+  return [
+    { id: 'fit-column-left', lines: leftLines },
+    { id: 'fit-column-right', lines: rightLines },
+  ] satisfies [LyricMachineFitColumn, LyricMachineFitColumn]
+}
+
 type AudienceLyricViewProps = {
   state: LyricDisplayState
   onBack?: () => void
+  layoutMode?: 'scroll' | 'fit-16-9'
+  fitPreset?: LyricMachineDisplayPreset
 }
 
-export default function AudienceLyricView({ state, onBack }: AudienceLyricViewProps) {
+export default function AudienceLyricView({ state, onBack, layoutMode = 'scroll', fitPreset = 'wide' }: AudienceLyricViewProps) {
   const scrollShellRef = useRef<HTMLElement | null>(null)
+  const fitFrameRef = useRef<HTMLElement | null>(null)
+  const fitContentRef = useRef<HTMLDivElement | null>(null)
+  const fitFrameAnimationFrameRef = useRef<number | null>(null)
+  const [fitFontSizePx, setFitFontSizePx] = useState(36)
   const scrollKey = useMemo(() => buildAudienceLyricScrollKey(state.song), [state.song])
   const lyricSections = useMemo(() => buildAudienceLyricSections(state.blocks), [state.blocks])
+  const fitModeLines = useMemo(() => {
+    if (lyricSections.length === 0) {
+      return [] as string[]
+    }
+
+    const lines: string[] = []
+    lyricSections.forEach((section, sectionIndex) => {
+      for (const line of section.lines) {
+        if (line.trim()) {
+          lines.push(line.trim())
+        }
+      }
+
+      if (sectionIndex < lyricSections.length - 1) {
+        lines.push('')
+      }
+    })
+
+    return lines
+  }, [lyricSections])
+  const fitModeColumns = useMemo(() => splitFitModeColumns(fitModeLines), [fitModeLines])
   const songLabel = state.song ? `${state.song.artist} - ${state.song.title}` : null
   const introRequesterLabel = state.song?.audience_sings && state.song.createdByName?.trim()
     ? `Requested by ${state.song.createdByName.trim()}`
     : null
+  const fitConfig = LYRIC_MACHINE_FIT_CONFIG[fitPreset]
+
+  useEffect(() => {
+    if (layoutMode !== 'fit-16-9') {
+      return
+    }
+
+    const frameElement = fitFrameRef.current
+    const contentElement = fitContentRef.current
+    if (!frameElement || !contentElement) {
+      return
+    }
+
+    const MIN_FONT_SIZE = fitConfig.minFontSize
+    const MAX_FONT_SIZE = fitConfig.maxFontSize
+
+    const fitFontSize = () => {
+      if (fitFrameAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(fitFrameAnimationFrameRef.current)
+      }
+
+      fitFrameAnimationFrameRef.current = window.requestAnimationFrame(() => {
+        fitFrameAnimationFrameRef.current = null
+        const availableHeight = frameElement.clientHeight
+        const availableWidth = frameElement.clientWidth
+        if (availableHeight <= 0 || availableWidth <= 0) {
+          return
+        }
+
+        let fontSize = MAX_FONT_SIZE
+        contentElement.style.fontSize = `${fontSize}px`
+
+        while (
+          fontSize > MIN_FONT_SIZE
+          && (contentElement.scrollHeight > availableHeight || contentElement.scrollWidth > availableWidth)
+        ) {
+          fontSize -= 1
+          contentElement.style.fontSize = `${fontSize}px`
+        }
+
+        setFitFontSizePx((currentFontSize) => (currentFontSize === fontSize ? currentFontSize : fontSize))
+      })
+    }
+
+    fitFontSize()
+
+    const resizeObserver = new ResizeObserver(() => {
+      fitFontSize()
+    })
+    resizeObserver.observe(frameElement)
+
+    return () => {
+      if (fitFrameAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(fitFrameAnimationFrameRef.current)
+        fitFrameAnimationFrameRef.current = null
+      }
+
+      resizeObserver.disconnect()
+    }
+  }, [fitConfig.maxFontSize, fitConfig.minFontSize, fitModeColumns, introRequesterLabel, layoutMode, songLabel])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !scrollKey) {
@@ -232,6 +420,55 @@ export default function AudienceLyricView({ state, onBack }: AudienceLyricViewPr
       scrollShell.removeEventListener('scroll', saveScrollPosition)
     }
   }, [scrollKey])
+
+  if (layoutMode === 'fit-16-9') {
+    return (
+      <section className="lyric-dark-neon-shell audience-lyric-fit-shell" aria-label="Lyric machine full lyric view">
+        <article ref={fitFrameRef} className="audience-lyric-fit-frame">
+          {songLabel ? (
+            <p
+              className="lyric-dark-neon-meta lyric-dark-neon-meta-intro audience-lyric-fit-title"
+              style={{ fontSize: fitConfig.titleFontSize }}
+            >
+              {songLabel}
+            </p>
+          ) : null}
+          {introRequesterLabel ? (
+            <p
+              className="lyric-dark-neon-meta lyric-dark-neon-meta-intro audience-lyric-fit-requester"
+              style={{ fontSize: fitConfig.requesterFontSize }}
+            >
+              {introRequesterLabel}
+            </p>
+          ) : null}
+
+          <div
+            ref={fitContentRef}
+            className="audience-lyric-fit-content"
+            style={{
+              fontSize: `${fitFontSizePx}px`,
+              width: fitConfig.contentWidth,
+              padding: fitConfig.contentPadding,
+              gap: fitConfig.lineGap,
+            }}
+          >
+            {fitModeColumns.some((column) => column.lines.length > 0)
+              ? fitModeColumns.map((column) => (
+                  <div key={column.id} className="audience-lyric-fit-column">
+                    {column.lines.map((line, index) => (
+                      <p key={`${column.id}-line-${index}`} className="lyric-dark-neon-copy audience-lyric-fit-line">
+                        {line || '\u00A0'}
+                      </p>
+                    ))}
+                  </div>
+                ))
+              : <p className="lyric-dark-neon-meta">Waiting for lyrics...</p>
+            }
+          </div>
+        </article>
+      </section>
+    )
+  }
 
   return (
     <section ref={scrollShellRef} className="lyric-dark-neon-shell audience-lyric-scroll-shell" aria-label="Audience lyric view">

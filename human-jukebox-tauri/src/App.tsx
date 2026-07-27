@@ -17,14 +17,16 @@ import AudienceSongListPage from './pages/AudienceSongListPage'
 import MirrorPage from './pages/MirrorPage'
 import HomePage from './pages/HomePage'
 const LyricsPage = lazyWithChunkReload(() => import('./pages/LyricsPage'))
+const LyricMachinePage = lazyWithChunkReload(() => import('./pages/LyricMachinePage'))
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
 import { demoMode } from './demo/demoMode'
 import { DemoAuthProvider } from './demo/DemoAuthProvider'
 import { DemoQueueProvider } from './demo/DemoQueueProvider'
 import { openMirrorScreen } from './lib/openMirrorScreen'
+import { openLyricMachineScreen } from './lib/openLyricMachineScreen'
 import { isTauriDesktopRuntime, resolveAppPath } from './lib/routePath'
-import { TAURI_OPEN_MIRROR_SHORTCUT_EVENT } from './lib/tauriShortcutEvents'
+import { TAURI_OPEN_LYRIC_MACHINE_SHORTCUT_EVENT, TAURI_OPEN_MIRROR_SHORTCUT_EVENT } from './lib/tauriShortcutEvents'
 
 const CHUNK_RELOAD_STORAGE_KEY = 'human-jukebox-chunk-reload-attempted'
 const ROUTE_LOADING_STARTED_AT_STORAGE_KEY = 'human-jukebox-route-loading-started-at'
@@ -218,10 +220,23 @@ function TauriMirrorShortcutBridge() {
       void openMirrorScreen({ eventId })
     }
 
+    const handleLyricMachineShortcut = () => {
+      const searchParams = new URLSearchParams(location.search)
+      const title = searchParams.get('title')?.trim() || null
+      const artist = searchParams.get('artist')?.trim() || null
+      const songId = searchParams.get('songId')?.trim() || null
+      const librarySongId = searchParams.get('librarySongId')?.trim() || null
+      const album = searchParams.get('album')?.trim() || null
+      const duration = searchParams.get('duration')?.trim() || null
+      void openLyricMachineScreen({ title, artist, songId, librarySongId, album, duration })
+    }
+
     window.addEventListener(TAURI_OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)
+    window.addEventListener(TAURI_OPEN_LYRIC_MACHINE_SHORTCUT_EVENT, handleLyricMachineShortcut)
 
     return () => {
       window.removeEventListener(TAURI_OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)
+      window.removeEventListener(TAURI_OPEN_LYRIC_MACHINE_SHORTCUT_EVENT, handleLyricMachineShortcut)
     }
   }, [location.search])
 
@@ -283,6 +298,10 @@ const router = createAppRouter([
       {
         path: 'feed',
         element: withSuspense(withCrashBoundary('Audience', <FeedPage />)),
+      },
+      {
+        path: 'lyric-machine',
+        element: withSuspense(withCrashBoundary('Lyric Machine', <LyricMachinePage />)),
       },
       {
         path: 'event',
@@ -445,6 +464,11 @@ const router = createAppRouter([
           : <AuthProvider><QueueProvider>{withSuspense(<MirrorPage />)}</QueueProvider></AuthProvider>,
       ),
     ),
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: '/lyric-machine',
+    element: withCrashBoundary('Lyric Machine', withSuspense(<LyricMachinePage />)),
     errorElement: <RouteErrorFallback />,
   },
   {

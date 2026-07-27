@@ -4,6 +4,8 @@ export type LyricSongRef = {
   id: string
   title: string
   artist: string
+  album?: string | null
+  duration?: number | null
   librarySongId?: string | null
   createdByName?: string | null
   audience_sings?: boolean | null

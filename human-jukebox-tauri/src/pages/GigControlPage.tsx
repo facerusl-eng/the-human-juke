@@ -8,6 +8,7 @@ import { useClipboardCopy } from '../hooks/useClipboardCopy';
 import { useGigActions } from '../hooks/useGigActions';
 import { getAudienceUrl } from '../lib/audienceUrl';
 import { openMirrorScreen } from '../lib/openMirrorScreen';
+import { openLyricMachineScreen } from '../lib/openLyricMachineScreen';
 import { isTauriDesktopRuntime, resolveAppPath } from '../lib/routePath';
 import { resolveApiUrl } from '../lib/apiUrl';
 import { registerBackgroundSync } from '../lib/backgroundSync';
@@ -3907,6 +3908,25 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     setErrorText(null)
   }, [event?.id, navigate])
 
+  const openLyricMachineWindow = useCallback(async () => {
+    const nowPlayingMeta = nowPlaying as { album?: string | null; duration?: number | null } | null | undefined
+    const result = await openLyricMachineScreen({
+      title: nowPlaying?.title ?? null,
+      artist: nowPlaying?.artist ?? null,
+      songId: nowPlaying?.id ?? null,
+      librarySongId: nowPlaying?.library_song_id ?? null,
+      album: nowPlayingMeta?.album ?? null,
+      duration: nowPlayingMeta?.duration ?? null,
+    })
+
+    if (result.blockedByPopup) {
+      setErrorText(result.errorMessage ?? 'Could not open the lyric machine window.')
+      return
+    }
+
+    setErrorText(null)
+  }, [nowPlaying])
+
   const handleGoBackToGigControl = useCallback(() => {
     navigate('/admin/gig-control')
   }, [navigate])
@@ -4122,6 +4142,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       variant: 'ghost',
     },
     {
+      id: 'open-lyric-machine',
+      label: 'Lyric Machine',
+      title: 'Open the dedicated lyric machine window with the current now-playing song',
+      onClick: openLyricMachineWindow,
+      variant: 'ghost',
+    },
+    {
       id: 'play-spotify-shortcut',
       label: 'Play Spotify Playlist',
       title: selectedSpotifyPlaylistMeta?.name
@@ -4141,6 +4168,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     'brb-toggle',
     'open-gig-settings',
     'open-mirror-screen',
+    'open-lyric-machine',
     'play-spotify-shortcut',
   ])
   const visibleHeaderActions = isFocusedGigControlWindow

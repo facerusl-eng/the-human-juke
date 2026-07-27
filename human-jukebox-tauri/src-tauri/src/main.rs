@@ -3,8 +3,39 @@
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Manager;
 
+#[derive(serde::Serialize)]
+struct RemoteFetchResult {
+    ok: bool,
+    status: u16,
+    body: String,
+}
+
+#[tauri::command]
+async fn fetch_lyrics_remote(url: String) -> Result<RemoteFetchResult, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|err| format!("Failed to build HTTP client: {err}"))?;
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|err| format!("Remote fetch failed: {err}"))?;
+
+    let status = response.status().as_u16();
+    let ok = response.status().is_success();
+    let body = response
+        .text()
+        .await
+        .map_err(|err| format!("Failed to read response body: {err}"))?;
+
+    Ok(RemoteFetchResult { ok, status, body })
+}
+
 fn main() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![fetch_lyrics_remote])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_fullscreen(true);
@@ -61,6 +92,27 @@ fn main() {
                         .initialization_script(
                             "if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#/') { \
                                 window.location.replace('#/mirror?safeMargins=1&density=medium'); \
+                            }"
+                        )
+                        .build();
+                    }
+                }
+                "open-lyric-machine" => {
+                    if let Some(existing) = app.get_webview_window("lyric-machine") {
+                        let _ = existing.set_focus();
+                    } else {
+                        let _ = tauri::WebviewWindowBuilder::new(
+                            app,
+                            "lyric-machine",
+                            tauri::WebviewUrl::App(std::path::PathBuf::from("/")),
+                        )
+                        .title("Lyric Machine")
+                        .decorations(true)
+                        .inner_size(1280.0, 800.0)
+                        .resizable(true)
+                        .initialization_script(
+                            "if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#/') { \
+                                window.location.replace('#/lyric-machine'); \
                             }"
                         )
                         .build();

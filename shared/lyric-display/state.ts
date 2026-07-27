@@ -19,6 +19,7 @@ const LRC_PROBE_TIMEOUT_MS = 1500
 const LRC_TOTAL_PROBE_TIMEOUT_MS = 2600
 const MAX_BLOCK_LINES = 8
 const MAX_BLOCK_CHARS = 520
+const DEFAULT_API_ORIGIN = 'https://www.the-human-jukebox.org'
 const lrcMissCache = new Map<string, number>()
 const SONG_BLOCK_CACHE_TTL_MS = 20 * 60 * 1000
 const songBlocksCache = new Map<string, { cachedAt: number; blocks: string[] }>()
@@ -33,6 +34,46 @@ function isLyricMissPlaceholder(blocks: string[]) {
 
 function isLyricLoadingPlaceholder(blocks: string[]) {
   return blocks.length === 1 && blocks[0].startsWith('Loading lyrics for ')
+}
+
+function hasUsableLyricBlocks(blocks: string[]) {
+  if (blocks.length === 0 || isLyricMissPlaceholder(blocks) || isLyricLoadingPlaceholder(blocks)) {
+    return false
+  }
+
+  const combined = blocks.join('\n').trim()
+  const lower = combined.toLowerCase()
+  const htmlDocumentSignals = [
+    '<!doctype html',
+    '<html',
+    '<head>',
+    '<meta ',
+    '<script',
+    '<link rel=',
+    '<body',
+    'id="root"',
+  ]
+
+  if (htmlDocumentSignals.some((signal) => lower.includes(signal))) {
+    return false
+  }
+
+  const alphaCount = (combined.match(/[A-Za-z\u00C0-\u024F\u1E00-\u1EFF]/g) ?? []).length
+  const wordCount = (combined.match(/[A-Za-z\u00C0-\u024F\u1E00-\u1EFF0-9']+/g) ?? []).length
+
+  if (combined.length < 24) {
+    return false
+  }
+
+  if (alphaCount < 16) {
+    return false
+  }
+
+  if (blocks.length < 2 && wordCount < 8) {
+    return false
+  }
+
+  return true
 }
 
 function sanitizeLineText(value: string) {
@@ -249,6 +290,25 @@ function resolveLyricsLocale() {
   return 'en'
 }
 
+function resolveLyricsLocaleCandidates() {
+  const primaryLocale = resolveLyricsLocale()
+  const candidateLocales: Array<'en' | 'da' | 'is'> = [primaryLocale]
+
+  if (primaryLocale !== 'da') {
+    candidateLocales.push('da')
+  }
+
+  if (primaryLocale !== 'en') {
+    candidateLocales.push('en')
+  }
+
+  if (primaryLocale !== 'is') {
+    candidateLocales.push('is')
+  }
+
+  return candidateLocales
+}
+
 function tokenOverlapScore(expected: string, actual: string) {
   const expectedTokens = new Set(normalizeComparableValue(expected).split(' ').filter(Boolean))
   const actualTokens = new Set(normalizeComparableValue(actual).split(' ').filter(Boolean))
@@ -416,6 +476,69 @@ function isRetryableLyricsStatus(statusCode: number) {
   return statusCode === 408 || statusCode === 425 || statusCode === 429 || statusCode >= 500
 }
 
+function resolveLyricsApiUrl(path: `/api/${string}`) {
+  if (typeof window === 'undefined') {
+    return path
+  }
+
+  const preferredOrigin = import.meta.env.VITE_API_ORIGIN?.trim()
+  const fallbackOrigin = import.meta.env.VITE_SPOTIFY_API_ORIGIN?.trim()
+  const apiOrigin = (preferredOrigin || fallbackOrigin || DEFAULT_API_ORIGIN).replace(/\/$/, '')
+
+  const hostname = window.location.hostname.trim().toLowerCase()
+  const protocol = window.location.protocol.trim().toLowerCase()
+  const isTauriRuntime = protocol === 'tauri:' || hostname === 'tauri.localhost' || hostname.endsWith('.tauri.localhost')
+  const isLocalWeb = (hostname === 'localhost' || hostname === '127.0.0.1') && (protocol === 'http:' || protocol === 'https:')
+
+  if (isTauriRuntime) {
+    return `${apiOrigin}${path}`
+  }
+
+  if (isLocalWeb) {
+    return path
+  }
+
+  return `${apiOrigin}${path}`
+}
+
+function isTauriDesktopRuntime() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.protocol === 'tauri:'
+    || window.location.protocol === 'file:'
+    || '__TAURI_INTERNALS__' in (window as unknown as Record<string, unknown>)
+}
+
+type TauriRemoteFetchResult = {
+  ok: boolean
+  status: number
+  body: string
+}
+
+async function fetchLyricsViaTauri(url: string): Promise<TauriRemoteFetchResult | null> {
+  if (!isTauriDesktopRuntime()) {
+    return null
+  }
+
+  try {
+    const tauriInternals = (window as unknown as { __TAURI_INTERNALS__?: { invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown> } }).__TAURI_INTERNALS__
+    if (!tauriInternals?.invoke) {
+      return null
+    }
+
+    const result = await tauriInternals.invoke('fetch_lyrics_remote', { url }) as TauriRemoteFetchResult
+    if (!result || typeof result !== 'object') {
+      return null
+    }
+
+    return result
+  } catch {
+    return null
+  }
+}
+
 async function waitFor(ms: number) {
   await new Promise((resolve) => {
     setTimeout(resolve, ms)
@@ -467,53 +590,89 @@ function writeLyricsCache(song: LyricSongRef, lyrics: string) {
 
 async function fetchOnlineLyrics(song: LyricSongRef) {
   const variants = buildSongQueryVariants(song).slice(0, ONLINE_LYRICS_MAX_VARIANTS)
-  const lyricsLocale = resolveLyricsLocale()
+  const lyricsLocales = resolveLyricsLocaleCandidates()
 
   for (const variant of variants) {
-    for (let attempt = 0; attempt < ONLINE_LYRICS_MAX_ATTEMPTS; attempt += 1) {
-      try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => {
-          controller.abort()
-        }, ONLINE_LYRICS_FETCH_TIMEOUT_MS)
+    for (const lyricsLocale of lyricsLocales) {
+      for (let attempt = 0; attempt < ONLINE_LYRICS_MAX_ATTEMPTS; attempt += 1) {
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => {
+            controller.abort()
+          }, ONLINE_LYRICS_FETCH_TIMEOUT_MS)
 
-        const response = await fetch(
-          `/api/lyrics-genius?song=${encodeURIComponent(variant.title)}&artist=${encodeURIComponent(variant.artist)}&locale=${encodeURIComponent(lyricsLocale)}`,
-          { signal: controller.signal },
-        )
-        clearTimeout(timeoutId)
+          const params = new URLSearchParams({
+            song: variant.title,
+            artist: variant.artist,
+            locale: lyricsLocale,
+          })
+          if (song.album) {
+            params.set('album', song.album)
+          }
+          if (typeof song.duration === 'number' && Number.isFinite(song.duration)) {
+            params.set('duration', String(song.duration))
+          }
 
-        if (!response.ok) {
-          if (isRetryableLyricsStatus(response.status) && attempt < ONLINE_LYRICS_MAX_ATTEMPTS - 1) {
-            await waitFor(120 * (attempt + 1))
+          const lyricsApiUrl = resolveLyricsApiUrl(`/api/lyrics-genius?${params.toString()}`)
+          let payload: Record<string, unknown> | null = null
+
+          try {
+            const response = await fetch(
+              lyricsApiUrl,
+              { signal: controller.signal },
+            )
+            clearTimeout(timeoutId)
+
+            if (!response.ok) {
+              if (isRetryableLyricsStatus(response.status) && attempt < ONLINE_LYRICS_MAX_ATTEMPTS - 1) {
+                await waitFor(120 * (attempt + 1))
+                continue
+              }
+            } else {
+              payload = await response.json() as Record<string, unknown>
+            }
+          } catch {
+            // Continue to Tauri fallback below.
+          }
+
+          if (!payload) {
+            const tauriFetchResult = await fetchLyricsViaTauri(lyricsApiUrl)
+            if (tauriFetchResult?.ok && tauriFetchResult.body) {
+              try {
+                payload = JSON.parse(tauriFetchResult.body) as Record<string, unknown>
+              } catch {
+                payload = null
+              }
+            }
+          }
+
+          clearTimeout(timeoutId)
+          if (!payload) {
             continue
           }
 
-          break
-        }
+          if (!onlineResultMatchesSong(song, payload)) {
+            continue
+          }
 
-        const payload = await response.json() as Record<string, unknown>
-        if (!onlineResultMatchesSong(song, payload)) {
-          break
-        }
+          const rawLyrics = typeof payload.lyrics === 'string' ? payload.lyrics.trim() : ''
+          if (!rawLyrics) {
+            continue
+          }
 
-        const rawLyrics = typeof payload.lyrics === 'string' ? payload.lyrics.trim() : ''
-        if (!rawLyrics) {
-          break
-        }
+          writeLyricsCache(song, rawLyrics)
 
-        writeLyricsCache(song, rawLyrics)
+          const blocks = parseBlocksFromPlainLyrics(rawLyrics)
+          if (blocks.length > 0) {
+            return blocks
+          }
 
-        const blocks = parseBlocksFromPlainLyrics(rawLyrics)
-        if (blocks.length > 0) {
-          return blocks
-        }
-
-        break
-      } catch {
-        if (attempt < ONLINE_LYRICS_MAX_ATTEMPTS - 1) {
-          await waitFor(120 * (attempt + 1))
           continue
+        } catch {
+          if (attempt < ONLINE_LYRICS_MAX_ATTEMPTS - 1) {
+            await waitFor(120 * (attempt + 1))
+            continue
+          }
         }
       }
     }
@@ -637,7 +796,7 @@ async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
   if (
     cachedSongBlocks
     && Date.now() - cachedSongBlocks.cachedAt < SONG_BLOCK_CACHE_TTL_MS
-    && !isLyricMissPlaceholder(cachedSongBlocks.blocks)
+    && hasUsableLyricBlocks(cachedSongBlocks.blocks)
   ) {
     return cachedSongBlocks.blocks
   }
@@ -652,7 +811,7 @@ async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
     const autoCachedLyrics = readAutoCachedLyrics(song)
     if (autoCachedLyrics) {
       const cachedBlocks = parseBlocksFromPlainLyrics(autoCachedLyrics)
-      if (cachedBlocks.length > 0) {
+      if (hasUsableLyricBlocks(cachedBlocks)) {
         return cachedBlocks
       }
     }
@@ -660,7 +819,7 @@ async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
     const manualLyrics = await fetchManualLyricsForSong(supabase, song)
     if (manualLyrics) {
       const manualBlocks = parseBlocksFromPlainLyrics(manualLyrics)
-      if (manualBlocks.length > 0) {
+      if (hasUsableLyricBlocks(manualBlocks)) {
         return manualBlocks
       }
     }
@@ -680,12 +839,12 @@ async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
 
     // Prioritize Genius result for fastest visible lyrics while LRC probes in parallel.
     const onlineBlocks = await fetchOnlineLyrics(song)
-    if (onlineBlocks.length > 0) {
+    if (hasUsableLyricBlocks(onlineBlocks)) {
       return onlineBlocks
     }
 
     const lrcBlocks = await lrcProbePromise
-    if (lrcBlocks.length > 0) {
+    if (hasUsableLyricBlocks(lrcBlocks)) {
       return lrcBlocks
     }
 
@@ -696,7 +855,7 @@ async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
 
   try {
     const blocks = await loadPromise
-    if (!isLyricMissPlaceholder(blocks)) {
+    if (hasUsableLyricBlocks(blocks)) {
       songBlocksCache.set(identityKey, {
         cachedAt: Date.now(),
         blocks,
@@ -957,7 +1116,7 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
   const openLyricForSong = useCallback(async (song: LyricSongRef, returnToPath: string) => {
     if (
       sameSongContent(stateRef.current.song, song)
-      && stateRef.current.blocks.length > 0
+      && hasUsableLyricBlocks(stateRef.current.blocks)
       && !isLyricLoadingPlaceholder(stateRef.current.blocks)
     ) {
       applyPatch({

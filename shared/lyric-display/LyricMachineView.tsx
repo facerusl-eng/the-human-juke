@@ -1,0 +1,174 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import AudienceLyricView, { type LyricMachineDisplayPreset } from './AudienceLyricView'
+import { useSharedLyricState } from './state'
+import type { LyricSongRef } from './types'
+
+type LyricMachineViewProps = {
+  supabase: SupabaseClient
+  activeSong: LyricSongRef | null
+  showLogoScreen?: boolean
+  returnToPath?: string
+}
+
+const DISPLAY_PRESET_STORAGE_KEY = 'human-jukebox-lyric-machine-display-preset-v1'
+const TOOLBAR_AUTO_HIDE_MS = 5_000
+const DISPLAY_PRESETS: Array<{ id: LyricMachineDisplayPreset; label: string; description: string }> = [
+  { id: 'tight', label: 'Compact', description: 'Fits more lines with tighter spacing' },
+  { id: 'balanced', label: 'Balanced', description: 'Best all-around fit for the frame' },
+  { id: 'wide', label: 'Spread', description: 'Uses more of the screen width' },
+  { id: 'max', label: 'Full', description: 'Pushes the lyric to use the full tab' },
+]
+
+function readStoredDisplayPreset(): LyricMachineDisplayPreset {
+  if (typeof window === 'undefined') {
+    return 'balanced'
+  }
+
+  const stored = window.localStorage.getItem(DISPLAY_PRESET_STORAGE_KEY)?.trim() as LyricMachineDisplayPreset | null
+  if (stored && DISPLAY_PRESETS.some((preset) => preset.id === stored)) {
+    return stored
+  }
+
+  return 'balanced'
+}
+
+export default function LyricMachineView({ supabase, activeSong, showLogoScreen = false, returnToPath = '/admin/gig-control' }: LyricMachineViewProps) {
+  const [hasOpened, setHasOpened] = useState(false)
+  const [displayPreset, setDisplayPreset] = useState<LyricMachineDisplayPreset>(() => readStoredDisplayPreset())
+  const [isToolbarVisible, setIsToolbarVisible] = useState(true)
+  const autoHideTimeoutRef = useRef<number | null>(null)
+  const lyricStateController = useSharedLyricState(supabase, 'lyric-machine')
+
+  const clearToolbarAutoHide = useCallback(() => {
+    if (autoHideTimeoutRef.current !== null) {
+      clearTimeout(autoHideTimeoutRef.current)
+      autoHideTimeoutRef.current = null
+    }
+  }, [])
+
+  const scheduleToolbarAutoHide = useCallback(() => {
+    if (showLogoScreen || typeof window === 'undefined') {
+      return
+    }
+
+    clearToolbarAutoHide()
+    autoHideTimeoutRef.current = window.setTimeout(() => {
+      setIsToolbarVisible(false)
+    }, TOOLBAR_AUTO_HIDE_MS)
+  }, [clearToolbarAutoHide, showLogoScreen])
+
+  const revealToolbar = useCallback(() => {
+    if (showLogoScreen) {
+      return
+    }
+
+    setIsToolbarVisible(true)
+    scheduleToolbarAutoHide()
+  }, [scheduleToolbarAutoHide, showLogoScreen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(DISPLAY_PRESET_STORAGE_KEY, displayPreset)
+  }, [displayPreset])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    if (showLogoScreen) {
+      clearToolbarAutoHide()
+      setIsToolbarVisible(false)
+      return
+    }
+
+    setIsToolbarVisible(true)
+    scheduleToolbarAutoHide()
+
+    const onInteraction = () => {
+      revealToolbar()
+    }
+
+    window.addEventListener('mousemove', onInteraction, { passive: true })
+    window.addEventListener('pointerdown', onInteraction, { passive: true })
+    window.addEventListener('keydown', onInteraction)
+
+    return () => {
+      window.removeEventListener('mousemove', onInteraction)
+      window.removeEventListener('pointerdown', onInteraction)
+      window.removeEventListener('keydown', onInteraction)
+      clearToolbarAutoHide()
+    }
+  }, [clearToolbarAutoHide, revealToolbar, scheduleToolbarAutoHide, showLogoScreen])
+
+  useEffect(() => {
+    if (showLogoScreen || !activeSong || hasOpened) {
+      return
+    }
+
+    setHasOpened(true)
+    void lyricStateController.openLyricForSong(activeSong, returnToPath)
+  }, [activeSong, hasOpened, lyricStateController, returnToPath, showLogoScreen])
+
+  useEffect(() => {
+    if (showLogoScreen || !activeSong || !hasOpened) {
+      return
+    }
+
+    const sameSongById = lyricStateController.state.song?.id === activeSong.id
+    const sameSongByTitleArtist = (
+      (lyricStateController.state.song?.title ?? '').trim().toLowerCase() === activeSong.title.trim().toLowerCase()
+      && (lyricStateController.state.song?.artist ?? '').trim().toLowerCase() === activeSong.artist.trim().toLowerCase()
+    )
+
+    if (sameSongById || sameSongByTitleArtist) {
+      return
+    }
+
+    void lyricStateController.openLyricForSong(activeSong, returnToPath)
+  }, [activeSong, hasOpened, lyricStateController, returnToPath, showLogoScreen])
+
+  return (
+    <main style={{ minHeight: '100vh', minWidth: '100vw' }}>
+      {showLogoScreen ? (
+        <section className="lyric-dark-neon-shell lyric-machine-logo-shell" aria-label="Lyric machine intermission screen">
+          <div className="lyric-machine-logo-card">
+            <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="lyric-machine-logo-mark" />
+            <p className="lyric-machine-logo-title">The Human Jukebox</p>
+            <p className="lyric-machine-logo-caption">Waiting for the next song</p>
+          </div>
+        </section>
+      ) : (
+        <>
+          <div
+            className={`lyric-machine-display-toolbar${isToolbarVisible ? '' : ' lyric-machine-display-toolbar-hidden'}`}
+            role="toolbar"
+            aria-label="Lyric display presets"
+            aria-hidden={!isToolbarVisible}
+          >
+            {DISPLAY_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className={`lyric-machine-display-btn${displayPreset === preset.id ? ' lyric-machine-display-btn-active' : ''}`}
+                onClick={() => {
+                  setDisplayPreset(preset.id)
+                  scheduleToolbarAutoHide()
+                }}
+                aria-pressed={displayPreset === preset.id}
+                title={preset.description}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+          <AudienceLyricView state={lyricStateController.state} layoutMode="fit-16-9" fitPreset={displayPreset} />
+        </>
+      )}
+    </main>
+  )
+}

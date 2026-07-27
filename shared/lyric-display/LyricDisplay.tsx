@@ -447,9 +447,6 @@ export default function LyricDisplay({
         >
           {isPairingPedal ? 'Pairing Pedal...' : 'Connect Bluetooth Pedal'}
         </button>
-        <button type="button" className="lyric-dark-neon-button" onClick={goBack}>
-          Back to Control Room / Gig Control
-        </button>
         <p className="lyric-dark-neon-pedal-status">{pedalStatus}</p>
       </div>
       ) : null}
