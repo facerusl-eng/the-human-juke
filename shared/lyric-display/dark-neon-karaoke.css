@@ -118,6 +118,15 @@
   min-height: 100%;
 }
 
+.lyric-machine-viewport .audience-lyric-fit-title,
+.lyric-machine-viewport .audience-lyric-fit-requester {
+  display: none;
+}
+
+.lyric-machine-viewport .audience-lyric-fit-frame {
+  grid-template-rows: 1fr;
+}
+
 .lyric-machine-viewport-rot-0 {
   transform: none;
 }
