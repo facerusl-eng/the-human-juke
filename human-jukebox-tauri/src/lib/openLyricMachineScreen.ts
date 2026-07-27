@@ -78,6 +78,12 @@ export async function openLyricMachineScreen(options: OpenLyricMachineScreenOpti
         try {
           const visible = await _activeLyricMachineWindow.isVisible()
           if (visible) {
+            // Ensure reused lyric-machine window always lands on the dedicated route.
+            // This prevents stale windows from staying on /lyrics with admin/back controls.
+            const windowWithEval = _activeLyricMachineWindow as unknown as { eval?: (script: string) => Promise<unknown> }
+            if (windowWithEval.eval) {
+              await windowWithEval.eval(`window.location.replace(${JSON.stringify(lyricMachineWindowUrl)});`)
+            }
             await _activeLyricMachineWindow.show()
             await _activeLyricMachineWindow.setFocus()
             return {

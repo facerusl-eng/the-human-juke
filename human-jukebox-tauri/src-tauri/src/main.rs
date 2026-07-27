@@ -99,6 +99,7 @@ fn main() {
                 }
                 "open-lyric-machine" => {
                     if let Some(existing) = app.get_webview_window("lyric-machine") {
+                        let _ = existing.eval("window.location.replace('#/lyric-machine');");
                         let _ = existing.set_focus();
                     } else {
                         let _ = tauri::WebviewWindowBuilder::new(
