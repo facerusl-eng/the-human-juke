@@ -64,6 +64,10 @@ type ResolvedLyricsResponse = {
     lyrics: string;
     source: ProviderName;
     variant: VariantPair;
+    track?: {
+      title?: string;
+      artist?: string;
+    };
     debug?: {
       attemptedVariants: number;
       attemptedProviders: number;
