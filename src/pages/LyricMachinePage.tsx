@@ -51,7 +51,14 @@ export default function LyricMachinePage() {
     }
   }, [songs])
 
-  const activeSong = querySong ?? nowPlayingSong
+  const activeSong = nowPlayingSong ?? querySong
 
-  return <LyricMachineView supabase={supabase} activeSong={activeSong} returnToPath={location.pathname + location.search} />
+  return (
+    <LyricMachineView
+      supabase={supabase}
+      activeSong={activeSong}
+      showLogoScreen={!activeSong}
+      returnToPath={location.pathname + location.search}
+    />
+  )
 }
