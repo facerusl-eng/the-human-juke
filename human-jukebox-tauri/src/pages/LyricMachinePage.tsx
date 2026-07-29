@@ -132,11 +132,7 @@ export default function LyricMachinePage() {
   }, [event?.id])
 
   const nowPlayingSong = useMemo(() => {
-    const playbackSongId = playbackState?.currentSongId?.trim() ?? ''
-    const playbackSong = playbackSongId
-      ? songs.find((song) => song.id === playbackSongId) ?? null
-      : null
-    const nowPlaying = playbackSong ?? songs[0]
+    const nowPlaying = songs[0]
 
     if (!nowPlaying?.title) {
       return null
@@ -154,13 +150,14 @@ export default function LyricMachinePage() {
       createdByName: nowPlaying.createdByName,
       audience_sings: nowPlaying.audience_sings,
     }
-  }, [playbackState?.currentSongId, songs])
+  }, [songs])
 
   const shouldHoldForPlaybackSync = Boolean(event?.id) && !hasPlaybackStateResolved
   const isQuoteModeActive = playbackState?.isStarted === false
+  const hasEventContext = Boolean(event?.id)
   const activeSong = shouldHoldForPlaybackSync || isQuoteModeActive
     ? null
-    : nowPlayingSong ?? querySong
+    : nowPlayingSong ?? (hasEventContext ? null : querySong)
 
   const openExternalUrl = async (url: string) => {
     if (!url.trim()) {
