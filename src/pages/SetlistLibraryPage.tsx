@@ -487,7 +487,6 @@ function SetlistLibraryPage() {
   }, [deferredSearchText, songs])
 
   const isKaraokeSelectedPlaylist = selectedPlaylist?.playlist_type === 'karaoke'
-  const isSetlistByNameSelectedPlaylist = (selectedPlaylist?.name ?? '').trim().toLowerCase().includes('setlist by name')
 
   useEffect(() => {
     if (!userId) {
@@ -1366,30 +1365,28 @@ function SetlistLibraryPage() {
               </button>
             </div>
             <div className="setlist-rename-controls">
-              {isSetlistByNameSelectedPlaylist ? (
-                <>
-                  <label htmlFor="setlist-every-nth-step">Add every X song to Songlist</label>
-                  <input
-                    id="setlist-every-nth-step"
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={everyNthStep}
-                    onChange={(event) => {
-                      const nextStep = Number(event.target.value)
-                      setEveryNthStep(Number.isFinite(nextStep) && nextStep > 0 ? Math.floor(nextStep) : 1)
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={async () => { await addEveryNthSongToQueue(songs, everyNthStep) }}
-                    disabled={!event || !songs.length || busyAction === `queue-every-${Math.max(1, Math.floor(everyNthStep))}`}
-                  >
-                    {busyAction === `queue-every-${Math.max(1, Math.floor(everyNthStep))}` ? 'Queueing...' : 'Add every X song to Songlist'}
-                  </button>
-                </>
-              ) : null}
+              <>
+                <label htmlFor="setlist-every-nth-step">Add every X song to Songlist</label>
+                <input
+                  id="setlist-every-nth-step"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={everyNthStep}
+                  onChange={(event) => {
+                    const nextStep = Number(event.target.value)
+                    setEveryNthStep(Number.isFinite(nextStep) && nextStep > 0 ? Math.floor(nextStep) : 1)
+                  }}
+                />
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={async () => { await addEveryNthSongToQueue(songs, everyNthStep) }}
+                  disabled={!event || !songs.length || busyAction === `queue-every-${Math.max(1, Math.floor(everyNthStep))}`}
+                >
+                  {busyAction === `queue-every-${Math.max(1, Math.floor(everyNthStep))}` ? 'Queueing...' : 'Add every X song to Songlist'}
+                </button>
+              </>
               <span className="meta-badge">{event ? `Queue to ${event.name}` : 'Create a gig to queue songs'}</span>
             </div>
           </div>
