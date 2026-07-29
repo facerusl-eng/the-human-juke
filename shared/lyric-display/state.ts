@@ -936,6 +936,9 @@ async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
       })
     }
     return blocks
+  } catch {
+    // Always return a terminal state so the UI does not stay on the loading placeholder.
+    return [`No lyric blocks found for ${song.artist} - ${song.title}`]
   } finally {
     pendingSongLoads.delete(identityKey)
   }
