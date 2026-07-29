@@ -20,6 +20,23 @@ type OpenLyricMachineScreenOptions = {
 
 export async function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = {}): Promise<OpenLyricMachineWindowResult> {
   const lyricMachineUrl = new URLSearchParams()
+  const resolvedEventId = (() => {
+    const explicitEventId = (options.eventId ?? '').trim()
+    if (explicitEventId) {
+      return explicitEventId
+    }
+
+    if (typeof window === 'undefined') {
+      return ''
+    }
+
+    try {
+      const authSnapshot = JSON.parse(window.localStorage.getItem('human-jukebox-auth-session-snapshot') ?? '{}') as { activeEventId?: string | null }
+      return (authSnapshot.activeEventId ?? '').trim()
+    } catch {
+      return ''
+    }
+  })()
   const normalizedLocale = (() => {
     const explicitLocale = (options.locale ?? '').trim().toLowerCase()
     if (explicitLocale === 'en' || explicitLocale === 'da' || explicitLocale === 'is') {
@@ -40,8 +57,8 @@ export async function openLyricMachineScreen(options: OpenLyricMachineScreenOpti
     lyricMachineUrl.set('title', options.title.trim())
   }
 
-  if (options.eventId?.trim()) {
-    lyricMachineUrl.set('event', options.eventId.trim())
+  if (resolvedEventId) {
+    lyricMachineUrl.set('event', resolvedEventId)
   }
 
   if (options.artist?.trim()) {

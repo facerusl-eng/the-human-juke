@@ -16,9 +16,22 @@ type OpenLyricMachineScreenOptions = {
 
 export function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = {}): OpenLyricMachineWindowResult {
   const lyricMachineUrl = new URL('/lyric-machine', window.location.origin)
+  const resolvedEventId = (() => {
+    const explicitEventId = (options.eventId ?? '').trim()
+    if (explicitEventId) {
+      return explicitEventId
+    }
 
-  if (options.eventId?.trim()) {
-    lyricMachineUrl.searchParams.set('event', options.eventId.trim())
+    try {
+      const authSnapshot = JSON.parse(window.localStorage.getItem('human-jukebox-auth-session-snapshot') ?? '{}') as { activeEventId?: string | null }
+      return (authSnapshot.activeEventId ?? '').trim()
+    } catch {
+      return ''
+    }
+  })()
+
+  if (resolvedEventId) {
+    lyricMachineUrl.searchParams.set('event', resolvedEventId)
   }
 
   if (options.title?.trim()) {
