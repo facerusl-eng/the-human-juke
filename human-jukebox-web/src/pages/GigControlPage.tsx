@@ -3794,6 +3794,26 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     setErrorText(null)
   }, [event?.id, nowPlaying])
 
+  const refreshLyricMachineWindow = useCallback(async () => {
+    const result = await openLyricMachineScreen({
+      eventId: event?.id ?? null,
+      title: nowPlaying?.title ?? null,
+      artist: nowPlaying?.artist ?? null,
+      songId: nowPlaying?.id ?? null,
+      librarySongId: nowPlaying?.library_song_id ?? null,
+      album: nowPlaying?.album ?? null,
+      duration: nowPlaying?.duration ?? null,
+      lyricRefreshNonce: Date.now(),
+    })
+
+    if (result.blockedByPopup) {
+      setErrorText(result.errorMessage ?? 'Could not refresh the lyric machine window.')
+      return
+    }
+
+    setErrorText(null)
+  }, [event?.id, nowPlaying])
+
   const handleGoBackToGigControl = useCallback(() => {
     navigate('/admin/gig-control')
   }, [navigate])
@@ -3987,6 +4007,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       variant: 'ghost',
     },
     {
+      id: 'refresh-lyric-machine',
+      label: 'Refresh Lyric Machine',
+      title: 'Force LyricMachine to reload lyrics when loading is stuck or the wrong lyric is showing',
+      onClick: refreshLyricMachineWindow,
+      variant: 'ghost',
+    },
+    {
       id: 'play-spotify-shortcut',
       label: 'Play Spotify Playlist',
       title: selectedSpotifyPlaylistMeta?.name
@@ -4007,6 +4034,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     'open-gig-settings',
     'open-mirror-screen',
     'open-lyric-machine',
+    'refresh-lyric-machine',
     'play-spotify-shortcut',
   ])
   const visibleHeaderActions = isFocusedGigControlWindow

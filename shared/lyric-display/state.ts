@@ -997,7 +997,7 @@ function readStoredState() {
 export type SharedLyricStateController = {
   state: LyricDisplayState
   setActiveView: (activeView: LyricViewName) => void
-  openLyricForSong: (song: LyricSongRef, returnToPath: string) => Promise<void>
+  openLyricForSong: (song: LyricSongRef, returnToPath: string, options?: { forceReload?: boolean }) => Promise<void>
   closeLyric: () => void
   setBlocks: (blocks: string[]) => void
   setShowOnMirror: (enabled: boolean) => void
@@ -1190,8 +1190,19 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
     void channelRef.current.httpSend(EVENT_NAME, state)
   }, [state])
 
-  const openLyricForSong = useCallback(async (song: LyricSongRef, returnToPath: string) => {
+  const openLyricForSong = useCallback(async (song: LyricSongRef, returnToPath: string, options?: { forceReload?: boolean }) => {
+    const shouldForceReload = Boolean(options?.forceReload)
+
+    if (shouldForceReload) {
+      const identityKey = songIdentityKey(song)
+      songBlocksCache.delete(identityKey)
+      pendingSongLoads.delete(identityKey)
+      lrcMissCache.delete(identityKey)
+    }
+
     if (
+      !shouldForceReload
+      &&
       sameSongContent(stateRef.current.song, song)
       && hasUsableLyricBlocks(stateRef.current.blocks)
       && !isLyricLoadingPlaceholder(stateRef.current.blocks)
@@ -1232,7 +1243,7 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
       showOnMirror: false,
       returnToPath,
     })
-  }, [applyPatch])
+  }, [applyPatch, supabase])
 
   const setActiveView = useCallback((activeView: LyricViewName) => {
     applyPatch({ activeView })

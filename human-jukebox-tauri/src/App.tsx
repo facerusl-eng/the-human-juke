@@ -229,7 +229,8 @@ function TauriMirrorShortcutBridge() {
       const librarySongId = searchParams.get('librarySongId')?.trim() || null
       const album = searchParams.get('album')?.trim() || null
       const duration = searchParams.get('duration')?.trim() || null
-      void openLyricMachineScreen({ eventId, title, artist, songId, librarySongId, album, duration })
+      const lyricRefreshNonce = searchParams.get('lyricRefresh')?.trim() || null
+      void openLyricMachineScreen({ eventId, title, artist, songId, librarySongId, album, duration, lyricRefreshNonce })
     }
 
     window.addEventListener(TAURI_OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)

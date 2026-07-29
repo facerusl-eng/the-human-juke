@@ -64,6 +64,11 @@ export default function LyricMachinePage() {
     }
   }, [location.search])
 
+  const lyricRefreshNonce = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    return (params.get('lyricRefresh') ?? '').trim() || null
+  }, [location.search])
+
   useEffect(() => {
     let isCurrent = true
     let syncInFlight = false
@@ -206,6 +211,7 @@ export default function LyricMachinePage() {
       supabase={supabase}
       activeSong={activeSong}
       eventId={playbackEventId}
+      lyricRefreshNonce={lyricRefreshNonce}
       showLogoScreen={shouldHoldForPlaybackSync || isQuoteModeActive || !activeSong}
       returnToPath={location.pathname + location.search}
       onOpenExternalUrl={openExternalUrl}

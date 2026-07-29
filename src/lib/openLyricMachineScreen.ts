@@ -12,6 +12,7 @@ type OpenLyricMachineScreenOptions = {
   librarySongId?: string | null
   album?: string | null
   duration?: number | string | null
+  lyricRefreshNonce?: number | string | null
 }
 
 export function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = {}): OpenLyricMachineWindowResult {
@@ -58,6 +59,12 @@ export function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = 
     lyricMachineUrl.searchParams.set('duration', String(options.duration))
   } else if (typeof options.duration === 'string' && options.duration.trim()) {
     lyricMachineUrl.searchParams.set('duration', options.duration.trim())
+  }
+
+  if (typeof options.lyricRefreshNonce === 'number' && Number.isFinite(options.lyricRefreshNonce)) {
+    lyricMachineUrl.searchParams.set('lyricRefresh', String(options.lyricRefreshNonce))
+  } else if (typeof options.lyricRefreshNonce === 'string' && options.lyricRefreshNonce.trim()) {
+    lyricMachineUrl.searchParams.set('lyricRefresh', options.lyricRefreshNonce.trim())
   }
 
   const lyricMachineWindowFeatures = 'width=1280,height=800,noopener,noreferrer'

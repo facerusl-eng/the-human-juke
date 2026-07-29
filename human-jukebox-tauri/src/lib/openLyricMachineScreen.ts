@@ -16,6 +16,7 @@ type OpenLyricMachineScreenOptions = {
   album?: string | null
   duration?: number | string | null
   locale?: 'en' | 'da' | 'is' | null
+  lyricRefreshNonce?: number | string | null
 }
 
 export async function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = {}): Promise<OpenLyricMachineWindowResult> {
@@ -85,6 +86,12 @@ export async function openLyricMachineScreen(options: OpenLyricMachineScreenOpti
 
   if (normalizedLocale) {
     lyricMachineUrl.set('locale', normalizedLocale)
+  }
+
+  if (typeof options.lyricRefreshNonce === 'number' && Number.isFinite(options.lyricRefreshNonce)) {
+    lyricMachineUrl.set('lyricRefresh', String(options.lyricRefreshNonce))
+  } else if (typeof options.lyricRefreshNonce === 'string' && options.lyricRefreshNonce.trim()) {
+    lyricMachineUrl.set('lyricRefresh', options.lyricRefreshNonce.trim())
   }
 
   const lyricMachineRoutePath = `/lyric-machine${lyricMachineUrl.toString() ? `?${lyricMachineUrl.toString()}` : ''}`

@@ -8,6 +8,7 @@ type LyricMachineViewProps = {
   supabase: SupabaseClient
   activeSong: LyricSongRef | null
   eventId?: string | null
+  lyricRefreshNonce?: string | null
   showLogoScreen?: boolean
   returnToPath?: string
   onOpenExternalUrl?: (url: string) => Promise<boolean>
@@ -96,6 +97,7 @@ export default function LyricMachineView({
   supabase,
   activeSong,
   eventId = null,
+  lyricRefreshNonce = null,
   showLogoScreen = false,
   returnToPath = '/admin/gig-control',
   onOpenExternalUrl,
@@ -109,6 +111,9 @@ export default function LyricMachineView({
   const autoHideTimeoutRef = useRef<number | null>(null)
   const toolbarVisibilityBeforeFullscreenRef = useRef(true)
   const wasInFullscreenRef = useRef(isLyricMachineFullscreen())
+  const lastExternalRefreshNonceRef = useRef<string | null>(null)
+  const lastAutoRetryKeyRef = useRef<string>('')
+  const lastAutoRetryAtRef = useRef(0)
   const lyricStateController = useSharedLyricState(supabase, 'lyric-machine')
 
   const clearToolbarAutoHide = useCallback(() => {
@@ -213,6 +218,19 @@ export default function LyricMachineView({
       setBrowserCastStatus('Browser could not be opened. Please allow pop-ups and try again.')
     }
   }, [activeSong, eventId, onOpenExternalUrl, scheduleToolbarAutoHide])
+
+  const reloadActiveSongLyrics = useCallback((source: 'toolbar' | 'external' | 'self-heal') => {
+    if (!activeSong || showLogoScreen) {
+      return
+    }
+
+    void lyricStateController.openLyricForSong(activeSong, returnToPath, { forceReload: true })
+
+    if (source === 'toolbar') {
+      setBrowserCastStatus('Refreshing lyric from source...')
+      scheduleToolbarAutoHide()
+    }
+  }, [activeSong, lyricStateController, returnToPath, scheduleToolbarAutoHide, showLogoScreen])
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -319,6 +337,16 @@ export default function LyricMachineView({
   }, [clearToolbarAutoHide, isInFullscreen, isToolbarVisible, revealToolbar, scheduleToolbarAutoHide, showLogoScreen])
 
   useEffect(() => {
+    const normalizedRefreshNonce = (lyricRefreshNonce ?? '').trim()
+    if (!normalizedRefreshNonce || normalizedRefreshNonce === lastExternalRefreshNonceRef.current) {
+      return
+    }
+
+    lastExternalRefreshNonceRef.current = normalizedRefreshNonce
+    reloadActiveSongLyrics('external')
+  }, [lyricRefreshNonce, reloadActiveSongLyrics])
+
+  useEffect(() => {
     if (showLogoScreen || !activeSong || hasOpened) {
       return
     }
@@ -358,6 +386,49 @@ export default function LyricMachineView({
     void lyricStateController.openLyricForSong(activeSong, returnToPath)
   }, [activeSong, hasOpened, lyricStateController, returnToPath, showLogoScreen])
 
+  useEffect(() => {
+    if (showLogoScreen || !activeSong || !hasOpened) {
+      return
+    }
+
+    const currentSong = lyricStateController.state.song
+    const sameSongById = currentSong?.id === activeSong.id
+    const sameSongByTitleArtist = (
+      (currentSong?.title ?? '').trim().toLowerCase() === activeSong.title.trim().toLowerCase()
+      && (currentSong?.artist ?? '').trim().toLowerCase() === activeSong.artist.trim().toLowerCase()
+    )
+
+    if (!sameSongById && !sameSongByTitleArtist) {
+      return
+    }
+
+    const blocks = lyricStateController.state.blocks
+    const isLoadingPlaceholder = blocks.length === 1 && blocks[0].startsWith('Loading lyrics for ')
+    const isMissingPlaceholder = blocks.length === 1 && blocks[0].startsWith('No lyric blocks found for ')
+
+    if (!isLoadingPlaceholder && !isMissingPlaceholder) {
+      return
+    }
+
+    const stateAgeMs = Date.now() - (lyricStateController.state.updatedAt ?? 0)
+    const retryThresholdMs = isLoadingPlaceholder ? 4500 : 2500
+    if (stateAgeMs < retryThresholdMs) {
+      return
+    }
+
+    const retryKind = isLoadingPlaceholder ? 'loading' : 'missing'
+    const retryKey = `${activeSong.id}:${retryKind}`
+    const nowMs = Date.now()
+
+    if (lastAutoRetryKeyRef.current === retryKey && nowMs - lastAutoRetryAtRef.current < 15000) {
+      return
+    }
+
+    lastAutoRetryKeyRef.current = retryKey
+    lastAutoRetryAtRef.current = nowMs
+    reloadActiveSongLyrics('self-heal')
+  }, [activeSong, hasOpened, lyricStateController.state.blocks, lyricStateController.state.song, lyricStateController.state.updatedAt, reloadActiveSongLyrics, showLogoScreen])
+
   return (
     <main style={{ minHeight: '100vh', minWidth: '100vw' }}>
       {showLogoScreen ? (
@@ -378,6 +449,17 @@ export default function LyricMachineView({
             aria-label="Lyric display presets"
             aria-hidden={!isToolbarVisible || isInFullscreen}
           >
+            <button
+              type="button"
+              className="lyric-machine-display-btn"
+              onClick={() => {
+                reloadActiveSongLyrics('toolbar')
+              }}
+              title="Reload lyric for the active song"
+              aria-label="Reload lyric for the active song"
+            >
+              Reload Lyrics
+            </button>
             <button
               type="button"
               className="lyric-machine-display-btn"
