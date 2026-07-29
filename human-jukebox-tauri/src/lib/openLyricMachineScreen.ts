@@ -8,6 +8,7 @@ export type OpenLyricMachineWindowResult = {
 }
 
 type OpenLyricMachineScreenOptions = {
+  eventId?: string | null
   title?: string | null
   artist?: string | null
   songId?: string | null
@@ -37,6 +38,10 @@ export async function openLyricMachineScreen(options: OpenLyricMachineScreenOpti
 
   if (options.title?.trim()) {
     lyricMachineUrl.set('title', options.title.trim())
+  }
+
+  if (options.eventId?.trim()) {
+    lyricMachineUrl.set('event', options.eventId.trim())
   }
 
   if (options.artist?.trim()) {

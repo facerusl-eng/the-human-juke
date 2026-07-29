@@ -5,6 +5,7 @@ export type OpenLyricMachineWindowResult = {
 }
 
 type OpenLyricMachineScreenOptions = {
+  eventId?: string | null
   title?: string | null
   artist?: string | null
   songId?: string | null
@@ -15,6 +16,10 @@ type OpenLyricMachineScreenOptions = {
 
 export function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = {}): OpenLyricMachineWindowResult {
   const lyricMachineUrl = new URL('/lyric-machine', window.location.origin)
+
+  if (options.eventId?.trim()) {
+    lyricMachineUrl.searchParams.set('event', options.eventId.trim())
+  }
 
   if (options.title?.trim()) {
     lyricMachineUrl.searchParams.set('title', options.title.trim())

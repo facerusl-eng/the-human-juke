@@ -222,13 +222,14 @@ function TauriMirrorShortcutBridge() {
 
     const handleLyricMachineShortcut = () => {
       const searchParams = new URLSearchParams(location.search)
+      const eventId = searchParams.get('event')?.trim() || null
       const title = searchParams.get('title')?.trim() || null
       const artist = searchParams.get('artist')?.trim() || null
       const songId = searchParams.get('songId')?.trim() || null
       const librarySongId = searchParams.get('librarySongId')?.trim() || null
       const album = searchParams.get('album')?.trim() || null
       const duration = searchParams.get('duration')?.trim() || null
-      void openLyricMachineScreen({ title, artist, songId, librarySongId, album, duration })
+      void openLyricMachineScreen({ eventId, title, artist, songId, librarySongId, album, duration })
     }
 
     window.addEventListener(TAURI_OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)

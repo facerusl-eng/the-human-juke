@@ -132,6 +132,7 @@ export default function LyricMachinePage() {
     <LyricMachineView
       supabase={supabase}
       activeSong={activeSong}
+      eventId={event?.id ?? null}
       showLogoScreen={isQuoteModeActive || !activeSong}
       returnToPath={location.pathname + location.search}
     />

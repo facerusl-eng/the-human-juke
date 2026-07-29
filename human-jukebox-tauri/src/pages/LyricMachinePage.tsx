@@ -164,6 +164,7 @@ export default function LyricMachinePage() {
     <LyricMachineView
       supabase={supabase}
       activeSong={activeSong}
+      eventId={event?.id ?? null}
       showLogoScreen={playbackState?.isStarted === false || !activeSong}
       returnToPath={location.pathname + location.search}
       onOpenExternalUrl={openExternalUrl}

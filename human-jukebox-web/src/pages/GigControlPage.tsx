@@ -3777,6 +3777,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
   const openLyricMachineWindow = useCallback(async () => {
     const result = await openLyricMachineScreen({
+      eventId: event?.id ?? null,
       title: nowPlaying?.title ?? null,
       artist: nowPlaying?.artist ?? null,
       songId: nowPlaying?.id ?? null,
@@ -3791,7 +3792,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     setErrorText(null)
-  }, [nowPlaying])
+  }, [event?.id, nowPlaying])
 
   const handleGoBackToGigControl = useCallback(() => {
     navigate('/admin/gig-control')

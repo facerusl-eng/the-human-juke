@@ -7,6 +7,7 @@ import type { LyricSongRef } from './types'
 type LyricMachineViewProps = {
   supabase: SupabaseClient
   activeSong: LyricSongRef | null
+  eventId?: string | null
   showLogoScreen?: boolean
   returnToPath?: string
   onOpenExternalUrl?: (url: string) => Promise<boolean>
@@ -94,6 +95,7 @@ function readStoredRotationDegrees() {
 export default function LyricMachineView({
   supabase,
   activeSong,
+  eventId = null,
   showLogoScreen = false,
   returnToPath = '/admin/gig-control',
   onOpenExternalUrl,
@@ -160,6 +162,9 @@ export default function LyricMachineView({
     if (typeof activeSong?.duration === 'number' && Number.isFinite(activeSong.duration)) {
       searchParams.set('duration', String(activeSong.duration))
     }
+    if (eventId?.trim()) {
+      searchParams.set('event', eventId.trim())
+    }
 
     const appOrigin = import.meta.env.VITE_PUBLIC_APP_ORIGIN?.trim()
       || import.meta.env.VITE_WEB_APP_ORIGIN?.trim()
@@ -207,7 +212,7 @@ export default function LyricMachineView({
     if (!opened) {
       setBrowserCastStatus('Browser could not be opened. Please allow pop-ups and try again.')
     }
-  }, [activeSong, onOpenExternalUrl, scheduleToolbarAutoHide])
+  }, [activeSong, eventId, onOpenExternalUrl, scheduleToolbarAutoHide])
 
   useEffect(() => {
     const onFullscreenChange = () => {
