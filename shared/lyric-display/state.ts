@@ -413,7 +413,7 @@ function collectOnlineResultSongCandidates(payload: Record<string, unknown>) {
   return [...uniqueCandidates.values()]
 }
 
-function onlineResultMatchesSong(song: LyricSongRef, payload: Record<string, unknown>) {
+function onlineResultMatchesSong(song: LyricSongRef, payload: Record<string, unknown>, titleOnlyMatch = false) {
   const candidates = collectOnlineResultSongCandidates(payload)
   if (candidates.length === 0) {
     return true
@@ -421,6 +421,11 @@ function onlineResultMatchesSong(song: LyricSongRef, payload: Record<string, unk
 
   return candidates.some((candidate) => {
     const titleMatch = tokenOverlapScore(song.title, candidate.title)
+
+    if (titleOnlyMatch) {
+      return titleMatch >= 0.64
+    }
+
     const artistMatch = candidate.artist ? tokenOverlapScore(song.artist, candidate.artist) : 1
 
     // Keep strong same-song guarantees while allowing covers/alternate credits.
@@ -643,8 +648,12 @@ function writeLyricsCache(song: LyricSongRef, lyrics: string, localeOverride?: S
   }
 }
 
-async function fetchOnlineLyrics(song: LyricSongRef) {
-  const variants = buildSongQueryVariants(song).slice(0, ONLINE_LYRICS_MAX_VARIANTS)
+async function fetchOnlineLyrics(song: LyricSongRef, options?: { preferTitleOnlyLookup?: boolean }) {
+  const preferTitleOnlyLookup = Boolean(options?.preferTitleOnlyLookup)
+  const variants = (preferTitleOnlyLookup
+    ? buildSongQueryVariants({ ...song, artist: '' })
+    : buildSongQueryVariants(song)
+  ).slice(0, ONLINE_LYRICS_MAX_VARIANTS)
   const lyricsLocales = resolveLyricsLocaleCandidates()
 
   for (const variant of variants) {
@@ -706,7 +715,7 @@ async function fetchOnlineLyrics(song: LyricSongRef) {
             continue
           }
 
-          if (!onlineResultMatchesSong(song, payload)) {
+          if (!onlineResultMatchesSong(song, payload, preferTitleOnlyLookup)) {
             continue
           }
 
@@ -863,8 +872,9 @@ async function probeLrcCandidates(candidates: string[], identityKey: string) {
   return [] as string[]
 }
 
-async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
+async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef, options?: { preferOnlineTitleLookup?: boolean }) {
   const identityKey = songIdentityKey(song)
+  const preferOnlineTitleLookup = Boolean(options?.preferOnlineTitleLookup)
   const cachedSongBlocks = songBlocksCache.get(identityKey)
   if (
     cachedSongBlocks
@@ -880,6 +890,13 @@ async function loadBlocksForSong(supabase: SupabaseClient, song: LyricSongRef) {
   }
 
   const loadPromise = (async () => {
+    if (preferOnlineTitleLookup) {
+      const onlineBlocks = await fetchOnlineLyrics(song, { preferTitleOnlyLookup: true })
+      if (hasUsableLyricBlocks(onlineBlocks)) {
+        return onlineBlocks
+      }
+    }
+
     // Fastest path first: local cached lyrics are immediate.
     const localeCandidates = resolveLyricsLocaleCandidates()
     const autoCachedLyrics = readAutoCachedLyrics(song, localeCandidates)
@@ -997,7 +1014,7 @@ function readStoredState() {
 export type SharedLyricStateController = {
   state: LyricDisplayState
   setActiveView: (activeView: LyricViewName) => void
-  openLyricForSong: (song: LyricSongRef, returnToPath: string, options?: { forceReload?: boolean }) => Promise<void>
+  openLyricForSong: (song: LyricSongRef, returnToPath: string, options?: { forceReload?: boolean; preferOnlineTitleLookup?: boolean }) => Promise<void>
   closeLyric: () => void
   setBlocks: (blocks: string[]) => void
   setShowOnMirror: (enabled: boolean) => void
@@ -1190,8 +1207,13 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
     void channelRef.current.httpSend(EVENT_NAME, state)
   }, [state])
 
-  const openLyricForSong = useCallback(async (song: LyricSongRef, returnToPath: string, options?: { forceReload?: boolean }) => {
+  const openLyricForSong = useCallback(async (
+    song: LyricSongRef,
+    returnToPath: string,
+    options?: { forceReload?: boolean; preferOnlineTitleLookup?: boolean },
+  ) => {
     const shouldForceReload = Boolean(options?.forceReload)
+    const shouldPreferOnlineTitleLookup = Boolean(options?.preferOnlineTitleLookup)
 
     if (shouldForceReload) {
       const identityKey = songIdentityKey(song)
@@ -1229,7 +1251,9 @@ export function useSharedLyricState(supabase: SupabaseClient, sourcePrefix: stri
       returnToPath,
     })
 
-    const blocks = await loadBlocksForSong(supabase, song)
+    const blocks = await loadBlocksForSong(supabase, song, {
+      preferOnlineTitleLookup: shouldPreferOnlineTitleLookup,
+    })
 
     if (requestId !== latestOpenRequestIdRef.current) {
       return

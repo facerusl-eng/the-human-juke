@@ -224,7 +224,10 @@ export default function LyricMachineView({
       return
     }
 
-    void lyricStateController.openLyricForSong(activeSong, returnToPath, { forceReload: true })
+    void lyricStateController.openLyricForSong(activeSong, returnToPath, {
+      forceReload: true,
+      preferOnlineTitleLookup: true,
+    })
 
     if (source === 'toolbar') {
       setBrowserCastStatus('Refreshing lyric from source...')
