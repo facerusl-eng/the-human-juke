@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { useLocation } from 'react-router-dom'
 import { LyricMachineView } from '../../../shared/lyric-display'
@@ -193,28 +192,13 @@ export default function LyricMachinePage() {
     ? null
     : nowPlayingSong ?? (shouldUseQueryFallback || !hasEventContext ? querySong : null)
 
-  const openExternalUrl = async (url: string) => {
-    if (!url.trim()) {
-      return false
-    }
-
-    try {
-      await invoke('open_external_url', { url })
-      return true
-    } catch {
-      return false
-    }
-  }
-
   return (
     <LyricMachineView
       supabase={supabase}
       activeSong={activeSong}
-      eventId={playbackEventId}
       lyricRefreshNonce={lyricRefreshNonce}
       showLogoScreen={shouldHoldForPlaybackSync || isQuoteModeActive || !activeSong}
       returnToPath={location.pathname + location.search}
-      onOpenExternalUrl={openExternalUrl}
     />
   )
 }

@@ -177,7 +177,6 @@ export default function LyricMachinePage() {
     <LyricMachineView
       supabase={supabase}
       activeSong={activeSong}
-      eventId={playbackEventId}
       lyricRefreshNonce={lyricRefreshNonce}
       showLogoScreen={shouldHoldForPlaybackSync || isQuoteModeActive || !activeSong}
       returnToPath={location.pathname + location.search}

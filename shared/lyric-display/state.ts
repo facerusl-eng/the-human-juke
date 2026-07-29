@@ -452,6 +452,18 @@ function sameSongContent(left: LyricSongRef | null | undefined, right: LyricSong
     return false
   }
 
+  const leftLibrarySongId = normalizeSongIdentityValue(left.librarySongId)
+  const rightLibrarySongId = normalizeSongIdentityValue(right.librarySongId)
+  if (leftLibrarySongId && rightLibrarySongId) {
+    return leftLibrarySongId === rightLibrarySongId
+  }
+
+  const leftSongId = normalizeSongIdentityValue(left.id)
+  const rightSongId = normalizeSongIdentityValue(right.id)
+  if (leftSongId && rightSongId) {
+    return leftSongId === rightSongId
+  }
+
   return (
     normalizeSongIdentityValue(left.title) === normalizeSongIdentityValue(right.title)
     && normalizeSongIdentityValue(left.artist) === normalizeSongIdentityValue(right.artist)
