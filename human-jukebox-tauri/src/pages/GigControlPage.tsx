@@ -3939,6 +3939,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       album: nowPlayingMeta?.album ?? null,
       duration: nowPlayingMeta?.duration ?? null,
       lyricRefreshNonce: Date.now(),
+      openInFreshTab: true,
     })
 
     if (result.blockedByPopup) {

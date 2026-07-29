@@ -230,7 +230,18 @@ function TauriMirrorShortcutBridge() {
       const album = searchParams.get('album')?.trim() || null
       const duration = searchParams.get('duration')?.trim() || null
       const lyricRefreshNonce = searchParams.get('lyricRefresh')?.trim() || null
-      void openLyricMachineScreen({ eventId, title, artist, songId, librarySongId, album, duration, lyricRefreshNonce })
+      const openInFreshTab = searchParams.get('openInFreshTab') === '1'
+      void openLyricMachineScreen({
+        eventId,
+        title,
+        artist,
+        songId,
+        librarySongId,
+        album,
+        duration,
+        lyricRefreshNonce,
+        openInFreshTab,
+      })
     }
 
     window.addEventListener(TAURI_OPEN_MIRROR_SHORTCUT_EVENT, handleMirrorShortcut)

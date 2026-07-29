@@ -17,10 +17,12 @@ type OpenLyricMachineScreenOptions = {
   duration?: number | string | null
   locale?: 'en' | 'da' | 'is' | null
   lyricRefreshNonce?: number | string | null
+  openInFreshTab?: boolean
 }
 
 export async function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = {}): Promise<OpenLyricMachineWindowResult> {
   const lyricMachineUrl = new URLSearchParams()
+  const openInFreshTab = options.openInFreshTab === true
   const resolvedEventId = (() => {
     const explicitEventId = (options.eventId ?? '').trim()
     if (explicitEventId) {
@@ -94,6 +96,11 @@ export async function openLyricMachineScreen(options: OpenLyricMachineScreenOpti
     lyricMachineUrl.set('lyricRefresh', options.lyricRefreshNonce.trim())
   }
 
+  if (openInFreshTab) {
+    lyricMachineUrl.set('lyricLaunch', String(Date.now()))
+    lyricMachineUrl.set('openInFreshTab', '1')
+  }
+
   const lyricMachineRoutePath = `/lyric-machine${lyricMachineUrl.toString() ? `?${lyricMachineUrl.toString()}` : ''}`
 
   const resolvedBrowserOrigin = (
@@ -122,7 +129,11 @@ export async function openLyricMachineScreen(options: OpenLyricMachineScreenOpti
     }
   }
 
-  const lyricMachineTab = window.open(lyricMachineBrowserUrl, 'lyric-machine-window', 'width=1280,height=800,noopener,noreferrer')
+  const lyricMachineTab = window.open(
+    lyricMachineBrowserUrl,
+    openInFreshTab ? '_blank' : 'lyric-machine-window',
+    'width=1280,height=800,noopener,noreferrer',
+  )
   if (lyricMachineTab) {
     lyricMachineTab.focus()
     return {

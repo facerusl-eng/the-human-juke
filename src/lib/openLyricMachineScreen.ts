@@ -13,10 +13,12 @@ type OpenLyricMachineScreenOptions = {
   album?: string | null
   duration?: number | string | null
   lyricRefreshNonce?: number | string | null
+  openInFreshTab?: boolean
 }
 
 export function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = {}): OpenLyricMachineWindowResult {
   const lyricMachineUrl = new URL('/lyric-machine', window.location.origin)
+  const openInFreshTab = options.openInFreshTab === true
   const resolvedEventId = (() => {
     const explicitEventId = (options.eventId ?? '').trim()
     if (explicitEventId) {
@@ -67,8 +69,12 @@ export function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = 
     lyricMachineUrl.searchParams.set('lyricRefresh', options.lyricRefreshNonce.trim())
   }
 
+  if (openInFreshTab) {
+    lyricMachineUrl.searchParams.set('lyricLaunch', String(Date.now()))
+  }
+
   const lyricMachineWindowFeatures = 'width=1280,height=800,noopener,noreferrer'
-  const lyricMachineWindowTarget = 'lyric-machine-window'
+  const lyricMachineWindowTarget = openInFreshTab ? '_blank' : 'lyric-machine-window'
   const lyricMachineTab = window.open(lyricMachineUrl.toString(), lyricMachineWindowTarget, lyricMachineWindowFeatures)
 
   if (lyricMachineTab) {
