@@ -6,6 +6,33 @@ type LyricEngineOptions = {
   fetcher?: (path: string) => Promise<string | null>
 }
 
+const DEFAULT_API_ORIGIN = 'https://www.the-human-jukebox.org'
+
+function resolveLyricsApiUrl(path: `/api/${string}`) {
+  if (typeof window === 'undefined') {
+    return path
+  }
+
+  const preferredOrigin = import.meta.env.VITE_API_ORIGIN?.trim()
+  const fallbackOrigin = import.meta.env.VITE_SPOTIFY_API_ORIGIN?.trim()
+  const apiOrigin = (preferredOrigin || fallbackOrigin || DEFAULT_API_ORIGIN).replace(/\/$/, '')
+
+  const hostname = window.location.hostname.trim().toLowerCase()
+  const protocol = window.location.protocol.trim().toLowerCase()
+  const isTauriRuntime = protocol === 'tauri:' || hostname === 'tauri.localhost' || hostname.endsWith('.tauri.localhost')
+  const isLocalWeb = (hostname === 'localhost' || hostname === '127.0.0.1') && (protocol === 'http:' || protocol === 'https:')
+
+  if (isTauriRuntime) {
+    return `${apiOrigin}${path}`
+  }
+
+  if (isLocalWeb) {
+    return path
+  }
+
+  return `${apiOrigin}${path}`
+}
+
 function findActiveLineIndex(lines: LyricLine[], currentTimeSeconds: number) {
   if (lines.length === 0) {
     return -1
@@ -84,9 +111,15 @@ async function fetchApiLyrics(song: LyricSongRef): Promise<string | null> {
   if (artist) {
     params.set('artist', artist)
   }
+  if (song.album) {
+    params.set('album', song.album)
+  }
+  if (typeof song.duration === 'number' && Number.isFinite(song.duration)) {
+    params.set('duration', String(song.duration))
+  }
 
   try {
-    const response = await fetch(`/api/lyrics-genius?${params.toString()}`)
+    const response = await fetch(resolveLyricsApiUrl(`/api/lyrics-genius?${params.toString()}`))
     if (!response.ok) {
       return null
     }

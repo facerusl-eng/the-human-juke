@@ -1,8 +1,13 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const devPublicOriginHost = (() => {
   const devPublicOrigin = process.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
@@ -26,6 +31,14 @@ export default defineConfig({
   base: '/',
   define: {
     __HUMAN_JUKEBOX_BUILD_ID__: JSON.stringify(new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')),
+  },
+  resolve: {
+    alias: {
+      react: path.resolve(__dirname, '../node_modules/react'),
+      'react-dom': path.resolve(__dirname, '../node_modules/react-dom'),
+      'react/jsx-runtime': path.resolve(__dirname, '../node_modules/react/jsx-runtime.js'),
+      'react/jsx-dev-runtime': path.resolve(__dirname, '../node_modules/react/jsx-dev-runtime.js'),
+    },
   },
   plugins: [
     basicSsl(),

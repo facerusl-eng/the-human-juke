@@ -491,10 +491,26 @@ function HomePage() {
     }
 
     updateScale()
-    const observer = new ResizeObserver(updateScale)
+    let animationFrameId: number | null = null
+    const scheduleUpdateScale = () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId)
+      }
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = null
+        updateScale()
+      })
+    }
+
+    const observer = new ResizeObserver(scheduleUpdateScale)
     observer.observe(viewport)
 
     return () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId)
+      }
+
       observer.disconnect()
     }
   }, [])

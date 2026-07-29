@@ -25,6 +25,8 @@ export type LyricSongRef = {
   songId?: string | null
   artist?: string | null
   title?: string | null
+  album?: string | null
+  duration?: number | null
   explicitPath?: string
   createdByName?: string | null
   audience_sings?: boolean | null

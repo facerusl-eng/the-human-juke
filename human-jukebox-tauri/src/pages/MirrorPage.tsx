@@ -1177,6 +1177,36 @@ async function exitFullscreenSafe() {
   throw new Error('Exiting fullscreen is unavailable in this browser.')
 }
 
+async function enterPresentationFullscreen(targetElement: HTMLElement) {
+  if (isTauriDesktopRuntime()) {
+    const tauriWindow = getCurrentWebviewWindow()
+    await tauriWindow.setDecorations(false)
+
+    try {
+      await tauriWindow.setFullscreen(true)
+      return
+    } catch (error) {
+      await tauriWindow.setDecorations(true).catch(() => {
+        // Ignore rollback failures and preserve the original fullscreen error.
+      })
+      throw error
+    }
+  }
+
+  await requestFullscreenSafe(targetElement)
+}
+
+async function exitPresentationFullscreen() {
+  if (isTauriDesktopRuntime()) {
+    const tauriWindow = getCurrentWebviewWindow()
+    await tauriWindow.setFullscreen(false)
+    await tauriWindow.setDecorations(true)
+    return
+  }
+
+  await exitFullscreenSafe()
+}
+
 type SpotlightQueueItem = {
   id: string
   eventId: string
@@ -2261,7 +2291,7 @@ function MirrorPageContent() {
 
     if (!getActiveFullscreenElement()) {
       try {
-        await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+        await enterPresentationFullscreen(mirrorShellRef.current ?? document.documentElement)
       } catch {
         // Fullscreen can be blocked by browser policy. Cast flow can continue.
       }
@@ -2908,12 +2938,16 @@ function MirrorPageContent() {
     document.addEventListener('webkitfullscreenchange', syncFullscreenState)
     window.addEventListener('fullscreenchange', syncFullscreenState)
     window.addEventListener('webkitfullscreenchange', syncFullscreenState)
+    window.addEventListener('resize', syncFullscreenState)
+    window.addEventListener('focus', syncFullscreenState)
 
     return () => {
       document.removeEventListener('fullscreenchange', syncFullscreenState)
       document.removeEventListener('webkitfullscreenchange', syncFullscreenState)
       window.removeEventListener('fullscreenchange', syncFullscreenState)
       window.removeEventListener('webkitfullscreenchange', syncFullscreenState)
+      window.removeEventListener('resize', syncFullscreenState)
+      window.removeEventListener('focus', syncFullscreenState)
     }
   }, [layoutEditMode])
 
@@ -2921,17 +2955,11 @@ function MirrorPageContent() {
   // Always show persistent fullscreen prompt if not fullscreen
   useEffect(() => {
     if (layoutEditMode) return;
-    const checkFullscreen = () => {
-      setShowFullscreenPrompt(!getActiveFullscreenElement());
-    };
-    checkFullscreen();
-    document.addEventListener('fullscreenchange', checkFullscreen);
-    window.addEventListener('resize', checkFullscreen);
+    setShowFullscreenPrompt(!isFullscreen);
+
     return () => {
-      document.removeEventListener('fullscreenchange', checkFullscreen);
-      window.removeEventListener('resize', checkFullscreen);
     };
-  }, [layoutEditMode]);
+  }, [isFullscreen, layoutEditMode]);
 
   // In your render, show the prompt if showFullscreenPrompt is true:
   // {showFullscreenPrompt && (
@@ -3267,7 +3295,7 @@ function MirrorPageContent() {
         }
 
         keyEvent.preventDefault()
-        void exitFullscreenSafe().catch((error) => {
+        void exitPresentationFullscreen().catch((error) => {
           console.warn('MirrorPage: keyboard fullscreen exit failed', error)
           setMirrorWarningMessage('Could not exit fullscreen from keyboard shortcut.')
         })
@@ -3278,10 +3306,10 @@ function MirrorPageContent() {
         keyEvent.preventDefault()
         void (async () => {
           try {
-            if (!getActiveFullscreenElement()) {
-              await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+            if (!isFullscreen) {
+              await enterPresentationFullscreen(mirrorShellRef.current ?? document.documentElement)
             } else {
-              await exitFullscreenSafe()
+              await exitPresentationFullscreen()
             }
           } catch (error) {
             console.warn('MirrorPage: keyboard fullscreen toggle failed', error)
@@ -4301,7 +4329,7 @@ function MirrorPageContent() {
           className="mirror-fullscreen-prompt"
           onClick={async () => {
             try {
-              await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+              await enterPresentationFullscreen(mirrorShellRef.current ?? document.documentElement)
               setShowFullscreenPrompt(false)
             } catch {
               setShowFullscreenPrompt(true)
@@ -4363,10 +4391,10 @@ function MirrorPageContent() {
               title="Keyboard shortcut: F"
               onClick={async () => {
                 try {
-                  if (!getActiveFullscreenElement()) {
-                    await requestFullscreenSafe(mirrorShellRef.current ?? document.documentElement)
+                  if (!isFullscreen) {
+                    await enterPresentationFullscreen(mirrorShellRef.current ?? document.documentElement)
                   } else {
-                    await exitFullscreenSafe()
+                    await exitPresentationFullscreen()
                   }
                 } catch (error) {
                   console.warn('MirrorPage: fullscreen toggle failed', error)
@@ -5006,19 +5034,20 @@ function MirrorPage() {
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
 
   useEffect(() => {
-    const handleF11 = (e: KeyboardEvent) => {
-      if (e.key !== 'F11') return
-      e.preventDefault()
-      e.stopPropagation()
-      const win = getCurrentWebviewWindow()
-      win.isFullscreen()
-        .then((full: boolean) => win.setFullscreen(!full))
-        .catch(() => {
-          // Silently ignore — prevents the unhandledrejection warning banner.
-        })
+    if (!isTauriDesktopRuntime()) {
+      return
     }
-    document.addEventListener('keydown', handleF11, { capture: true })
-    return () => document.removeEventListener('keydown', handleF11, { capture: true })
+
+    const tauriWindow = getCurrentWebviewWindow()
+    void tauriWindow.setDecorations(true).catch(() => {
+      // Ignore decoration sync failures and keep the mirror window usable.
+    })
+
+    return () => {
+      void tauriWindow.setDecorations(true).catch(() => {
+        // Ignore cleanup failures during window teardown.
+      })
+    }
   }, [])
 
   useEffect(() => {

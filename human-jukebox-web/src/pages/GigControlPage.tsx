@@ -8,6 +8,7 @@ import { useClipboardCopy } from '../hooks/useClipboardCopy';
 import { useGigActions } from '../hooks/useGigActions';
 import { getAudienceUrl } from '../lib/audienceUrl';
 import { openMirrorScreen } from '../lib/openMirrorScreen';
+import { openLyricMachineScreen } from '../lib/openLyricMachineScreen';
 import { registerBackgroundSync } from '../lib/backgroundSync';
 import {
   captureQueueSnapshot,
@@ -3774,6 +3775,24 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     setErrorText(null)
   }, [event?.id, navigate])
 
+  const openLyricMachineWindow = useCallback(async () => {
+    const result = await openLyricMachineScreen({
+      title: nowPlaying?.title ?? null,
+      artist: nowPlaying?.artist ?? null,
+      songId: nowPlaying?.id ?? null,
+      librarySongId: nowPlaying?.library_song_id ?? null,
+      album: nowPlaying?.album ?? null,
+      duration: nowPlaying?.duration ?? null,
+    })
+
+    if (result.blockedByPopup) {
+      setErrorText(result.errorMessage ?? 'Could not open the lyric machine window.')
+      return
+    }
+
+    setErrorText(null)
+  }, [nowPlaying])
+
   const handleGoBackToGigControl = useCallback(() => {
     navigate('/admin/gig-control')
   }, [navigate])
@@ -3960,6 +3979,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       variant: 'ghost',
     },
     {
+      id: 'open-lyric-machine',
+      label: 'Lyric Machine',
+      title: 'Open the dedicated lyric machine window with the current now-playing song',
+      onClick: openLyricMachineWindow,
+      variant: 'ghost',
+    },
+    {
       id: 'play-spotify-shortcut',
       label: 'Play Spotify Playlist',
       title: selectedSpotifyPlaylistMeta?.name
@@ -3979,6 +4005,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     'brb-toggle',
     'open-gig-settings',
     'open-mirror-screen',
+    'open-lyric-machine',
     'play-spotify-shortcut',
   ])
   const visibleHeaderActions = isFocusedGigControlWindow
