@@ -535,6 +535,8 @@ function GigControlPage() {
   } = useQueueStore()
 
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [manualLyricsTitle, setManualLyricsTitle] = useState('')
+  const [manualLyricsArtist, setManualLyricsArtist] = useState('')
   const [isNowPlayingStarted, setIsNowPlayingStarted] = useState(false)
   const [syncedPlaybackState, setSyncedPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [spaceActionBusy, setSpaceActionBusy] = useState(false)
@@ -3986,6 +3988,46 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     })
   }, [location.pathname, location.search, navigate, nowPlaying])
 
+  const openManualLyricsSearch = useCallback(() => {
+    const title = manualLyricsTitle.trim()
+    const artist = manualLyricsArtist.trim()
+
+    if (!title) {
+      setErrorText('Enter a song title to search lyrics manually.')
+      return
+    }
+
+    prefetchAndCacheLyrics(title, artist)
+
+    const searchParams = new URLSearchParams({
+      title,
+      artist,
+      locale: 'en',
+      stage: '0',
+      returnTo: `${location.pathname}${location.search}`,
+    })
+
+    navigate(`/lyrics?${searchParams.toString()}`, {
+      state: {
+        title,
+        artist,
+        audienceLocale: 'en',
+        returnTo: `${location.pathname}${location.search}`,
+      },
+    })
+
+    setErrorText(null)
+  }, [location.pathname, location.search, manualLyricsArtist, manualLyricsTitle, navigate])
+
+  useEffect(() => {
+    if (!nowPlaying?.title) {
+      return
+    }
+
+    setManualLyricsTitle((currentTitle) => (currentTitle.trim() ? currentTitle : nowPlaying.title))
+    setManualLyricsArtist((currentArtist) => (currentArtist.trim() ? currentArtist : (nowPlaying.artist ?? '')))
+  }, [nowPlaying?.artist, nowPlaying?.title])
+
   const handleEnterFocusFullscreen = useCallback(() => {
     if (typeof document === 'undefined' || !document.documentElement.requestFullscreen) {
       setErrorText('Fullscreen is not available in this browser window.')
@@ -5077,6 +5119,33 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                   ✕ Skip
                 </button>
               </div>
+              <div className="gig-brb-input-block" aria-label="Manual lyric search fallback">
+                <p className="subcopy no-margin">If lyric finder fails, search lyrics manually here.</p>
+                <div className="hero-actions gig-control-touch-actions">
+                  <input
+                    type="text"
+                    className="gig-switcher-select"
+                    placeholder="Manual lyric title"
+                    value={manualLyricsTitle}
+                    onChange={(event) => setManualLyricsTitle(event.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="gig-switcher-select"
+                    placeholder="Manual lyric artist (optional)"
+                    value={manualLyricsArtist}
+                    onChange={(event) => setManualLyricsArtist(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    title="Manually search and open lyrics when auto lookup fails"
+                    onClick={openManualLyricsSearch}
+                  >
+                    Search Lyrics Manually
+                  </button>
+                </div>
+              </div>
               <p className="subcopy no-margin">
                 Playing now. {event?.roomOpen ? 'Press Space to switch between song mode and quote mode.' : 'Spacebar is disabled until gig is live.'}
               </p>
@@ -5114,6 +5183,33 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 >
                   ▶ Go Live
                 </button>
+              </div>
+              <div className="gig-brb-input-block" aria-label="Manual lyric search fallback">
+                <p className="subcopy no-margin">If lyric finder fails, search lyrics manually here.</p>
+                <div className="hero-actions gig-control-touch-actions">
+                  <input
+                    type="text"
+                    className="gig-switcher-select"
+                    placeholder="Manual lyric title"
+                    value={manualLyricsTitle}
+                    onChange={(event) => setManualLyricsTitle(event.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="gig-switcher-select"
+                    placeholder="Manual lyric artist (optional)"
+                    value={manualLyricsArtist}
+                    onChange={(event) => setManualLyricsArtist(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    title="Manually search and open lyrics when auto lookup fails"
+                    onClick={openManualLyricsSearch}
+                  >
+                    Search Lyrics Manually
+                  </button>
+                </div>
               </div>
             </>
           ) : (
