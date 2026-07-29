@@ -27,6 +27,8 @@ type LyricsCandidate = {
   variant: VariantPair;
   qualityScore: number;
   confidenceScore: number;
+  matchedTitle?: string;
+  matchedArtist?: string;
 };
 
 type ProviderAttempt = {
@@ -52,6 +54,8 @@ type GeniusLyricsResult = {
   songUrl: string;
   query: string;
   score: number;
+  matchedTitle: string;
+  matchedArtist: string;
 };
 
 type ResolvedLyricsResponse = {
@@ -656,6 +660,15 @@ function similarityScore(left: string, right: string): number {
   return longest > 0 ? 1 - (distance / longest) : 0;
 }
 
+function isVersionLikeTitle(value: string) {
+  const normalized = normalizeComparable(value);
+  if (!normalized) {
+    return false;
+  }
+
+  return /(live|karaoke|tribute|cover|remix|remaster|sped up|slowed|acoustic|instrumental|translation|romanized)/i.test(normalized);
+}
+
 export function scoreGeniusResult(result: GeniusSearchHit, cleanedTitle: string, cleanedArtist: string, queryHint?: string): number {
   if (result.type !== 'song') {
     return -1000;
@@ -669,6 +682,8 @@ export function scoreGeniusResult(result: GeniusSearchHit, cleanedTitle: string,
   const artistOverlap = calculateTokenOverlapScore(cleanedArtist, candidateArtist);
   const queryHintOverlap = queryHint ? calculateTokenOverlapScore(queryHint, `${candidateTitle} ${candidateArtist}`) : 0;
   const url = result.result?.url ?? '';
+  const exactTitleMatch = normalizeComparable(candidateTitle) === normalizeComparable(cleanedTitle);
+  const exactArtistMatch = cleanedArtist ? normalizeComparable(candidateArtist) === normalizeComparable(cleanedArtist) : false;
 
   let score = 0;
   score += titleSimilarity * 62;
@@ -676,6 +691,18 @@ export function scoreGeniusResult(result: GeniusSearchHit, cleanedTitle: string,
   score += titleOverlap * 16;
   score += artistOverlap * 12;
   score += queryHintOverlap * 18;
+
+  if (exactTitleMatch) {
+    score += 14;
+  }
+
+  if (exactArtistMatch) {
+    score += 10;
+  }
+
+  if (isVersionLikeTitle(candidateTitle) && !isVersionLikeTitle(cleanedTitle)) {
+    score -= 12;
+  }
 
   if (/\/lyrics(?:$|[?#])/i.test(url)) {
     score += 8;
@@ -781,6 +808,8 @@ export async function findLyrics(title: string, artist: string, searchHint: { qu
           songUrl,
           query: candidate.query,
           score: candidate.score,
+          matchedTitle: String(candidate.hit.result?.title ?? candidate.hit.result?.full_title ?? ''),
+          matchedArtist: String(candidate.hit.result?.primary_artist?.name ?? ''),
         } satisfies GeniusLyricsResult;
       } catch {
         return null;
@@ -1094,18 +1123,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       };
 
-      const registerCandidate = (lyrics: string, source: ProviderName, confidenceScore: number) => {
-        const titleOverlap = calculateTokenOverlapScore(song, variant.title ?? song);
-        const artistOverlap = artist ? calculateTokenOverlapScore(artist, variant.artist ?? artist) : 1;
-
-      // Reject weak title/artist matches early to prevent wrong-song lyric snaps.
-      if (titleOverlap < 0.5) {
-        return false;
-      }
-
-      if (artist && artistOverlap < 0.28 && titleOverlap < 0.75) {
-        return false;
-      }
+      const registerCandidate = (
+        lyrics: string,
+        source: ProviderName,
+        confidenceScore: number,
+        context?: { titleOverlap?: number; artistOverlap?: number; matchedTitle?: string; matchedArtist?: string },
+      ) => {
+        const titleOverlap = context?.titleOverlap ?? calculateTokenOverlapScore(song, variant.title ?? song);
+        const artistOverlap = context?.artistOverlap ?? (artist ? calculateTokenOverlapScore(artist, variant.artist ?? artist) : 1);
 
       const detectedLocale = detectLyricsLocale(lyrics);
       let localeBoost = 0;
@@ -1128,6 +1153,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         variant,
         qualityScore: scoreLyricsQuality(lyrics),
         confidenceScore: confidenceScore + relevanceBoost + localeBoost + sectionHeadingBoost,
+        matchedTitle: context?.matchedTitle,
+        matchedArtist: context?.matchedArtist,
       };
 
       if (!bestCandidateRef.current || scoreCandidate(candidate) > scoreCandidate(bestCandidateRef.current)) {
@@ -1146,6 +1173,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return false;
       };
 
+      const registerCandidateWithMatch = (
+        lyrics: string,
+        source: ProviderName,
+        confidenceScore: number,
+        matched?: { title?: string; artist?: string },
+      ) => {
+        const matchedTitle = normalizeText(String(matched?.title ?? ''));
+        const matchedArtist = normalizeText(String(matched?.artist ?? ''));
+        const referenceTitle = matchedTitle || variant.title || song;
+        const referenceArtist = matchedArtist || variant.artist || artist;
+        const titleOverlap = calculateTokenOverlapScore(song, referenceTitle);
+        const artistOverlap = artist ? calculateTokenOverlapScore(artist, referenceArtist) : 1;
+
+        // Reject weak title matches early; these are usually unrelated songs.
+        if (titleOverlap < 0.54) {
+          return false;
+        }
+
+        // When artist is provided, require stronger artist support unless title is near-exact.
+        if (artist && artistOverlap < 0.36 && titleOverlap < 0.9) {
+          return false;
+        }
+
+        return registerCandidate(
+          lyrics,
+          source,
+          confidenceScore + Math.round((titleOverlap * 10) + (artistOverlap * 8)),
+          { titleOverlap, artistOverlap, matchedTitle, matchedArtist },
+        );
+      };
+
       // Run every provider for this variant concurrently. Previously these were
       // awaited one-by-one with an early break, so a single slow/missing
       // provider delayed the whole chain and could exhaust the time budget
@@ -1153,30 +1211,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const providerFetchers: Array<{
         provider: ProviderName;
         confidence: number;
-        fetch: () => Promise<string | null>;
+        fetch: () => Promise<{ lyrics: string | null; matchedTitle?: string; matchedArtist?: string }>;
       }> = [
         {
           provider: 'lyricfind',
           confidence: 12,
-          fetch: async () => (await findLyrics(variant.title ?? song, variant.artist ?? artist, { query: variant.query, album: variant.album }))?.lyrics ?? null,
+          fetch: async () => {
+            const found = await findLyrics(variant.title ?? song, variant.artist ?? artist, { query: variant.query, album: variant.album });
+            if (!found) {
+              return { lyrics: null };
+            }
+
+            return {
+              lyrics: found.lyrics,
+              matchedTitle: found.matchedTitle,
+              matchedArtist: found.matchedArtist,
+            };
+          },
         },
-        { provider: 'musixmatch', confidence: 8, fetch: () => fetchMusixmatchLyrics(variant.title ?? song, variant.artist ?? artist) },
-        { provider: 'azlyrics', confidence: 7, fetch: () => fetchAzLyrics(variant.title ?? song, variant.artist ?? artist) },
-        { provider: 'lyricscom', confidence: 6, fetch: () => fetchLyricsCom(variant.title ?? song, variant.artist ?? artist) },
-        { provider: 'lyricwiki', confidence: 5, fetch: () => fetchLyricWiki(variant.title ?? song, variant.artist ?? artist) },
-        { provider: 'lrclib', confidence: 10, fetch: () => fetchLrcLibLyrics(variant.title ?? song, variant.artist ?? artist) },
-        { provider: 'audd', confidence: 7, fetch: () => fetchAudDLyrics(variant.title ?? song, variant.artist ?? artist) },
-        { provider: 'chartlyrics', confidence: 5, fetch: () => fetchChartLyrics(variant.title ?? song, variant.artist ?? artist) },
-        { provider: 'lyrics.ovh', confidence: 3, fetch: () => fetchLyricsOvh(variant.title ?? song, variant.artist ?? artist) },
+        { provider: 'musixmatch', confidence: 8, fetch: async () => ({ lyrics: await fetchMusixmatchLyrics(variant.title ?? song, variant.artist ?? artist) }) },
+        { provider: 'azlyrics', confidence: 7, fetch: async () => ({ lyrics: await fetchAzLyrics(variant.title ?? song, variant.artist ?? artist) }) },
+        { provider: 'lyricscom', confidence: 6, fetch: async () => ({ lyrics: await fetchLyricsCom(variant.title ?? song, variant.artist ?? artist) }) },
+        { provider: 'lyricwiki', confidence: 5, fetch: async () => ({ lyrics: await fetchLyricWiki(variant.title ?? song, variant.artist ?? artist) }) },
+        { provider: 'lrclib', confidence: 10, fetch: async () => ({ lyrics: await fetchLrcLibLyrics(variant.title ?? song, variant.artist ?? artist) }) },
+        { provider: 'audd', confidence: 7, fetch: async () => ({ lyrics: await fetchAudDLyrics(variant.title ?? song, variant.artist ?? artist) }) },
+        { provider: 'chartlyrics', confidence: 5, fetch: async () => ({ lyrics: await fetchChartLyrics(variant.title ?? song, variant.artist ?? artist) }) },
+        { provider: 'lyrics.ovh', confidence: 3, fetch: async () => ({ lyrics: await fetchLyricsOvh(variant.title ?? song, variant.artist ?? artist) }) },
       ];
 
       const providerResults = await Promise.all(
         providerFetchers.map(async ({ provider, confidence, fetch }) => {
           try {
-            const lyrics = await fetch();
-            return { provider, confidence, lyrics };
+            const result = await fetch();
+            return {
+              provider,
+              confidence,
+              lyrics: result.lyrics,
+              matchedTitle: result.matchedTitle,
+              matchedArtist: result.matchedArtist,
+            };
           } catch {
-            return { provider, confidence, lyrics: null as string | null };
+            return {
+              provider,
+              confidence,
+              lyrics: null as string | null,
+              matchedTitle: undefined,
+              matchedArtist: undefined,
+            };
           }
         }),
       );
@@ -1184,10 +1265,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Evaluate providers in priority order so that, on ties, the higher-rated
       // source wins and the confident-winner short circuit stays deterministic.
       let foundConfidentWinner = false;
-      for (const { provider, confidence, lyrics } of providerResults) {
+      for (const { provider, confidence, lyrics, matchedTitle, matchedArtist } of providerResults) {
         if (lyrics) {
           markAttempt(provider, true);
-          if (registerCandidate(lyrics, provider, confidence)) {
+          if (registerCandidateWithMatch(lyrics, provider, confidence, { title: matchedTitle, artist: matchedArtist })) {
             foundConfidentWinner = true;
           }
         } else {
@@ -1209,6 +1290,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           lyrics: resolvedBestCandidate.lyrics,
           source: resolvedBestCandidate.source,
           variant: resolvedBestCandidate.variant,
+          track: {
+            title: resolvedBestCandidate.matchedTitle || resolvedBestCandidate.variant.title,
+            artist: resolvedBestCandidate.matchedArtist || resolvedBestCandidate.variant.artist,
+          },
           ...(includeDebug
             ? {
                 debug: {

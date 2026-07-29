@@ -423,13 +423,13 @@ function onlineResultMatchesSong(song: LyricSongRef, payload: Record<string, unk
     const titleMatch = tokenOverlapScore(song.title, candidate.title)
 
     if (titleOnlyMatch) {
-      return titleMatch >= 0.64
+      return titleMatch >= 0.74
     }
 
     const artistMatch = candidate.artist ? tokenOverlapScore(song.artist, candidate.artist) : 1
 
     // Keep strong same-song guarantees while allowing covers/alternate credits.
-    return (titleMatch >= 0.64 && artistMatch >= 0.45) || titleMatch >= 0.86
+    return (titleMatch >= 0.7 && artistMatch >= 0.55) || titleMatch >= 0.9
   })
 }
 
