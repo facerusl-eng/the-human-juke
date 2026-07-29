@@ -18,6 +18,11 @@ export default function LyricMachinePage() {
   useEffect(() => {
     let isCurrent = true
     setHasPlaybackStateResolved(false)
+    const resolveTimeoutId = window.setTimeout(() => {
+      if (isCurrent) {
+        setHasPlaybackStateResolved(true)
+      }
+    }, 2500)
 
     const syncPlaybackState = async () => {
       if (!event?.id) {
@@ -41,6 +46,7 @@ export default function LyricMachinePage() {
       const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState }>).detail
       if (detail?.eventId === event?.id) {
         setPlaybackState(detail.state)
+        setHasPlaybackStateResolved(true)
       }
     }
 
@@ -53,6 +59,7 @@ export default function LyricMachinePage() {
         const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
         if (detail.eventId === event?.id && detail.state) {
           setPlaybackState(detail.state)
+          setHasPlaybackStateResolved(true)
         }
       } catch {
         // Ignore malformed cross-tab payloads.
@@ -68,6 +75,7 @@ export default function LyricMachinePage() {
         const detail = messageEvent.data
         if (detail?.eventId === event?.id && detail.state) {
           setPlaybackState(detail.state)
+          setHasPlaybackStateResolved(true)
         }
       }
     }
@@ -77,6 +85,7 @@ export default function LyricMachinePage() {
 
     return () => {
       isCurrent = false
+      window.clearTimeout(resolveTimeoutId)
       window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
       window.removeEventListener('storage', onStoragePlaybackState)
       playbackBroadcastChannel?.close()
@@ -128,7 +137,8 @@ export default function LyricMachinePage() {
   }, [playbackState?.currentSongId, songs])
 
   const shouldHoldForPlaybackSync = Boolean(event?.id) && !hasPlaybackStateResolved
-  const isQuoteModeActive = playbackState?.isStarted === false
+  const playbackSongId = playbackState?.currentSongId?.trim() ?? ''
+  const isQuoteModeActive = playbackState?.isStarted === false && playbackSongId.length === 0
   const activeSong = shouldHoldForPlaybackSync || isQuoteModeActive
     ? null
     : nowPlayingSong ?? querySong
