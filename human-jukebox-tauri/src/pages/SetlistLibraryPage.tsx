@@ -464,6 +464,7 @@ function SetlistLibraryPage() {
   const [errorText, setErrorText] = useState<string | null>(null)
   const [successText, setSuccessText] = useState<string | null>(null)
   const [busyAction, setBusyAction] = useState<string | null>(null)
+  const [everyNthStep, setEveryNthStep] = useState(2)
   const isMountedRef = useRef(true)
   const actionLocksRef = useRef<Set<string>>(new Set())
 
@@ -517,6 +518,7 @@ function SetlistLibraryPage() {
   }, [deferredSearchText, songs])
 
   const isKaraokeSelectedPlaylist = selectedPlaylist?.playlist_type === 'karaoke'
+  const isSetlistByNameSelectedPlaylist = (selectedPlaylist?.name ?? '').trim().toLowerCase().includes('setlist by name')
 
   useEffect(() => {
     if (!userId) {
@@ -1169,6 +1171,52 @@ function SetlistLibraryPage() {
     }
   }
 
+  const addEveryNthSongToQueue = async (setlist: PlaylistSongRecord[], step: number) => {
+    const actionKey = `queue-every-${step}`
+
+    if (!beginAction(actionKey)) {
+      return
+    }
+
+    setErrorText(null)
+    setSuccessText(null)
+
+    try {
+      const normalizedStep = Math.max(1, Math.floor(step))
+      const songsToQueue = setlist.filter((_, index) => (index + 1) % normalizedStep === 0)
+
+      if (songsToQueue.length === 0) {
+        setErrorText(`No songs found at every ${normalizedStep} position in this setlist.`)
+        return
+      }
+
+      let queuedCount = 0
+
+      for (const song of songsToQueue) {
+        try {
+          await addSong(song.title, song.artist, song.is_explicit, {
+            coverUrl: song.cover_url,
+            librarySongId: song.id,
+            performerMode: selectedPlaylist?.playlist_type === 'karaoke' ? 'audience' : 'performer',
+            bypassEventRules: true,
+          })
+          queuedCount += 1
+        } catch {
+          // Keep processing the remaining songs.
+        }
+      }
+
+      if (queuedCount === 0) {
+        setErrorText('Failed to queue songs for this selection.')
+        return
+      }
+
+      setSuccessText(`Queued ${queuedCount} song${queuedCount === 1 ? '' : 's'} from every ${normalizedStep} position.`)
+    } finally {
+      endAction(actionKey)
+    }
+  }
+
   const onImportPlaylistFile = async (changeEvent: ChangeEvent<HTMLInputElement>) => {
     const actionKey = 'import-file'
     const selectedFile = changeEvent.target.files?.[0]
@@ -1394,7 +1442,33 @@ function SetlistLibraryPage() {
                 {busyAction === 'delete-playlist' ? 'Deleting...' : 'Delete'}
               </button>
             </div>
-            <span className="meta-badge">{event ? `Queue to ${event.name}` : 'Create a gig to queue songs'}</span>
+            <div className="setlist-rename-controls">
+              {isSetlistByNameSelectedPlaylist ? (
+                <>
+                  <label htmlFor="setlist-every-nth-step">Add every X song to Songlist</label>
+                  <input
+                    id="setlist-every-nth-step"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={everyNthStep}
+                    onChange={(event) => {
+                      const nextStep = Number(event.target.value)
+                      setEveryNthStep(Number.isFinite(nextStep) && nextStep > 0 ? Math.floor(nextStep) : 1)
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={async () => { await addEveryNthSongToQueue(songs, everyNthStep) }}
+                    disabled={!event || !songs.length || busyAction === `queue-every-${Math.max(1, Math.floor(everyNthStep))}`}
+                  >
+                    {busyAction === `queue-every-${Math.max(1, Math.floor(everyNthStep))}` ? 'Queueing...' : 'Add every X song to Songlist'}
+                  </button>
+                </>
+              ) : null}
+              <span className="meta-badge">{event ? `Queue to ${event.name}` : 'Create a gig to queue songs'}</span>
+            </div>
           </div>
 
           <form className="setlist-song-form" onSubmit={onAddSongToPlaylist}>
