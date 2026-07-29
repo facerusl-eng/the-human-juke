@@ -15,6 +15,7 @@ const DISPLAY_PRESET_STORAGE_KEY = 'human-jukebox-lyric-machine-display-preset-v
 const ROTATION_DEGREES_STORAGE_KEY = 'human-jukebox-lyric-machine-rotation-degrees-v1'
 const TOOLBAR_AUTO_HIDE_MS = 5_000
 const ROTATION_DEGREES_OPTIONS = [0, 90, 180, 270] as const
+const BROWSER_CAST_ORIGIN = 'https://www.the-human-jukebox.org'
 const DISPLAY_PRESETS: Array<{ id: LyricMachineDisplayPreset; label: string; description: string }> = [
   { id: 'tight', label: 'Compact', description: 'Fits more lines with tighter spacing' },
   { id: 'balanced', label: 'Balanced', description: 'Best all-around fit for the frame' },
@@ -53,6 +54,16 @@ function isLyricMachineFullscreen() {
   return isFullscreenActive() || isBrowserWindowFullscreen()
 }
 
+function isTauriRuntime() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return window.location.protocol === 'tauri:'
+    || window.location.protocol === 'file:'
+    || '__TAURI_INTERNALS__' in (window as unknown as Record<string, unknown>)
+}
+
 function readStoredDisplayPreset(): LyricMachineDisplayPreset {
   if (typeof window === 'undefined') {
     return 'max'
@@ -85,6 +96,7 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
   const [rotationDegrees, setRotationDegrees] = useState<number>(() => readStoredRotationDegrees())
   const [isToolbarVisible, setIsToolbarVisible] = useState(true)
   const [isInFullscreen, setIsInFullscreen] = useState(() => isLyricMachineFullscreen())
+  const [browserCastStatus, setBrowserCastStatus] = useState('')
   const autoHideTimeoutRef = useRef<number | null>(null)
   const toolbarVisibilityBeforeFullscreenRef = useRef(true)
   const wasInFullscreenRef = useRef(isLyricMachineFullscreen())
@@ -117,6 +129,59 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
     scheduleToolbarAutoHide()
   }, [isInFullscreen, scheduleToolbarAutoHide, showLogoScreen])
 
+  const openInBrowserForCast = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const searchParams = new URLSearchParams()
+    if (activeSong?.title?.trim()) {
+      searchParams.set('title', activeSong.title.trim())
+    }
+    if (activeSong?.artist?.trim()) {
+      searchParams.set('artist', activeSong.artist.trim())
+    }
+    if (activeSong?.id?.trim()) {
+      searchParams.set('songId', activeSong.id.trim())
+    }
+    if (activeSong?.librarySongId?.trim()) {
+      searchParams.set('librarySongId', activeSong.librarySongId.trim())
+    }
+    if (activeSong?.album?.trim()) {
+      searchParams.set('album', activeSong.album.trim())
+    }
+    if (typeof activeSong?.duration === 'number' && Number.isFinite(activeSong.duration)) {
+      searchParams.set('duration', String(activeSong.duration))
+    }
+
+    const appOrigin = import.meta.env.VITE_PUBLIC_APP_ORIGIN?.trim()
+      || import.meta.env.VITE_WEB_APP_ORIGIN?.trim()
+      || import.meta.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
+      || BROWSER_CAST_ORIGIN
+    const normalizedOrigin = appOrigin.replace(/\/$/, '')
+    const castUrl = `${normalizedOrigin}/lyric-machine${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+
+    let openedWindow: Window | null = null
+    try {
+      openedWindow = window.open(`microsoft-edge:${castUrl}`, '_blank', 'noopener,noreferrer')
+    } catch {
+      openedWindow = null
+    }
+
+    if (!openedWindow) {
+      openedWindow = window.open(castUrl, '_blank', 'noopener,noreferrer')
+    }
+
+    if (openedWindow) {
+      openedWindow.focus()
+      setBrowserCastStatus('Opened browser. Use the browser cast menu (three dots) to cast.')
+      scheduleToolbarAutoHide()
+      return
+    }
+
+    setBrowserCastStatus('Browser could not be opened. Please allow pop-ups and try again.')
+  }, [activeSong, scheduleToolbarAutoHide])
+
   useEffect(() => {
     const onFullscreenChange = () => {
       setIsInFullscreen(isLyricMachineFullscreen())
@@ -133,6 +198,21 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
       document.removeEventListener('webkitfullscreenchange', onFullscreenChange as EventListener)
       window.removeEventListener('resize', onFullscreenChange)
       window.removeEventListener('focus', onFullscreenChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      const fullscreenNow = isLyricMachineFullscreen()
+      setIsInFullscreen((currentFullscreen) => (currentFullscreen === fullscreenNow ? currentFullscreen : fullscreenNow))
+    }, 350)
+
+    return () => {
+      window.clearInterval(intervalId)
     }
   }, [])
 
@@ -290,6 +370,18 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
                 {preset.label}
               </button>
             ))}
+            {isTauriRuntime() ? (
+              <button
+                type="button"
+                className="lyric-machine-display-btn"
+                onClick={openInBrowserForCast}
+                title="Open LyricMachine in browser for native cast menu"
+                aria-label="Open LyricMachine in browser for native cast menu"
+              >
+                Open Browser Cast
+              </button>
+            ) : null}
+            {browserCastStatus ? <p className="lyric-machine-browser-cast-status">{browserCastStatus}</p> : null}
           </div>
           <div className={`lyric-machine-viewport lyric-machine-viewport-rot-${rotationDegrees}`}>
             <AudienceLyricView state={lyricStateController.state} layoutMode="fit-16-9" fitPreset={displayPreset} />

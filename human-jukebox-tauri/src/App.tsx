@@ -300,10 +300,6 @@ const router = createAppRouter([
         element: withSuspense(withCrashBoundary('Audience', <FeedPage />)),
       },
       {
-        path: 'lyric-machine',
-        element: withSuspense(withCrashBoundary('Lyric Machine', <LyricMachinePage />)),
-      },
-      {
         path: 'event',
         element: <Navigate to="/audience" replace />,
       },
@@ -468,7 +464,12 @@ const router = createAppRouter([
   },
   {
     path: '/lyric-machine',
-    element: withCrashBoundary('Lyric Machine', withSuspense(<LyricMachinePage />)),
+    element: withCrashBoundary(
+      'Lyric Machine',
+      demoMode
+        ? <DemoAuthProvider><DemoQueueProvider>{withSuspense(<LyricMachinePage />)}</DemoQueueProvider></DemoAuthProvider>
+        : <AuthProvider><QueueProvider>{withSuspense(<LyricMachinePage />)}</QueueProvider></AuthProvider>,
+    ),
     errorElement: <RouteErrorFallback />,
   },
   {

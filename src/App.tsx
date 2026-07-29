@@ -19,6 +19,7 @@ import HomePage from './pages/HomePage'
 import JamzoneLyricsPage from './pages/JamzoneLyricsPage'
 import LyricsBoardPage from './pages/LyricsBoardPage'
 import IpadControllerPage from './pages/IpadControllerPage'
+import LyricMachinePage from './pages/LyricMachinePage'
 import { AuthProvider } from './state/authStore'
 import { QueueProvider } from './state/queueStore'
 import { demoMode } from './demo/demoMode'
@@ -416,6 +417,16 @@ const router = createBrowserRouter([
       demoMode
         ? <DemoAuthProvider><DemoQueueProvider>{withSuspense(<MirrorPage />)}</DemoQueueProvider></DemoAuthProvider>
         : <AuthProvider><QueueProvider>{withSuspense(<MirrorPage />)}</QueueProvider></AuthProvider>,
+    ),
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: '/lyric-machine',
+    element: withCrashBoundary(
+      'Lyric Machine',
+      demoMode
+        ? <DemoAuthProvider><DemoQueueProvider>{withSuspense(<LyricMachinePage />)}</DemoQueueProvider></DemoAuthProvider>
+        : <AuthProvider><QueueProvider>{withSuspense(<LyricMachinePage />)}</QueueProvider></AuthProvider>,
     ),
     errorElement: <RouteErrorFallback />,
   },

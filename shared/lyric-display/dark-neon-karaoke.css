@@ -117,6 +117,16 @@
     0 0 20px rgba(199, 125, 255, 0.18);
 }
 
+.lyric-machine-browser-cast-status {
+  margin: 0;
+  width: 100%;
+  text-align: right;
+  color: #f1f5f9;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.78);
+}
+
 .lyric-machine-viewport {
   position: relative;
   width: 100vw;
