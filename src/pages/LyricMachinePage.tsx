@@ -15,8 +15,19 @@ export default function LyricMachinePage() {
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [hasPlaybackStateResolved, setHasPlaybackStateResolved] = useState(false)
 
+  const playbackEventId = useMemo(() => {
+    const explicitEventId = event?.id?.trim()
+    if (explicitEventId) {
+      return explicitEventId
+    }
+
+    const params = new URLSearchParams(location.search)
+    return (params.get('event') ?? params.get('eventId') ?? '').trim() || null
+  }, [event?.id, location.search])
+
   useEffect(() => {
     let isCurrent = true
+    let syncInFlight = false
     setHasPlaybackStateResolved(false)
     const resolveTimeoutId = window.setTimeout(() => {
       if (isCurrent) {
@@ -25,7 +36,7 @@ export default function LyricMachinePage() {
     }, 2500)
 
     const syncPlaybackState = async () => {
-      if (!event?.id) {
+      if (!playbackEventId) {
         if (isCurrent) {
           setPlaybackState(null)
           setHasPlaybackStateResolved(true)
@@ -33,18 +44,30 @@ export default function LyricMachinePage() {
         return
       }
 
-      const nextPlaybackState = await readSharedPlaybackState(event.id)
-      if (isCurrent) {
-        setPlaybackState(nextPlaybackState)
-        setHasPlaybackStateResolved(true)
+      if (syncInFlight) {
+        return
+      }
+
+      syncInFlight = true
+      try {
+        const nextPlaybackState = await readSharedPlaybackState(playbackEventId)
+        if (isCurrent) {
+          setPlaybackState(nextPlaybackState)
+          setHasPlaybackStateResolved(true)
+        }
+      } finally {
+        syncInFlight = false
       }
     }
 
     void syncPlaybackState()
+    const pollIntervalId = window.setInterval(() => {
+      void syncPlaybackState()
+    }, 1500)
 
     const onPlaybackStateEvent = (nextEvent: Event) => {
       const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState }>).detail
-      if (detail?.eventId === event?.id) {
+      if (detail?.eventId === playbackEventId) {
         setPlaybackState(detail.state)
         setHasPlaybackStateResolved(true)
       }
@@ -57,7 +80,7 @@ export default function LyricMachinePage() {
 
       try {
         const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
-        if (detail.eventId === event?.id && detail.state) {
+        if (detail.eventId === playbackEventId && detail.state) {
           setPlaybackState(detail.state)
           setHasPlaybackStateResolved(true)
         }
@@ -73,7 +96,7 @@ export default function LyricMachinePage() {
     if (playbackBroadcastChannel) {
       playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
         const detail = messageEvent.data
-        if (detail?.eventId === event?.id && detail.state) {
+        if (detail?.eventId === playbackEventId && detail.state) {
           setPlaybackState(detail.state)
           setHasPlaybackStateResolved(true)
         }
@@ -86,11 +109,12 @@ export default function LyricMachinePage() {
     return () => {
       isCurrent = false
       window.clearTimeout(resolveTimeoutId)
+      window.clearInterval(pollIntervalId)
       window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
       window.removeEventListener('storage', onStoragePlaybackState)
       playbackBroadcastChannel?.close()
     }
-  }, [event?.id])
+  }, [playbackEventId])
 
   const querySong = useMemo(() => {
     const params = new URLSearchParams(location.search)
@@ -136,18 +160,19 @@ export default function LyricMachinePage() {
     }
   }, [playbackState?.currentSongId, songs])
 
-  const shouldHoldForPlaybackSync = Boolean(event?.id) && !hasPlaybackStateResolved
+  const shouldHoldForPlaybackSync = Boolean(playbackEventId) && !hasPlaybackStateResolved
   const isQuoteModeActive = playbackState?.isStarted === false
-  const hasEventContext = Boolean(event?.id)
+  const hasEventContext = Boolean(playbackEventId)
+  const shouldUseQueryFallback = hasEventContext && !nowPlayingSong && !playbackState?.currentSongId
   const activeSong = shouldHoldForPlaybackSync || isQuoteModeActive
     ? null
-    : nowPlayingSong ?? (hasEventContext ? null : querySong)
+    : nowPlayingSong ?? (shouldUseQueryFallback || !hasEventContext ? querySong : null)
 
   return (
     <LyricMachineView
       supabase={supabase}
       activeSong={activeSong}
-      eventId={event?.id ?? null}
+      eventId={playbackEventId}
       showLogoScreen={shouldHoldForPlaybackSync || isQuoteModeActive || !activeSong}
       returnToPath={location.pathname + location.search}
     />
