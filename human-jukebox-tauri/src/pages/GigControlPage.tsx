@@ -4492,6 +4492,33 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               {introSpotifyDebugStatusText ? <p className="meta-badge gig-focus-spotify-status" role="status" aria-live="polite">{introSpotifyDebugStatusText}</p> : null}
             </div>
           </div>
+          <div className="gig-brb-input-block" aria-label="Manual lyric search fallback">
+            <p className="subcopy no-margin">If lyric finder fails, search lyrics manually here.</p>
+            <div className="hero-actions gig-control-touch-actions">
+              <input
+                type="text"
+                className="gig-switcher-select"
+                placeholder="Manual lyric title"
+                value={manualLyricsTitle}
+                onChange={(event) => setManualLyricsTitle(event.target.value)}
+              />
+              <input
+                type="text"
+                className="gig-switcher-select"
+                placeholder="Manual lyric artist (optional)"
+                value={manualLyricsArtist}
+                onChange={(event) => setManualLyricsArtist(event.target.value)}
+              />
+              <button
+                type="button"
+                className="secondary-button"
+                title="Manually search and open lyrics when auto lookup fails"
+                onClick={openManualLyricsSearch}
+              >
+                Search Lyrics Manually
+              </button>
+            </div>
+          </div>
         </section>
       ) : null}
 
