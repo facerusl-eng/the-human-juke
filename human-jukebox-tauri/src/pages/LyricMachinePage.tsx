@@ -16,6 +16,7 @@ export default function LyricMachinePage() {
   const location = useLocation()
   const { event, songs } = useQueueStore()
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
+  const [hasPlaybackStateResolved, setHasPlaybackStateResolved] = useState(false)
 
   useEffect(() => {
     if (!isTauriDesktopRuntime()) {
@@ -55,11 +56,13 @@ export default function LyricMachinePage() {
 
   useEffect(() => {
     let isCurrent = true
+    setHasPlaybackStateResolved(false)
 
     const syncPlaybackState = async () => {
       if (!event?.id) {
         if (isCurrent) {
           setPlaybackState(null)
+          setHasPlaybackStateResolved(true)
         }
         return
       }
@@ -67,6 +70,7 @@ export default function LyricMachinePage() {
       const nextPlaybackState = await readSharedPlaybackState(event.id)
       if (isCurrent) {
         setPlaybackState(nextPlaybackState)
+        setHasPlaybackStateResolved(true)
       }
     }
 
@@ -143,7 +147,8 @@ export default function LyricMachinePage() {
     }
   }, [playbackState?.currentSongId, songs])
 
-  const activeSong = playbackState?.isStarted === false
+  const shouldHoldForPlaybackSync = Boolean(event?.id) && !hasPlaybackStateResolved
+  const activeSong = shouldHoldForPlaybackSync || playbackState?.isStarted === false
     ? null
     : nowPlayingSong ?? querySong
 
@@ -165,7 +170,7 @@ export default function LyricMachinePage() {
       supabase={supabase}
       activeSong={activeSong}
       eventId={event?.id ?? null}
-      showLogoScreen={playbackState?.isStarted === false || !activeSong}
+      showLogoScreen={shouldHoldForPlaybackSync || playbackState?.isStarted === false || !activeSong}
       returnToPath={location.pathname + location.search}
       onOpenExternalUrl={openExternalUrl}
     />

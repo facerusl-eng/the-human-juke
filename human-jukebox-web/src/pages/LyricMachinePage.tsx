@@ -13,14 +13,17 @@ export default function LyricMachinePage() {
   const location = useLocation()
   const { event, songs } = useQueueStore()
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
+  const [hasPlaybackStateResolved, setHasPlaybackStateResolved] = useState(false)
 
   useEffect(() => {
     let isCurrent = true
+    setHasPlaybackStateResolved(false)
 
     const syncPlaybackState = async () => {
       if (!event?.id) {
         if (isCurrent) {
           setPlaybackState(null)
+          setHasPlaybackStateResolved(true)
         }
         return
       }
@@ -28,6 +31,7 @@ export default function LyricMachinePage() {
       const nextPlaybackState = await readSharedPlaybackState(event.id)
       if (isCurrent) {
         setPlaybackState(nextPlaybackState)
+        setHasPlaybackStateResolved(true)
       }
     }
 
@@ -123,8 +127,9 @@ export default function LyricMachinePage() {
     }
   }, [playbackState?.currentSongId, songs])
 
+  const shouldHoldForPlaybackSync = Boolean(event?.id) && !hasPlaybackStateResolved
   const isQuoteModeActive = playbackState?.isStarted === false
-  const activeSong = isQuoteModeActive
+  const activeSong = shouldHoldForPlaybackSync || isQuoteModeActive
     ? null
     : nowPlayingSong ?? querySong
 
@@ -133,7 +138,7 @@ export default function LyricMachinePage() {
       supabase={supabase}
       activeSong={activeSong}
       eventId={event?.id ?? null}
-      showLogoScreen={isQuoteModeActive || !activeSong}
+      showLogoScreen={shouldHoldForPlaybackSync || isQuoteModeActive || !activeSong}
       returnToPath={location.pathname + location.search}
     />
   )
