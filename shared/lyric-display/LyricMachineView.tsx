@@ -22,9 +22,40 @@ const DISPLAY_PRESETS: Array<{ id: LyricMachineDisplayPreset; label: string; des
   { id: 'max', label: 'Full', description: 'Pushes the lyric to use the full tab' },
 ]
 
+function isFullscreenActive() {
+  if (typeof document === 'undefined') {
+    return false
+  }
+
+  const fullscreenDocument = document as Document & {
+    webkitFullscreenElement?: Element | null
+  }
+
+  return Boolean(document.fullscreenElement || fullscreenDocument.webkitFullscreenElement)
+}
+
+function isBrowserWindowFullscreen() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const nearlyEqual = (left: number, right: number, tolerance = 2) => Math.abs(left - right) <= tolerance
+  const matchesWindowBounds = nearlyEqual(window.innerWidth, window.screen.width)
+    && nearlyEqual(window.innerHeight, window.screen.height)
+  const displayModeFullscreen = typeof window.matchMedia === 'function'
+    ? window.matchMedia('(display-mode: fullscreen)').matches
+    : false
+
+  return matchesWindowBounds || displayModeFullscreen
+}
+
+function isLyricMachineFullscreen() {
+  return isFullscreenActive() || isBrowserWindowFullscreen()
+}
+
 function readStoredDisplayPreset(): LyricMachineDisplayPreset {
   if (typeof window === 'undefined') {
-    return 'balanced'
+    return 'max'
   }
 
   const stored = window.localStorage.getItem(DISPLAY_PRESET_STORAGE_KEY)?.trim() as LyricMachineDisplayPreset | null
@@ -32,7 +63,7 @@ function readStoredDisplayPreset(): LyricMachineDisplayPreset {
     return stored
   }
 
-  return 'balanced'
+  return 'max'
 }
 
 function readStoredRotationDegrees() {
@@ -53,7 +84,10 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
   const [displayPreset, setDisplayPreset] = useState<LyricMachineDisplayPreset>(() => readStoredDisplayPreset())
   const [rotationDegrees, setRotationDegrees] = useState<number>(() => readStoredRotationDegrees())
   const [isToolbarVisible, setIsToolbarVisible] = useState(true)
+  const [isInFullscreen, setIsInFullscreen] = useState(() => isLyricMachineFullscreen())
   const autoHideTimeoutRef = useRef<number | null>(null)
+  const toolbarVisibilityBeforeFullscreenRef = useRef(true)
+  const wasInFullscreenRef = useRef(isLyricMachineFullscreen())
   const lyricStateController = useSharedLyricState(supabase, 'lyric-machine')
 
   const clearToolbarAutoHide = useCallback(() => {
@@ -64,7 +98,7 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
   }, [])
 
   const scheduleToolbarAutoHide = useCallback(() => {
-    if (showLogoScreen || typeof window === 'undefined') {
+    if (showLogoScreen || isInFullscreen || typeof window === 'undefined') {
       return
     }
 
@@ -72,16 +106,58 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
     autoHideTimeoutRef.current = window.setTimeout(() => {
       setIsToolbarVisible(false)
     }, TOOLBAR_AUTO_HIDE_MS)
-  }, [clearToolbarAutoHide, showLogoScreen])
+  }, [clearToolbarAutoHide, isInFullscreen, showLogoScreen])
 
   const revealToolbar = useCallback(() => {
-    if (showLogoScreen) {
+    if (showLogoScreen || isInFullscreen) {
       return
     }
 
     setIsToolbarVisible(true)
     scheduleToolbarAutoHide()
-  }, [scheduleToolbarAutoHide, showLogoScreen])
+  }, [isInFullscreen, scheduleToolbarAutoHide, showLogoScreen])
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsInFullscreen(isLyricMachineFullscreen())
+    }
+
+    onFullscreenChange()
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange as EventListener)
+    window.addEventListener('resize', onFullscreenChange)
+    window.addEventListener('focus', onFullscreenChange)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange as EventListener)
+      window.removeEventListener('resize', onFullscreenChange)
+      window.removeEventListener('focus', onFullscreenChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isInFullscreen && !wasInFullscreenRef.current) {
+      toolbarVisibilityBeforeFullscreenRef.current = isToolbarVisible
+      clearToolbarAutoHide()
+      setIsToolbarVisible(false)
+      wasInFullscreenRef.current = true
+      return
+    }
+
+    if (isInFullscreen) {
+      return
+    }
+
+    if (wasInFullscreenRef.current) {
+      wasInFullscreenRef.current = false
+      const nextVisibility = toolbarVisibilityBeforeFullscreenRef.current
+      setIsToolbarVisible(nextVisibility)
+      if (nextVisibility && !showLogoScreen) {
+        scheduleToolbarAutoHide()
+      }
+    }
+  }, [clearToolbarAutoHide, isInFullscreen, isToolbarVisible, scheduleToolbarAutoHide, showLogoScreen])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -104,14 +180,15 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
       return
     }
 
-    if (showLogoScreen) {
+    if (showLogoScreen || isInFullscreen) {
       clearToolbarAutoHide()
       setIsToolbarVisible(false)
       return
     }
 
-    setIsToolbarVisible(true)
-    scheduleToolbarAutoHide()
+    if (isToolbarVisible) {
+      scheduleToolbarAutoHide()
+    }
 
     const onInteraction = () => {
       revealToolbar()
@@ -127,7 +204,7 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
       window.removeEventListener('keydown', onInteraction)
       clearToolbarAutoHide()
     }
-  }, [clearToolbarAutoHide, revealToolbar, scheduleToolbarAutoHide, showLogoScreen])
+  }, [clearToolbarAutoHide, isInFullscreen, isToolbarVisible, revealToolbar, scheduleToolbarAutoHide, showLogoScreen])
 
   useEffect(() => {
     if (showLogoScreen || !activeSong || hasOpened) {
@@ -184,10 +261,10 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
       ) : (
         <>
           <div
-            className={`lyric-machine-display-toolbar${isToolbarVisible ? '' : ' lyric-machine-display-toolbar-hidden'}`}
+            className={`lyric-machine-display-toolbar${isToolbarVisible ? '' : ' lyric-machine-display-toolbar-hidden'}${isInFullscreen ? ' lyric-machine-display-toolbar-fullscreen-hidden' : ''}`}
             role="toolbar"
             aria-label="Lyric display presets"
-            aria-hidden={!isToolbarVisible}
+            aria-hidden={!isToolbarVisible || isInFullscreen}
           >
             <button
               type="button"
