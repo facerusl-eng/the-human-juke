@@ -33,9 +33,75 @@ async fn fetch_lyrics_remote(url: String) -> Result<RemoteFetchResult, String> {
     Ok(RemoteFetchResult { ok, status, body })
 }
 
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return Err("Missing URL".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let status = std::process::Command::new("cmd")
+            .arg("/C")
+            .arg("start")
+            .arg("")
+            .arg(trimmed)
+            .status()
+            .map_err(|err| format!("Failed to open browser: {err}"))?;
+
+        if status.success() {
+            return Ok(());
+        }
+
+        return Err(format!("Browser launch returned status: {status}"));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("open")
+            .arg(trimmed)
+            .status()
+            .map_err(|err| format!("Failed to open browser: {err}"))?;
+
+        if status.success() {
+            return Ok(());
+        }
+
+        return Err(format!("Browser launch returned status: {status}"));
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let status = std::process::Command::new("xdg-open")
+            .arg(trimmed)
+            .status()
+            .map_err(|err| format!("Failed to open browser: {err}"))?;
+
+        if status.success() {
+            return Ok(());
+        }
+
+        return Err(format!("Browser launch returned status: {status}"));
+    }
+}
+
+fn toggle_fullscreen_for_window(window: &tauri::WebviewWindow) {
+    if let Ok(is_fullscreen) = window.is_fullscreen() {
+        let next_fullscreen = !is_fullscreen;
+        let should_toggle_decorations = window.label() != "main";
+
+        if should_toggle_decorations {
+            let _ = window.set_decorations(!next_fullscreen);
+        }
+
+        let _ = window.set_fullscreen(next_fullscreen);
+    }
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![fetch_lyrics_remote])
+        .invoke_handler(tauri::generate_handler![fetch_lyrics_remote, open_external_url])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_fullscreen(true);
@@ -120,14 +186,14 @@ fn main() {
                     }
                 }
                 "toggle-fullscreen" => {
-                    // Only toggle the main window if it's the focused one.
-                    // Other windows (e.g. mirror) handle F11 in their own JS handler.
-                    if let Some(window) = app.get_webview_window("main") {
-                        if window.is_focused().unwrap_or(false) {
-                            if let Ok(is_fullscreen) = window.is_fullscreen() {
-                                let _ = window.set_fullscreen(!is_fullscreen);
-                            }
-                        }
+                    if let Some(window) = app
+                        .webview_windows()
+                        .values()
+                        .find(|window| window.is_focused().unwrap_or(false))
+                    {
+                        toggle_fullscreen_for_window(window);
+                    } else if let Some(window) = app.get_webview_window("main") {
+                        toggle_fullscreen_for_window(&window);
                     }
                 }
                 "refresh" => {

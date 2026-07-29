@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { invoke } from '@tauri-apps/api/core'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { useLocation } from 'react-router-dom'
 import { LyricMachineView } from '../../../shared/lyric-display'
 import { PLAYBACK_STATE_BROADCAST_CHANNEL, PLAYBACK_STATE_EVENT, PLAYBACK_STATE_STORAGE_KEY, readSharedPlaybackState, type SharedPlaybackState } from '../lib/playbackState'
+import { isTauriDesktopRuntime } from '../lib/routePath'
 import { supabase } from '../lib/supabase'
 import { useQueueStore } from '../state/queueStore'
 
@@ -13,6 +16,23 @@ export default function LyricMachinePage() {
   const location = useLocation()
   const { event, songs } = useQueueStore()
   const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
+
+  useEffect(() => {
+    if (!isTauriDesktopRuntime()) {
+      return
+    }
+
+    const tauriWindow = getCurrentWebviewWindow()
+    void tauriWindow.setDecorations(true).catch(() => {
+      // Ignore decoration sync failures and keep the window usable.
+    })
+
+    return () => {
+      void tauriWindow.setDecorations(true).catch(() => {
+        // Ignore cleanup failures during window teardown.
+      })
+    }
+  }, [])
 
   const querySong = useMemo(() => {
     const params = new URLSearchParams(location.search)
@@ -127,12 +147,26 @@ export default function LyricMachinePage() {
     ? null
     : nowPlayingSong ?? querySong
 
+  const openExternalUrl = async (url: string) => {
+    if (!url.trim()) {
+      return false
+    }
+
+    try {
+      await invoke('open_external_url', { url })
+      return true
+    } catch {
+      return false
+    }
+  }
+
   return (
     <LyricMachineView
       supabase={supabase}
       activeSong={activeSong}
       showLogoScreen={playbackState?.isStarted === false || (!playbackState && !activeSong)}
       returnToPath={location.pathname + location.search}
+      onOpenExternalUrl={openExternalUrl}
     />
   )
 }

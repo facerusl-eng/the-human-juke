@@ -9,6 +9,7 @@ type LyricMachineViewProps = {
   activeSong: LyricSongRef | null
   showLogoScreen?: boolean
   returnToPath?: string
+  onOpenExternalUrl?: (url: string) => Promise<boolean>
 }
 
 const DISPLAY_PRESET_STORAGE_KEY = 'human-jukebox-lyric-machine-display-preset-v1'
@@ -90,7 +91,13 @@ function readStoredRotationDegrees() {
   return 0
 }
 
-export default function LyricMachineView({ supabase, activeSong, showLogoScreen = false, returnToPath = '/admin/gig-control' }: LyricMachineViewProps) {
+export default function LyricMachineView({
+  supabase,
+  activeSong,
+  showLogoScreen = false,
+  returnToPath = '/admin/gig-control',
+  onOpenExternalUrl,
+}: LyricMachineViewProps) {
   const [hasOpened, setHasOpened] = useState(false)
   const [displayPreset, setDisplayPreset] = useState<LyricMachineDisplayPreset>(() => readStoredDisplayPreset())
   const [rotationDegrees, setRotationDegrees] = useState<number>(() => readStoredRotationDegrees())
@@ -161,26 +168,46 @@ export default function LyricMachineView({ supabase, activeSong, showLogoScreen 
     const normalizedOrigin = appOrigin.replace(/\/$/, '')
     const castUrl = `${normalizedOrigin}/lyric-machine${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
 
-    let openedWindow: Window | null = null
-    try {
-      openedWindow = window.open(`microsoft-edge:${castUrl}`, '_blank', 'noopener,noreferrer')
-    } catch {
-      openedWindow = null
+    const openViaWindow = () => {
+      const openedWindow = window.open(castUrl, '_blank', 'noopener,noreferrer')
+      if (openedWindow) {
+        openedWindow.focus()
+        setBrowserCastStatus('Opened browser. Use the browser cast menu (three dots) to cast.')
+        scheduleToolbarAutoHide()
+        return true
+      }
+
+      return false
     }
 
-    if (!openedWindow) {
-      openedWindow = window.open(castUrl, '_blank', 'noopener,noreferrer')
-    }
+    if (isTauriRuntime() && onOpenExternalUrl) {
+      void onOpenExternalUrl(castUrl)
+        .then((openedByTauri) => {
+          if (openedByTauri) {
+            setBrowserCastStatus('Opened browser. Use the browser cast menu (three dots) to cast.')
+            scheduleToolbarAutoHide()
+            return
+          }
 
-    if (openedWindow) {
-      openedWindow.focus()
-      setBrowserCastStatus('Opened browser. Use the browser cast menu (three dots) to cast.')
-      scheduleToolbarAutoHide()
+          const opened = openViaWindow()
+          if (!opened) {
+            setBrowserCastStatus('Browser could not be opened. Please allow pop-ups and try again.')
+          }
+        })
+        .catch(() => {
+          const opened = openViaWindow()
+          if (!opened) {
+            setBrowserCastStatus('Browser could not be opened. Please allow pop-ups and try again.')
+          }
+        })
       return
     }
 
-    setBrowserCastStatus('Browser could not be opened. Please allow pop-ups and try again.')
-  }, [activeSong, scheduleToolbarAutoHide])
+    const opened = openViaWindow()
+    if (!opened) {
+      setBrowserCastStatus('Browser could not be opened. Please allow pop-ups and try again.')
+    }
+  }, [activeSong, onOpenExternalUrl, scheduleToolbarAutoHide])
 
   useEffect(() => {
     const onFullscreenChange = () => {
