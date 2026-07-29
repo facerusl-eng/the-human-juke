@@ -61,6 +61,7 @@ function shouldAutoCreateAudienceSession() {
 
   return pathname.startsWith('/audience')
     || pathname.startsWith('/feed')
+    || pathname.startsWith('/lyric-machine')
     || pathname.startsWith('/a/')
 }
 
