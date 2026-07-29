@@ -1,5 +1,5 @@
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { isTauriDesktopRuntime, resolveTauriWindowUrl } from './routePath'
+import { invoke } from '@tauri-apps/api/core'
+import { isTauriDesktopRuntime } from './routePath'
 
 export type OpenLyricMachineWindowResult = {
   openedInNewTabWindow: boolean
@@ -16,8 +16,6 @@ type OpenLyricMachineScreenOptions = {
   duration?: number | string | null
   locale?: 'en' | 'da' | 'is' | null
 }
-
-let _activeLyricMachineWindow: WebviewWindow | null = null
 
 export async function openLyricMachineScreen(options: OpenLyricMachineScreenOptions = {}): Promise<OpenLyricMachineWindowResult> {
   const lyricMachineUrl = new URLSearchParams()
@@ -68,92 +66,46 @@ export async function openLyricMachineScreen(options: OpenLyricMachineScreenOpti
   }
 
   const lyricMachineRoutePath = `/lyric-machine${lyricMachineUrl.toString() ? `?${lyricMachineUrl.toString()}` : ''}`
-  const lyricMachineWindowUrl = isTauriDesktopRuntime()
-    ? resolveTauriWindowUrl(lyricMachineRoutePath)
-    : lyricMachineRoutePath
+
+  const resolvedBrowserOrigin = (
+    import.meta.env.VITE_PUBLIC_APP_ORIGIN?.trim()
+    || import.meta.env.VITE_WEB_APP_ORIGIN?.trim()
+    || import.meta.env.VITE_DEV_PUBLIC_ORIGIN?.trim()
+    || 'https://www.the-human-jukebox.org'
+  ).replace(/\/$/, '')
+
+  const lyricMachineBrowserUrl = `${resolvedBrowserOrigin}${lyricMachineRoutePath}`
 
   if (isTauriDesktopRuntime()) {
     try {
-      if (_activeLyricMachineWindow !== null) {
-        try {
-          const visible = await _activeLyricMachineWindow.isVisible()
-          if (visible) {
-            // Ensure reused lyric-machine window always lands on the dedicated route.
-            // This prevents stale windows from staying on /lyrics with admin/back controls.
-            const windowWithEval = _activeLyricMachineWindow as unknown as { eval?: (script: string) => Promise<unknown> }
-            if (windowWithEval.eval) {
-              await windowWithEval.eval(`window.location.replace(${JSON.stringify(lyricMachineWindowUrl)});`)
-            }
-            await _activeLyricMachineWindow.show()
-            await _activeLyricMachineWindow.setFocus()
-            return {
-              openedInNewTabWindow: true,
-              blockedByPopup: false,
-              errorMessage: null,
-            }
-          }
-        } catch {
-          _activeLyricMachineWindow = null
-        }
+      await invoke('open_external_url', { url: lyricMachineBrowserUrl })
+      return {
+        openedInNewTabWindow: true,
+        blockedByPopup: false,
+        errorMessage: null,
       }
-
-      const windowLabel = `lyric-machine-${Date.now()}`
-      const lyricMachineWindow = new WebviewWindow(windowLabel, {
-        url: lyricMachineWindowUrl,
-        title: 'Lyric Machine',
-        width: 1280,
-        height: 800,
-        resizable: true,
-        fullscreen: false,
-        decorations: true,
-      })
-
-      return await new Promise<OpenLyricMachineWindowResult>(resolve => {
-        const timerId = setTimeout(() => {
-          _activeLyricMachineWindow = lyricMachineWindow
-          resolve({
-            openedInNewTabWindow: true,
-            blockedByPopup: false,
-            errorMessage: null,
-          })
-        }, 6000)
-
-        lyricMachineWindow.once('tauri://created', () => {
-          clearTimeout(timerId)
-          _activeLyricMachineWindow = lyricMachineWindow
-          lyricMachineWindow.once('tauri://destroyed', () => {
-            if (_activeLyricMachineWindow === lyricMachineWindow) {
-              _activeLyricMachineWindow = null
-            }
-          })
-          resolve({
-            openedInNewTabWindow: true,
-            blockedByPopup: false,
-            errorMessage: null,
-          })
-        })
-
-        lyricMachineWindow.once('tauri://error', (err: unknown) => {
-          clearTimeout(timerId)
-          resolve({
-            openedInNewTabWindow: false,
-            blockedByPopup: true,
-            errorMessage: String(err),
-          })
-        })
-      })
     } catch (error) {
       return {
         openedInNewTabWindow: false,
         blockedByPopup: true,
-        errorMessage: error instanceof Error ? error.message : 'Failed to open lyric machine window',
+        errorMessage: error instanceof Error ? error.message : 'Failed to open lyric machine in browser',
       }
     }
   }
 
+  const lyricMachineTab = window.open(lyricMachineBrowserUrl, 'lyric-machine-window', 'width=1280,height=800,noopener,noreferrer')
+  if (lyricMachineTab) {
+    lyricMachineTab.focus()
+    return {
+      openedInNewTabWindow: true,
+      blockedByPopup: false,
+      errorMessage: null,
+    }
+  }
+
   return {
-    openedInNewTabWindow: true,
-    blockedByPopup: false,
-    errorMessage: null,
+    openedInNewTabWindow: false,
+    blockedByPopup: true,
+    errorMessage: 'Pop-up blocked. Please allow pop-ups for this site and try again.',
   }
 }

@@ -164,26 +164,7 @@ fn main() {
                     }
                 }
                 "open-lyric-machine" => {
-                    if let Some(existing) = app.get_webview_window("lyric-machine") {
-                        let _ = existing.eval("window.location.replace('#/lyric-machine');");
-                        let _ = existing.set_focus();
-                    } else {
-                        let _ = tauri::WebviewWindowBuilder::new(
-                            app,
-                            "lyric-machine",
-                            tauri::WebviewUrl::App(std::path::PathBuf::from("/")),
-                        )
-                        .title("Lyric Machine")
-                        .decorations(true)
-                        .inner_size(1280.0, 800.0)
-                        .resizable(true)
-                        .initialization_script(
-                            "if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#/') { \
-                                window.location.replace('#/lyric-machine'); \
-                            }"
-                        )
-                        .build();
-                    }
+                    let _ = open_external_url("https://www.the-human-jukebox.org/lyric-machine".to_string());
                 }
                 "toggle-fullscreen" => {
                     if let Some(window) = app
