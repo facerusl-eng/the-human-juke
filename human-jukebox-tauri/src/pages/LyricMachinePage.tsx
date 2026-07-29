@@ -157,8 +157,7 @@ export default function LyricMachinePage() {
   }, [playbackState?.currentSongId, songs])
 
   const shouldHoldForPlaybackSync = Boolean(event?.id) && !hasPlaybackStateResolved
-  const playbackSongId = playbackState?.currentSongId?.trim() ?? ''
-  const isQuoteModeActive = playbackState?.isStarted === false && playbackSongId.length === 0
+  const isQuoteModeActive = playbackState?.isStarted === false
   const activeSong = shouldHoldForPlaybackSync || isQuoteModeActive
     ? null
     : nowPlayingSong ?? querySong
