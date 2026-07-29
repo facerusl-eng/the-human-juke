@@ -145,8 +145,8 @@
 .lyric-machine-viewport > .lyric-dark-neon-shell,
 .lyric-machine-viewport .audience-lyric-fit-shell {
   background:
-    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.06), transparent 28%),
-    linear-gradient(180deg, #020202, #090909 54%, #000000);
+    radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.08), transparent 26%),
+    linear-gradient(180deg, #000000, #050505 52%, #000000);
   color: #ffffff;
 }
 
@@ -156,7 +156,16 @@
 }
 
 .lyric-machine-viewport .audience-lyric-fit-frame {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
   grid-template-rows: 1fr;
+  padding: clamp(0.25rem, 0.85vh, 0.8rem) clamp(0.35rem, 1.15vw, 1rem);
 }
 
 .lyric-machine-viewport-rot-0 {
@@ -250,7 +259,7 @@
   width: min(38vw, 260px);
   height: min(38vw, 260px);
   object-fit: contain;
-  filter: drop-shadow(0 0 18px rgba(76, 201, 255, 0.22));
+  filter: drop-shadow(0 0 22px rgba(255, 255, 255, 0.3));
 }
 
 .lyric-machine-logo-title {
@@ -336,10 +345,10 @@
   font-weight: 800;
   letter-spacing: 0.015em;
   text-shadow:
-    0 3px 0 rgba(0, 0, 0, 0.98),
-    0 0 8px rgba(0, 0, 0, 0.86),
-    0 0 22px rgba(255, 255, 255, 0.08);
-  -webkit-text-stroke: 0.35px rgba(0, 0, 0, 0.9);
+    0 3px 0 rgba(0, 0, 0, 0.99),
+    0 0 10px rgba(0, 0, 0, 0.94),
+    0 0 26px rgba(255, 255, 255, 0.14);
+  -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.98);
 }
 
 .audience-lyric-scroll-body {

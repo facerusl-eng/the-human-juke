@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { LyricMachineView } from '../../shared/lyric-display'
+import { PLAYBACK_STATE_BROADCAST_CHANNEL, PLAYBACK_STATE_EVENT, PLAYBACK_STATE_STORAGE_KEY, readSharedPlaybackState, type SharedPlaybackState } from '../lib/playbackState'
 import { supabase } from '../lib/supabase'
 import { useQueueStore } from '../state/queueStore'
 
@@ -10,7 +11,73 @@ function normalizeSongId(title: string, artist: string) {
 
 export default function LyricMachinePage() {
   const location = useLocation()
-  const { songs } = useQueueStore()
+  const { event, songs } = useQueueStore()
+  const [playbackState, setPlaybackState] = useState<SharedPlaybackState | null>(null)
+
+  useEffect(() => {
+    let isCurrent = true
+
+    const syncPlaybackState = async () => {
+      if (!event?.id) {
+        if (isCurrent) {
+          setPlaybackState(null)
+        }
+        return
+      }
+
+      const nextPlaybackState = await readSharedPlaybackState(event.id)
+      if (isCurrent) {
+        setPlaybackState(nextPlaybackState)
+      }
+    }
+
+    void syncPlaybackState()
+
+    const onPlaybackStateEvent = (nextEvent: Event) => {
+      const detail = (nextEvent as CustomEvent<{ eventId: string; state: SharedPlaybackState }>).detail
+      if (detail?.eventId === event?.id) {
+        setPlaybackState(detail.state)
+      }
+    }
+
+    const onStoragePlaybackState = (nextEvent: StorageEvent) => {
+      if (nextEvent.key !== PLAYBACK_STATE_STORAGE_KEY || !nextEvent.newValue) {
+        return
+      }
+
+      try {
+        const detail = JSON.parse(nextEvent.newValue) as { eventId?: string; state?: SharedPlaybackState }
+        if (detail.eventId === event?.id && detail.state) {
+          setPlaybackState(detail.state)
+        }
+      } catch {
+        // Ignore malformed cross-tab payloads.
+      }
+    }
+
+    const playbackBroadcastChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
+      ? new BroadcastChannel(PLAYBACK_STATE_BROADCAST_CHANNEL)
+      : null
+
+    if (playbackBroadcastChannel) {
+      playbackBroadcastChannel.onmessage = (messageEvent: MessageEvent<{ eventId?: string; state?: SharedPlaybackState }>) => {
+        const detail = messageEvent.data
+        if (detail?.eventId === event?.id && detail.state) {
+          setPlaybackState(detail.state)
+        }
+      }
+    }
+
+    window.addEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
+    window.addEventListener('storage', onStoragePlaybackState)
+
+    return () => {
+      isCurrent = false
+      window.removeEventListener(PLAYBACK_STATE_EVENT, onPlaybackStateEvent as EventListener)
+      window.removeEventListener('storage', onStoragePlaybackState)
+      playbackBroadcastChannel?.close()
+    }
+  }, [event?.id])
 
   const querySong = useMemo(() => {
     const params = new URLSearchParams(location.search)
@@ -32,7 +99,12 @@ export default function LyricMachinePage() {
   }, [location.search])
 
   const nowPlayingSong = useMemo(() => {
-    const nowPlaying = songs[0]
+    const playbackSongId = playbackState?.currentSongId?.trim() ?? ''
+    const playbackSong = playbackSongId
+      ? songs.find((song) => song.id === playbackSongId) ?? null
+      : null
+    const nowPlaying = playbackSong ?? songs[0]
+
     if (!nowPlaying?.title) {
       return null
     }
@@ -49,15 +121,18 @@ export default function LyricMachinePage() {
       createdByName: nowPlaying.createdByName,
       audience_sings: nowPlaying.audience_sings,
     }
-  }, [songs])
+  }, [playbackState?.currentSongId, songs])
 
-  const activeSong = nowPlayingSong ?? querySong
+  const isQuoteModeActive = playbackState?.isStarted === false
+  const activeSong = isQuoteModeActive
+    ? null
+    : nowPlayingSong ?? querySong
 
   return (
     <LyricMachineView
       supabase={supabase}
       activeSong={activeSong}
-      showLogoScreen={!activeSong}
+      showLogoScreen={isQuoteModeActive || !activeSong}
       returnToPath={location.pathname + location.search}
     />
   )

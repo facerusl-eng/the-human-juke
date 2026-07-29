@@ -31,7 +31,7 @@ type LyricMachineFitColumn = {
 const LYRIC_MACHINE_FIT_CONFIG: Record<LyricMachineDisplayPreset, LyricMachineFitConfig> = {
   tight: {
     contentWidth: '66%',
-    minFontSize: 8,
+    minFontSize: 7,
     maxFontSize: 30,
     lineGap: '0.08rem',
     contentPadding: '0.15rem 0',
@@ -40,7 +40,7 @@ const LYRIC_MACHINE_FIT_CONFIG: Record<LyricMachineDisplayPreset, LyricMachineFi
   },
   balanced: {
     contentWidth: '78%',
-    minFontSize: 10,
+    minFontSize: 8,
     maxFontSize: 38,
     lineGap: '0.18rem',
     contentPadding: '0.3rem 0',
@@ -49,7 +49,7 @@ const LYRIC_MACHINE_FIT_CONFIG: Record<LyricMachineDisplayPreset, LyricMachineFi
   },
   wide: {
     contentWidth: '90%',
-    minFontSize: 11,
+    minFontSize: 9,
     maxFontSize: 44,
     lineGap: '0.28rem',
     contentPadding: '0.42rem 0',
@@ -58,7 +58,7 @@ const LYRIC_MACHINE_FIT_CONFIG: Record<LyricMachineDisplayPreset, LyricMachineFi
   },
   max: {
     contentWidth: '100%',
-    minFontSize: 12,
+    minFontSize: 10,
     maxFontSize: 52,
     lineGap: '0.36rem',
     contentPadding: '0.5rem 0',
