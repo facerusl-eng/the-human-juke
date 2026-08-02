@@ -223,3 +223,78 @@ Duration:
 - At least one imported song can be loaded and rehearsed in prototype flow.
 - Security policies verified for owner and non-owner access.
 - Rollback path validated via flag toggles.
+
+## 6. Production Readiness Track
+
+### 6.1 Workstream PR-01: Safety Envelope Implementation
+- Deliverables:
+  - local emergency command path independent of network
+  - Safe Degraded Mode fallback UI and control set
+  - emergency SLA telemetry (`trigger_ts`, `action_ts`, `elapsed_ms`)
+- Exit criteria:
+  - emergency stop/fade under 100ms p95 on target hardware
+
+### 6.2 Workstream PR-02: Hardware Qualification Matrix
+- Deliverables:
+  - tested device matrix document (audio, footswitch, displays)
+  - compatibility labels in settings UI (`tested`, `experimental`, `unsupported`)
+  - first-run calibration flow for footswitch latency
+- Exit criteria:
+  - minimum supported device list published before pilot expansion
+
+### 6.3 Workstream PR-03: Audio Pipeline Contract
+- Deliverables:
+  - enforce default loudness and peak ceilings
+  - click track routing safety guard
+  - transpose quality mode toggle (rehearsal/live)
+- Exit criteria:
+  - all imported audio validated against loudness/peak contract
+
+### 6.4 Workstream PR-04: Runbooks and Incident Flow
+- Deliverables:
+  - pre-show checklist
+  - live incident decision tree
+  - post-show review checklist
+  - operator quick-reference card
+- Exit criteria:
+  - runbooks exercised in at least 3 simulation sessions
+
+### 6.5 Workstream PR-05: Soak and Stress Test Program
+- Required tests:
+  - 2-hour rehearsal soak
+  - 4-hour live soak
+  - 50+ rapid transition stress pass
+  - disconnect/reconnect drills for network/audio/footswitch/display
+- Exit criteria:
+  - no critical failures; recovery path proven for each failure class
+
+## 7. Auto-Disable Guardrails
+
+### 7.1 Telemetry Thresholds
+Auto-disable affected feature flags when any threshold is exceeded:
+- `audio_command_timeout_rate > 1%` (15-minute rolling window)
+- `cue_drift_p95_ms > 250`
+- `popup_trigger_failure_rate > 3%`
+- `critical_playback_errors >= 3` per session
+
+### 7.2 Flag Response Mapping
+- Audio instability -> disable `show_mode_playback_engine_enabled` for impacted host.
+- Cue drift instability -> disable `show_mode_popup_enabled` and `show_mode_smart_flow_enabled` for impacted host.
+- Persistent failures -> disable `show_mode_enabled` and force Safe Degraded Mode availability.
+
+## 8. Security and Privacy Readiness
+- Add policy tests for performer/stage-manager/audience role boundaries.
+- Add singer profile retention configuration and deletion workflow validation.
+- Verify live override actions generate immutable audit records.
+
+## 9. Release Scorecard (Pilot -> GA)
+
+### 9.1 Mandatory Pass Metrics
+- 10 full live pilot sessions with zero critical incidents.
+- Emergency command SLA passes p95 and p99 budgets.
+- Existing host/audience/mirror flows have zero critical and zero high regressions.
+- RLS policy suite fully green in CI and staging.
+
+### 9.2 GA Decision Rule
+- GA is approved only when all mandatory pass metrics are green.
+- Any red metric blocks GA and triggers remediation sprint.

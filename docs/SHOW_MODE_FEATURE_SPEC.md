@@ -493,3 +493,85 @@ Plugin extension points (future):
 - Footswitch mapping is configurable and persistent.
 - Dual-screen performer/audience rendering is stable.
 - Post-show analytics record is generated and viewable.
+
+## 18. Production Readiness Addendum
+
+### 18.1 Safety Envelope (Must Always Work)
+- Active-song playback must continue when internet connection is lost.
+- Emergency stop and emergency fade-out must execute locally without network dependency.
+- Operator must be able to complete current song and transition manually when any non-audio subsystem fails.
+- Safe Degraded Mode must remain available with:
+  - local playback controls
+  - lyric section step mode
+  - visual fallback background
+
+### 18.2 Hardware Compatibility Matrix
+Maintain and publish a tested matrix before GA:
+- OS:
+  - Windows 11 (primary)
+  - Windows 10 (best effort)
+- Audio devices:
+  - built-in output
+  - USB interfaces (2+ tested models)
+- Footswitch:
+  - USB HID profiles (2+ tested devices)
+  - Bluetooth profiles (2+ tested devices)
+- Display routing:
+  - single-screen rehearsal
+  - dual-screen HDMI/DisplayPort live
+
+Unknown or untested hardware must be labeled "unsupported for live use" until validated.
+
+### 18.3 Audio Processing Contract
+- Loudness target: `-14 LUFS integrated` (configurable by host profile).
+- True peak ceiling: `-1.0 dBTP`.
+- Default count-in: `2 bars`.
+- Click track routing:
+  - performer bus only by default
+  - never audience output unless explicitly enabled
+- Transpose quality tiers:
+  - fast rehearsal (low CPU)
+  - live quality (higher fidelity)
+
+### 18.4 Hard Performance Budgets
+- Command-to-action latency for critical controls: <= 100ms p95.
+- Emergency stop latency: <= 100ms p95 local path.
+- Emergency fade trigger latency: <= 100ms p95 local path.
+- Transition visual blanking: <= 200ms p95 when preloaded.
+- Next-song preload completion: before final 20s of current song at p95.
+- Audience render performance target: 60 FPS nominal, >= 30 FPS floor.
+- Audio dropout target during live session: 0 unrecovered dropouts.
+
+### 18.5 Security and Privacy Boundaries
+- Only performer or stage-manager roles can trigger popups during live mode.
+- Live lock override requires explicit confirmation and audit entry.
+- Singer profile retention policy must be configurable and documented.
+- Export/delete flow for singer data must be available to host account owner.
+
+### 18.6 Operational Runbooks
+Required runbooks:
+- Pre-show: hardware checks, sync checks, fallback checks.
+- Mid-show incidents: network loss, footswitch disconnect, visual crash, lyric drift.
+- Post-show: analytics finalization, backup verification, error review.
+
+### 18.7 Soak and Stress Validation
+Minimum pre-GA validation:
+- 2-hour rehearsal soak test.
+- 4-hour live soak test.
+- Rapid skip/stress test (50+ transitions).
+- Device disconnect/reconnect tests (audio, footswitch, second display).
+- Recovery drills for Safe Degraded Mode.
+
+### 18.8 Quantitative Release Gates
+Show Mode is GA-ready only if all conditions pass in pilot:
+- Zero critical-severity incidents across 10 full live sessions.
+- Emergency action SLA meets p95 and p99 budgets.
+- No unresolved data-access violations in RLS policy tests.
+- Existing host/audience/mirror regressions: zero critical and zero high.
+
+### 18.9 Auto-Disable Criteria
+Feature flags should auto-disable for affected host if thresholds are exceeded:
+- Audio command timeout rate > 1% in rolling 15-minute window.
+- Cue drift > 250ms p95 in rolling 15-minute window.
+- Popup trigger failure rate > 3% in rolling 15-minute window.
+- Consecutive critical playback errors >= 3 within a single session.
