@@ -42,11 +42,42 @@ fn open_external_url(url: String) -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        let status = std::process::Command::new("cmd")
-            .arg("/C")
-            .arg("start")
-            .arg("")
-            .arg(trimmed)
+        let mut edge_candidates = vec![
+            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe".to_string(),
+            "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe".to_string(),
+        ];
+
+        if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+            edge_candidates.push(format!(
+                "{}\\Microsoft\\Edge\\Application\\msedge.exe",
+                local_app_data
+            ));
+        }
+
+        for edge_path in edge_candidates {
+            if !std::path::Path::new(&edge_path).exists() {
+                continue;
+            }
+
+            let launch_status = std::process::Command::new(&edge_path)
+                .arg(trimmed)
+                .status();
+
+            if let Ok(status) = launch_status {
+                if status.success() {
+                    return Ok(());
+                }
+            }
+        }
+
+        let edge_protocol_url = if trimmed.starts_with("microsoft-edge:") {
+            trimmed.to_string()
+        } else {
+            format!("microsoft-edge:{}", trimmed)
+        };
+
+        let status = std::process::Command::new("explorer.exe")
+            .arg(edge_protocol_url)
             .status()
             .map_err(|err| format!("Failed to open browser: {err}"))?;
 
@@ -103,10 +134,6 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![fetch_lyrics_remote, open_external_url])
         .setup(|app| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_fullscreen(true);
-            }
-
             let open_mirror_item = MenuItemBuilder::with_id("open-mirror", "Open Mirror")
                 .accelerator("CmdOrCtrl+M")
                 .build(app)?;
