@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import LiveFeedPanel from '../components/LiveFeedPanel'
+import { MirrorQrCode } from '../components/MirrorQrCode'
 import { readCommittedAudienceLocale, type AudienceLocale } from '../lib/audienceIdentity'
 import { getAudienceUrl } from '../lib/audienceUrl'
 import { isTauriDesktopRuntime, resolveAppPath } from '../lib/routePath'
@@ -186,8 +187,28 @@ const QR_FLASH_BASE_LINES = [
 const MIRROR_AUTO_FULLSCREEN_QUERY_PARAM = 'launchFullscreen'
 const MIRROR_LAYOUT_EDIT_QUERY_PARAM = 'layoutEdit'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function getWindowQueryParams() {
+  if (typeof window === 'undefined') {
+    return new URLSearchParams()
+  }
+
+  const directParams = new URLSearchParams(window.location.search)
+  if ([...directParams.keys()].length > 0) {
+    return directParams
+  }
+
+  const hash = window.location.hash || ''
+  const queryIndex = hash.indexOf('?')
+  if (queryIndex === -1) {
+    return directParams
+  }
+
+  return new URLSearchParams(hash.slice(queryIndex + 1))
+}
+
 const isMirrorLayoutEditRequest = typeof window !== 'undefined'
-  && new URLSearchParams(window.location.search).get(MIRROR_LAYOUT_EDIT_QUERY_PARAM) === '1'
+  && getWindowQueryParams().get(MIRROR_LAYOUT_EDIT_QUERY_PARAM) === '1'
 
 type MirrorDensityMode = 'medium' | 'cinema'
 type MirrorVenueMode = 'club' | 'lounge' | 'festival'
@@ -879,6 +900,20 @@ function truncateFact(value: string, maxLength = SONG_FACT_MAX_LENGTH) {
 
   return `${normalizedValue.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`
 }
+
+function normalizeCoverUrl(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmedValue = value.trim()
+  if (!trimmedValue) {
+    return null
+  }
+
+  return trimmedValue.replace(/^http:\/\//i, 'https://')
+}
+
 function buildFunFactsCacheKey(title: string, artist: string) {
   return `${title.trim().toLowerCase()}::${artist.trim().toLowerCase()}`
 }
@@ -1361,7 +1396,7 @@ function MirrorPageContent() {
       return null
     }
 
-    const rawValue = new URLSearchParams(window.location.search).get('event')?.trim() ?? ''
+    const rawValue = getWindowQueryParams().get('event')?.trim() ?? ''
     return UUID_PATTERN.test(rawValue) ? rawValue : null
   }, [])
   const [liveMirrorEventSettings, setLiveMirrorEventSettings] = useState<MirrorCountdownSettings>(() => getMirrorCountdownSettingsFromEvent(event))
@@ -1583,7 +1618,7 @@ function MirrorPageContent() {
   const [, setAutoLiveLockDebugText] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(
-    () => new URLSearchParams(window.location.search).get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) === '1',
+    () => getWindowQueryParams().get(MIRROR_AUTO_FULLSCREEN_QUERY_PARAM) === '1',
   )
   const [highContrastMode, setHighContrastMode] = useState(false)
   const [castClarityMode, setCastClarityMode] = useState(false)
@@ -1601,7 +1636,7 @@ function MirrorPageContent() {
       return false
     }
 
-    const searchParams = new URLSearchParams(window.location.search)
+    const searchParams = getWindowQueryParams()
     const queryEnabled = searchParams.get(MIRROR_LAYOUT_EDIT_QUERY_PARAM) === '1'
     const persistedEnabled = readTextFromLocalStorage(MIRROR_LAYOUT_EDIT_STORAGE_KEY) === '1'
     return queryEnabled || persistedEnabled
@@ -1829,12 +1864,25 @@ function MirrorPageContent() {
     }
   }, [])
 
-  const safeSongs = useMemo(() => songs.filter((song) => (
-    song
-    && typeof song.id === 'string'
-    && typeof song.title === 'string'
-    && typeof song.artist === 'string'
-  )), [songs])
+  const safeSongs = useMemo(() => songs
+    .filter((song) => (
+      song
+      && typeof song.id === 'string'
+      && typeof song.title === 'string'
+      && typeof song.artist === 'string'
+    ))
+    .map((song) => {
+      const normalizedSongCoverUrl = normalizeCoverUrl(song.cover_url)
+
+      if (normalizedSongCoverUrl === song.cover_url) {
+        return song
+      }
+
+      return {
+        ...song,
+        cover_url: normalizedSongCoverUrl,
+      }
+    }), [songs])
 
   const topVotedSongs = useMemo(() => {
     if (!Array.isArray(safeSongs) || safeSongs.length === 0) return []
@@ -1929,9 +1977,9 @@ function MirrorPageContent() {
   const nowPlaying = safeSongs[0]
   const isLive = event?.roomOpen ?? false
   const isEmbeddedPreview =
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1'
+    typeof window !== 'undefined' && getWindowQueryParams().get('preview') === '1'
   const showMirrorDebugOverlay =
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mirrorDebug') === '1'
+    typeof window !== 'undefined' && getWindowQueryParams().get('mirrorDebug') === '1'
   const eventId = event?.id ?? null
   const isTestGigAudienceMode = event?.isTestGig ?? false
   const mirrorLayoutOwnerId = event?.hostId ?? (isHost ? user?.id ?? null : null)
@@ -2038,6 +2086,7 @@ function MirrorPageContent() {
     ? safeSongs.find((song) => song.id === playbackState.currentSongId) ?? null
     : null
   const activeSong = playbackSong ?? nowPlaying
+  const activeSongCoverUrl = normalizeCoverUrl(activeSong?.cover_url) ?? normalizeCoverUrl(playbackState?.currentSongCoverUrl)
   // Keep demo mode in always-playing mode for screenshots and promo captures.
   const isNowPlayingStarted = demoMode
     ? Boolean(nowPlaying)
@@ -3450,7 +3499,7 @@ function MirrorPageContent() {
       return
     }
 
-    const searchParams = new URLSearchParams(window.location.search)
+    const searchParams = getWindowQueryParams()
     const contrastParam = searchParams.get('contrast')?.trim().toLowerCase()
       ?? searchParams.get('hc')?.trim().toLowerCase()
     const densityParam = searchParams.get('density')?.trim().toLowerCase()
@@ -3464,6 +3513,7 @@ function MirrorPageContent() {
 
     const hasContrastQuery = contrastParam === '1' || contrastParam === 'high' || contrastParam === 'true'
     const hasCastBlurQuery = castParam === '0' || castParam === 'false' || castParam === 'off' || castParam === 'blur'
+    const hasCastClarityQuery = castParam === '1' || castParam === 'true' || castParam === 'on' || castParam === 'cast' || castParam === 'clarity'
     const persistedContrastPreference = readTextFromLocalStorage(MIRROR_HIGH_CONTRAST_STORAGE_KEY) === '1'
     const hasSafeMarginsQuery = safeMarginsParam === '1' || safeMarginsParam === 'on' || safeMarginsParam === 'true'
     const persistedSafeMarginsPreference = readTextFromLocalStorage(MIRROR_SAFE_MARGINS_STORAGE_KEY) === '1'
@@ -3474,7 +3524,7 @@ function MirrorPageContent() {
       : 'medium'
 
     setHighContrastMode(hasContrastQuery || persistedContrastPreference)
-    const resolvedCastClarityMode = !hasCastBlurQuery
+    const resolvedCastClarityMode = hasCastClarityQuery && !hasCastBlurQuery
 
     // Keep mirror output crisp by default, including after hard refresh.
     setCastClarityMode(resolvedCastClarityMode)
@@ -4321,6 +4371,98 @@ function MirrorPageContent() {
     )
   }
 
+  const isCastPresentationMode = castClarityMode && !layoutEditMode
+  const castQueueSongs = upNext.slice(0, 6)
+  const castPrimaryTitle = shouldShowPreShow
+    ? (showCountdown
+      ? (countdownLabel ?? 'Starting soon')
+      : (countdownStartLabel ?? 'Starting soon'))
+    : (isQuoteModeActive
+      ? displayedBetweenSongMessage
+      : normalizeMirrorText(activeSong?.title, 'Waiting for requests'))
+  const castPrimarySubtitle = shouldShowPreShow
+    ? 'Cast-safe mode keeps the screen on a single local surface so Chromecast has less to capture.'
+    : (isQuoteModeActive
+      ? idleSongStatusText
+      : `${normalizeMirrorText(activeSong?.artist, 'Unknown Artist')} · ${activeSongChosenByLine ?? 'Picked by audience'}`)
+
+  if (isCastPresentationMode) {
+    return (
+      <div ref={mirrorShellRef} className={`mirror-shell mirror-shell-cast-clarity mirror-shell-cast-presentation mirror-shell-venue-${venueMode} ${mirrorBackgroundClass}`} aria-label="Mirror display screen">
+        <header className="mirror-header mirror-cast-header">
+          <div className="mirror-header-main mirror-cast-header-main">
+            <p className="mirror-brand" aria-label="The Human Jukebox title">
+              <img src="/the-human-jukebox-logo.svg" alt="The Human Jukebox" className="mirror-brand-logo" />
+            </p>
+            <p className="mirror-header-event-name mirror-cast-event-name">
+              {event?.name?.trim() || 'Live Night - Ready to start.'}
+            </p>
+          </div>
+
+          <div className="mirror-header-meta mirror-cast-header-meta">
+            <p className="mirror-status mirror-cast-status">{playbackState?.brbActive ? 'On Break' : isLive ? 'Live' : shouldShowPreShow ? 'Starting Soon' : 'Paused'}</p>
+            <p className="mirror-warning mirror-cast-warning">Cast-safe mode is active for Chromecast.</p>
+          </div>
+        </header>
+
+        <main className="mirror-stage mirror-cast-stage">
+          <section className="mirror-cast-hero mirror-frame" aria-label="Cast presentation">
+            <div className="mirror-cast-hero-copy">
+              <p className="mirror-cast-eyebrow">{shouldShowPreShow ? 'Starting Soon' : 'Now Playing'}</p>
+              <h1 className="mirror-cast-title">{castPrimaryTitle}</h1>
+              <p className="mirror-cast-subtitle">{castPrimarySubtitle}</p>
+              {!shouldShowPreShow && !isQuoteModeActive ? (
+                <p className="mirror-cast-fact">{currentSongFact}</p>
+              ) : null}
+            </div>
+
+            <div className="mirror-cast-qr-panel" aria-label="Audience join QR code">
+              <MirrorQrCode value={audienceUrl} size={236} className="mirror-cast-qr" />
+              <p className="mirror-cast-qr-label">Scan to join the show</p>
+              <p className="mirror-cast-qr-text">{audienceUrl}</p>
+            </div>
+          </section>
+
+          <section className="mirror-cast-grid">
+            <article className="mirror-cast-panel mirror-frame" aria-label="Cast queue summary">
+              <p className="mirror-cast-panel-eyebrow">Song Queue</p>
+              {castQueueSongs.length > 0 ? (
+                <ol className="mirror-cast-queue-list">
+                  {castQueueSongs.map((song, index) => (
+                    <li key={song.id} className="mirror-cast-queue-item">
+                      <span className="mirror-cast-queue-pos">{index + 1}</span>
+                      <span className="mirror-cast-queue-text">
+                        <strong>{normalizeMirrorText(song.title, 'Untitled Song')}</strong>
+                        <span>{normalizeMirrorText(song.artist, 'Unknown Artist')}</span>
+                      </span>
+                      <span className="mirror-cast-queue-votes">+{song.votes_count}</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="mirror-cast-empty">Queue is empty - request a song from the QR code.</p>
+              )}
+            </article>
+
+            <article className="mirror-cast-panel mirror-frame" aria-label="Cast status summary">
+              <p className="mirror-cast-panel-eyebrow">Show Status</p>
+              <p className="mirror-cast-summary-text">
+                {shouldShowPreShow
+                  ? (showCountdown ? `Countdown active. ${countdownLabel ?? 'Starting soon'}.` : 'Waiting for the room to open.')
+                  : (isQuoteModeActive
+                    ? idleSongStatusText
+                    : `Now playing ${normalizeMirrorText(activeSong?.title, 'Untitled Song')} by ${normalizeMirrorText(activeSong?.artist, 'Unknown Artist')}.`)}
+              </p>
+              <p className="mirror-cast-summary-note">
+                Live feed, spotlights, and artwork are suppressed in cast mode to avoid browser capture issues.
+              </p>
+            </article>
+          </section>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div ref={mirrorShellRef} className={`mirror-shell ${isLive ? 'mirror-shell-live' : 'mirror-shell-paused'} ${highContrastMode ? 'mirror-shell-high-contrast' : ''} ${castClarityMode ? 'mirror-shell-cast-clarity' : ''} ${densityMode === 'cinema' ? 'mirror-shell-density-cinema' : 'mirror-shell-density-medium'} mirror-shell-venue-${venueMode} ${mirrorBackgroundClass} ${!shouldShowEditorControls ? 'mirror-shell-hide-controls' : ''} ${!activeSong ? 'mirror-shell-no-live-data' : ''} ${(homeMirrorPreviewMode || demoMode) ? 'mirror-shell-home-preview' : ''} ${isFullscreen ? 'mirror-shell-fullscreen' : ''}`} aria-label="Mirror display screen">
       {showFullscreenPrompt && !isFullscreen && (
@@ -4667,12 +4809,12 @@ function MirrorPageContent() {
                 ) : (
                   <div className="mirror-now-playing-track">
                     <div className="mirror-now-playing-artwork-slot">
-                      {activeSong.cover_url && !failedCoverUrls[activeSong.cover_url] ? (
+                      {activeSongCoverUrl && !failedCoverUrls[activeSongCoverUrl] ? (
                         <img
-                          src={activeSong.cover_url}
+                          src={activeSongCoverUrl}
                           alt={`Cover art for ${activeSong.title}`}
                           className="mirror-now-playing-cover"
-                          onError={() => onCoverLoadError(activeSong.cover_url)}
+                          onError={() => onCoverLoadError(activeSongCoverUrl)}
                         />
                       ) : activeSong.audience_sings ? (
                         <span className="mirror-now-playing-karaoke-mark" aria-label="Karaoke request">Karaoke</span>
