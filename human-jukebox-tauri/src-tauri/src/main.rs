@@ -134,6 +134,10 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![fetch_lyrics_remote, open_external_url])
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.maximize();
+            }
+
             let open_mirror_item = MenuItemBuilder::with_id("open-mirror", "Open Mirror")
                 .accelerator("CmdOrCtrl+M")
                 .build(app)?;
