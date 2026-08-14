@@ -9,8 +9,8 @@ import { useGigActions } from '../hooks/useGigActions';
 import { getAudienceUrl } from '../lib/audienceUrl';
 import { openMirrorScreen } from '../lib/openMirrorScreen';
 import { openLyricMachineScreen } from '../lib/openLyricMachineScreen';
-import { isTauriDesktopRuntime, resolveAppPath } from '../lib/routePath';
 import { resolveApiUrl } from '../lib/apiUrl';
+import { isTauriDesktopRuntime, resolveTauriWindowUrl } from '../lib/routePath';
 import { registerBackgroundSync } from '../lib/backgroundSync';
 import {
   captureQueueSnapshot,
@@ -34,8 +34,6 @@ import {
   isLastSongSoonOverlayMessage,
   normalizeCountdownTargetMs,
   parseIntroAudioPlaybackRequest,
-  requestSharedIntroAudioPlayback,
-  type IntroAudioPlaybackRequest,
   type SharedPlaybackState,
   readSharedPlaybackState,
   writeSharedPlaybackState,
@@ -56,21 +54,23 @@ import {
   ROOM_STATE_ENSURE_MAX_ATTEMPTS,
   ROOM_STATE_ENSURE_RETRY_DELAY_MS,
   MIRROR_PREVIEW_TRANSITION_MS,
-  SPACEBAR_ACTION_COOLDOWN_MS,
   MIRROR_LAUNCH_STATUS_DURATION_MS,
   AUTO_LIVE_RETRY_DELAY_MS,
   BACKGROUND_SYNC_TAG,
 } from '../lib/constants';
 import { useAuthStore } from '../state/authStore';
 import { useQueueStore } from '../state/queueStore';
+import { useSharedLyricState } from '../../../shared/lyric-display'
 // ...existing code...
 const DEFAULT_BRB_MESSAGE = 'I am briefly offstage negotiating with the sound gremlins and a suspiciously warm pint. Stay splendid.'
 const BREAK_TRANSITION_BACK_MESSAGE = 'I have returned from the interval, mostly intact and vaguely professional.'
 const AUTO_LIVE_WELCOME_MESSAGE = 'Welcome to The Human Jukebox! We are live - get your requests in and enjoy the show.'
 const GO_LIVE_COUNTDOWN_LOCK_MESSAGE = 'Go Live is countdown-only: manual start is disabled until the timer reaches zero.'
 const SONG_START_COUNTDOWN_MS = 10_000
+const SPACEBAR_START_COUNTDOWN_MS = 250
 const INTRO_TRANSITION_LOCK_MAX_MS = 45_000
 const PLAYBACK_TRANSITION_RECOVERY_GRACE_MS = 8_000
+const PLAYBACK_ACTION_LOCK_MAX_MS = 20_000
 const PLAYBACK_SYNC_POLL_INTERVAL_MS = 2_500
 const BRB_MESSAGE_DICE_OPTIONS = [
   'Quick break in progress. Keep your requests coming and I will be right back.',
@@ -89,39 +89,6 @@ type SpotifyPlaylistMeta = {
   uri?: string
   ownerName?: string
 } | null
-
-type SavedSpotifyPlaylist = {
-  uri: string
-  name: string
-  ownerName: string
-}
-
-const SPOTIFY_PLAYLIST_META_STORAGE_KEY = 'human-jukebox-spotify-playlist-meta'
-const SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY = 'human-jukebox-spotify-playlist-input'
-const SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY = 'human-jukebox-spotify-saved-playlists'
-
-function normalizeSavedSpotifyPlaylist(rawPlaylist: unknown): SavedSpotifyPlaylist | null {
-  if (!rawPlaylist || typeof rawPlaylist !== 'object') {
-    return null
-  }
-
-  const candidate = rawPlaylist as { uri?: unknown; name?: unknown; ownerName?: unknown }
-  const uri = typeof candidate.uri === 'string' ? candidate.uri.trim() : ''
-
-  if (!uri) {
-    return null
-  }
-
-  const name = typeof candidate.name === 'string' && candidate.name.trim()
-    ? candidate.name.trim()
-    : uri
-
-  return {
-    uri,
-    name,
-    ownerName: typeof candidate.ownerName === 'string' ? candidate.ownerName.trim() : '',
-  }
-}
 
 type PersistedGigControlNowPlaying = {
   eventId: string
@@ -143,6 +110,11 @@ type PrimedIntroAudio = {
   eventId: string
   url: string
   element: HTMLAudioElement
+}
+
+type IntroAudioPlayedMarker = {
+  eventId: string
+  playedAt: number
 }
 
 function getPreservedOverlayMessage(state: SharedPlaybackState | null | undefined) {
@@ -248,6 +220,66 @@ function releaseIntroAudioPlayLock(eventId: string, ownerId: string) {
     }
   } catch {
     // Best-effort lock release only.
+  }
+}
+
+function readIntroAudioPlayedMarker(eventId: string | null): IntroAudioPlayedMarker | null {
+  if (typeof window === 'undefined' || !eventId) {
+    return null
+  }
+
+  try {
+    const raw = window.localStorage.getItem(`${INTRO_AUDIO_LOCK_STORAGE_KEY}:played`)
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw) as Partial<IntroAudioPlayedMarker>
+    if (parsed.eventId !== eventId || typeof parsed.playedAt !== 'number' || !Number.isFinite(parsed.playedAt)) {
+      return null
+    }
+
+    return {
+      eventId,
+      playedAt: parsed.playedAt,
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeIntroAudioPlayedMarker(eventId: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(`${INTRO_AUDIO_LOCK_STORAGE_KEY}:played`, JSON.stringify({
+      eventId,
+      playedAt: Date.now(),
+    } satisfies IntroAudioPlayedMarker))
+  } catch {
+    // Best effort only.
+  }
+}
+
+function clearIntroAudioPlayedMarker(eventId: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    const raw = window.localStorage.getItem(`${INTRO_AUDIO_LOCK_STORAGE_KEY}:played`)
+    if (!raw) {
+      return
+    }
+
+    const parsed = JSON.parse(raw) as Partial<IntroAudioPlayedMarker>
+    if (parsed.eventId === eventId) {
+      window.localStorage.removeItem(`${INTRO_AUDIO_LOCK_STORAGE_KEY}:played`)
+    }
+  } catch {
+    // Best effort only.
   }
 }
 
@@ -535,8 +567,6 @@ function GigControlPage() {
   } = useQueueStore()
 
   const [errorText, setErrorText] = useState<string | null>(null)
-  const [manualLyricsTitle, setManualLyricsTitle] = useState('')
-  const [manualLyricsArtist, setManualLyricsArtist] = useState('')
   const [isNowPlayingStarted, setIsNowPlayingStarted] = useState(false)
   const [syncedPlaybackState, setSyncedPlaybackState] = useState<SharedPlaybackState | null>(null)
   const [spaceActionBusy, setSpaceActionBusy] = useState(false)
@@ -550,14 +580,13 @@ function GigControlPage() {
   const [spotifyAccessToken, setSpotifyAccessToken] = useState<string | null>(null)
   const [spotifyStatusText, setSpotifyStatusText] = useState<string | null>(null)
   const [selectedSpotifyPlaylistMeta, setSelectedSpotifyPlaylistMeta] = useState<SpotifyPlaylistMeta>(null)
-  const [savedSpotifyPlaylists, setSavedSpotifyPlaylists] = useState<SavedSpotifyPlaylist[]>([])
-  const [savedSpotifyPlaylistCount, setSavedSpotifyPlaylistCount] = useState(0)
   const [spotifyTransportCommand, setSpotifyTransportCommand] = useState<{ mode: SpotifyTransportMode, nonce: number } | null>(null)
   const [isEndingOrDeletingGig, setIsEndingOrDeletingGig] = useState(false)
   const [spotifyAutoTransportEnabled, setSpotifyAutoTransportEnabled] = useState(true)
   const [workerHeartbeatText, setWorkerHeartbeatText] = useState<string | null>(null)
   const [activeAudienceCount, setActiveAudienceCount] = useState<number | null>(null)
   const [preflightBusy, setPreflightBusy] = useState(false)
+  const [audienceStabilityTestBusy, setAudienceStabilityTestBusy] = useState(false)
   const [preflightStatusText, setPreflightStatusText] = useState<string | null>(null)
   const [lastReadinessVerdict, setLastReadinessVerdict] = useState<'pass' | 'fail' | 'unknown'>(() => {
     try {
@@ -578,8 +607,8 @@ function GigControlPage() {
   const [showMirrorTopVoted, setShowMirrorTopVoted] = useState(() => {
     try { return localStorage.getItem('human-jukebox-mirror-top-voted') === '1' } catch { return false }
   })
-  const [, setMirrorPreviewTransitionMessage] = useState<string | null>(null)
-  const [, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
+  const [mirrorPreviewTransitionMessage, setMirrorPreviewTransitionMessage] = useState<string | null>(null)
+  const [mirrorPreviewTransitionTone, setMirrorPreviewTransitionTone] = useState<MirrorPreviewTransitionTone>('on-break')
   const [mirrorMonitorRefreshNonce, setMirrorMonitorRefreshNonce] = useState(0)
   const [lastMirrorSyncAt, setLastMirrorSyncAt] = useState<number>(() => Date.now())
   const [mirrorLaunchStatusText, setMirrorLaunchStatusText] = useState<string | null>(null)
@@ -591,7 +620,6 @@ function GigControlPage() {
   const [autoLiveLockBadgeText, setAutoLiveLockBadgeText] = useState<string | null>(null)
   const [hostClockOffsetMs, setHostClockOffsetMs] = useState(() => readSharedClockOffsetCache() ?? 0)
   const [playbackTransitionNowMs, setPlaybackTransitionNowMs] = useState(() => Date.now())
-  const [localTime, setLocalTime] = useState(() => new Date())
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false)
   const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null)
   const [autoRedirectCancelled, setAutoRedirectCancelled] = useState(false)
@@ -620,7 +648,7 @@ function GigControlPage() {
       } catch (err) {
         let msg = 'Failed to toggle room.';
         if (err && typeof err === 'object' && 'message' in err) {
-          msg += ` ${(err as { message?: string }).message}`;
+          msg += ` ${(err as any).message}`;
         }
         setErrorText(msg);
         // Log to console for debugging
@@ -645,7 +673,6 @@ function GigControlPage() {
       console.warn('GigControlPage error:', errorText);
     }
   }, [errorText]);
-  useEffect(() => { const timerId = window.setInterval(() => setLocalTime(new Date()), 1000); return () => window.clearInterval(timerId) }, [])
 
   const quoteIndexRef = useRef(0)
   const isNowPlayingStartedRef = useRef(isNowPlayingStarted)
@@ -671,17 +698,11 @@ function GigControlPage() {
   const autoLiveNextRetryAtRef = useRef(0)
   const autoLiveInFlightRef = useRef(false)
   const lastIntroPlaybackRequestRef = useRef<string | null>(null)
-  const pendingIntroAudioRequestRef = useRef<IntroAudioPlaybackRequest | null>(null)
-  const previousShowStatusRef = useRef<'paused' | 'countdown' | 'live' | null>(null)
   const hostClockOffsetRef = useRef(0)
   const introAudioLockOwnerRef = useRef<string | null>(null)
   const primedIntroAudioRef = useRef<PrimedIntroAudio | null>(null)
   const activeIntroAudioElementRef = useRef<HTMLAudioElement | null>(null)
   const spotifyTransportNonceRef = useRef(0)
-  const spotifyStatusLastMessageRef = useRef<string | null>(null)
-  const spotifyStatusLastAtRef = useRef(0)
-  const spotifyTokenRefreshPromiseRef = useRef<Promise<string> | null>(null)
-  const spotifyAutoConnectAttemptedRef = useRef(false)
   const mirrorPreviewTransitionTimerRef = useRef<number | null>(null)
   const mirrorLaunchStatusTimerRef = useRef<number | null>(null)
   const mirrorOverlayBusyRef = useRef(false)
@@ -792,17 +813,24 @@ function GigControlPage() {
     : playbackTransitionState?.phase === 'intro'
     ? playbackTransitionIntroRemainingMs !== null && playbackTransitionIntroRemainingMs > 0
     : false
-  const showPlaybackStatus = event?.roomOpen
-    ? 'live'
-    : playbackTransitionState?.phase === 'countdown'
-    ? 'countdown'
-    : 'paused'
+  const playbackTransitionStatusText = playbackTransitionState?.phase === 'countdown'
+    ? playbackTransitionCountdownSeconds !== null
+      ? `Global start in ${playbackTransitionCountdownSeconds}`
+      : 'Global start is syncing...'
+    : playbackTransitionState?.phase === 'intro'
+    ? isPlaybackTransitionLocked
+      ? 'Intro MP3 playing...'
+      : null
+    : null
   const mirroredCountdownTargetMs = useMemo(() => {
     const target = resolveGigStartAt(event?.gigDate, event?.gigStartTime)
     return target ? target.getTime() : null
   }, [event?.gigDate, event?.gigStartTime])
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
+  const mirrorPreviewUpNext = useMemo(() => {
+    return songs.slice(1)
+  }, [songs])
   const nextUpSong = upNext[0] ?? null
   const queueEstMinutes = Math.round(upNext.filter((s) => !s.is_removed).length * 3.5)
   const queueAheadDurationText = useMemo(() => {
@@ -920,39 +948,30 @@ function GigControlPage() {
   })
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const mirrorMonitorUrl = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return resolveAppPath('/mirror?safeMargins=1&density=medium&cast=1')
-    }
-
-    if (window.location.protocol === 'tauri:' || window.location.protocol === 'file:' || '__TAURI_INTERNALS__' in window) {
-      const mirrorUrl = new URLSearchParams()
-      mirrorUrl.set('safeMargins', '1')
-      mirrorUrl.set('density', 'medium')
-      mirrorUrl.set('cast', '1')
-
-      if (event?.id) {
-        mirrorUrl.set('event', event.id)
-      }
-
-      if (mirrorMonitorRefreshNonce > 0) {
-        mirrorUrl.set('monitorRefresh', String(mirrorMonitorRefreshNonce))
-      }
-
-      return `${resolveAppPath('/mirror')}?${mirrorUrl.toString()}`
-    }
-
-    const mirrorUrl = new URL('/mirror', window.location.origin)
-    mirrorUrl.searchParams.set('safeMargins', '1')
-    mirrorUrl.searchParams.set('density', 'medium')
-    mirrorUrl.searchParams.set('cast', '1')
+    const mirrorParams = new URLSearchParams()
+    mirrorParams.set('safeMargins', '1')
+    mirrorParams.set('density', 'medium')
 
     if (event?.id) {
-      mirrorUrl.searchParams.set('event', event.id)
+      mirrorParams.set('event', event.id)
     }
 
     if (mirrorMonitorRefreshNonce > 0) {
-      mirrorUrl.searchParams.set('monitorRefresh', String(mirrorMonitorRefreshNonce))
+      mirrorParams.set('monitorRefresh', String(mirrorMonitorRefreshNonce))
     }
+
+    const mirrorRoutePath = `/mirror?${mirrorParams.toString()}`
+
+    if (isTauriDesktopRuntime()) {
+      return resolveTauriWindowUrl(mirrorRoutePath)
+    }
+
+    if (typeof window === 'undefined') {
+      return mirrorRoutePath
+    }
+
+    const mirrorUrl = new URL('/mirror', window.location.origin)
+    mirrorUrl.search = mirrorParams.toString()
 
     return mirrorUrl.toString()
   }, [event?.id, mirrorMonitorRefreshNonce])
@@ -1022,18 +1041,32 @@ function GigControlPage() {
     }
 
     if (document.fullscreenElement) {
+      releaseFullscreenFocus()
       return
     }
 
-    const timerId = window.setTimeout(() => {
+    let hasAttemptedFullscreen = false
+
+    const requestFullscreenFromUserGesture = () => {
+      if (hasAttemptedFullscreen || document.fullscreenElement) {
+        return
+      }
+
+      hasAttemptedFullscreen = true
+
       void document.documentElement.requestFullscreen()
         .then(() => {
           releaseFullscreenFocus()
         })
         .catch(() => {
-          // Ignore blocked auto-fullscreen attempts in focus mode.
+          // Browser can still deny fullscreen even with gesture context.
         })
-    }, 120)
+        .finally(() => {
+          document.removeEventListener('pointerdown', requestFullscreenFromUserGesture, true)
+          document.removeEventListener('keydown', requestFullscreenFromUserGesture, true)
+          document.removeEventListener('touchstart', requestFullscreenFromUserGesture, true)
+        })
+    }
 
     const onFullscreenChange = () => {
       if (document.fullscreenElement) {
@@ -1041,10 +1074,15 @@ function GigControlPage() {
       }
     }
 
+    document.addEventListener('pointerdown', requestFullscreenFromUserGesture, true)
+    document.addEventListener('keydown', requestFullscreenFromUserGesture, true)
+    document.addEventListener('touchstart', requestFullscreenFromUserGesture, true)
     document.addEventListener('fullscreenchange', onFullscreenChange, true)
 
     return () => {
-      window.clearTimeout(timerId)
+      document.removeEventListener('pointerdown', requestFullscreenFromUserGesture, true)
+      document.removeEventListener('keydown', requestFullscreenFromUserGesture, true)
+      document.removeEventListener('touchstart', requestFullscreenFromUserGesture, true)
       document.removeEventListener('fullscreenchange', onFullscreenChange, true)
     }
   }, [isFocusedGigControlWindow, releaseFullscreenFocus, shouldAutoEnterFullscreenInFocusWindow])
@@ -1256,31 +1294,6 @@ function GigControlPage() {
     }
   }, [draggedSongId, event, isNowPlayingStarted, performedSongs, reorderSong, songActionBusyId, songs, upNext])
 
-  const setSpotifyStatusSafely = useCallback((nextStatusText: string | null, options?: { dedupeWindowMs?: number }) => {
-    const normalizedStatusText = nextStatusText?.trim() ?? ''
-
-    if (!normalizedStatusText) {
-      spotifyStatusLastMessageRef.current = null
-      spotifyStatusLastAtRef.current = 0
-      setSpotifyStatusText(null)
-      return
-    }
-
-    const dedupeWindowMs = options?.dedupeWindowMs ?? 12_000
-    const now = Date.now()
-
-    if (
-      spotifyStatusLastMessageRef.current === normalizedStatusText
-      && now - spotifyStatusLastAtRef.current < dedupeWindowMs
-    ) {
-      return
-    }
-
-    spotifyStatusLastMessageRef.current = normalizedStatusText
-    spotifyStatusLastAtRef.current = now
-    setSpotifyStatusText(normalizedStatusText)
-  }, [])
-
   const sendSpotifyTransportCommand = useCallback((
     mode: SpotifyTransportMode,
     options?: { force?: boolean },
@@ -1288,7 +1301,7 @@ function GigControlPage() {
     if (isEndingOrDeletingGig) return
 
     if (!spotifyAccessToken) {
-      setSpotifyStatusSafely('Spotify is disconnected. Click Connect Spotify to enable auto play/pause transport.')
+      setSpotifyStatusText('Spotify is disconnected. Click Connect Spotify to enable auto play/pause transport.')
       return
     }
 
@@ -1337,16 +1350,16 @@ function GigControlPage() {
     }
 
     if (mode === 'play') {
-      setSpotifyStatusSafely('Sending Spotify play command...', { dedupeWindowMs: 1_500 })
+      setSpotifyStatusText('Sending Spotify play command...')
     } else if (mode === 'next') {
-      setSpotifyStatusSafely('Sending Spotify next command...', { dedupeWindowMs: 1_500 })
+      setSpotifyStatusText('Sending Spotify next command...')
     } else if (mode === 'previous') {
-      setSpotifyStatusSafely('Sending Spotify previous command...', { dedupeWindowMs: 1_500 })
+      setSpotifyStatusText('Sending Spotify previous command...')
     }
 
     spotifyTransportNonceRef.current += 1
     setSpotifyTransportCommand({ mode, nonce: spotifyTransportNonceRef.current })
-  }, [setSpotifyStatusSafely, spotifyAccessToken])
+  }, [spotifyAccessToken])
 
   const primeIntroAudioPlayback = useCallback((eventId: string, introAudioUrl: string) => {
     if (typeof window === 'undefined' || typeof Audio === 'undefined') {
@@ -1462,36 +1475,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     if (storedToken) {
       setSpotifyAccessToken(storedToken)
     }
-
-    const storedPlaylistMeta = window.localStorage.getItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY)
-    if (storedPlaylistMeta) {
-      try {
-        const parsedPlaylistMeta = JSON.parse(storedPlaylistMeta) as SpotifyPlaylistMeta
-        if (parsedPlaylistMeta && typeof parsedPlaylistMeta === 'object') {
-          setSelectedSpotifyPlaylistMeta(parsedPlaylistMeta)
-        }
-      } catch {
-        window.localStorage.removeItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY)
-      }
-    }
-
-    const storedSavedPlaylists = window.localStorage.getItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
-    if (storedSavedPlaylists) {
-      try {
-        const parsedSavedPlaylists = JSON.parse(storedSavedPlaylists) as unknown[]
-        if (Array.isArray(parsedSavedPlaylists)) {
-          const normalizedSavedPlaylists = parsedSavedPlaylists
-            .map(normalizeSavedSpotifyPlaylist)
-            .filter((playlist): playlist is SavedSpotifyPlaylist => Boolean(playlist))
-
-          setSavedSpotifyPlaylists(normalizedSavedPlaylists)
-          setSavedSpotifyPlaylistCount(normalizedSavedPlaylists.length)
-        }
-      } catch {
-        window.localStorage.removeItem(SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY)
-      }
-    }
-
     const storedAutoTransport = window.localStorage.getItem(SPOTIFY_AUTO_TRANSPORT_STORAGE_KEY)
     if (storedAutoTransport === '0') {
       setSpotifyAutoTransportEnabled(false)
@@ -1506,92 +1489,17 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [spotifyAutoTransportEnabled])
 
   const refreshSpotifyAccessToken = useCallback(async () => {
-    if (spotifyTokenRefreshPromiseRef.current) {
-      return spotifyTokenRefreshPromiseRef.current
+    const response = await fetch(resolveApiUrl('/api/spotify/token'))
+    const payload = await response.json().catch(() => ({}))
+
+    if (!response.ok || typeof payload.access_token !== 'string') {
+      throw new Error(payload.error || 'Spotify token refresh failed.')
     }
 
-    const refreshPromise = (async () => {
-      const response = await fetch(resolveApiUrl('/api/spotify/token'))
-      const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
-      const payload = contentType.includes('application/json')
-        ? await response.json().catch(() => ({}))
-        : {}
-
-      if (!response.ok || typeof payload.access_token !== 'string') {
-        const fallbackError = !contentType.includes('application/json')
-          ? `Spotify token refresh failed (non-JSON response, status ${response.status}).`
-          : 'Spotify token refresh failed.'
-        throw new Error(payload.error || fallbackError)
-      }
-
-      window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
-      setSpotifyAccessToken(payload.access_token)
-      return payload.access_token as string
-    })()
-
-    spotifyTokenRefreshPromiseRef.current = refreshPromise
-
-    try {
-      return await refreshPromise
-    } finally {
-      spotifyTokenRefreshPromiseRef.current = null
-    }
+    window.localStorage.setItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
+    setSpotifyAccessToken(payload.access_token)
+    return payload.access_token as string
   }, [])
-
-  useEffect(() => {
-    if (spotifyAutoConnectAttemptedRef.current) {
-      return
-    }
-
-    spotifyAutoConnectAttemptedRef.current = true
-
-    let cancelled = false
-    let retryTimeoutId: number | null = null
-    let attemptCount = 0
-    const maxAttempts = 3
-    const hasCachedToken = Boolean(window.localStorage.getItem(SPOTIFY_ACCESS_TOKEN_STORAGE_KEY))
-
-    const attemptAutoConnect = async () => {
-      attemptCount += 1
-
-      try {
-        const token = await refreshSpotifyAccessToken()
-
-        if (cancelled) {
-          return
-        }
-
-        setSpotifyAccessToken(token)
-        setSpotifyStatusSafely('Spotify auto-connected from your saved login.', { dedupeWindowMs: 3_000 })
-      } catch {
-        if (cancelled) {
-          return
-        }
-
-        if (attemptCount < maxAttempts) {
-          const retryDelayMs = attemptCount * 2500
-          retryTimeoutId = window.setTimeout(() => {
-            void attemptAutoConnect()
-          }, retryDelayMs)
-          return
-        }
-
-        if (!hasCachedToken) {
-          setSpotifyStatusSafely('Spotify session not restored automatically. Press Connect Spotify once to re-link.', { dedupeWindowMs: 12_000 })
-        }
-      }
-    }
-
-    void attemptAutoConnect()
-
-    return () => {
-      cancelled = true
-
-      if (retryTimeoutId) {
-        window.clearTimeout(retryTimeoutId)
-      }
-    }
-  }, [refreshSpotifyAccessToken, setSpotifyStatusSafely])
 
   useEffect(() => {
     if (!spotifyAccessToken) {
@@ -1605,11 +1513,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
           const token = await refreshSpotifyAccessToken()
 
           if (!cancelled) {
+            setSpotifyStatusText(`Spotify session refreshed at ${new Date().toLocaleTimeString()}.`)
             setSpotifyAccessToken(token)
           }
         } catch (error) {
           if (!cancelled) {
-            setSpotifyStatusSafely(error instanceof Error ? error.message : 'Spotify refresh failed.')
+            setSpotifyStatusText(error instanceof Error ? error.message : 'Spotify refresh failed.')
           }
         }
       })()
@@ -1619,7 +1528,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       cancelled = true
       window.clearInterval(refreshInterval)
     }
-  }, [refreshSpotifyAccessToken, setSpotifyStatusSafely, spotifyAccessToken])
+  }, [refreshSpotifyAccessToken, spotifyAccessToken])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof Worker === 'undefined') {
@@ -1715,15 +1624,13 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   const connectSpotify = useCallback(async () => {
     try {
       const token = await refreshSpotifyAccessToken()
-      setSpotifyStatusSafely(`Spotify connected from saved session at ${new Date().toLocaleTimeString()}.`, { dedupeWindowMs: 3_000 })
+      setSpotifyStatusText(`Spotify connected from saved session at ${new Date().toLocaleTimeString()}.`)
       setSpotifyAccessToken(token)
       return
     } catch {
-      const loginUrl = resolveApiUrl('/api/spotify/login')
-
-      window.location.assign(loginUrl)
+      window.location.assign(resolveApiUrl('/api/spotify/login'))
     }
-  }, [refreshSpotifyAccessToken, setSpotifyStatusSafely])
+  }, [refreshSpotifyAccessToken])
 
   const persistReadinessVerdict = useCallback((verdict: 'pass' | 'fail') => {
     setLastReadinessVerdict(verdict)
@@ -1752,7 +1659,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       keepWarmController.abort()
     }, 1800)
 
-    const keepWarmPromise = fetch(resolveApiUrl('/api/keepwarm'), {
+    const keepWarmPromise = fetch('/api/keepwarm', {
       method: 'GET',
       cache: 'no-store',
       signal: keepWarmController.signal,
@@ -1771,14 +1678,18 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       throw new Error('No active host session. Please sign in again before going live.')
     }
 
-    const { error: dbReadError } = await supabase
+    const { data: eventRow, error: dbReadError } = await supabase
       .from('events')
       .select('id, room_open')
       .eq('id', event.id)
-      .single()
+      .maybeSingle()
 
     if (dbReadError) {
       throw new Error(`Database read failed: ${dbReadError.message}`)
+    }
+
+    if (!eventRow) {
+      throw new Error('Database read failed: active gig record was not found.')
     }
 
     const testChannel = supabase.channel(`go-live-preflight-${Date.now()}`)
@@ -1842,7 +1753,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       case 'keepwarm':
       case 'unknown': {
         await supabase.auth.refreshSession().catch(() => undefined)
-        const keepWarmResponse = await fetch(resolveApiUrl('/api/keepwarm'), { method: 'GET', cache: 'no-store' }).catch(() => null)
+        const keepWarmResponse = await fetch('/api/keepwarm', { method: 'GET', cache: 'no-store' }).catch(() => null)
 
         return {
           fixed: Boolean(keepWarmResponse?.ok),
@@ -1917,6 +1828,109 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
   }, [attemptAutomaticHealthRepair, event, persistReadinessVerdict, runPreflightChecks])
 
+  const runAudienceConnectStabilityTest = useCallback(async () => {
+    if (!event) {
+      throw new Error('No active gig selected for audience test.')
+    }
+
+    setAudienceStabilityTestBusy(true)
+    setPreflightStatusText('Running audience app connect + stability test...')
+
+    const audienceUrl = event.isTestGig
+      ? getAudienceUrl(event.id, { compact: false, mode: 'test' })
+      : getAudienceUrl(event.id, { compact: true })
+
+    try {
+      if (!audienceUrl.startsWith('http')) {
+        throw new Error('Audience test failed: share URL is invalid.')
+      }
+
+      const audienceRequestController = new AbortController()
+      const audienceRequestTimeoutId = window.setTimeout(() => {
+        audienceRequestController.abort()
+      }, 5000)
+
+      const audienceResponse = await fetch(audienceUrl, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: audienceRequestController.signal,
+      }).finally(() => {
+        window.clearTimeout(audienceRequestTimeoutId)
+      })
+
+      if (!audienceResponse.ok) {
+        throw new Error(`Audience test failed: app URL returned ${audienceResponse.status}.`)
+      }
+
+      const stabilityChannel = supabase.channel(`audience-stability-test-${event.id}-${Date.now()}`)
+      const subscribedAt = await new Promise<number>((resolve, reject) => {
+        let settled = false
+        let holdTimeoutId: number | null = null
+
+        const finishWithError = (message: string) => {
+          if (settled) {
+            return
+          }
+
+          settled = true
+          if (holdTimeoutId !== null) {
+            window.clearTimeout(holdTimeoutId)
+          }
+          reject(new Error(message))
+        }
+
+        const subscribeTimeoutId = window.setTimeout(() => {
+          finishWithError('Audience test failed: realtime subscribe timed out.')
+        }, 3500)
+
+        stabilityChannel
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'queue_songs',
+            filter: `event_id=eq.${event.id}`,
+          }, () => {
+            // Connectivity test only.
+          })
+          .subscribe((status) => {
+            if (settled) {
+              return
+            }
+
+            if (status === 'SUBSCRIBED') {
+              window.clearTimeout(subscribeTimeoutId)
+              const connectedAt = Date.now()
+              holdTimeoutId = window.setTimeout(() => {
+                if (settled) {
+                  return
+                }
+
+                settled = true
+                resolve(connectedAt)
+              }, 3000)
+              return
+            }
+
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              window.clearTimeout(subscribeTimeoutId)
+              finishWithError(`Audience test failed: realtime channel became unstable (${status}).`)
+            }
+          })
+      })
+
+      await supabase.removeChannel(stabilityChannel)
+      const elapsedSeconds = ((Date.now() - subscribedAt) / 1000).toFixed(1)
+      setPreflightStatusText(`Audience app connect + stability test passed (${elapsedSeconds}s stable).`)
+      setErrorText(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Audience app connect + stability test failed.'
+      setPreflightStatusText(message)
+      throw new Error(message)
+    } finally {
+      setAudienceStabilityTestBusy(false)
+    }
+  }, [event, setErrorText])
+
   const ensureRoomOpenState = useCallback(async (targetRoomOpen: boolean) => {
     const wait = (ms: number) => new Promise<void>((resolve) => {
       window.setTimeout(resolve, ms)
@@ -1958,7 +1972,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     autoplayBlockedMessage: string,
     primedAudioElement?: HTMLAudioElement | null,
   ) => {
-    if (introAudioPlayedEventIdsRef.current.has(eventId)) {
+    if (introAudioPlayedEventIdsRef.current.has(eventId) || readIntroAudioPlayedMarker(eventId)) {
       return
     }
 
@@ -1972,6 +1986,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     try {
       await playIntroAudioWithSpotifyBridge(introAudioUrl, primedAudioElement)
       introAudioPlayedEventIdsRef.current.add(eventId)
+      writeIntroAudioPlayedMarker(eventId)
     } catch {
       setErrorText(autoplayBlockedMessage)
     } finally {
@@ -2004,7 +2019,39 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       }
 
       lastIntroPlaybackRequestRef.current = requestKey
-      pendingIntroAudioRequestRef.current = request
+
+      void (async () => {
+        await playIntroAudioOnceSafely(
+          event.id,
+          request.introAudioUrl,
+          'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
+        )
+
+        if (isNowPlayingStartedRef.current) {
+          return
+        }
+
+        await writeSharedPlaybackState(event.id, {
+          currentSongId: nowPlayingRef.current?.id ?? null,
+          currentSongCoverUrl: resolveCoverUrlForSong(nowPlayingRef.current?.id ?? null),
+          isStarted: false,
+          quoteIndex: quoteIndexRef.current,
+          countdownTargetMs: mirroredCountdownTargetMs,
+          brbActive: false,
+          brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
+        })
+
+        setIsNowPlayingStarted(false)
+        setPreflightStatusText('Auto Live intro triggered from countdown.')
+
+        try {
+          window.localStorage.removeItem(INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY)
+        } catch {
+          // Ignore storage cleanup failures.
+        }
+      })().catch((error) => {
+        console.warn('GigControlPage: intro playback request handling failed', error)
+      })
     }
 
     const onIntroRequestEvent = (nextEvent: Event) => {
@@ -2030,68 +2077,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       window.removeEventListener('storage', onIntroRequestStorage)
     }
   }, [event?.id, mirroredCountdownTargetMs, playIntroAudioOnceSafely, resolveCoverUrlForSong])
-
-  useEffect(() => {
-    const previousShowStatus = previousShowStatusRef.current
-    const currentShowStatus = showPlaybackStatus
-    const pendingIntroAudioRequest = pendingIntroAudioRequestRef.current
-
-    if (previousShowStatus === 'countdown' && currentShowStatus === 'live' && pendingIntroAudioRequest) {
-      pendingIntroAudioRequestRef.current = null
-
-      void (async () => {
-        try {
-          await playIntroAudioOnceSafely(
-            pendingIntroAudioRequest.eventId,
-            pendingIntroAudioRequest.introAudioUrl,
-            'Auto Live intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
-          )
-
-          if (isNowPlayingStartedRef.current) {
-            return
-          }
-
-          await writeSharedPlaybackState(pendingIntroAudioRequest.eventId, {
-            currentSongId: nowPlayingRef.current?.id ?? null,
-            currentSongCoverUrl: resolveCoverUrlForSong(nowPlayingRef.current?.id ?? null),
-            isStarted: false,
-            quoteIndex: quoteIndexRef.current,
-            countdownTargetMs: mirroredCountdownTargetMs,
-            brbActive: false,
-            brbMessage: AUTO_LIVE_WELCOME_MESSAGE,
-          })
-
-          setIsNowPlayingStarted(false)
-          setPreflightStatusText('Auto Live intro triggered from countdown.')
-        } catch (error) {
-          console.warn('GigControlPage: intro playback request handling failed', error)
-        } finally {
-          try {
-            window.localStorage.removeItem(INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY)
-          } catch {
-            // Ignore storage cleanup failures.
-          }
-        }
-      })()
-    }
-
-    if (currentShowStatus !== 'countdown' && pendingIntroAudioRequest) {
-      pendingIntroAudioRequestRef.current = null
-      try {
-        window.localStorage.removeItem(INTRO_AUDIO_PLAY_REQUEST_STORAGE_KEY)
-      } catch {
-        // Ignore storage cleanup failures.
-      }
-    }
-
-    previousShowStatusRef.current = currentShowStatus
-  }, [
-    mirroredCountdownTargetMs,
-    nowPlayingRef,
-    playIntroAudioOnceSafely,
-    resolveCoverUrlForSong,
-    showPlaybackStatus,
-  ])
 
   const toggleLiveState = useCallback(async () => {
     if (!ensureGlobalActionCheckEnabled('changing live state')) {
@@ -2121,7 +2106,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       if (isOpeningRoom) {
         if (currentEvent.introAudioUrl) {
           primeIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl);
-          requestSharedIntroAudioPlayback(currentEvent.id, currentEvent.introAudioUrl, 'gig-control-go-live')
         }
 
         setAutoLiveLastError(null);
@@ -2140,6 +2124,23 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       const latestEvent = eventRef.current;
       if (!isOpeningRoom || !latestEvent?.id || latestEvent.id !== currentEvent.id) {
         return;
+      }
+
+      if (latestEvent.introAudioUrl) {
+        const primedIntroAudio = primedIntroAudioRef.current;
+        const primedElement =
+          primedIntroAudio &&
+          primedIntroAudio.eventId === latestEvent.id &&
+          primedIntroAudio.url === latestEvent.introAudioUrl
+            ? primedIntroAudio.element
+            : null;
+
+        await playIntroAudioOnceSafely(
+          latestEvent.id,
+          latestEvent.introAudioUrl,
+          'Go Live opened the room, but intro audio was blocked by browser autoplay settings. Spotify transport stayed paused.',
+          primedElement,
+        );
       }
 
       await writeSharedPlaybackState(latestEvent.id, {
@@ -2614,6 +2615,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
     if (hasJustEnded) {
       introAudioPlayedEventIdsRef.current.delete(event.id)
+      clearIntroAudioPlayedMarker(event.id)
       if (primedIntroAudioRef.current?.eventId === event.id) {
         primedIntroAudioRef.current = null
       }
@@ -2785,34 +2787,108 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    const presenceTopic = `audience-presence:${eventId}`
+    let isCurrent = true
+    let reconnectAttempt = 0
+    const maxReconnectAttempts = 10
+    const baseReconnectDelayMs = 1000
+    let heartbeatTimeoutId: ReturnType<typeof setTimeout> | null = null
+    let reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null
+    const heartbeatIntervalMs = 30_000 // 30 seconds
+    const heartbeatTimeoutMs = 60_000 // 60 seconds without activity = stale
 
-    // supabase.channel() in v2+ returns an existing channel by topic instead of
-    // creating a new one. If cleanup fired removeChannel() asynchronously, the
-    // old joined channel may still be in the registry when this effect runs,
-    // causing .on('presence') to throw "cannot add presence callbacks after
-    // subscribe()". Evict stale channels synchronously via the live array
-    // (getChannels() returns it by reference) before calling supabase.channel().
-    const liveChannels = supabase.getChannels()
-    for (let i = liveChannels.length - 1; i >= 0; i--) {
-      const ch = liveChannels[i]
-      if (ch.topic === presenceTopic || ch.topic === `realtime:${presenceTopic}`) {
-        liveChannels.splice(i, 1)
-        void ch.unsubscribe()
+    const setupChannel = () => {
+      if (!isCurrent) {
+        return
       }
+
+      // supabase.channel() v2+ returns existing channels by topic. Synchronously
+      // evict stale channels so we always get a fresh instance.
+      const liveChannels = supabase.getChannels()
+      for (let i = liveChannels.length - 1; i >= 0; i--) {
+        const ch = liveChannels[i]
+        const t = ch.topic
+        if (t === `audience-presence:${eventId}` || t === `realtime:audience-presence:${eventId}`) {
+          liveChannels.splice(i, 1)
+          void ch.unsubscribe()
+        }
+      }
+
+      let lastMessageTimeMs = Date.now()
+      const channel = supabase.channel(`audience-presence:${eventId}`)
+
+      channel.on('presence', { event: 'sync' }, () => {
+        if (!isCurrent) {
+          return
+        }
+
+        lastMessageTimeMs = Date.now()
+
+        const state = channel.presenceState()
+        setActiveAudienceCount(Object.keys(state).length)
+      })
+
+      channel.subscribe((status, error) => {
+        if (!isCurrent) {
+          return
+        }
+
+        if (status === 'SUBSCRIBED') {
+          reconnectAttempt = 0 // Reset on successful connection
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`[AudiencePresence] Channel status: ${status}, error: ${error?.message}`)
+          scheduleReconnect()
+        }
+      })
+
+      // Heartbeat to detect stale connections
+      const startHeartbeat = () => {
+        if (heartbeatTimeoutId) clearTimeout(heartbeatTimeoutId)
+
+        heartbeatTimeoutId = setTimeout(() => {
+          if (!isCurrent) {
+            return
+          }
+
+          const timeSinceLastMessageMs = Date.now() - lastMessageTimeMs
+          if (timeSinceLastMessageMs > heartbeatTimeoutMs) {
+            console.warn('[AudiencePresence] Connection appears stale (no activity for 60s), reconnecting...')
+            void supabase.removeChannel(channel)
+            scheduleReconnect()
+          } else {
+            // Check again soon
+            startHeartbeat()
+          }
+        }, heartbeatIntervalMs)
+      }
+
+      startHeartbeat()
     }
 
-    const channel = supabase.channel(presenceTopic)
+    const scheduleReconnect = () => {
+      if (!isCurrent || reconnectAttempt >= maxReconnectAttempts) {
+        return
+      }
 
-    channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState()
-      setActiveAudienceCount(Object.keys(state).length)
-    })
+      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId)
 
-    channel.subscribe()
+      reconnectAttempt += 1
+      const delayMs = Math.min(baseReconnectDelayMs * Math.pow(2, reconnectAttempt - 1), 30_000)
+
+      console.log(`[AudiencePresence] Scheduling reconnect attempt ${reconnectAttempt}/${maxReconnectAttempts} in ${delayMs}ms`)
+
+      reconnectTimeoutId = setTimeout(() => {
+        if (isCurrent) {
+          setupChannel()
+        }
+      }, delayMs)
+    }
+
+    setupChannel()
 
     return () => {
-      void supabase.removeChannel(channel)
+      isCurrent = false
+      if (heartbeatTimeoutId) clearTimeout(heartbeatTimeoutId)
+      if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId)
     }
   }, [event?.id])
 
@@ -3237,7 +3313,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         return
       }
 
-      const transitionIntroAudioUrl = transitionState.introAudioUrl
+      const shouldSkipTransitionIntroAudio = Boolean(readIntroAudioPlayedMarker(currentEvent.id))
+      const transitionIntroAudioUrl = shouldSkipTransitionIntroAudio ? null : transitionState.introAudioUrl
 
       if (transitionIntroAudioUrl) {
         const introStartedAtMs = getHostNowMs()
@@ -3436,15 +3513,18 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   const startCurrentSong = useCallback(async (options?: { skipIntroAudio?: boolean; countdownMs?: number }) => {
     const currentEvent = eventRef.current
     const currentSong = nowPlayingRef.current
-    // The event-level introAudioUrl is the show-start MP3 and must only play once at show start
-    // (managed by the Go Live / countdown→live flow). Song-start transitions never play it.
-    const transitionIntroAudioUrl = null
+    const shouldSkipIntroAudio = options?.skipIntroAudio === true || Boolean(currentEvent?.id && readIntroAudioPlayedMarker(currentEvent.id))
+    const transitionIntroAudioUrl = shouldSkipIntroAudio ? null : (currentEvent?.introAudioUrl ?? null)
     const countdownMs = Number.isFinite(options?.countdownMs)
       ? Math.max(250, Number(options?.countdownMs))
       : SONG_START_COUNTDOWN_MS
 
     if (!currentEvent?.id || !currentSong?.id || playbackTransitionLockedRef.current) {
       return
+    }
+
+    if (transitionIntroAudioUrl) {
+      primeIntroAudioPlayback(currentEvent.id, transitionIntroAudioUrl)
     }
 
     const transitionId = `${currentSong.id}:${Date.now()}`
@@ -3520,10 +3600,85 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     nowPlayingTypeRef.current = nowPlayingType
   }, [nowPlayingType])
 
+  // Stable ref to the shortcut so the keydown listener never needs re-registering
   const runQueueTogglePlayShortcutRef = useRef(runQueueTogglePlayShortcut)
   useEffect(() => {
     runQueueTogglePlayShortcutRef.current = runQueueTogglePlayShortcut
   }, [runQueueTogglePlayShortcut])
+
+  const toggleSpotifyPlayPause = useCallback(async () => {
+    if (!event?.roomOpen) {
+      setErrorText('Spacebar playback is disabled until the gig is live.')
+      return false
+    }
+
+    let token = spotifyAccessToken
+
+    if (!token) {
+      try {
+        token = await refreshSpotifyAccessToken()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Spotify token refresh failed.'
+        setSpotifyStatusText(message)
+        setErrorText('Connect Spotify first to use Spotify transport controls.')
+        return false
+      }
+    }
+
+    if (!token) {
+      setErrorText('Connect Spotify first to use Spotify transport controls.')
+      return false
+    }
+
+    setSpotifyStatusText('Sending Spotify play/pause command...')
+    spotifyTransportNonceRef.current += 1
+    setSpotifyTransportCommand({ mode: 'toggle', nonce: spotifyTransportNonceRef.current })
+    setErrorText(null)
+    return true
+  }, [event?.roomOpen, refreshSpotifyAccessToken, spotifyAccessToken])
+
+  const toggleQueuePlayPause = useCallback(async () => {
+    if (!event?.roomOpen) {
+      setErrorText('Spacebar playback is disabled until the gig is live.')
+      return
+    }
+
+    const currentSong = nowPlayingRef.current
+    if (!currentSong) {
+      return
+    }
+
+    const now = Date.now()
+    if (
+      playbackActionLockRef.current
+      && playbackActionLockStartedAtRef.current > 0
+      && now - playbackActionLockStartedAtRef.current > PLAYBACK_ACTION_LOCK_MAX_MS
+    ) {
+      playbackActionLockRef.current = false
+      playbackActionLockStartedAtRef.current = 0
+      spaceActionBusyRef.current = false
+      setSpaceActionBusy(false)
+    }
+
+    if (playbackActionLockRef.current || spaceActionBusyRef.current || playbackTransitionLockedRef.current) {
+      return
+    }
+
+    try {
+      const nextStarted = !isNowPlayingStartedRef.current
+      await syncStartedState(nextStarted, currentSong.id)
+      await registerBackgroundSync(BACKGROUND_SYNC_TAG)
+
+      if (spotifyAccessToken) {
+        sendSpotifyTransportCommand('pause', { force: true })
+      }
+
+      setErrorText(null)
+    } catch (error) {
+      console.warn('GigControlPage: queue play/pause toggle failed', error)
+      setErrorText('Playback toggle failed. Please try again.')
+    }
+  }, [event?.roomOpen, sendSpotifyTransportCommand, spotifyAccessToken, syncStartedState])
 
   const handleSpacebarAction = useCallback(async () => {
     if (!nowPlayingRef.current) {
@@ -3531,20 +3686,17 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       return
     }
 
-    if (!isNowPlayingStartedRef.current) {
-      // Start the song instantly (no mirror countdown) — same path as "▶ Go Live" button
-      await runGlobalToggleQuoteNowPlayingRef.current()
-      return
-    }
-
-    await runQueueTogglePlayShortcutRef.current()
+    await runQueueTogglePlayShortcutRef.current({
+      skipIntroAudio: true,
+      countdownMs: SPACEBAR_START_COUNTDOWN_MS,
+    })
   }, [])
 
 
   /**
    * GLOBAL MODE SWITCH: QUOTE ↔ NOW PLAYING
    * One call = instant state flip broadcast to all clients.
-   * Spotify follows: NOW PLAYING → pause, QUOTE → play.
+    * Spotify follows: NOW PLAYING → pause, QUOTE → pause.
    * No countdown, no transition lock, no queue advancement.
    */
   const runGlobalToggleQuoteNowPlaying = useCallback(async () => {
@@ -3557,11 +3709,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     const currentSong = nowPlayingRef.current;
     if (!currentEvent?.id || !currentSong?.id) {
       return;
-    }
-
-    if (!currentEvent.roomOpen) {
-      setErrorText('Spacebar playback is disabled until the gig is live.')
-      return
     }
 
     if (
@@ -3654,9 +3801,10 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       || normalizedKey === 'space'
       || (event as unknown as { keyCode?: number; which?: number }).keyCode === 32
       || (event as unknown as { keyCode?: number; which?: number }).which === 32
-    // ArrowDown / PageDown act as the foot pedal key — same action as Space
-    const isPedalKey = event.code === 'ArrowDown' || event.key === 'ArrowDown'
-      || event.code === 'PageDown' || event.key === 'PageDown'
+    const isPedalKey = event.code === 'ArrowDown'
+      || event.code === 'PageDown'
+      || event.key === 'ArrowDown'
+      || event.key === 'PageDown'
     if (!isSpaceKey && !isPedalKey) {
       return
     }
@@ -3677,8 +3825,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       || activeElement?.isContentEditable,
     )
 
-    // Pedal keys (ArrowDown/PageDown) must always fire — they are foot-pedal
-    // controls, not typing keys. Only block Space when a text field has focus.
+    // Pedal keys (ArrowDown/PageDown) always fire — not typing keys.
     if (isTypingTarget && !isPedalKey) {
       spacebarSkipUntilKeyUpRef.current = true
       return
@@ -3702,7 +3849,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     spacebarSkipUntilKeyUpRef.current = false
 
     const now = Date.now()
-    if (now - lastSpacebarHandledAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
+    if (now - lastSpacebarHandledAtRef.current < 120) {
       return
     }
     lastSpacebarHandledAtRef.current = now
@@ -3724,7 +3871,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       || normalizedKey === 'space'
       || (event as unknown as { keyCode?: number; which?: number }).keyCode === 32
       || (event as unknown as { keyCode?: number; which?: number }).which === 32
-    // Pedal keys must also reset the press-active state, otherwise subsequent presses are dropped
+    // Pedal keys must also reset press-active state, otherwise subsequent presses are dropped
     const isPedalKey = event.code === 'ArrowDown' || event.key === 'ArrowDown'
       || event.code === 'PageDown' || event.key === 'PageDown'
     if (!isSpaceKey && !isPedalKey) {
@@ -3779,7 +3926,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     const now = Date.now()
-    if (now - lastSpacebarHandledAtRef.current < SPACEBAR_ACTION_COOLDOWN_MS) {
+    if (now - lastSpacebarHandledAtRef.current < 120) {
       return
     }
     lastSpacebarHandledAtRef.current = now
@@ -3872,22 +4019,16 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   }, [isFocusedGigControlWindow])
 
   const openMirrorFromGigControl = useCallback(async () => {
-    const { navigatedInCurrentWindow, openedInPopupWindow, openedInNewTabWindow, blockedByPopup, errorMessage } = await openMirrorScreen({ eventId: event?.id ?? null })
+    const { openedInNewTabWindow, blockedByPopup } = await openMirrorScreen({ eventId: event?.id ?? null })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
     }
 
-    const statusMessage = openedInNewTabWindow || navigatedInCurrentWindow || openedInPopupWindow
-      ? isTauriDesktopRuntime()
-        ? navigatedInCurrentWindow
-          ? `Mirror could not open in a separate native window, so it opened in the current Tauri window instead.${errorMessage ? ` Error: ${errorMessage}` : ''}`
-          : `Mirror opened in a separate window. Gig Control stays open here.${errorMessage ? ` Native launch note: ${errorMessage}` : ''}`
-        : 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
+    const statusMessage = openedInNewTabWindow
+      ? 'Mirror opened in fullscreen launch mode in a new tab. Gig Control stays open here.'
       : blockedByPopup
-      ? 'Mirror could not open a separate window. Allow pop-ups in the shortcut app and try again.'
-      : isTauriDesktopRuntime() && errorMessage
-      ? `Mirror could not open a separate native window. Gig Control stayed open here.${errorMessage ? ` Error: ${errorMessage}` : ''}`
+      ? 'Mirror was blocked by pop-up settings. Gig Control stays open here. Allow pop-ups and try again.'
       : 'Could not open Mirror. Please try again.'
 
     setMirrorLaunchStatusText(statusMessage)
@@ -3956,7 +4097,60 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     navigate('/admin/gig-control')
   }, [navigate])
 
-  const openNowPlayingLyrics = useCallback(() => {
+  const lyricStateController = useSharedLyricState(supabase, 'gig-control')
+
+  const nowPlayingLyricSong = useMemo(() => {
+    if (!nowPlaying?.title) {
+      return null
+    }
+
+    const artist = (nowPlaying.artist ?? '').trim()
+    const fallbackSongId = `${artist.toLowerCase().replace(/\s+/g, '-')}:${nowPlaying.title.toLowerCase().replace(/\s+/g, '-')}`
+
+    return {
+      id: nowPlaying.library_song_id ?? nowPlaying.id ?? fallbackSongId,
+      title: nowPlaying.title,
+      artist,
+    }
+  }, [nowPlaying])
+
+  useEffect(() => {
+    if (!nowPlayingLyricSong) {
+      return
+    }
+
+    const lyricSessionActive = (
+      lyricStateController.state.activeView === 'lyric'
+      || lyricStateController.state.showOnMirror
+      || lyricStateController.state.song !== null
+    )
+
+    if (!lyricSessionActive) {
+      return
+    }
+
+    const currentSong = lyricStateController.state.song
+    const sameSongById = currentSong?.id === nowPlayingLyricSong.id
+    const sameSongByTitleArtist = (
+      (currentSong?.title ?? '').trim().toLowerCase() === nowPlayingLyricSong.title.trim().toLowerCase()
+      && (currentSong?.artist ?? '').trim().toLowerCase() === nowPlayingLyricSong.artist.trim().toLowerCase()
+    )
+
+    if (sameSongById || sameSongByTitleArtist) {
+      return
+    }
+
+    void (async () => {
+      const shouldKeepMirrorVisible = lyricStateController.state.showOnMirror
+      await lyricStateController.openLyricForSong(nowPlayingLyricSong, `${location.pathname}${location.search}`)
+      lyricStateController.setActiveView('lyric')
+      if (shouldKeepMirrorVisible) {
+        lyricStateController.setShowOnMirror(true)
+      }
+    })()
+  }, [location.pathname, location.search, lyricStateController, nowPlayingLyricSong])
+
+  const openNowPlayingLyrics = useCallback(async () => {
     if (!nowPlaying?.title) {
       setErrorText('No now-playing song is available for lyrics yet.')
       return
@@ -3977,6 +4171,15 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       searchParams.set('songId', nowPlaying.library_song_id)
     }
 
+    if (nowPlayingLyricSong) {
+      const shouldKeepMirrorVisible = lyricStateController.state.showOnMirror
+      await lyricStateController.openLyricForSong(nowPlayingLyricSong, `${location.pathname}${location.search}`)
+      lyricStateController.setActiveView('lyric')
+      if (shouldKeepMirrorVisible) {
+        lyricStateController.setShowOnMirror(true)
+      }
+    }
+
     navigate(`/lyrics?${searchParams.toString()}`, {
       state: {
         title: nowPlaying.title,
@@ -3986,47 +4189,25 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         returnTo: `${location.pathname}${location.search}`,
       },
     })
-  }, [location.pathname, location.search, navigate, nowPlaying])
+  }, [location.pathname, location.search, lyricStateController, navigate, nowPlaying, nowPlayingLyricSong])
 
-  const openManualLyricsSearch = useCallback(() => {
-    const title = manualLyricsTitle.trim()
-    const artist = manualLyricsArtist.trim()
-
-    if (!title) {
-      setErrorText('Enter a song title to search lyrics manually.')
+  const toggleMirrorLyricsFromGigControl = useCallback(async () => {
+    if (!nowPlayingLyricSong) {
+      setErrorText('No now-playing song is available for mirror lyrics yet.')
       return
     }
 
-    prefetchAndCacheLyrics(title, artist)
+    const enableMirrorLyrics = !lyricStateController.state.showOnMirror
 
-    const searchParams = new URLSearchParams({
-      title,
-      artist,
-      locale: 'en',
-      stage: '0',
-      returnTo: `${location.pathname}${location.search}`,
-    })
-
-    navigate(`/lyrics?${searchParams.toString()}`, {
-      state: {
-        title,
-        artist,
-        audienceLocale: 'en',
-        returnTo: `${location.pathname}${location.search}`,
-      },
-    })
-
-    setErrorText(null)
-  }, [location.pathname, location.search, manualLyricsArtist, manualLyricsTitle, navigate])
-
-  useEffect(() => {
-    if (!nowPlaying?.title) {
+    if (enableMirrorLyrics) {
+      await lyricStateController.openLyricForSong(nowPlayingLyricSong, `${location.pathname}${location.search}`)
+      lyricStateController.setActiveView('lyric')
+      lyricStateController.setShowOnMirror(true)
       return
     }
 
-    setManualLyricsTitle((currentTitle) => (currentTitle.trim() ? currentTitle : nowPlaying.title))
-    setManualLyricsArtist((currentArtist) => (currentArtist.trim() ? currentArtist : (nowPlaying.artist ?? '')))
-  }, [nowPlaying?.artist, nowPlaying?.title])
+    lyricStateController.setShowOnMirror(false)
+  }, [location.pathname, location.search, lyricStateController, nowPlayingLyricSong])
 
   const handleEnterFocusFullscreen = useCallback(() => {
     if (typeof document === 'undefined' || !document.documentElement.requestFullscreen) {
@@ -4046,35 +4227,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
   const handleSpotifyPlaylistMetaChange = useCallback((playlistMeta: SpotifyPlaylistMeta) => {
     setSelectedSpotifyPlaylistMeta(playlistMeta)
   }, [])
-
-  const handleSavedSpotifyPlaylistsChange = useCallback((savedPlaylists: Array<{ uri?: string; name?: string; ownerName?: string }>) => {
-    const normalizedSavedPlaylists = savedPlaylists
-      .map(normalizeSavedSpotifyPlaylist)
-      .filter((playlist): playlist is SavedSpotifyPlaylist => Boolean(playlist))
-
-    setSavedSpotifyPlaylists(normalizedSavedPlaylists)
-    setSavedSpotifyPlaylistCount(normalizedSavedPlaylists.length)
-  }, [])
-
-  const selectedSavedSpotifyPlaylistUri = selectedSpotifyPlaylistMeta?.uri ?? ''
-
-  const selectSavedSpotifyPlaylistFromGigControl = useCallback((playlistUri: string) => {
-    const selectedPlaylist = savedSpotifyPlaylists.find((playlist) => playlist.uri === playlistUri)
-
-    if (!selectedPlaylist) {
-      return
-    }
-
-    const nextMeta: SpotifyPlaylistMeta = {
-      uri: selectedPlaylist.uri,
-      name: selectedPlaylist.name,
-      ownerName: selectedPlaylist.ownerName,
-    }
-
-    setSelectedSpotifyPlaylistMeta(nextMeta)
-    window.localStorage.setItem(SPOTIFY_PLAYLIST_META_STORAGE_KEY, JSON.stringify(nextMeta))
-    window.localStorage.setItem(SPOTIFY_PLAYLIST_INPUT_STORAGE_KEY, selectedPlaylist.uri)
-  }, [savedSpotifyPlaylists])
 
   const selectedSpotifyPlaylistLabel = selectedSpotifyPlaylistMeta?.name?.trim() || 'Not selected yet'
   const selectedSpotifyPlaylistOwnerText = selectedSpotifyPlaylistMeta?.ownerName?.trim()
@@ -4151,6 +4303,20 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         }
       },
       disabled: preflightBusy,
+      variant: 'ghost',
+    },
+    {
+      id: 'run-audience-connect-stability-test',
+      label: audienceStabilityTestBusy ? 'Testing Audience App...' : 'Test Audience App',
+      title: 'Check audience app connect path and hold a realtime channel briefly to verify stability before show start',
+      onClick: async () => {
+        try {
+          await runAudienceConnectStabilityTest()
+        } catch (error) {
+          setErrorText(error instanceof Error ? error.message : 'Audience app test failed.')
+        }
+      },
+      disabled: preflightBusy || audienceStabilityTestBusy,
       variant: 'ghost',
     },
     {
@@ -4427,24 +4593,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               <button type="button" className="ghost-button" onClick={handleEnterFocusFullscreen}>
                 Enter Fullscreen
               </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => {
-                  if (typeof navigator !== 'undefined' && 'hid' in navigator) {
-                    const hidApi = (navigator as unknown as { hid: { requestDevice: (opts: { filters: unknown[] }) => Promise<Array<{ productName?: string; opened?: boolean; open?: () => Promise<void> }>> } }).hid
-                    void hidApi.requestDevice({ filters: [] }).then(async (devices) => {
-                      const dev = devices[0]
-                      if (dev && !dev.opened && typeof dev.open === 'function') {
-                        await dev.open()
-                      }
-                    }).catch(() => { /* user cancelled */ })
-                  }
-                }}
-                title="Connect Bluetooth foot pedal — ArrowDown and PageDown act as spacebar in Gig Control"
-              >
-                🦶 Connect Pedal
-              </button>
             </div>
             <div className="gig-focus-toolbar-spotify-stack">
               <div className="hero-actions no-margin-bottom gig-focus-spotify-actions">
@@ -4486,37 +4634,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 Selected Spotify playlist: <strong>{selectedSpotifyPlaylistLabel}</strong>
                 {selectedSpotifyPlaylistOwnerText ? ` by ${selectedSpotifyPlaylistOwnerText}` : ''}
               </p>
-              <p className="subcopy no-margin">
-                Saved Spotify playlists: <strong>{savedSpotifyPlaylistCount}</strong>
-              </p>
               {introSpotifyDebugStatusText ? <p className="meta-badge gig-focus-spotify-status" role="status" aria-live="polite">{introSpotifyDebugStatusText}</p> : null}
-            </div>
-          </div>
-          <div className="gig-brb-input-block" aria-label="Manual lyric search fallback">
-            <p className="subcopy no-margin">If lyric finder fails, search lyrics manually here.</p>
-            <div className="hero-actions gig-control-touch-actions">
-              <input
-                type="text"
-                className="gig-switcher-select"
-                placeholder="Manual lyric title"
-                value={manualLyricsTitle}
-                onChange={(event) => setManualLyricsTitle(event.target.value)}
-              />
-              <input
-                type="text"
-                className="gig-switcher-select"
-                placeholder="Manual lyric artist (optional)"
-                value={manualLyricsArtist}
-                onChange={(event) => setManualLyricsArtist(event.target.value)}
-              />
-              <button
-                type="button"
-                className="secondary-button"
-                title="Manually search and open lyrics when auto lookup fails"
-                onClick={openManualLyricsSearch}
-              >
-                Search Lyrics Manually
-              </button>
             </div>
           </div>
         </section>
@@ -4528,9 +4646,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             accessToken={spotifyAccessToken}
             onRefreshToken={refreshSpotifyAccessToken}
             transportCommand={spotifyTransportCommand}
-            onStatusTextChange={setSpotifyStatusSafely}
+            onStatusTextChange={setSpotifyStatusText}
             onPlaylistMetaChange={handleSpotifyPlaylistMetaChange}
-            onSavedPlaylistsChange={handleSavedSpotifyPlaylistsChange}
           />
         </section>
       ) : null}
@@ -4617,10 +4734,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               </div>
             ) : null}
             <h1>{event.name}</h1>
-            <div className="gig-local-clock" aria-label={`Local time ${localTime.toLocaleTimeString()}`}>
-              <span className="gig-local-clock-label">Local time</span>
-              <span className="gig-local-clock-time">{localTime.toLocaleTimeString()}</span>
-            </div>
             {isCurrentTestGig ? <p className="meta-badge">Test Gig (Private)</p> : null}
             {event.venue ? <p className="subcopy no-margin">{event.venue}</p> : null}
             {event.subtitle ? <p className="subcopy gig-event-subtitle">{event.subtitle}</p> : null}
@@ -4705,7 +4818,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
 
         <article className="gig-mirror-preview-card" aria-label="Live mirror preview">
           <p className="gig-control-card-label">Live Mirror Preview</p>
-          <div className="gig-mirror-preview-toolbar gig-mirror-preview-toolbar-no-lyrics-toggle" role="status" aria-live="polite">
+          <div className="gig-mirror-preview-toolbar gig-mirror-preview-toolbar-has-lyrics-toggle" role="status" aria-live="polite">
             <MirrorSyncHealthBadge
               audienceConnectionStatus={audienceConnectionStatus}
               lastMirrorSyncAt={lastMirrorSyncAt}
@@ -4745,6 +4858,17 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               title="Connect Bluetooth foot pedal — ArrowDown and PageDown act as spacebar in Gig Control"
             >
               🦶 Connect Pedal
+            </button>
+            <button
+              type="button"
+              className={`ghost-button gig-mirror-lyrics-toggle${lyricStateController.state.showOnMirror ? ' is-active-toggle' : ''}`}
+              onClick={() => {
+                void toggleMirrorLyricsFromGigControl()
+              }}
+              disabled={!nowPlaying?.title}
+              title={lyricStateController.state.showOnMirror ? 'Hide lyrics on Mirror screen' : 'Show lyrics on Mirror screen'}
+            >
+              {lyricStateController.state.showOnMirror ? 'Hide Lyrics on Mirror' : 'Show Lyrics on Mirror'}
             </button>
             <button
               type="button"
@@ -4979,18 +5103,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
               Selected Spotify playlist: <strong>{selectedSpotifyPlaylistLabel}</strong>
               {selectedSpotifyPlaylistOwnerText ? ` by ${selectedSpotifyPlaylistOwnerText}` : ''}
             </p>
-            <p className="subcopy no-margin">
-              Saved Spotify playlists: <strong>{savedSpotifyPlaylistCount}</strong>
-            </p>
           </section>
 
           <SpotifyPlayerWithSDK
             accessToken={spotifyAccessToken}
             onRefreshToken={refreshSpotifyAccessToken}
             transportCommand={spotifyTransportCommand}
-            onStatusTextChange={setSpotifyStatusSafely}
+            onStatusTextChange={setSpotifyStatusText}
             onPlaylistMetaChange={handleSpotifyPlaylistMetaChange}
-            onSavedPlaylistsChange={handleSavedSpotifyPlaylistsChange}
           />
         </>
       ) : (
@@ -5003,30 +5123,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             </span>
           </div>
           <p className="subcopy">Connect Spotify to enable play/pause and track skipping from Gig Control.</p>
-          {savedSpotifyPlaylists.length > 0 ? (
-            <>
-              <label htmlFor="spotify-disconnected-saved-playlists-select" className="gig-switcher-label">
-                Choose saved playlist before reconnecting
-              </label>
-              <select
-                id="spotify-disconnected-saved-playlists-select"
-                className="gig-switcher-select"
-                value={selectedSavedSpotifyPlaylistUri}
-                onChange={(event) => {
-                  selectSavedSpotifyPlaylistFromGigControl(event.target.value)
-                }}
-              >
-                <option value="">Choose saved playlist...</option>
-                {savedSpotifyPlaylists.map((savedPlaylist) => (
-                  <option key={savedPlaylist.uri} value={savedPlaylist.uri}>
-                    {savedPlaylist.ownerName
-                      ? `${savedPlaylist.name} - ${savedPlaylist.ownerName}`
-                      : savedPlaylist.name}
-                  </option>
-                ))}
-              </select>
-            </>
-          ) : null}
           <div className="hero-actions no-margin-bottom">
             <button
               type="button"
@@ -5123,7 +5219,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                     }
 
                     if ((nowPlaying.votes_count ?? 0) > 0) {
-                      setErrorText(`Cannot skip "${nowPlaying.title}" because it has ${nowPlaying.votes_count} vote${nowPlaying.votes_count === 1 ? '' : 's'}. Mark it as played instead.`)
+                      setErrorText(`Cannot skip \"${nowPlaying.title}\" because it has ${nowPlaying.votes_count} vote${nowPlaying.votes_count === 1 ? '' : 's'}. Mark it as played instead.`)
                       return
                     }
 
@@ -5146,35 +5242,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                   ✕ Skip
                 </button>
               </div>
-              <div className="gig-brb-input-block" aria-label="Manual lyric search fallback">
-                <p className="subcopy no-margin">If lyric finder fails, search lyrics manually here.</p>
-                <div className="hero-actions gig-control-touch-actions">
-                  <input
-                    type="text"
-                    className="gig-switcher-select"
-                    placeholder="Manual lyric title"
-                    value={manualLyricsTitle}
-                    onChange={(event) => setManualLyricsTitle(event.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="gig-switcher-select"
-                    placeholder="Manual lyric artist (optional)"
-                    value={manualLyricsArtist}
-                    onChange={(event) => setManualLyricsArtist(event.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    title="Manually search and open lyrics when auto lookup fails"
-                    onClick={openManualLyricsSearch}
-                  >
-                    Search Lyrics Manually
-                  </button>
-                </div>
-              </div>
               <p className="subcopy no-margin">
-                Playing now. {event?.roomOpen ? 'Press Space to switch between song mode and quote mode.' : 'Spacebar is disabled until gig is live.'}
+                Playing now. {event?.roomOpen ? 'Press Space to toggle queue play/pause for this song.' : 'Spacebar is disabled until gig is live.'}
               </p>
             </>
           ) : nowPlaying ? (
@@ -5183,7 +5252,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 <p className="gig-between-songs-quote">{betweenSongQuote}</p>
                 <p className="subcopy gig-between-songs-hint">
                   {'Tap Go Live or '}
-                  {event?.roomOpen ? 'press Space to show the song now.' : 'Spacebar is disabled until gig is live.'}
+                  {event?.roomOpen ? 'press Space to start the next queued song.' : 'Spacebar is disabled until gig is live.'}
                 </p>
               </div>
               <div className="hero-actions gig-now-playing-actions gig-control-touch-actions">
@@ -5210,33 +5279,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 >
                   ▶ Go Live
                 </button>
-              </div>
-              <div className="gig-brb-input-block" aria-label="Manual lyric search fallback">
-                <p className="subcopy no-margin">If lyric finder fails, search lyrics manually here.</p>
-                <div className="hero-actions gig-control-touch-actions">
-                  <input
-                    type="text"
-                    className="gig-switcher-select"
-                    placeholder="Manual lyric title"
-                    value={manualLyricsTitle}
-                    onChange={(event) => setManualLyricsTitle(event.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="gig-switcher-select"
-                    placeholder="Manual lyric artist (optional)"
-                    value={manualLyricsArtist}
-                    onChange={(event) => setManualLyricsArtist(event.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    title="Manually search and open lyrics when auto lookup fails"
-                    onClick={openManualLyricsSearch}
-                  >
-                    Search Lyrics Manually
-                  </button>
-                </div>
               </div>
             </>
           ) : (
@@ -5315,30 +5357,6 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                     <p className="artist">{song.artist}</p>
                     <div className="gig-song-flag-row">
                       {song.audience_sings ? <span className="karaoke-tag">Karaoke Wish</span> : <span className="gig-live-mode-tag">Live Request</span>}
-                      <button
-                        type="button"
-                        className="gig-mode-inline-switch"
-                        title={song.audience_sings ? 'Click to switch to Live Request mode' : 'Click to switch to Karaoke mode'}
-                        disabled={songActionBusyId === song.id}
-                        onClick={async () => {
-                          if (songActionBusyId === song.id) return
-                          setSongActionBusyId(song.id)
-                          try {
-                            const { error } = await supabase
-                              .from('queue_songs')
-                              .update({ audience_sings: !song.audience_sings })
-                              .eq('id', song.id)
-                            if (error) throw error
-                            await registerBackgroundSync(BACKGROUND_SYNC_TAG)
-                          } catch {
-                            setErrorText('Failed to change song mode.')
-                          } finally {
-                            setSongActionBusyId(null)
-                          }
-                        }}
-                      >
-                        Switch
-                      </button>
                       {song.is_explicit ? <span className="explicit-tag">E</span> : null}
                     </div>
                     {song.createdByName ? (
@@ -5443,7 +5461,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                       }
 
                       if ((song.votes_count ?? 0) > 0) {
-                        setErrorText(`Cannot remove "${song.title}" because it has ${song.votes_count} vote${song.votes_count === 1 ? '' : 's'}.`)
+                        setErrorText(`Cannot remove \"${song.title}\" because it has ${song.votes_count} vote${song.votes_count === 1 ? '' : 's'}.`)
                         return
                       }
 
