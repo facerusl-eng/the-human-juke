@@ -18,6 +18,27 @@ function normalizePart(value: string): string {
   return value.replace(/\s+/g, ' ').trim().toLowerCase()
 }
 
+function extractNowPlayingTitleArtist(rawText: string): { title: string; artist: string } {
+  const text = rawText.replace(/^\s*(now\s+playing|playing|track|song)\s*[:\-–—]?\s*/i, '').trim()
+  if (!text) {
+    return { title: rawText.trim(), artist: '' }
+  }
+
+  const separators = [/\s*[-–—]\s*/, /\s+by\s+/i, /\s*\|\s*/]
+  for (const separator of separators) {
+    const parts = text.split(separator)
+    if (parts.length >= 2) {
+      const left = parts[0].replace(/\s*\([^)]*\)|\s*\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim()
+      const right = parts.slice(1).join(' ').replace(/\s*\([^)]*\)|\s*\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim()
+      if (left && right) {
+        return { title: right, artist: left }
+      }
+    }
+  }
+
+  return { title: rawText.trim(), artist: '' }
+}
+
 function normalizeSongId(value: string | null | undefined): string {
   return normalizePart(value ?? '')
 }
@@ -32,6 +53,10 @@ export function lyricsPrefetchCacheKey(title: string, artist: string, songId?: s
 }
 
 function buildQueryVariants(title: string, artist: string): Array<{ t: string; a: string }> {
+  const parsedTitleArtist = extractNowPlayingTitleArtist(title || artist)
+  const resolvedTitle = parsedTitleArtist.title || title
+  const resolvedArtist = parsedTitleArtist.artist || artist
+
   const normalizeQuotes = (v: string) =>
     v
       .replace(/[\u2018\u2019\u2032]/g, "'")
@@ -76,17 +101,17 @@ function buildQueryVariants(title: string, artist: string): Array<{ t: string; a
       .trim()
 
   const titles = Array.from(new Set([
-    normalizeQuotes(title),
-    stripTitle(title),
-    splitPrimary(stripTitle(title)),
-    normalizeNoPunctuation(stripTitle(title)),
-    stripApostrophes(stripTitle(title)),
+    normalizeQuotes(resolvedTitle),
+    stripTitle(resolvedTitle),
+    splitPrimary(stripTitle(resolvedTitle)),
+    normalizeNoPunctuation(stripTitle(resolvedTitle)),
+    stripApostrophes(stripTitle(resolvedTitle)),
   ].filter(Boolean)))
 
   const artists = Array.from(new Set([
-    normalizeQuotes(artist),
-    stripArtist(artist),
-    splitPrimary(stripArtist(artist)),
+    normalizeQuotes(resolvedArtist),
+    stripArtist(resolvedArtist),
+    splitPrimary(stripArtist(resolvedArtist)),
   ].filter(Boolean)))
 
   const pairs: Array<{ t: string; a: string }> = []
@@ -120,7 +145,10 @@ export function getLyricsPrefetchStatus(title: string, artist: string, songId?: 
     if (!raw) return null
     const map = JSON.parse(raw) as StatusMap
     const primaryKey = lyricsPrefetchCacheKey(title, artist, songId)
-    return map[primaryKey] ?? map[lyricsPrefetchCacheKey(title, artist)] ?? null
+    if (map[primaryKey]) return map[primaryKey]
+    const fallback = lyricsPrefetchCacheKey(title, artist)
+    if (map[fallback]) return map[fallback]
+    return null
   } catch {
     return null
   }
@@ -199,6 +227,27 @@ export function prefetchAndCacheLyrics(title: string, artist: string, songId?: s
 
   const variants = buildQueryVariants(title, artist).slice(0, PREFETCH_MAX_VARIANTS)
   const locale = readCommittedAudienceLocale()
+
+  const queueCandidates = Array.from(new Set([
+    normalizePart(title),
+    normalizePart(artist),
+    title.trim(),
+    artist.trim(),
+  ].filter(Boolean)))
+
+  if (queueCandidates.length >= 2) {
+    for (const candidate of queueCandidates) {
+      const parsed = /^(.+?)\s*[-–—]\s*(.+)$/.exec(candidate)
+      if (parsed) {
+        const [, left, right] = parsed
+        const titleCandidate = left.trim()
+        const artistCandidate = right.trim()
+        if (titleCandidate && artistCandidate) {
+          variants.push({ t: titleCandidate, a: artistCandidate })
+        }
+      }
+    }
+  }
 
   void (async () => {
     let sawResolvedResponse = false
