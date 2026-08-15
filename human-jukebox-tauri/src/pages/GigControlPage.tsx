@@ -41,6 +41,7 @@ import {
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling';
 import { supabase } from '../lib/supabase';
 import { prefetchAndCacheLyrics } from '../lib/lyricsPrefetch'
+import { shouldResumeSpotifyAfterIntro } from '../lib/spotifyIntroBridge'
 import {
   INTRO_AUDIO_LOCK_STORAGE_KEY,
   INTRO_AUDIO_LOCK_TTL_MS,
@@ -828,6 +829,16 @@ function GigControlPage() {
   }, [event?.gigDate, event?.gigStartTime])
   const upNext = isNowPlayingStarted ? songs.slice(1) : songs
   const upNextStartPosition = isNowPlayingStarted ? 2 : 1
+  const lyricPrefetchQueue = useMemo(() => upNext.slice(0, 2), [upNext])
+  useEffect(() => {
+    for (const nextSong of lyricPrefetchQueue) {
+      if (!nextSong?.title) {
+        continue
+      }
+
+      prefetchAndCacheLyrics(nextSong.title, nextSong.artist ?? '', nextSong.library_song_id ?? nextSong.id ?? null)
+    }
+  }, [lyricPrefetchQueue])
   const mirrorPreviewUpNext = useMemo(() => {
     return songs.slice(1)
   }, [songs])
@@ -1436,10 +1447,16 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     await completionPromise
-    if (isNowPlayingStartedRef.current) {
+
+    if (!shouldResumeSpotifyAfterIntro({
+      introBridgeActive: true,
+      introPlaybackComplete: true,
+      isNowPlayingStarted: isNowPlayingStartedRef.current,
+    })) {
       return
     }
-    // Resume Spotify after intro so between-song playlist comes back automatically.
+
+    // Resume Spotify only after the intro MP3 has fully finished and the queue is still waiting.
     await sendSpotifyTransportCommand('play', { force: true })
     await sendSpotifyWebApiTransportCommand('play')
   } finally {
