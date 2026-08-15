@@ -40,7 +40,12 @@ import {
 import { readFromLocalStorage, saveToLocalStorage } from '../lib/saveHandling';
 import { supabase } from '../lib/supabase';
 import { prefetchAndCacheLyrics } from '../lib/lyricsPrefetch'
-import { shouldResumeSpotifyAfterIntro } from '../lib/spotifyIntroBridge'
+import { buildGigControlManualLyricsSearchUrl } from '../lib/manualLyricsSearch'
+import {
+  shouldPauseSpotifyWhenSongStarts,
+  shouldResumeSpotifyAfterIntro,
+  shouldStartIntroAudioNow,
+} from '../lib/spotifyIntroBridge'
 import {
   INTRO_AUDIO_LOCK_STORAGE_KEY,
   INTRO_AUDIO_LOCK_TTL_MS,
@@ -1983,6 +1988,17 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     autoplayBlockedMessage: string,
     primedAudioElement?: HTMLAudioElement | null,
   ) => {
+    const countdownRemainingMs = mirroredCountdownTargetMs !== null
+      ? getCountdownTargetRemainingMs(mirroredCountdownTargetMs, getHostNowMs())
+      : null
+
+    if (!shouldStartIntroAudioNow({
+      countdownRemainingMs,
+      isNowPlayingStarted: isNowPlayingStartedRef.current,
+    })) {
+      return
+    }
+
     if (introAudioPlayedEventIdsRef.current.has(eventId) || readIntroAudioPlayedMarker(eventId)) {
       return
     }
@@ -3373,7 +3389,12 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       })
 
       setIsNowPlayingStarted(true)
-      sendSpotifyTransportCommand('pause', { force: true })
+      if (shouldPauseSpotifyWhenSongStarts({
+        introAudioUrl: transitionIntroAudioUrl,
+        introBridgeActive: Boolean(transitionIntroAudioUrl),
+      })) {
+        sendSpotifyTransportCommand('pause', { force: true })
+      }
     } finally {
       playbackTransitionExecutionIdRef.current = null
     }
@@ -3755,8 +3776,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
           brbMessage: null,
         });
         await registerBackgroundSync(BACKGROUND_SYNC_TAG);
-        // Spotify pauses only after state is confirmed
-        if (isNowPlayingStartedRef.current) {
+        // Only pause if a real intro bridge is active; otherwise the playlist should stay stable through the gig.
+        if (
+          isNowPlayingStartedRef.current
+          && shouldPauseSpotifyWhenSongStarts({
+            introAudioUrl: currentEvent.introAudioUrl ?? null,
+            introBridgeActive: false,
+          })
+        ) {
           sendSpotifyTransportCommand('pause', { force: true });
         }
         setErrorText(null);
@@ -4199,6 +4226,19 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       },
     })
   }, [location.pathname, location.search, lyricStateController, navigate, nowPlaying, nowPlayingLyricSong])
+
+  const openManualLyricsSearch = useCallback(() => {
+    if (!nowPlaying?.title) {
+      setErrorText('No now-playing song is available for manual lyric search.')
+      return
+    }
+
+    navigate(buildGigControlManualLyricsSearchUrl({
+      title: nowPlaying.title,
+      artist: nowPlaying.artist ?? '',
+      locale: 'en',
+    }))
+  }, [navigate, nowPlaying])
 
   const toggleMirrorLyricsFromGigControl = useCallback(async () => {
     if (!nowPlayingLyricSong) {
@@ -4853,6 +4893,15 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
             <button
               type="button"
               className="ghost-button"
+              onClick={openManualLyricsSearch}
+              disabled={!nowPlaying?.title}
+              title={nowPlaying?.title ? 'Search the library and save a manual lyric override when auto-lookup gets the song wrong' : 'Start a song before opening manual lyrics search'}
+            >
+              Manual Lyrics Search
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
               onClick={() => {
                 if (typeof navigator !== 'undefined' && 'hid' in navigator) {
                   const hidApi = (navigator as unknown as { hid: { requestDevice: (opts: { filters: unknown[] }) => Promise<Array<{ productName?: string; opened?: boolean; open?: () => Promise<void> }>> } }).hid
@@ -5187,6 +5236,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                 </button>
                 <button
                   type="button"
+                  className="secondary-button"
+                  title="Search the library and save a manual lyric override when auto-lookup gets the song wrong"
+                  onClick={openManualLyricsSearch}
+                >
+                  🔎 Manual Lyrics Search
+                </button>
+                <button
+                  type="button"
                   className="primary-button"
                   title="Switch back to Quote / between-songs mode (Space)"
                   onClick={async () => {
@@ -5272,6 +5329,14 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
                   onClick={openNowPlayingLyrics}
                 >
                   🎤 Open Lyrics Screen
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  title="Search the library and save a manual lyric override when auto-lookup gets the song wrong"
+                  onClick={openManualLyricsSearch}
+                >
+                  🔎 Manual Lyrics Search
                 </button>
                 <button
                   type="button"
