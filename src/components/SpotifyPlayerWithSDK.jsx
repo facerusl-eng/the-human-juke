@@ -7,6 +7,7 @@ const SPOTIFY_PLAYLIST_META_STORAGE_KEY = 'human-jukebox-spotify-playlist-meta'
 const SPOTIFY_SAVED_PLAYLISTS_STORAGE_KEY = 'human-jukebox-spotify-saved-playlists'
 const SPOTIFY_DEVICE_ID_STORAGE_KEY = 'human-jukebox-spotify-device-id'
 const SPOTIFY_PLAYER_SINGLETON_KEY = '__humanJukeboxSpotifyPlayerSingleton'
+const SPOTIFY_PLAYER_LISTENER_KEY = '__humanJukeboxSpotifyPlayerListenersAttached'
 const DEFAULT_BETWEEN_SONGS_PLAYLIST = 'spotify:playlist:4SarKcYGzetJ7AIlqVa1qj'
 const DEFAULT_SPOTIFY_PLAYER_STATUS = 'Spotify player is idle.'
 const SPOTIFY_SHORT_LINK_HOSTS = ['spotify.link', 'spoti.fi']
@@ -47,6 +48,16 @@ function setSpotifyPlayerSingleton(player) {
   }
 
   window[SPOTIFY_PLAYER_SINGLETON_KEY] = player
+}
+
+function clearSpotifyPlayerSingleton(player) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if (window[SPOTIFY_PLAYER_SINGLETON_KEY] === player) {
+    delete window[SPOTIFY_PLAYER_SINGLETON_KEY]
+  }
 }
 
 function ensureSpotifyScript() {
@@ -320,6 +331,8 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   const sdkReconnectTimeoutRef = useRef(null)
   const sdkReconnectAttemptRef = useRef(0)
   const sdkReconnectInFlightRef = useRef(false)
+  const authRecoveryInFlightRef = useRef(false)
+  const lastAuthRecoveryAtRef = useRef(0)
   const sdkHealthIntervalRef = useRef(null)
   const sdkLastSeenAtRef = useRef(Date.now())
 
@@ -604,16 +617,16 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
 
         setIsSdkReady(true)
 
-        player = getSpotifyPlayerSingleton()
+        const existingPlayer = getSpotifyPlayerSingleton()
+        player = existingPlayer ?? new window.Spotify.Player({
+          name: 'Human Jukebox Gig Control',
+          getOAuthToken: (cb) => {
+            cb(accessTokenRef.current)
+          },
+          volume: SPOTIFY_TOGGLE_BASE_VOLUME,
+        })
 
-        if (!player) {
-          player = new window.Spotify.Player({
-            name: 'Human Jukebox Gig Control',
-            getOAuthToken: (cb) => {
-              cb(accessTokenRef.current)
-            },
-            volume: SPOTIFY_TOGGLE_BASE_VOLUME,
-          })
+        if (!existingPlayer) {
           setSpotifyPlayerSingleton(player)
         }
 
@@ -644,96 +657,123 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           scheduleReconnect('device went offline')
         }
 
-        player.addListener('ready', onReady)
-        player.addListener('not_ready', onNotReady)
-        player.addListener('initialization_error', ({ message }) => {
-          const normalizedMessage = String(message || '')
-          setPlayerStatus(`Initialization error: ${normalizedMessage}. You can still play playlists on another active Spotify device.`)
-        })
-        player.addListener('authentication_error', ({ message }) => {
-          setPlayerStatus(`Authentication error: ${message}`)
+        if (!player[SPOTIFY_PLAYER_LISTENER_KEY]) {
+          player.addListener('ready', onReady)
+          player.addListener('not_ready', onNotReady)
+          player.addListener('initialization_error', ({ message }) => {
+            const normalizedMessage = String(message || '')
+            setPlayerStatus(`Initialization error: ${normalizedMessage}. You can still play playlists on another active Spotify device.`)
+          })
+          player.addListener('authentication_error', ({ message }) => {
+            const authErrorMessage = String(message || 'Spotify authentication failed.')
+            const now = Date.now()
+            const authCooldownMs = 30_000
 
-          if (onRefreshToken) {
+            if (authRecoveryInFlightRef.current || now - lastAuthRecoveryAtRef.current < authCooldownMs) {
+              setPlayerStatus((currentStatus) => (
+                currentStatus && currentStatus.includes('Authentication error:')
+                  ? currentStatus
+                  : `Authentication error: ${authErrorMessage}`
+              ))
+              return
+            }
+
+            lastAuthRecoveryAtRef.current = now
+            setPlayerStatus(`Authentication error: ${authErrorMessage}`)
+
+            if (!onRefreshToken) {
+              return
+            }
+
+            authRecoveryInFlightRef.current = true
+            clearReconnectTimer()
+
             void onRefreshToken()
               .then((newToken) => {
                 accessTokenRef.current = newToken
-                setPlayerStatus('Spotify token refreshed after authentication error.')
+                setPlayerStatus('Spotify authentication recovered. Reconnecting device...')
                 scheduleReconnect('token refresh')
               })
               .catch((refreshError) => {
+                clearReconnectTimer()
                 setPlayerStatus(
                   refreshError instanceof Error
                     ? refreshError.message
                     : 'Spotify token refresh failed after authentication error.',
                 )
               })
-          }
-        })
-        player.addListener('account_error', ({ message }) => {
-          setPlayerStatus(`Account error: ${message}`)
-        })
-        player.addListener('playback_error', ({ message }) => {
-          sdkLastSeenAtRef.current = Date.now()
+              .finally(() => {
+                authRecoveryInFlightRef.current = false
+              })
+          })
+          player.addListener('account_error', ({ message }) => {
+            setPlayerStatus(`Account error: ${message}`)
+          })
+          player.addListener('playback_error', ({ message }) => {
+            sdkLastSeenAtRef.current = Date.now()
 
-          if (isNoListError(message)) {
-            if (noListRecoveryInFlightRef.current) {
+            if (isNoListError(message)) {
+              if (noListRecoveryInFlightRef.current) {
+                return
+              }
+
+              noListRecoveryInFlightRef.current = true
+
+              void (async () => {
+                try {
+                  // Step 1: try to resume the last paused context via REST API.
+                  // Swallow any throw (e.g. no active device) and fall through to playlist.
+                  let resumed = false
+                  try {
+                    resumed = await resumePlayback()
+                  } catch {
+                    // No resumable context — fall through to playlist start.
+                  }
+
+                  if (resumed) {
+                    setPlayerStatus('Spotify playback resumed from where it stopped.')
+                    return
+                  }
+
+                  // Step 2: try the configured between-songs playlist.
+                  const configuredPlaylist = playlistInputRef.current.trim()
+
+                  if (configuredPlaylist) {
+                    await startPlaylistPlayback(configuredPlaylist)
+                    setPlayerStatus('Started between-song playlist automatically.')
+                    return
+                  }
+
+                  // Step 3: nothing we can do — guide the user.
+                  setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
+                } catch {
+                  // startPlaylistPlayback failed — don't surface a raw error; just guide the user.
+                  setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
+                } finally {
+                  noListRecoveryInFlightRef.current = false
+                }
+              })()
+
               return
             }
 
-            noListRecoveryInFlightRef.current = true
+            const mappedMessage = mapSpotifyApiError(message)
 
-            void (async () => {
-              try {
-                // Step 1: try to resume the last paused context via REST API.
-                // Swallow any throw (e.g. no active device) and fall through to playlist.
-                let resumed = false
-                try {
-                  resumed = await resumePlayback()
-                } catch {
-                  // No resumable context — fall through to playlist start.
-                }
+            if (isNoListError(mappedMessage)) {
+              setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
+              return
+            }
 
-                if (resumed) {
-                  setPlayerStatus('Spotify playback resumed from where it stopped.')
-                  return
-                }
+            setPlayerStatus(`Playback error: ${mappedMessage}`)
+          })
+          player.addListener('player_state_changed', (state) => {
+            if (state) {
+              sdkLastSeenAtRef.current = Date.now()
+            }
+          })
 
-                // Step 2: try the configured between-songs playlist.
-                const configuredPlaylist = playlistInputRef.current.trim()
-
-                if (configuredPlaylist) {
-                  await startPlaylistPlayback(configuredPlaylist)
-                  setPlayerStatus('Started between-song playlist automatically.')
-                  return
-                }
-
-                // Step 3: nothing we can do — guide the user.
-                setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
-              } catch {
-                // startPlaylistPlayback failed — don't surface a raw error; just guide the user.
-                setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
-              } finally {
-                noListRecoveryInFlightRef.current = false
-              }
-            })()
-
-            return
-          }
-
-          const mappedMessage = mapSpotifyApiError(message)
-
-          if (isNoListError(mappedMessage)) {
-            setPlayerStatus('No track loaded yet. Set a Between Songs Playlist and press "Play Playlist Between Songs" once.')
-            return
-          }
-
-          setPlayerStatus(`Playback error: ${mappedMessage}`)
-        })
-        player.addListener('player_state_changed', (state) => {
-          if (state) {
-            sdkLastSeenAtRef.current = Date.now()
-          }
-        })
+          player[SPOTIFY_PLAYER_LISTENER_KEY] = true
+        }
 
         cleanupListeners.push(() => {
           player.removeListener('ready', onReady)
@@ -743,6 +783,8 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           player.removeListener('account_error')
           player.removeListener('playback_error')
           player.removeListener('player_state_changed')
+          player[SPOTIFY_PLAYER_LISTENER_KEY] = false
+          clearSpotifyPlayerSingleton(player)
         })
 
         const connected = await player.connect()

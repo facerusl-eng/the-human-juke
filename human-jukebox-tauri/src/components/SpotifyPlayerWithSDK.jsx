@@ -693,7 +693,7 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
             void onRefreshToken()
               .then((newToken) => {
                 accessTokenRef.current = newToken
-                setPlayerStatus('Spotify token refreshed after authentication error. Reconnecting Spotify device...')
+                setPlayerStatus('Spotify authentication recovered. Reconnecting device...')
                 scheduleReconnect('token refresh')
               })
               .catch((refreshError) => {

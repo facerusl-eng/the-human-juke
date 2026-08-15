@@ -320,6 +320,8 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
   const sdkReconnectTimeoutRef = useRef(null)
   const sdkReconnectAttemptRef = useRef(0)
   const sdkReconnectInFlightRef = useRef(false)
+  const authRecoveryInFlightRef = useRef(false)
+  const lastAuthRecoveryAtRef = useRef(0)
   const sdkHealthIntervalRef = useRef(null)
   const sdkLastSeenAtRef = useRef(Date.now())
 
@@ -651,23 +653,46 @@ function SpotifyPlayerWithSDK({ accessToken, onRefreshToken, transportCommand, o
           setPlayerStatus(`Initialization error: ${normalizedMessage}. You can still play playlists on another active Spotify device.`)
         })
         player.addListener('authentication_error', ({ message }) => {
-          setPlayerStatus(`Authentication error: ${message}`)
+          const authErrorMessage = String(message || 'Spotify authentication failed.')
+          const now = Date.now()
+          const authCooldownMs = 30_000
 
-          if (onRefreshToken) {
-            void onRefreshToken()
-              .then((newToken) => {
-                accessTokenRef.current = newToken
-                setPlayerStatus('Spotify token refreshed after authentication error.')
-                scheduleReconnect('token refresh')
-              })
-              .catch((refreshError) => {
-                setPlayerStatus(
-                  refreshError instanceof Error
-                    ? refreshError.message
-                    : 'Spotify token refresh failed after authentication error.',
-                )
-              })
+          if (authRecoveryInFlightRef.current || now - lastAuthRecoveryAtRef.current < authCooldownMs) {
+            setPlayerStatus((currentStatus) => (
+              currentStatus && currentStatus.includes('Authentication error:')
+                ? currentStatus
+                : `Authentication error: ${authErrorMessage}`
+            ))
+            return
           }
+
+          lastAuthRecoveryAtRef.current = now
+          setPlayerStatus(`Authentication error: ${authErrorMessage}`)
+
+          if (!onRefreshToken) {
+            return
+          }
+
+          authRecoveryInFlightRef.current = true
+          clearReconnectTimer()
+
+          void onRefreshToken()
+            .then((newToken) => {
+              accessTokenRef.current = newToken
+              setPlayerStatus('Spotify authentication recovered. Reconnecting device...')
+              scheduleReconnect('token refresh')
+            })
+            .catch((refreshError) => {
+              clearReconnectTimer()
+              setPlayerStatus(
+                refreshError instanceof Error
+                  ? refreshError.message
+                  : 'Spotify token refresh failed after authentication error.',
+              )
+            })
+            .finally(() => {
+              authRecoveryInFlightRef.current = false
+            })
         })
         player.addListener('account_error', ({ message }) => {
           setPlayerStatus(`Account error: ${message}`)
