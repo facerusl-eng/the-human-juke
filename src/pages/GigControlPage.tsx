@@ -9,6 +9,7 @@ import { useGigActions } from '../hooks/useGigActions';
 import { getAudienceUrl } from '../lib/audienceUrl';
 import { openMirrorScreen } from '../lib/openMirrorScreen';
 import { openLyricMachineScreen } from '../lib/openLyricMachineScreen';
+import { isTauriDesktopRuntime, resolveTauriWindowUrl } from '../lib/routePath';
 import { registerBackgroundSync } from '../lib/backgroundSync';
 import {
   captureQueueSnapshot,
@@ -946,22 +947,30 @@ function GigControlPage() {
   })
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(joinUrl)}`
   const mirrorMonitorUrl = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return '/mirror?safeMargins=1&density=medium&cast=1'
-    }
-
-    const mirrorUrl = new URL('/mirror', window.location.origin)
-    mirrorUrl.searchParams.set('safeMargins', '1')
-    mirrorUrl.searchParams.set('density', 'medium')
-    mirrorUrl.searchParams.set('cast', '1')
+    const mirrorParams = new URLSearchParams()
+    mirrorParams.set('safeMargins', '1')
+    mirrorParams.set('density', 'medium')
 
     if (event?.id) {
-      mirrorUrl.searchParams.set('event', event.id)
+      mirrorParams.set('event', event.id)
     }
 
     if (mirrorMonitorRefreshNonce > 0) {
-      mirrorUrl.searchParams.set('monitorRefresh', String(mirrorMonitorRefreshNonce))
+      mirrorParams.set('monitorRefresh', String(mirrorMonitorRefreshNonce))
     }
+
+    const mirrorRoutePath = `/mirror?${mirrorParams.toString()}`
+
+    if (isTauriDesktopRuntime()) {
+      return resolveTauriWindowUrl(mirrorRoutePath)
+    }
+
+    if (typeof window === 'undefined') {
+      return mirrorRoutePath
+    }
+
+    const mirrorUrl = new URL('/mirror', window.location.origin)
+    mirrorUrl.search = mirrorParams.toString()
 
     return mirrorUrl.toString()
   }, [event?.id, mirrorMonitorRefreshNonce])
@@ -990,11 +999,9 @@ function GigControlPage() {
       document.documentElement.removeAttribute('tabindex')
     }
 
-    if (!document.body.hasAttribute('tabindex')) {
-      document.body.setAttribute('tabindex', '-1')
+    if (document.body.hasAttribute('tabindex')) {
+      document.body.removeAttribute('tabindex')
     }
-
-    document.body.focus({ preventScroll: true })
   }, [])
   const shouldShowErrorText = useMemo(() => {
     if (!errorText) {
@@ -1618,15 +1625,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
       setSpotifyAccessToken(token)
       return
     } catch {
-      const isLocalHttpDev = (
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        && window.location.protocol === 'http:'
-      )
-      const loginUrl = isLocalHttpDev
-        ? 'https://www.the-human-jukebox.org/api/spotify/login'
-        : '/api/spotify/login'
-
-      window.location.assign(loginUrl)
+      window.location.assign('/api/spotify/login')
     }
   }, [refreshSpotifyAccessToken])
 
@@ -3987,11 +3986,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         activeElement.blur()
       }
 
-      if (!document.body.hasAttribute('tabindex')) {
-        document.body.setAttribute('tabindex', '-1')
+      if (document.body.hasAttribute('tabindex')) {
+        document.body.removeAttribute('tabindex')
       }
-
-      document.body.focus({ preventScroll: true })
     }
 
     reclaimFocus()
@@ -4016,8 +4013,8 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
   }, [isFocusedGigControlWindow])
 
-  const openMirrorFromGigControl = useCallback(() => {
-    const { openedInNewTabWindow, blockedByPopup } = openMirrorScreen({ eventId: event?.id ?? null })
+  const openMirrorFromGigControl = useCallback(async () => {
+    const { openedInNewTabWindow, blockedByPopup } = await openMirrorScreen({ eventId: event?.id ?? null })
 
     if (mirrorLaunchStatusTimerRef.current) {
       window.clearTimeout(mirrorLaunchStatusTimerRef.current)
@@ -4155,7 +4152,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
     }
 
     const artist = nowPlaying.artist ?? ''
-    prefetchAndCacheLyrics(nowPlaying.title, artist, nowPlaying.library_song_id ?? null)
+    prefetchAndCacheLyrics(nowPlaying.title, artist)
 
     const searchParams = new URLSearchParams({
       title: nowPlaying.title,
@@ -5075,7 +5072,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         </section>
       ) : null}
 
-      {spotifyAccessToken ? (
+      {!isFocusedGigControlWindow && spotifyAccessToken ? (
         <>
           <section className="queue-panel" aria-label="Spotify automation setting">
             <div className="panel-head">

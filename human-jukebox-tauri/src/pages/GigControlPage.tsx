@@ -1000,11 +1000,9 @@ function GigControlPage() {
       document.documentElement.removeAttribute('tabindex')
     }
 
-    if (!document.body.hasAttribute('tabindex')) {
-      document.body.setAttribute('tabindex', '-1')
+    if (document.body.hasAttribute('tabindex')) {
+      document.body.removeAttribute('tabindex')
     }
-
-    document.body.focus({ preventScroll: true })
   }, [])
   const shouldShowErrorText = useMemo(() => {
     if (!errorText) {
@@ -3989,11 +3987,9 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         activeElement.blur()
       }
 
-      if (!document.body.hasAttribute('tabindex')) {
-        document.body.setAttribute('tabindex', '-1')
+      if (document.body.hasAttribute('tabindex')) {
+        document.body.removeAttribute('tabindex')
       }
-
-      document.body.focus({ preventScroll: true })
     }
 
     reclaimFocus()
@@ -5077,7 +5073,7 @@ const playIntroAudioWithSpotifyBridge = async (introAudioUrl: string, primedAudi
         </section>
       ) : null}
 
-      {spotifyAccessToken ? (
+      {!isFocusedGigControlWindow && spotifyAccessToken ? (
         <>
           <section className="queue-panel" aria-label="Spotify automation setting">
             <div className="panel-head">
